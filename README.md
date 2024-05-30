@@ -115,6 +115,7 @@ HolmesGPT requires an API Key to function. Follow one of the instructions below.
 
 <details>
 <summary>OpenAI</summary>
+  
 To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key).
 
 **Note**: This is different from being a “ChatGPT Plus” subscriber.
@@ -250,45 +251,6 @@ Adding a Jira integration allows the LLM to fetch Jira tickets and investigate a
 
 Add these values to the `config.yaml` or pass them via the CLI.
 </details>
-
-
-## Robusta AI vs K8sGPT
-
-## How It Works
-We use LLMs with tool-calling capabilities to gather data in *read-only* mode from your cloud and observability systems. 
-
-The tool has two modes:
-
-1. **Ask** - Ask a question and the LLM investigates and gives you an answer in the CLI.
-    
-
-    <details>
-    <summary>Process</summary>
-
-    1. Reads the input prompt.
-    2. **Uses an LLM to determine the necessary data for the investigation** (utilizing [function-calling capabilities](https://platform.openai.com/docs/guides/function-calling)).
-    3. **Gathers the data outside the LLM using built-in [tools](https://github.com/robusta-dev/experimental-ai-investigation/blob/main/holmes/plugins/toolsets/kubernetes.yaml) or user defined tools.**
-    4. Completes the analysis with another call to the LLM.
-    </details>
-
-2. **Investigate**
-
-    a. **Alertmanager** - Connects to your alertmanager, investigates all firing alerts by following the runbooks and show results in the CLI or on Slack.
-
-    b. **Jira** - Connects to your Jira instance, reads open issues and investigates them using Runbooks. Optionally updates the Jira ticket with gathered information.
-
-    <details>
-    <summary>Process</summary>
-
-    1. Reads live alerts from Jira/AlertManager.
-    2. **Uses an LLM to determine the necessary data for the investigation** (utilizing [function-calling capabilities](https://platform.openai.com/docs/guides/function-calling)).
-    3. **Gathers that data outside the LLM using Runbooks**.
-    4. Completes the analysis with another call to the LLM.
-    5. Sends the information to Slack/updates the Jira ticket - Optional
-    </details>
-
-Augmenting an LLM with data-gathering capabilities has enabled us to achieve a high level of accuracy.
-
 
 
 ## License
