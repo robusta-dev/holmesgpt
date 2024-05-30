@@ -71,7 +71,7 @@ Like what you see? Checkout [more examples](#more-examples) or get started by [i
 
 ## Installation
 
-First you will need an OpenAI API key, or the equivalent for another model. The install with one of the below methods:
+First you will need <a href="#getting-an-api-key">an OpenAI API key, or the equivalent for another model</a>. Then install with one of the below methods:
 
 <details>
 <summary>Prebuilt Docker Container</summary>
