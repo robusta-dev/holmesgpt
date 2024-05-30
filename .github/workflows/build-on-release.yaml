@@ -34,7 +34,7 @@ jobs:
     - name: Build with PyInstaller
       shell: bash
       run: |
-        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:plugins/runbooks' --add-data 'holmes/plugins/prompts/*:plugins/prompts' --add-data 'holmes/plugins/toolsets/*:plugins/toolsets'
+        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets'
         ls dist
 
     - name: Zip the application (Unix)

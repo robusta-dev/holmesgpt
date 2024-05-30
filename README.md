@@ -88,7 +88,7 @@ brew tap robusta-dev/homebrew-holmesgpt
 brew install holmesgpt
 ```
 
-3. Check that installation was successful:
+3. Check that installation was successful. **This will take a few seconds on the first run - wait patiently.**:
 
 ```sh
 holmes --help
