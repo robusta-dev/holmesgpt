@@ -1,7 +1,5 @@
 import os
-from collections.abc import Iterable
-from typing import List, Optional
-from uuid import uuid4
+from typing import List, Union
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -13,12 +11,17 @@ from holmes.core.issue import Issue
 from holmes.plugins.prompts import load_prompt
 
 
+class InvestigateContext(BaseModel):
+    type: str
+    value: Union[str, dict]
+
+
 class InvestigateRequest(BaseModel):
     source: str  # "prometheus" etc
     title: str
     description: str
     subject: dict
-    context: List[dict]
+    context: List[InvestigateContext]
     source_instance_id: str
     # TODO in the future
     # response_handler: ...
@@ -33,12 +36,12 @@ dal = SupabaseDal(
 app = FastAPI()
 
 
-def fetch_context_data(context: List[dict]) -> dict:
+def fetch_context_data(context: List[InvestigateContext]) -> dict:
     for context_item in context:
-        if context_item.get("type") == "robusta_issue_id":
+        if context_item.type == "robusta_issue_id":
             # Note we only accept a single robusta_issue_id. I don't think it
             # makes sense to have several of them in the context structure.
-            return dal.get_issue_data(context_item.get("value"))
+            return dal.get_issue_data(context_item.value)
 
 
 @app.post("/api/investigate")
@@ -50,7 +53,7 @@ def investigate_issues(request: InvestigateRequest):
         model='gpt-4o'
     )
     context = fetch_context_data(request.context)
-    raw_data = request.dict()
+    raw_data = request.model_dump()
     if context:
         raw_data["extra_context"] = context
     # TODO allowed_toolsets should probably be configurable?
