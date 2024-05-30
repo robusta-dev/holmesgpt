@@ -12,7 +12,7 @@
 The only DevOps assistant that solves problems **like a human does** - by looking at problems and fetching missing data repeatedly until the problem can be solved. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
 
 ### Use Cases:
-- **Kubernetes Troubleshooting**: Ask questions about your cluster, identify problems, and troubleshoot them
+- **Kubernetes Troubleshooting**: Ask questions about your cloud, identify problems, and troubleshoot them
 - **Incident Response**: Investigate firing alerts by gathering data and determining the root cause
 - **Ticket Management**: Analyze and resolve tickets related to DevOps tasks
 - **Automated Investigation and Triage:** Prioritize critical alerts and resolve the highest impact issues first.
@@ -62,7 +62,7 @@ holmes investigate jira https://<PLACEDHOLDER>.atlassian.net --jira-username <PL
 Like what you see? Checkout [more examples](#more-examples) or get started by [installing HolmesGPT](#installation).
 
 ## Key Features
-- **Connects to Existing Observability Data:** Find correlation you didn’t know about. No need to gather new data or add instrumentation.
+- **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
 - **Compliance Friendly:** Can be run on-premise with your own LLM (or in the cloud with OpenAI or Azure)
 - **Transparent Results:** See a log of the AI’s actions and what data it gathered to understand how it reached conclusions
 - **Extensible Data Sources:** Connect the AI to custom data by providing your own tool definitions
