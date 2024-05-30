@@ -1,7 +1,7 @@
 import os
 import os.path
 
-THIS_DIR = os.path.dirname(__file__)
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def load_prompt(prompt: str) -> str:
     """

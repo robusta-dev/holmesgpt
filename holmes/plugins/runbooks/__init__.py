@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
-THIS_DIR = os.path.dirname(__file__)
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class IssueMatcher (RobustaBaseConfig):
     issue_id: Optional[Pattern] = None      # unique id
