@@ -24,10 +24,6 @@ toolsets:
     description: "Fetch the logs of a Docker container"
     command: "docker logs {{ container_id }}"
 
-  - name: "docker_stats"
-    description: "Display a live stream of resource usage statistics for containers"
-    command: "docker stats"
-
   - name: "docker_top"
     description: "Display the running processes of a container"
     command: "docker top {{ container_id }}"

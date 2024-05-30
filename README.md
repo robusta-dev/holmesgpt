@@ -19,7 +19,7 @@ The only DevOps assistant that solves problems **like a human does** - by lookin
 - **Runbook Automation in Plain English:** No more defining runbooks as YAML or complicated workflows. Just describe tasks in plain English and the AI will follow the instructions
 
 ### See it in Action
-![AI Alert Analysis](images/aiask.gif)
+![AI Alert Analysis](images/holmesgptdemo.gif)
 
 
 ## Examples
@@ -28,7 +28,7 @@ The only DevOps assistant that solves problems **like a human does** - by lookin
 <summary>Investigate a Kubernetes Problem</summary>
 
 ```bash
-poetry run python3 main.py ask "what pods are unhealthy in my cluster and why?"
+holmes ask "what pods are unhealthy in my cluster and why?"
 ```
 </details>
 
@@ -36,7 +36,7 @@ poetry run python3 main.py ask "what pods are unhealthy in my cluster and why?"
 <summary>Ask Questions About Your Cloud</summary>
 
 ```bash
-poetry run python3 main.py ask "what services does my cluster expose externally?"
+holmes ask "what services does my cluster expose externally?"
 ```
 </details>
 
@@ -45,7 +45,7 @@ poetry run python3 main.py ask "what services does my cluster expose externally?
 
 ```bash
 kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
-poetry run python3 main.py investigate alertmanager --alertmanager-url http://localhost:9093
+holmes investigate alertmanager --alertmanager-url http://localhost:9093
 ```
 
 Note - if on Mac OS and using the Docker image, you will need to use `http://docker.for.mac.localhost:9093` instead of `http://localhost:9093`
@@ -55,7 +55,7 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 <summary>Investigate a Jira Ticket</summary>
 
 ```bash
-poetry run python3 main.py investigate jira https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
+holmes investigate jira https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
 ```
 </details>
 
@@ -72,6 +72,35 @@ Like what you see? Checkout [more examples](#more-examples) or get started by [i
 ## Installation
 
 First you will need <a href="#getting-an-api-key">an OpenAI API key, or the equivalent for another model</a>. Then install with one of the below methods:
+
+<details>
+  <summary>Brew (Mac/Linux)</summary>
+
+1. Add our tap:
+
+```sh
+brew tap robusta-dev/homebrew-holmesgpt
+```
+
+2. Install holmesgpt:
+
+```sh
+brew install holmesgpt
+```
+
+3. Check that installation was successful:
+
+```sh
+holmes --help
+```
+
+4. Run holmesgpt:
+
+```sh
+holmes ask "what issues do I have in my cluster"
+```
+</details>
+
 
 <details>
 <summary>Prebuilt Docker Container</summary>
@@ -92,7 +121,7 @@ Clone the project from github, and then run:
 ```
 cd holmesgpt
 poetry install --no-root
-poetry run python3 main.py ask "what pods are unhealthy and why?"
+holmes ask "what pods are unhealthy and why?"
 ```
 </details>
 
@@ -129,7 +158,7 @@ Add the `api_key` to the config.yaml or pass them via the CLI.
 To work with Azure AI, you need the [Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource). 
 
 ```bash
-poetry run python3 main.py ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER> --azure-endpoint='<PLACEHOLDER>'
+holmes ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER> --azure-endpoint='<PLACEHOLDER>'
 ```
 
 </details>
@@ -148,7 +177,7 @@ You will need an LLM with support for tool-calling. To use it, set the OPENAI_BA
 LLM uses the built-in [Helm toolset](./holmes/plugins/toolsets/helm.yaml) to gather information.
 
 ```bash
-poetry run python3 main.py ask "what helm value should I change to increase memory request of the my-argo-cd-argocd-server-6864949974-lzp6m pod"
+holmes ask "what helm value should I change to increase memory request of the my-argo-cd-argocd-server-6864949974-lzp6m pod"
 ```
 </details>
 
@@ -158,7 +187,7 @@ poetry run python3 main.py ask "what helm value should I change to increase memo
 LLM uses the built-in [Docker toolset](./holmes/plugins/toolsets/docker.yaml) to gather information.
 
 ```bash
-poetry run python3 main.py ask "Tell me what layers of my pavangudiwada/robusta-ai docker image consume the most storage and suggest some fixes to it"
+holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image consume the most storage and suggest some fixes to it"
 ```
 </details>
 
@@ -168,13 +197,13 @@ poetry run python3 main.py ask "Tell me what layers of my pavangudiwada/robusta-
 By default investigation results are displayed in the CLI itself. You can optionally get these results in a Slack channel:
 
 ```bash
-poetry run python3 main.py investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack --slack-token <PLACEHOLDER_SLACK_TOKEN> --slack-channel <PLACEHOLDER_SLACK_CHANNEL>
+holmes investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack --slack-token <PLACEHOLDER_SLACK_TOKEN> --slack-channel <PLACEHOLDER_SLACK_CHANNEL>
 ```
 
 Alternatively you can update the `config.yaml` with your Slack details and run: 
 
 ```bash
-poetry run python3 main.py investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack
+holmes investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack
 ```
 
 </details>
@@ -185,13 +214,13 @@ poetry run python3 main.py investigate alertmanager --alertmanager-url http://lo
 By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
 
 ```bash
-poetry run python3 main.py investigate jira https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update-ticket
+holmes investigate jira https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update-ticket
 ```
 
 Alternatively you can update the `config.yaml` with your Jira account details and run: 
 
 ```bash
-poetry run python3 main.py investigate jira --update-ticket
+holmes investigate jira --update-ticket
 ```
 
 </details>
@@ -255,7 +284,7 @@ Add these values to the `config.yaml` or pass them via the CLI.
 
 ## License
 
-Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/krr/blob/main/LICENSE) for more information.
+Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
 <!-- Change License -->
 
 ## Support
