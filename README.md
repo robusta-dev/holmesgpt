@@ -9,9 +9,7 @@
   </p>
 </div>
 
-Solve your devops and IT issues faster with an AI agent. Highly performant on **complex real-world scenarios**.
-
-The only devops agent that can autonomously gather information, correlate data from different sources, and iteratively find the **root cause** of incidents with **multi-step investigations**.
+The only DevOps assistant that solves problems **just like a human does** - that is, by looking at problems and fetching missing data repeatedly until the problem can be solved. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
 
 ### Use Cases:
 - **Kubernetes Troubleshooting**: Ask questions about your cluster, identify problems, and troubleshoot them
