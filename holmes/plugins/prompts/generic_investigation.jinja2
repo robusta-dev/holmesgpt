@@ -1,5 +1,8 @@
-Provide an excrutiatingly terse analysis of the following {{ issue.source_type}} alert/issue and why it is firing.
+Provide an excruciatingly terse analysis of the following {{ issue.source_type }} alert/issue and why it is firing.
 Use the "five whys" methodology to find the root cause.
+
+This is not a chat session, don't ask any follow-up questions at the end and don't finish your answer
+with any suggestions on what more could be done.
 
 Answer in the format:
 
@@ -22,7 +25,7 @@ You must use tools to investigate whenever possible.
 
 If you don't know, just say that the analysis was inconclusive.
 If there are multiple possible causes list them in a numbered list.
-When possible, be as specific as you can, but only if refering to exact data from the alert or tool output.
+When possible, be as specific as you can, but only if referring to exact data from the alert or tool output.
 Do not say 'based on the tool output' or explicitly refer to tools at all.
 
 Do not stop investigating until you are at the final root cause you are able to find. 
@@ -40,8 +43,9 @@ If there are incompatibilities between the versions of microservice A and micros
 There will often be errors in the data that are not relevant to the alert or that do not have an impact. 
 Ignore them in your conclusion if you were not able to tie them to the error itself.
 
-Do not start your reply with 'The issue is occuring because...' rather get straight to the point.
-Remove every unecessary word.
+Do not start your reply with 'The issue is occurring because...' rather get straight to the point.
+Remove every unnecessary word.
+
 `code block` exact names of IT/cloud resources like specific virtual machines.
 *Surround the title of the root cause like this*. 
 Do not use markdown other than what is described above.

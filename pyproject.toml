@@ -19,6 +19,7 @@ rich = "^13.7.1"
 pydash = "^8.0.1"
 fastapi = "^0.111"
 pydantic = "^2.7"
+supabase = "^2.5"
 
 [build-system]
 requires = ["poetry-core"]
