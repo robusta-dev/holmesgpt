@@ -41,16 +41,16 @@ jobs:
       if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
       run: |
         cd dist
-        zip -r main-${{ matrix.os }}-${{ github.ref_name }}.zip main
-        mv main-${{ matrix.os }}-${{ github.ref_name }}.zip ../
+        zip -r holmes-${{ matrix.os }}-${{ github.ref_name }}.zip holmes
+        mv holmes-${{ matrix.os }}-${{ github.ref_name }}.zip ../
         cd ..
 
     - name: Zip the application (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         Set-Location -Path dist
-        Compress-Archive -Path main -DestinationPath main-${{ matrix.os }}-${{ github.ref_name }}.zip -Force
-        Move-Item -Path main-${{ matrix.os }}-${{ github.ref_name }}.zip -Destination ..\
+        Compress-Archive -Path holmes -DestinationPath holmes-${{ matrix.os }}-${{ github.ref_name }}.zip -Force
+        Move-Item -Path holmes-${{ matrix.os }}-${{ github.ref_name }}.zip -Destination ..\
         Set-Location -Path ..
 
     - name: Upload Release Asset
@@ -59,15 +59,15 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }} 
-        asset_path: ./main-${{ matrix.os }}-${{ github.ref_name }}.zip
-        asset_name: main-${{ matrix.os }}-${{ github.ref_name }}.zip
+        asset_path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
+        asset_name: holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
         asset_content_type: application/octet-stream
 
     - name: Upload build as artifact
       uses: actions/upload-artifact@v2
       with:
-        name: main-${{ matrix.os }}-${{ github.ref_name }}
-        path: ./main-${{ matrix.os }}-${{ github.ref_name }}.zip
+        name: holmes-${{ matrix.os }}-${{ github.ref_name }}
+        path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
 
   check-latest:
     needs: build
@@ -95,10 +95,10 @@ jobs:
       - name: Download MacOS artifact
         uses: actions/download-artifact@v2
         with:
-          name: main-macos-latest-${{ github.ref_name }}
+          name: holmes-macos-latest-${{ github.ref_name }}
       - name: Calculate hash
         id: calc-hash
-        run: echo "::set-output name=MAC_BUILD_HASH::$(sha256sum main-macos-latest-${{ github.ref_name }}.zip | awk '{print $1}')"
+        run: echo "::set-output name=MAC_BUILD_HASH::$(sha256sum holmes-macos-latest-${{ github.ref_name }}.zip | awk '{print $1}')"
 
   # Define Linux hash job
   linux-hash:
@@ -113,10 +113,10 @@ jobs:
       - name: Download Linux artifact
         uses: actions/download-artifact@v2
         with:
-          name: main-ubuntu-latest-${{ github.ref_name }}
+          name: holmes-ubuntu-latest-${{ github.ref_name }}
       - name: Calculate hash
         id: calc-hash
-        run: echo "::set-output name=LINUX_BUILD_HASH::$(sha256sum main-$-ubuntu-latest-${{ github.ref_name }}.zip | awk '{print $1}')"
+        run: echo "::set-output name=LINUX_BUILD_HASH::$(sha256sum holmes-$-ubuntu-latest-${{ github.ref_name }}.zip | awk '{print $1}')"
 
   # TODO: update homebrew formula
   update-formula:
@@ -133,9 +133,9 @@ jobs:
           MAC_BUILD_HASH=${{ needs.mac-hash.outputs.MAC_BUILD_HASH }}
           LINUX_BUILD_HASH=${{ needs.linux-hash.outputs.LINUX_BUILD_HASH }}
           TAG_NAME=${{ github.ref_name }}
-          awk 'NR==6{$0="        url \"https://github.com/robusta-dev/holmestgpt/releases/download/'"$TAG_NAME"'/main-macos-latest-'"$TAG_NAME"'.zip\""}1' ./Formula/holmesgpt.rb > temp && mv temp ./Formula/holmesgpt.rb
+          awk 'NR==6{$0="        url \"https://github.com/robusta-dev/holmestgpt/releases/download/'"$TAG_NAME"'/holmes-macos-latest-'"$TAG_NAME"'.zip\""}1' ./Formula/holmesgpt.rb > temp && mv temp ./Formula/holmesgpt.rb
           awk 'NR==7{$0="        sha256 \"'$MAC_BUILD_HASH'\""}1' ./Formula/holmesgpt.rb > temp && mv temp ./Formula/holmesgpt.rb
-          awk 'NR==9{$0="        url \"https://github.com/robusta-dev/holmestgpt/releases/download/'"$TAG_NAME"'/main-ubuntu-latest-'"$TAG_NAME"'.zip\""}1' ./Formula/holmesgpt.rb > temp && mv temp ./Formula/holmesgpt.rb
+          awk 'NR==9{$0="        url \"https://github.com/robusta-dev/holmestgpt/releases/download/'"$TAG_NAME"'/holmes-ubuntu-latest-'"$TAG_NAME"'.zip\""}1' ./Formula/holmesgpt.rb > temp && mv temp ./Formula/holmesgpt.rb
           awk 'NR==10{$0="        sha256 \"'$LINUX_BUILD_HASH'\""}1' ./Formula/holmesgpt.rb > temp && mv temp ./Formula/holmesgpt.rb
       - name: Commit and push changes
         run: |
