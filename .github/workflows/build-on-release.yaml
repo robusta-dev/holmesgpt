@@ -34,7 +34,7 @@ jobs:
     - name: Build with PyInstaller
       shell: bash
       run: |
-        pyinstaller main.py
+        pyinstaller holmes.py
         ls dist
 
     - name: Zip the application (Unix)

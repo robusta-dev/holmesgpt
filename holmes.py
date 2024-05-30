@@ -59,7 +59,7 @@ opt_config_file: Optional[Path] = typer.Option(
     help="Path to the config file. Defaults to config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
 opt_custom_toolsets: Optional[List[Path]] = typer.Option(
-    None,
+    [],
     "--custom-toolsets",
     "-t",
     help="Path to a custom toolsets (can specify -t multiple times to add multiple toolsets)",
@@ -69,7 +69,7 @@ opt_allowed_toolsets: Optional[str] = typer.Option(
     help="Toolsets the LLM is allowed to use to investigate (default is * for all available toolsets, can be comma separated list of toolset names)",
 )
 opt_custom_runbooks: Optional[List[Path]] = typer.Option(
-    None,
+    [],
     "--custom-runbooks",
     "-r",
     help="Path to a custom runbooks (can specify -r multiple times to add multiple runbooks)",

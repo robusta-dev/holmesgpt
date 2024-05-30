@@ -121,7 +121,7 @@ Clone the project from github, and then run:
 ```
 cd holmesgpt
 poetry install --no-root
-holmes ask "what pods are unhealthy and why?"
+poetry run python3 holmes.py ask "what pods are unhealthy and why?"
 ```
 </details>
 
