@@ -1,0 +1,55 @@
+toolsets:
+- name: "kubernetes/core"
+  prerequisites:
+  - command: "kubectl version --client"
+
+  tools:
+  - name: "kubectl_describe"
+    description: "Run kubectl describe on a Kubernetes resource"
+    command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
+
+  - name: "kubectl_get"
+    description: "Run `kubectl get <parameters go here> --show-labels`. You can specific namespace=__ALL__ for all namespaces"
+    command: "kubectl get --show-labels {{ kind }} {{ name}}{% if namespace == '__ALL__' %} -A {% elif namespace %} -n {{ namespace }}{% endif %}"
+
+  - name: "kubectl_get_yaml"
+    description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
+    command: "kubectl get -o yaml {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+
+  - name: "kubectl_previous_logs"
+    description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash. Never give a deployment name or a resource that is not a pod."
+    command: "kubectl logs {{ name}} -n {{ namespace }} --previous"
+
+  - name: "kubectl_logs"
+    description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
+    command: "kubectl logs {{ name}} -n {{ namespace }}"
+
+  # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic 
+  # http GET capabilities which are more powerful than we want to expose
+  #- name: "check_liveness_probe"
+  #  description: "Run an http Kubernetes liveness probe for a given pod and return the results. Can be used to troubleshoot previous failures of the same probe assuming they fail now in the same manner."
+  #  command: "kubectl get --raw '/api/v1/namespaces/{{pod_namespace}}/pods/{{pod_name}}:{{liveness_probe_port}}/healthz'"
+
+  #- name: "kubectl_debug_node"
+  #  description: "Run a command on a Kubernetes node"
+  #  command: "kubectl debug node/mynode --image=ubuntu"
+
+  #- name: "healthcheck_plugin"
+  #  description: "Check why a kubernetes health probe is failing. First call get_healthcheck_details"
+  #  command: "kubectl exec -n {{namespace}} {{ pod_name }} -- wget {{ url }}:{{port}}"
+
+  # try adding your own tools here!
+  # e.g. to query company-specific data or run your own commands
+
+- name: "kubernetes/kube-prometheus-stack"
+  tools:
+  - name: "get_prometheus_target"
+    description: "Fetch the definition of a Prometheus target"
+    command: "kubectl get --raw '/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets' | jq '.data.activeTargets[] | select(.labels.job == \"{{ target_name }}\")"
+
+- name: "kubernetes/extras"
+  tools:
+  - name: "kubectl_lineage"
+    description: "Get all children of a Kubernetes resource, recursively, including their status"
+    command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
+

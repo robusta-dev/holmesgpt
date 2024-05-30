@@ -1,0 +1,10 @@
+toolsets:
+  # Name of the toolset (for example "mycompany/internal-tools")
+  - name: "switch_clusters"
+    # list of tools available for the LLM to use during investigation
+    # each tool is a templated bash command using Jinja2 templates
+    # the LLM can only control parameters that you expose as template variables like {{ this_variable }}
+    tools:
+      - name: "switch_cluster"
+        description: "Used to switch between multiple kubernetes contexts(clusters)"
+        command: "kubectl config use-context {cluster-name}"

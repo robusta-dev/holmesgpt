@@ -1,0 +1,24 @@
+# try adding your own tools here!
+# e.g. query company-specific data, fetch logs from your existing observability tools, etc
+#custom_toolsets: ["examples/custom_toolset.yaml"]
+
+#alertmanager_url: "http://localhost:9093"
+
+#jira_username: "user@company.com"
+#jira_api_key: "..."
+#jira_url: "https://your-company.atlassian.net"
+#jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
+ 
+#slack_token: "..."
+#slack_channel: "#general"
+
+#llm: "openai"
+#api_key: "..."
+
+# llm: "azure"
+#api_key: "..."
+#azure_endpoint: "..."
+
+# give the LLM explicit instructions how to investigate certain alerts
+# try adding runbooks to get better results on known alerts
+#custom_runbooks: ["examples/custom_runbooks.yaml"]

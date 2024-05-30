@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "holmes-gpt"
+version = "0.1.0"
+description = ""
+authors = ["Natan Yellin <natan@robusta.dev>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+openai = "^1.6.1"
+slack-bolt = "^1.18.1"
+pydantic-settings = "^2.1.0"
+pyyaml = "^6.0.1"
+jinja2 = "^3.1.2"
+typer = "^0.12"
+python-benedict = "^0.33.1"
+humanize = "^4.9.0"
+rich = "^13.7.1"
+pydash = "^8.0.1"
+fastapi = "^0.111"
+pydantic = "^2.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
