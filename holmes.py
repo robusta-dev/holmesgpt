@@ -17,6 +17,7 @@ from rich.rule import Rule
 from holmes.config import ConfigFile, LLMType
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.prompts import load_prompt
+from holmes import __version__
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
@@ -335,6 +336,9 @@ def jira(
                 f"[bold]Not updating ticket {issue.url}. Use the --update-ticket option to do so.[/bold]"
             )
 
+@app.command()
+def version() -> None:
+    typer.echo(__version__)
 
 if __name__ == "__main__":
     app()
