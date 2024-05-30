@@ -1,5 +1,5 @@
-from enum import StrEnum
+from enum import Enum
 
-class DestinationType(StrEnum):
+class DestinationType(str, Enum):
     SLACK = "slack"
     CLI = "cli"

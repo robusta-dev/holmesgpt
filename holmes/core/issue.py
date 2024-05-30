@@ -1,11 +1,11 @@
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
 
-class IssueStatus (StrEnum):
+class IssueStatus (str, Enum):
     OPEN = "open"
     CLOSED = "closed"
 

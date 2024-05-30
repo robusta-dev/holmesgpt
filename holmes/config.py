@@ -1,6 +1,6 @@
 import logging
 import os.path
-from enum import StrEnum
+from enum import Enum
 from typing import (Annotated, Any, ClassVar, List, Literal, Optional, Pattern,
                     TypeVar, Union)
 
@@ -21,7 +21,7 @@ from holmes.plugins.toolsets import Toolset, load_builtin_toolsets, load_toolset
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
-class LLMType(StrEnum):
+class LLMType(str, Enum):
     OPENAI = "openai"
     AZURE = "azure"
 
