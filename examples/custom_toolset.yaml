@@ -1,10 +1,18 @@
+# Here is an example of how you can give the LLM your own tools to use (loaded with the `-t` command line argument)
+# For more examples, refer to the builtin toolsets - https://github.com/robusta-dev/holmesgpt/blob/master/holmes/plugins/toolsets/
+
 toolsets:
   # Name of the toolset (for example "mycompany/internal-tools")
+  # Used for informational purposes only (e.g. to print the name of the toolset if it can't be loaded)
   - name: "switch_clusters"
-    # list of tools available for the LLM to use during investigation
-    # each tool is a templated bash command using Jinja2 templates
-    # the LLM can only control parameters that you expose as template variables like {{ this_variable }}
+
+    # List of tools the LLM can use - this is the important part
     tools:
+      # Name is a unique identifier for the tool
       - name: "switch_cluster"
+        # The LLM looks at this description when deciding what tools are relevant for each task
         description: "Used to switch between multiple kubernetes contexts(clusters)"
+        
+        # A templated bash command using Jinja2 templates
+        # The LLM can only control parameters that you expose as template variables like {{ this_variable }}
         command: "kubectl config use-context {{ cluster-name }}"
