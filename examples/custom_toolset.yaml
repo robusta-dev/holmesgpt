@@ -7,4 +7,4 @@ toolsets:
     tools:
       - name: "switch_cluster"
         description: "Used to switch between multiple kubernetes contexts(clusters)"
-        command: "kubectl config use-context {cluster-name}"
+        command: "kubectl config use-context {{ cluster-name }}"
