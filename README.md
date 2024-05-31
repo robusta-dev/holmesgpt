@@ -164,9 +164,14 @@ holmes ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER
 </details>
 
 <details>
-<summary>Using a self-hosted LLM like llama 3</summary>
+<summary>Using a self-hosted LLM</summary>
 
-You will need an LLM with support for tool-calling. To use it, set the OPENAI_BASE_URL environment variable and run `holmes` with a relevant model name set using `--model`.
+You will need an LLM with support for function-calling (tool-calling). To use it, set the OPENAI_BASE_URL environment variable and run `holmes` with a relevant model name set using `--model`.
+
+**Important: Please verify that your model and inference server support function calling! HolmesGPT is currently unable to check if the LLM it was given supports function-calling or not. Some models that lack function-calling capabilities will  hallucinate answers instead of reporting that they are unable to call functions. This behaviour depends on the model.**
+
+In particular, note that [vLLM does yet support function calling](https://github.com/vllm-project/vllm/issues/1869), whereas [llama-cpp does support it](https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#function-calling).
+
 </details>
 
 ## More Examples
