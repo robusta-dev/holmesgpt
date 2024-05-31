@@ -164,7 +164,7 @@ holmes ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER
 </details>
 
 <details>
-<summary>Using a self-hosted LLM like llama 3</summary>
+<summary>Using a self-hosted LLM</summary>
 
 You will need an LLM with support for function-calling (tool-calling). To use it, set the OPENAI_BASE_URL environment variable and run `holmes` with a relevant model name set using `--model`.
 
