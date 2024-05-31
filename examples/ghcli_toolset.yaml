@@ -1,0 +1,86 @@
+
+# Add your own CLI and tell the LLM what commands it can use
+toolsets:
+- name: "gh/cli"
+  prerequisites:
+  - command: "gh --version"
+
+  tools:
+  - name: "gh_auth_status"
+    description: "Check if you are authenticated"
+    command: "gh auth status"
+
+  - name: "gh_repo_list"  
+    description: "List repositories for the authenticated user"
+    command: "gh repo list"
+
+  - name: "gh_repo_view"
+    description: "View repository details"
+    command: "gh repo view {{ owner }}/{{ repo }}"
+
+  - name: "gh_issue_list"
+    description: "List issues in a repository"
+    command: "gh issue list -R {{ owner }}/{{ repo }}"
+
+  - name: "gh_issue_view"
+    description: "View a specific issue"
+    command: "gh issue view {{ issue_number }} -R {{ owner }}/{{ repo }}"
+
+  - name: "gh_pr_list"
+    description: "List pull requests in a repository"
+    command: "gh pr list -R {{ owner }}/{{ repo }}"
+
+  - name: "gh_pr_view"
+    description: "View a specific pull request"
+    command: "gh pr view {{ pr_number }} -R {{ owner }}/{{ repo }}"
+
+  - name: "gh_pr_diff"
+    description: "View the diff of a pull request"
+    command: "gh pr diff {{ pr_number }} -R {{ owner }}/{{ repo }}"
+
+  - name: "gh_gist_list"
+    description: "List gists for the authenticated user"
+    command: "gh gist list"
+
+  - name: "gh_gist_view"
+    description: "View a specific gist"
+    command: "gh gist view {{ gist_id }}"
+
+  - name: "gh_release_list"
+    description: "List releases in a repository"
+    command: "gh release list -R {{ owner }}/{{ repo }}"
+
+  - name: "gh_release_view"
+    description: "View a specific release"
+    command: "gh release view {{ release_tag }} -R {{ owner }}/{{ repo }}"
+
+  - name: "gh_workflow_run_list"
+    description: "Get info about a workflow run "
+    command: "gh run list --workflow {{ workflow_id }} --repo {{ owner }}/{{ repo }}"
+    
+  - name: "gh_workflow_list"
+    description: "List all workflows in a repository"
+    command: "gh workflow list --all --repo {{ owner }}/{{ repo }}"
+
+  - name: "gh_view_list"
+    description: "View all workflow in the repository and get more info about each"
+    command: "gh run view --repo robusta-dev/experimental-ai-investigation"
+  
+  - name: "gh_workflow_view"
+    description: "View the summary of a workflow with recent runs and build id's"
+    command: "gh workflow view {{ workflow_id }} --repo {{ owner }}/{{ repo }}"
+  
+  - name: "gh_view_job"
+    description: "Vew details about a specific workflow job"
+    command: "gh run view --job {{ job_id }} --log --repo {{ owner }}/{{ repo }}"
+
+  - name: "gh_view_failed_job_logs"
+    description: "View the logs of a failed workflow job"
+    command: "gh run view --job {{ job_id }} --repo {{ owner }}/{{ repo }} --log-failed"
+
+  - name: "gh_view_job_id"
+    description: "Get a job id using the build id"
+    command: "gh api /repos/{{owner}}/{{repo}}/actions/runs/{{run_id}}/jobs"
+  
+
+    
