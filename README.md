@@ -55,7 +55,7 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 <summary>Investigate a Jira Ticket</summary>
 
 ```bash
-holmes investigate jira https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
+holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
 ```
 </details>
 
@@ -214,7 +214,7 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093 --desti
 By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
 
 ```bash
-holmes investigate jira https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update-ticket
+holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update-ticket
 ```
 
 Alternatively you can update the `config.yaml` with your Jira account details and run: 
