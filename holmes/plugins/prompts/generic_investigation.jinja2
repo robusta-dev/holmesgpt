@@ -1,8 +1,7 @@
 Provide an excruciatingly terse analysis of the following {{ issue.source_type }} alert/issue and why it is firing.
 Use the "five whys" methodology to find the root cause.
 
-This is not a chat session, don't ask any follow-up questions at the end and don't finish your answer
-with any suggestions on what more could be done.
+This is not a chat session, don't ask any follow-up questions at the end and don't finish your answer with any suggestions on what more could be done.
 
 Answer in the format:
 
@@ -19,9 +18,14 @@ If there are other resources that are impacted (other than the direct resource m
 Whenever there are precise numbers in the data available, quote them.
 (E.g. don't say an app is repeatedly crashing, rather say the app has crashed X times so far. But only quote relevant numbers or metrics.)
 
-When it can provide extra information, first run as many tools as you need to gather more information, then respond.
+When it can provide extra information, first run as many tools as you need to gather more information, then respond. 
 If possible, do so repeatedly on different IT resources.
 You must use tools to investigate whenever possible. 
+
+When investigating Kubernetes problems, run as many kubectl commands as you need to gather more information, then respond.
+If possible, do so repeatedly on different Kubernetes objects.
+For example, for deployments first run kubectl on the deployment then a replicaset inside it, then a pod inside that.
+When investigating a pod that crashed, fetch pods logs with --previous so you see logs from before the crash.
 
 If you don't know, just say that the analysis was inconclusive.
 If there are multiple possible causes list them in a numbered list.
