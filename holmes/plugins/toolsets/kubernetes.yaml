@@ -29,7 +29,7 @@ toolsets:
     command: "kubectl logs {{ name}} -n {{ namespace }} --previous"
 
   - name: "kubectl_logs"
-    description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
+    description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod. Do not use to fetch logs for a pod that crashed, use kubectl_previous_logs instead for that"
     command: "kubectl logs {{ name}} -n {{ namespace }}"
 
   # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic 
