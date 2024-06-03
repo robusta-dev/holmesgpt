@@ -9,8 +9,16 @@ toolsets:
     command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
   - name: "kubectl_get"
-    description: "Run `kubectl get <parameters go here> --show-labels`. You can specific namespace=__ALL__ for all namespaces"
-    command: "kubectl get --show-labels {{ kind }} {{ name}}{% if namespace == '__ALL__' %} -A {% elif namespace %} -n {{ namespace }}{% endif %}"
+    description: "Run `kubectl get <parameters go here> --show-labels`"
+    command: "kubectl get --show-labels {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+
+  - name: "kubectl_get_all"
+    description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
+    command: "kubectl get -A --show-labels {{ kind }}"
+
+  - name: "kubectl_find_resource"
+    description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name"
+    command: "kubectl get -A --show-labels {{ kind }} | grep {{ keyword }}"
 
   - name: "kubectl_get_yaml"
     description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
