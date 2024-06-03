@@ -87,9 +87,9 @@ class ConfigFile(RobustaBaseConfig):
                 console.print(f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}")
             elif ts not in enabled_toolsets:
                 console.print(
-                    f"[red]Error loading toolset {ts.name}[/red] from {ts.get_path()} ({ts.get_disabled_reason()})"
+                    f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
                 )
-                console.print(f"[red]The following tools will be disabled: {[t.name for t in ts.tools]}[/red])")
+                #console.print(f"[red]The following tools will be disabled: {[t.name for t in ts.tools]}[/red])")
             else:
                 logging.debug(f"Loaded toolset {ts.name} from {ts.get_path()}")
                 #console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
