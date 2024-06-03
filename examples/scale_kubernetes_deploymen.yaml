@@ -1,0 +1,9 @@
+toolsets:
+  - name: "kubernetes_tools"
+
+    tools:
+      - name: "scale_kubernetes_deployment"
+        description: "Scale a Kubernetes deployment to a specified number of replicas"
+
+        command: |
+          kubectl scale deployment {{ deployment_name }} --replicas={{ replicas }} -n {{ namespace }}

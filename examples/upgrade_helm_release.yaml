@@ -1,0 +1,9 @@
+toolsets:
+  - name: "helm_tools"
+
+    tools:
+      - name: "upgrade_helm_release"
+        description: "Upgrade a Helm release to a new chart version"
+
+        command: |
+          helm upgrade {{ release_name }} {{ chart }} -n {{ namespace }} --version {{ chart_version }}

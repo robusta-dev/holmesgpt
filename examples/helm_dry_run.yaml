@@ -1,0 +1,9 @@
+toolsets:
+  - name: "helm_tools"
+
+    tools:
+      - name: "helm_dry_run"
+        description: "Perform a Helm dry run to see the generated manifests"
+
+        command: |
+          helm upgrade --install {{ release_name }} {{ chart }} -n {{ namespace }} --dry-run

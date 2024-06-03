@@ -1,0 +1,9 @@
+toolsets:
+  - name: "docker_tools"
+
+    tools:
+      - name: "save_docker_image"
+        description: "Save a Docker image to a tar archive"
+
+        command: |
+          docker save -o {{ output_path }} {{ image_name }}:{{ tag }}

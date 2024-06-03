@@ -1,0 +1,9 @@
+toolsets:
+  - name: "helm_tools"
+
+    tools:
+      - name: "rollback_helm_release"
+        description: "Rollback a Helm release to a previous revision"
+
+        command: |
+          helm rollback {{ release_name }} {{ revision }} -n {{ namespace }}

@@ -1,0 +1,9 @@
+toolsets:
+  - name: "docker_tools"
+
+    tools:
+      - name: "tag_docker_image"
+        description: "Tag a Docker image with a new tag"
+
+        command: |
+          docker tag {{ source_image }}:{{ source_tag }} {{ target_image }}:{{ target_tag }}

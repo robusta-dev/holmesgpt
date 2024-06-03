@@ -1,0 +1,9 @@
+toolsets:
+  - name: "docker_tools"
+
+    tools:
+      - name: "build_docker_image"
+        description: "Build a Docker image from a Dockerfile"
+
+        command: |
+          docker build -t {{ image_name }}:{{ tag }} {{ dockerfile_path }}

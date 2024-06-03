@@ -1,0 +1,9 @@
+toolsets:
+  - name: "kubernetes_tools"
+
+    tools:
+      - name: "rollback_kubernetes_deployment"
+        description: "Rollback a Kubernetes deployment to a previous revision"
+
+        command: |
+          kubectl rollout undo deployment/{{ deployment_name }} -n {{ namespace }} --to-revision={{ revision }}

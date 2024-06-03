@@ -1,0 +1,9 @@
+toolsets:
+  - name: "kubernetes_tools"
+
+    tools:
+      - name: "patch_kubernetes_resource"
+        description: "Apply a patch to a Kubernetes resource"
+
+        command: |
+          kubectl patch {{ kind }} {{ name }} -n {{ namespace }} --patch '{{ patch }}'

@@ -1,0 +1,9 @@
+toolsets:
+  - name: "docker_tools"
+
+    tools:
+      - name: "load_docker_image"
+        description: "Load a Docker image from a tar archive"
+
+        command: |
+          docker load -i {{ tar_path }}

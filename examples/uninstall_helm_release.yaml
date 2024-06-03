@@ -1,0 +1,9 @@
+toolsets:
+  - name: "helm_tools"
+
+    tools:
+      - name: "uninstall_helm_release"
+        description: "Uninstall a Helm release"
+
+        command: |
+          helm uninstall {{ release_name }} -n {{ namespace }}

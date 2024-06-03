@@ -1,0 +1,9 @@
+toolsets:
+  - name: "kubernetes_tools"
+
+    tools:
+      - name: "rollout_restart_kubernetes_deployment"
+        description: "Perform a rollout restart on a Kubernetes deployment"
+
+        command: |
+          kubectl rollout restart deployment/{{ deployment_name }} -n {{ namespace }}
