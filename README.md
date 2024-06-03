@@ -267,7 +267,7 @@ If a setting is specified in both in config file and cli, cli takes precedence.
 Adding a Slack integration allows the LLM to send Prometheus Alert investigation details to a Slack channel. To do this you need the following
 
 1. **slack-token**: The Slack API key. You can generate with `pip install robusta-cli && robusta integrations slack`
-2. **slack-channel**: The Slack channel where you want to recieve the findings.
+2. **slack-channel**: The Slack channel where you want to receive the findings.
 
 Add these values to the `config.yaml` or pass them via the CLI.
 </details>
