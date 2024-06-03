@@ -1,23 +1,23 @@
 import logging
+import os
 import os.path
 from enum import StrEnum
-from typing import (Annotated, Any, ClassVar, List, Literal, Optional, Pattern,
-                    TypeVar, Union)
+from typing import List, Optional
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, FilePath
+from pydantic import SecretStr, FilePath
 from pydash.arrays import concat
 from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
                                        YAMLToolExecutor)
-from holmes.core.tools import Toolset, ToolsetPattern, get_matching_toolsets
+from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
-from holmes.plugins.runbooks import Runbook, load_builtin_runbooks, load_runbooks_from_file
+from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.jira.plugin import JiraSource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-from holmes.plugins.toolsets import Toolset, load_builtin_toolsets, load_toolsets_from_file
+from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
@@ -26,7 +26,10 @@ class LLMType(StrEnum):
     AZURE = "azure"
 
 
-class ConfigFile(RobustaBaseConfig):
+DEFAULT_MAX_STEPS = 10
+
+
+class Config(RobustaBaseConfig):
     llm: Optional[LLMType] = LLMType.OPENAI
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
@@ -36,7 +39,7 @@ class ConfigFile(RobustaBaseConfig):
     )
     azure_api_version: Optional[str] = "2024-02-01"
     model: Optional[str] = None
-    max_steps: Optional[int] = 10
+    max_steps: Optional[int] = DEFAULT_MAX_STEPS
 
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
@@ -52,6 +55,41 @@ class ConfigFile(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
+
+    @classmethod
+    def load_from_env(cls):
+        # XXX this is currently only used in server.py. holmes.py uses
+        # load_from_file only.
+        llm_str = os.getenv("HOLMES_LLM", "OPENAI")
+        try:
+            llm = LLMType(llm_str.lower())
+        except ValueError:
+            allowed_llms = ", ".join(e.value for e in list(LLMType))
+            raise ValueError(f"Invalid HOLMES_LLM env var. Allowed values: {allowed_llms}")
+        api_key_name = "OPENAI_API_KEY" if llm == LLMType.OPENAI else "AZURE_OPENAI_API_KEY"
+        api_key = os.getenv(api_key_name)
+        if api_key is None:
+            raise ValueError(f"{api_key_name} env var not set")
+        if llm == LLMType.AZURE:
+            azure_endpoint = os.getenv("AZURE_ENDPOINT")
+            if azure_endpoint is None:
+                raise ValueError("AZURE_ENDPOINT env var not set")
+        else:
+            azure_endpoint = None
+        return cls(
+            llm=llm,
+            model=os.getenv("AI_MODEL", "gpt-4o"),
+            api_key=api_key,
+            azure_endpoint=azure_endpoint,
+            max_steps=os.getenv("HOLMES_MAX_STEPS", DEFAULT_MAX_STEPS),
+            # TODO (?). I don't think these will ever be utilized by the API-initiated
+            # AI anlysis, except for maybe custom_*?
+            # alertmanager_*
+            # jira_*
+            # slack_*
+            # custom_runbooks
+            # custom_toolsets
+        )
 
     def create_llm(self) -> OpenAI:
         if self.llm == LLMType.OPENAI:
@@ -170,7 +208,7 @@ class ConfigFile(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     @classmethod
-    def load(cls, config_file: Optional[str], **kwargs) -> "ConfigFile":
+    def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
         if config_file is not None:
             logging.debug("Loading config from file %s", config_file)
             config_from_file = load_model_from_file(cls, config_file)
