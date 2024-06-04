@@ -1,6 +1,7 @@
 import os
 from typing import List, Union
 
+import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
 from rich.console import Console
@@ -70,3 +71,15 @@ def fetch_context_data(context: List[InvestigateContext]) -> dict:
             # Note we only accept a single robusta_issue_id. I don't think it
             # makes sense to have several of them in the context structure.
             return dal.get_issue_data(context_item.value)
+
+
+def run_server():
+    uvicorn.run(
+        app,
+        host=os.getenv("API_HOST", "0.0.0.0"),
+        port=int(os.getenv("API_PORT", 8000)),
+    )
+
+
+if __name__ == "__main__":
+    run_server()

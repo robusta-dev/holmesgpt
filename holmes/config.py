@@ -10,8 +10,11 @@ from pydash.arrays import concat
 from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
-                                       YAMLToolExecutor)
+from holmes.core.tool_calling_llm import (
+    IssueInvestigator,
+    ToolCallingLLM,
+    YAMLToolExecutor,
+)
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
@@ -26,9 +29,6 @@ class LLMType(StrEnum):
     AZURE = "azure"
 
 
-DEFAULT_MAX_STEPS = 10
-
-
 class Config(RobustaBaseConfig):
     llm: Optional[LLMType] = LLMType.OPENAI
     api_key: Optional[SecretStr] = (
@@ -38,8 +38,8 @@ class Config(RobustaBaseConfig):
         None  # if None, read from AZURE_OPENAI_ENDPOINT env var
     )
     azure_api_version: Optional[str] = "2024-02-01"
-    model: Optional[str] = None
-    max_steps: Optional[int] = DEFAULT_MAX_STEPS
+    model: Optional[str] = "gpt-4o"
+    max_steps: Optional[int] = 10
 
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
@@ -58,38 +58,29 @@ class Config(RobustaBaseConfig):
 
     @classmethod
     def load_from_env(cls):
-        # XXX this is currently only used in server.py. holmes.py uses
-        # load_from_file only.
-        llm_str = os.getenv("HOLMES_LLM", "OPENAI")
-        try:
-            llm = LLMType(llm_str.lower())
-        except ValueError:
-            allowed_llms = ", ".join(e.value for e in list(LLMType))
-            raise ValueError(f"Invalid HOLMES_LLM env var. Allowed values: {allowed_llms}")
-        api_key_name = "OPENAI_API_KEY" if llm == LLMType.OPENAI else "AZURE_OPENAI_API_KEY"
-        api_key = os.getenv(api_key_name)
-        if api_key is None:
-            raise ValueError(f"{api_key_name} env var not set")
-        if llm == LLMType.AZURE:
-            azure_endpoint = os.getenv("AZURE_ENDPOINT")
-            if azure_endpoint is None:
-                raise ValueError("AZURE_ENDPOINT env var not set")
-        else:
-            azure_endpoint = None
-        return cls(
-            llm=llm,
-            model=os.getenv("AI_MODEL", "gpt-4o"),
-            api_key=api_key,
-            azure_endpoint=azure_endpoint,
-            max_steps=os.getenv("HOLMES_MAX_STEPS", DEFAULT_MAX_STEPS),
-            # TODO (?). I don't think these will ever be utilized by the API-initiated
-            # AI anlysis, except for maybe custom_*?
-            # alertmanager_*
-            # jira_*
-            # slack_*
+        kwargs = {"llm": LLMType(os.getenv("HOLMES_LLM", "OPENAI").lower())}
+        for field_name, env_key in [
+            ("model", "AI_MODEL"),
+            ("api_key", "AI_API_KEY"),
+            ("azure_endpoint", "AZURE_ENDPOINT"),
+            ("max_steps", "HOLMES_MAX_STEPS"),
+            ("alertmanager_url", "ALERTMANAGER_URL"),
+            ("alertmanager_username", "ALERTMANAGER_USERNAME"),
+            ("alertmanager_password", "ALERTMANAGER_PASSWORD"),
+            ("jira_url", "JIRA_URL"),
+            ("jira_username", "JIRA_USERNAME"),
+            ("jira_api_key", "JIRA_API_KEY"),
+            ("jira_query", "JIRA_QUERY"),
+            ("slack_token", "SLACK_TOKEN"),
+            ("slack_channel", "SLACK_CHANNEL"),
+            # TODO
             # custom_runbooks
             # custom_toolsets
-        )
+        ]:
+            val = os.getenv(env_key, None)
+            if val is not None:
+                kwargs[field_name] = val
+        return cls(**kwargs)
 
     def create_llm(self) -> OpenAI:
         if self.llm == LLMType.OPENAI:
@@ -111,7 +102,7 @@ class Config(RobustaBaseConfig):
         all_toolsets = load_builtin_toolsets()
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
-            
+
         if allowed_toolsets == "*":
             matching_toolsets = all_toolsets
         else:
@@ -122,7 +113,9 @@ class Config(RobustaBaseConfig):
         enabled_toolsets = [ts for ts in matching_toolsets if ts.is_enabled()]
         for ts in all_toolsets:
             if ts not in matching_toolsets:
-                console.print(f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}")
+                console.print(
+                    f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}"
+                )
             elif ts not in enabled_toolsets:
                 console.print(
                     f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
@@ -130,7 +123,7 @@ class Config(RobustaBaseConfig):
                 #console.print(f"[red]The following tools will be disabled: {[t.name for t in ts.tools]}[/red])")
             else:
                 logging.debug(f"Loaded toolset {ts.name} from {ts.get_path()}")
-                #console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
+                # console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
 
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
@@ -155,7 +148,7 @@ class Config(RobustaBaseConfig):
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
-        
+
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return IssueInvestigator(
