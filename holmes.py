@@ -11,10 +11,9 @@ import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
-from rich.prompt import Prompt
 from rich.rule import Rule
 
-from holmes.config import ConfigFile, LLMType
+from holmes.config import Config, LLMType
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.prompts import load_prompt
 from holmes import __version__
@@ -135,7 +134,7 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)
-    config = ConfigFile.load(
+    config = Config.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -194,7 +193,7 @@ def alertmanager(
     Investigate a Prometheus/Alertmanager alert
     """
     console = init_logging(verbose)
-    config = ConfigFile.load(
+    config = Config.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -290,7 +289,7 @@ def jira(
     Investigate a Jira ticket
     """
     console = init_logging(verbose)
-    config = ConfigFile.load(
+    config = Config.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,

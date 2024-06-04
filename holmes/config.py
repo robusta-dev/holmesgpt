@@ -1,23 +1,26 @@
 import logging
+import os
 import os.path
 from enum import StrEnum
-from typing import (Annotated, Any, ClassVar, List, Literal, Optional, Pattern,
-                    TypeVar, Union)
+from typing import List, Optional
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, FilePath
+from pydantic import SecretStr, FilePath
 from pydash.arrays import concat
 from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
-                                       YAMLToolExecutor)
-from holmes.core.tools import Toolset, ToolsetPattern, get_matching_toolsets
+from holmes.core.tool_calling_llm import (
+    IssueInvestigator,
+    ToolCallingLLM,
+    YAMLToolExecutor,
+)
+from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
-from holmes.plugins.runbooks import Runbook, load_builtin_runbooks, load_runbooks_from_file
+from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.jira.plugin import JiraSource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-from holmes.plugins.toolsets import Toolset, load_builtin_toolsets, load_toolsets_from_file
+from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
@@ -26,7 +29,7 @@ class LLMType(StrEnum):
     AZURE = "azure"
 
 
-class ConfigFile(RobustaBaseConfig):
+class Config(RobustaBaseConfig):
     llm: Optional[LLMType] = LLMType.OPENAI
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
@@ -35,7 +38,7 @@ class ConfigFile(RobustaBaseConfig):
         None  # if None, read from AZURE_OPENAI_ENDPOINT env var
     )
     azure_api_version: Optional[str] = "2024-02-01"
-    model: Optional[str] = None
+    model: Optional[str] = "gpt-4o"
     max_steps: Optional[int] = 10
 
     alertmanager_url: Optional[str] = None
@@ -52,6 +55,32 @@ class ConfigFile(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
+
+    @classmethod
+    def load_from_env(cls):
+        kwargs = {"llm": LLMType(os.getenv("HOLMES_LLM", "OPENAI").lower())}
+        for field_name in [
+            "model",
+            "api_key",
+            "azure_endpoint",
+            "max_steps",
+            "alertmanager_url",
+            "alertmanager_username",
+            "alertmanager_password",
+            "jira_url",
+            "jira_username",
+            "jira_api_key",
+            "jira_query",
+            "slack_token",
+            "slack_channel",
+            # TODO
+            # custom_runbooks
+            # custom_toolsets
+        ]:
+            val = os.getenv(field_name.upper(), None)
+            if val is not None:
+                kwargs[field_name] = val
+        return cls(**kwargs)
 
     def create_llm(self) -> OpenAI:
         if self.llm == LLMType.OPENAI:
@@ -73,7 +102,7 @@ class ConfigFile(RobustaBaseConfig):
         all_toolsets = load_builtin_toolsets()
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
-            
+
         if allowed_toolsets == "*":
             matching_toolsets = all_toolsets
         else:
@@ -84,7 +113,9 @@ class ConfigFile(RobustaBaseConfig):
         enabled_toolsets = [ts for ts in matching_toolsets if ts.is_enabled()]
         for ts in all_toolsets:
             if ts not in matching_toolsets:
-                console.print(f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}")
+                console.print(
+                    f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}"
+                )
             elif ts not in enabled_toolsets:
                 console.print(
                     f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
@@ -92,7 +123,7 @@ class ConfigFile(RobustaBaseConfig):
                 #console.print(f"[red]The following tools will be disabled: {[t.name for t in ts.tools]}[/red])")
             else:
                 logging.debug(f"Loaded toolset {ts.name} from {ts.get_path()}")
-                #console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
+                # console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
 
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
@@ -117,7 +148,7 @@ class ConfigFile(RobustaBaseConfig):
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
-        
+
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return IssueInvestigator(
@@ -170,7 +201,7 @@ class ConfigFile(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     @classmethod
-    def load(cls, config_file: Optional[str], **kwargs) -> "ConfigFile":
+    def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
         if config_file is not None:
             logging.debug("Loading config from file %s", config_file)
             config_from_file = load_model_from_file(cls, config_file)
