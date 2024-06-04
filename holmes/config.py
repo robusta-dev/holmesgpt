@@ -59,25 +59,25 @@ class Config(RobustaBaseConfig):
     @classmethod
     def load_from_env(cls):
         kwargs = {"llm": LLMType(os.getenv("HOLMES_LLM", "OPENAI").lower())}
-        for field_name, env_key in [
-            ("model", "AI_MODEL"),
-            ("api_key", "AI_API_KEY"),
-            ("azure_endpoint", "AZURE_ENDPOINT"),
-            ("max_steps", "HOLMES_MAX_STEPS"),
-            ("alertmanager_url", "ALERTMANAGER_URL"),
-            ("alertmanager_username", "ALERTMANAGER_USERNAME"),
-            ("alertmanager_password", "ALERTMANAGER_PASSWORD"),
-            ("jira_url", "JIRA_URL"),
-            ("jira_username", "JIRA_USERNAME"),
-            ("jira_api_key", "JIRA_API_KEY"),
-            ("jira_query", "JIRA_QUERY"),
-            ("slack_token", "SLACK_TOKEN"),
-            ("slack_channel", "SLACK_CHANNEL"),
+        for field_name in [
+            "model",
+            "api_key",
+            "azure_endpoint",
+            "max_steps",
+            "alertmanager_url",
+            "alertmanager_username",
+            "alertmanager_password",
+            "jira_url",
+            "jira_username",
+            "jira_api_key",
+            "jira_query",
+            "slack_token",
+            "slack_channel",
             # TODO
             # custom_runbooks
             # custom_toolsets
         ]:
-            val = os.getenv(env_key, None)
+            val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
         return cls(**kwargs)
