@@ -72,7 +72,8 @@ class ToolCallingLLM:
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
-                    )
+                    temperature=0.00000001
+                )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
