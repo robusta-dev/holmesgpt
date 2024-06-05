@@ -38,6 +38,6 @@ jobs:
         context: .
         platforms: linux/arm64,linux/amd64
         push: true
-        tags: us-central1-docker.pkg.dev/genuine-flight-317411/devel/sherlock:${{ github.ref_name }}
+        tags: us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:${{ github.ref_name }}
         build-args: |
           BUILDKIT_INLINE_CACHE=1
