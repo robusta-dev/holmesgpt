@@ -18,7 +18,7 @@ from holmes.core.tool_calling_llm import (
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
-from holmes.plugins.sources.jira.plugin import JiraSource
+from holmes.plugins.sources.jira import JiraSource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
