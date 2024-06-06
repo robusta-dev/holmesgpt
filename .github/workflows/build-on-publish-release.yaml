@@ -1,9 +1,8 @@
 name: Docker Build on Tag
 
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -41,3 +40,18 @@ jobs:
         tags: us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:${{ github.ref_name }}
         build-args: |
           BUILDKIT_INLINE_CACHE=1
+
+    - name: Update package version
+      run: |
+        sed -i 's/0.0.0/${{github.ref_name}}/g' helm/holmes/Chart.yaml helm/holmes/values.yaml
+        sed -i 's/0.0.1/${{github.ref_name}}/g' helm/holmes/Chart.yaml
+
+    - name: Save artifact with helm chart
+      uses: actions/upload-artifact@v2
+      with:
+        name: helm-chart
+        path: helm/holmes/
+
+    - name: Upload helm chart
+      run: |
+        cd helm && ./upload_chart.sh
