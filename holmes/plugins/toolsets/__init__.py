@@ -23,6 +23,7 @@ def load_toolsets_from_file(path: str) -> List[Toolset]:
 
 def load_builtin_toolsets() -> List[Toolset]:
     all_toolsets = []
+    logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
         if not filename.endswith(".yaml"):
             continue

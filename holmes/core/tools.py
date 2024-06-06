@@ -157,6 +157,7 @@ class Toolset(BaseModel):
             except subprocess.CalledProcessError as e:
                 self._enabled = False
                 self._disabled_reason = f"prereq check failed w/ errorcode {e.returncode}"
+                logging.debug(f"Toolset {self.name} : Failed to run prereq command {prereq}", exc_info=True)
                 return
         self._enabled = True
 
