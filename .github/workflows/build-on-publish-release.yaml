@@ -43,7 +43,7 @@ jobs:
 
     - name: Update package version
       run: |
-        sed -i 's/0.0.0/${{github.ref_name}}/g' pyproject.toml helm/holmes/Chart.yaml helm/holmes/values.yaml
+        sed -i 's/0.0.0/${{github.ref_name}}/g' helm/holmes/Chart.yaml helm/holmes/values.yaml
         sed -i 's/0.0.1/${{github.ref_name}}/g' helm/holmes/Chart.yaml
 
     - name: Save artifact with helm chart
