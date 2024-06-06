@@ -15,4 +15,4 @@ toolsets:
         
         # A templated bash command using Jinja2 templates
         # The LLM can only control parameters that you expose as template variables like {{ this_variable }}
-        command: "kubectl config use-context {{ cluster-name }}"
+        command: "kubectl config use-context {{ cluster_name }}"
