@@ -24,7 +24,6 @@ class ToolCallResult(BaseModel):
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
-    errors: Optional[List[str]] = None
     result: Optional[str] = None
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
