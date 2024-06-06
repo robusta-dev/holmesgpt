@@ -1,10 +1,15 @@
+import logging
 import os
+import uvicorn
+import colorlog
+
 from typing import List, Union
 
 from fastapi import FastAPI
 from pydantic import BaseModel
 from rich.console import Console
 
+from holmes.common.env_vars import HOLMES_HOST, HOLMES_PORT, ALLOWED_TOOLSETS
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import ConfigFile
 from holmes.core.issue import Issue
@@ -26,13 +31,24 @@ class InvestigateRequest(BaseModel):
     # TODO in the future
     # response_handler: ...
 
+def init_logging():
+    logging_level = os.environ.get("LOG_LEVEL", "INFO")
+    logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
+    logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
-dal = SupabaseDal(
-    url=os.getenv("SUPABASE_URL"),
-    key=os.getenv("SUPABASE_KEY"),
-    email=os.getenv("SUPABASE_EMAIL"),
-    password=os.getenv("SUPABASE_PASSWORD"),
-)
+    print("setting up colored logging")
+    colorlog.basicConfig(format=logging_format, level=logging_level, datefmt=logging_datefmt)
+    logging.getLogger().setLevel(logging_level)
+
+    httpx_logger = logging.getLogger("httpx")
+    if httpx_logger:
+        httpx_logger.setLevel(logging.WARNING)
+
+    logging.info(f"logger initialized using {logging_level} log level")
+
+
+init_logging()
+dal = SupabaseDal()
 app = FastAPI()
 
 
@@ -56,10 +72,10 @@ def investigate_issues(request: InvestigateRequest):
     raw_data = request.model_dump()
     if context:
         raw_data["extra_context"] = context
-    # TODO allowed_toolsets should probably be configurable?
-    ai = config.create_issue_investigator(console, allowed_toolsets="*")
+
+    ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
     issue = Issue(
-        id=context['id'] if context else None,
+        id=context['id'] if context else "",
         name=request.title,
         source_type=request.source,
         source_instance_id=request.source_instance_id,
@@ -71,3 +87,7 @@ def investigate_issues(request: InvestigateRequest):
             issue, prompt=load_prompt("builtin://generic_investigation.jinja2"), console=console
         ).result
     }
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT)

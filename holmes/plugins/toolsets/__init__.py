@@ -1,12 +1,11 @@
 import logging
 import os
 import os.path
-import subprocess
 from typing import List
 
 from pydantic import BaseModel
 
-from holmes.core.tools import Toolset, ToolsetPrerequisite
+from holmes.core.tools import Toolset
 from holmes.utils.pydantic_utils import load_model_from_file
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -23,6 +22,7 @@ def load_toolsets_from_file(path: str) -> List[Toolset]:
 
 def load_builtin_toolsets() -> List[Toolset]:
     all_toolsets = []
+    logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
         if not filename.endswith(".yaml"):
             continue
