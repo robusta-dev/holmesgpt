@@ -2,7 +2,9 @@ import base64
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Dict, Optional, List
+from uuid import uuid4
 
 import yaml
 from supabase import create_client
@@ -17,6 +19,8 @@ SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
 ISSUES_TABLE = "Issues"
 EVIDENCE_TABLE = "Evidence"
+TOKENS_TABLE = "AuthTokens"
+ACCOUNT_USERS_TABLE = "AccountUsers"
 
 
 class RobustaConfig(BaseModel):
@@ -29,6 +33,15 @@ class RobustaToken(BaseModel):
     account_id: str
     email: str
     password: str
+
+
+class AuthToken(BaseModel):
+    account_id: str
+    user_id: str
+    token: str
+    type: str
+    deleted: bool = False
+    created_at: datetime = None
 
 
 class SupabaseDal:
@@ -98,7 +111,7 @@ class SupabaseDal:
             issue_response = (
                 self.client
                     .table(ISSUES_TABLE)
-                    .select(f"*")
+                    .select("*")
                     .filter("id", "eq", issue_id)
                     .execute()
             )
@@ -113,9 +126,49 @@ class SupabaseDal:
         evidence = (
             self.client
             .table(EVIDENCE_TABLE)
-            .select(f"*")
+            .select("*")
             .filter("issue_id", "eq", issue_id)
             .execute()
         )
         issue_data["evidence"] = evidence.data
         return issue_data
+
+    def create_auth_token(self, token_type: str, user_id: str) -> AuthToken:
+        result = (
+            self.client
+            .table(TOKENS_TABLE)
+            .insert(
+                {
+                    "account_id": self.account_id,
+                    "user_id": user_id,
+                    "token": uuid4(),
+                    "type": token_type,
+                }
+            )
+            .execute()
+        )
+        return AuthToken(**result.data[0])
+
+    def get_freshest_auth_token(self, token_type: str) -> AuthToken:
+        result = (
+            self.client
+            .table(TOKENS_TABLE)
+            .select("*")
+            .filter("token_type", "eq", token_type)
+            .filter("deleted", "eq", False)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return AuthToken(**result.data[0])
+
+    def get_user_ids_for_account(self, account_id: str) -> List[str]:
+        return [
+            row["user_id"]
+            for row in (
+                self.client
+                .table(ACCOUNT_USERS_TABLE)
+                .select("user_id")
+                .filter("account_id", "eq", account_id)
+            ).data
+        ]

@@ -1,5 +1,6 @@
 annotated-types==0.7.0 ; python_version >= "3.11" and python_version < "4.0"
 anyio==4.4.0 ; python_version >= "3.11" and python_version < "4.0"
+cachetools==5.3.3
 certifi==2024.2.2 ; python_version >= "3.11" and python_version < "4.0"
 charset-normalizer==3.3.2 ; python_version >= "3.11" and python_version < "4.0"
 click==8.1.7 ; python_version >= "3.11" and python_version < "4.0"

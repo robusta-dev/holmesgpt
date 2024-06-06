@@ -10,3 +10,8 @@ STORE_URL = os.environ.get("STORE_URL", "")
 STORE_API_KEY = os.environ.get("STORE_API_KEY", "")
 STORE_EMAIL = os.environ.get("STORE_EMAIL", "")
 STORE_PASSWORD = os.environ.get("STORE_PASSWORD", "")
+
+# Currently supports BUILTIN and ROBUSTA_AI
+AI_AGENT = os.environ.get("AI_AGENT", "BUILTIN")
+
+ROBUSTA_AI_URL = os.environ.get("ROBUSTA_AI_URL", "")

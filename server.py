@@ -1,4 +1,8 @@
 import os
+
+import jinja2
+
+from holmes.utils.auth import SessionManager
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -9,19 +13,21 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATEE
 
 import logging
-import uvicorn
-import colorlog
-
 from typing import List, Union
 
-from fastapi import FastAPI
+import colorlog
+import uvicorn
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from rich.console import Console
 
-from holmes.common.env_vars import HOLMES_HOST, HOLMES_PORT, ALLOWED_TOOLSETS
-from holmes.core.supabase_dal import SupabaseDal
+from holmes.common.env_vars import (
+    HOLMES_HOST,
+    HOLMES_PORT,
+)
 from holmes.config import Config
 from holmes.core.issue import Issue
+from holmes.core.supabase_dal import AuthToken, SupabaseDal
 from holmes.plugins.prompts import load_prompt
 
 
@@ -40,6 +46,7 @@ class InvestigateRequest(BaseModel):
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://generic_investigation.jinja2"
+    model: str = "gpt-4o"
     # TODO in the future
     # response_handler: ...
 
@@ -50,7 +57,9 @@ def init_logging():
     logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
     print("setting up colored logging")
-    colorlog.basicConfig(format=logging_format, level=logging_level, datefmt=logging_datefmt)
+    colorlog.basicConfig(
+        format=logging_format, level=logging_level, datefmt=logging_datefmt
+    )
     logging.getLogger().setLevel(logging_level)
 
     httpx_logger = logging.getLogger("httpx")
@@ -62,6 +71,7 @@ def init_logging():
 
 init_logging()
 dal = SupabaseDal()
+session_manager = SessionManager("RelayHolmes")
 app = FastAPI()
 
 console = Console()
@@ -69,15 +79,16 @@ config = Config.load_from_env()
 
 
 @app.post("/api/investigate")
-def investigate_issues(request: InvestigateRequest):
+def investigate_issue(request: InvestigateRequest):
     context = fetch_context_data(request.context)
     raw_data = request.model_dump()
+    raw_data.pop("model")
+    raw_data.pop("system_prompt")
     if context:
         raw_data["extra_context"] = context
 
-    ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
     issue = Issue(
-        id=context['id'] if context else "",
+        id=context["id"] if context else "",
         name=request.title,
         source_type=request.source,
         source_instance_id=request.source_instance_id,
@@ -111,6 +122,7 @@ def fetch_context_data(context: List[InvestigateContext]) -> dict:
             # Note we only accept a single robusta_issue_id. I don't think it
             # makes sense to have several of them in the context structure.
             return dal.get_issue_data(context_item.value)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT)
