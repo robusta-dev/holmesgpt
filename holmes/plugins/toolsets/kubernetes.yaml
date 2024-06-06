@@ -6,31 +6,31 @@ toolsets:
   tools:
   - name: "kubectl_describe"
     description: "Run kubectl describe on a Kubernetes resource"
-    command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
+    command: "kubectl describe {% if namespace %}--namespace={{ namespace }} {% endif %}-- {{ kind }} {{ name }}"
 
   - name: "kubectl_get"
     description: "Run `kubectl get <parameters go here> --show-labels`"
-    command: "kubectl get --show-labels {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+    command: "kubectl get --show-labels {% if namespace %}--namespace={{ namespace }} {% endif %}-- {{ kind }} {{ name}}{% endif %}"
 
   - name: "kubectl_get_all"
     description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
-    command: "kubectl get -A --show-labels {{ kind }}"
+    command: "kubectl get -A --show-labels -- {{ kind }}"
 
   - name: "kubectl_find_resource"
-    description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name"
-    command: "kubectl get -A --show-labels {{ kind }} | grep {{ keyword }}"
+    description: "Run `kubectl get -A --show-labels {{ kind }} | grep {{ keyword }}` to find a resource where you know a substring of the name"
+    command: "kubectl get -A --show-labels -- {{ kind }} | grep -- {{ keyword }}"
 
   - name: "kubectl_get_yaml"
     description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
-    command: "kubectl get -o yaml {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+    command: "kubectl get -o yaml {% if namespace %}--namespace={{ namespace }} {% endif %} -- {{ kind }} {{ name}}{% endif %}"
 
   - name: "kubectl_previous_logs"
     description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash. Never give a deployment name or a resource that is not a pod."
-    command: "kubectl logs {{ name}} -n {{ namespace }} --previous"
+    command: "kubectl logs --namespace={{ namespace }} --previous -- {{ name}} "
 
   - name: "kubectl_logs"
     description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
-    command: "kubectl logs {{ name}} -n {{ namespace }}"
+    command: "kubectl logs --namespace={{ namespace }} -- {{ name}}"
 
   # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic 
   # http GET capabilities which are more powerful than we want to expose
