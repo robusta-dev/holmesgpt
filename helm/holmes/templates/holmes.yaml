@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-holmes
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: holmes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holmes
+  template:
+    metadata:
+      labels:
+        app: holmes
+    spec:
+      {{- if .Values.customServiceAccountName }}
+      serviceAccountName: {{ .Values.customServiceAccountName }}
+      {{ else }}
+      serviceAccountName: {{ .Release.Name }}-holmes-service-account
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- toYaml .Values.imagePullSecrets | nindent 6 }}
+      {{- end }}
+      containers:
+      - name: holmes
+        image: "{{ .Values.registry }}/{{ .Values.image }}"
+        imagePullPolicy: Always
+        command: ["python3", "-u", "server.py"]
+        env:
+          - name: LOG_LEVEL
+            value: {{ .Values.logLevel }}
+          - name: ALLOWED_TOOLSETS
+            value: {{ .Values.allowedToolsets }}
+          {{ if .Values.certificate -}}
+          - name: CERTIFICATE
+            value: {{ .Values.certificate }}
+          {{- end }}
+          {{ if .Values.openaiKey -}}
+          - name: OPENAI_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.secretName }}
+                key: openaiKey
+          {{- end }}
+          {{- if .Values.additionalEnvVars -}}
+          {{ toYaml .Values.additionalEnvVars | nindent 10 }}
+          {{- end }}
+        lifecycle:
+          preStop:
+            exec:
+              command: ["bash", "-c", "kill -SIGINT 1"]
+        volumeMounts:
+          - name: playbooks-config-secret
+            mountPath: /etc/robusta/config
+      volumes:
+        - name: playbooks-config-secret
+          secret:
+            secretName: robusta-playbooks-config-secret
+            optional: true
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-holmes
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: holmes
+spec:
+  selector:
+    app: holmes
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 5050
+{{- if .Values.createSecret  }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.secretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: holmes
+type: Opaque
+data:
+  openaiKey: {{ .Values.openaiKey | b64enc | quote }}
+{{- end }}

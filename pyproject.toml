@@ -21,6 +21,7 @@ fastapi = "^0.111"
 uvicorn = "^0.30"
 pydantic = "^2.7"
 supabase = "^2.5"
+colorlog = "^6.8.2"
 
 [build-system]
 requires = ["poetry-core"]
