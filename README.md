@@ -174,6 +174,87 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
+
+### Setting up Config file
+<details>
+<summary>Customising config</summary>
+  
+## Custom Toolsets
+
+You can define your own custom toolsets to extend the functionality of your setup. These toolsets can include querying company-specific data, fetching logs from observability tools, and more.
+
+```bash
+# Add paths to your custom toolsets here
+# Example: ["path/to/your/custom_toolset.yaml"]
+#custom_toolsets: ["examples/custom_toolset.yaml"]
+```
+
+## Alertmanager Configuration
+
+Configure the URL for your Alertmanager instance to enable alert management and notifications.
+
+```bash
+# URL for the Alertmanager
+#alertmanager_url: "http://localhost:9093"
+```
+
+## Jira Integration
+
+Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues.
+
+```bash
+# Jira credentials and query settings
+#jira_username: "user@company.com"
+#jira_api_key: "..."
+#jira_url: "https://your-company.atlassian.net"
+#jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
+```
+
+## Slack Integration
+
+Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
+
+```bash
+# Slack token and channel configuration
+#slack_token: "..."
+#slack_channel: "#general"
+```
+
+## Large Language Model (LLM) Configuration
+
+Choose between OpenAI or Azure for integrating large language models. Provide the necessary API keys and endpoints for the selected service.
+
+### OpenAI
+
+```bash
+# Configuration for OpenAI LLM
+#llm: "openai"
+#api_key: "..."
+```
+
+### Azure
+
+```bash
+# Configuration for Azure LLM
+#llm: "azure"
+#api_key: "..."
+#azure_endpoint: "..."
+```
+
+## Custom Runbooks
+
+Define custom runbooks to give explicit instructions to the LLM on how to investigate certain alerts. This can help in achieving better results for known alerts.
+
+```bash
+# Add paths to your custom runbooks here
+# Example: ["path/to/your/custom_runbook.yaml"]
+#custom_runbooks: ["examples/custom_runbooks.yaml"]
+```
+
+  
+</details>
+
+
 ## More Examples
 
 <details>
