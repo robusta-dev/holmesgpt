@@ -28,6 +28,12 @@ jobs:
       run: |-
         gcloud config get-value project
 
+    - name: Update package version
+      run: |
+        sed -i 's/__version__ = .*/__version__ = "${{github.ref_name}}"/g' holmes/__init__.py
+        sed -i 's/0.0.0/${{github.ref_name}}/g' helm/holmes/Chart.yaml helm/holmes/values.yaml
+        sed -i 's/0.0.1/${{github.ref_name}}/g' helm/holmes/Chart.yaml
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
 
@@ -40,11 +46,6 @@ jobs:
         tags: us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:${{ github.ref_name }}
         build-args: |
           BUILDKIT_INLINE_CACHE=1
-
-    - name: Update package version
-      run: |
-        sed -i 's/0.0.0/${{github.ref_name}}/g' helm/holmes/Chart.yaml helm/holmes/values.yaml
-        sed -i 's/0.0.1/${{github.ref_name}}/g' helm/holmes/Chart.yaml
 
     - name: Save artifact with helm chart
       uses: actions/upload-artifact@v2
