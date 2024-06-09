@@ -59,6 +59,13 @@ holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-u
 ```
 </details>
 
+<summary>Investigate a GitHub Issue</summary>
+
+```bash
+holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
+```
+</details>
+
 Like what you see? Checkout [more examples](#more-examples) or get started by [installing HolmesGPT](#installation).
 
 ## Key Features
@@ -210,6 +217,19 @@ Integrate with Jira to automate issue tracking and project management tasks. Pro
 #jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
 ```
 
+## GitHub Integration
+
+Integrate with GitHub to automate issue tracking and project management tasks. Provide your GitHub PAT (*personal access token*) and specify the `owner/repository`.
+
+```bash
+# GitHub credentials and query settings
+#github_owner: "robusta-dev"
+#github_pat: "..."
+#github_url: "https://api.github.com" (default)
+#github_repository: "holmesgpt"
+#github_query: "is:issue is:open"
+```
+
 ## Slack Integration
 
 Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
@@ -311,6 +331,22 @@ holmes investigate jira --update-ticket
 
 </details>
 
+<summary>Investigate and update GitHub issues with findings</summary>
+
+By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
+
+```bash
+holmes investigate github --github-url https://<PLACEDHOLDER> --github-owner <PLACEHOLDER_GITHUB_OWNER> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT> --update-issue
+```
+
+Alternatively you can update the `config.yaml` with your GitHub account details and run: 
+
+```bash
+holmes investigate github --update-issue
+```
+
+</details>
+
 ## Advanced Usage
 
 <details>
@@ -356,13 +392,26 @@ Add these values to the `config.yaml` or pass them via the CLI.
 <details>
 <summary>Jira</summary>
 
-Adding a Jira integration allows the LLM to fetch Jira tickets and investigate automatically. Optionally it can update the Jira ticked with findings too. You need the following to use this
+Adding a Jira integration allows the LLM to fetch Jira tickets and investigate automatically. Optionally it can update the Jira ticket with findings too. You need the following to use this
 
 1. **url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
 2. **username**: The email you use to log into your Jira account. Eg: `jira-user@company.com`
 3. **api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
 4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
 5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
+
+Add these values to the `config.yaml` or pass them via the CLI.
+</details>
+
+<details>
+<summary>GitHub</summary>
+
+Adding a GitHub integration allows the LLM to fetch GitHub issues and investigate automatically. Optionally it can update the GitHub issue with findings too. You need the following to use this
+
+1. **url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
+2. **owner**: The repository owner. Eg: `robusta-dev`
+3. **pat**: Follow these [instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to get your GitHub pat (*personal access token*).
+4. **repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
 
 Add these values to the `config.yaml` or pass them via the CLI.
 </details>
