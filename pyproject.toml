@@ -6,7 +6,7 @@ authors = ["Natan Yellin <natan@robusta.dev>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.9"
 openai = "^1.6.1"
 slack-bolt = "^1.18.1"
 pydantic-settings = "^2.1.0"
@@ -22,6 +22,7 @@ uvicorn = "^0.30"
 pydantic = "^2.7"
 supabase = "^2.5"
 colorlog = "^6.8.2"
+strenum = "^0.4.15"
 
 [build-system]
 requires = ["poetry-core"]

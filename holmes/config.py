@@ -1,7 +1,7 @@
 import logging
 import os
 import os.path
-from enum import StrEnum
+from strenum import StrEnum
 from typing import List, Optional
 
 from openai import AzureOpenAI, OpenAI
