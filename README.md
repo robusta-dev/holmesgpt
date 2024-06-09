@@ -117,8 +117,8 @@ docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root
 
 First [install poetry (the python package manager)](https://python-poetry.org/docs/#installing-with-the-official-installer)
 
-Clone the project from github, and then run:
 ```
+git clone https://github.com/robusta-dev/holmesgpt.git
 cd holmesgpt
 poetry install --no-root
 poetry run python3 holmes.py ask "what pods are unhealthy and why?"
@@ -149,7 +149,7 @@ To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key]
 
 **Note**: This is different from being a “ChatGPT Plus” subscriber.
 
-Add the `api_key` to the config.yaml or pass them via the CLI.
+Add the `api_key` to the config.yaml or pass via the CLI with --api-key.
 </details>
 
 <details>
