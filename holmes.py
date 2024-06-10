@@ -6,7 +6,7 @@ import re
 import warnings
 from pathlib import Path
 from typing import List, Optional, Pattern
-
+import json
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
@@ -100,6 +100,11 @@ opt_slack_channel: Optional[str] = typer.Option(
     "--slack-channel",
     help="Slack channel if --destination=slack (experimental). E.g. #devops",
 )
+opt_dump_raw_output: Optional[str] = typer.Option(
+    None,
+    "-raw-json-file",
+    help="Save the complete output in json format in to a file",
+)
 
 # Common help texts
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
@@ -129,6 +134,7 @@ def ask(
         "--show-tool-output",
         help="Advanced. Show the output of each tool that was called",
     ),
+    dump_raw_output: Optional[str] = opt_dump_raw_output
 ):
     """
     Ask any question and answer using available tools
@@ -148,6 +154,9 @@ def ask(
     console.print("[bold yellow]User:[/bold yellow] " + prompt)
     response = ai.call(system_prompt, prompt)
     text_result = Markdown(response.result)
+    if dump_raw_output:
+        with open(dump_raw_output , 'w' , encoding='utf-8') as f:
+            json.dump(json.loads(response.model_dump_json()), f, ensure_ascii=False, indent=4)
     if show_tool_output and response.tool_calls:
         for tool_call in response.tool_calls:
             console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
@@ -185,6 +194,7 @@ def alertmanager(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
+    dump_raw_output: Optional[str] = opt_dump_raw_output,
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
@@ -234,11 +244,13 @@ def alertmanager(
         console.print(
             f"[bold yellow]Analyzing all {len(issues)} issues. (Use --alertname to filter.)[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
         )
+    results = []
     for i, issue in enumerate(issues):
         console.print(
             f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
         result = ai.investigate(issue, system_prompt, console)
+        results.append({"issue": json.loads(issue.json()), "result": json.loads(result.json())})
 
         if destination == DestinationType.CLI:
             console.print(Rule())
@@ -250,6 +262,9 @@ def alertmanager(
         elif destination == DestinationType.SLACK:
             slack.send_issue(issue, result)
 
+    if dump_raw_output:
+        with open(dump_raw_output , 'w+' , encoding='utf-8') as f:
+            json.dump(results, f, ensure_ascii=False, indent=4)
 
 @investigate_app.command()
 def jira(
