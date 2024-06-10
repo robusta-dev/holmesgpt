@@ -1,6 +1,6 @@
 <div align="center">
   <h1 align="center">HolmesGPT - The Open Source DevOps Assistant</h1>
-<h2 align="center">Solve Problems Twice as Fast with an AI Teammate</h2>
+<h2 align="center">Solve Alerts Twice as Fast with an AI Teammate</h2>
   <p align="center">
     <a href="#use-cases"><strong>Use Cases</strong></a> |
     <a href="#examples"><strong>Examples</strong></a> |
@@ -12,15 +12,14 @@
 The only DevOps assistant that solves problems **like a human does** - by looking at problems and fetching missing data repeatedly until the problem can be solved. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
 
 ### Use Cases:
-- **Kubernetes Troubleshooting**: Ask questions about your cloud, identify problems, and troubleshoot them
-- **Incident Response**: Investigate firing alerts by gathering data and determining the root cause
-- **Ticket Management**: Analyze and resolve tickets related to DevOps tasks
+- **Kubernetes Troubleshooting**: Identify problems and troubleshoot them (works outside Kubernetes too!) 
+- **AIOps and Incident Response**: Investigate firing alerts by gathering data and determining the root cause
 - **Automated Investigation and Triage:** Prioritize critical alerts and resolve the highest impact issues first.
-- **Runbook Automation in Plain English:** No more defining runbooks as YAML or complicated workflows. Just describe tasks in plain English and the AI will follow the instructions
+- **Ticket Management**: Analyze and resolve tickets related to DevOps tasks
+- **Runbook Automation in Plain English:** No more defining runbooks as YAML or complicated workflows. Describe tasks in plain English and the AI will follow the instructions
 
 ### See it in Action
 ![AI Alert Analysis](images/holmesgptdemo.gif)
-
 
 ## Examples
 
