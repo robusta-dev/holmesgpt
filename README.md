@@ -182,114 +182,6 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
-
-### Setting up Config file
-<details>
-<summary>Customising config</summary>
-  
-## Custom Toolsets
-
-You can define your own custom toolsets to extend the functionality of your setup. These toolsets can include querying company-specific data, fetching logs from observability tools, and more.
-
-```bash
-# Add paths to your custom toolsets here
-# Example: ["path/to/your/custom_toolset.yaml"]
-#custom_toolsets: ["examples/custom_toolset.yaml"]
-```
-
-## Alertmanager Configuration
-
-Configure the URL for your Alertmanager instance to enable alert management and notifications.
-
-```bash
-# URL for the Alertmanager
-#alertmanager_url: "http://localhost:9093"
-```
-
-## Jira Integration
-
-Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues.
-
-```bash
-# Jira credentials and query settings
-#jira_username: "user@company.com"
-#jira_api_key: "..."
-#jira_url: "https://your-company.atlassian.net"
-#jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
-```
-
-1. **jira_username**: The email you use to log into your Jira account. Eg: `jira-user@company.com`
-2. **jira_api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
-3. **jira_url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
-4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
-5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
-
-## GitHub Integration
-
-Integrate with GitHub to automate issue tracking and project management tasks. Provide your GitHub PAT (*personal access token*) and specify the `owner/repository`.
-
-```bash
-# GitHub credentials and query settings
-#github_owner: "robusta-dev"
-#github_pat: "..."
-#github_url: "https://api.github.com" (default)
-#github_repository: "holmesgpt"
-#github_query: "is:issue is:open"
-```
-
-1. **github_owner**: The repository owner. Eg: `robusta-dev`
-2. **github_pat**: Follow these [instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to get your GitHub pat (*personal access token*).
-3. **github_url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
-4. **github_repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
-
-## Slack Integration
-
-Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
-
-```bash
-# Slack token and channel configuration
-#slack_token: "..."
-#slack_channel: "#general"
-```
-
-1. **slack-token**: The Slack API key. You can generate with `pip install robusta-cli && robusta integrations slack`
-2. **slack-channel**: The Slack channel where you want to receive the findings.
-
-## Large Language Model (LLM) Configuration
-
-Choose between OpenAI or Azure for integrating large language models. Provide the necessary API keys and endpoints for the selected service.
-
-### OpenAI
-
-```bash
-# Configuration for OpenAI LLM
-#llm: "openai"
-#api_key: "..."
-```
-
-### Azure
-
-```bash
-# Configuration for Azure LLM
-#llm: "azure"
-#api_key: "..."
-#azure_endpoint: "..."
-```
-
-## Custom Runbooks
-
-Define custom runbooks to give explicit instructions to the LLM on how to investigate certain alerts. This can help in achieving better results for known alerts.
-
-```bash
-# Add paths to your custom runbooks here
-# Example: ["path/to/your/custom_runbook.yaml"]
-#custom_runbooks: ["examples/custom_runbooks.yaml"]
-```
-
-  
-</details>
-
-
 ## More Examples
 
 <details>
@@ -392,6 +284,134 @@ You can view an example config file with all available settings [here](config.ex
 
 By default, without specifying `--config` the agent will try to read `config.yaml` from the current directory.
 If a setting is specified in both in config file and cli, cli takes precedence.
+
+
+
+<details>
+<summary>Custom Toolsets</summary>
+
+You can define your own custom toolsets to extend the functionality of your setup. These toolsets can include querying company-specific data, fetching logs from observability tools, and more.
+
+```bash
+# Add paths to your custom toolsets here
+# Example: ["path/to/your/custom_toolset.yaml"]
+#custom_toolsets: ["examples/custom_toolset.yaml"]
+```
+</details>
+
+<details>
+
+<summary>Alertmanager Configuration</summary>
+
+Configure the URL for your Alertmanager instance to enable alert management and notifications.
+
+```bash
+# URL for the Alertmanager
+#alertmanager_url: "http://localhost:9093"
+```
+</details>
+
+<details>
+
+<summary>Jira Integration</summary>
+
+Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues.
+
+```bash
+# Jira credentials and query settings
+#jira_username: "user@company.com"
+#jira_api_key: "..."
+#jira_url: "https://your-company.atlassian.net"
+#jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
+```
+
+1. **jira_username**: The email you use to log into your Jira account. Eg: `jira-user@company.com`
+2. **jira_api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
+3. **jira_url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
+4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
+5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
+</details>
+
+<details>
+
+<summary>GitHub Integration</summary>
+
+Integrate with GitHub to automate issue tracking and project management tasks. Provide your GitHub PAT (*personal access token*) and specify the `owner/repository`.
+
+```bash
+# GitHub credentials and query settings
+#github_owner: "robusta-dev"
+#github_pat: "..."
+#github_url: "https://api.github.com" (default)
+#github_repository: "holmesgpt"
+#github_query: "is:issue is:open"
+```
+
+1. **github_owner**: The repository owner. Eg: `robusta-dev`
+2. **github_pat**: Follow these [instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to get your GitHub pat (*personal access token*).
+3. **github_url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
+4. **github_repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
+</details>
+
+<details>
+
+<summary>Slack Integration</summary>
+
+Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
+
+```bash
+# Slack token and channel configuration
+#slack_token: "..."
+#slack_channel: "#general"
+```
+
+1. **slack-token**: The Slack API key. You can generate with `pip install robusta-cli && robusta integrations slack`
+2. **slack-channel**: The Slack channel where you want to receive the findings.
+
+</details>
+
+<details>
+
+<summary>Custom Runbooks</summary>
+
+Define custom runbooks to give explicit instructions to the LLM on how to investigate certain alerts. This can help in achieving better results for known alerts.
+
+```bash
+# Add paths to your custom runbooks here
+# Example: ["path/to/your/custom_runbook.yaml"]
+#custom_runbooks: ["examples/custom_runbooks.yaml"]
+```
+</details>
+
+### Large Language Model (LLM) Configuration
+
+Choose between OpenAI or Azure for integrating large language models. Provide the necessary API keys and endpoints for the selected service.
+
+
+<details>
+
+<summary>OpenAI</summary>
+
+```bash
+# Configuration for OpenAI LLM
+#llm: "openai"
+#api_key: "..."
+```
+</details>
+
+<details>
+
+<summary>Azure</summary>
+
+```bash
+# Configuration for Azure LLM
+#llm: "azure"
+#api_key: "..."
+#azure_endpoint: "..."
+```
+</details>
+  
+
 </details>
 
 ## License
