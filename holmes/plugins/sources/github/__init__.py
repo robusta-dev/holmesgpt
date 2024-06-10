@@ -16,8 +16,7 @@ class GitHubSource(SourcePlugin):
         self.query = query
 
     def fetch_issues(self, issue_id: Pattern = None) -> List[Issue]:
-        logging.info(f"Fetching All issues from {self.url} for repository {
-                     self.owner}/{self.repository}")
+        logging.info(f"Fetching All issues from {self.url} for repository {self.owner}/{self.repository}")
         try:
             data = []
             url = f"{self.url}/search/issues"
@@ -35,8 +34,7 @@ class GitHubSource(SourcePlugin):
                 response = requests.get(
                     url=url, headers=headers, params=params)
                 if response.status_code != 200:
-                    raise Exception(f"Failed to get issues:{
-                                    response.status_code} {response.text}")
+                    raise Exception(f"Failed to get issues:{response.status_code} {response.text}")
                 logging.info(f"Got {response}")
                 response.raise_for_status()
                 data.extend(response.json().get("items", []))
@@ -60,8 +58,7 @@ class GitHubSource(SourcePlugin):
         )
 
     def write_back_result(self, issue_id: str, result_data: LLMResult) -> None:
-        url = f"{
-            self.url}/repos/{self.owner}/{self.repository}/issues/{issue_id}/comments"
+        url = f"{self.url}/repos/{self.owner}/{self.repository}/issues/{issue_id}/comments"
         headers = {
             "Authorization": f"token {self.pat}",
             "Accept": "application/vnd.github.v3+json",
@@ -69,12 +66,10 @@ class GitHubSource(SourcePlugin):
         }
         response = requests.post(
             url=url,
-            json={"body": f"Automatic AI Investigation by Robusta:\n\n{
-                result_data.result}\n"},
+            json={"body": f"Automatic AI Investigation by Robusta:\n\n{result_data.result}\n"},
             headers=headers
         )
 
         response.raise_for_status()
         data = response.json()
-        logging.debug(f"Posted comment to issue #{
-                      issue_id} at {data['html_url']}")
+        logging.debug(f"Posted comment to issue #{issue_id} at {data['html_url']}")
