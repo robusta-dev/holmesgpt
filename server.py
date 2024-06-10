@@ -25,7 +25,7 @@ from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
 )
-from holmes.config import Config
+from holmes.config import LLMConfig
 from holmes.core.issue import Issue
 from holmes.core.supabase_dal import AuthToken, SupabaseDal
 from holmes.plugins.prompts import load_prompt
@@ -56,7 +56,6 @@ def init_logging():
     logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
     logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
-    print("setting up colored logging")
     colorlog.basicConfig(format=logging_format, level=logging_level, datefmt=logging_datefmt)
     logging.getLogger().setLevel(logging_level)
 
@@ -68,12 +67,13 @@ def init_logging():
 
 
 init_logging()
+logging.info(f"Starting AI server with {AI_AGENT=}, {ROBUSTA_AI_URL=}")
 dal = SupabaseDal()
 session_manager = SessionManager(dal, "RelayHolmes")
 app = FastAPI()
 
 console = Console()
-config = Config.load_from_env()
+config = LLMConfig.load_from_env()
 
 
 @app.post("/api/investigate")

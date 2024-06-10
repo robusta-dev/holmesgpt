@@ -22,6 +22,7 @@ class ToolCallResult(BaseModel):
     description: str
     result: str
 
+
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
@@ -32,6 +33,7 @@ class LLMResult(BaseModel):
         return "AI used info from issue and " + ",".join(
             [f"`{tool_call.description}`" for tool_call in self.tool_calls]
         )
+
 
 class ToolCallingLLM:
 
@@ -126,6 +128,7 @@ class ToolCallingLLM:
                         result=tool_response,
                     )
                 )
+
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
 class IssueInvestigator(ToolCallingLLM):

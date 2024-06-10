@@ -13,7 +13,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
-from holmes.config import Config, LLMType
+from holmes.config import LLMConfig, LLMProviderType
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.prompts import load_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
@@ -28,22 +28,11 @@ investigate_app = typer.Typer(
 )
 app.add_typer(investigate_app, name="investigate")
 
-def init_logging(verbose = False):
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
-    # disable INFO logs from OpenAI
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    # when running in --verbose mode we don't want to see DEBUG logs from these libraries
-    logging.getLogger("openai._base_client").setLevel(logging.INFO)
-    logging.getLogger("httpcore").setLevel(logging.INFO)
-    logging.getLogger("markdown_it").setLevel(logging.INFO)
-    # Suppress UserWarnings from the slack_sdk module
-    warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
-    return Console()
 
 # Common cli options
-opt_llm: Optional[LLMType] = typer.Option(
-    LLMType.OPENAI,
-    help="Which LLM to use ('openai' or 'azure')",
+opt_llm: Optional[LLMProviderType] = typer.Option(
+    LLMProviderType.OPENAI,
+    help="LLM provider ('openai' or 'azure')",   # TODO list all
 )
 opt_api_key: Optional[str] = typer.Option(
     None,
@@ -111,6 +100,19 @@ opt_json_output_file: Optional[str] = typer.Option(
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
 
 
+def init_logging(verbose = False):
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+    # disable INFO logs from OpenAI
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    # when running in --verbose mode we don't want to see DEBUG logs from these libraries
+    logging.getLogger("openai._base_client").setLevel(logging.INFO)
+    logging.getLogger("httpcore").setLevel(logging.INFO)
+    logging.getLogger("markdown_it").setLevel(logging.INFO)
+    # Suppress UserWarnings from the slack_sdk module
+    warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
+    return Console()
+
+
 # TODO: add interactive interpreter mode
 # TODO: add streaming output
 @app.command()
@@ -141,7 +143,7 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)
-    config = Config.load_from_file(
+    config = LLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -180,7 +182,7 @@ def alertmanager(
         None, help="Password to use for basic auth"
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
+    llm: Optional[LLMProviderType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
     azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
@@ -203,7 +205,7 @@ def alertmanager(
     Investigate a Prometheus/Alertmanager alert
     """
     console = init_logging(verbose)
-    config = Config.load_from_file(
+    config = LLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -282,7 +284,7 @@ def jira(
         False, help="Update Jira with AI results"
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
+    llm: Optional[LLMProviderType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
     azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
@@ -301,7 +303,7 @@ def jira(
     Investigate a Jira ticket
     """
     console = init_logging(verbose)
-    config = Config.load_from_file(
+    config = LLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -371,7 +373,7 @@ def github(
         help="Investigate tickets matching a GitHub query (e.g. 'is:issue is:open')",
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
+    llm: Optional[LLMProviderType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
     azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
@@ -390,7 +392,7 @@ def github(
     Investigate a GitHub issue
     """
     console = init_logging(verbose)
-    config = Config.load_from_file(
+    config = LLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,

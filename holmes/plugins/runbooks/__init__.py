@@ -1,20 +1,21 @@
 import os
 import os.path
-from typing import List, Literal, Optional, Pattern, Union
+from typing import List, Optional, Pattern
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
-from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
+from holmes.utils.pydantic_utils import BaseConfig, load_model_from_file
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
-class IssueMatcher (RobustaBaseConfig):
+
+class IssueMatcher(BaseConfig):
     issue_id: Optional[Pattern] = None      # unique id
     issue_name: Optional[Pattern] = None    # not necessary unique
     source: Optional[Pattern] = None
 
 
-class Runbook(RobustaBaseConfig):
+class Runbook(BaseConfig):
     match: IssueMatcher
     instructions: str
 
@@ -26,14 +27,17 @@ class Runbook(RobustaBaseConfig):
     def get_path(self) -> str:
         return self._path
 
+
 class ListOfRunbooks(BaseModel):
     runbooks: List[Runbook]
+
 
 def load_runbooks_from_file(path: str) -> List[Runbook]:
     data: ListOfRunbooks = load_model_from_file(ListOfRunbooks, file_path=path)
     for runbook in data.runbooks:
         runbook.set_path(path)
     return data.runbooks
+
 
 def load_builtin_runbooks() -> List[Runbook]:
     all_runbooks = []

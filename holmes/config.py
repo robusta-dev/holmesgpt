@@ -2,7 +2,7 @@ import logging
 import os
 import os.path
 from strenum import StrEnum
-from typing import List, Optional
+from typing import Annotated, Any, Dict, List, Optional, get_args, get_type_hints
 
 from openai import AzureOpenAI, OpenAI
 from pydantic import FilePath, SecretStr
@@ -21,28 +21,21 @@ from holmes.plugins.sources.jira import JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-from holmes.plugins.toolsets import (load_builtin_toolsets,
-                                     load_toolsets_from_file)
-from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
+from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
+from holmes.utils.pydantic_utils import BaseConfig, EnvVarName, load_model_from_file
 
 
-class LLMType(StrEnum):
+class LLMProviderType(StrEnum):
     OPENAI = "openai"
     AZURE = "azure"
+    ROBUSTA = "robusta_ai"
 
 
-class Config(RobustaBaseConfig):
-    llm: Optional[LLMType] = LLMType.OPENAI
-    api_key: Optional[SecretStr] = (
-        None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
-    )
-    azure_endpoint: Optional[str] = (
-        None  # if None, read from AZURE_OPENAI_ENDPOINT env var
-    )
-    azure_api_version: Optional[str] = "2024-02-01"
-    model: Optional[str] = "gpt-4o"
-    max_steps: Optional[int] = 10
+class BaseLLMConfig(BaseConfig):
+    llm: LLMProviderType = LLMProviderType.OPENAI
 
+    # FIXME: the following settings do not belong here. They define the
+    # configuration of specific actions, and not of the LLM provider.
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
     alertmanager_password: Optional[str] = None
@@ -74,42 +67,79 @@ class Config(RobustaBaseConfig):
     custom_toolsets: List[FilePath] = []
 
     @classmethod
-    def load_from_env(cls):
-        kwargs = {"llm": LLMType(os.getenv("HOLMES_LLM", "OPENAI").lower())}
-        for field_name in [
-            "model",
-            "api_key",
-            "azure_endpoint",
-            "max_steps",
-            "alertmanager_url",
-            "alertmanager_username",
-            "alertmanager_password",
-            "jira_url",
-            "jira_username",
-            "jira_api_key",
-            "jira_query",
-            "slack_token",
-            "slack_channel",
-            "github_url",
-            "github_owner",
-            "github_repository",
-            "github_pat",
-            "github_query",
-            # TODO
-            # custom_runbooks
-            # custom_toolsets
-        ]:
-            val = os.getenv(field_name.upper(), None)
-            if val is not None:
-                kwargs[field_name] = val
-        return cls(**kwargs)
+    def _collect_env_vars(cls) -> Dict[str, Any]:
+        """Collect the environment variables that this class might require for setup.
+
+        Environment variable names are determined from model fields as follows:
+        - if the model field is not annotated with an EnvVarName, the env var name is
+          just the model field name in upper case
+        - if the model field is annotated with an EnvVarName, the env var name is
+          taken from the annotation.
+        """
+        vars_dict = {}
+        hints = get_type_hints(cls, include_extras=True)
+        for field_name in cls.model_fields:
+            if field_name == "llm":
+                # Handled in load_from_env
+                continue
+            tp_obj = hints[field_name]
+            for arg in get_args(tp_obj):
+                if isinstance(arg, EnvVarName):
+                    env_var_name = arg
+                    break
+            else:
+                env_var_name = field_name.upper()
+            if env_var_name in os.environ:
+                vars_dict[field_name] = os.environ[env_var_name]
+        return vars_dict
+
+    @classmethod
+    def load_from_env(cls) -> "BaseLLMConfig":
+        llm_name = os.getenv("LLM_PROVIDER", "OPENAI").lower()
+        llm_provider_type = LLMProviderType(llm_name)
+        if llm_provider_type == LLMProviderType.AZURE:
+            final_class = AzureLLMConfig
+        elif llm_provider_type == LLMProviderType.OPENAI:
+            final_class = OpenAILLMConfig
+        elif llm_provider_type == LLMProviderType.ROBUSTA:
+            final_class = RobustaLLMConfig
+        else:
+            raise NotImplementedError(f"Unknown LLM {llm_name}")
+        kwargs = final_class._collect_env_vars()
+        ret = final_class(**kwargs)
+        return ret
+
+
+class BaseOpenAIConfig(BaseLLMConfig):
+    model: Optional[str] = "gpt-4o"
+    max_steps: Optional[int] = 10
+
+
+class OpenAILLMConfig(BaseOpenAIConfig):
+    api_key: Optional[SecretStr]
+
+
+class AzureLLMConfig(BaseOpenAIConfig):
+    api_key: Optional[SecretStr]
+    endpoint: Optional[str]
+    azure_api_version: Optional[str] = "2024-02-01"
+
+
+class RobustaLLMConfig(BaseLLMConfig):
+    url: Annotated[str, EnvVarName("ROBUSTA_AI_URL")]
+
+
+# TODO refactor everything below
+
+
+class LLMConfig(BaseLLMConfig):
 
     def create_llm(self) -> OpenAI:
-        if self.llm == LLMType.OPENAI:
+        if self.llm == LLMProviderType.OPENAI:
             return OpenAI(
                 api_key=self.api_key.get_secret_value() if self.api_key else None,
             )
-        elif self.llm == LLMType.AZURE:
+        elif self.llm == LLMProviderType.AZURE:
             return AzureOpenAI(
                 api_key=self.api_key.get_secret_value() if self.api_key else None,
                 azure_endpoint=self.azure_endpoint,
@@ -155,7 +185,7 @@ class Config(RobustaBaseConfig):
 
     def create_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern
-    ) -> IssueInvestigator:
+    ) -> ToolCallingLLM:
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return ToolCallingLLM(
             self.create_llm(),
