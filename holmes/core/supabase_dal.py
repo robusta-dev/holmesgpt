@@ -59,7 +59,7 @@ class SupabaseDal:
         if not self.enabled:
             logging.info("Robusta store initialization parameters not provided. skipping")
             return
-        logging.info(f"Initializing robusta store for account {self.account_id}")
+        logging.info(f"Initializing robusta store for account {self.account_id}, user {self.user_id}")
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
         self.client = create_client(self.url, self.api_key, options)
         self.sign_in()
@@ -189,3 +189,14 @@ class SupabaseDal:
             .execute()
         )
         return AuthToken(**result.data[0])
+
+    def invalidate_auth_token(self, token: AuthToken) -> None:
+        (
+            self.client.table(TOKENS_TABLE)
+            .update({"deleted": True})
+            .eq("account_id", token.account_id)
+            .eq("user_id", token.user_id)
+            .eq("token", token.token)
+            .eq("type", token.type)
+        )
+        # TODO maybe handle errors such as non-existent tokens?

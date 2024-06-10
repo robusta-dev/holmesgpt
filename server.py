@@ -57,9 +57,7 @@ def init_logging():
     logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
     print("setting up colored logging")
-    colorlog.basicConfig(
-        format=logging_format, level=logging_level, datefmt=logging_datefmt
-    )
+    colorlog.basicConfig(format=logging_format, level=logging_level, datefmt=logging_datefmt)
     logging.getLogger().setLevel(logging_level)
 
     httpx_logger = logging.getLogger("httpx")
