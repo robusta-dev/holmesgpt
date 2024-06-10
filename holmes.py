@@ -16,6 +16,7 @@ from rich.rule import Rule
 from holmes.config import Config, LLMType
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.prompts import load_prompt
+from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -160,7 +161,7 @@ def ask(
 @investigate_app.command()
 def alertmanager(
     alertmanager_url: Optional[str] = typer.Option(None, help="AlertManager url"),
-    alertname: Optional[str] = typer.Option(
+    alertmanager_alertname: Optional[str] = typer.Option(
         None,
         help="Investigate all alerts with this name (can be regex that matches multiple alerts). If not given, defaults to all firing alerts",
     ),
@@ -203,14 +204,12 @@ def alertmanager(
         alertmanager_url=alertmanager_url,
         alertmanager_username=alertmanager_username,
         alertmanager_password=alertmanager_password,
+        alertmanager_alertname=alertmanager_alertname,
         slack_token=slack_token,
         slack_channel=slack_channel,
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-    
-    if alertname:
-        alertname = re.compile(alertname)
 
     system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
@@ -221,18 +220,18 @@ def alertmanager(
         slack = config.create_slack_destination()
 
     try:
-        issues = source.fetch_issues(alertname)
+        issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from alertmanager: {e}")
+        logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
         return
 
-    if alertname is not None:
+    if alertmanager_alertname is not None:
         console.print(
             f"[bold yellow]Analyzing {len(issues)} issues matching filter.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
         )
     else:
         console.print(
-            f"[bold yellow]Analyzing all {len(issues)} issues. (Use --alertname to filter.)[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
+            f"[bold yellow]Analyzing all {len(issues)} issues. (Use --alertmanager-alertname to filter.)[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
         )
     for i, issue in enumerate(issues):
         console.print(
@@ -266,8 +265,8 @@ def jira(
         None,
         help="Investigate tickets matching a JQL query (e.g. 'project=DEFAULT_PROJECT')",
     ),
-    update_ticket: Optional[bool] = typer.Option(
-        False, help="Update tickets with AI results"
+    update: Optional[bool] = typer.Option(
+        False, help="Update Jira with AI results"
     ),
     # common options
     llm: Optional[LLMType] = opt_llm,
@@ -311,7 +310,7 @@ def jira(
         # TODO: allow passing issue ID
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from Jira: {e}")
+        logging.error(f"Failed to fetch issues from Jira", exc_info=e)
         return
 
     console.print(
@@ -327,12 +326,12 @@ def jira(
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
         console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
         console.print(Rule())
-        if update_ticket:
+        if update:
             source.write_back_result(issue.id, result)
             console.print(f"[bold]Updated ticket {issue.url}.[/bold]")
         else:
             console.print(
-                f"[bold]Not updating ticket {issue.url}. Use the --update-ticket option to do so.[/bold]"
+                f"[bold]Not updating ticket {issue.url}. Use the --update option to do so.[/bold]"
             )
 
 
@@ -351,8 +350,8 @@ def github(
         None,
         help="The GitHub repository name, eg: if the repository url is https://github.com/robusta-dev/holmesgpt, the repository name is holmesgpt",
     ),
-    update_issue: Optional[bool] = typer.Option(
-        False, help="Update issues with AI results"
+    update: Optional[bool] = typer.Option(
+        False, help="Update GitHub with AI results"
     ),
     github_query: Optional[str] = typer.Option(
         "is:issue is:open",
@@ -400,7 +399,7 @@ def github(
     try:
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from GitHub: {e}")
+        logging.error(f"Failed to fetch issues from GitHub", exc_info=e)
         return
 
     console.print(
@@ -415,13 +414,168 @@ def github(
         console.print(Markdown(result.result.replace(
             "\n", "\n\n")), style="bold green")
         console.print(Rule())
-        if update_issue:
+        if update:
             source.write_back_result(issue.id, result)
             console.print(f"[bold]Updated ticket {issue.url}.[/bold]")
         else:
             console.print(
-                f"[bold]Not updating issue {issue.url}. Use the --update-issue option to do so.[/bold]"
+                f"[bold]Not updating issue {issue.url}. Use the --update option to do so.[/bold]"
             )
+
+@investigate_app.command()
+def pagerduty(
+    pagerduty_api_key: str = typer.Option(
+        None, help="The PagerDuty API key.  This can be found in the PagerDuty UI under Integrations > API Access Keys."
+    ),
+    pagerduty_user_email: Optional[str] = typer.Option(
+        None, help="When --update is set, which user will be listed as the user who updated the ticket. (Must be the email of a valid user in your PagerDuty account.)"
+    ),
+    pagerduty_incident_key: Optional[str] = typer.Option(
+        None, help="If provided, only analyze a single PagerDuty incident matching this key"
+    ),
+    update: Optional[bool] = typer.Option(
+        False, help="Update PagerDuty with AI results"
+    ),
+    # common options
+    llm: Optional[LLMType] = opt_llm,
+    api_key: Optional[str] = opt_api_key,
+    azure_endpoint: Optional[str] = opt_azure_endpoint,
+    model: Optional[str] = opt_model,
+    config_file: Optional[str] = opt_config_file,
+    custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
+    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
+    custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    max_steps: Optional[int] = opt_max_steps,
+    verbose: Optional[bool] = opt_verbose,
+    # advanced options for this command
+    system_prompt: Optional[str] = typer.Option(
+        "builtin://generic_investigation.jinja2", help=system_prompt_help
+    ),
+):
+    """
+    Investigate an OpsGenie alert
+    """
+    console = init_logging(verbose)
+    config = Config.load_from_file(
+        config_file,
+        api_key=api_key,
+        llm=llm,
+        azure_endpoint=azure_endpoint,
+        model=model,
+        max_steps=max_steps,
+        pagerduty_api_key=pagerduty_api_key,
+        pagerduty_user_email=pagerduty_user_email,
+        pagerduty_incident_key=pagerduty_incident_key,
+        custom_toolsets=custom_toolsets,
+        custom_runbooks=custom_runbooks
+    )
+
+    system_prompt = load_prompt(system_prompt)
+    ai = config.create_issue_investigator(console, allowed_toolsets)
+    source = config.create_pagerduty_source()
+    try:
+        issues = source.fetch_issues()
+    except Exception as e:
+        logging.error(f"Failed to fetch issues from OpsGenie", exc_info=e)
+        return
+
+    console.print(
+        f"[bold yellow]Analyzing {len(issues)} PagerDuty incidents.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
+    )
+    for i, issue in enumerate(issues):
+        console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
+        result = ai.investigate(issue, system_prompt, console)
+
+        console.print(Rule())
+        console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
+        console.print(Markdown(result.result.replace(
+            "\n", "\n\n")), style="bold green")
+        console.print(Rule())
+        if update:
+            source.write_back_result(issue.id, result)
+            console.print(f"[bold]Updated alert {issue.url}.[/bold]")
+        else:
+            console.print(
+                f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
+            )
+
+@investigate_app.command()
+def opsgenie(
+    opsgenie_api_key: str = typer.Option(
+        None, help="The OpsGenie API key"
+    ),
+    opsgenie_team_integration_key: str = typer.Option(
+        None, help=OPSGENIE_TEAM_INTEGRATION_KEY_HELP
+    ),
+    opsgenie_query: Optional[str] = typer.Option(
+        None, help="E.g. 'message: Foo' (see https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/)"
+    ),
+    update: Optional[bool] = typer.Option(
+        False, help="Update OpsGenie with AI results"
+    ),
+    # common options
+    llm: Optional[LLMType] = opt_llm,
+    api_key: Optional[str] = opt_api_key,
+    azure_endpoint: Optional[str] = opt_azure_endpoint,
+    model: Optional[str] = opt_model,
+    config_file: Optional[str] = opt_config_file,
+    custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
+    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
+    custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    max_steps: Optional[int] = opt_max_steps,
+    verbose: Optional[bool] = opt_verbose,
+    # advanced options for this command
+    system_prompt: Optional[str] = typer.Option(
+        "builtin://generic_investigation.jinja2", help=system_prompt_help
+    ),
+):
+    """
+    Investigate an OpsGenie alert
+    """
+    console = init_logging(verbose)
+    config = Config.load_from_file(
+        config_file,
+        api_key=api_key,
+        llm=llm,
+        azure_endpoint=azure_endpoint,
+        model=model,
+        max_steps=max_steps,
+        opsgenie_api_key=opsgenie_api_key,
+        opsgenie_team_integration_key=opsgenie_team_integration_key,
+        opsgenie_query=opsgenie_query,
+        custom_toolsets=custom_toolsets,
+        custom_runbooks=custom_runbooks
+    )
+
+    system_prompt = load_prompt(system_prompt)
+    ai = config.create_issue_investigator(console, allowed_toolsets)
+    source = config.create_opsgenie_source()
+    try:
+        issues = source.fetch_issues()
+    except Exception as e:
+        logging.error(f"Failed to fetch issues from OpsGenie", exc_info=e)
+        return
+
+    console.print(
+        f"[bold yellow]Analyzing {len(issues)} OpsGenie alerts.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
+    )
+    for i, issue in enumerate(issues):
+        console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
+        result = ai.investigate(issue, system_prompt, console)
+
+        console.print(Rule())
+        console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
+        console.print(Markdown(result.result.replace(
+            "\n", "\n\n")), style="bold green")
+        console.print(Rule())
+        if update:
+            source.write_back_result(issue.id, result)
+            console.print(f"[bold]Updated alert {issue.url}.[/bold]")
+        else:
+            console.print(
+                f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
+            )
+
 
 @app.command()
 def version() -> None:

@@ -5,23 +5,24 @@ from strenum import StrEnum
 from typing import List, Optional
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import SecretStr, FilePath
+from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
 from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tool_calling_llm import (
-    IssueInvestigator,
-    ToolCallingLLM,
-    YAMLToolExecutor,
-)
+from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
+                                          YAMLToolExecutor)
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
-from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
-from holmes.plugins.sources.jira import JiraSource
+from holmes.plugins.runbooks import (load_builtin_runbooks,
+                                     load_runbooks_from_file)
 from holmes.plugins.sources.github import GitHubSource
+from holmes.plugins.sources.jira import JiraSource
+from holmes.plugins.sources.opsgenie import OpsGenieSource
+from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
+from holmes.plugins.toolsets import (load_builtin_toolsets,
+                                     load_toolsets_from_file)
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
@@ -45,6 +46,7 @@ class Config(RobustaBaseConfig):
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
     alertmanager_password: Optional[str] = None
+    alertmanager_alertname: Optional[str] = None
 
     jira_url: Optional[str] = None
     jira_username: Optional[str] = None
@@ -60,6 +62,14 @@ class Config(RobustaBaseConfig):
     slack_token: Optional[SecretStr] = None
     slack_channel: Optional[str] = None
 
+    pagerduty_api_key: Optional[SecretStr] = None
+    pagerduty_user_email: Optional[str] = None
+    pagerduty_incident_key: Optional[str] = None
+
+    opsgenie_api_key: Optional[SecretStr] = None
+    opsgenie_team_integration_key: Optional[SecretStr] = None
+    opsgenie_query: Optional[str] = None
+    
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
@@ -210,6 +220,26 @@ class Config(RobustaBaseConfig):
             repository=self.github_repository,
             query=self.github_query,
         )
+    
+    def create_pagerduty_source(self) -> OpsGenieSource:
+        if self.pagerduty_api_key is None:
+            raise ValueError("--pagerduty-api-key must be specified")
+        
+        return PagerDutySource(
+            api_key=self.pagerduty_api_key.get_secret_value(),
+            user_email=self.pagerduty_user_email,
+            incident_key=self.pagerduty_incident_key,
+        )
+    
+    def create_opsgenie_source(self) -> OpsGenieSource:
+        if self.opsgenie_api_key is None:
+            raise ValueError("--opsgenie-api-key must be specified")
+        
+        return OpsGenieSource(
+            api_key=self.opsgenie_api_key.get_secret_value(),
+            query=self.opsgenie_query,
+            team_integration_key=self.opsgenie_team_integration_key.get_secret_value() if self.opsgenie_team_integration_key else None,
+        )
 
     def create_alertmanager_source(self) -> AlertManagerSource:
         if self.alertmanager_url is None:
@@ -224,6 +254,7 @@ class Config(RobustaBaseConfig):
             url=self.alertmanager_url,
             username=self.alertmanager_username,
             password=self.alertmanager_password,
+            alertname=self.alertmanager_alertname,
         )
 
     def create_slack_destination(self):

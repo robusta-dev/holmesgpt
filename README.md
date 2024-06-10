@@ -58,6 +58,20 @@ holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-u
 ```
 </details>
 
+<summary>Investigate PagerDuty Incidents</summary>
+
+```bash
+holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_PAGERDUTY_API_KEY>
+```
+</details>
+
+<summary>Investigate an OpsGenie Incident</summary>
+
+```bash
+holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_OPSGENIE_API_KEY>
+```
+</details>
+
 <summary>Investigate a GitHub Issue</summary>
 
 ```bash
@@ -316,32 +330,32 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093 --desti
 <details>
 <summary>Investigate and update Jira tickets with findings</summary>
 
-By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
+By default Jira investigation results are displayed in the CLI itself. But you can use `--update` to get the results as a comment in the Jira ticket.
 
 ```bash
-holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update-ticket
+holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update
 ```
 
 Alternatively you can update the `config.yaml` with your Jira account details and run: 
 
 ```bash
-holmes investigate jira --update-ticket
+holmes investigate jira --update
 ```
 
 </details>
 
 <summary>Investigate and update GitHub issues with findings</summary>
 
-By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
+By default GitHub investigation results are displayed in the CLI itself. But you can use `--update` to get the results as a comment in the GitHub issue.
 
 ```bash
-holmes investigate github --github-url https://<PLACEDHOLDER> --github-owner <PLACEHOLDER_GITHUB_OWNER> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT> --update-issue
+holmes investigate github --github-url https://<PLACEDHOLDER> --github-owner <PLACEHOLDER_GITHUB_OWNER> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT> --update
 ```
 
 Alternatively you can update the `config.yaml` with your GitHub account details and run: 
 
 ```bash
-holmes investigate github --update-issue
+holmes investigate github --update
 ```
 
 </details>

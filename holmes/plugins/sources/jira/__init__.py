@@ -19,8 +19,7 @@ class JiraSource(SourcePlugin):
         self.api_key = api_key
         self.jql_query = jql_query
 
-    def fetch_issues(self, issue_id: Pattern = None) -> List[Issue]:
-        # TODO: translate issue_id to JQL?
+    def fetch_issues(self) -> List[Issue]:
         logging.info(f"Fetching issues from {self.url} with JQL='{self.jql_query}'")
         try:
             response = requests.get(

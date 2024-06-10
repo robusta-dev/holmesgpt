@@ -1,7 +1,8 @@
-from typing import List, Optional, Pattern, Literal
+import re
+from typing import List, Literal, Optional, Pattern
 
-import requests
 import humanize
+import requests
 from pydantic import BaseModel, ValidationError, parse_obj_as, validator
 from requests.auth import HTTPBasicAuth
 
@@ -19,14 +20,19 @@ class AlertManagerSource(SourcePlugin):
     """
 
     def __init__(
-        self, url: str, username: Optional[str] = None, password: Optional[str] = None
+        self,
+        url: str,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        alertname: Optional[Pattern] = None,
     ):
         super().__init__()
         self.url = url
         self.username = username
         self.password = password
+        self.alertname = alertname
 
-    def fetch_issues(self, issue_id: Pattern = None) -> List[Issue]:
+    def fetch_issues(self) -> List[Issue]:
         fetch_alerts_url = f"{self.url}/api/v2/alerts"
         params = {
             "active": "true",
@@ -49,8 +55,9 @@ class AlertManagerSource(SourcePlugin):
             a.to_regular_prometheus_alert()
             for a in parse_obj_as(List[PrometheusGettableAlert], data)
         ]
-        if issue_id is not None:
-            alerts = [a for a in alerts if issue_id.match(a.unique_id)]
+        if self.alertname is not None:
+            alertname_filter = re.compile(self.alertname)
+            alerts = [a for a in alerts if alertname_filter.match(a.unique_id)]
 
         return [
             Issue(
