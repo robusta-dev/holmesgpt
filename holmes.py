@@ -335,6 +335,96 @@ def jira(
                 f"[bold]Not updating ticket {issue.url}. Use the --update-ticket option to do so.[/bold]"
             )
 
+
+@investigate_app.command()
+def github(
+    github_url: str = typer.Option(
+        "https://api.github.com", help="The GitHub api base url (e.g: https://api.github.com)"
+    ),
+    github_owner: Optional[str] = typer.Option(
+        None, help="The GitHub repository Owner, eg: if the repository url is https://github.com/robusta-dev/holmesgpt, the owner is robusta-dev"
+    ),
+    github_pat: str = typer.Option(
+        None,
+    ),
+    github_repository: Optional[str] = typer.Option(
+        None,
+        help="The GitHub repository name, eg: if the repository url is https://github.com/robusta-dev/holmesgpt, the repository name is holmesgpt",
+    ),
+    update_issue: Optional[bool] = typer.Option(
+        False, help="Update issues with AI results"
+    ),
+    github_query: Optional[str] = typer.Option(
+        "is:issue is:open",
+        help="Investigate tickets matching a GitHub query (e.g. 'is:issue is:open')",
+    ),
+    # common options
+    llm: Optional[LLMType] = opt_llm,
+    api_key: Optional[str] = opt_api_key,
+    azure_endpoint: Optional[str] = opt_azure_endpoint,
+    model: Optional[str] = opt_model,
+    config_file: Optional[str] = opt_config_file,
+    custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
+    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
+    custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    max_steps: Optional[int] = opt_max_steps,
+    verbose: Optional[bool] = opt_verbose,
+    # advanced options for this command
+    system_prompt: Optional[str] = typer.Option(
+        "builtin://generic_investigation.jinja2", help=system_prompt_help
+    ),
+):
+    """
+    Investigate a GitHub issue
+    """
+    console = init_logging(verbose)
+    config = Config.load_from_file(
+        config_file,
+        api_key=api_key,
+        llm=llm,
+        azure_endpoint=azure_endpoint,
+        model=model,
+        max_steps=max_steps,
+        github_url=github_url,
+        github_owner=github_owner,
+        github_pat=github_pat,
+        github_repository=github_repository,
+        github_query=github_query,
+        custom_toolsets=custom_toolsets,
+        custom_runbooks=custom_runbooks
+    )
+
+    system_prompt = load_prompt(system_prompt)
+    ai = config.create_issue_investigator(console, allowed_toolsets)
+    source = config.create_github_source()
+    try:
+        issues = source.fetch_issues()
+    except Exception as e:
+        logging.error(f"Failed to fetch issues from GitHub: {e}")
+        return
+
+    console.print(
+        f"[bold yellow]Analyzing {
+            len(issues)} GitHub Issues.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
+    )
+    for i, issue in enumerate(issues):
+        console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
+        result = ai.investigate(issue, system_prompt, console)
+
+        console.print(Rule())
+        console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
+        console.print(Markdown(result.result.replace(
+            "\n", "\n\n")), style="bold green")
+        console.print(Rule())
+        if update_issue:
+            source.write_back_result(issue.id, result)
+            console.print(f"[bold]Updated ticket {issue.url}.[/bold]")
+        else:
+            console.print(
+                f"[bold]Not updating issue {
+                    issue.url}. Use the --update-issue option to do so.[/bold]"
+            )
+
 @app.command()
 def version() -> None:
     typer.echo(get_version())

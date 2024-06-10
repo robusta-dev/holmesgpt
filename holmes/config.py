@@ -19,6 +19,7 @@ from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.jira import JiraSource
+from holmes.plugins.sources.github import GitHubSource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
@@ -50,6 +51,12 @@ class Config(RobustaBaseConfig):
     jira_api_key: Optional[SecretStr] = None
     jira_query: Optional[str] = ""
 
+    github_url: Optional[str] = None
+    github_owner: Optional[str] = None
+    github_pat: Optional[SecretStr] = None
+    github_repository: Optional[str] = None
+    github_query: Optional[str] = ""
+
     slack_token: Optional[SecretStr] = None
     slack_channel: Optional[str] = None
 
@@ -73,6 +80,11 @@ class Config(RobustaBaseConfig):
             "jira_query",
             "slack_token",
             "slack_channel",
+            "github_url",
+            "github_owner",
+            "github_repository",
+            "github_pat",
+            "github_query",
             # TODO
             # custom_runbooks
             # custom_toolsets
@@ -176,6 +188,27 @@ class Config(RobustaBaseConfig):
             username=self.jira_username,
             api_key=self.jira_api_key.get_secret_value(),
             jql_query=self.jira_query,
+        )
+
+    def create_github_source(self) -> GitHubSource:
+        if not (
+            self.github_url.startswith(
+                "http://") or self.github_url.startswith("https://")
+        ):
+            raise ValueError("--github-url must start with http:// or https://")
+        if self.github_owner is None:
+            raise ValueError("--github-owner must be specified")
+        if self.github_repository is None:
+            raise ValueError("--github-repository must be specified")
+        if self.github_pat is None:
+            raise ValueError("--github-pat must be specified")
+
+        return GitHubSource(
+            url=self.github_url,
+            owner=self.github_owner,
+            pat=self.github_pat.get_secret_value(),
+            repository=self.github_repository,
+            query=self.github_query,
         )
 
     def create_alertmanager_source(self) -> AlertManagerSource:

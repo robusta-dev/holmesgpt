@@ -4,7 +4,7 @@ from openai import AzureOpenAI, OpenAI
 from holmes.core.issue import Issue
 from holmes.core.tool_calling_llm import LLMResult
 
-# Sources must implmenet this
+# Sources must implement this
 class SourcePlugin:
     def fetch_issues(self, issue_id: Pattern = None) -> List[Issue]:
         raise NotImplementedError()
@@ -12,7 +12,7 @@ class SourcePlugin:
     # optional
     def stream_issues(self) -> Iterable[Issue]:
         raise NotImplementedError()
-    
+
     # optional
     def write_back_result(self, issue_id: str, result_data: LLMResult) -> None:
         raise NotImplementedError()
