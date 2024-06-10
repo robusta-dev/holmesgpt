@@ -404,8 +404,7 @@ def github(
         return
 
     console.print(
-        f"[bold yellow]Analyzing {
-            len(issues)} GitHub Issues.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
+        f"[bold yellow]Analyzing {len(issues)} GitHub Issues.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
@@ -421,8 +420,7 @@ def github(
             console.print(f"[bold]Updated ticket {issue.url}.[/bold]")
         else:
             console.print(
-                f"[bold]Not updating issue {
-                    issue.url}. Use the --update-issue option to do so.[/bold]"
+                f"[bold]Not updating issue {issue.url}. Use the --update-issue option to do so.[/bold]"
             )
 
 @app.command()
