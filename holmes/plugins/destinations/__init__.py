@@ -1,4 +1,4 @@
-from enum import StrEnum
+from strenum import StrEnum
 
 class DestinationType(StrEnum):
     SLACK = "slack"
