@@ -58,6 +58,8 @@ holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-u
 ```
 </details>
 
+
+<details>
 <summary>Investigate a GitHub Issue</summary>
 
 ```bash
@@ -216,6 +218,12 @@ Integrate with Jira to automate issue tracking and project management tasks. Pro
 #jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
 ```
 
+1. **jira_username**: The email you use to log into your Jira account. Eg: `jira-user@company.com`
+2. **jira_api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
+3. **jira_url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
+4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
+5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
+
 ## GitHub Integration
 
 Integrate with GitHub to automate issue tracking and project management tasks. Provide your GitHub PAT (*personal access token*) and specify the `owner/repository`.
@@ -229,6 +237,11 @@ Integrate with GitHub to automate issue tracking and project management tasks. P
 #github_query: "is:issue is:open"
 ```
 
+1. **github_owner**: The repository owner. Eg: `robusta-dev`
+2. **github_pat**: Follow these [instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to get your GitHub pat (*personal access token*).
+3. **github_url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
+4. **github_repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
+
 ## Slack Integration
 
 Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
@@ -238,6 +251,9 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 #slack_token: "..."
 #slack_channel: "#general"
 ```
+
+1. **slack-token**: The Slack API key. You can generate with `pip install robusta-cli && robusta integrations slack`
+2. **slack-channel**: The Slack channel where you want to receive the findings.
 
 ## Large Language Model (LLM) Configuration
 
@@ -314,6 +330,7 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093 --desti
 </details>
 
 <details>
+
 <summary>Investigate and update Jira tickets with findings</summary>
 
 By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
@@ -330,6 +347,8 @@ holmes investigate jira --update-ticket
 
 </details>
 
+
+<details>
 <summary>Investigate and update GitHub issues with findings</summary>
 
 By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
@@ -374,47 +393,6 @@ You can view an example config file with all available settings [here](config.ex
 By default, without specifying `--config` the agent will try to read `config.yaml` from the current directory.
 If a setting is specified in both in config file and cli, cli takes precedence.
 </details>
-
-## More Integrations
-
-<details>
-<summary>Slack</summary>
-
-Adding a Slack integration allows the LLM to send Prometheus Alert investigation details to a Slack channel. To do this you need the following
-
-1. **slack-token**: The Slack API key. You can generate with `pip install robusta-cli && robusta integrations slack`
-2. **slack-channel**: The Slack channel where you want to receive the findings.
-
-Add these values to the `config.yaml` or pass them via the CLI.
-</details>
-
-<details>
-<summary>Jira</summary>
-
-Adding a Jira integration allows the LLM to fetch Jira tickets and investigate automatically. Optionally it can update the Jira ticket with findings too. You need the following to use this
-
-1. **url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
-2. **username**: The email you use to log into your Jira account. Eg: `jira-user@company.com`
-3. **api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
-4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
-5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
-
-Add these values to the `config.yaml` or pass them via the CLI.
-</details>
-
-<details>
-<summary>GitHub</summary>
-
-Adding a GitHub integration allows the LLM to fetch GitHub issues and investigate automatically. Optionally it can update the GitHub issue with findings too. You need the following to use this
-
-1. **url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
-2. **owner**: The repository owner. Eg: `robusta-dev`
-3. **pat**: Follow these [instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to get your GitHub pat (*personal access token*).
-4. **repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
-
-Add these values to the `config.yaml` or pass them via the CLI.
-</details>
-
 
 ## License
 
