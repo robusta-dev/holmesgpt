@@ -71,7 +71,7 @@ def init_logging():
 
 init_logging()
 dal = SupabaseDal()
-session_manager = SessionManager("RelayHolmes")
+session_manager = SessionManager(dal, "RelayHolmes")
 app = FastAPI()
 
 console = Console()

@@ -6,6 +6,7 @@ HOLMES_PORT = int(os.environ.get('HOLMES_PORT', 5050))
 ROBUSTA_CONFIG_PATH = os.environ.get('ROBUSTA_CONFIG_PATH', "/etc/robusta/config/active_playbooks.yaml")
 
 ROBUSTA_ACCOUNT_ID = os.environ.get("ROBUSTA_ACCOUNT_ID", "")
+ROBUSTA_USER_ID = os.environ.get("ROBUSTA_USER_ID", "")
 STORE_URL = os.environ.get("STORE_URL", "")
 STORE_API_KEY = os.environ.get("STORE_API_KEY", "")
 STORE_EMAIL = os.environ.get("STORE_EMAIL", "")

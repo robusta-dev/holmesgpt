@@ -11,8 +11,15 @@ from supabase import create_client
 from supabase.lib.client_options import ClientOptions
 from pydantic import BaseModel
 
-from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
-                                    STORE_PASSWORD)
+from holmes.common.env_vars import (
+    ROBUSTA_ACCOUNT_ID,
+    ROBUSTA_CONFIG_PATH,
+    ROBUSTA_USER_ID,
+    STORE_API_KEY,
+    STORE_EMAIL,
+    STORE_PASSWORD,
+    STORE_URL,
+)
 
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
@@ -31,6 +38,7 @@ class RobustaToken(BaseModel):
     store_url: str
     api_key: str
     account_id: str
+    user_id: str
     email: str
     password: str
 
@@ -80,24 +88,48 @@ class SupabaseDal:
         robusta_token = self.__load_robusta_config()
         if robusta_token:
             self.account_id = robusta_token.account_id
+            self.user_id = robusta_token.user_id
             self.url = robusta_token.store_url
             self.api_key = robusta_token.api_key
             self.email = robusta_token.email
             self.password = robusta_token.password
         else:
             self.account_id = ROBUSTA_ACCOUNT_ID
+            self.user_id = ROBUSTA_USER_ID
             self.url = STORE_URL
             self.api_key = STORE_API_KEY
             self.email = STORE_EMAIL
             self.password = STORE_PASSWORD
 
         # valid only if all store parameters are provided
-        return all([self.account_id, self.url, self.api_key, self.email, self.password])
+        return self.check_settings()
+
+    def check_settings(self):
+        unset_attrs = []
+        for attr_name in [
+            "account_id",
+            "user_id",
+            "url",
+            "api_key",
+            "email",
+            "password",
+        ]:
+            if not getattr(self, attr_name, None):
+                unset_attrs.append(attr_name)
+        if unset_attrs:
+            logging.warning(f"Unset store config variables: {', '.join(unset_attrs)}")
+            return False
+        else:
+            return True
 
     def sign_in(self):
         logging.info("Supabase DAL login")
-        res = self.client.auth.sign_in_with_password({"email": self.email, "password": self.password})
-        self.client.auth.set_session(res.session.access_token, res.session.refresh_token)
+        res = self.client.auth.sign_in_with_password(
+            {"email": self.email, "password": self.password}
+        )
+        self.client.auth.set_session(
+            res.session.access_token, res.session.refresh_token
+        )
         self.client.postgrest.auth(res.session.access_token)
 
     def get_issue_data(self, issue_id: str) -> Optional[Dict]:
@@ -109,11 +141,10 @@ class SupabaseDal:
         issue_data = None
         try:
             issue_response = (
-                self.client
-                    .table(ISSUES_TABLE)
-                    .select("*")
-                    .filter("id", "eq", issue_id)
-                    .execute()
+                self.client.table(ISSUES_TABLE)
+                .select("*")
+                .filter("id", "eq", issue_id)
+                .execute()
             )
             if len(issue_response.data):
                 issue_data = issue_response.data[0]
@@ -124,8 +155,7 @@ class SupabaseDal:
         if not issue_data:
             return None
         evidence = (
-            self.client
-            .table(EVIDENCE_TABLE)
+            self.client.table(EVIDENCE_TABLE)
             .select("*")
             .filter("issue_id", "eq", issue_id)
             .execute()
@@ -133,14 +163,13 @@ class SupabaseDal:
         issue_data["evidence"] = evidence.data
         return issue_data
 
-    def create_auth_token(self, token_type: str, user_id: str) -> AuthToken:
+    def create_auth_token(self, token_type: str) -> AuthToken:
         result = (
-            self.client
-            .table(TOKENS_TABLE)
+            self.client.table(TOKENS_TABLE)
             .insert(
                 {
                     "account_id": self.account_id,
-                    "user_id": user_id,
+                    "user_id": self.user_id,
                     "token": uuid4(),
                     "type": token_type,
                 }
@@ -151,8 +180,7 @@ class SupabaseDal:
 
     def get_freshest_auth_token(self, token_type: str) -> AuthToken:
         result = (
-            self.client
-            .table(TOKENS_TABLE)
+            self.client.table(TOKENS_TABLE)
             .select("*")
             .filter("token_type", "eq", token_type)
             .filter("deleted", "eq", False)
@@ -161,14 +189,3 @@ class SupabaseDal:
             .execute()
         )
         return AuthToken(**result.data[0])
-
-    def get_user_ids_for_account(self, account_id: str) -> List[str]:
-        return [
-            row["user_id"]
-            for row in (
-                self.client
-                .table(ACCOUNT_USERS_TABLE)
-                .select("user_id")
-                .filter("account_id", "eq", account_id)
-            ).data
-        ]
