@@ -136,7 +136,7 @@ jobs:
           name: holmes-ubuntu-20.04-${{ github.ref_name }}
       - name: Calculate hash
         id: calc-hash
-        run: echo "::set-output name=LINUX_BUILD_HASH::$(sha256sum holmes-$-ubuntu-20.04-${{ github.ref_name }}.zip | awk '{print $1}')"
+        run: echo "::set-output name=LINUX_BUILD_HASH::$(sha256sum holmes-ubuntu-20.04-${{ github.ref_name }}.zip | awk '{print $1}')"
 
   # TODO: update homebrew formula
   update-formula:
