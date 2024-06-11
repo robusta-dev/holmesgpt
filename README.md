@@ -1,22 +1,21 @@
 <div align="center">
-  <h1 align="center">HolmesGPT - The Open Source DevOps Assistant</h1>
-<h2 align="center">Solve Alerts Twice as Fast with an AI Teammate</h2>
+  <h1 align="center">HolmesGPT - The Open Source On-Call/DevOps Assistant</h1>
+<h2 align="center">Get a head start on fixing alerts with AI investigation</h2>
   <p align="center">
-    <a href="#use-cases"><strong>Use Cases</strong></a> |
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> 
   </p>
 </div>
 
-The only DevOps assistant that solves problems **like a human does** - by looking at problems and fetching missing data repeatedly until the problem can be solved. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
+The only AI assistant that investigates incidents **like a human does** - by looking at alerts and fetching missing data until it finds the root cause. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
 
-### Use Cases:
-- **Kubernetes Troubleshooting**: Identify problems and troubleshoot them (works outside Kubernetes too!) 
-- **AIOps and Incident Response**: Investigate firing alerts by gathering data and determining the root cause
-- **Automated Investigation and Triage:** Prioritize critical alerts and resolve the highest impact issues first.
-- **Ticket Management**: Analyze and resolve tickets related to DevOps tasks
-- **Runbook Automation in Plain English:** No more defining runbooks as YAML or complicated workflows. Describe tasks in plain English and the AI will follow the instructions
+### What Can HolmesGPT Do?
+- **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
+- **Automated Triage:** Use HolmesGPT as a first responder to flag critical alerts and prioritize them for your team to look at
+- **Ticket Management**: Analyze and resolve Jira tickets related to DevOps tasks
+- **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
+- **Runbook Automation in Plain English:** HolmesGPT can speed up your response to known issues by following runbooks you provide
 
 ### See it in Action
 ![AI Alert Analysis](images/holmesgptdemo.gif)
@@ -32,14 +31,6 @@ holmes ask "what pods are unhealthy in my cluster and why?"
 </details>
 
 <details>
-<summary>Ask Questions About Your Cloud</summary>
-
-```bash
-holmes ask "what services does my cluster expose externally?"
-```
-</details>
-
-<details>
 <summary>Investigate a Firing Prometheus alert</summary>
 
 ```bash
@@ -51,23 +42,30 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 </details>
 
 <details>
-<summary>Investigate a Jira Ticket</summary>
+
+<summary>Investigate and update Jira tickets with findings</summary>
 
 ```bash
 holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
 ```
+
+By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
+
+
 </details>
 
-
 <details>
-<summary>Investigate a GitHub Issue</summary>
+<summary>Investigate and update GitHub Issues with findings</summary>
 
 ```bash
 holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
 ```
+
+By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
+
 </details>
 
-Like what you see? Checkout [more examples](#more-examples) or get started by [installing HolmesGPT](#installation).
+Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
 
 ## Key Features
 - **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
@@ -182,10 +180,20 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
-## More Examples
+## Other Use Cases
+
+HolmesGPT is usually used for incident response, but it can function as a general-purpose DevOps assistant too. Here are some examples:
 
 <details>
-<summary>Identify which Helm value to modify</summary>
+<summary>Ask Questions About Your Cloud</summary>
+
+```bash
+holmes ask "what services does my cluster expose externally?"
+```
+</details>
+
+<details>
+<summary>Find the right configuration to change in big Helm charts</summary>
 
 LLM uses the built-in [Helm toolset](./holmes/plugins/toolsets/helm.yaml) to gather information.
 
@@ -204,58 +212,6 @@ holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image cons
 ```
 </details>
 
-<details>
-<summary>Investigate a Prometheus alert and share results in Slack</summary>
-
-By default investigation results are displayed in the CLI itself. You can optionally get these results in a Slack channel:
-
-```bash
-holmes investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack --slack-token <PLACEHOLDER_SLACK_TOKEN> --slack-channel <PLACEHOLDER_SLACK_CHANNEL>
-```
-
-Alternatively you can update the `config.yaml` with your Slack details and run: 
-
-```bash
-holmes investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack
-```
-
-</details>
-
-<details>
-
-<summary>Investigate and update Jira tickets with findings</summary>
-
-By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
-
-```bash
-holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update-ticket
-```
-
-Alternatively you can update the `config.yaml` with your Jira account details and run: 
-
-```bash
-holmes investigate jira --update-ticket
-```
-
-</details>
-
-
-<details>
-<summary>Investigate and update GitHub issues with findings</summary>
-
-By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
-
-```bash
-holmes investigate github --github-url https://<PLACEDHOLDER> --github-owner <PLACEHOLDER_GITHUB_OWNER> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT> --update-issue
-```
-
-Alternatively you can update the `config.yaml` with your GitHub account details and run: 
-
-```bash
-holmes investigate github --update-issue
-```
-
-</details>
 
 ## Advanced Usage
 
