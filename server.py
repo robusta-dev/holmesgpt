@@ -39,8 +39,10 @@ class InvestigateRequest(BaseModel):
     source_instance_id: str
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
+    prompt_template: str = "builtin://generic_investigation.jinja2"
     # TODO in the future
     # response_handler: ...
+
 
 def init_logging():
     logging_level = os.environ.get("LOG_LEVEL", "INFO")
@@ -84,7 +86,7 @@ def investigate_issues(request: InvestigateRequest):
     investigation = ai.investigate(
         issue,
         # TODO prompt should probably be configurable?
-        prompt=load_prompt("builtin://generic_investigation.jinja2"),
+        prompt=load_prompt(request.prompt),
         console=console,
     )
     ret = {
