@@ -1,15 +1,12 @@
 import logging
-from typing import List, Literal, Optional, Pattern
+from typing import List, Pattern
 
-import humanize
 import requests
-from pydantic import BaseModel, SecretStr, ValidationError, parse_obj_as, validator
 from requests.auth import HTTPBasicAuth
 
 from holmes.core.issue import Issue
-from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM, ToolCallResult
+from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.interfaces import SourcePlugin
-from holmes.plugins.utils import dict_to_markdown
 
 
 class JiraSource(SourcePlugin):

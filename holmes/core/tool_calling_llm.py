@@ -1,14 +1,12 @@
-import datetime
+import abc
 import json
 import logging
 import textwrap
-from typing import Dict, Generator, List, Optional
+from typing import List, Optional
 
 import jinja2
 from openai import BadRequestError, OpenAI
 from openai._types import NOT_GIVEN
-from openai.types.chat.chat_completion import Choice
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from pydantic import BaseModel
 from rich.console import Console
 
@@ -35,8 +33,13 @@ class LLMResult(BaseModel):
         )
 
 
-class ToolCallingLLM:
+class BaseToolCallingLLM(abc.ABC):
+    @abc.abstractmethod
+    def call(self, system_prompt: str, user_prompt: str) -> LLMResult:
+        raise NotImplementedError
 
+
+class OpenAIToolCallingLLM(BaseToolCallingLLM):
     def __init__(
         self,
         client: OpenAI,
@@ -49,7 +52,7 @@ class ToolCallingLLM:
         self.max_steps = max_steps
         self.model = model
 
-    def call(self, system_prompt, user_prompt) -> LLMResult:
+    def call(self, system_prompt: str, user_prompt: str) -> LLMResult:
         messages = [
             {
                 "role": "system",
@@ -131,7 +134,7 @@ class ToolCallingLLM:
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
-class IssueInvestigator(ToolCallingLLM):
+class IssueInvestigator(OpenAIToolCallingLLM):
     """
     Thin wrapper around ToolCallingLLM which:
     1) Provides a default prompt for RCA

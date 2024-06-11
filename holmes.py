@@ -2,18 +2,19 @@
 # add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
 
 import logging
-import re
 import warnings
 from pathlib import Path
-from typing import List, Optional, Pattern
-import json
+from typing import List, Optional
+
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
+
 from holmes.utils.file_utils import write_json_file
-from holmes.config import LLMConfig, LLMProviderType
+from holmes.config import BaseLLMConfig, LLMProviderType
+from holmes.core.provider import LLMProviderFactory
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.prompts import load_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
@@ -30,9 +31,10 @@ app.add_typer(investigate_app, name="investigate")
 
 
 # Common cli options
+llm_provider_names = ", ".join(str(tp) for tp in LLMProviderType)
 opt_llm: Optional[LLMProviderType] = typer.Option(
     LLMProviderType.OPENAI,
-    help="LLM provider ('openai' or 'azure')",   # TODO list all
+    help="LLM provider (supported values: {llm_provider_names})"
 )
 opt_api_key: Optional[str] = typer.Option(
     None,
@@ -143,7 +145,7 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)
-    config = LLMConfig.load_from_file(
+    config = BaseLLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -152,8 +154,9 @@ def ask(
         max_steps=max_steps,
         custom_toolsets=custom_toolsets,
     )
+    provider_factory = LLMProviderFactory(config)
     system_prompt = load_prompt(system_prompt)
-    ai = config.create_toolcalling_llm(console, allowed_toolsets)
+    ai = provider_factory.create_toolcalling_llm(console, allowed_toolsets)
     console.print("[bold yellow]User:[/bold yellow] " + prompt)
     response = ai.call(system_prompt, prompt)
     text_result = Markdown(response.result)
@@ -162,7 +165,8 @@ def ask(
     if show_tool_output and response.tool_calls:
         for tool_call in response.tool_calls:
             console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
-            # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
+            # we need to print this separately with markup=False because it contains arbitrary text
+            # and we don't want console.print to interpret it
             console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
     console.print(f"[bold green]AI:[/bold green]", end=" ")
     console.print(text_result, soft_wrap=True)
@@ -205,7 +209,7 @@ def alertmanager(
     Investigate a Prometheus/Alertmanager alert
     """
     console = init_logging(verbose)
-    config = LLMConfig.load_from_file(
+    config = BaseLLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -221,14 +225,15 @@ def alertmanager(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
+    provider_factory = LLMProviderFactory(config)
 
     system_prompt = load_prompt(system_prompt)
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = provider_factory.create_issue_investigator(console, allowed_toolsets)
 
-    source = config.create_alertmanager_source()
+    source = provider_factory.create_alertmanager_source()
 
     if destination == DestinationType.SLACK:
-        slack = config.create_slack_destination()
+        slack = provider_factory.create_slack_destination()
 
     try:
         issues = source.fetch_issues()
@@ -303,7 +308,7 @@ def jira(
     Investigate a Jira ticket
     """
     console = init_logging(verbose)
-    config = LLMConfig.load_from_file(
+    config = BaseLLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -317,10 +322,11 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
+    provider_factory = LLMProviderFactory(config)
 
     system_prompt = load_prompt(system_prompt)
-    ai = config.create_issue_investigator(console, allowed_toolsets)
-    source = config.create_jira_source()
+    ai = provider_factory.create_issue_investigator(console, allowed_toolsets)
+    source = provider_factory.create_jira_source()
     try:
         # TODO: allow passing issue ID
         issues = source.fetch_issues()
@@ -392,7 +398,7 @@ def github(
     Investigate a GitHub issue
     """
     console = init_logging(verbose)
-    config = LLMConfig.load_from_file(
+    config = BaseLLMConfig.load_from_file(
         config_file,
         api_key=api_key,
         llm=llm,
@@ -407,10 +413,11 @@ def github(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
+    provider_factory = LLMProviderFactory(config)
 
     system_prompt = load_prompt(system_prompt)
-    ai = config.create_issue_investigator(console, allowed_toolsets)
-    source = config.create_github_source()
+    ai = provider_factory.create_issue_investigator(console, allowed_toolsets)
+    source = provider_factory.create_github_source()
     try:
         issues = source.fetch_issues()
     except Exception as e:

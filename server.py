@@ -1,8 +1,5 @@
 import os
 
-import jinja2
-
-from holmes.utils.auth import SessionManager
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -17,38 +14,21 @@ from typing import List, Union
 
 import colorlog
 import uvicorn
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI
 from rich.console import Console
 
 from holmes.common.env_vars import (
+    ALLOWED_TOOLSETS,
     HOLMES_HOST,
     HOLMES_PORT,
 )
-from holmes.config import LLMConfig
+from holmes.config import BaseLLMConfig
 from holmes.core.issue import Issue
-from holmes.core.supabase_dal import AuthToken, SupabaseDal
+from holmes.core.provider import LLMProviderFactory
+from holmes.core.server_models import InvestigateContext, InvestigateRequest
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.prompts import load_prompt
-
-
-class InvestigateContext(BaseModel):
-    type: str
-    value: Union[str, dict]
-
-
-class InvestigateRequest(BaseModel):
-    source: str  # "prometheus" etc
-    title: str
-    description: str
-    subject: dict
-    context: List[InvestigateContext]
-    source_instance_id: str
-    include_tool_calls: bool = False
-    include_tool_call_results: bool = False
-    prompt_template: str = "builtin://generic_investigation.jinja2"
-    model: str = "gpt-4o"
-    # TODO in the future
-    # response_handler: ...
+from holmes.utils.auth import SessionManager
 
 
 def init_logging():
@@ -67,13 +47,22 @@ def init_logging():
 
 
 init_logging()
-logging.info(f"Starting AI server with {AI_AGENT=}, {ROBUSTA_AI_URL=}")
+config = BaseLLMConfig.load_from_env()
+logging.info(f"Starting AI server with config: {config}")
 dal = SupabaseDal()
 session_manager = SessionManager(dal, "RelayHolmes")
+provider_factory = LLMProviderFactory(config, session_manager=session_manager)
 app = FastAPI()
 
 console = Console()
-config = LLMConfig.load_from_env()
+
+
+def fetch_context_data(context: List[InvestigateContext]) -> dict:
+    for context_item in context:
+        if context_item.type == "robusta_issue_id":
+            # Note we only accept a single robusta_issue_id. I don't think it
+            # makes sense to have several of them in the context structure.
+            return dal.get_issue_data(context_item.value)
 
 
 @app.post("/api/investigate")
@@ -92,9 +81,9 @@ def investigate_issue(request: InvestigateRequest):
         source_instance_id=request.source_instance_id,
         raw=raw_data,
     )
-    investigation = ai.investigate(
+    investigator = provider_factory.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
+    investigation = investigator.investigate(
         issue,
-        # TODO prompt should probably be configurable?
         prompt=load_prompt(request.prompt),
         console=console,
     )
@@ -112,14 +101,6 @@ def investigate_issue(request: InvestigateRequest):
             for tool in investigation.tool_calls
         ]
     return ret
-
-
-def fetch_context_data(context: List[InvestigateContext]) -> dict:
-    for context_item in context:
-        if context_item.type == "robusta_issue_id":
-            # Note we only accept a single robusta_issue_id. I don't think it
-            # makes sense to have several of them in the context structure.
-            return dal.get_issue_data(context_item.value)
 
 
 if __name__ == "__main__":
