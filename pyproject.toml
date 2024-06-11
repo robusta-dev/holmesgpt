@@ -23,6 +23,7 @@ pydantic = "^2.7"
 supabase = "^2.5"
 colorlog = "^6.8.2"
 strenum = "^0.4.15"
+markdown = "^3.6"
 
 [build-system]
 requires = ["poetry-core"]

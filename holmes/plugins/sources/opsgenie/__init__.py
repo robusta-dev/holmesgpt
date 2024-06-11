@@ -4,6 +4,7 @@ from holmes.plugins.interfaces import SourcePlugin
 from holmes.core.issue import Issue
 from typing import List, Pattern, Optional
 import requests
+import markdown
 
 OPSGENIE_TEAM_INTEGRATION_KEY_HELP = "OpsGenie Team Integration key for writing back results. (NOT a normal API Key.) Get it from Teams > YourTeamName > Integrations > Add Integration > API Key. Don't forget to turn on the integration!"
 
@@ -55,7 +56,9 @@ class OpsGenieSource(SourcePlugin):
             raise Exception(f"Please set '--opsgenie-team-integration-key' to write back results. This is an {OPSGENIE_TEAM_INTEGRATION_KEY_HELP}")
         
         # TODO: update description to make this more visible (right now we add a comment)
-        # TODO: write back HTML not markdown
+        html_output = markdown.markdown(result_data.result)
+        logging.debug(f"HTML output: {html_output}")
+
         url = f"https://api.opsgenie.com/v2/alerts/{issue_id}/notes?identifierType=id"
         headers = {
             "Authorization": f"GenieKey {self.team_integration_key}",
@@ -63,7 +66,7 @@ class OpsGenieSource(SourcePlugin):
         }
         response = requests.post(
             url=url,
-            json={"note": f"Automatic AI Investigation by Robusta:\n\n{result_data.result}\n"},
+            json={"note": f"Automatic AI Investigation by Robusta:\n\n{html_output}\n"},
             headers=headers
         )
         logging.debug(f"Response: {response.json()}")
