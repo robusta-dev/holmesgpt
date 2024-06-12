@@ -172,7 +172,7 @@ class SupabaseDal:
                 {
                     "account_id": self.account_id,
                     "user_id": self.user_id,
-                    "token": uuid4(),
+                    "token": str(uuid4()),
                     "type": token_type,
                 }
             )
@@ -180,17 +180,20 @@ class SupabaseDal:
         )
         return AuthToken(**result.data[0])
 
-    def get_freshest_auth_token(self, token_type: str) -> AuthToken:
+    def get_freshest_auth_token(self, token_type: str) -> Optional[AuthToken]:
         result = (
             self.client.table(TOKENS_TABLE)
             .select("*")
-            .filter("token_type", "eq", token_type)
+            .filter("type", "eq", token_type)
             .filter("deleted", "eq", False)
             .order("created_at", desc=True)
             .limit(1)
             .execute()
         )
-        return AuthToken(**result.data[0])
+        if not result.data:
+            return None
+        else:
+            return AuthToken(**result.data[0])
 
     def invalidate_auth_token(self, token: AuthToken) -> None:
         (

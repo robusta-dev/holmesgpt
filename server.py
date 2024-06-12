@@ -18,11 +18,7 @@ import uvicorn
 from fastapi import FastAPI
 from rich.console import Console
 
-from holmes.common.env_vars import (
-    ALLOWED_TOOLSETS,
-    HOLMES_HOST,
-    HOLMES_PORT,
-)
+from holmes.common.env_vars import ALLOWED_TOOLSETS, HOLMES_HOST, HOLMES_PORT
 from holmes.config import BaseLLMConfig, LLMProviderType
 from holmes.core.issue import Issue
 from holmes.core.provider import LLMProviderFactory

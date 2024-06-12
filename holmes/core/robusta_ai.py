@@ -22,6 +22,9 @@ class RobustaIssueInvestigator(BaseIssueInvestigator):
 
     def call(self, system_prompt: str, user_prompt: str) -> LLMResult:
         auth_token = self.session_manager.get_current_token()
+        if auth_token is None:
+            auth_token = self.session_manager.create_token()
+
         payload = {
             "auth": {"account_id": auth_token.account_id, "token": auth_token.token},
             "system_message": system_prompt,
