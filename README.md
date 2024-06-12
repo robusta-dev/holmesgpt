@@ -67,25 +67,26 @@ By default GitHub investigation results are displayed in the CLI itself. But you
 
 
 <details>
-<summary>Investigate and update OpsGenie Issues with findings</summary>
+<summary>Investigate and update OpsGenie Incidents with findings</summary>
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default OpsGenie investigation results are displayed in the CLI itself. But you can use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie issue.
+By default OpsGenie investigation results are displayed in the CLI itself. But you can use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie incident. Refer to the CLI help for more info. 
+
 
 </details>
 
 
 <details>
-<summary>Investigate and update PagerDuty Issues with findings</summary>
+<summary>Investigate and update PagerDuty Incidents with findings</summary>
 
 ```bash
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default PagerDuty investigation results are displayed in the CLI itself. But you can use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue.
+By default PagerDuty investigation results are displayed in the CLI itself. But you can use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
 
 </details>
 
@@ -337,7 +338,7 @@ Integrate with GitHub to automate issue tracking and project management tasks. P
 <details>
 <summary>PagerDuty Integration</summary>
 
-Integrate with PagerDuty to automate issue tracking and project management tasks. Provide your PagerDuty credentials and specify the user email to update the ticket with findings.
+Integrate with PagerDuty to automate incident tracking and project management tasks. Provide your PagerDuty credentials and specify the user email to update the incident with findings.
 
 ```bash
 pagerduty_api_key: "..."
@@ -346,14 +347,14 @@ pagerduty_incident_key:  "..."
 ```
 
 1. **pagerduty_api_key**: The PagerDuty API key.  This can be found in the PagerDuty UI under Integrations > API Access Key.
-2. **pagerduty_user_email**: When --update is set, which user will be listed as the user who updated the ticket. (Must be the email of a valid user in your PagerDuty account.)
+2. **pagerduty_user_email**: When --update is set, which user will be listed as the user who updated the incident. (Must be the email of a valid user in your PagerDuty account.)
 3. **pagerduty_incident_key**: If provided, only analyze a single PagerDuty incident matching this key
 </details>
 
 <details>
 <summary>OpsGenie Integration</summary>
 
-Integrate with OpsGenie to automate alert investigations. Provide your OpsGenie credentials and specify the query to fetch issues.
+Integrate with OpsGenie to automate incident investigations. Provide your OpsGenie credentials and specify the query to fetch incidents.
 
 ```bash
 opsgenie_api_key : "..."
