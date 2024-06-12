@@ -65,6 +65,33 @@ By default GitHub investigation results are displayed in the CLI itself. But you
 
 </details>
 
+
+<details>
+<summary>Investigate and update OpsGenie Alerts with findings</summary>
+
+```bash
+holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default OpsGenie investigation results are displayed in the CLI itself. But you can use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
+
+![OpsGenie](./images/opsgenie-holmes-update.png)
+</details>
+
+
+<details>
+<summary>Investigate and update PagerDuty Incidents with findings</summary>
+
+```bash
+holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default PagerDuty investigation results are displayed in the CLI itself. But you can use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
+
+![PagerDuty](./images/pagerduty-holmes-update.png)
+</details>
+
+
 Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
 
 ## Key Features
@@ -308,6 +335,39 @@ Integrate with GitHub to automate issue tracking and project management tasks. P
 3. **github_url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
 4. **github_repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
 </details>
+
+<details>
+<summary>PagerDuty Integration</summary>
+
+Integrate with PagerDuty to automate incident tracking and project management tasks. Provide your PagerDuty credentials and specify the user email to update the incident with findings.
+
+```bash
+pagerduty_api_key: "..."
+pagerduty_user_email: "user@mail.com"
+pagerduty_incident_key:  "..."
+```
+
+1. **pagerduty_api_key**: The PagerDuty API key.  This can be found in the PagerDuty UI under Integrations > API Access Key.
+2. **pagerduty_user_email**: When --update is set, which user will be listed as the user who updated the incident. (Must be the email of a valid user in your PagerDuty account.)
+3. **pagerduty_incident_key**: If provided, only analyze a single PagerDuty incident matching this key
+</details>
+
+<details>
+<summary>OpsGenie Integration</summary>
+
+Integrate with OpsGenie to automate alert investigations. Provide your OpsGenie credentials and specify the query to fetch alerts.
+
+```bash
+opsgenie_api_key : "..."
+opsgenie-team-integration-key: "...."
+opsgenie-query: "..."
+```
+
+1. **opsgenie_api_key**: The OpsGenie API key. Get it from Settings > API key management > Add new API key
+2. **opsgenie-team-integration-key**: OpsGenie Team Integration key for writing back results. (NOT a normal API Key.) Get it from Teams > YourTeamName > Integrations > Add Integration > API Key. Don't forget to turn on the integration and add the Team as Responders to the alert.
+3. **opsgenie-query**: E.g. 'message: Foo' (see https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/) 
+</details>
+
 
 <details>
 
