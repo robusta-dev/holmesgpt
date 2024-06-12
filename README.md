@@ -15,7 +15,7 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 - **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
 - **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster   
 - **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
-- **Runbook Automation in Plain English:** HolmesGPT can speed up your response to known issues by investigating according to runbooks you provide
+- **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
 ### See it in Action
 ![AI Alert Analysis](images/holmesgptdemo.gif)
