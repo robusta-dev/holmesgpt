@@ -67,15 +67,15 @@ By default GitHub investigation results are displayed in the CLI itself. But you
 
 
 <details>
-<summary>Investigate and update OpsGenie Incidents with findings</summary>
+<summary>Investigate and update OpsGenie Alerts with findings</summary>
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default OpsGenie investigation results are displayed in the CLI itself. But you can use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie incident. Refer to the CLI help for more info. 
+By default OpsGenie investigation results are displayed in the CLI itself. But you can use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
 
-
+![OpsGenie](./images/opsgenie-holmes-update.png)
 </details>
 
 
@@ -88,6 +88,7 @@ holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
 
 By default PagerDuty investigation results are displayed in the CLI itself. But you can use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
 
+![PagerDuty](./images/pagerduty-holmes-update.png)
 </details>
 
 
@@ -354,7 +355,7 @@ pagerduty_incident_key:  "..."
 <details>
 <summary>OpsGenie Integration</summary>
 
-Integrate with OpsGenie to automate incident investigations. Provide your OpsGenie credentials and specify the query to fetch incidents.
+Integrate with OpsGenie to automate alert investigations. Provide your OpsGenie credentials and specify the query to fetch alerts.
 
 ```bash
 opsgenie_api_key : "..."
