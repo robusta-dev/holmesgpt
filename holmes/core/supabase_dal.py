@@ -58,11 +58,13 @@ class SupabaseDal:
         self.enabled = self.__init_config()
         if not self.enabled:
             logging.info("Robusta store initialization parameters not provided. skipping")
+            self.initialized = False
             return
         logging.info(f"Initializing robusta store for account {self.account_id}, user {self.user_id}")
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
         self.client = create_client(self.url, self.api_key, options)
         self.sign_in()
+        self.initialized = True
 
     @staticmethod
     def __load_robusta_config() -> Optional[RobustaToken]:

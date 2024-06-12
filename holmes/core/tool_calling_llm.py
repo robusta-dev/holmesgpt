@@ -72,11 +72,7 @@ class OpenAIToolCallingLLM(BaseToolCallingLLM):
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
             try:
                 full_response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    temperature=0.00000001
+                    model=self.model, messages=messages, tools=tools, tool_choice=tool_choice, temperature=0.00000001
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -89,11 +85,7 @@ class OpenAIToolCallingLLM(BaseToolCallingLLM):
                     raise
             response = full_response.choices[0]
             response_message = response.message
-            messages.append(
-                response_message.model_dump(
-                    exclude_defaults=True, exclude_unset=True, exclude_none=True
-                )
-            )
+            messages.append(response_message.model_dump(exclude_defaults=True, exclude_unset=True, exclude_none=True))
 
             tools_to_call = response_message.tool_calls
             if not tools_to_call:
@@ -112,9 +104,11 @@ class OpenAIToolCallingLLM(BaseToolCallingLLM):
                 tool_params = json.loads(t.function.arguments)
                 tool = self.tool_executor.get_tool_by_name(tool_name)
                 tool_response = tool.invoke(tool_params)
-                MAX_CHARS = 100_000 # an arbitrary limit - we will do something smarter in the future
+                MAX_CHARS = 100_000  # an arbitrary limit - we will do something smarter in the future
                 if len(tool_response) > MAX_CHARS:
-                    logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
+                    logging.warning(
+                        f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars"
+                    )
                     tool_response = tool_response[-MAX_CHARS:]
                 messages.append(
                     {
@@ -133,8 +127,29 @@ class OpenAIToolCallingLLM(BaseToolCallingLLM):
                 )
 
 
-# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
-class IssueInvestigator(OpenAIToolCallingLLM):
+# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
+class BaseIssueInvestigator:
+    def call(self, system_prompt: str, user_prompt: str) -> LLMResult:
+        raise NotImplementedError()
+
+    def investigate(self, issue: Issue, prompt: str, console: Console) -> LLMResult:
+        environment = jinja2.Environment()
+        system_prompt_template = environment.from_string(prompt)
+        runbooks = self.runbook_manager.get_instructions_for_issue(issue)
+        if runbooks:
+            console.print(f"[bold]Analyzing with {len(runbooks)} runbooks: {runbooks}[/bold]")
+        else:
+            console.print(
+                f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
+            )
+        system_prompt = system_prompt_template.render(issue=issue, runbooks=runbooks)
+        user_prompt = f"{issue.raw}"
+        logging.debug("Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    "))
+        logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
+        return self.call(system_prompt, user_prompt)
+
+
+class OpenAIIssueInvestigator(BaseIssueInvestigator, OpenAIToolCallingLLM):
     """
     Thin wrapper around ToolCallingLLM which:
     1) Provides a default prompt for RCA
@@ -152,27 +167,3 @@ class IssueInvestigator(OpenAIToolCallingLLM):
     ):
         super().__init__(client, model, tool_executor, max_steps)
         self.runbook_manager = runbook_manager
-
-    def investigate(
-        self, issue: Issue, prompt: str, console: Console
-    ) -> LLMResult:
-        environment = jinja2.Environment()
-        system_prompt_template = environment.from_string(prompt)
-        runbooks = self.runbook_manager.get_instructions_for_issue(issue)
-        if runbooks:
-            console.print(
-                f"[bold]Analyzing with {len(runbooks)} runbooks: {runbooks}[/bold]"
-            )
-        else:
-            console.print(
-                f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
-            )
-        system_prompt = system_prompt_template.render(issue=issue, runbooks=runbooks)
-        user_prompt = f"{issue.raw}"
-        logging.debug(
-            "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
-        )
-        logging.debug(
-            "Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    ")
-        )
-        return self.call(system_prompt, user_prompt)

@@ -1,4 +1,5 @@
 import os
+import sys
 
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -22,7 +23,7 @@ from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
 )
-from holmes.config import BaseLLMConfig
+from holmes.config import BaseLLMConfig, LLMProviderType
 from holmes.core.issue import Issue
 from holmes.core.provider import LLMProviderFactory
 from holmes.core.server_models import InvestigateContext, InvestigateRequest
@@ -36,7 +37,9 @@ def init_logging():
     logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
     logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
-    colorlog.basicConfig(format=logging_format, level=logging_level, datefmt=logging_datefmt)
+    colorlog.basicConfig(
+        format=logging_format, level=logging_level, datefmt=logging_datefmt
+    )
     logging.getLogger().setLevel(logging_level)
 
     httpx_logger = logging.getLogger("httpx")
@@ -47,14 +50,18 @@ def init_logging():
 
 
 init_logging()
+console = Console()
 config = BaseLLMConfig.load_from_env()
 logging.info(f"Starting AI server with config: {config}")
 dal = SupabaseDal()
+
+if not dal.initialized and config.llm_provider == LLMProviderType.ROBUSTA:
+    logging.error("Holmes cannot run without store configuration when the LLM provider is Robusta AI")
+    sys.exit(1)
 session_manager = SessionManager(dal, "RelayHolmes")
-provider_factory = LLMProviderFactory(config, session_manager=session_manager)
+provider_factory = LLMProviderFactory(config, session_manager)
 app = FastAPI()
 
-console = Console()
 
 
 def fetch_context_data(context: List[InvestigateContext]) -> dict:

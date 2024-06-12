@@ -5,11 +5,12 @@ from pydash.arrays import concat
 from rich.console import Console
 
 from holmes.config import BaseLLMConfig, LLMProviderType
-from holmes.core.robusta_ai import RobustaAIToolCallingLLM
+from holmes.core.robusta_ai import RobustaAIToolCallingLLM, RobustaIssueInvestigator
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tool_calling_llm import (
+    BaseIssueInvestigator,
     BaseToolCallingLLM,
-    IssueInvestigator,
+    OpenAIIssueInvestigator,
     OpenAIToolCallingLLM,
     YAMLToolExecutor,
 )
@@ -31,11 +32,11 @@ class LLMProviderFactory:
     def create_llm(self) -> OpenAI:
         if self.config.llm_provider == LLMProviderType.OPENAI:
             return OpenAI(
-                api_key=self.config.api_key.get_secret_value() if self.config.api_key else None,
+                api_key=(self.config.api_key.get_secret_value() if self.config.api_key else None),
             )
         elif self.config.llm_provider == LLMProviderType.AZURE:
             return AzureOpenAI(
-                api_key=self.config.api_key.get_secret_value() if self.config.api_key else None,
+                api_key=(self.config.api_key.get_secret_value() if self.config.api_key else None),
                 azure_endpoint=self.config.azure_endpoint,
                 api_version=self.config.azure_api_version,
             )
@@ -52,24 +53,26 @@ class LLMProviderFactory:
                 self.config.max_steps,
             )
         else:
-            return RobustaAIToolCallingLLM(
-                self.config, self.session_manager
-            )
+            # TODO in the future
+            return RobustaAIToolCallingLLM()
 
-    def create_issue_investigator(self, console: Console, allowed_toolsets: ToolsetPattern) -> IssueInvestigator:
+    def create_issue_investigator(self, console: Console, allowed_toolsets: ToolsetPattern) -> BaseIssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.config.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
-
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self._create_tool_executor(console, allowed_toolsets)
-        return IssueInvestigator(
-            self.create_llm(),
-            self.config.model,
-            tool_executor,
-            runbook_manager,
-            self.config.max_steps,
-        )
+
+        if self.config.llm_provider == LLMProviderType.ROBUSTA:
+            return RobustaIssueInvestigator(self.config.url, self.session_manager, runbook_manager)
+        else:
+            tool_executor = self._create_tool_executor(console, allowed_toolsets)
+            return OpenAIIssueInvestigator(
+                self.create_llm(),
+                self.config.model,
+                tool_executor,
+                runbook_manager,
+                self.config.max_steps,
+            )
 
     def create_jira_source(self) -> JiraSource:
         if self.config.jira_url is None:
