@@ -15,6 +15,10 @@ from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import YAMLToolExecutor
 
 
+class LLMError(Exception):
+    pass
+
+
 class ToolCallResult(BaseModel):
     tool_name: str
     description: str

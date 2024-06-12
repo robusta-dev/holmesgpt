@@ -15,7 +15,7 @@ from typing import List, Union
 
 import colorlog
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from rich.console import Console
 
 from holmes.common.env_vars import ALLOWED_TOOLSETS, HOLMES_HOST, HOLMES_PORT
@@ -24,6 +24,7 @@ from holmes.core.issue import Issue
 from holmes.core.provider import LLMProviderFactory
 from holmes.core.server_models import InvestigateContext, InvestigateRequest
 from holmes.core.supabase_dal import SupabaseDal
+from holmes.core.tool_calling_llm import LLMError
 from holmes.plugins.prompts import load_prompt
 from holmes.utils.auth import SessionManager
 
@@ -54,10 +55,9 @@ dal = SupabaseDal()
 if not dal.initialized and config.llm_provider == LLMProviderType.ROBUSTA:
     logging.error("Holmes cannot run without store configuration when the LLM provider is Robusta AI")
     sys.exit(1)
-session_manager = SessionManager(dal, "RelayHolmes")
+session_manager = SessionManager(dal, "AIRelay")
 provider_factory = LLMProviderFactory(config, session_manager)
 app = FastAPI()
-
 
 
 def fetch_context_data(context: List[InvestigateContext]) -> dict:
@@ -85,11 +85,14 @@ def investigate_issue(request: InvestigateRequest):
         raw=raw_data,
     )
     investigator = provider_factory.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
-    investigation = investigator.investigate(
-        issue,
-        prompt=load_prompt(request.prompt),
-        console=console,
-    )
+    try:
+        investigation = investigator.investigate(
+            issue,
+            prompt=load_prompt(request.system_prompt),
+            console=console,
+        )
+    except LLMError as exc:
+        raise HTTPException(status_code=500, detail=f"Error calling the LLM provider: {str(exc)}")
     ret = {
         "analysis": investigation.result
     }

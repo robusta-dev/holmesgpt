@@ -1,12 +1,14 @@
-# TODO finish refactor
 import logging
 
 import requests
-from fastapi import HTTPException
 
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tool_calling_llm import BaseIssueInvestigator, BaseToolCallingLLM, LLMResult
+from holmes.core.tool_calling_llm import BaseIssueInvestigator, BaseToolCallingLLM, LLMError, LLMResult
 from holmes.utils.auth import SessionManager
+
+
+class RobustaAICallError(LLMError):
+    pass
 
 
 class RobustaAIToolCallingLLM(BaseToolCallingLLM):
@@ -27,12 +29,18 @@ class RobustaIssueInvestigator(BaseIssueInvestigator):
 
         payload = {
             "auth": {"account_id": auth_token.account_id, "token": auth_token.token},
-            "system_message": system_prompt,
-            "user_message": user_prompt,
-# TODO
-#            "model": request.model,
+            "body": {
+                "system_message": system_prompt,
+                "user_message": user_prompt,
+# TODO?
+#                "model": request.model,
+            },
         }
-        resp = requests.post(self.base_url + "/api/ai", json=payload)
+        try:
+            resp = requests.post(f"{self.base_url}/api/ai", json=payload)
+        except:
+            logging.exception("Robusta AI API call failed")
+            raise RobustaAICallError("Robusta AI API call failed")
         if resp.status_code == 401:
             self.session_manager.invalidate_token(auth_token)
             # Attempt auth again using a fresh token
@@ -44,6 +52,8 @@ class RobustaIssueInvestigator(BaseIssueInvestigator):
                 logging.error(
                     f"Failed to reauth with Robusta AI. Response status {resp.status_code}, content: {resp.text}"
                 )
-                raise HTTPException(status_code=400, detail="Unable to auth with Robusta AI")
-        # TODO LLMResult
-        return resp.json()
+                raise RobustaAICallError("Unable to auth with Robusta AI")
+        resp_data = resp.json()
+        if not resp_data["success"]:
+            raise RobustaAICallError("Robusta AI API call failed")
+        return LLMResult(result=resp_data["msg"], prompt=user_prompt)
