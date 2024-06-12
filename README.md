@@ -337,7 +337,7 @@ Integrate with GitHub to automate issue tracking and project management tasks. P
 <details>
 <summary>PagerDuty Integration</summary>
 
-Integrate with PagerDuty to automate issue tracking and project management tasks. Provide your PagerDuty credentials and specify the query to fetch issues.
+Integrate with PagerDuty to automate issue tracking and project management tasks. Provide your PagerDuty credentials and specify the user email to update the ticket with findings.
 
 ```bash
 pagerduty_api_key: "..."
@@ -353,7 +353,7 @@ pagerduty_incident_key:  "..."
 <details>
 <summary>OpsGenie Integration</summary>
 
-Integrate with OpsGenie to automate issue tracking and project management tasks. Provide your OpsGenie credentials and specify the query to fetch issues.
+Integrate with OpsGenie to automate alert investigations. Provide your OpsGenie credentials and specify the query to fetch issues.
 
 ```bash
 opsgenie_api_key : "..."
