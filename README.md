@@ -12,10 +12,10 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 
 ### What Can HolmesGPT Do?
 - **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
-- **Automated Triage:** Use HolmesGPT as a first responder to flag critical alerts and prioritize them for your team to look at
-- **Ticket Management**: Analyze and resolve Jira tickets related to DevOps tasks
+- **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
+- **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster   
 - **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
-- **Runbook Automation in Plain English:** HolmesGPT can speed up your response to known issues by investigating according to runbooks you provide
+- **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
 ### See it in Action
 ![AI Alert Analysis](images/holmesgptdemo.gif)
@@ -220,6 +220,14 @@ holmes ask "what services does my cluster expose externally?"
 </details>
 
 <details>
+<summary>Ticket Management - Automatically Respond to Jira tickets related to DevOps tasks</summary>
+
+```bash
+holmes investigate jira  --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
+```
+</details>
+
+<details>
 <summary>Find the right configuration to change in big Helm charts</summary>
 
 LLM uses the built-in [Helm toolset](./holmes/plugins/toolsets/helm.yaml) to gather information.
@@ -298,7 +306,7 @@ Configure the URL for your Alertmanager instance to enable alert management and 
 
 <summary>Jira Integration</summary>
 
-Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues.
+Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues and optionally update their status.
 
 ```bash
 # Jira credentials and query settings
