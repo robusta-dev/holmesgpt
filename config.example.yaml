@@ -12,6 +12,12 @@
 #slack_token: "..."
 #slack_channel: "#general"
 
+#github_owner: "robusta-dev"
+#github_pat: "..."
+#github_url: "https://api.github.com" (default)
+#github_repository: "holmesgpt"
+#github_query: "is:issue is:open"
+
 #llm: "openai"
 #api_key: "..."
 

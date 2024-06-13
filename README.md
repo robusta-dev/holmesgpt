@@ -1,22 +1,21 @@
 <div align="center">
-  <h1 align="center">HolmesGPT - The Open Source DevOps Assistant</h1>
-<h2 align="center">Solve Alerts Twice as Fast with an AI Teammate</h2>
+  <h1 align="center">HolmesGPT - The Open Source On-Call/DevOps Assistant</h1>
+<h2 align="center">Get a head start on fixing alerts with AI investigation</h2>
   <p align="center">
-    <a href="#use-cases"><strong>Use Cases</strong></a> |
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> 
   </p>
 </div>
 
-The only DevOps assistant that solves problems **like a human does** - by looking at problems and fetching missing data repeatedly until the problem can be solved. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
+The only AI assistant that investigates incidents **like a human does** - by looking at alerts and fetching missing data until it finds the root cause. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
 
-### Use Cases:
-- **Kubernetes Troubleshooting**: Identify problems and troubleshoot them (works outside Kubernetes too!) 
-- **AIOps and Incident Response**: Investigate firing alerts by gathering data and determining the root cause
-- **Automated Investigation and Triage:** Prioritize critical alerts and resolve the highest impact issues first.
-- **Ticket Management**: Analyze and resolve tickets related to DevOps tasks
-- **Runbook Automation in Plain English:** No more defining runbooks as YAML or complicated workflows. Describe tasks in plain English and the AI will follow the instructions
+### What Can HolmesGPT Do?
+- **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
+- **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
+- **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster   
+- **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
+- **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
 ### See it in Action
 ![AI Alert Analysis](images/holmesgptdemo.gif)
@@ -32,14 +31,6 @@ holmes ask "what pods are unhealthy in my cluster and why?"
 </details>
 
 <details>
-<summary>Ask Questions About Your Cloud</summary>
-
-```bash
-holmes ask "what services does my cluster expose externally?"
-```
-</details>
-
-<details>
 <summary>Investigate a Firing Prometheus alert</summary>
 
 ```bash
@@ -51,35 +42,56 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 </details>
 
 <details>
-<summary>Investigate a Jira Ticket</summary>
+
+<summary>Investigate and update Jira tickets with findings</summary>
 
 ```bash
 holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
 ```
+
+By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
+
 </details>
 
-<summary>Investigate PagerDuty Incidents</summary>
-
-```bash
-holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_PAGERDUTY_API_KEY>
-```
-</details>
-
-<summary>Investigate an OpsGenie Incident</summary>
-
-```bash
-holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_OPSGENIE_API_KEY>
-```
-</details>
-
-<summary>Investigate a GitHub Issue</summary>
+<details>
+<summary>Investigate and update GitHub Issues with findings</summary>
 
 ```bash
 holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
 ```
+
+By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
+
 </details>
 
-Like what you see? Checkout [more examples](#more-examples) or get started by [installing HolmesGPT](#installation).
+
+<details>
+<summary>Investigate and update OpsGenie Alerts with findings</summary>
+
+```bash
+holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default OpsGenie investigation results are displayed in the CLI itself. But you can use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
+
+![OpsGenie](./images/opsgenie-holmes-update.png)
+</details>
+
+
+<details>
+<summary>Investigate and update PagerDuty Incidents with findings</summary>
+
+```bash
+holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default PagerDuty investigation results are displayed in the CLI itself. But you can use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
+
+![PagerDuty](./images/pagerduty-holmes-update.png)
+</details>
+
+
+Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
 
 ## Key Features
 - **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
@@ -194,104 +206,28 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
+## Other Use Cases
 
-### Setting up Config file
+HolmesGPT is usually used for incident response, but it can function as a general-purpose DevOps assistant too. Here are some examples:
+
 <details>
-<summary>Customising config</summary>
-  
-## Custom Toolsets
-
-You can define your own custom toolsets to extend the functionality of your setup. These toolsets can include querying company-specific data, fetching logs from observability tools, and more.
+<summary>Ask Questions About Your Cloud</summary>
 
 ```bash
-# Add paths to your custom toolsets here
-# Example: ["path/to/your/custom_toolset.yaml"]
-#custom_toolsets: ["examples/custom_toolset.yaml"]
+holmes ask "what services does my cluster expose externally?"
 ```
-
-## Alertmanager Configuration
-
-Configure the URL for your Alertmanager instance to enable alert management and notifications.
-
-```bash
-# URL for the Alertmanager
-#alertmanager_url: "http://localhost:9093"
-```
-
-## Jira Integration
-
-Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues.
-
-```bash
-# Jira credentials and query settings
-#jira_username: "user@company.com"
-#jira_api_key: "..."
-#jira_url: "https://your-company.atlassian.net"
-#jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
-```
-
-## GitHub Integration
-
-Integrate with GitHub to automate issue tracking and project management tasks. Provide your GitHub PAT (*personal access token*) and specify the `owner/repository`.
-
-```bash
-# GitHub credentials and query settings
-#github_owner: "robusta-dev"
-#github_pat: "..."
-#github_url: "https://api.github.com" (default)
-#github_repository: "holmesgpt"
-#github_query: "is:issue is:open"
-```
-
-## Slack Integration
-
-Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
-
-```bash
-# Slack token and channel configuration
-#slack_token: "..."
-#slack_channel: "#general"
-```
-
-## Large Language Model (LLM) Configuration
-
-Choose between OpenAI or Azure for integrating large language models. Provide the necessary API keys and endpoints for the selected service.
-
-### OpenAI
-
-```bash
-# Configuration for OpenAI LLM
-#llm: "openai"
-#api_key: "..."
-```
-
-### Azure
-
-```bash
-# Configuration for Azure LLM
-#llm: "azure"
-#api_key: "..."
-#azure_endpoint: "..."
-```
-
-## Custom Runbooks
-
-Define custom runbooks to give explicit instructions to the LLM on how to investigate certain alerts. This can help in achieving better results for known alerts.
-
-```bash
-# Add paths to your custom runbooks here
-# Example: ["path/to/your/custom_runbook.yaml"]
-#custom_runbooks: ["examples/custom_runbooks.yaml"]
-```
-
-  
 </details>
 
+<details>
+<summary>Ticket Management - Automatically Respond to Jira tickets related to DevOps tasks</summary>
 
-## More Examples
+```bash
+holmes investigate jira  --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
+```
+</details>
 
 <details>
-<summary>Identify which Helm value to modify</summary>
+<summary>Find the right configuration to change in big Helm charts</summary>
 
 LLM uses the built-in [Helm toolset](./holmes/plugins/toolsets/helm.yaml) to gather information.
 
@@ -308,56 +244,6 @@ LLM uses the built-in [Docker toolset](./holmes/plugins/toolsets/docker.yaml) to
 ```bash
 holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image consume the most storage and suggest some fixes to it"
 ```
-</details>
-
-<details>
-<summary>Investigate a Prometheus alert and share results in Slack</summary>
-
-By default investigation results are displayed in the CLI itself. You can optionally get these results in a Slack channel:
-
-```bash
-holmes investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack --slack-token <PLACEHOLDER_SLACK_TOKEN> --slack-channel <PLACEHOLDER_SLACK_CHANNEL>
-```
-
-Alternatively you can update the `config.yaml` with your Slack details and run: 
-
-```bash
-holmes investigate alertmanager --alertmanager-url http://localhost:9093 --destination slack
-```
-
-</details>
-
-<details>
-<summary>Investigate and update Jira tickets with findings</summary>
-
-By default Jira investigation results are displayed in the CLI itself. But you can use `--update` to get the results as a comment in the Jira ticket.
-
-```bash
-holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY> --update
-```
-
-Alternatively you can update the `config.yaml` with your Jira account details and run: 
-
-```bash
-holmes investigate jira --update
-```
-
-</details>
-
-<summary>Investigate and update GitHub issues with findings</summary>
-
-By default GitHub investigation results are displayed in the CLI itself. But you can use `--update` to get the results as a comment in the GitHub issue.
-
-```bash
-holmes investigate github --github-url https://<PLACEDHOLDER> --github-owner <PLACEHOLDER_GITHUB_OWNER> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT> --update
-```
-
-Alternatively you can update the `config.yaml` with your GitHub account details and run: 
-
-```bash
-holmes investigate github --update
-```
-
 </details>
 
 ## Advanced Usage
@@ -387,48 +273,168 @@ You can view an example config file with all available settings [here](config.ex
 
 By default, without specifying `--config` the agent will try to read `config.yaml` from the current directory.
 If a setting is specified in both in config file and cli, cli takes precedence.
-</details>
 
-## More Integrations
+
 
 <details>
-<summary>Slack</summary>
+<summary>Custom Toolsets</summary>
 
-Adding a Slack integration allows the LLM to send Prometheus Alert investigation details to a Slack channel. To do this you need the following
+You can define your own custom toolsets to extend the functionality of your setup. These toolsets can include querying company-specific data, fetching logs from observability tools, and more.
+
+```bash
+# Add paths to your custom toolsets here
+# Example: ["path/to/your/custom_toolset.yaml"]
+#custom_toolsets: ["examples/custom_toolset.yaml"]
+```
+</details>
+
+<details>
+
+<summary>Alertmanager Configuration</summary>
+
+Configure the URL for your Alertmanager instance to enable alert management and notifications.
+
+```bash
+# URL for the Alertmanager
+#alertmanager_url: "http://localhost:9093"
+```
+</details>
+
+<details>
+
+<summary>Jira Integration</summary>
+
+Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues and optionally update their status.
+
+```bash
+# Jira credentials and query settings
+#jira_username: "user@company.com"
+#jira_api_key: "..."
+#jira_url: "https://your-company.atlassian.net"
+#jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
+```
+
+1. **jira_username**: The email you use to log into your Jira account. Eg: `jira-user@company.com`
+2. **jira_api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
+3. **jira_url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
+4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
+5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
+</details>
+
+<details>
+
+<summary>GitHub Integration</summary>
+
+Integrate with GitHub to automate issue tracking and project management tasks. Provide your GitHub PAT (*personal access token*) and specify the `owner/repository`.
+
+```bash
+# GitHub credentials and query settings
+#github_owner: "robusta-dev"
+#github_pat: "..."
+#github_url: "https://api.github.com" (default)
+#github_repository: "holmesgpt"
+#github_query: "is:issue is:open"
+```
+
+1. **github_owner**: The repository owner. Eg: `robusta-dev`
+2. **github_pat**: Follow these [instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to get your GitHub pat (*personal access token*).
+3. **github_url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
+4. **github_repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
+</details>
+
+<details>
+<summary>PagerDuty Integration</summary>
+
+Integrate with PagerDuty to automate incident tracking and project management tasks. Provide your PagerDuty credentials and specify the user email to update the incident with findings.
+
+```bash
+pagerduty_api_key: "..."
+pagerduty_user_email: "user@mail.com"
+pagerduty_incident_key:  "..."
+```
+
+1. **pagerduty_api_key**: The PagerDuty API key.  This can be found in the PagerDuty UI under Integrations > API Access Key.
+2. **pagerduty_user_email**: When --update is set, which user will be listed as the user who updated the incident. (Must be the email of a valid user in your PagerDuty account.)
+3. **pagerduty_incident_key**: If provided, only analyze a single PagerDuty incident matching this key
+</details>
+
+<details>
+<summary>OpsGenie Integration</summary>
+
+Integrate with OpsGenie to automate alert investigations. Provide your OpsGenie credentials and specify the query to fetch alerts.
+
+```bash
+opsgenie_api_key : "..."
+opsgenie-team-integration-key: "...."
+opsgenie-query: "..."
+```
+
+1. **opsgenie_api_key**: The OpsGenie API key. Get it from Settings > API key management > Add new API key
+2. **opsgenie-team-integration-key**: OpsGenie Team Integration key for writing back results. (NOT a normal API Key.) Get it from Teams > YourTeamName > Integrations > Add Integration > API Key. Don't forget to turn on the integration and add the Team as Responders to the alert.
+3. **opsgenie-query**: E.g. 'message: Foo' (see https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/) 
+</details>
+
+
+<details>
+
+<summary>Slack Integration</summary>
+
+Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
+
+```bash
+# Slack token and channel configuration
+#slack_token: "..."
+#slack_channel: "#general"
+```
 
 1. **slack-token**: The Slack API key. You can generate with `pip install robusta-cli && robusta integrations slack`
 2. **slack-channel**: The Slack channel where you want to receive the findings.
 
-Add these values to the `config.yaml` or pass them via the CLI.
 </details>
 
 <details>
-<summary>Jira</summary>
 
-Adding a Jira integration allows the LLM to fetch Jira tickets and investigate automatically. Optionally it can update the Jira ticket with findings too. You need the following to use this
+<summary>Custom Runbooks</summary>
 
-1. **url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
-2. **username**: The email you use to log into your Jira account. Eg: `jira-user@company.com`
-3. **api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
-4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
-5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
+Define custom runbooks to give explicit instructions to the LLM on how to investigate certain alerts. This can help in achieving better results for known alerts.
 
-Add these values to the `config.yaml` or pass them via the CLI.
+```bash
+# Add paths to your custom runbooks here
+# Example: ["path/to/your/custom_runbook.yaml"]
+#custom_runbooks: ["examples/custom_runbooks.yaml"]
+```
+</details>
+
+### Large Language Model (LLM) Configuration
+
+Choose between OpenAI or Azure for integrating large language models. Provide the necessary API keys and endpoints for the selected service.
+
+
+<details>
+
+<summary>OpenAI</summary>
+
+```bash
+# Configuration for OpenAI LLM
+#llm: "openai"
+#api_key: "..."
+```
 </details>
 
 <details>
-<summary>GitHub</summary>
 
-Adding a GitHub integration allows the LLM to fetch GitHub issues and investigate automatically. Optionally it can update the GitHub issue with findings too. You need the following to use this
+<summary>Azure</summary>
 
-1. **url**: The URL of your GitHub API. For example: [https://api.github.com](https://api.github.com) (**Note:** schema (https) is required)
-2. **owner**: The repository owner. Eg: `robusta-dev`
-3. **pat**: Follow these [instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) to get your GitHub pat (*personal access token*).
-4. **repository**: Name of the repository you want the GitHub issues to be scanned. Eg: `holmesgpt`.
-
-Add these values to the `config.yaml` or pass them via the CLI.
+```bash
+# Configuration for Azure LLM
+#llm: "azure"
+#api_key: "..."
+#azure_endpoint: "..."
+```
 </details>
+  
 
+</details>
 
 ## License
 
