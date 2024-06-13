@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
-
+from holmes.utils.file_utils import write_json_file
 from holmes.config import Config, LLMType
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.prompts import load_prompt
@@ -100,9 +100,9 @@ opt_slack_channel: Optional[str] = typer.Option(
     "--slack-channel",
     help="Slack channel if --destination=slack (experimental). E.g. #devops",
 )
-opt_dump_raw_output: Optional[str] = typer.Option(
+opt_json_output_file: Optional[str] = typer.Option(
     None,
-    "-raw-json-file",
+    "--json-output-file",
     help="Save the complete output in json format in to a file",
 )
 
@@ -134,7 +134,7 @@ def ask(
         "--show-tool-output",
         help="Advanced. Show the output of each tool that was called",
     ),
-    dump_raw_output: Optional[str] = opt_dump_raw_output
+    json_output_file: Optional[str] = opt_json_output_file
 ):
     """
     Ask any question and answer using available tools
@@ -154,9 +154,8 @@ def ask(
     console.print("[bold yellow]User:[/bold yellow] " + prompt)
     response = ai.call(system_prompt, prompt)
     text_result = Markdown(response.result)
-    if dump_raw_output:
-        with open(dump_raw_output , 'w' , encoding='utf-8') as f:
-            json.dump(json.loads(response.model_dump_json()), f, ensure_ascii=False, indent=4)
+    if json_output_file:
+        write_json_file(json_output_file, response.model_dump())
     if show_tool_output and response.tool_calls:
         for tool_call in response.tool_calls:
             console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
@@ -194,7 +193,7 @@ def alertmanager(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
-    dump_raw_output: Optional[str] = opt_dump_raw_output,
+    json_output_file: Optional[str] = opt_json_output_file,
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
@@ -250,7 +249,7 @@ def alertmanager(
             f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
         result = ai.investigate(issue, system_prompt, console)
-        results.append({"issue": json.loads(issue.json()), "result": json.loads(result.json())})
+        results.append({"issue": issue.model_dump(), "result": result.model_dump()})
 
         if destination == DestinationType.CLI:
             console.print(Rule())
@@ -262,9 +261,8 @@ def alertmanager(
         elif destination == DestinationType.SLACK:
             slack.send_issue(issue, result)
 
-    if dump_raw_output:
-        with open(dump_raw_output , 'w+' , encoding='utf-8') as f:
-            json.dump(results, f, ensure_ascii=False, indent=4)
+    if json_output_file:
+        write_json_file(json_output_file, results)
 
 @investigate_app.command()
 def jira(
