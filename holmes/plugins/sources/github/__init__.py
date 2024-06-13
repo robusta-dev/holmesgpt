@@ -15,7 +15,7 @@ class GitHubSource(SourcePlugin):
         self.pat = pat
         self.query = query
 
-    def fetch_issues(self, issue_id: Pattern = None) -> List[Issue]:
+    def fetch_issues(self) -> List[Issue]:
         logging.info(f"Fetching All issues from {self.url} for repository {self.owner}/{self.repository}")
         try:
             data = []

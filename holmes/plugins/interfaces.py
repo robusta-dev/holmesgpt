@@ -6,7 +6,7 @@ from holmes.core.tool_calling_llm import LLMResult
 
 # Sources must implement this
 class SourcePlugin:
-    def fetch_issues(self, issue_id: Pattern = None) -> List[Issue]:
+    def fetch_issues(self) -> List[Issue]:
         raise NotImplementedError()
 
     # optional

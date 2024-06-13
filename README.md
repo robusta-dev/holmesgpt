@@ -51,7 +51,6 @@ holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-u
 
 By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
 
-
 </details>
 
 <details>
@@ -246,7 +245,6 @@ LLM uses the built-in [Docker toolset](./holmes/plugins/toolsets/docker.yaml) to
 holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image consume the most storage and suggest some fixes to it"
 ```
 </details>
-
 
 ## Advanced Usage
 
