@@ -19,6 +19,8 @@ from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.jira import JiraSource
 from holmes.plugins.sources.github import GitHubSource
+from holmes.plugins.sources.opsgenie import OpsGenieSource
+from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from holmes.utils.auth import SessionManager
@@ -110,23 +112,27 @@ class LLMProviderFactory:
         )
 
     def create_pagerduty_source(self) -> PagerDutySource:
-        if self.pagerduty_api_key is None:
+        if self.config.pagerduty_api_key is None:
             raise ValueError("--pagerduty-api-key must be specified")
 
         return PagerDutySource(
-            api_key=self.pagerduty_api_key.get_secret_value(),
-            user_email=self.pagerduty_user_email,
-            incident_key=self.pagerduty_incident_key,
+            api_key=self.config.pagerduty_api_key.get_secret_value(),
+            user_email=self.config.pagerduty_user_email,
+            incident_key=self.config.pagerduty_incident_key,
         )
 
     def create_opsgenie_source(self) -> OpsGenieSource:
-        if self.opsgenie_api_key is None:
+        if self.config.opsgenie_api_key is None:
             raise ValueError("--opsgenie-api-key must be specified")
 
         return OpsGenieSource(
-            api_key=self.opsgenie_api_key.get_secret_value(),
-            query=self.opsgenie_query,
-            team_integration_key=self.opsgenie_team_integration_key.get_secret_value() if self.opsgenie_team_integration_key else None,
+            api_key=self.config.opsgenie_api_key.get_secret_value(),
+            query=self.config.opsgenie_query,
+            team_integration_key=(
+                self.config.opsgenie_team_integration_key.get_secret_value()
+                if self.config.opsgenie_team_integration_key
+                else None
+            ),
         )
 
     def create_alertmanager_source(self) -> AlertManagerSource:
@@ -141,7 +147,7 @@ class LLMProviderFactory:
             url=self.config.alertmanager_url,
             username=self.config.alertmanager_username,
             password=self.config.alertmanager_password,
-            alertname=self.alertmanager_alertname,
+            alertname=self.config.alertmanager_alertname,
         )
 
     def create_slack_destination(self):
@@ -153,33 +159,25 @@ class LLMProviderFactory:
 
     def _create_tool_executor(self, console: Console, allowed_toolsets: ToolsetPattern) -> YAMLToolExecutor:
         all_toolsets = load_builtin_toolsets()
-        for ts_path in self.custom_toolsets:
+        for ts_path in self.config.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
 
         if allowed_toolsets == "*":
             matching_toolsets = all_toolsets
         else:
-            matching_toolsets = get_matching_toolsets(
-                all_toolsets, allowed_toolsets.split(",")
-            )
+            matching_toolsets = get_matching_toolsets(all_toolsets, allowed_toolsets.split(","))
 
         enabled_toolsets = [ts for ts in matching_toolsets if ts.is_enabled()]
         for ts in all_toolsets:
             if ts not in matching_toolsets:
-                console.print(
-                    f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}"
-                )
+                console.print(f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}")
             elif ts not in enabled_toolsets:
-                console.print(
-                    f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
-                )
-                #console.print(f"[red]The following tools will be disabled: {[t.name for t in ts.tools]}[/red])")
+                console.print(f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})")
+                # console.print(f"[red]The following tools will be disabled: {[t.name for t in ts.tools]}[/red])")
             else:
                 logging.debug(f"Loaded toolset {ts.name} from {ts.get_path()}")
                 # console.print(f"[green]Loaded to  olset {ts.name}[/green] from {ts.get_path()}")
 
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
-        logging.debug(
-            f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
-        )
+        logging.debug(f"Starting AI session with tools: {[t.name for t in enabled_tools]}")
         return YAMLToolExecutor(enabled_toolsets)

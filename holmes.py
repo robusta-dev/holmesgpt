@@ -34,7 +34,7 @@ app.add_typer(investigate_app, name="investigate")
 llm_provider_names = ", ".join(str(tp) for tp in LLMProviderType)
 opt_llm: Optional[LLMProviderType] = typer.Option(
     LLMProviderType.OPENAI,
-    help="LLM provider (supported values: {llm_provider_names})"
+    help=f"LLM provider (supported values: {llm_provider_names})"
 )
 opt_api_key: Optional[str] = typer.Option(
     None,
