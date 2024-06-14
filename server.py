@@ -37,8 +37,12 @@ class InvestigateRequest(BaseModel):
     subject: dict
     context: List[InvestigateContext]
     source_instance_id: str
+    include_tool_calls: bool = False
+    include_tool_call_results: bool = False
+    prompt_template: str = "builtin://generic_investigation.jinja2"
     # TODO in the future
     # response_handler: ...
+
 
 def init_logging():
     logging_level = os.environ.get("LOG_LEVEL", "INFO")
@@ -79,14 +83,26 @@ def investigate_issues(request: InvestigateRequest):
         source_instance_id=request.source_instance_id,
         raw=raw_data,
     )
-    return {
-        "analysis": ai.investigate(
-            issue,
-            # TODO prompt should probably be configurable?
-            prompt=load_prompt("builtin://generic_investigation.jinja2"),
-            console=console
-        ).result
+    investigation = ai.investigate(
+        issue,
+        # TODO prompt should probably be configurable?
+        prompt=load_prompt(request.prompt),
+        console=console,
+    )
+    ret = {
+        "analysis": investigation.result
     }
+    if request.include_tool_calls:
+        ret["tool_calls"] = [
+            {
+                "tool_name": tool.tool_name,
+                "tool_call": tool.description,
+            } | (
+                {"call_result": tool.result} if request.include_tool_call_results else {}
+            )
+            for tool in investigation.tool_calls
+        ]
+    return ret
 
 
 def fetch_context_data(context: List[InvestigateContext]) -> dict:
