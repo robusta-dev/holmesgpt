@@ -47,6 +47,17 @@ jobs:
         build-args: |
           BUILDKIT_INLINE_CACHE=1
 
+    # Note: this ignores the "Set as latest release" checkbox in the GitHub UI
+    # it isn't possible to check whether that was set or not
+    # so if you do not want to override the "latest" tag, you should mark the release as a prerelease or a draft
+    # for prereleases and drafts we don't tag latest 
+    - name: Tag and push Docker image as latest if applicable
+      if: ${{ github.event.release.prerelease == false && github.event.release.draft == false }}
+      run: |
+        docker pull us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:${{ github.ref_name }}
+        docker tag us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:${{ github.ref_name }} us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:latest
+        docker push us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:latest
+
     - name: Save artifact with helm chart
       uses: actions/upload-artifact@v2
       with:
