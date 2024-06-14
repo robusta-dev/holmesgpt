@@ -137,10 +137,10 @@ holmes ask "what issues do I have in my cluster"
 <details>
 <summary>Prebuilt Docker Container</summary>
 
-Run the below command, replacing `<VERSION_PLACEHOLDER>` with the latest HolmesGPT version - e.g. `0.1`.
+Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
 
 ```bash
-docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:<VERSION_PLACEHOLDER> ask "what pods are unhealthy and why?"
+docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
 ```
 </details>
 
@@ -165,7 +165,7 @@ Clone the project from github, and then run:
 ```bash
 cd holmesgpt
 docker build -t holmes .
-docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmest ask "what pods are unhealthy and why?"
+docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
 </details>
 
