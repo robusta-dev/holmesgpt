@@ -198,11 +198,8 @@ def alertmanager(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    alert_label_key: Optional[str] = typer.Option(
-        None, help="A key for filtering alerts with specific label key"
-    ),
-    alert_label_value: Optional[str] = typer.Option(
-        None, help="A value for filtering alerts with specific label value"
+    alertmanager_label: Optional[str] = typer.Option(
+        None, help="For filtering alerts with specific labelm must be of format key=value"
     ),
 ):
     """
@@ -236,7 +233,12 @@ def alertmanager(
 
     try:
         issues = source.fetch_issues()
-        if alert_label_key and alert_label_value:
+        if alertmanager_label:
+            label_parts = alertmanager_label.split('=')
+            if len(label_parts) != 2:
+                logging.error(f"The label {alertmanager_label} is of the wrong format use '--alertmanager-label key=value'")
+                return
+            alert_label_key, alert_label_value = label_parts
             issues = [issue for issue in issues if issue.raw and issue.raw.get("labels", {}).get(alert_label_key, None) == alert_label_value]
             if not issues:
                 logging.error(f"No valid alerts with the label {alert_label_key} and value {alert_label_value}")
