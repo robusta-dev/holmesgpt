@@ -198,6 +198,12 @@ def alertmanager(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
+    alert_label_key: Optional[str] = typer.Option(
+        None, help="A key for filtering alerts with specific label key"
+    ),
+    alert_label_value: Optional[str] = typer.Option(
+        None, help="A value for filtering alerts with specific label value"
+    ),
 ):
     """
     Investigate a Prometheus/Alertmanager alert
@@ -230,6 +236,11 @@ def alertmanager(
 
     try:
         issues = source.fetch_issues()
+        if alert_label_key and alert_label_value:
+            issues = [issue for issue in issues if issue.raw and issue.raw.get("labels", {}).get(alert_label_key, None) == alert_label_value]
+            if not issues:
+                logging.error(f"No valid alerts with the label {alert_label_key} and value {alert_label_value}")
+                return
     except Exception as e:
         logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
         return
