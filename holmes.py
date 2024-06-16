@@ -18,6 +18,7 @@ from holmes.plugins.destinations import DestinationType
 from holmes.plugins.prompts import load_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
+from flask import *
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
