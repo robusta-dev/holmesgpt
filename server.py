@@ -1,4 +1,6 @@
 import os
+import sys
+
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -9,39 +11,22 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATEE
 
 import logging
-import uvicorn
-import colorlog
-
 from typing import List, Union
 
-from fastapi import FastAPI
-from pydantic import BaseModel
+import colorlog
+import uvicorn
+from fastapi import FastAPI, HTTPException
 from rich.console import Console
 
-from holmes.common.env_vars import HOLMES_HOST, HOLMES_PORT, ALLOWED_TOOLSETS
-from holmes.core.supabase_dal import SupabaseDal
-from holmes.config import Config
+from holmes.common.env_vars import ALLOWED_TOOLSETS, HOLMES_HOST, HOLMES_PORT
+from holmes.config import BaseLLMConfig, LLMProviderType
 from holmes.core.issue import Issue
+from holmes.core.provider import LLMProviderFactory
+from holmes.core.server_models import InvestigateContext, InvestigateRequest
+from holmes.core.supabase_dal import SupabaseDal
+from holmes.core.tool_calling_llm import LLMError
 from holmes.plugins.prompts import load_prompt
-
-
-class InvestigateContext(BaseModel):
-    type: str
-    value: Union[str, dict]
-
-
-class InvestigateRequest(BaseModel):
-    source: str  # "prometheus" etc
-    title: str
-    description: str
-    subject: dict
-    context: List[InvestigateContext]
-    source_instance_id: str
-    include_tool_calls: bool = False
-    include_tool_call_results: bool = False
-    prompt_template: str = "builtin://generic_investigation.jinja2"
-    # TODO in the future
-    # response_handler: ...
+from holmes.utils.auth import SessionManager
 
 
 def init_logging():
@@ -49,8 +34,9 @@ def init_logging():
     logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
     logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
-    print("setting up colored logging")
-    colorlog.basicConfig(format=logging_format, level=logging_level, datefmt=logging_datefmt)
+    colorlog.basicConfig(
+        format=logging_format, level=logging_level, datefmt=logging_datefmt
+    )
     logging.getLogger().setLevel(logging_level)
 
     httpx_logger = logging.getLogger("httpx")
@@ -61,34 +47,52 @@ def init_logging():
 
 
 init_logging()
+console = Console()
+config = BaseLLMConfig.load_from_env()
+logging.info(f"Starting AI server with config: {config}")
 dal = SupabaseDal()
+
+if not dal.initialized and config.llm_provider == LLMProviderType.ROBUSTA:
+    logging.error("Holmes cannot run without store configuration when the LLM provider is Robusta AI")
+    sys.exit(1)
+session_manager = SessionManager(dal, "AIRelay")
+provider_factory = LLMProviderFactory(config, session_manager)
 app = FastAPI()
 
-console = Console()
-config = Config.load_from_env()
+
+def fetch_context_data(context: List[InvestigateContext]) -> dict:
+    for context_item in context:
+        if context_item.type == "robusta_issue_id":
+            # Note we only accept a single robusta_issue_id. I don't think it
+            # makes sense to have several of them in the context structure.
+            return dal.get_issue_data(context_item.value)
 
 
 @app.post("/api/investigate")
-def investigate_issues(request: InvestigateRequest):
+def investigate_issue(request: InvestigateRequest):
     context = fetch_context_data(request.context)
     raw_data = request.model_dump()
+    raw_data.pop("model")
+    raw_data.pop("system_prompt")
     if context:
         raw_data["extra_context"] = context
 
-    ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
     issue = Issue(
-        id=context['id'] if context else "",
+        id=context["id"] if context else "",
         name=request.title,
         source_type=request.source,
         source_instance_id=request.source_instance_id,
         raw=raw_data,
     )
-    investigation = ai.investigate(
-        issue,
-        # TODO prompt should probably be configurable?
-        prompt=load_prompt(request.prompt),
-        console=console,
-    )
+    investigator = provider_factory.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
+    try:
+        investigation = investigator.investigate(
+            issue,
+            prompt=load_prompt(request.system_prompt),
+            console=console,
+        )
+    except LLMError as exc:
+        raise HTTPException(status_code=500, detail=f"Error calling the LLM provider: {str(exc)}")
     ret = {
         "analysis": investigation.result
     }
@@ -104,13 +108,6 @@ def investigate_issues(request: InvestigateRequest):
         ]
     return ret
 
-
-def fetch_context_data(context: List[InvestigateContext]) -> dict:
-    for context_item in context:
-        if context_item.type == "robusta_issue_id":
-            # Note we only accept a single robusta_issue_id. I don't think it
-            # makes sense to have several of them in the context structure.
-            return dal.get_issue_data(context_item.value)
 
 if __name__ == "__main__":
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT)

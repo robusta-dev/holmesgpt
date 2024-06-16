@@ -10,8 +10,14 @@ from holmes.plugins.prompts import load_prompt
 
 PromptField = Annotated[str, BeforeValidator(lambda v: load_prompt(v))]
 
-class RobustaBaseConfig(BaseModel):
+
+class BaseConfig(BaseModel):
     model_config = ConfigDict(extra='forbid', validate_default=True)
+
+
+class EnvVarName(str):
+    pass
+
 
 def loc_to_dot_sep(loc: Tuple[Union[str, int], ...]) -> str:
     path = ""
@@ -43,7 +49,7 @@ def load_model_from_file(
             contents = contents[yaml_path]
         return model.model_validate(contents)
     except ValidationError as e:
-        print(e)
+        print(e)  # FIXME
         bad_fields = [e["loc"] for e in convert_errors(e)]
         typer.secho(
             f"Invalid config file at  {file_path}. Check the fields {bad_fields}.\nSee detailed errors above.",
