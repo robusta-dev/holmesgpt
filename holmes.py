@@ -239,7 +239,7 @@ def alertmanager(
                 logging.error(f"The label {alertmanager_label} is of the wrong format use '--alertmanager-label key=value'")
                 return
             alert_label_key, alert_label_value = label_parts
-            issues = [issue for issue in issues if issue.raw and issue.raw.get("labels", {}).get(alert_label_key, None) == alert_label_value]
+            issues = [issue for issue in issues if issue.raw.get("labels", {}).get(alert_label_key, None) == alert_label_value]
             if not issues:
                 logging.error(f"No valid alerts with the label {alert_label_key} and value {alert_label_value}")
                 return
