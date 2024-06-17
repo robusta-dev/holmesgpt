@@ -217,6 +217,7 @@ def alertmanager(
         alertmanager_username=alertmanager_username,
         alertmanager_password=alertmanager_password,
         alertmanager_alertname=alertmanager_alertname,
+        alertmanager_label=alertmanager_label,
         slack_token=slack_token,
         slack_channel=slack_channel,
         custom_toolsets=custom_toolsets,
@@ -233,16 +234,6 @@ def alertmanager(
 
     try:
         issues = source.fetch_issues()
-        if alertmanager_label:
-            label_parts = alertmanager_label.split('=')
-            if len(label_parts) != 2:
-                logging.error(f"The label {alertmanager_label} is of the wrong format use '--alertmanager-label key=value'")
-                return
-            alert_label_key, alert_label_value = label_parts
-            issues = [issue for issue in issues if issue.raw.get("labels", {}).get(alert_label_key, None) == alert_label_value]
-            if not issues:
-                logging.error(f"No valid alerts with the label {alert_label_key} and value {alert_label_value}")
-                return
     except Exception as e:
         logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
         return

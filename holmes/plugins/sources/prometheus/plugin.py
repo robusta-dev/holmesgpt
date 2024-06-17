@@ -25,12 +25,14 @@ class AlertManagerSource(SourcePlugin):
         username: Optional[str] = None,
         password: Optional[str] = None,
         alertname: Optional[Pattern] = None,
+        label: Optional[str] = None
     ):
         super().__init__()
         self.url = url
         self.username = username
         self.password = password
         self.alertname = alertname
+        self.label = label
 
     def fetch_issues(self) -> List[Issue]:
         fetch_alerts_url = f"{self.url}/api/v2/alerts"
@@ -58,8 +60,8 @@ class AlertManagerSource(SourcePlugin):
         if self.alertname is not None:
             alertname_filter = re.compile(self.alertname)
             alerts = [a for a in alerts if alertname_filter.match(a.unique_id)]
-
-        return [
+        
+        issues = [
             Issue(
                 id=alert.unique_id,
                 name=alert.name,
@@ -72,6 +74,22 @@ class AlertManagerSource(SourcePlugin):
             )
             for alert in alerts
         ]
+        return self.label_filter_issues(issues)
+
+    def label_filter_issues(self, issues: List[Issue]) -> List[Issue]: 
+        if not self.label:
+            return issues
+
+        label_parts = self.label.split('=')
+        if len(label_parts) != 2:
+            raise Exception(f"The label {self.label} is of the wrong format use '--alertmanager-label key=value'")
+
+        alert_label_key, alert_label_value = label_parts
+        filtered_issues = [issue for issue in issues if issue.raw.get("labels", {}).get(alert_label_key, None) == alert_label_value]
+        if not filtered_issues:
+            raise Exception(f"No valid alerts with the label {alert_label_key} and value {alert_label_value}")
+
+        return filtered_issues
 
     @staticmethod
     def __format_issue_metadata(alert: PrometheusAlert) -> Optional[str]:

@@ -47,6 +47,7 @@ class Config(RobustaBaseConfig):
     alertmanager_username: Optional[str] = None
     alertmanager_password: Optional[str] = None
     alertmanager_alertname: Optional[str] = None
+    alertmanager_label: Optional[str] = None
 
     jira_url: Optional[str] = None
     jira_username: Optional[str] = None
@@ -255,6 +256,7 @@ class Config(RobustaBaseConfig):
             username=self.alertmanager_username,
             password=self.alertmanager_password,
             alertname=self.alertmanager_alertname,
+            label=self.alertmanager_label,
         )
 
     def create_slack_destination(self):
