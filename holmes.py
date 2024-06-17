@@ -199,7 +199,7 @@ def alertmanager(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     alertmanager_label: Optional[str] = typer.Option(
-        None, help="For filtering alerts with specific labelm must be of format key=value"
+        None, help="For filtering alerts with a specific label must be of format key=value"
     ),
 ):
     """

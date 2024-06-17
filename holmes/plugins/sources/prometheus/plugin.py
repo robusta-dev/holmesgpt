@@ -57,11 +57,15 @@ class AlertManagerSource(SourcePlugin):
             a.to_regular_prometheus_alert()
             for a in parse_obj_as(List[PrometheusGettableAlert], data)
         ]
+
+        alerts = self.label_filter_issues(alerts)
+        
         if self.alertname is not None:
             alertname_filter = re.compile(self.alertname)
-            alerts = [a for a in alerts if alertname_filter.match(a.unique_id)]
-        
-        issues = [
+            alerts = [a for a in alerts if alertname_filter.match(a.unique_id)]   
+
+
+        return [
             Issue(
                 id=alert.unique_id,
                 name=alert.name,
@@ -74,9 +78,8 @@ class AlertManagerSource(SourcePlugin):
             )
             for alert in alerts
         ]
-        return self.label_filter_issues(issues)
 
-    def label_filter_issues(self, issues: List[Issue]) -> List[Issue]: 
+    def label_filter_issues(self, issues: List[PrometheusAlert]) -> List[PrometheusAlert]: 
         if not self.label:
             return issues
 
@@ -85,9 +88,9 @@ class AlertManagerSource(SourcePlugin):
             raise Exception(f"The label {self.label} is of the wrong format use '--alertmanager-label key=value'")
 
         alert_label_key, alert_label_value = label_parts
-        filtered_issues = [issue for issue in issues if issue.raw.get("labels", {}).get(alert_label_key, None) == alert_label_value]
+        filtered_issues = [issue for issue in issues if issue.labels.get(alert_label_key, None) == alert_label_value]
         if not filtered_issues:
-            raise Exception(f"No valid alerts with the label {alert_label_key} and value {alert_label_value}")
+            return []
 
         return filtered_issues
 
