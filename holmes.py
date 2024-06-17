@@ -198,6 +198,9 @@ def alertmanager(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
+    alertmanager_label: Optional[str] = typer.Option(
+        None, help="For filtering alerts with a specific label must be of format key=value"
+    ),
 ):
     """
     Investigate a Prometheus/Alertmanager alert
@@ -214,6 +217,7 @@ def alertmanager(
         alertmanager_username=alertmanager_username,
         alertmanager_password=alertmanager_password,
         alertmanager_alertname=alertmanager_alertname,
+        alertmanager_label=alertmanager_label,
         slack_token=slack_token,
         slack_channel=slack_channel,
         custom_toolsets=custom_toolsets,
