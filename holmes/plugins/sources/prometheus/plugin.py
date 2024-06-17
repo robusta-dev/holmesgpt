@@ -59,7 +59,7 @@ class AlertManagerSource(SourcePlugin):
         ]
 
         alerts = self.label_filter_issues(alerts)
-        
+
         if self.alertname is not None:
             alertname_filter = re.compile(self.alertname)
             alerts = [a for a in alerts if alertname_filter.match(a.unique_id)]   
@@ -88,11 +88,7 @@ class AlertManagerSource(SourcePlugin):
             raise Exception(f"The label {self.label} is of the wrong format use '--alertmanager-label key=value'")
 
         alert_label_key, alert_label_value = label_parts
-        filtered_issues = [issue for issue in issues if issue.labels.get(alert_label_key, None) == alert_label_value]
-        if not filtered_issues:
-            return []
-
-        return filtered_issues
+        return [issue for issue in issues if issue.labels.get(alert_label_key, None) == alert_label_value]
 
     @staticmethod
     def __format_issue_metadata(alert: PrometheusAlert) -> Optional[str]:
