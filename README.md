@@ -187,7 +187,7 @@ Pass your API key to holmes with the `--api-key` cli argument:
 holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
 ```
 
-Alternatively, you can set the OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
+If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
 
 </details>
 
@@ -200,8 +200,9 @@ To work with Azure AI, you need the [Azure OpenAI](https://learn.microsoft.com/e
 holmes ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER> --azure-endpoint='<PLACEHOLDER>'
 ```
 
-Alternatively, you can set the AZURE_OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
+The `--azure-endpoint` should be a URL in the format "https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview"
 
+If you prefer not to pass secrets on the cli, set the AZURE_OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
 
 </details>
 
@@ -427,7 +428,7 @@ Choose between OpenAI or Azure for integrating large language models. Provide th
 ```bash
 # Configuration for OpenAI LLM
 #llm: "openai"
-#api_key: "..."
+#api_key: "your-secret-api-key"
 ```
 </details>
 
@@ -438,8 +439,8 @@ Choose between OpenAI or Azure for integrating large language models. Provide th
 ```bash
 # Configuration for Azure LLM
 #llm: "azure"
-#api_key: "..."
-#azure_endpoint: "..."
+#api_key: "your-secret-api-key"
+#azure_endpoint: "https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview"
 ```
 </details>
   

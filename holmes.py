@@ -51,7 +51,7 @@ opt_api_key: Optional[str] = typer.Option(
 )
 opt_azure_endpoint: Optional[str] = typer.Option(
     None,
-    help="Endpoint to use for Azure AI (if not given, uses environment variable AZURE_OPENAI_ENDPOINT)",
+    help="Endpoint to use for Azure AI. e.g. 'https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview'. If not given, uses environment variable AZURE_OPENAI_ENDPOINT.",
 )
 opt_model: Optional[str] = typer.Option("gpt-4o", help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
