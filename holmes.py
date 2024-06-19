@@ -324,7 +324,6 @@ def jira(
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_jira_source()
     try:
-        # TODO: allow passing issue ID
         issues = source.fetch_issues()
     except Exception as e:
         logging.error(f"Failed to fetch issues from Jira", exc_info=e)
@@ -470,7 +469,7 @@ def pagerduty(
     ),
 ):
     """
-    Investigate an OpsGenie alert
+    Investigate a PagerDuty incident
     """
     console = init_logging(verbose)
     config = Config.load_from_file(
