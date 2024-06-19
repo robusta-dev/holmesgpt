@@ -41,8 +41,9 @@ def init_logging(verbose = False):
     return Console()
 
 # Common cli options
+# The defaults for options that are also in the config file MUST be None or else the cli defaults will override settings in the config file
 opt_llm: Optional[LLMType] = typer.Option(
-    LLMType.OPENAI,
+    None,
     help="Which LLM to use ('openai' or 'azure')",
 )
 opt_api_key: Optional[str] = typer.Option(
