@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from holmes.core.issue import Issue
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.interfaces import SourcePlugin
+from holmes.utils.markdown_utils import markdown_to_plain_text
 
 class PagerDutySource(SourcePlugin):
 
@@ -67,9 +68,10 @@ class PagerDutySource(SourcePlugin):
                 "Content-Type": "application/json",
                 "From": self.user_email,
             }
+            comment = markdown_to_plain_text(result_data.result)
             comment_data = {
                 "note": {
-                    "content": f"Automatic AI Investigation by HolmesGPT:\n\n{result_data.result}"
+                    "content": f"Automatic AI Investigation by HolmesGPT:\n\n{comment}"
                 }
             }
             response = requests.post(
