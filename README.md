@@ -181,7 +181,14 @@ To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key]
 
 **Note**: This is different from being a “ChatGPT Plus” subscriber.
 
-Add the `api_key` to the config.yaml or pass via the CLI with --api-key.
+Pass your API key to holmes with the `--api-key` cli argument:
+
+```
+holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
+```
+
+Alternatively, you can set the OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
+
 </details>
 
 <details>
@@ -192,6 +199,9 @@ To work with Azure AI, you need the [Azure OpenAI](https://learn.microsoft.com/e
 ```bash
 holmes ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER> --azure-endpoint='<PLACEHOLDER>'
 ```
+
+Alternatively, you can set the AZURE_OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
+
 
 </details>
 
