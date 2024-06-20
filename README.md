@@ -60,7 +60,7 @@ By default Jira investigation results are displayed in the CLI itself. But you c
 holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
 ```
 
-By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
+By default GitHub investigation results are displayed in the CLI itself. But you can use `--update` to get the results as a comment in the GitHub issue.
 
 </details>
 
