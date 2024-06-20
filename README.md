@@ -49,7 +49,7 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
 ```
 
-By default Jira investigation results are displayed in the CLI itself. But you can use `--update-ticket` to get the results as a comment in the Jira ticket.
+By default results are displayed in the CLI . Use `--update` to get the results as a comment in the Jira ticket.
 
 </details>
 
@@ -60,7 +60,7 @@ By default Jira investigation results are displayed in the CLI itself. But you c
 holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
 ```
 
-By default GitHub investigation results are displayed in the CLI itself. But you can use `--update-issue` to get the results as a comment in the GitHub issue.
+By default results are displayed in the CLI. Use `--update` to get the results as a comment in the GitHub issue.
 
 </details>
 
@@ -72,7 +72,7 @@ By default GitHub investigation results are displayed in the CLI itself. But you
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default OpsGenie investigation results are displayed in the CLI itself. But you can use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
+By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
 
 ![OpsGenie](./images/opsgenie-holmes-update.png)
 </details>
@@ -85,7 +85,7 @@ By default OpsGenie investigation results are displayed in the CLI itself. But y
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default PagerDuty investigation results are displayed in the CLI itself. But you can use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
+By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
 
 ![PagerDuty](./images/pagerduty-holmes-update.png)
 </details>
