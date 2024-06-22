@@ -19,6 +19,7 @@ from holmes.plugins.prompts import load_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
+
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
     add_completion=False,
@@ -27,6 +28,14 @@ investigate_app = typer.Typer(
     help="Investigate firing alerts or tickets",
 )
 app.add_typer(investigate_app, name="investigate")
+generate_app = typer.Typer(
+    add_completion=False,
+    name="generate",
+    no_args_is_help=True,
+    help="Generate new integrations or test data",
+)
+app.add_typer(generate_app, name="generate")
+
 
 def init_logging(verbose = False):
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
@@ -173,11 +182,17 @@ def alertmanager(
         None,
         help="Investigate all alerts with this name (can be regex that matches multiple alerts). If not given, defaults to all firing alerts",
     ),
+    alertmanager_label: Optional[str] = typer.Option(
+        None, help="For filtering alerts with a specific label. Must be of format key=value"
+    ),
     alertmanager_username: Optional[str] = typer.Option(
         None, help="Username to use for basic auth"
     ),
     alertmanager_password: Optional[str] = typer.Option(
         None, help="Password to use for basic auth"
+    ),
+    alertmanager_file: Optional[Path] = typer.Option(
+        None, help="Load alertmanager alerts from a file (used by the test framework)"
     ),
     # common options
     llm: Optional[LLMType] = opt_llm,
@@ -198,9 +213,6 @@ def alertmanager(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    alertmanager_label: Optional[str] = typer.Option(
-        None, help="For filtering alerts with a specific label must be of format key=value"
-    ),
 ):
     """
     Investigate a Prometheus/Alertmanager alert
@@ -218,6 +230,7 @@ def alertmanager(
         alertmanager_password=alertmanager_password,
         alertmanager_alertname=alertmanager_alertname,
         alertmanager_label=alertmanager_label,
+        alertmanager_file=alertmanager_file,
         slack_token=slack_token,
         slack_channel=slack_channel,
         custom_toolsets=custom_toolsets,
@@ -266,6 +279,37 @@ def alertmanager(
 
     if json_output_file:
         write_json_file(json_output_file, results)
+
+
+@generate_app.command("alertmanager-tests")
+def generate_alertmanager_tests(
+    alertmanager_url: Optional[str] = typer.Option(None, help="AlertManager url"),
+    alertmanager_username: Optional[str] = typer.Option(
+        None, help="Username to use for basic auth"
+    ),
+    alertmanager_password: Optional[str] = typer.Option(
+        None, help="Password to use for basic auth"
+    ),
+    output: Path = typer.Option(
+        ..., help="Path to dump alertmanager alerts"
+    ),
+    config_file: Optional[str] = opt_config_file,
+    verbose: Optional[bool] = opt_verbose,
+):
+    """
+    Connect to alertmanager and dump all alerts to a file that you can use for creating tests
+    """
+    console = init_logging(verbose)
+    config = Config.load_from_file(
+        config_file,
+        alertmanager_url=alertmanager_url,
+        alertmanager_username=alertmanager_username,
+        alertmanager_password=alertmanager_password,
+    )
+
+    source = config.create_alertmanager_source()
+    source.dump_raw_alerts_to_file(output)
+
 
 @investigate_app.command()
 def jira(
