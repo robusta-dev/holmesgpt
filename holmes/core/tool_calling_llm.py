@@ -65,6 +65,7 @@ class ToolCallingLLM:
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
             tools = NOT_GIVEN if i == self.max_steps - 1 else tools
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
+            logging.debug(f"sending messages {messages}")
             try:
                 full_response = self.client.chat.completions.create(
                     model=self.model,
