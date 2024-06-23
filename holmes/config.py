@@ -26,6 +26,8 @@ from holmes.plugins.toolsets import (load_builtin_toolsets,
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
+DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+
 class LLMType(StrEnum):
     OPENAI = "openai"
     AZURE = "azure"
@@ -263,13 +265,13 @@ class Config(RobustaBaseConfig):
     @classmethod
     def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
         if config_file is not None:
-            logging.debug("Loading config from file %s", config_file)
+            logging.debug(f"Loading config from file %s", config_file)
             config_from_file = load_model_from_file(cls, config_file)
-        elif os.path.exists("config.yaml"):
-            logging.debug("Loading config from default location config.yaml")
-            config_from_file = load_model_from_file(cls, "config.yaml")
+        elif os.path.exists(DEFAULT_CONFIG_LOCATION):
+            logging.debug(f"Loading config from default location {DEFAULT_CONFIG_LOCATION}")
+            config_from_file = load_model_from_file(cls, DEFAULT_CONFIG_LOCATION)
         else:
-            logging.debug("No config file found, using cli settings only")
+            logging.debug(f"No config file found at {DEFAULT_CONFIG_LOCATION}, using cli settings only")
             config_from_file = None
 
         config_from_cli = cls(**kwargs)
