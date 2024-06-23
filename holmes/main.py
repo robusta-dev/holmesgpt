@@ -5,8 +5,7 @@ import logging
 import re
 import warnings
 from pathlib import Path
-from typing import List, Optional, Pattern
-import json
+from typing import List, Optional
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
@@ -50,8 +49,9 @@ def init_logging(verbose = False):
     return Console()
 
 # Common cli options
+# The defaults for options that are also in the config file MUST be None or else the cli defaults will override settings in the config file
 opt_llm: Optional[LLMType] = typer.Option(
-    LLMType.OPENAI,
+    None,
     help="Which LLM to use ('openai' or 'azure')",
 )
 opt_api_key: Optional[str] = typer.Option(
@@ -144,6 +144,12 @@ def ask(
         "--show-tool-output",
         help="Advanced. Show the output of each tool that was called",
     ),
+    include_file: Optional[List[Path]] = typer.Option(
+        [],
+        "--file",
+        "-f",
+        help="File to append to prompt (can specify -f multiple times to add multiple files)",
+    ),
     json_output_file: Optional[str] = opt_json_output_file
 ):
     """
@@ -162,6 +168,11 @@ def ask(
     system_prompt = load_prompt(system_prompt)
     ai = config.create_toolcalling_llm(console, allowed_toolsets)
     console.print("[bold yellow]User:[/bold yellow] " + prompt)
+    for path in include_file:
+        f = path.open("r")
+        prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
+        console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
+
     response = ai.call(system_prompt, prompt)
     text_result = Markdown(response.result)
     if json_output_file:
