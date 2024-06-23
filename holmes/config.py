@@ -272,7 +272,10 @@ class Config(RobustaBaseConfig):
             logging.debug("No config file found, using cli settings only")
             config_from_file = None
 
-        config_from_cli = cls(**kwargs)
+        cli_options = {
+            k: v for k, v in kwargs.items() if v is not None and v != []
+        }
+        config_from_cli = cls(**cli_options)
         if config_from_file is None:
             return config_from_cli
 
