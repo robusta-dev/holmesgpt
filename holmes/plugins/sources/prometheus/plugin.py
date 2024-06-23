@@ -97,7 +97,7 @@ class AlertManagerSource(SourcePlugin):
                 id=alert.unique_id,
                 name=alert.name,
                 source_type="prometheus",
-                source_instance_id=self.url,
+                source_instance_id=self.filepath if self.filepath else self.url,
                 url=alert.generatorURL,
                 presentation_key_metadata=f"*Severity*: {alert.labels['severity']}\n*Start Time*: {alert.startsAt.strftime('%Y-%m-%d %H:%M:%S UTC')}\n*Duration*: {humanize.naturaldelta(alert.duration)}",
                 presentation_all_metadata=self.__format_issue_metadata(alert),
