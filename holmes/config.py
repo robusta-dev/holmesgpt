@@ -272,6 +272,7 @@ class Config(RobustaBaseConfig):
             logging.debug("No config file found, using cli settings only")
             config_from_file = None
 
+        # prevent unset cli options from overriding defaults (when there is no config file)
         cli_options = {
             k: v for k, v in kwargs.items() if v is not None and v != []
         }
@@ -280,7 +281,7 @@ class Config(RobustaBaseConfig):
             return config_from_cli
 
         merged_config = config_from_file.dict()
-        # remove Nones to avoid overriding config file with empty cli args
+        # prevent unset cli options from overriding the config file settings
         cli_overrides = {
             k: v for k, v in config_from_cli.dict().items() if v is not None and v != []
         }
