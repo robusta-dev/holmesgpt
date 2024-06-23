@@ -48,6 +48,7 @@ class Config(RobustaBaseConfig):
     alertmanager_password: Optional[str] = None
     alertmanager_alertname: Optional[str] = None
     alertmanager_label: Optional[str] = None
+    alertmanager_file: Optional[FilePath] = None
 
     jira_url: Optional[str] = None
     jira_username: Optional[str] = None
@@ -243,20 +244,13 @@ class Config(RobustaBaseConfig):
         )
 
     def create_alertmanager_source(self) -> AlertManagerSource:
-        if self.alertmanager_url is None:
-            raise ValueError("--alertmanager-url must be specified")
-        if not (
-            self.alertmanager_url.startswith("http://")
-            or self.alertmanager_url.startswith("https://")
-        ):
-            raise ValueError("--alertmanager-url must start with http:// or https://")
-
         return AlertManagerSource(
             url=self.alertmanager_url,
             username=self.alertmanager_username,
             password=self.alertmanager_password,
             alertname=self.alertmanager_alertname,
             label=self.alertmanager_label,
+            filepath=self.alertmanager_file,
         )
 
     def create_slack_destination(self):
