@@ -42,6 +42,17 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 </details>
 
 <details>
+<summary>Investigate a Local Log File</summary>
+
+Attach files to the HolmesGPT session with `-f`:
+
+```console
+sudo dmesg > dmesg.log
+poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg.log
+```
+</details>
+
+<details>
 
 <summary>Investigate and update Jira tickets with findings</summary>
 
