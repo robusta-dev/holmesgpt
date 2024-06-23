@@ -108,10 +108,12 @@ class Config(RobustaBaseConfig):
 
     def create_llm(self) -> OpenAI:
         if self.llm == LLMType.OPENAI:
+            logging.debug(f"Using OpenAI")
             return OpenAI(
                 api_key=self.api_key.get_secret_value() if self.api_key else None,
             )
         elif self.llm == LLMType.AZURE:
+            logging.debug(f"Using Azure with endpoint {self.azure_endpoint}")
             return AzureOpenAI(
                 api_key=self.api_key.get_secret_value() if self.api_key else None,
                 azure_endpoint=self.azure_endpoint,
@@ -278,11 +280,8 @@ class Config(RobustaBaseConfig):
         config_from_cli = cls(**cli_options)
         if config_from_file is None:
             return config_from_cli
+            return cls(**cli_options)
 
         merged_config = config_from_file.dict()
-        # remove Nones to avoid overriding config file with empty cli args
-        cli_overrides = {
-            k: v for k, v in config_from_cli.dict().items() if v is not None and v != []
-        }
-        merged_config.update(cli_overrides)
+        merged_config.update(cli_options)
         return cls(**merged_config)
