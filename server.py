@@ -12,7 +12,8 @@ import logging
 import uvicorn
 import colorlog
 
-from typing import List, Union
+from holmes.core.tool_calling_llm import ToolCallResult
+from typing import List, Union, Dict, Any, Optional
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -35,8 +36,8 @@ class InvestigateRequest(BaseModel):
     title: str
     description: str
     subject: dict
-    context: List[InvestigateContext]
-    source_instance_id: str
+    context: Dict[str, Any]
+    source_instance_id: str = "ApiRequest"
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://generic_investigation.jinja2"
@@ -68,49 +69,44 @@ console = Console()
 config = Config.load_from_env()
 
 
+class InvestigationResult(BaseModel):
+    analysis: Optional[str] = None
+    tool_calls: List[ToolCallResult] = []
+
+
 @app.post("/api/investigate")
-def investigate_issues(request: InvestigateRequest):
-    context = fetch_context_data(request.context)
-    raw_data = request.model_dump()
+def investigate_issues(investigate_request: InvestigateRequest):
+    context = fetch_context_data(investigate_request.context)
+    raw_data = investigate_request.model_dump()
     if context:
         raw_data["extra_context"] = context
 
     ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
     issue = Issue(
         id=context['id'] if context else "",
-        name=request.title,
-        source_type=request.source,
-        source_instance_id=request.source_instance_id,
+        name=investigate_request.title,
+        source_type=investigate_request.source,
+        source_instance_id=investigate_request.source_instance_id,
         raw=raw_data,
     )
     investigation = ai.investigate(
         issue,
-        # TODO prompt should probably be configurable?
-        prompt=load_prompt(request.prompt),
+        prompt=load_prompt(investigate_request.prompt_template),
         console=console,
     )
-    ret = {
-        "analysis": investigation.result
-    }
-    if request.include_tool_calls:
-        ret["tool_calls"] = [
-            {
-                "tool_name": tool.tool_name,
-                "tool_call": tool.description,
-            } | (
-                {"call_result": tool.result} if request.include_tool_call_results else {}
-            )
-            for tool in investigation.tool_calls
-        ]
-    return ret
+    return InvestigationResult(
+        analysis=investigation.result,
+        tool_calls=investigation.tool_calls,
+    )
 
 
-def fetch_context_data(context: List[InvestigateContext]) -> dict:
-    for context_item in context:
-        if context_item.type == "robusta_issue_id":
+def fetch_context_data(context: Dict[str, Any]) -> dict:
+    for context_item in context.keys():
+        if context_item == "robusta_issue_id":
             # Note we only accept a single robusta_issue_id. I don't think it
             # makes sense to have several of them in the context structure.
-            return dal.get_issue_data(context_item.value)
+            return dal.get_issue_data(context[context_item])
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT)

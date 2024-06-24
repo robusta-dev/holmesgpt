@@ -84,7 +84,7 @@ class SlackDestination(DestinationPlugin):
 
         text = "*AI used info from alert and the following tools:*"
         for tool in result.tool_calls:
-            file_response = self.client.files_upload(
+            file_response = self.client.files_upload_v2(
                 content=tool.result, title=f"{tool.description}"
             )
             permalink = file_response["file"]["permalink"]
@@ -107,7 +107,7 @@ class SlackDestination(DestinationPlugin):
             return
 
         text = "*🐞 DEBUG: messages with OpenAI*"
-        file_response = self.client.files_upload(
+        file_response = self.client.files_upload_v2(
             content=result.prompt, title=f"ai-prompt"
         )
         permalink = file_response["file"]["permalink"]
@@ -131,7 +131,7 @@ class SlackDestination(DestinationPlugin):
 
         filename = f"{issue.name}"
         issue_json = issue.model_dump_json()
-        file_response = self.client.files_upload(content=issue_json, title=filename)
+        file_response = self.client.files_upload_v2(content=issue_json, title=filename)
         permalink = file_response["file"]["permalink"]
         text = issue.presentation_all_metadata
         text += f"\n<{permalink}|{filename}>\n"
