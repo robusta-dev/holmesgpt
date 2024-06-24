@@ -183,7 +183,9 @@ docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root
 
 ### Getting an API Key
 
-HolmesGPT requires an API Key to function. We use [LiteLLM](https://github.com/BerriAI/litellm/) to support many standard models. To customize the model, run HolmesGPT with a `--model` flag and give a name in the LiteLLM-format. Some common options are: 
+HolmesGPT requires an API Key to function. We use [LiteLLM](https://github.com/BerriAI/litellm/) to support many standard models. To customize the model, run HolmesGPT with the `--model` flag and pass a model name in LiteLLM-format. Depending on the provider, you may need need to also set environment variables 
+
+Some common options are: 
 
 <details>
 <summary>OpenAI</summary>
@@ -192,7 +194,7 @@ To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key]
 
 **Note**: This is different from being a “ChatGPT Plus” subscriber.
 
-Pass your API key to holmes with the `--api-key` cli argument:
+Pass your API key to holmes with the `--api-key` cli argument. Because OpenAI is the default LLM, the `--model` flag is optional for OpenAI (gpt-4o is the default).
 
 ```
 holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
@@ -223,7 +225,7 @@ Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) 
 <details>
 <summary>AWS Bedrock</summary>
 
-Before running the above command you must run `pip install boto3>=1.28.57` and set the following environment variables:
+Before running the below command you must run `pip install boto3>=1.28.57` and set the following environment variables:
 
 * `AWS_REGION_NAME`
 * `AWS_ACCESS_KEY_ID`
