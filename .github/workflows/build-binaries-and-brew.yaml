@@ -66,7 +66,7 @@ jobs:
       shell: bash
       # regarding the tiktoken part of the command, see https://github.com/openai/tiktoken/issues/80
       run: |
-        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext
+        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --collect-data litellm
         ls dist
 
     - name: Zip the application (Unix)
