@@ -49,8 +49,7 @@ class YAMLTool(BaseModel):
         tool_properties = {}
         for param_name, param_attributes in self.parameters.items():
             tool_properties[param_name] = { "type": param_attributes.type }
-            #if param_attributes.title is not None:
-            #    tool_properties[param_name]["title"] = param_attributes.title
+            tool_properties[param_name]["title"] = param_attributes.title or param_name
             if param_attributes.description is not None:
                 tool_properties[param_name]["description"] = param_attributes.description
         
