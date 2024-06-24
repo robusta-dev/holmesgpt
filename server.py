@@ -26,11 +26,6 @@ from holmes.core.issue import Issue
 from holmes.plugins.prompts import load_prompt
 
 
-class InvestigateContext(BaseModel):
-    type: str
-    value: Union[str, dict]
-
-
 class InvestigateRequest(BaseModel):
     source: str  # "prometheus" etc
     title: str
