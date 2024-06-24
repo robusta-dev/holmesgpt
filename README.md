@@ -211,13 +211,13 @@ To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microso
 * AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
 * AZURE_OPENAI_API_KEY (optional) - equivalent to the `--api-key` cli argument
 
-Then run:
+Set those environment variables and run:
 
 ```bash
 holmes ask "what pods are unhealthy and why?" --llm=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
 ```
 
-HolmesGPT support for Azure is provided by LiteLLM. [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) 
+Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details. 
 </details>
 
 <details>
@@ -246,7 +246,7 @@ Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropi
 aws bedrock list-foundation-models --region=us-east-1
 ```
 
-HolmesGPT support for Bedrock is provided by LiteLLM. [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) 
+Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details. 
 </details>
 
 <details>
