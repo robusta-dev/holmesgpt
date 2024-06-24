@@ -55,7 +55,7 @@ class YAMLTool(BaseModel):
         
         title = self.title or self.name
 
-        return {
+        result = {
             "type": "function",
             "function": {
                 "name": self.name,
@@ -68,6 +68,8 @@ class YAMLTool(BaseModel):
                 }
             },
         }
+        logging.info(f"Tools: {result}")
+        return result
 
     def get_parameterized_one_liner(self, params):
         params = sanitize_params(params)
