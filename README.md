@@ -114,7 +114,7 @@ Like what you see? Checkout [other use cases](#other-use-cases) or get started b
 
 ## Installation
 
-First you will need an <a href="#getting-an-api-key"> OpenAI API key, or equivalent for another model</a>. Then install with one of the below methods:
+Prerequisite: <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
 
 <details>
   <summary>Brew (Mac/Linux)</summary>
