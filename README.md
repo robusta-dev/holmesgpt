@@ -183,7 +183,7 @@ docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root
 
 ### Getting an API Key
 
-HolmesGPT requires an API Key to function. We use [LiteLLM](https://github.com/BerriAI/litellm/) to support many standard models. You can run HolmesGPT with a `--model` flag and give model names in the LiteLLM-format. Some common options are: 
+HolmesGPT requires an API Key to function. We use [LiteLLM](https://github.com/BerriAI/litellm/) to support many standard models. To customize the model, run HolmesGPT with a `--model` flag and give a name in the LiteLLM-format. Some common options are: 
 
 <details>
 <summary>OpenAI</summary>
