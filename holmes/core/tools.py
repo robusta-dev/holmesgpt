@@ -62,7 +62,6 @@ class YAMLTool(BaseModel):
                 }
             },
         }
-        logging.info(f"Tools: {result}")
         return result
 
     def get_parameterized_one_liner(self, params):
