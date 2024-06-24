@@ -61,10 +61,12 @@ jobs:
         (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
       shell: pwsh
 
+    # if you change something here, you must also change it in .github/workflows/build-and-test.yaml
     - name: Build with PyInstaller
       shell: bash
+      # regarding the tiktoken part of the command, see https://github.com/openai/tiktoken/issues/80
       run: |
-        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets'
+        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext
         ls dist
 
     - name: Zip the application (Unix)
