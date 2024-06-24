@@ -277,9 +277,7 @@ class Config(RobustaBaseConfig):
         cli_options = {
             k: v for k, v in kwargs.items() if v is not None and v != []
         }
-        config_from_cli = cls(**cli_options)
         if config_from_file is None:
-            return config_from_cli
             return cls(**cli_options)
 
         merged_config = config_from_file.dict()
