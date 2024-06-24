@@ -4,7 +4,8 @@
   <p align="center">
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
-    <a href="#installation"><strong>Installation</strong></a> 
+    <a href="#installation"><strong>Installation</strong></a> |
+    <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
 
