@@ -205,15 +205,17 @@ If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment
 <details>
 <summary>Azure OpenAI</summary>
 
-To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource). 
-
-```bash
-holmes ask "what pods are unhealthy and why?" --llm=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
-```
+To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource) and to set the following environment variables:
 
 * AZURE_API_VERSION - e.g. 2024-02-15-preview
 * AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
 * AZURE_OPENAI_API_KEY (optional) - equivalent to the `--api-key` cli argument
+
+Then run:
+
+```bash
+holmes ask "what pods are unhealthy and why?" --llm=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
+```
 
 HolmesGPT support for Azure is provided by LiteLLM. [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) 
 </details>
