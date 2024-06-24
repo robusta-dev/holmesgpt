@@ -20,9 +20,6 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 
 ### See it in Action
 
-Check out all the features in a video: [Exploring ChatGPT and HolmesGPT for Investigating Cloud Issues
-](https://www.youtube.com/watch?v=TfQfx65LsDQ)
-
 ![AI Alert Analysis](images/holmesgptdemo.gif)
 
 ## Examples
