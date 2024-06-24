@@ -18,6 +18,10 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 - **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
 ### See it in Action
+
+Check out all the features in a video: [Exploring ChatGPT and HolmesGPT for Investigating Cloud Issues
+](https://www.youtube.com/watch?v=TfQfx65LsDQ)
+
 ![AI Alert Analysis](images/holmesgptdemo.gif)
 
 ## Examples
