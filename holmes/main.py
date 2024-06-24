@@ -42,6 +42,9 @@ def init_logging(verbose = False):
     logging.getLogger("httpx").setLevel(logging.WARNING)
     # disable INFO logs from LiteLLM
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    # disable INFO logs from AWS (relevant when using bedrock)
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
     # when running in --verbose mode we don't want to see DEBUG logs from these libraries
     logging.getLogger("openai._base_client").setLevel(logging.INFO)
     logging.getLogger("httpcore").setLevel(logging.INFO)
