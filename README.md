@@ -114,7 +114,9 @@ Like what you see? Checkout [other use cases](#other-use-cases) or get started b
 
 ## Installation
 
-Prerequisite: <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
+**Prerequisite:** <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
+
+**Installation Methods:**
 
 <details>
   <summary>Brew (Mac/Linux)</summary>
