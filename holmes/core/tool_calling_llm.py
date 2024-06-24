@@ -2,8 +2,10 @@ import datetime
 import json
 import logging
 import textwrap
+import os
 from typing import Dict, Generator, List, Optional
 
+import litellm
 import jinja2
 from openai import BadRequestError, OpenAI
 from openai._types import NOT_GIVEN
@@ -25,6 +27,8 @@ class ToolCallResult(BaseModel):
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
+
+    # TODO: clean up these two
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
 
@@ -37,15 +41,36 @@ class ToolCallingLLM:
 
     def __init__(
         self,
-        client: OpenAI,
-        model: str,
+        model: Optional[str],
+        api_key: Optional[str],
         tool_executor: YAMLToolExecutor,
         max_steps: int,
     ):
-        self.client = client
         self.tool_executor = tool_executor
         self.max_steps = max_steps
         self.model = model
+        self.api_key = api_key
+
+        self.check_llm(self.model, self.api_key)
+
+    def check_llm(self, model, api_key):
+        # TODO: this is a hack to get around the fact that we can't pass in an api key to litellm.validate_environment 
+        # so without this hack it always complains that the environment variable for the api key is missing
+        # to fix that, we always set an api key in the standard format that litellm expects (which is ${PROVIDER}_API_KEY)
+        lookup = litellm.get_llm_provider(self.model)
+        if not lookup:
+            raise Exception(f"Unknown provider for model {model}")
+        provider = lookup[1]
+        api_key_env_var = f"{provider.upper()}_API_KEY"
+        if api_key:
+            os.environ[api_key_env_var] = api_key
+        model_requirements = litellm.validate_environment(model=model)
+        if not model_requirements["keys_in_environment"]:
+            raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
+
+        # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name 
+        #if not litellm.supports_function_calling(model=model):
+        #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
 
     def call(self, system_prompt, user_prompt) -> LLMResult:
         messages = [
@@ -67,8 +92,9 @@ class ToolCallingLLM:
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
             logging.debug(f"sending messages {messages}")
             try:
-                full_response = self.client.chat.completions.create(
+                full_response = litellm.completion(
                     model=self.model,
+                    api_key=self.api_key,
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
@@ -91,7 +117,7 @@ class ToolCallingLLM:
                 )
             )
 
-            tools_to_call = response_message.tool_calls
+            tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
                 return LLMResult(
                     result=response_message.content,
@@ -139,13 +165,13 @@ class IssueInvestigator(ToolCallingLLM):
 
     def __init__(
         self,
-        client: OpenAI,
-        model: str,
+        model: Optional[str],
+        api_key: Optional[str],
         tool_executor: YAMLToolExecutor,
         runbook_manager: RunbookManager,
         max_steps: int,
     ):
-        super().__init__(client, model, tool_executor, max_steps)
+        super().__init__(model, api_key, tool_executor, max_steps)
         self.runbook_manager = runbook_manager
 
     def investigate(
