@@ -4,7 +4,8 @@
   <p align="center">
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
-    <a href="#installation"><strong>Installation</strong></a> 
+    <a href="#installation"><strong>Installation</strong></a> |
+    <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
 
@@ -18,6 +19,7 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 - **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
 ### See it in Action
+
 ![AI Alert Analysis](images/holmesgptdemo.gif)
 
 ## Examples
