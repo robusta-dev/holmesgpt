@@ -211,8 +211,6 @@ To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microso
 holmes ask "what pods are unhealthy and why?" --llm=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
 ```
 
-Before running the above command you must run `pip install boto3>=1.28.57` and set the following environment variables:
-
 * AZURE_API_VERSION - e.g. 2024-02-15-preview
 * AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
 * AZURE_OPENAI_API_KEY (optional) - equivalent to the `--api-key` cli argument
@@ -223,18 +221,8 @@ HolmesGPT support for Azure is provided by LiteLLM. [LiteLLM Azure docs ↗](htt
 <details>
 <summary>AWS Bedrock</summary>
 
-Replace `MODEL_NAME` with a model you have access to - e.g. `anthropic.claude-3-5-sonnet-20240620-v1:0`:
-```console
-holmes ask "what pods are unhealthy and why?" --llm=bedrock/<MODEL_NAME>
-```
+Before running the above command you must run `pip install boto3>=1.28.57` and set the following environment variables:
 
-To list models your account can access:
-
-```
-aws bedrock list-foundation-models --region=us-east-1
-```
-
-You must also set the environment variables:
 * `AWS_REGION_NAME`
 * `AWS_ACCESS_KEY_ID`
 * `AWS_SECRET_ACCESS_KEY`
@@ -243,6 +231,17 @@ If the AWS cli is already configured on your machine, you may be able to find th
 
 ```console
 cat ~/.aws/credentials ~/.aws/config
+```
+
+Once everything is configured, run:
+```console
+holmes ask "what pods are unhealthy and why?" --llm=bedrock/<MODEL_NAME>
+```
+
+Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropic.claude-3-5-sonnet-20240620-v1:0`. To list models your account can access:
+
+```
+aws bedrock list-foundation-models --region=us-east-1
 ```
 
 HolmesGPT support for Bedrock is provided by LiteLLM. [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) 
