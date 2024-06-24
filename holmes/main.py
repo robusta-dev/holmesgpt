@@ -40,6 +40,8 @@ def init_logging(verbose = False):
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
     # disable INFO logs from OpenAI
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    # disable INFO logs from LiteLLM
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
     # when running in --verbose mode we don't want to see DEBUG logs from these libraries
     logging.getLogger("openai._base_client").setLevel(logging.INFO)
     logging.getLogger("httpcore").setLevel(logging.INFO)
