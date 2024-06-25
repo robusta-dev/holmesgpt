@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import shlex
@@ -6,9 +7,25 @@ import tempfile
 from typing import Dict, List, Literal, Optional, Union
 
 from jinja2 import Template
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 ToolsetPattern = Union[Literal['*'], List[str]]
+
+
+class ToolCallResult(BaseModel):
+    tool_id: str        # used by openai
+    tool_name: str
+    description: str
+    result: str
+
+    def to_openai_format(self) -> Dict:
+        return {
+            "tool_call_id": self.tool_id,
+            "role": "tool",
+            "name": self.tool_name,
+            "content": self.result,
+        }
 
 class ToolParameter(BaseModel):
     description: Optional[str] = None
@@ -113,6 +130,7 @@ class ToolsetPrerequisite(BaseModel):
     command: str                 # must complete successfully (error code 0) for prereq to be satisfied
     expected_output: str = None  # optional
 
+
 class Toolset(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -155,6 +173,7 @@ class Toolset(BaseModel):
                 return
         self._enabled = True
 
+
 class YAMLToolExecutor:
     def __init__(self, toolsets: List[Toolset]):
         toolsets_by_name = {}
@@ -174,11 +193,34 @@ class YAMLToolExecutor:
         tool = self.get_tool_by_name(tool_name)
         return tool.invoke(params)
 
-    def get_tool_by_name(self, name: str):
+    def get_tool_by_name(self, name: str) -> YAMLTool:
         return self.tools_by_name[name]
+    
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
+    def invoke_tools_openai_format(self, tools_to_call: List[ChatCompletionMessageToolCall]) -> List[ToolCallResult]:
+        results = []
+        for t in tools_to_call:
+            tool_name = t.function.name
+            tool_params = json.loads(t.function.arguments)
+            tool = self.get_tool_by_name(tool_name)
+            tool_response = tool.invoke(tool_params)
+            MAX_CHARS = 100_000 # an arbitrary limit - we will do something smarter in the future
+            if len(tool_response) > MAX_CHARS:
+                logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
+                tool_response = tool_response[-MAX_CHARS:]
+            
+            results.append(
+                ToolCallResult(
+                    tool_id=t.id,
+                    tool_name=tool_name,
+                    description=tool.get_parameterized_one_liner(tool_params),
+                    result=tool_response,
+                )
+            )
+        return results
+    
 
 def get_matching_toolsets(all_toolsets: List[Toolset], pattern: ToolsetPattern):
     if pattern == "*":
