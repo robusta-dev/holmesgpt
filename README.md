@@ -218,7 +218,7 @@ To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microso
 Set those environment variables and run:
 
 ```bash
-holmes ask "what pods are unhealthy and why?" --llm=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
+holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
 ```
 
 Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details. 
@@ -241,7 +241,7 @@ cat ~/.aws/credentials ~/.aws/config
 
 Once everything is configured, run:
 ```console
-holmes ask "what pods are unhealthy and why?" --llm=bedrock/<MODEL_NAME>
+holmes ask "what pods are unhealthy and why?" --model=bedrock/<MODEL_NAME>
 ```
 
 Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropic.claude-3-5-sonnet-20240620-v1:0`. To list models your account can access:
