@@ -250,6 +250,8 @@ Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropi
 aws bedrock list-foundation-models --region=us-east-1
 ```
 
+Note that different models are available in different regions. For example, Claude Opus is only available in us-west-2.
+
 Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details. 
 </details>
 
