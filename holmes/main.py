@@ -180,15 +180,10 @@ def ask(
             for result in ai.call_streaming(system_prompt, prompt):
                 if result.new_text:
                     markup += result.new_text
-                    #console.print(result.new_text, end="")
                 if result.new_tools and show_tool_output:
                     for tool_call in result.new_tools:
-                        # TODO: need to prevent tool description and result from being interpreted as markup
-                        markup += f"\n\n[bold magenta]Used Tool:[/bold magenta]\n{tool_call.description}. Output=\n{tool_call.result}\n"
-                        #markdown.markup += f"[bold magenta]Used Tool:[/bold magenta]\n{tool_call.description}. Output=\n{tool_call.result}\n"
-                        #console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
-                        # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
-                        #console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
+                        # TODO: we may want to escape output so it doesn't mess up markdown
+                        markup += f"\n**Used Tool:** `{tool_call.description}`\n\nOutput:\n```{tool_call.result}```\n"
                 live.update(Markdown(markup))
 
     

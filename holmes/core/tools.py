@@ -121,7 +121,11 @@ class YAMLTool(BaseModel):
             result = subprocess.run(
                 cmd, shell=True, capture_output=True, text=True, check=True, stdin=subprocess.DEVNULL
             )
-            return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+            if result.stderr:
+                return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+            else:
+                return f"stdout:\n{result.stdout}"
+
         except subprocess.CalledProcessError as e:
             return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
 
