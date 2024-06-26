@@ -178,14 +178,15 @@ def ask(
         markup = ""
         with Live(Markdown(""), refresh_per_second=10) as live:
             for result in ai.call_streaming(system_prompt, prompt):
-                if result.new_text:
-                    markup += result.new_text
-                if result.new_tools and show_tool_output:
-                    for tool_call in result.new_tools:
+                markup += result.new_text
+                for tool_call in result.new_tools_request:
+                    markup += f"\n**Requested tool:** `{tool_call.description}`\n"
+                
+                if show_tool_output:
+                    for tool_call in result.new_tools_result:
                         # TODO: we may want to escape output so it doesn't mess up markdown
                         markup += f"\n**Used Tool:** `{tool_call.description}`\n\nOutput:\n```{tool_call.result}```\n"
                 live.update(Markdown(markup))
-
     
     else:
         response = ai.call(system_prompt, prompt)

@@ -4,7 +4,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union, Any
 
 from jinja2 import Template
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
@@ -14,10 +14,11 @@ ToolsetPattern = Union[Literal['*'], List[str]]
 
 
 class ToolCallResult(BaseModel):
-    tool_id: str        # used by openai
+    tool_id: str                    # used by openai
+    tool_params: Dict[str, Any]     
     tool_name: str
     description: str
-    result: str
+    result: Optional[str] = None   # can be None before the tool was called 
 
     def to_openai_format(self) -> Dict:
         return {
@@ -203,27 +204,31 @@ class YAMLToolExecutor:
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
-    def invoke_tools_openai_format(self, tools_to_call: List[ChatCompletionMessageToolCall]) -> List[ToolCallResult]:
+    def get_tools_to_invoke_from_openai(self, tools_to_call: List[ChatCompletionMessageToolCall]) -> List[ToolCallResult]:
         results = []
         for t in tools_to_call:
             tool_name = t.function.name
             tool_params = json.loads(t.function.arguments)
             tool = self.get_tool_by_name(tool_name)
-            tool_response = tool.invoke(tool_params)
-            MAX_CHARS = 100_000 # an arbitrary limit - we will do something smarter in the future
-            if len(tool_response) > MAX_CHARS:
-                logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
-                tool_response = tool_response[-MAX_CHARS:]
-            
             results.append(
                 ToolCallResult(
                     tool_id=t.id,
                     tool_name=tool_name,
+                    tool_params=tool_params,
                     description=tool.get_parameterized_one_liner(tool_params),
-                    result=tool_response,
                 )
             )
         return results
+
+    def invoke_tools(self, tools_to_call: List[ToolCallResult]):
+        for t in tools_to_call:
+            tool = self.get_tool_by_name(t.tool_name)
+            tool_response = tool.invoke(t.tool_params)
+            MAX_CHARS = 100_000 # an arbitrary limit - we will do something smarter in the future
+            if len(tool_response) > MAX_CHARS:
+                logging.warning(f"tool {t.tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
+                tool_response = tool_response[-MAX_CHARS:]
+            t.result = tool_response
     
 
 def get_matching_toolsets(all_toolsets: List[Toolset], pattern: ToolsetPattern):

@@ -38,9 +38,8 @@ class StreamingLLMResult(BaseModel):
     done: bool
 
     new_text: str
-    new_tools: List[ToolCallResult] # TODO: split into request and response
-    #new_tools_requested: List[ToolCallResult]
-    #new_tools_executed: List[ToolCallResult]
+    new_tools_request: List[ToolCallResult]
+    new_tools_result: List[ToolCallResult]
 
     all_text: str
     all_messages: List[dict]
@@ -48,7 +47,8 @@ class StreamingLLMResult(BaseModel):
 
     def clear_new(self):
         self.new_text = ""
-        self.new_tools = []
+        self.new_tools_request = []
+        self.new_tools_result = []
 
 class ToolCallingLLM:
 
@@ -122,7 +122,8 @@ class ToolCallingLLM:
             if message.content:
                 logging.info(f"AI: {message.content}")
 
-            tool_results = self.tool_executor.invoke_tools_openai_format(tools_to_call)
+            tool_results = self.tool_executor.get_tools_to_invoke_from_openai(tools_to_call)
+            self.tool_executor.invoke_tools(tool_results)
             tool_calls.extend(tool_results)
             messages.extend([tool_result.to_openai_format() for tool_result in tool_results])
 
@@ -134,7 +135,8 @@ class ToolCallingLLM:
             #new_tools_executed=[],
             new_text="",
             all_text="",
-            new_tools=[],
+            new_tools_request=[],
+            new_tools_result=[],
             all_tools=[],
             all_messages=self._get_initial_messages(system_prompt, user_prompt),
         )
@@ -178,10 +180,17 @@ class ToolCallingLLM:
                 return
             
             if reconstructed_message.tool_calls:
-                tool_results = self.tool_executor.invoke_tools_openai_format(reconstructed_message.tool_calls)
+                tool_results = self.tool_executor.get_tools_to_invoke_from_openai(reconstructed_message.tool_calls)
                 result.all_tools.extend(tool_results)
+
                 result.clear_new()
-                result.new_tools = tool_results
+                result.new_tools_request = tool_results
+                yield result
+
+                self.tool_executor.invoke_tools(tool_results)
+
+                result.clear_new()
+                result.new_tools_result = tool_results
                 result.all_messages.extend([tool_result.to_openai_format() for tool_result in tool_results])
                 yield result
 
