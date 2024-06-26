@@ -10,6 +10,7 @@ import jinja2
 from openai import BadRequestError, OpenAI
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from pydantic import BaseModel
@@ -32,6 +33,22 @@ class LLMResult(BaseModel):
         return "AI used info from issue and " + ",".join(
             [f"`{tool_call.description}`" for tool_call in self.tool_calls]
         )
+    
+class StreamingLLMResult(BaseModel):
+    done: bool
+
+    new_text: str
+    new_tools: List[ToolCallResult] # TODO: split into request and response
+    #new_tools_requested: List[ToolCallResult]
+    #new_tools_executed: List[ToolCallResult]
+
+    all_text: str
+    all_messages: List[dict]
+    all_tools: List[ToolCallResult]
+
+    def clear_new(self):
+        self.new_text = ""
+        self.new_tools = []
 
 class ToolCallingLLM:
 
@@ -86,29 +103,88 @@ class ToolCallingLLM:
                 tool_choice=tool_choice,
                 temperature=0.00000001,
             )
-            response = full_response.choices[0]
-            response_message = response.message
+            message = full_response.choices[0].message
             messages.append(
-                response_message.model_dump(
+                message.model_dump(
                     exclude_defaults=True, exclude_unset=True, exclude_none=True
                 )
             )
 
-            tools_to_call: Optional[List[ChatCompletionMessageToolCall]]  = getattr(response_message, "tool_calls", None)
+            tools_to_call: Optional[List[ChatCompletionMessageToolCall]]  = getattr(message, "tool_calls", None)
             if not tools_to_call:
                 return LLMResult(
-                    result=response_message.content,
+                    result=message.content,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                 )
 
             # Some models return text responses alongside tool calls
-            if response_message.content:
-                logging.info(f"AI: {response_message.content}")
+            if message.content:
+                logging.info(f"AI: {message.content}")
 
             tool_results = self.tool_executor.invoke_tools_openai_format(tools_to_call)
             tool_calls.extend(tool_results)
             messages.extend([tool_result.to_openai_format() for tool_result in tool_results])
+
+    def call_streaming(self, system_prompt, user_prompt) -> Iterator[StreamingLLMResult]:
+        tools = self.tool_executor.get_all_tools_openai_format()
+        result = StreamingLLMResult(
+            done=False,
+            #new_tools_requested=[],
+            #new_tools_executed=[],
+            new_text="",
+            all_text="",
+            new_tools=[],
+            all_tools=[],
+            all_messages=self._get_initial_messages(system_prompt, user_prompt),
+        )
+
+        for i in range(self.max_steps):
+            logging.debug(f"running iteration {i}")
+            # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
+            tools = NOT_GIVEN if i == self.max_steps - 1 else tools
+            tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
+            logging.debug(f"sending messages {result.all_messages}")
+            response = litellm.completion(
+                model=self.model,
+                api_key=self.api_key,
+                messages=result.all_messages,
+                tools=tools,
+                tool_choice=tool_choice,
+                temperature=0.00000001,
+                stream=True,
+            )
+
+            all_chunks = []
+            for chunk in response:
+                all_chunks.append(chunk)
+                message = chunk.choices[0].delta
+                result.clear_new()
+                if message.content:
+                    result.new_text = message.content
+                    result.all_text += message.content
+                    yield result
+
+            reconstructed_response = litellm.stream_chunk_builder(all_chunks)
+            reconstructed_message = reconstructed_response.choices[0].message
+            result.all_messages.append(reconstructed_message.model_dump(
+                exclude_defaults=True, exclude_unset=True, exclude_none=True)
+            )
+
+            if reconstructed_response.choices[0].finish_reason == "max_tokens" or reconstructed_response.choices[0].finish_reason == "stop":
+                result.done = True
+                result.clear_new()
+                yield result
+                return
+            
+            if reconstructed_message.tool_calls:
+                tool_results = self.tool_executor.invoke_tools_openai_format(reconstructed_message.tool_calls)
+                result.all_tools.extend(tool_results)
+                result.clear_new()
+                result.new_tools = tool_results
+                result.all_messages.extend([tool_result.to_openai_format() for tool_result in tool_results])
+                yield result
+
 
         
     def _get_initial_messages(self, system_prompt, user_prompt):

@@ -10,6 +10,8 @@ import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
+from rich.live import Live
+from rich.status import Status
 from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
 from holmes.config import Config
@@ -145,7 +147,12 @@ def ask(
         "-f",
         help="File to append to prompt (can specify -f multiple times to add multiple files)",
     ),
-    json_output_file: Optional[str] = opt_json_output_file
+    json_output_file: Optional[str] = opt_json_output_file,
+    stream: bool = typer.Option(
+        False,
+        "--stream",
+        help="Stream live output to the console instead of waiting for the full response",
+    )
 ):
     """
     Ask any question and answer using available tools
@@ -166,17 +173,37 @@ def ask(
         prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
-    response = ai.call(system_prompt, prompt)
-    text_result = Markdown(response.result)
-    if json_output_file:
-        write_json_file(json_output_file, response.model_dump())
-    if show_tool_output and response.tool_calls:
-        for tool_call in response.tool_calls:
-            console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
-            # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
-            console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
-    console.print(f"[bold green]AI:[/bold green]", end=" ")
-    console.print(text_result, soft_wrap=True)
+    if stream:
+        console.print("[bold yellow]Streaming output...[/bold yellow]")
+        markup = ""
+        with Live(Markdown(""), refresh_per_second=10) as live:
+            for result in ai.call_streaming(system_prompt, prompt):
+                if result.new_text:
+                    markup += result.new_text
+                    #console.print(result.new_text, end="")
+                if result.new_tools and show_tool_output:
+                    for tool_call in result.new_tools:
+                        # TODO: need to prevent tool description and result from being interpreted as markup
+                        markup += f"\n\n[bold magenta]Used Tool:[/bold magenta]\n{tool_call.description}. Output=\n{tool_call.result}\n"
+                        #markdown.markup += f"[bold magenta]Used Tool:[/bold magenta]\n{tool_call.description}. Output=\n{tool_call.result}\n"
+                        #console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
+                        # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
+                        #console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
+                live.update(Markdown(markup))
+
+    
+    else:
+        response = ai.call(system_prompt, prompt)
+        text_result = Markdown(response.result)
+        if json_output_file:
+            write_json_file(json_output_file, response.model_dump())
+        if show_tool_output and response.tool_calls:
+            for tool_call in response.tool_calls:
+                console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
+                # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
+                console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
+        console.print(f"[bold green]AI:[/bold green]", end=" ")
+        console.print(text_result, soft_wrap=True)
 
 
 @investigate_app.command()
