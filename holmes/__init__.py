@@ -22,7 +22,7 @@ def get_version() -> str:
     version = dunamai.get_version(
         "holmes-gpt",
         first_choice=lambda: dunamai.Version.from_git(
-            pattern=dunamai.Pattern.DefaultUnprefixed, path=this_path
+            pattern=dunamai.Pattern.DefaultUnprefixed, path=Path(this_path)
         ),
     )
     return version.serialize(format="{base}-{branch}-{commit}-{dirty}")
