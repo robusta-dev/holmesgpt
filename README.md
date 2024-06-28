@@ -35,6 +35,12 @@ holmes ask "what pods are unhealthy in my cluster and why?"
 <details>
 <summary>Investigate a Firing Prometheus alert</summary>
 
+Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+
+![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
+
+Or run HolmesGPT from the cli:
+
 ```bash
 kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
 holmes investigate alertmanager --alertmanager-url http://localhost:9093
