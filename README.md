@@ -4,7 +4,8 @@
   <p align="center">
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
-    <a href="#installation"><strong>Installation</strong></a> 
+    <a href="#installation"><strong>Installation</strong></a> |
+    <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
 
@@ -18,6 +19,7 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 - **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
 ### See it in Action
+
 ![AI Alert Analysis](images/holmesgptdemo.gif)
 
 ## Examples
@@ -32,6 +34,12 @@ holmes ask "what pods are unhealthy in my cluster and why?"
 
 <details>
 <summary>Investigate a Firing Prometheus alert</summary>
+
+Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+
+![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
+
+Or run HolmesGPT from the cli:
 
 ```bash
 kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &

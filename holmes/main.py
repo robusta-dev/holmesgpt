@@ -183,7 +183,7 @@ def ask(
             # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
             console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
     console.print(f"[bold green]AI:[/bold green]", end=" ")
-    console.print(text_result, soft_wrap=True)
+    console.print(text_result)
 
 
 @investigate_app.command()
