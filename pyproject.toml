@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "holmes-gpt"
-version = "0.1.0"
+version = "0.0.0"
 description = ""
 authors = ["Natan Yellin <natan@robusta.dev>"]
 readme = "README.md"
@@ -28,6 +28,7 @@ supabase = "^2.5"
 colorlog = "^6.8.2"
 strenum = "^0.4.15"
 markdown = "^3.6"
+dunamai = "^1.21.2"
 
 [build-system]
 requires = ["poetry-core"]
