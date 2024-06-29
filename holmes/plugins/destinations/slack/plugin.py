@@ -69,11 +69,11 @@ class SlackDestination(DestinationPlugin):
         except SlackApiError as e:
             if e.response.data["error"] == "channel_not_found":
                 logging.error(
-                    f"The channel {self.channel} is not found. Please check the name of the channel in config.yaml"
+                    f"The channel {self.channel} is not found. Please check the value of --slack-channel"
                 )
             elif e.response.data["error"] == "invalid_auth":
                 logging.error(
-                    f"Unable to authenticate using the provided Slack token. Please verify in config.yaml"
+                    f"Unable to authenticate using the provided Slack token. Please verify the setting of --slack-token"
                 )
             else:
                 logging.error(f"Error sending message: {e}. message={text}")

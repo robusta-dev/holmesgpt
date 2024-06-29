@@ -159,7 +159,7 @@ holmes ask "what issues do I have in my cluster"
 Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
 
 ```bash
-docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
+docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
 ```
 </details>
 
@@ -184,7 +184,7 @@ Clone the project from github, and then run:
 ```bash
 cd holmesgpt
 docker build -t holmes .
-docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
+docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
 </details>
 
@@ -283,7 +283,7 @@ holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image cons
 
 The more data you give HolmesGPT, the better it will perform. Give it access to more data by adding custom tools.
 
-New tools are loaded using `-t` from [custom toolset files](./examples/custom_toolset.yaml) or by adding them to the `config.yaml` in `custom_toolsets`.
+New tools are loaded using `-t` from [custom toolset files](./examples/custom_toolset.yaml) or by adding them to the `~/.holmes/config.yaml` with the setting `custom_toolsets: ["/path/to/toolset.yaml"]`.
 </details>
 
 <details>
@@ -291,7 +291,7 @@ New tools are loaded using `-t` from [custom toolset files](./examples/custom_to
 
 HolmesGPT can investigate by following runbooks written in plain English. Add your own runbooks to provided the LLM specific instructions.
 
-New runbooks are loaded using `-r` from [custom runbook files](./examples/custom_runbook.yaml) or by adding them to the `config.yaml` in `custom_runbooks`.
+New runbooks are loaded using `-r` from [custom runbook files](./examples/custom_runbook.yaml) or by adding them to the `~/.holmes/config.yaml` with the `custom_runbooks: ["/path/to/runbook.yaml"]`.
 </details>
 
 <details>
@@ -301,10 +301,7 @@ You can customize HolmesGPT's behaviour with command line flags, or you can save
 
 You can view an example config file with all available settings [here](config.example.yaml).
 
-By default, without specifying `--config` the agent will try to read `config.yaml` from the current directory.
-If a setting is specified in both in config file and cli, cli takes precedence.
-
-
+By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
 
 <details>
 <summary>Custom Toolsets</summary>

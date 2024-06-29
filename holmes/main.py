@@ -66,7 +66,7 @@ opt_model: Optional[str] = typer.Option("gpt-4o", help="Model to use for the LLM
 opt_config_file: Optional[Path] = typer.Option(
     None,
     "--config",
-    help="Path to the config file. Defaults to config.yaml when it exists. Command line arguments take precedence over config file settings",
+    help="Path to the config file. Defaults to ~/.holmes/config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
 opt_custom_toolsets: Optional[List[Path]] = typer.Option(
     [],
