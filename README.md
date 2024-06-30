@@ -1,6 +1,6 @@
 <div align="center">
-  <h1 align="center">HolmesGPT - The Open Source On-Call/DevOps Assistant</h1>
-<h2 align="center">Get a head start on fixing alerts with AI investigation</h2>
+  <h1 align="center">Get a head start on fixing alerts with AI investigation</h1>
+  <h2 align="center">HolmesGPT - The Open Source On-Call/DevOps Agent</h2>
   <p align="center">
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
@@ -13,6 +13,7 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 
 ### What Can HolmesGPT Do?
 - **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
+- **Bidirectional Integrations** see investigation results inside your existing ticketing/incident management system 
 - **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
 - **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster   
 - **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
@@ -25,7 +26,7 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 ## Examples
 
 <details>
-<summary>Investigate a Kubernetes Problem</summary>
+<summary>Kubernetes Troubleshooting</summary>
 
 ```bash
 holmes ask "what pods are unhealthy in my cluster and why?"
@@ -33,7 +34,7 @@ holmes ask "what pods are unhealthy in my cluster and why?"
 </details>
 
 <details>
-<summary>Investigate a Firing Prometheus alert</summary>
+<summary>Prometheus Alert RCA (root cause analysis)</summary>
 
 Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
 
@@ -50,7 +51,7 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 </details>
 
 <details>
-<summary>Investigate a Local Log File</summary>
+<summary>Log File Analysis</summary>
 
 Attach files to the HolmesGPT session with `-f`:
 
@@ -62,7 +63,7 @@ poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg
 
 <details>
 
-<summary>Investigate and update Jira tickets with findings</summary>
+<summary>Jira Ticket Investigation</summary>
 
 ```bash
 holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
@@ -73,7 +74,7 @@ By default results are displayed in the CLI . Use `--update` to get the results 
 </details>
 
 <details>
-<summary>Investigate and update GitHub Issues with findings</summary>
+<summary>GitHub Issue Investigation</summary>
 
 ```bash
 holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
@@ -85,7 +86,7 @@ By default results are displayed in the CLI. Use `--update` to get the results a
 
 
 <details>
-<summary>Investigate and update OpsGenie Alerts with findings</summary>
+<summary>OpsGenie Alert Investigation</summary>
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
@@ -98,7 +99,7 @@ By default results are displayed in the CLI . Use `--update --opsgenie-team-inte
 
 
 <details>
-<summary>Investigate and update PagerDuty Incidents with findings</summary>
+<summary>PagerDuty Incident Investigation</summary>
 
 ```bash
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
@@ -297,7 +298,14 @@ holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image cons
 ```
 </details>
 
-## Advanced Usage
+## Customizing HolmesGPT
+
+HolmesGPT can investigate many issues out of the box, with no customization or training.
+
+That said, we provide several extension points for teaching HolmesGPT to investigate your issues, according to your best practices. The two main extension points are:
+
+* Custom Tools - give HolmesGPT access to data that it can't otherwise access - e.g. traces, APM data, or custom APIs
+* Custom Runbooks - give HolmesGPT instructions for investigating specific issues it otherwise wouldn't know how to handle
 
 <details>
 <summary>Add Custom Tools</summary>
