@@ -17,7 +17,7 @@ def get_version() -> str:
         return __version__
     
     # Check if git_archival.json exists
-    archival_file_path = os.path.join(this_path, 'git_archival.json')
+    archival_file_path = os.path.join(this_path, '.git_archival.json')
     if os.path.exists(archival_file_path):
         try:
             with open(archival_file_path, 'r') as f:
