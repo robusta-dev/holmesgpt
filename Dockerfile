@@ -1,7 +1,7 @@
 # to build it:
 #   docker build -t robusta-ai .
 # to use it:
-#   docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config robusta-ai ask "what pods are unhealthy and why?"
+#   docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config robusta-ai ask "what pods are unhealthy and why?"
 FROM python:3.11-slim
 
 WORKDIR /app
