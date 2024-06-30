@@ -114,6 +114,7 @@ opt_json_output_file: Optional[str] = typer.Option(
     None,
     "--json-output-file",
     help="Save the complete output in json format in to a file",
+    envvar="HOLMES_JSON_OUTPUT_FILE",
 )
 
 # Common help texts
@@ -325,13 +326,18 @@ def generate_alertmanager_tests(
 @investigate_app.command()
 def jira(
     jira_url: Optional[str] = typer.Option(
-        None, help="Jira url - e.g. https://your-company.atlassian.net"
+        None,
+        help="Jira url - e.g. https://your-company.atlassian.net",
+        envvar="JIRA_URL"
     ),
     jira_username: Optional[str] = typer.Option(
-        None, help="The email address with which you log into Jira"
+        None,
+        help="The email address with which you log into Jira",
+        envvar="JIRA_USERNAME"
     ),
     jira_api_key: str = typer.Option(
         None,
+        envvar="JIRA_API_KEY",
     ),
     jira_query: Optional[str] = typer.Option(
         None,
@@ -351,6 +357,7 @@ def jira(
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[bool] = opt_verbose,
+    json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -387,6 +394,8 @@ def jira(
     console.print(
         f"[bold yellow]Analyzing {len(issues)} Jira tickets.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
+    
+    results = []
     for i, issue in enumerate(issues):
         console.print(
             f"[bold yellow]Analyzing Jira ticket {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
@@ -404,6 +413,11 @@ def jira(
             console.print(
                 f"[bold]Not updating ticket {issue.url}. Use the --update option to do so.[/bold]"
             )
+
+        results.append({"issue": issue.model_dump(), "result": result.model_dump()})
+
+    if json_output_file:
+        write_json_file(json_output_file, results)
 
 
 @investigate_app.command()
