@@ -35,7 +35,7 @@ def convert_errors(e: ValidationError) -> List[Dict[str, Any]]:
 
 
 def load_model_from_file(
-    model: Type[BaseModel], file_path: str = "config.yaml", yaml_path: str = None
+    model: Type[BaseModel], file_path: str, yaml_path: str = None
 ):
     try:
         contents = benedict(file_path, format="yaml")
