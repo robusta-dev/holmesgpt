@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -15,6 +16,18 @@ def get_version() -> str:
     if not __version__.startswith("0.0.0"):
         return __version__
     
+    # Check if git_archival.json exists
+    archival_file_path = os.path.join(this_path, 'git_archival.json')
+    if os.path.exists(archival_file_path):
+        try:
+            with open(archival_file_path, 'r') as f:
+                archival_data = json.load(f)
+                if 'describe' in archival_data and archival_data['describe']:
+                    return archival_data['describe']
+        except Exception:
+            pass
+    
+
     # we are running from an unreleased dev version
     try:
         # Get the latest git tag
