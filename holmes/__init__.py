@@ -10,6 +10,7 @@ sys.path.append(this_path)
 # This is patched by github actions during release
 __version__ = "0.0.0"
 
+
 def get_version() -> str:
     # the version string was patched by a release - return __version__ which will be correct
     if not __version__.startswith("0.0.0"):
