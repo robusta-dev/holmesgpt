@@ -12,6 +12,7 @@ toolsets:
     description: "Fetch a page in confluence.  Use this to fetch confluence runbooks if they are present before starting your investigation."
     command: "curl -u ${CONFLUENCE_USER}:${CONFLUENCE_API_KEY} -X GET -H 'Content-Type: application/json' ${CONFLUENCE_BASE_URL}/wiki/rest/api/content/{{ confluence_page_id }}?expand=body.storage"
 
+
 - name: "internet"
   prerequisites:
   - command: "w3m -version"
