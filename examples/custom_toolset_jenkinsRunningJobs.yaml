@@ -1,0 +1,12 @@
+toolsets:
+  - name: "jenkins_tools"
+
+    tools:
+      - name: "get_running_jenkins_jobs"
+        description: "Fetch currently running Jenkins jobs"
+
+        # A templated bash command using Jinja2 templates
+        # The LLM can only control parameters that you expose as template variables like {{ this_variable }}
+        command: |
+          curl -s -u {{ jenkins_user }}:{{ jenkins_token }} "{{ jenkins_url }}/api/json?tree=jobs[name,url,builds[status,timestamp]]" | 
+          jq '.jobs[] | select(.builds[0].status=="IN_PROGRESS") | {name: .name, url: .url}'

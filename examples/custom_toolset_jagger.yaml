@@ -1,0 +1,11 @@
+toolsets:
+  - name: "jaeger_tools"
+
+    tools:
+      - name: "get_jaeger_trace"
+        description: "Fetch Jaeger trace by trace ID"
+
+        # A templated bash command using Jinja2 templates
+        # The LLM can only control parameters that you expose as template variables like {{ this_variable }}
+        command: |
+          curl -s "{{ jaeger_url }}/api/traces/{{ trace_id }}" | jq .
