@@ -18,6 +18,9 @@ WORKDIR /app
 RUN python -m venv /app/venv --upgrade-deps && \
     . /app/venv/bin/activate
 
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
 
 ARG ARCH=x86_64
@@ -58,11 +61,9 @@ RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
 # Final stage
 FROM python:3.11-slim
 
-ENV ENV_TYPE=DEV
 ENV PYTHONUNBUFFERED=1
-ENV VIRTUAL_ENV=/app/venv
 ENV PATH="/venv/bin:$PATH"
-ENV PYTHONPATH=$PYTHONPATH:.:/app/src
+ENV PYTHONPATH=$PYTHONPATH:.:/app/holmes
 
 WORKDIR /app
 
@@ -99,5 +100,5 @@ ARG AWS_DEFAULT_REGION
 ARG AWS_PROFILE
 ARG AWS_REGION
 
-ENTRYPOINT ["poetry", "run", "--quiet", "python", "holmes.py"]
+ENTRYPOINT ["python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]
