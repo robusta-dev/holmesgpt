@@ -1,43 +1,35 @@
-# to build it:
-#   docker build -t robusta-ai .
-# to use it:
-#   docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config robusta-ai ask "what pods are unhealthy and why?"
-FROM python:3.11-slim
+# Build stage
+FROM python:3.11-slim as builder
+ENV PATH="/root/.local/bin/:$PATH"
+
+RUN apt-get update \
+    && apt-get install -y \
+       curl \
+       git \
+       apt-transport-https \
+       gnupg2 \
+       build-essential \
+       unzip
 
 WORKDIR /app
 
-# zscaler trust - uncomment for building image locally
-#COPY  zscaler.root.crt /usr/local/share/ca-certificates/
-#RUN chmod 644 /usr/local/share/ca-certificates/*.crt && update-ca-certificates
 
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    apt-transport-https \
-    gnupg2 \
-    build-essential \
-    && curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
-    && echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list \
-    && apt-get update \
-    && apt-get install -y kubectl unzip\
-    && rm -rf /var/lib/apt/lists/* 
+# Create and activate virtual environment
+RUN python -m venv /app/venv --upgrade-deps && \
+    . /app/venv/bin/activate
 
-# Install AWS CLI v2 so kubectl works w/ remote eks clusters
-# build-arg to choose architecture of the awscli binary x68_64 or aarch64 - defaulting to x86_64
+RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
+
 ARG ARCH=x86_64
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o "awscliv2.zip" \
     && unzip awscliv2.zip \
     && ./aws/install
 
-# Install Google cli so kubectl works w/ remove gke clusters
 RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz
 RUN mkdir -p /usr/local/gcloud \
   && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
   && /usr/local/gcloud/google-cloud-sdk/install.sh
-ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
-RUN gcloud components install gke-gcloud-auth-plugin
 
-# Install Krew and add its installation directory to PATH
 RUN sh -c "\
     set -x; cd \$(mktemp -d) && \
     OS=\$(uname | tr '[:upper:]' '[:lower:]') && \
@@ -48,32 +40,59 @@ RUN sh -c "\
     ./\"\${KREW}\" install krew \
     "
 
-# Add Krew to PATH
 ENV PATH="/root/.krew/bin:$PATH"
-
-# Install kube-lineage via Krew
-RUN kubectl krew install lineage
-
-# Copy the poetry configuration files into the container at /app
-COPY pyproject.toml poetry.lock* /app/
 
 ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     pip config set global.index-url "${PRIVATE_PACKAGE_REGISTRY}"; \
     fi \
-    && pip install poetry     
-
-# Increase poetry timeout in case package registry times out
+    && pip install poetry    
 ARG POETRY_REQUESTS_TIMEOUT
-RUN poetry config virtualenvs.create false \
-    && if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
+RUN poetry config virtualenvs.create false
+COPY pyproject.toml poetry.lock /app/
+RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     poetry source add --priority=primary artifactory "${PRIVATE_PACKAGE_REGISTRY}"; \
     fi \
     && poetry install --no-interaction --no-ansi --no-root
 
-#COPY config.yaml /app/
+# Final stage
+FROM python:3.11-slim
 
+ENV ENV_TYPE=DEV
+ENV PYTHONUNBUFFERED=1
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH="/venv/bin:$PATH"
+ENV PYTHONPATH=$PYTHONPATH:.:/app/src
+
+WORKDIR /app
+
+COPY --from=builder /app/venv /venv
 COPY . /app
+
+RUN apt-get update \
+    && apt-get install -y \
+       git \
+       apt-transport-https \
+       gnupg2
+
+COPY --from=builder /app/Release.key Release.key
+RUN cat Release.key |  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
+    && echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list \
+    && apt-get update
+
+RUN apt-get install -y kubectl
+
+COPY --from=builder /usr/local/aws-cli/ /usr/local/aws-cli/
+ENV PATH $PATH:/usr/local/aws-cli/v2/current/bin
+
+COPY --from=builder /usr/local/gcloud /usr/local/gcloud
+ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
+RUN gcloud components install gke-gcloud-auth-plugin
+
+COPY --from=builder /root/.krew /root/.krew
+ENV PATH="/root/.krew/bin:$PATH"
+
+RUN kubectl krew install lineage
 
 ARG AWS_DEFAULT_PROFILE
 ARG AWS_DEFAULT_REGION
