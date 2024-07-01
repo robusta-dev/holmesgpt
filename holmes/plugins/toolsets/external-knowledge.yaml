@@ -21,3 +21,17 @@ toolsets:
     command: "w3m -dump {{ url }}"
 
 
+- name: "slab"
+  prerequisites:
+  - command: "curl --version"
+  - env:
+    - SLAB_API_KEY
+  tools:
+  - name: "fetch_slab_document"
+    description: "Fetch a document from slab. Use this to fetch runbooks if they are present before starting your investigation."
+    command: |
+      curl -X POST \
+        -H "Authorization: ${SLAB_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d '{"query":"query { post(id: \"{{ post_id }}\") { id title content } }"}' \
+        https://api.slab.com/v1/graphql
