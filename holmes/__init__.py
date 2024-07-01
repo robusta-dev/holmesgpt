@@ -15,17 +15,6 @@ def get_version() -> str:
     # the version string was patched by a release - return __version__ which will be correct
     if not __version__.startswith("0.0.0"):
         return __version__
-    
-    # Check if git_archival.json exists
-    archival_file_path = os.path.join(this_path, '.git_archival.json')
-    if os.path.exists(archival_file_path):
-        try:
-            with open(archival_file_path, 'r') as f:
-                archival_data = json.load(f)
-                return f"{archival_data['refs']}-{archival_data['hash-short']}"
-        except Exception:
-            pass
-    
 
     # we are running from an unreleased dev version
     try:
@@ -42,4 +31,16 @@ def get_version() -> str:
         return f"{tag}-{branch}{dirty}"
     
     except Exception:
+        pass
+
+    # we are running without git history, but we still might have git archival data (e.g. if we were pip installed)
+    archival_file_path = os.path.join(this_path, '.git_archival.json')
+    if os.path.exists(archival_file_path):
+        try:
+            with open(archival_file_path, 'r') as f:
+                archival_data = json.load(f)
+                return f"{archival_data['refs']}-{archival_data['hash-short']}"
+        except Exception:
+            pass
+
         return f"dev-version"
