@@ -194,8 +194,9 @@ def alertmanager(
         None,
         help="Investigate all alerts with this name (can be regex that matches multiple alerts). If not given, defaults to all firing alerts",
     ),
-    alertmanager_label: Optional[str] = typer.Option(
-        None, help="For filtering alerts with a specific label. Must be of format key=value"
+    alertmanager_label: Optional[List[str]] = typer.Option(
+        [],
+        help="For filtering alerts with a specific label. Must be of format key=value. If --alertmanager-label is passed multiple times, alerts must match ALL labels"
     ),
     alertmanager_username: Optional[str] = typer.Option(
         None, help="Username to use for basic auth"
@@ -205,6 +206,11 @@ def alertmanager(
     ),
     alertmanager_file: Optional[Path] = typer.Option(
         None, help="Load alertmanager alerts from a file (used by the test framework)"
+    ),
+    alertmanager_limit: Optional[int] = typer.Option(
+        None,
+        "-n",
+        help="Limit the number of alerts to process"
     ),
     # common options
     llm: Optional[LLMType] = opt_llm,
@@ -262,6 +268,10 @@ def alertmanager(
     except Exception as e:
         logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
         return
+    
+    if alertmanager_limit is not None:
+        console.print(f"[bold yellow]Limiting to {alertmanager_limit}/{len(issues)} issues.[/bold yellow]")
+        issues = issues[:alertmanager_limit]
 
     if alertmanager_alertname is not None:
         console.print(
