@@ -49,7 +49,7 @@ class Config(RobustaBaseConfig):
     alertmanager_username: Optional[str] = None
     alertmanager_password: Optional[str] = None
     alertmanager_alertname: Optional[str] = None
-    alertmanager_label: Optional[str] = None
+    alertmanager_label: Optional[List[str]] = []
     alertmanager_file: Optional[FilePath] = None
 
     jira_url: Optional[str] = None
@@ -252,8 +252,8 @@ class Config(RobustaBaseConfig):
             url=self.alertmanager_url,
             username=self.alertmanager_username,
             password=self.alertmanager_password,
-            alertname=self.alertmanager_alertname,
-            label=self.alertmanager_label,
+            alertname_filter=self.alertmanager_alertname,
+            label_filter=self.alertmanager_label,
             filepath=self.alertmanager_file,
         )
 
