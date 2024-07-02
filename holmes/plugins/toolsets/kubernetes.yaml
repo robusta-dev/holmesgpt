@@ -55,9 +55,18 @@ toolsets:
     description: "Fetch the definition of a Prometheus target"
     command: "kubectl get --raw '/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets' | jq '.data.activeTargets[] | select(.labels.job == \"{{ target_name }}\")"
 
-- name: "kubernetes/extras"
+- name: "kubernetes/kube-lineage"
   tools:
   - name: "kubectl_lineage"
     description: "Get all children of a Kubernetes resource, recursively, including their status"
     command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
+  prerequisites:
+  - command: "kubectl lineage --version"
 
+- name: "kubernetes/view-allocations"
+  tools:
+  - name: "kubectl_view_allocations"
+    description: "Get a report of resource allocation to troubleshooting insufficient resources and pending pods (resource_type can be cpu, mem, or gpu) "
+    command: "kubectl view-allocations -r {{ resource_type }}"
+  prerequisites:
+  - command: "kubectl view-allocations --version"
