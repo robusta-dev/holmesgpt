@@ -1,6 +1,8 @@
 # from holmes.ssh_utils import add_custom_certificate
 # add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
 
+import socket
+import uuid
 import logging
 import re
 import warnings
@@ -14,7 +16,10 @@ from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
 from holmes.config import Config, LLMType
 from holmes.plugins.destinations import DestinationType
+from holmes.plugins.destinations.slack import SlackDestination
+from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_prompt
+from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
@@ -121,6 +126,33 @@ opt_json_output_file: Optional[str] = typer.Option(
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
 
 
+def handle_result(
+    result: LLMResult,
+    console: Console,
+    destination: DestinationType,
+    config: Config,
+    issue: Issue,
+    show_tool_output: bool,
+    add_separator: bool,
+):
+    if destination == DestinationType.CLI:
+        if add_separator:
+            console.print(Rule())
+
+        if show_tool_output and result.tool_calls:
+            for tool_call in result.tool_calls:
+                console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
+                # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
+                console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
+
+        console.print(f"[bold green]AI:[/bold green]", end=" ")
+        console.print(Markdown(result.result))
+        
+    elif destination == DestinationType.SLACK:
+        slack = config.create_slack_destination()
+        slack.send_issue(issue, result)
+
+    
 # TODO: add interactive interpreter mode
 # TODO: add streaming output
 @app.command()
@@ -136,6 +168,11 @@ def ask(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[bool] = opt_verbose,
+    # semi-common options
+    destination: Optional[DestinationType] = opt_destination,
+    slack_token: Optional[str] = opt_slack_token,
+    slack_channel: Optional[str] = opt_slack_channel,
+    
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_ask.jinja2", help=system_prompt_help
@@ -165,6 +202,8 @@ def ask(
         model=model,
         max_steps=max_steps,
         custom_toolsets=custom_toolsets,
+        slack_token=slack_token,
+        slack_channel=slack_channel,
     )
     system_prompt = load_prompt(system_prompt)
     ai = config.create_toolcalling_llm(console, allowed_toolsets)
@@ -175,16 +214,18 @@ def ask(
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
     response = ai.call(system_prompt, prompt)
-    text_result = Markdown(response.result)
+
     if json_output_file:
         write_json_file(json_output_file, response.model_dump())
-    if show_tool_output and response.tool_calls:
-        for tool_call in response.tool_calls:
-            console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
-            # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
-            console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
-    console.print(f"[bold green]AI:[/bold green]", end=" ")
-    console.print(text_result)
+
+    issue = Issue(
+        id=str(uuid.uuid4()),
+        name=prompt,
+        source_type="holmes-ask",
+        raw={"prompt": prompt},
+        source_instance_id=socket.gethostname(),
+    )
+    handle_result(response, console, destination, config, issue, show_tool_output, False)
 
 
 @investigate_app.command()
@@ -260,9 +301,6 @@ def alertmanager(
 
     source = config.create_alertmanager_source()
 
-    if destination == DestinationType.SLACK:
-        slack = config.create_slack_destination()
-
     try:
         issues = source.fetch_issues()
     except Exception as e:
@@ -288,16 +326,7 @@ def alertmanager(
         )
         result = ai.investigate(issue, system_prompt, console)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
-
-        if destination == DestinationType.CLI:
-            console.print(Rule())
-            console.print("[bold green]AI:[/bold green]", end=" ")
-            console.print(
-                Markdown(result.result.replace("\n", "\n\n")), style="bold green"
-            )
-            console.print(Rule())
-        elif destination == DestinationType.SLACK:
-            slack.send_issue(issue, result)
+        handle_result(result, console, destination, config, issue, False, True)
 
     if json_output_file:
         write_json_file(json_output_file, results)
