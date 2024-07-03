@@ -136,9 +136,6 @@ def handle_result(
     add_separator: bool,
 ):
     if destination == DestinationType.CLI:
-        if add_separator:
-            console.print(Rule())
-
         if show_tool_output and result.tool_calls:
             for tool_call in result.tool_calls:
                 console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
@@ -147,7 +144,9 @@ def handle_result(
 
         console.print(f"[bold green]AI:[/bold green]", end=" ")
         console.print(Markdown(result.result))
-        
+        if add_separator:
+            console.print(Rule())
+                    
     elif destination == DestinationType.SLACK:
         slack = config.create_slack_destination()
         slack.send_issue(issue, result)
