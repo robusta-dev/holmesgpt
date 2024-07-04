@@ -4,10 +4,10 @@ import logging
 import textwrap
 import os
 from typing import Dict, Generator, List, Optional
-
+import requests 
 import litellm
 import jinja2
-from openai import BadRequestError, OpenAI
+from openai import BadRequestError
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
@@ -17,16 +17,101 @@ from rich.console import Console
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import YAMLToolExecutor
+from gen_ai_hub.proxy.gen_ai_hub_proxy import GenAIHubProxyClient
+from ai_core_sdk.ai_core_v2_client import AICoreV2Client
 
-BASE_URL = "foo"
-MODEL = "foo" # might need "openai/foo"
-TOKEN = "bar"
-AI_RESOURCE_GROUP = "bar"
-EXTRA_HEADERS = {
-    "Authorization": f"Bearer ${TOKEN}",
-    'ai-resource-group': AI_RESOURCE_GROUP,
-}
-API_VERSION = "xyz"
+# Please replace the configurations below.
+# config_id: The target configuration to create the deployment. Please create the configuration first.
+with open("../config.json") as f:
+    config = json.load(f)
+
+with open("./env.json") as f:
+    env = json.load(f)
+
+deployment_id = env["deployment_id"]
+resource_group = config.get("resource_group", "default")
+print("deployment id: ", deployment_id, " resource group: ", resource_group)
+ai_core_sk = config["ai_core_service_key"]
+base_url = ai_core_sk.get("serviceurls").get("AI_API_URL") + "/v2/lm"
+ai_core_client = AICoreV2Client(base_url=ai_core_sk.get("serviceurls").get("AI_API_URL")+"/v2",
+                        auth_url=ai_core_sk.get("url")+"/oauth/token",
+                        client_id=ai_core_sk.get("clientid"),
+                        client_secret=ai_core_sk.get("clientsecret"),
+                        resource_group=resource_group)
+token = ai_core_client.rest_client.get_token()
+headers = {
+        "Authorization": token,
+        'ai-resource-group': resource_group,
+        "Content-Type": "application/json"}
+
+# Check deployment status before inference request
+deployment_url = f"{base_url}/deployments/{deployment_id}"
+response = requests.get(url=deployment_url, headers=headers)
+resp = response.json()    
+status = resp['status']
+
+deployment_log_url = f"{base_url}/deployments/{deployment_id}/logs"
+if status == "RUNNING":
+        print(f"Deployment-{deployment_id} is running. Ready for inference request")
+else:
+        print(f"Deployment-{deployment_id} status: {status}. Not yet ready for inference request")
+        #retrieve deployment logs
+        #{{apiurl}}/v2/lm/deployments/{{deploymentid}}/logs.
+
+        response = requests.get(deployment_log_url, headers=headers)
+        print('Deployment Logs:\n', response.text)
+
+
+model = "phi3:14b"
+deployment = ai_core_client.deployment.get(deployment_id)
+inference_base_url = f"{deployment.deployment_url}/v1"
+
+# pull the model from ollama model repository
+endpoint = f"{inference_base_url}/api/pull"
+print(endpoint)
+
+#let's pull the target model from ollama
+json_data = {  "name": model}
+
+response = requests.post(endpoint, headers=headers, json=json_data)
+print('Result:', response.text)
+
+# Check the model list 
+endpoint = f"{inference_base_url}/api/tags"
+print(endpoint)
+
+response = requests.get(endpoint, headers=headers)
+print('Result:', response.text)
+
+
+from gen_ai_hub.proxy.gen_ai_hub_proxy import GenAIHubProxyClient
+
+GenAIHubProxyClient.add_foundation_model_scenario(
+    scenario_id="byom-ollama-server",
+    config_names="ollama*",
+    prediction_url_suffix="/v1/chat/completions",
+)
+
+proxy_client = GenAIHubProxyClient(ai_core_client = ai_core_client)
+
+
+from gen_ai_hub.proxy.native.openai import OpenAI
+
+
+openai = OpenAI(proxy_client=proxy_client)
+messages = [{"role": "user", "content": "Tell me a joke"}]
+# kwargs = dict(deployment_id='xxxxxxx', model=model,messages = messages)
+result = openai.chat.completions.create(
+    # **kwargs
+    deployment_id=deployment_id,
+    model=model,
+    messages=messages
+)
+
+print("Option 1: Proxy with OpenAI-like interface\n", result.choices[0].message.content)
+
+
+
 
 class ToolCallResult(BaseModel):
     tool_name: str
@@ -78,6 +163,7 @@ class ToolCallingLLM:
         ]
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
+        
         for i in range(self.max_steps):
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
@@ -85,16 +171,13 @@ class ToolCallingLLM:
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
             logging.debug(f"sending messages {messages}")
             try:
-                full_response = litellm.completion(
-                    base_url=BASE_URL,
-                    model=MODEL,
-                    extra_headers=EXTRA_HEADERS,
+                full_response = openai.chat.completions.create(
+                    deployment_id=deployment_id,
+                    model=model,
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=0.00000001,
-                    api_version=API_VERSION,
-                    custom_llm_provider="openai",
+                    temperature=0.00000001
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user

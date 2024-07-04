@@ -29,6 +29,7 @@ colorlog = "^6.8.2"
 strenum = "^0.4.15"
 markdown = "^3.6"
 litellm = "^1.40.25"
+generative-ai-hub-sdk = "^1.8.0"
 
 [build-system]
 requires = ["poetry-core"]
