@@ -18,6 +18,15 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import YAMLToolExecutor
 
+BASE_URL = "foo"
+MODEL = "foo" # might need "openai/foo"
+TOKEN = "bar"
+AI_RESOURCE_GROUP = "bar"
+EXTRA_HEADERS = {
+    "Authorization": f"Bearer ${TOKEN}",
+    'ai-resource-group': AI_RESOURCE_GROUP,
+}
+API_VERSION = "xyz"
 
 class ToolCallResult(BaseModel):
     tool_name: str
@@ -54,25 +63,8 @@ class ToolCallingLLM:
         self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model, api_key):
-        logging.debug(f"Checking LiteLLM model {model}")
-        # TODO: this is a hack to get around the fact that we can't pass in an api key to litellm.validate_environment 
-        # so without this hack it always complains that the environment variable for the api key is missing
-        # to fix that, we always set an api key in the standard format that litellm expects (which is ${PROVIDER}_API_KEY)
-        lookup = litellm.get_llm_provider(self.model)
-        if not lookup:
-            raise Exception(f"Unknown provider for model {model}")
-        provider = lookup[1]
-        api_key_env_var = f"{provider.upper()}_API_KEY"
-        if api_key:
-            os.environ[api_key_env_var] = api_key
-        model_requirements = litellm.validate_environment(model=model)
-        if not model_requirements["keys_in_environment"]:
-            raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
-
-        # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name 
-        #if not litellm.supports_function_calling(model=model):
-        #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
-
+        return True
+    
     def call(self, system_prompt, user_prompt) -> LLMResult:
         messages = [
             {
@@ -94,12 +86,15 @@ class ToolCallingLLM:
             logging.debug(f"sending messages {messages}")
             try:
                 full_response = litellm.completion(
-                    model=self.model,
-                    api_key=self.api_key,
+                    base_url=BASE_URL,
+                    model=MODEL,
+                    extra_headers=EXTRA_HEADERS,
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=0.00000001
+                    temperature=0.00000001,
+                    api_version=API_VERSION,
+                    custom_llm_provider="openai",
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
