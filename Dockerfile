@@ -79,6 +79,6 @@ ARG AWS_DEFAULT_PROFILE
 ARG AWS_DEFAULT_REGION
 ARG AWS_PROFILE
 ARG AWS_REGION
-
+ENV AWS_DEFAULT_REGION="us-east-2"
 ENTRYPOINT ["poetry", "run", "--quiet", "python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]
