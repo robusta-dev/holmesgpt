@@ -61,3 +61,32 @@ toolsets:
     description: "Get all children of a Kubernetes resource, recursively, including their status"
     command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
 
+- name: "aws/extras"
+  tools:
+  - name: "aws_rds_analyse"
+    description: "Analyses aws RDS for any issues"
+    command: "python ./extras/rds_analyse.py"
+
+- name: "aws/extras"
+  tools:
+  - name: "aws_get_alarms"
+    description: "Lists all cloudwatch alarms, will say OK if they are not firing"
+    command: "python ./extras/get_cloudwatch_alarms.py"
+
+- name: "aws/extras"
+  tools:
+  - name: "aws_event_lookup"
+    description: "Fetches events of a specified type from AWS CloudTrail and writes them to a CSV file"
+    command: "python ./extras/event_lookup.py {{ EventName }} | while read filename; do cat "$filename"; done"
+
+- name: "aws/extras"
+  tools:
+  - name: "aws_user_audit_logs"
+    description: "Fetches audit logs for a specified username from the past specified number of hours and writes them to a CSV file"
+    command: "python ./extras/user_audit_logs.py {{ EventName }} {{ HoursBack }} | while read filename; do cat "$filename"; done"
+
+- name: "aws/extras"
+  tools:
+  - name: "aws_event_details"
+    description: "Fetches and returns the full event details in JSON format given an event ID"
+    command: "python ./extras/event_details.py {{ EventId }} | while read filename; do cat "$filename"; done"
