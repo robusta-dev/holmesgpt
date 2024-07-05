@@ -1,0 +1,7 @@
+DeleteLogStream
+StopLogging
+DeleteConfigRule
+DeleteDeliveryChannel
+DeleteEvaluationResults
+DeleteConfigurationRecorder
+DeleteVpcEndpoints

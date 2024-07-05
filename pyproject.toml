@@ -29,6 +29,7 @@ colorlog = "^6.8.2"
 strenum = "^0.4.15"
 markdown = "^3.6"
 boto3 = "^1.34.139"
+mysql-connector-python = "^9.0.0"
 
 [build-system]
 requires = ["poetry-core"]
