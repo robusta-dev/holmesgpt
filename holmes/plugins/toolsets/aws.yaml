@@ -1,0 +1,37 @@
+toolsets:
+- name: "aws/security"
+  tools:
+  - name: "get_black_listed_events"
+    description: "Lists all the cloudtrail event names that the current user has flagged as suspicious"
+    user_description: "get suspicious events list from preferences"
+    script: |
+      #!/bin/bash
+      if [ -z $HOLMES_SUSPICIOUS_AWS_EVENTS ]; then
+        echo "DeleteLogStream StopLogging DeleteConfigRule DeleteDeliveryChannel DeleteEvaluationResults DeleteConfigurationRecorder DeleteVpcEndpoints"
+      else
+        echo "$HOLMES_SUSPICIOUS_AWS_EVENTS"
+      fi
+
+  - name: "aws_event_lookup"
+    description: "Fetches events of a specified type from AWS CloudTrail and writes them to a CSV file along with the users that called them"
+    command: "python ./holmes/extras/event_lookup.py {{ EventName }} | while read filename; do cat \"$filename\"; done"
+    
+  - name: "aws_user_audit_logs"
+    description: "Fetches All audit logs for a specified username from the past specified number of hours and writes them to a CSV file along with additional data on the logs"
+    command: "python ./holmes/extras/user_audit_logs.py {{ UserName }} {{ HoursBack }} | while read filename; do cat \"$filename\"; done"
+  - name: "aws_event_details"
+    description: "Fetches and returns the full event details in JSON format given an event ID"
+    command: "python ./holmes/extras/event_details.py {{ EventId }} | while read filename; do cat \"$filename\"; done"
+
+- name: "aws/rds"
+  tools:
+  - name: "aws_rds_analyse"
+    description: "Analyses aws RDS for any issues"
+    command: "python ./holmes/extras/rds_analyse.py"
+
+- name: "aws/monitoring"
+  tools:
+  - name: "aws_get_alarms"
+    description: "Lists all cloudwatch alarms, will say OK if they are not firing"
+    command: "python ./holmes/extras/get_cloudwatch_alarms.py"
+    

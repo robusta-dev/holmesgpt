@@ -24,6 +24,7 @@ class YAMLTool(BaseModel):
     command: Optional[str] = None
     script: Optional[str] = None
     parameters: Dict[str, ToolParameter] = {}
+    user_description: Optional[str] = None # templated string to show to the user describing this tool invocation (not seen by llm) 
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -72,12 +73,16 @@ class YAMLTool(BaseModel):
 
     def get_parameterized_one_liner(self, params):
         params = sanitize_params(params)
-        cmd_or_script = self.command or self.script
-        template = Template(cmd_or_script)
+        if self.user_description:
+            template = Template(self.user_description)
+        else:
+            cmd_or_script = self.command or self.script
+            template = Template(cmd_or_script)
         return template.render(params)
     
     def invoke(self, params) -> str:
         params = sanitize_params(params)
+        logging.info(f"Running tool: {self.get_parameterized_one_liner(params)}")
         if self.command is not None:
             return self.__invoke_command(params)
         else:
@@ -86,7 +91,6 @@ class YAMLTool(BaseModel):
     def __invoke_command(self, params) -> str:
         template = Template(self.command)
         rendered_command = template.render(params)
-        logging.info(f"Running `{rendered_command}`")
         return self.__execute_subprocess(rendered_command)
 
     def __invoke_script(self, params) -> str:
@@ -107,6 +111,7 @@ class YAMLTool(BaseModel):
 
     def __execute_subprocess(self, cmd) -> str:
         try:
+            logging.debug(f"Running `{cmd}`")
             result = subprocess.run(
                 cmd, shell=True, capture_output=True, text=True, check=True, stdin=subprocess.DEVNULL
             )
@@ -173,7 +178,7 @@ class YAMLToolExecutor:
         for ts in toolsets_by_name.values():
             for tool in ts.tools:
                 if tool.name in self.tools_by_name:
-                    logging.warning(f"Overriding tool '{tool.name}'!")
+                    logging.warning(f"Overriding existing tool '{tool.name} with new tool from {ts.name} at {ts._path}'!")
                 self.tools_by_name[tool.name] = tool
 
     def invoke(self, tool_name: str, params: Dict) -> str:
@@ -182,6 +187,7 @@ class YAMLToolExecutor:
 
     def get_tool_by_name(self, name: str):
         return self.tools_by_name[name]
+    
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
