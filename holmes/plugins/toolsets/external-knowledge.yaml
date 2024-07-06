@@ -10,8 +10,8 @@ toolsets:
   tools:
   - name: "fetch_confluence_url"
     description: "Fetch a page in confluence.  Use this to fetch confluence runbooks if they are present before starting your investigation."
+    user_description: "fetch confluence page {{ confluence_page_id }}"
     command: "curl -u ${CONFLUENCE_USER}:${CONFLUENCE_API_KEY} -X GET -H 'Content-Type: application/json' ${CONFLUENCE_BASE_URL}/wiki/rest/api/content/{{ confluence_page_id }}?expand=body.storage"
-
 
 - name: "internet"
   prerequisites:
@@ -20,7 +20,6 @@ toolsets:
   - name: "fetch_webpage"
     description: "Fetch a webpage with w3m. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)"
     command: "w3m -dump {{ url }}"
-
 
 - name: "slab"
   prerequisites:
@@ -36,3 +35,15 @@ toolsets:
         -H "Content-Type: application/json" \
         -d '{"query":"query { post(id: \"{{ post_id }}\") { id title content } }"}' \
         https://api.slab.com/v1/graphql
+
+- name: "employee_information"
+  prerequisites:
+    - env:
+      - CONFLUENCE_USER
+      - CONFLUENCE_API_KEY
+      - EMPLOYEE_INFORMATION_DATABASE
+  tools:
+  - name: "get_employee_information_database"
+    description: "Fetch information for all employees"
+    user_description: "accessing employee information database (confluence)"
+    command: "curl -u ${CONFLUENCE_USER}:${CONFLUENCE_API_KEY} -X GET -H 'Content-Type: application/json' ${EMPLOYEE_INFORMATION_DATABASE}"

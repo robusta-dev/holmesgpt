@@ -33,12 +33,12 @@ toolsets:
           --query 'Events[0]' --output json
 
   - name: "aws_user_audit_logs"
-    description: "Fetches audit logs for a specified user from AWS CloudTrail in past 48 hours. Provide username as was outputed by aws_event_lookup or aws_event_details"
+    description: "Fetches audit logs for a specified user from AWS CloudTrail in past 24 hours. Provide username as was outputed by aws_event_lookup or aws_event_details"
     user_description: "get audit logs for {{ UserName }}"
     command: |
       aws cloudtrail lookup-events \
         --lookup-attributes AttributeKey=Username,AttributeValue="{{ UserName }}" \
-        --start-time $(date -v -2d -u +%Y-%m-%dT%H:%M:%SZ) \
+        --start-time $(date -v -1d -u +%Y-%m-%dT%H:%M:%SZ) \
         --end-time $(date -u +%Y-%m-%dT%H:%M:%SZ) \
         --query 'Events[*].{EventName:EventName,EventSource:EventSource,EventId:EventId,EventTime:EventTime,Username:Username,AccessKeyId:AccessKeyId,ip:CloudTrailEvent.sourceIPAddress,userID:CloudTrailEvent.userIdentity.sessionContext.sessionIssuer.userName}' \
         --output table

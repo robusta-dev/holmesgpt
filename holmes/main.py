@@ -95,6 +95,11 @@ opt_verbose: Optional[bool] = typer.Option(
     "-v",
     help="Verbose output",
 )
+opt_echo_request: bool = typer.Option(
+    True,
+    "--echo-request/--no-echo-request",
+    help="Include the query HolmesGPT was asked to investigate in the output",
+)
 opt_destination: Optional[DestinationType] = typer.Option(
     DestinationType.CLI,
     "--destination",
@@ -151,7 +156,8 @@ def ask(
         "-f",
         help="File to append to prompt (can specify -f multiple times to add multiple files)",
     ),
-    json_output_file: Optional[str] = opt_json_output_file
+    json_output_file: Optional[str] = opt_json_output_file,
+    echo_request: bool = opt_echo_request,
 ):
     """
     Ask any question and answer using available tools
@@ -168,7 +174,8 @@ def ask(
     )
     system_prompt = load_prompt(system_prompt)
     ai = config.create_toolcalling_llm(console, allowed_toolsets)
-    console.print("[bold yellow]User:[/bold yellow] " + prompt)
+    if echo_request:
+        console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
         f = path.open("r")
         prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
