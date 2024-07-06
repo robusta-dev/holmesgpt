@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import shlex
 import subprocess
@@ -120,15 +121,18 @@ class YAMLTool(BaseModel):
             return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
 
 
-class ToolsetPrerequisite(BaseModel):
+class ToolsetCommandPrerequisite(BaseModel):
     command: str                 # must complete successfully (error code 0) for prereq to be satisfied
     expected_output: str = None  # optional
+
+class ToolsetEnvironmentPrerequisite(BaseModel):
+    env: List[str] = []          # optional
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     name: str
-    prerequisites: List[ToolsetPrerequisite] = []
+    prerequisites: List[Union[ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
     tools: List[YAMLTool]
 
     _path: PrivateAttr = None
@@ -153,17 +157,24 @@ class Toolset(BaseModel):
 
     def check_prerequisites(self):
         for prereq in self.prerequisites:
-            try:
-                result = subprocess.run(prereq.command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                if prereq.expected_output and prereq.expected_output not in result.stdout:
+            if isinstance(prereq, ToolsetCommandPrerequisite):
+                try:
+                    result = subprocess.run(prereq.command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    if prereq.expected_output and prereq.expected_output not in result.stdout:
+                        self._enabled = False
+                        self._disabled_reason = f"prereq check gave wrong output"
+                        return
+                except subprocess.CalledProcessError as e:
                     self._enabled = False
-                    self._disabled_reason = f"prereq check gave wrong output"
-                    return 
-            except subprocess.CalledProcessError as e:
-                self._enabled = False
-                self._disabled_reason = f"prereq check failed w/ errorcode {e.returncode}"
-                logging.debug(f"Toolset {self.name} : Failed to run prereq command {prereq}", exc_info=True)
-                return
+                    self._disabled_reason = f"prereq check failed with errorcode {e.returncode}"
+                    logging.debug(f"Toolset {self.name} : Failed to run prereq command {prereq}", exc_info=True)
+                    return
+            elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
+                for env_var in prereq.env:
+                    if env_var not in os.environ:
+                        self._enabled = False
+                        self._disabled_reason = f"prereq check failed because environment variable {env_var} was not set"
+                        return
         self._enabled = True
 
 class YAMLToolExecutor:
