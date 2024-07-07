@@ -21,19 +21,22 @@ RUN python -m venv /app/venv --upgrade-deps && \
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+# Needed for kubectl
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
 
+# Set up packages for aws cli
 ARG ARCH=x86_64
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o "awscliv2.zip" \
     && unzip awscliv2.zip \
     && ./aws/install
 
+# Set up packages for gcloud
 RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz
 RUN mkdir -p /usr/local/gcloud \
   && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
   && /usr/local/gcloud/google-cloud-sdk/install.sh
 
-# Set the architecture-specific URLs
+# Set the architecture-specific kube lineage URLs
 ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-macos-latest-v2.0.1
 ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-ubuntu-latest-v2.0.1
 # Define a build argument to identify the platform
@@ -49,6 +52,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
 RUN chmod 777 kube-lineage
 RUN ./kube-lineage --version
 
+# Set up poetry
 ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     pip config set global.index-url "${PRIVATE_PACKAGE_REGISTRY}"; \
@@ -81,13 +85,14 @@ RUN apt-get update \
        apt-transport-https \
        gnupg2
 
+# Set up kubectl
 COPY --from=builder /app/Release.key Release.key
 RUN cat Release.key |  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
     && echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list \
     && apt-get update
-
 RUN apt-get install -y kubectl
 
+# Set up kube lineage
 COPY --from=builder /app/kube-lineage /usr/local/bin
 RUN kube-lineage --version
 
