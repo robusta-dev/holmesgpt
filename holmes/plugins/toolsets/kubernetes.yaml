@@ -58,6 +58,11 @@ toolsets:
 - name: "kubernetes/extras"
   tools:
   - name: "kubectl_lineage"
-    description: "Get all children of a Kubernetes resource, recursively, including their status"
-    command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
+    description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
+    command: "kube-lineage {{ kind }} {{ name}} -n {{ namespace }}"
 
+- name: "kubernetes/extras"
+  tools:
+  - name: "kubectl_lineage"
+    description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
+    command: "kube-lineage {{ kind }} {{ name}} -n {{ namespace }} -D"

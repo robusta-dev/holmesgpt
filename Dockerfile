@@ -33,6 +33,22 @@ RUN mkdir -p /usr/local/gcloud \
   && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
   && /usr/local/gcloud/google-cloud-sdk/install.sh
 
+# Set the architecture-specific URLs
+ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-macos-latest-v2.0.1
+ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-ubuntu-latest-v2.0.1
+# Define a build argument to identify the platform
+ARG TARGETPLATFORM
+# Conditional download based on the platform
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        curl -L -o kube-lineage $ARM_URL; \
+    elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+        curl -L -o kube-lineage $AMD_URL; \
+    else \
+        echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
+    fi
+RUN chmod 777 kube-lineage
+RUN ./kube-lineage --version
+
 ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     pip config set global.index-url "${PRIVATE_PACKAGE_REGISTRY}"; \
@@ -58,6 +74,7 @@ WORKDIR /app
 COPY --from=builder /app/venv /venv
 COPY . /app
 
+
 RUN apt-get update \
     && apt-get install -y \
        git \
@@ -71,8 +88,8 @@ RUN cat Release.key |  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring
 
 RUN apt-get install -y kubectl
 
-COPY --from=us-central1-docker.pkg.dev/genuine-flight-317411/devel/kube-lineage:v2 /root/kube-lineage /app
-RUN ./kube-lineage --version
+COPY --from=builder /app/kube-lineage /usr/local/bin
+RUN kube-lineage --version
 
 ARG AWS_DEFAULT_PROFILE
 ARG AWS_DEFAULT_REGION
