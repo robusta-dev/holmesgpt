@@ -28,6 +28,8 @@ supabase = "^2.5"
 colorlog = "^6.8.2"
 strenum = "^0.4.15"
 markdown = "^3.6"
+certifi = "^2024.7.4"
+urllib3 = "^2.2.2"
 
 [build-system]
 requires = ["poetry-core"]
