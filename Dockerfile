@@ -33,18 +33,6 @@ RUN mkdir -p /usr/local/gcloud \
   && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
   && /usr/local/gcloud/google-cloud-sdk/install.sh
 
-RUN sh -c "\
-    set -x; cd \$(mktemp -d) && \
-    OS=\$(uname | tr '[:upper:]' '[:lower:]') && \
-    ARCH=\$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\\(arm\\)\\(64\\)\\?.*/\\1\\2/' -e 's/aarch64$/arm64/') && \
-    KREW=krew-\${OS}_\${ARCH} && \
-    curl -fsSLO \"https://github.com/kubernetes-sigs/krew/releases/latest/download/\${KREW}.tar.gz\" && \
-    tar zxvf \"\${KREW}.tar.gz\" && \
-    ./\"\${KREW}\" install krew \
-    "
-
-ENV PATH="/root/.krew/bin:$PATH"
-
 ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     pip config set global.index-url "${PRIVATE_PACKAGE_REGISTRY}"; \
@@ -83,17 +71,8 @@ RUN cat Release.key |  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring
 
 RUN apt-get install -y kubectl
 
-COPY --from=builder /usr/local/aws-cli/ /usr/local/aws-cli/
-ENV PATH $PATH:/usr/local/aws-cli/v2/current/bin
-
-COPY --from=builder /usr/local/gcloud /usr/local/gcloud
-ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
-RUN gcloud components install gke-gcloud-auth-plugin
-
-COPY --from=builder /root/.krew /root/.krew
-ENV PATH="/root/.krew/bin:$PATH"
-
-RUN kubectl krew install lineage
+COPY --from=us-central1-docker.pkg.dev/genuine-flight-317411/devel/kube-lineage:v2 /root/kube-lineage /app
+RUN ./kube-lineage --version
 
 ARG AWS_DEFAULT_PROFILE
 ARG AWS_DEFAULT_REGION
