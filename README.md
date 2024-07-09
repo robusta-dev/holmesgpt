@@ -165,6 +165,36 @@ docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.
 </details>
 
 <details>
+
+<summary>Cutting Edge (Pip and Pipx)</summary>
+
+You can install HolmesGPT from the latest git version with pip or pipx.
+
+We recommend using pipx because it guarantees that HolmesGPT is isolated from other python packages on your system, preventing dependency conflicts.
+
+First [Pipx](https://github.com/pypa/pipx) (skip this step if you are using pip).
+
+Then install HolmesGPT from git with either pip or pipx:
+
+```
+pipx install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
+```
+
+Verify that HolmesGPT was installed by checking the version:
+
+```
+holmes version
+```
+
+To upgrade HolmesGPT with pipx, you can run:
+
+```
+pipx upgrade holmesgpt
+```
+</details>
+
+<details>
+
 <summary>From Source (Python Poetry)</summary>
 
 First [install poetry (the python package manager)](https://python-poetry.org/docs/#installing-with-the-official-installer)
