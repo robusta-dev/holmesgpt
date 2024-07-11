@@ -24,18 +24,6 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Needed for kubectl
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
 
-# Set up packages for aws cli
-ARG ARCH=x86_64
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o "awscliv2.zip" \
-    && unzip awscliv2.zip \
-    && ./aws/install
-
-# Set up packages for gcloud
-RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz
-RUN mkdir -p /usr/local/gcloud \
-  && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
-  && /usr/local/gcloud/google-cloud-sdk/install.sh
-
 # Set the architecture-specific kube lineage URLs
 ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-macos-latest-v2.0.1
 ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-ubuntu-latest-v2.0.1
