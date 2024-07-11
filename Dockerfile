@@ -89,5 +89,8 @@ ARG AWS_DEFAULT_REGION
 ARG AWS_PROFILE
 ARG AWS_REGION
 
+# Patching CVE-2024-32002
+RUN git config --global core.symlinks false
+
 ENTRYPOINT ["python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]
