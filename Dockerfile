@@ -9,7 +9,9 @@ RUN apt-get update \
        apt-transport-https \
        gnupg2 \
        build-essential \
-       unzip
+       unzip \
+    && apt-get purge -y --auto-remove \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -71,7 +73,9 @@ RUN apt-get update \
     && apt-get install -y \
        git \
        apt-transport-https \
-       gnupg2
+       gnupg2 \
+    && apt-get purge -y --auto-remove \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set up kubectl
 COPY --from=builder /app/Release.key Release.key

@@ -40,11 +40,11 @@ jobs:
     - name: Build and push Docker images
       uses: docker/build-push-action@v2
       with:
-        file: Dockerfile.local
+        file: Dockerfile.dev
         context: .
         platforms: linux/arm64,linux/amd64
         push: true
-        tags: us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes_local:${{ github.ref_name }}
+        tags: us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes-dev:${{ github.ref_name }}
         build-args: |
           BUILDKIT_INLINE_CACHE=1
 
