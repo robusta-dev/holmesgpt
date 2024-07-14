@@ -16,7 +16,6 @@ from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
 from holmes.config import Config, LLMType
 from holmes.plugins.destinations import DestinationType
-from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_prompt
 from holmes.core.tool_calling_llm import LLMResult
