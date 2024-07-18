@@ -1,125 +1,33 @@
 <div align="center">
   <h1 align="center">Get a head start on fixing alerts with AI investigation</h1>
-  <h2 align="center">HolmesGPT - The Open Source On-Call/DevOps Agent</h2>
+  <h2 align="center">HolmesGPT - The Open Source AIOps Platform</h2>
   <p align="center">
-    <a href="#examples"><strong>Examples</strong></a> |
-    <a href="#key-features"><strong>Key Features</strong></a> |
+    <a href="#built-in-integrations"><strong>Integrations</strong></a> |
+    <a href="#benefits"><strong>Benefits</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
 
-The only AI assistant that investigates incidents **like a human does** - by looking at alerts and fetching missing data until it finds the root cause. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
+Increase your uptime and reliability by feeding live data about your environment into powerful AI models, and using them to investigate your alerts.
 
-### What Can HolmesGPT Do?
-- **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
-- **Bidirectional Integrations** see investigation results inside your existing ticketing/incident management system 
-- **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
-- **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster   
-- **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
-- **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
+**By feeding live observability data into LLMs, HolmesGPT removes hallucinations and achieves extremely accurate results.** It supports strict compliance requirements and can use private AI models, deployed in your own cloud account.
 
-### See it in Action
-
-![AI Alert Analysis](images/holmesgptdemo.gif)
-
-## Examples
-
-<details>
-<summary>Kubernetes Troubleshooting</summary>
-
-```bash
-holmes ask "what pods are unhealthy in my cluster and why?"
-```
-</details>
-
-<details>
-<summary>Prometheus Alert RCA (root cause analysis)</summary>
-
-Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR) by showing useful and actionable insights. It makes every engineer an expert by giving them a copilot that can be customized for your environment and your alerts.
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
-Or run HolmesGPT from the cli:
+### Built-In Integrations
+* Investigate problems on Kubernetes, AWS, GCP, and more
+* Launch investigations from Slack, a web UI, or CLI
+* Bi-directional integrations with PagerDuty, OpsGenie, Jira, and more
 
-```bash
-kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
-holmes investigate alertmanager --alertmanager-url http://localhost:9093
-```
-
-Note - if on Mac OS and using the Docker image, you will need to use `http://docker.for.mac.localhost:9093` instead of `http://localhost:9093`
-</details>
-
-<details>
-<summary>Log File Analysis</summary>
-
-Attach files to the HolmesGPT session with `-f`:
-
-```console
-sudo dmesg > dmesg.log
-poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg.log
-```
-</details>
-
-<details>
-
-<summary>Jira Ticket Investigation</summary>
-
-```bash
-holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
-```
-
-By default results are displayed in the CLI . Use `--update` to get the results as a comment in the Jira ticket.
-
-</details>
-
-<details>
-<summary>GitHub Issue Investigation</summary>
-
-```bash
-holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
-```
-
-By default results are displayed in the CLI. Use `--update` to get the results as a comment in the GitHub issue.
-
-</details>
-
-
-<details>
-<summary>OpsGenie Alert Investigation</summary>
-
-```bash
-holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
-```
-
-By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
-
-![OpsGenie](./images/opsgenie-holmes-update.png)
-</details>
-
-
-<details>
-<summary>PagerDuty Incident Investigation</summary>
-
-```bash
-holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
-```
-
-By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
-
-![PagerDuty](./images/pagerduty-holmes-update.png)
-</details>
-
-
-Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
-
-## Key Features
-- **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
-- **Compliance Friendly:** Can be run on-premise with your own LLM (or in the cloud with OpenAI or Azure)
-- **Transparent Results:** See a log of the AI’s actions and what data it gathered to understand how it reached conclusions
-- **Extensible Data Sources:** Connect the AI to custom data by providing your own tool definitions
-- **Runbook Automation:** Optionally provide runbooks in plain English and the AI will follow them automatically
-- **Integrates with Existing Workflows:** Connect Slack and Jira to get results inside your existing tools
+### Benefits
+- **Reduce mean time to response (MTTR)** by investigating incidents with AI
+- **Share knowledge within your team** by teaching HolmesGPT to investigate alerts like your most experienced experts
+- **Spot critical issues faster** with an instant impact-analysis
+- **Surface hidden data** from your existing observability tools
+- **Reduce cognitive load** by guiding engineers where to look
 
 ## Installation
 
@@ -151,8 +59,10 @@ holmes --help
 ```sh
 holmes ask "what issues do I have in my cluster"
 ```
-</details>
 
+See <a href="#usage">Usage</a> for examples what to do next.
+
+</details>
 
 <details>
 <summary>Prebuilt Docker Container</summary>
@@ -162,6 +72,8 @@ Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/ho
 ```bash
 docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes-dev ask "what pods are unhealthy and why?"
 ```
+
+See <a href="#usage">Usage</a> for examples what to do next.
 </details>
 
 <details>
@@ -191,6 +103,8 @@ To upgrade HolmesGPT with pipx, you can run:
 ```
 pipx upgrade holmesgpt
 ```
+
+See <a href="#usage">Usage</a> for examples what to do next.
 </details>
 
 <details>
@@ -205,6 +119,8 @@ cd holmesgpt
 poetry install --no-root
 poetry run python3 holmes.py ask "what pods are unhealthy and why?"
 ```
+
+See <a href="#usage">Usage</a> for examples what to do next.
 </details>
 
 <details>
@@ -217,6 +133,8 @@ cd holmesgpt
 docker build -t holmes . -f Dockerfile.dev
 docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
+
+See <a href="#usage">Usage</a> for examples what to do next.
 </details>
 
 
@@ -266,6 +184,100 @@ You will need an LLM with support for function-calling (tool-calling). To use it
 In particular, note that [vLLM does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869), whereas [llama-cpp does support it](https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#function-calling).
 
 </details>
+
+
+## Usage
+
+<details>
+<summary>Investigate a Prometheus alert from Slack</summary>
+
+Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+
+![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
+
+</details>
+
+<details>
+<summary>Investigate a Prometheus alert from the cli</summary>
+
+```bash
+kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
+holmes investigate alertmanager --alertmanager-url http://localhost:9093
+```
+
+Note - if on Mac OS and using the Docker image, you will need to use `http://docker.for.mac.localhost:9093` instead of `http://localhost:9093`
+</details>
+
+<details>
+<summary>Ask a free-text question</summary>
+
+```bash
+holmes ask "what pods are unhealthy in my cluster and why?"
+```
+</details>
+
+<details>
+<summary>Analyze a log file</summary>
+
+```console
+sudo dmesg > dmesg.log
+poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg.log
+```
+</details>
+
+<details>
+
+<summary>Investigate a Jira/GitHub Ticket</summary>
+
+**Jira:**
+
+```bash
+holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
+```
+
+**GitHub:**
+
+```bash
+holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
+```
+
+By default results are displayed in the CLI. Use `--update` to get the results as a comment in the issue.
+
+</details>
+
+
+<details>
+<summary>Investigate a PagerDuty/OpsGenie Incident</summary>
+
+**PagerDuty:**
+```bash
+holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
+
+![PagerDuty](./images/pagerduty-holmes-update.png)
+
+**OpsGenie:**
+```bash
+holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
+
+![OpsGenie](./images/opsgenie-holmes-update.png)
+</details>
+</details>
+
+Get started by [installing HolmesGPT](#installation).
+
+## Key Features
+- **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
+- **Compliance Friendly:** Can be run on-premise with your own LLM (or in the cloud with OpenAI or Azure)
+- **Transparent Results:** See a log of the AI’s actions and what data it gathered to understand how it reached conclusions
+- **Extensible Data Sources:** Connect the AI to custom data by providing your own tool definitions
+- **Runbook Automation:** Optionally provide runbooks in plain English and the AI will follow them automatically
+- **Integrates with Existing Workflows:** Connect Slack and Jira to get results inside your existing tools
 
 ## Other Use Cases
 
