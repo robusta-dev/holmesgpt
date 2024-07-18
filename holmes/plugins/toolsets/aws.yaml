@@ -46,9 +46,30 @@ toolsets:
 - name: "aws/rds"
   tools:
   - name: "aws_rds_analyse"
-    description: "Analyses aws RDS for any issues"
+    description: "Analyses aws RDS for any issues using cloudwatch metrics DatabaseConnections and CPUUtilization"
+    user_description: "fetch rds cpu and connection count"
     command: "python ./holmes/extras/rds_analyse.py"
 
+  - name: "aws_rds_describe_events"
+    description: "Runs aws rds describe-events"
+    user_description: "fetch rds events"
+    command: "aws rds describe-events"
+
+  - name: "aws_rds_describe_instances"
+    description: "Runs aws rds describe-db-instances"
+    user_description: "fetch rds instances"
+    command: "aws rds describe-db-instances"
+
+  - name: "aws_rds_describe_logs"
+    description: "Describe all available logs for an AWS RDS instance."
+    user_description: "list available logs"
+    command: "aws rds describe-db-log-files --db-instance-identifier '{{ db_instance_identifier }}'"
+
+  - name: "aws_rds_fetch_log_by_name"
+    description: "Fetch a specific log for an AWS RDS instance by log file name."
+    user_description: "fetch a specific log"
+    command: "aws rds download-db-log-file-portion --db-instance-identifier '{{ db_instance_identifier }}' --log-file-name '{{ log_file_name }}' --starting-token 0"
+    
 - name: "aws/monitoring"
   tools:
   - name: "aws_get_alarms"
