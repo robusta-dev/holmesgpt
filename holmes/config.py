@@ -164,7 +164,7 @@ class Config(RobustaBaseConfig):
     ) -> IssueInvestigator:
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return ToolCallingLLM(
-            self.create_llm(),
+            self.create_llm().chat.completions,
             self.model,
             tool_executor,
             self.max_steps,

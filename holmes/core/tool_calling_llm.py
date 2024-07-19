@@ -67,7 +67,7 @@ class ToolCallingLLM:
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
             logging.debug(f"sending messages {messages}")
             try:
-                full_response = self.client.chat.completions.create(
+                full_response = self.client.create(
                     model=self.model,
                     messages=messages,
                     tools=tools,
