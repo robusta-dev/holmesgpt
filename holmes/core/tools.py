@@ -11,7 +11,6 @@ from pydantic import BaseModel, ConfigDict, PrivateAttr
 ToolsetPattern = Union[Literal['*'], List[str]]
 
 class ToolParameter(BaseModel):
-    title: Optional[str] = None
     description: Optional[str] = None
     type: str = "string"
     required: bool = True
@@ -20,7 +19,6 @@ class ToolParameter(BaseModel):
 class YAMLTool(BaseModel):
     name: str
     description: str
-    title: Optional[str] = None
     command: Optional[str] = None
     script: Optional[str] = None
     parameters: Dict[str, ToolParameter] = {}
@@ -49,14 +47,10 @@ class YAMLTool(BaseModel):
         tool_properties = {}
         for param_name, param_attributes in self.parameters.items():
             tool_properties[param_name] = { "type": param_attributes.type }
-            if param_attributes.title is not None:
-                tool_properties[param_name]["title"] = param_attributes.title
             if param_attributes.description is not None:
                 tool_properties[param_name]["description"] = param_attributes.description
         
-        title = self.title or self.name
-
-        return {
+        result = {
             "type": "function",
             "function": {
                 "name": self.name,
@@ -64,11 +58,11 @@ class YAMLTool(BaseModel):
                 "parameters": { 
                     "properties": tool_properties, 
                     "required": [param_name for param_name, param_attributes in self.parameters.items() if param_attributes.required],
-                    "title": title,
                     "type": "object", 
                 }
             },
         }
+        return result
 
     def get_parameterized_one_liner(self, params):
         params = sanitize_params(params)

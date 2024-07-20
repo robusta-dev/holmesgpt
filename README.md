@@ -9,7 +9,7 @@
   </p>
 </div>
 
-The only AI assistant that investigates incidents **like a human does** - by looking at alerts and fetching missing data until it finds the root cause. Powered by OpenAI or any tool-calling LLM of your choice, including open source models.
+The only AI assistant that investigates incidents **like a human does** - by looking at alerts and fetching missing data until it finds the root cause. Powered by OpenAI, Azure AI, AWS Bedrock, or any tool-calling LLM of your choice, including open source models.
 
 ### What Can HolmesGPT Do?
 - **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
@@ -115,7 +115,7 @@ Like what you see? Checkout [other use cases](#other-use-cases) or get started b
 
 ## Key Features
 - **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
-- **Compliance Friendly:** Can be run on-premise with your own LLM (or in the cloud with OpenAI or Azure)
+- **Compliance Friendly:** Can be run on-premise with your own LLM (or in the cloud with OpenAI/Azure/AWS)
 - **Transparent Results:** See a log of the AI’s actions and what data it gathered to understand how it reached conclusions
 - **Extensible Data Sources:** Connect the AI to custom data by providing your own tool definitions
 - **Runbook Automation:** Optionally provide runbooks in plain English and the AI will follow them automatically
@@ -123,7 +123,9 @@ Like what you see? Checkout [other use cases](#other-use-cases) or get started b
 
 ## Installation
 
-First you will need <a href="#getting-an-api-key">an OpenAI API key, or the equivalent for another model</a>. Then install with one of the below methods:
+**Prerequisite:** <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
+
+**Installation Methods:**
 
 <details>
   <summary>Brew (Mac/Linux)</summary>
@@ -222,7 +224,9 @@ docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v 
 
 ### Getting an API Key
 
-HolmesGPT requires an API Key to function. Follow one of the instructions below.
+HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
+
+**Instructions for popular LLMs:**
 
 <details>
 <summary>OpenAI</summary>
@@ -231,7 +235,7 @@ To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key]
 
 **Note**: This is different from being a “ChatGPT Plus” subscriber.
 
-Pass your API key to holmes with the `--api-key` cli argument:
+Pass your API key to holmes with the `--api-key` cli argument. Because OpenAI is the default LLM, the `--model` flag is optional for OpenAI (gpt-4o is the default).
 
 ```
 holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
@@ -244,16 +248,50 @@ If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment
 <details>
 <summary>Azure OpenAI</summary>
 
-To work with Azure AI, you need the [Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource). 
+To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource) and to set the following environment variables:
+
+* AZURE_API_VERSION - e.g. 2024-02-15-preview
+* AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
+* AZURE_OPENAI_API_KEY (optional) - equivalent to the `--api-key` cli argument
+
+Set those environment variables and run:
 
 ```bash
-holmes ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER> --azure-endpoint='<PLACEHOLDER>'
+holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
 ```
 
-The `--azure-endpoint` should be a URL in the format "https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview"
+Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details. 
+</details>
 
-If you prefer not to pass secrets on the cli, set the AZURE_OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
+<details>
+<summary>AWS Bedrock</summary>
 
+Before running the below command you must run `pip install boto3>=1.28.57` and set the following environment variables:
+
+* `AWS_REGION_NAME`
+* `AWS_ACCESS_KEY_ID`
+* `AWS_SECRET_ACCESS_KEY`
+
+If the AWS cli is already configured on your machine, you may be able to find those parameters with:
+
+```console
+cat ~/.aws/credentials ~/.aws/config
+```
+
+Once everything is configured, run:
+```console
+holmes ask "what pods are unhealthy and why?" --model=bedrock/<MODEL_NAME>
+```
+
+Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropic.claude-3-5-sonnet-20240620-v1:0`. To list models your account can access:
+
+```
+aws bedrock list-foundation-models --region=us-east-1
+```
+
+Note that different models are available in different regions. For example, Claude Opus is only available in us-west-2.
+
+Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details. 
 </details>
 
 <details>
@@ -472,7 +510,7 @@ Define custom runbooks to give explicit instructions to the LLM on how to invest
 
 ### Large Language Model (LLM) Configuration
 
-Choose between OpenAI or Azure for integrating large language models. Provide the necessary API keys and endpoints for the selected service.
+Choose between OpenAI, Azure, AWS Bedrock, and more. Provide the necessary API keys and endpoints for the selected service.
 
 
 <details>
@@ -481,7 +519,6 @@ Choose between OpenAI or Azure for integrating large language models. Provide th
 
 ```bash
 # Configuration for OpenAI LLM
-#llm: "openai"
 #api_key: "your-secret-api-key"
 ```
 </details>
@@ -492,12 +529,20 @@ Choose between OpenAI or Azure for integrating large language models. Provide th
 
 ```bash
 # Configuration for Azure LLM
-#llm: "azure"
 #api_key: "your-secret-api-key"
-#azure_endpoint: "https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview"
+#model: "azure/<DEPLOYMENT_NAME>"
+#you will also need to set environment variables - see above
 ```
 </details>
-  
+
+<summary>Bedrock</summary>
+
+```bash
+# Configuration for AWS Bedrock LLM
+#model: "bedrock/<MODEL_ID>"
+#you will also need to set environment variables - see above
+```
+</details>
 
 </details>
 

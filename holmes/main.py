@@ -14,7 +14,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
-from holmes.config import Config, LLMType
+from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_prompt
@@ -44,6 +44,11 @@ def init_logging(verbose = False):
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
     # disable INFO logs from OpenAI
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    # disable INFO logs from LiteLLM
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    # disable INFO logs from AWS (relevant when using bedrock)
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
     # when running in --verbose mode we don't want to see DEBUG logs from these libraries
     logging.getLogger("openai._base_client").setLevel(logging.INFO)
     logging.getLogger("httpcore").setLevel(logging.INFO)
@@ -54,17 +59,9 @@ def init_logging(verbose = False):
 
 # Common cli options
 # The defaults for options that are also in the config file MUST be None or else the cli defaults will override settings in the config file
-opt_llm: Optional[LLMType] = typer.Option(
-    None,
-    help="Which LLM to use ('openai' or 'azure')",
-)
 opt_api_key: Optional[str] = typer.Option(
     None,
     help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_OPENAI_API_KEY)",
-)
-opt_azure_endpoint: Optional[str] = typer.Option(
-    None,
-    help="Endpoint to use for Azure AI. e.g. 'https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview'. If not given, uses environment variable AZURE_OPENAI_ENDPOINT.",
 )
 opt_model: Optional[str] = typer.Option("gpt-4o", help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
@@ -157,9 +154,7 @@ def handle_result(
 def ask(
     prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
     # common options
-    llm=opt_llm,
     api_key: Optional[str] = opt_api_key,
-    azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
     config_file: Optional[str] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
@@ -195,8 +190,6 @@ def ask(
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
-        llm=llm,
-        azure_endpoint=azure_endpoint,
         model=model,
         max_steps=max_steps,
         custom_toolsets=custom_toolsets,
@@ -252,9 +245,7 @@ def alertmanager(
         help="Limit the number of alerts to process"
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
-    azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
     config_file: Optional[str] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
@@ -278,8 +269,6 @@ def alertmanager(
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
-        llm=llm,
-        azure_endpoint=azure_endpoint,
         model=model,
         max_steps=max_steps,
         alertmanager_url=alertmanager_url,
@@ -384,9 +373,7 @@ def jira(
         False, help="Update Jira with AI results"
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
-    azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
     config_file: Optional[str] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
@@ -407,8 +394,6 @@ def jira(
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
-        llm=llm,
-        azure_endpoint=azure_endpoint,
         model=model,
         max_steps=max_steps,
         jira_url=jira_url,
@@ -480,9 +465,7 @@ def github(
         help="Investigate tickets matching a GitHub query (e.g. 'is:issue is:open')",
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
-    azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
     config_file: Optional[str] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
@@ -502,8 +485,6 @@ def github(
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
-        llm=llm,
-        azure_endpoint=azure_endpoint,
         model=model,
         max_steps=max_steps,
         github_url=github_url,
@@ -559,9 +540,7 @@ def pagerduty(
         False, help="Update PagerDuty with AI results"
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
-    azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
     config_file: Optional[str] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
@@ -569,6 +548,7 @@ def pagerduty(
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[bool] = opt_verbose,
+    json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -581,8 +561,6 @@ def pagerduty(
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
-        llm=llm,
-        azure_endpoint=azure_endpoint,
         model=model,
         max_steps=max_steps,
         pagerduty_api_key=pagerduty_api_key,
@@ -604,6 +582,8 @@ def pagerduty(
     console.print(
         f"[bold yellow]Analyzing {len(issues)} PagerDuty incidents.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
+
+    results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
         result = ai.investigate(issue, system_prompt, console)
@@ -620,6 +600,10 @@ def pagerduty(
             console.print(
                 f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
             )
+        results.append({"issue": issue.model_dump(), "result": result.model_dump()})
+
+    if json_output_file:
+        write_json_file(json_output_file, results)
 
 @investigate_app.command()
 def opsgenie(
@@ -636,9 +620,7 @@ def opsgenie(
         False, help="Update OpsGenie with AI results"
     ),
     # common options
-    llm: Optional[LLMType] = opt_llm,
     api_key: Optional[str] = opt_api_key,
-    azure_endpoint: Optional[str] = opt_azure_endpoint,
     model: Optional[str] = opt_model,
     config_file: Optional[str] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
@@ -658,8 +640,6 @@ def opsgenie(
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
-        llm=llm,
-        azure_endpoint=azure_endpoint,
         model=model,
         max_steps=max_steps,
         opsgenie_api_key=opsgenie_api_key,
