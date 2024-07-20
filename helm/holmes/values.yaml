@@ -1,6 +1,9 @@
 
 # Optional openai key and endpoint to create openai queries.
+llm: "openai"
 openaiKey: ""
+azureEndpoint: ""
+azureOpenaiKey: ""
 
 certificate: "" # base64 encoded
 logLevel: INFO

@@ -28,16 +28,16 @@ class AlertManagerSource(SourcePlugin):
         url: str,
         username: Optional[str] = None,
         password: Optional[str] = None,
-        alertname: Optional[Pattern] = None,
-        label: Optional[str] = None,
+        alertname_filter: Optional[Pattern] = None,
+        label_filter: Optional[str] = None,
         filepath: Optional[Path] = None,
     ):
         super().__init__()
         self.url = url
         self.username = username
         self.password = password
-        self.alertname = alertname
-        self.label = label
+        self.alertname_filter = alertname_filter
+        self.label_filter = label_filter
         self.filepath = filepath
 
         if self.url is None and self.filepath is None:
@@ -45,6 +45,8 @@ class AlertManagerSource(SourcePlugin):
             raise ValueError("--alertmanager-url must be specified")
         if self.url is not None and self.filepath is not None:
             logging.warning(f"Ignoring --alertmanager-url because --alertmanager-file is specified")
+        if self.label_filter and self.filepath is not None:
+            logging.warning(f"Ignoring --label-filter because --alertmanager-file is specified")
         if self.url and not (
             self.url.startswith("http://") or self.url.startswith("https://")
         ):
@@ -57,6 +59,10 @@ class AlertManagerSource(SourcePlugin):
             "silenced": "false",
             "inhibited": "false",
         }
+        if self.label_filter:
+            params["filter"] = self.label_filter
+            logging.info(f"Filtering alerts by {self.label_filter}")
+
         if self.username is not None or self.password is not None:
             auth = HTTPBasicAuth(self.username, self.password)
         else:
@@ -86,9 +92,7 @@ class AlertManagerSource(SourcePlugin):
         else:
             alerts = self.__fetch_issues_from_api()
 
-        alerts = self.label_filter_issues(alerts)
-
-        if self.alertname is not None:
+        if self.alertname_filter is not None:
             alertname_filter = re.compile(self.alertname)
             alerts = [a for a in alerts if alertname_filter.match(a.unique_id)]
 
@@ -113,25 +117,6 @@ class AlertManagerSource(SourcePlugin):
         alerts = self.__fetch_issues_from_api()
         with open(path, "w") as f:
             f.write(json.dumps(alerts, default=pydantic_encoder, indent=2))
-
-    def label_filter_issues(
-        self, issues: List[PrometheusAlert]
-    ) -> List[PrometheusAlert]:
-        if not self.label:
-            return issues
-
-        label_parts = self.label.split("=")
-        if len(label_parts) != 2:
-            raise Exception(
-                f"The label {self.label} is of the wrong format use '--alertmanager-label key=value'"
-            )
-
-        alert_label_key, alert_label_value = label_parts
-        return [
-            issue
-            for issue in issues
-            if issue.labels.get(alert_label_key, None) == alert_label_value
-        ]
 
     @staticmethod
     def __format_issue_metadata(alert: PrometheusAlert) -> Optional[str]:

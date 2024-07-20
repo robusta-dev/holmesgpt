@@ -38,13 +38,26 @@ spec:
           - name: CERTIFICATE
             value: {{ .Values.certificate }}
           {{- end }}
-          {{ if .Values.openaiKey -}}
+          - name: HOLMES_LLM
+            value: {{ .Values.llm }}
           - name: OPENAI_API_KEY
             valueFrom:
               secretKeyRef:
                 name: {{ .Values.secretName }}
                 key: openaiKey
-          {{- end }}
+                optional: true
+          - name: AZURE_OPENAI_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.secretName }}
+                key: azureOpenaiKey
+                optional: true
+          - name: AZURE_ENDPOINT
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.secretName }}
+                key: azureEndpoint
+                optional: true
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
           {{- end }}
@@ -89,4 +102,6 @@ metadata:
 type: Opaque
 data:
   openaiKey: {{ .Values.openaiKey | b64enc | quote }}
+  azureEndpoint: {{ .Values.azureEndpoint | b64enc | quote }}
+  azureOpenaiKey: {{ .Values.azureOpenaiKey | b64enc | quote }}
 {{- end }}

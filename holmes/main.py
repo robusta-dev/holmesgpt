@@ -1,6 +1,8 @@
 # from holmes.ssh_utils import add_custom_certificate
 # add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
 
+import socket
+import uuid
 import logging
 import re
 import warnings
@@ -14,7 +16,9 @@ from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
 from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
+from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_prompt
+from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
@@ -63,7 +67,7 @@ opt_model: Optional[str] = typer.Option("gpt-4o", help="Model to use for the LLM
 opt_config_file: Optional[Path] = typer.Option(
     None,
     "--config",
-    help="Path to the config file. Defaults to config.yaml when it exists. Command line arguments take precedence over config file settings",
+    help="Path to the config file. Defaults to ~/.holmes/config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
 opt_custom_toolsets: Optional[List[Path]] = typer.Option(
     [],
@@ -111,12 +115,39 @@ opt_json_output_file: Optional[str] = typer.Option(
     None,
     "--json-output-file",
     help="Save the complete output in json format in to a file",
+    envvar="HOLMES_JSON_OUTPUT_FILE",
 )
 
 # Common help texts
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
 
 
+def handle_result(
+    result: LLMResult,
+    console: Console,
+    destination: DestinationType,
+    config: Config,
+    issue: Issue,
+    show_tool_output: bool,
+    add_separator: bool,
+):
+    if destination == DestinationType.CLI:
+        if show_tool_output and result.tool_calls:
+            for tool_call in result.tool_calls:
+                console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
+                # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
+                console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
+
+        console.print(f"[bold green]AI:[/bold green]", end=" ")
+        console.print(Markdown(result.result))
+        if add_separator:
+            console.print(Rule())
+                    
+    elif destination == DestinationType.SLACK:
+        slack = config.create_slack_destination()
+        slack.send_issue(issue, result)
+
+    
 # TODO: add interactive interpreter mode
 # TODO: add streaming output
 @app.command()
@@ -130,6 +161,11 @@ def ask(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[bool] = opt_verbose,
+    # semi-common options
+    destination: Optional[DestinationType] = opt_destination,
+    slack_token: Optional[str] = opt_slack_token,
+    slack_channel: Optional[str] = opt_slack_channel,
+    
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_ask.jinja2", help=system_prompt_help
@@ -157,6 +193,8 @@ def ask(
         model=model,
         max_steps=max_steps,
         custom_toolsets=custom_toolsets,
+        slack_token=slack_token,
+        slack_channel=slack_channel,
     )
     system_prompt = load_prompt(system_prompt)
     ai = config.create_toolcalling_llm(console, allowed_toolsets)
@@ -167,16 +205,18 @@ def ask(
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
     response = ai.call(system_prompt, prompt)
-    text_result = Markdown(response.result)
+
     if json_output_file:
         write_json_file(json_output_file, response.model_dump())
-    if show_tool_output and response.tool_calls:
-        for tool_call in response.tool_calls:
-            console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
-            # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
-            console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
-    console.print(f"[bold green]AI:[/bold green]", end=" ")
-    console.print(text_result, soft_wrap=True)
+
+    issue = Issue(
+        id=str(uuid.uuid4()),
+        name=prompt,
+        source_type="holmes-ask",
+        raw={"prompt": prompt},
+        source_instance_id=socket.gethostname(),
+    )
+    handle_result(response, console, destination, config, issue, show_tool_output, False)
 
 
 @investigate_app.command()
@@ -186,8 +226,9 @@ def alertmanager(
         None,
         help="Investigate all alerts with this name (can be regex that matches multiple alerts). If not given, defaults to all firing alerts",
     ),
-    alertmanager_label: Optional[str] = typer.Option(
-        None, help="For filtering alerts with a specific label. Must be of format key=value"
+    alertmanager_label: Optional[List[str]] = typer.Option(
+        [],
+        help="For filtering alerts with a specific label. Must be of format key=value. If --alertmanager-label is passed multiple times, alerts must match ALL labels"
     ),
     alertmanager_username: Optional[str] = typer.Option(
         None, help="Username to use for basic auth"
@@ -197,6 +238,11 @@ def alertmanager(
     ),
     alertmanager_file: Optional[Path] = typer.Option(
         None, help="Load alertmanager alerts from a file (used by the test framework)"
+    ),
+    alertmanager_limit: Optional[int] = typer.Option(
+        None,
+        "-n",
+        help="Limit the number of alerts to process"
     ),
     # common options
     api_key: Optional[str] = opt_api_key,
@@ -242,14 +288,15 @@ def alertmanager(
 
     source = config.create_alertmanager_source()
 
-    if destination == DestinationType.SLACK:
-        slack = config.create_slack_destination()
-
     try:
         issues = source.fetch_issues()
     except Exception as e:
         logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
         return
+    
+    if alertmanager_limit is not None:
+        console.print(f"[bold yellow]Limiting to {alertmanager_limit}/{len(issues)} issues.[/bold yellow]")
+        issues = issues[:alertmanager_limit]
 
     if alertmanager_alertname is not None:
         console.print(
@@ -266,16 +313,7 @@ def alertmanager(
         )
         result = ai.investigate(issue, system_prompt, console)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
-
-        if destination == DestinationType.CLI:
-            console.print(Rule())
-            console.print("[bold green]AI:[/bold green]", end=" ")
-            console.print(
-                Markdown(result.result.replace("\n", "\n\n")), style="bold green"
-            )
-            console.print(Rule())
-        elif destination == DestinationType.SLACK:
-            slack.send_issue(issue, result)
+        handle_result(result, console, destination, config, issue, False, True)
 
     if json_output_file:
         write_json_file(json_output_file, results)
@@ -314,13 +352,18 @@ def generate_alertmanager_tests(
 @investigate_app.command()
 def jira(
     jira_url: Optional[str] = typer.Option(
-        None, help="Jira url - e.g. https://your-company.atlassian.net"
+        None,
+        help="Jira url - e.g. https://your-company.atlassian.net",
+        envvar="JIRA_URL"
     ),
     jira_username: Optional[str] = typer.Option(
-        None, help="The email address with which you log into Jira"
+        None,
+        help="The email address with which you log into Jira",
+        envvar="JIRA_USERNAME"
     ),
     jira_api_key: str = typer.Option(
         None,
+        envvar="JIRA_API_KEY",
     ),
     jira_query: Optional[str] = typer.Option(
         None,
@@ -338,6 +381,7 @@ def jira(
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[bool] = opt_verbose,
+    json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -372,6 +416,8 @@ def jira(
     console.print(
         f"[bold yellow]Analyzing {len(issues)} Jira tickets.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
+    
+    results = []
     for i, issue in enumerate(issues):
         console.print(
             f"[bold yellow]Analyzing Jira ticket {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
@@ -389,6 +435,11 @@ def jira(
             console.print(
                 f"[bold]Not updating ticket {issue.url}. Use the --update option to do so.[/bold]"
             )
+
+        results.append({"issue": issue.model_dump(), "result": result.model_dump()})
+
+    if json_output_file:
+        write_json_file(json_output_file, results)
 
 
 @investigate_app.command()
@@ -497,6 +548,7 @@ def pagerduty(
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[bool] = opt_verbose,
+    json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -530,6 +582,8 @@ def pagerduty(
     console.print(
         f"[bold yellow]Analyzing {len(issues)} PagerDuty incidents.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
+
+    results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
         result = ai.investigate(issue, system_prompt, console)
@@ -546,6 +600,10 @@ def pagerduty(
             console.print(
                 f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
             )
+        results.append({"issue": issue.model_dump(), "result": result.model_dump()})
+
+    if json_output_file:
+        write_json_file(json_output_file, results)
 
 @investigate_app.command()
 def opsgenie(

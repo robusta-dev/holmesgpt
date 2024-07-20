@@ -25,6 +25,9 @@ from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
+
+DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
@@ -36,7 +39,7 @@ class Config(RobustaBaseConfig):
     alertmanager_username: Optional[str] = None
     alertmanager_password: Optional[str] = None
     alertmanager_alertname: Optional[str] = None
-    alertmanager_label: Optional[str] = None
+    alertmanager_label: Optional[List[str]] = []
     alertmanager_file: Optional[FilePath] = None
 
     jira_url: Optional[str] = None
@@ -222,8 +225,8 @@ class Config(RobustaBaseConfig):
             url=self.alertmanager_url,
             username=self.alertmanager_username,
             password=self.alertmanager_password,
-            alertname=self.alertmanager_alertname,
-            label=self.alertmanager_label,
+            alertname_filter=self.alertmanager_alertname,
+            label_filter=self.alertmanager_label,
             filepath=self.alertmanager_file,
         )
 
@@ -237,21 +240,19 @@ class Config(RobustaBaseConfig):
     @classmethod
     def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
         if config_file is not None:
-            logging.debug("Loading config from file %s", config_file)
+            logging.debug(f"Loading config from file %s", config_file)
             config_from_file = load_model_from_file(cls, config_file)
-        elif os.path.exists("config.yaml"):
-            logging.debug("Loading config from default location config.yaml")
-            config_from_file = load_model_from_file(cls, "config.yaml")
+        elif os.path.exists(DEFAULT_CONFIG_LOCATION):
+            logging.debug(f"Loading config from default location {DEFAULT_CONFIG_LOCATION}")
+            config_from_file = load_model_from_file(cls, DEFAULT_CONFIG_LOCATION)
         else:
-            logging.debug("No config file found, using cli settings only")
+            logging.debug(f"No config file found at {DEFAULT_CONFIG_LOCATION}, using cli settings only")
             config_from_file = None
 
         cli_options = {
             k: v for k, v in kwargs.items() if v is not None and v != []
         }
-        config_from_cli = cls(**cli_options)
         if config_from_file is None:
-            return config_from_cli
             return cls(**cli_options)
 
         merged_config = config_from_file.dict()

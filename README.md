@@ -1,10 +1,11 @@
 <div align="center">
-  <h1 align="center">HolmesGPT - The Open Source On-Call/DevOps Assistant</h1>
-<h2 align="center">Get a head start on fixing alerts with AI investigation</h2>
+  <h1 align="center">Get a head start on fixing alerts with AI investigation</h1>
+  <h2 align="center">HolmesGPT - The Open Source On-Call/DevOps Agent</h2>
   <p align="center">
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
-    <a href="#installation"><strong>Installation</strong></a> 
+    <a href="#installation"><strong>Installation</strong></a> |
+    <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
 
@@ -12,18 +13,20 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 
 ### What Can HolmesGPT Do?
 - **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
+- **Bidirectional Integrations** see investigation results inside your existing ticketing/incident management system 
 - **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
 - **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster   
 - **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
 - **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
 ### See it in Action
+
 ![AI Alert Analysis](images/holmesgptdemo.gif)
 
 ## Examples
 
 <details>
-<summary>Investigate a Kubernetes Problem</summary>
+<summary>Kubernetes Troubleshooting</summary>
 
 ```bash
 holmes ask "what pods are unhealthy in my cluster and why?"
@@ -31,7 +34,13 @@ holmes ask "what pods are unhealthy in my cluster and why?"
 </details>
 
 <details>
-<summary>Investigate a Firing Prometheus alert</summary>
+<summary>Prometheus Alert RCA (root cause analysis)</summary>
+
+Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+
+![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
+
+Or run HolmesGPT from the cli:
 
 ```bash
 kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
@@ -42,7 +51,7 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 </details>
 
 <details>
-<summary>Investigate a Local Log File</summary>
+<summary>Log File Analysis</summary>
 
 Attach files to the HolmesGPT session with `-f`:
 
@@ -54,7 +63,7 @@ poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg
 
 <details>
 
-<summary>Investigate and update Jira tickets with findings</summary>
+<summary>Jira Ticket Investigation</summary>
 
 ```bash
 holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
@@ -65,7 +74,7 @@ By default results are displayed in the CLI . Use `--update` to get the results 
 </details>
 
 <details>
-<summary>Investigate and update GitHub Issues with findings</summary>
+<summary>GitHub Issue Investigation</summary>
 
 ```bash
 holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
@@ -77,7 +86,7 @@ By default results are displayed in the CLI. Use `--update` to get the results a
 
 
 <details>
-<summary>Investigate and update OpsGenie Alerts with findings</summary>
+<summary>OpsGenie Alert Investigation</summary>
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
@@ -90,7 +99,7 @@ By default results are displayed in the CLI . Use `--update --opsgenie-team-inte
 
 
 <details>
-<summary>Investigate and update PagerDuty Incidents with findings</summary>
+<summary>PagerDuty Incident Investigation</summary>
 
 ```bash
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
@@ -150,14 +159,44 @@ holmes ask "what issues do I have in my cluster"
 <details>
 <summary>Prebuilt Docker Container</summary>
 
-Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
+Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes-dev`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
 
 ```bash
-docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
+docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes-dev ask "what pods are unhealthy and why?"
 ```
 </details>
 
 <details>
+
+<summary>Cutting Edge (Pip and Pipx)</summary>
+
+You can install HolmesGPT from the latest git version with pip or pipx.
+
+We recommend using pipx because it guarantees that HolmesGPT is isolated from other python packages on your system, preventing dependency conflicts.
+
+First [Pipx](https://github.com/pypa/pipx) (skip this step if you are using pip).
+
+Then install HolmesGPT from git with either pip or pipx:
+
+```
+pipx install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
+```
+
+Verify that HolmesGPT was installed by checking the version:
+
+```
+holmes version
+```
+
+To upgrade HolmesGPT with pipx, you can run:
+
+```
+pipx upgrade holmesgpt
+```
+</details>
+
+<details>
+
 <summary>From Source (Python Poetry)</summary>
 
 First [install poetry (the python package manager)](https://python-poetry.org/docs/#installing-with-the-official-installer)
@@ -177,8 +216,8 @@ Clone the project from github, and then run:
 
 ```bash
 cd holmesgpt
-docker build -t holmes .
-docker run -it --net=host -v $(pwd)/config.yaml:/app/config.yaml -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
+docker build -t holmes . -f Dockerfile.dev
+docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
 </details>
 
@@ -306,14 +345,21 @@ holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image cons
 ```
 </details>
 
-## Advanced Usage
+## Customizing HolmesGPT
+
+HolmesGPT can investigate many issues out of the box, with no customization or training.
+
+That said, we provide several extension points for teaching HolmesGPT to investigate your issues, according to your best practices. The two main extension points are:
+
+* Custom Tools - give HolmesGPT access to data that it can't otherwise access - e.g. traces, APM data, or custom APIs
+* Custom Runbooks - give HolmesGPT instructions for investigating specific issues it otherwise wouldn't know how to handle
 
 <details>
 <summary>Add Custom Tools</summary>
 
 The more data you give HolmesGPT, the better it will perform. Give it access to more data by adding custom tools.
 
-New tools are loaded using `-t` from [custom toolset files](./examples/custom_toolset.yaml) or by adding them to the `config.yaml` in `custom_toolsets`.
+New tools are loaded using `-t` from [custom toolset files](./examples/custom_toolset.yaml) or by adding them to the `~/.holmes/config.yaml` with the setting `custom_toolsets: ["/path/to/toolset.yaml"]`.
 </details>
 
 <details>
@@ -321,7 +367,7 @@ New tools are loaded using `-t` from [custom toolset files](./examples/custom_to
 
 HolmesGPT can investigate by following runbooks written in plain English. Add your own runbooks to provided the LLM specific instructions.
 
-New runbooks are loaded using `-r` from [custom runbook files](./examples/custom_runbook.yaml) or by adding them to the `config.yaml` in `custom_runbooks`.
+New runbooks are loaded using `-r` from [custom runbook files](./examples/custom_runbook.yaml) or by adding them to the `~/.holmes/config.yaml` with the `custom_runbooks: ["/path/to/runbook.yaml"]`.
 </details>
 
 <details>
@@ -331,10 +377,7 @@ You can customize HolmesGPT's behaviour with command line flags, or you can save
 
 You can view an example config file with all available settings [here](config.example.yaml).
 
-By default, without specifying `--config` the agent will try to read `config.yaml` from the current directory.
-If a setting is specified in both in config file and cli, cli takes precedence.
-
-
+By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
 
 <details>
 <summary>Custom Toolsets</summary>
