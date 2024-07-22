@@ -4,6 +4,7 @@ import logging
 import textwrap
 import os
 from typing import Dict, Generator, List, Optional
+from holmes.plugins.prompts import load_prompt
 
 import litellm
 import jinja2
@@ -27,6 +28,7 @@ class ToolCallResult(BaseModel):
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
+    unprocessed_result: Optional[str] = None
 
     # TODO: clean up these two
     prompt: Optional[str] = None
@@ -73,7 +75,7 @@ class ToolCallingLLM:
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
 
-    def call(self, system_prompt, user_prompt) -> LLMResult:
+    def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None) -> LLMResult:
         messages = [
             {
                 "role": "system",
@@ -120,14 +122,26 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
+                # For chatty models post process and summarize the result
+                if post_process_prompt:
+                    logging.info(f"Running post processing on investigation.")
+                    raw_response = response_message.content
+                    post_processed_response = self._post_processing_call(prompt=user_prompt, investigation=raw_response, user_prompt=post_process_prompt)
+                    return LLMResult(
+                        result=post_processed_response,
+                        unprocessed_result = raw_response,
+                        tool_calls=tool_calls,
+                        prompt=json.dumps(messages, indent=2),
+                    )
+                
                 return LLMResult(
                     result=response_message.content,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                 )
 
-            # when asked to run tools, we expect no response other than the request to run tools
-            if response_message.content:
+            # when asked to run tools, we expect no response other than the request to run tools unless bedrock
+            if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
                 logging.warning(f"got unexpected response when tools were given: {response_message.content}")
 
             for t in tools_to_call:
@@ -155,6 +169,42 @@ class ToolCallingLLM:
                     )
                 )
 
+    @staticmethod
+    def __load_post_processing_user_prompt(input_prompt, investigation, user_prompt: Optional[str] = None) -> str:
+        if not user_prompt:
+            user_prompt = "builtin://generic_post_processing.jinja2"
+        environment = jinja2.Environment()
+        user_prompt = load_prompt(user_prompt)
+        user_prompt_template = environment.from_string(user_prompt)
+        return user_prompt_template.render(investigation=investigation, prompt=input_prompt)
+
+    def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
+        try:
+            user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(prompt, investigation, user_prompt)
+            logging.debug(f"Post processing prompt:\n\"\"\"\n{user_prompt}\n\"\"\"")
+            messages = [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ]
+            full_response = litellm.completion(
+                model=self.model,
+                api_key=self.api_key,
+                messages=messages,
+                temperature=0
+            )
+            logging.debug(f"Post processing response {full_response}")
+            return full_response.choices[0].message.content
+        except:
+            logging.exception("Failed to run post processing")
+            return investigation
+
+
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
 class IssueInvestigator(ToolCallingLLM):
     """
@@ -176,7 +226,7 @@ class IssueInvestigator(ToolCallingLLM):
         self.runbook_manager = runbook_manager
 
     def investigate(
-        self, issue: Issue, prompt: str, console: Console
+        self, issue: Issue, prompt: str, console: Console, post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
         environment = jinja2.Environment()
         system_prompt_template = environment.from_string(prompt)
@@ -197,4 +247,4 @@ class IssueInvestigator(ToolCallingLLM):
         logging.debug(
             "Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    ")
         )
-        return self.call(system_prompt, user_prompt)
+        return self.call(system_prompt, user_prompt, post_processing_prompt)
