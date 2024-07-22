@@ -123,7 +123,7 @@ class ToolCallingLLM:
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
                 # claude is a chatty model so we automatically post process it
-                if post_process_prompt or "claude" in self.model:
+                if post_process_prompt:
                     logging.info(f"Running post processing on investigation.")
                     raw_response = response_message.content
                     post_processed_response = self._post_processing_call(prompt=user_prompt, investigation=raw_response, user_prompt=post_process_prompt)
