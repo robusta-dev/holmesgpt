@@ -1,6 +1,7 @@
 # from holmes.ssh_utils import add_custom_certificate
 # add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
 
+from optparse import Option
 import socket
 import uuid
 import logging
@@ -118,6 +119,13 @@ opt_json_output_file: Optional[str] = typer.Option(
     envvar="HOLMES_JSON_OUTPUT_FILE",
 )
 
+opt_post_processing_prompt: Optional[str] = typer.Option(
+    None,
+    "--post-processing-prompt",
+    help="Adds a prompt for post processing. (Preferable for chatty ai models)",
+    envvar="HOLMES_POST_PROCESSING_PROMPT",
+)
+
 # Common help texts
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
 
@@ -181,7 +189,8 @@ def ask(
         "-f",
         help="File to append to prompt (can specify -f multiple times to add multiple files)",
     ),
-    json_output_file: Optional[str] = opt_json_output_file
+    json_output_file: Optional[str] = opt_json_output_file,
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Ask any question and answer using available tools
@@ -204,7 +213,7 @@ def ask(
         prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
-    response = ai.call(system_prompt, prompt)
+    response = ai.call(system_prompt, prompt, post_processing_prompt)
 
     if json_output_file:
         write_json_file(json_output_file, response.model_dump())
@@ -261,6 +270,7 @@ def alertmanager(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a Prometheus/Alertmanager alert
@@ -311,7 +321,7 @@ def alertmanager(
         console.print(
             f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console)
+        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
 
@@ -386,6 +396,7 @@ def jira(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a Jira ticket
@@ -422,7 +433,7 @@ def jira(
         console.print(
             f"[bold yellow]Analyzing Jira ticket {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console)
+        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -477,6 +488,7 @@ def github(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a GitHub issue
@@ -510,7 +522,7 @@ def github(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console)
+        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -553,6 +565,7 @@ def pagerduty(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a PagerDuty incident
@@ -586,7 +599,7 @@ def pagerduty(
     results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console)
+        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -632,6 +645,7 @@ def opsgenie(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate an OpsGenie alert
@@ -663,7 +677,7 @@ def opsgenie(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console)
+        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
