@@ -123,7 +123,8 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                if "bedrock" in self.model or post_process_prompt:
+                # claude is a chatty model so we automatically post process it
+                if post_process_prompt or "claude" in self.model:
                     logging.info(f"Running post processing on investigation.")
                     raw_response = response_message.content
                     post_processed_response = self._post_processing_call(prompt=user_prompt, investigation=raw_response, user_prompt=post_process_prompt)
@@ -170,35 +171,40 @@ class ToolCallingLLM:
                 )
 
     @staticmethod
-    def __load_post_processing_user_prompt(prompt, investigation, user_prompt: Optional[str] = None) -> str:
+    def __load_post_processing_user_prompt(input_prompt, investigation, user_prompt: Optional[str] = None) -> str:
         if not user_prompt:
             user_prompt = "builtin://generic_post_processing.jinja2"
-        
+        environment = jinja2.Environment()
         user_prompt = load_prompt(user_prompt)
-        user_prompt = user_prompt.replace("{ investigation }", investigation)
-        user_prompt = user_prompt.replace("{ prompt }", prompt)
+        user_prompt_template = environment.from_string(user_prompt)
+        user_prompt = user_prompt_template.render(investigation=investigation, prompt=input_prompt)
         return user_prompt
 
     def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
-        user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(prompt, investigation, user_prompt)
-        messages = [
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": user_prompt,
-            },
-        ]
-        full_response = litellm.completion(
-            model=self.model,
-            api_key=self.api_key,
-            messages=messages,
-            temperature=0
-        )
-        logging.debug(f"post processing response {full_response}")
-        return full_response.choices[0].message.content
+        try:
+            user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(prompt, investigation, user_prompt)
+            logging.debug(f"Post processing prompt:\n\"\"\"\n{user_prompt}\n\"\"\"")
+            messages = [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ]
+            full_response = litellm.completion(
+                model=self.model,
+                api_key=self.api_key,
+                messages=messages,
+                temperature=0
+            )
+            logging.debug(f"Post processing response {full_response}")
+            return full_response.choices[0].message.content
+        except:
+            logging.exception("Failed to run post processing")
+            return investigation
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
@@ -222,7 +228,7 @@ class IssueInvestigator(ToolCallingLLM):
         self.runbook_manager = runbook_manager
 
     def investigate(
-        self, issue: Issue, prompt: str, console: Console
+        self, issue: Issue, prompt: str, console: Console, post_processing_prompt: Optional[str]
     ) -> LLMResult:
         environment = jinja2.Environment()
         system_prompt_template = environment.from_string(prompt)
@@ -243,4 +249,4 @@ class IssueInvestigator(ToolCallingLLM):
         logging.debug(
             "Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    ")
         )
-        return self.call(system_prompt, user_prompt)
+        return self.call(system_prompt, user_prompt, post_processing_prompt)
