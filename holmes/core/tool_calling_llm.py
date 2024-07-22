@@ -126,7 +126,7 @@ class ToolCallingLLM:
                 if "bedrock" in self.model or post_process_prompt:
                     logging.info(f"Running post processing on investigation.")
                     raw_response = response_message.content
-                    post_processed_response = self.post_processing_call(prompt=user_prompt, investigation=raw_response, post_process_prompt=post_process_prompt)
+                    post_processed_response = self._post_processing_call(prompt=user_prompt, investigation=raw_response, user_prompt=post_process_prompt)
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result = raw_response,
@@ -169,12 +169,18 @@ class ToolCallingLLM:
                     )
                 )
 
-    def post_processing_call(self, prompt, investigation, post_process_prompt: Optional[str] = None) -> Optional[str]:
-        if not post_process_prompt:
-            post_process_prompt = "builtin://generic_post_processing.jinja2"
-        post_process_prompt = load_prompt(post_process_prompt)
-        user_prompt = post_process_prompt.replace("{ investigation }", investigation)
-        system_prompt="You are an AI assistant summarizing Kubernetes issues."
+    @staticmethod
+    def __load_post_processing_user_prompt(prompt, investigation, user_prompt: Optional[str] = None) -> str:
+        if not user_prompt:
+            user_prompt = "builtin://generic_post_processing.jinja2"
+        
+        user_prompt = load_prompt(user_prompt)
+        user_prompt = user_prompt.replace("{ investigation }", investigation)
+        user_prompt = user_prompt.replace("{ prompt }", prompt)
+        return user_prompt
+
+    def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
+        user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(prompt, investigation, user_prompt)
         messages = [
             {
                 "role": "system",
