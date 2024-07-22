@@ -1,9 +1,11 @@
 import datetime
 import json
 import logging
+from optparse import Option
 import textwrap
 import os
 from typing import Dict, Generator, List, Optional
+from holmes.plugins.prompts import load_prompt
 
 import litellm
 import jinja2
@@ -27,6 +29,7 @@ class ToolCallResult(BaseModel):
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
+    unprocessed_result: Optional[str] = None
 
     # TODO: clean up these two
     prompt: Optional[str] = None
@@ -73,7 +76,7 @@ class ToolCallingLLM:
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
 
-    def call(self, system_prompt, user_prompt) -> LLMResult:
+    def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None) -> LLMResult:
         messages = [
             {
                 "role": "system",
@@ -120,14 +123,25 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
+                if "bedrock" in self.model or post_process_prompt:
+                    logging.info(f"Running post processing on investigation.")
+                    raw_response = response_message.content
+                    post_processed_response = self.post_processing_call(prompt=user_prompt, investigation=raw_response, post_process_prompt=post_process_prompt)
+                    return LLMResult(
+                        result=post_processed_response,
+                        unprocessed_result = raw_response,
+                        tool_calls=tool_calls,
+                        prompt=json.dumps(messages, indent=2),
+                    )
+                
                 return LLMResult(
                     result=response_message.content,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                 )
 
-            # when asked to run tools, we expect no response other than the request to run tools
-            if response_message.content:
+            # when asked to run tools, we expect no response other than the request to run tools unless bedrock
+            if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
                 logging.warning(f"got unexpected response when tools were given: {response_message.content}")
 
             for t in tools_to_call:
@@ -154,6 +168,32 @@ class ToolCallingLLM:
                         result=tool_response,
                     )
                 )
+
+    def post_processing_call(self, prompt, investigation, post_process_prompt: Optional[str] = None) -> Optional[str]:
+        if not post_process_prompt:
+            post_process_prompt = "builtin://generic_post_processing.jinja2"
+        post_process_prompt = load_prompt(post_process_prompt)
+        user_prompt = post_process_prompt.replace("{ investigation }", investigation)
+        system_prompt="You are an AI assistant summarizing Kubernetes issues."
+        messages = [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ]
+        full_response = litellm.completion(
+            model=self.model,
+            api_key=self.api_key,
+            messages=messages,
+            temperature=0
+        )
+        logging.debug(f"post processing response {full_response}")
+        return full_response.choices[0].message.content
+
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
 class IssueInvestigator(ToolCallingLLM):
