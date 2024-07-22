@@ -176,8 +176,7 @@ class ToolCallingLLM:
         environment = jinja2.Environment()
         user_prompt = load_prompt(user_prompt)
         user_prompt_template = environment.from_string(user_prompt)
-        user_prompt = user_prompt_template.render(investigation=investigation, prompt=input_prompt)
-        return user_prompt
+        return user_prompt_template.render(investigation=investigation, prompt=input_prompt)
 
     def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
         try:
@@ -227,7 +226,7 @@ class IssueInvestigator(ToolCallingLLM):
         self.runbook_manager = runbook_manager
 
     def investigate(
-        self, issue: Issue, prompt: str, console: Console, post_processing_prompt: Optional[str]
+        self, issue: Issue, prompt: str, console: Console, post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
         environment = jinja2.Environment()
         system_prompt_template = environment.from_string(prompt)
