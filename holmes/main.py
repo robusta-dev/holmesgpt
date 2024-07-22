@@ -1,7 +1,6 @@
 # from holmes.ssh_utils import add_custom_certificate
 # add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
 
-from optparse import Option
 import socket
 import uuid
 import logging

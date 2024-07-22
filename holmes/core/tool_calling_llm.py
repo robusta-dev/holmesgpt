@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-from optparse import Option
 import textwrap
 import os
 from typing import Dict, Generator, List, Optional
