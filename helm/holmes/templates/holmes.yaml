@@ -38,6 +38,10 @@ spec:
           - name: CERTIFICATE
             value: {{ .Values.certificate }}
           {{- end }}
+          {{ if .Values.enablePostProcessing -}}
+          - name: HOLMES_POST_PROCESSING_PROMPT
+            value: {{ .Values.postProcessingPrompt }}
+          {{- end }}
           - name: HOLMES_LLM
             value: {{ .Values.llm }}
           - name: OPENAI_API_KEY

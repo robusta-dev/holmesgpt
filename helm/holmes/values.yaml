@@ -27,6 +27,9 @@ customServiceAccountName: ""
 
 customClusterRoleRules: []
 
+enablePostProcessing: false
+postProcessingPrompt: "builtin://generic_post_processing.jinja2"
+
 serviceAccount:
   imagePullSecrets: []
   annotations: {}
