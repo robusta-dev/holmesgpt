@@ -358,11 +358,11 @@ To work with Azure AI, you need to provide the below variables:
 
     additionalEnvVars:
     - name: MODEL
-      value: azure/my-azure-deployment
+      value: azure/my-azure-deployment         # your azure deployment name
     - name: AZURE_API_VERSION
-      value: 2024-02-15-preview
+      value: 2024-02-15-preview                # azure openai api version
     - name: AZURE_API_BASE
-      value: https://my-org.openai.azure.com/
+      value: https://my-org.openai.azure.com/  # base azure openai url
     - name: AZURE_API_KEY
       valueFrom:
         secretKeyRef:
@@ -377,7 +377,7 @@ To work with Azure AI, you need to provide the below variables:
     enablePostProcessing: true
     additionalEnvVars:
     - name: MODEL
-      value: azure/my-azure-deployment
+      value: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0 
     - name: AWS_REGION_NAME
       value: us-east-1
     - name: AWS_ACCESS_KEY_ID
