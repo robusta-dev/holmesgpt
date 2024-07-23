@@ -39,9 +39,16 @@ class InvestigateRequest(BaseModel):
     # TODO in the future
     # response_handler: ...
 
+    def user_input(self):
+        # for k, v in self.subject.items():
+        #     subject_str += "{k} is:"
+        #     print(k)
+        #     print(v)
+        user_input = f"Alert: {self.title}. Description: {self.description}. Affected subject: {self.subject}"
+        return user_input
 
 def init_logging():
-    logging_level = os.environ.get("LOG_LEVEL", "INFO")
+    logging_level = os.environ.get("LOG_LEVEL", "DEBUG")
     logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
     logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
@@ -93,6 +100,34 @@ def investigate_issues(investigate_request: InvestigateRequest):
         analysis=investigation.result,
         tool_calls=investigation.tool_calls,
     )
+
+@app.post("/api/investigate2")
+def investigate_issues_2(investigate_request: InvestigateRequest):
+    context = fetch_context_data(investigate_request.context)
+    raw_data = investigate_request.model_dump()
+    if context:
+        raw_data["extra_context"] = context
+
+    ai = config.create_issue_lc_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
+    issue = Issue(
+        id=context['id'] if context else "",
+        name=investigate_request.title,
+        source_type=investigate_request.source,
+        source_instance_id=investigate_request.source_instance_id,
+        raw=raw_data,
+        user_input=investigate_request.user_input()
+    )
+    investigation = ai.investigate(
+        issue,
+        prompt=load_prompt(investigate_request.prompt_template),
+        console=console,
+        prompt_tmpl=investigate_request.prompt_template
+    )
+    return InvestigationResult(
+        analysis=investigation.result,
+        tool_calls=investigation.tool_calls,
+    )
+
 
 
 def fetch_context_data(context: Dict[str, Any]) -> dict:

@@ -1,7 +1,7 @@
 toolsets:
 - name: "kubernetes/core"
-  prerequisites:
-  - command: "kubectl version --client"
+#  prerequisites:
+#  - command: "kubectl version --client"
 
   tools:
   - name: "kubectl_describe"
@@ -26,7 +26,7 @@ toolsets:
 
   - name: "kubectl_previous_logs"
     description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash. Never give a deployment name or a resource that is not a pod."
-    command: "kubectl logs {{ name}} -n {{ namespace }} --previous"
+    command: "kubectl logs {{ name}} -n {{ namespace }} --previous --tail 50"
 
   - name: "kubectl_logs"
     description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
@@ -48,16 +48,16 @@ toolsets:
 
   # try adding your own tools here!
   # e.g. to query company-specific data or run your own commands
+#
+#- name: "kubernetes/kube-prometheus-stack"
+#  tools:
+#  - name: "get_prometheus_target"
+#    description: "Fetch the definition of a Prometheus target"
+#    command: "kubectl get --raw '/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets' | jq '.data.activeTargets[] | select(.labels.job == \"{{ target_name }}\")"
 
-- name: "kubernetes/kube-prometheus-stack"
-  tools:
-  - name: "get_prometheus_target"
-    description: "Fetch the definition of a Prometheus target"
-    command: "kubectl get --raw '/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets' | jq '.data.activeTargets[] | select(.labels.job == \"{{ target_name }}\")"
-
-- name: "kubernetes/extras"
-  tools:
-  - name: "kubectl_lineage"
-    description: "Get all children of a Kubernetes resource, recursively, including their status"
-    command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
-
+#- name: "kubernetes/extras"
+#  tools:
+#  - name: "kubectl_lineage"
+#    description: "Get all children of a Kubernetes resource, recursively, including their status"
+#    command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
+#
