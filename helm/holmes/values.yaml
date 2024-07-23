@@ -1,9 +1,4 @@
 
-# Optional openai key and endpoint to create openai queries.
-llm: "openai"
-openaiKey: ""
-azureEndpoint: ""
-azureOpenaiKey: ""
 
 certificate: "" # base64 encoded
 logLevel: INFO
@@ -17,10 +12,6 @@ image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
 
 enableAccountsCreate: true
-
-
-createSecret: true
-secretName: holmes
 
 createServiceAccount: true
 customServiceAccountName: ""

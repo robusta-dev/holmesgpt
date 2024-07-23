@@ -252,7 +252,7 @@ To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microso
 
 * AZURE_API_VERSION - e.g. 2024-02-15-preview
 * AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
-* AZURE_OPENAI_API_KEY (optional) - equivalent to the `--api-key` cli argument
+* AZURE_API_KEY (optional) - equivalent to the `--api-key` cli argument
 
 Set those environment variables and run:
 
@@ -303,6 +303,95 @@ You will need an LLM with support for function-calling (tool-calling). To use it
 
 In particular, note that [vLLM does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869), whereas [llama-cpp does support it](https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#function-calling).
 
+</details>
+
+### Install using helm - Run HolmesGPT in your cluster
+
+You can install HolmesGPT in your Kubernetes cluster, and use its rest API to investigate incidents. 
+This works best with the [Robusta-Holmes integration ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html).
+
+In this mode, all the parameters should be passed to the HolmesGPT deployment, using environment variables.
+
+We recommend pulling sensitive variables from Kubernetes ``secrets``.
+
+First, you'll need to create your ``holmes-values.yaml`` file, for example:
+ 
+    additionalEnvVars:
+    - name: MODEL
+      value: gpt-4o
+    - name: OPENAI_API_KEY
+      value: <your open ai key>
+
+
+Then, install with ``helm``;
+
+    helm repo add robusta https://robusta-charts.storage.googleapis.com && helm repo update
+    helm install holmes robusta/holmes -f holmes-values.yaml
+
+
+For all LLMs you need to provide the ``MODEL`` environment variable, which specifies which model you are using.
+
+Some LLMs requires additional variables:
+
+<details>
+<summary>OpenAI</summary>
+
+For OpenAI, only the ``model`` and ``api-key`` should be provided
+
+    additionalEnvVars:
+    - name: MODEL
+      value: gpt-4o
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: openAiKey
+
+**Note**: ``gpt-4o`` is optional since it's default model. 
+
+</details>
+
+<details>
+<summary>Azure OpenAI</summary>
+
+To work with Azure AI, you need to provide the below variables:
+
+    additionalEnvVars:
+    - name: MODEL
+      value: azure/my-azure-deployment
+    - name: AZURE_API_VERSION
+      value: 2024-02-15-preview
+    - name: AZURE_API_BASE
+      value: https://my-org.openai.azure.com/
+    - name: AZURE_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: azureOpenAiKey
+
+</details>
+
+<details>
+<summary>AWS Bedrock</summary>
+    
+    enablePostProcessing: true
+    additionalEnvVars:
+    - name: MODEL
+      value: azure/my-azure-deployment
+    - name: AWS_REGION_NAME
+      value: us-east-1
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: awsAccessKeyId
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: awsSecretAccessKey
+
+**Note**: ``bedrock claude`` provides better results when using post-processing to summarize the results.
 </details>
 
 ## Other Use Cases
