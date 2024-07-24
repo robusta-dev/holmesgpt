@@ -61,7 +61,7 @@ def init_logging(verbose = False):
 # The defaults for options that are also in the config file MUST be None or else the cli defaults will override settings in the config file
 opt_api_key: Optional[str] = typer.Option(
     None,
-    help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_OPENAI_API_KEY)",
+    help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_API_KEY)",
 )
 opt_model: Optional[str] = typer.Option("gpt-4o", help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
