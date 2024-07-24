@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from holmes.core.tools import Toolset, ToolsetPrerequisite
+from holmes.core.tools import Toolset
 from holmes.utils.pydantic_utils import load_model_from_file
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
