@@ -221,94 +221,12 @@ docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v 
 ```
 </details>
 
-
-### Getting an API Key
-
-HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
-
-**Instructions for popular LLMs:**
-
 <details>
-<summary>OpenAI</summary>
-  
-To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key).
+<summary>Run HolmesGPT in your cluster (Helm)</summary>
 
-**Note**: This is different from being a “ChatGPT Plus” subscriber.
+Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the below instructions. 
 
-Pass your API key to holmes with the `--api-key` cli argument. Because OpenAI is the default LLM, the `--model` flag is optional for OpenAI (gpt-4o is the default).
-
-```
-holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
-```
-
-If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
-
-</details>
-
-<details>
-<summary>Azure OpenAI</summary>
-
-To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource) and to set the following environment variables:
-
-* AZURE_API_VERSION - e.g. 2024-02-15-preview
-* AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
-* AZURE_API_KEY (optional) - equivalent to the `--api-key` cli argument
-
-Set those environment variables and run:
-
-```bash
-holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
-```
-
-Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details. 
-</details>
-
-<details>
-<summary>AWS Bedrock</summary>
-
-Before running the below command you must run `pip install boto3>=1.28.57` and set the following environment variables:
-
-* `AWS_REGION_NAME`
-* `AWS_ACCESS_KEY_ID`
-* `AWS_SECRET_ACCESS_KEY`
-
-If the AWS cli is already configured on your machine, you may be able to find those parameters with:
-
-```console
-cat ~/.aws/credentials ~/.aws/config
-```
-
-Once everything is configured, run:
-```console
-holmes ask "what pods are unhealthy and why?" --model=bedrock/<MODEL_NAME>
-```
-
-Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropic.claude-3-5-sonnet-20240620-v1:0`. To list models your account can access:
-
-```
-aws bedrock list-foundation-models --region=us-east-1
-```
-
-Note that different models are available in different regions. For example, Claude Opus is only available in us-west-2.
-
-Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details. 
-</details>
-
-<details>
-<summary>Using a self-hosted LLM</summary>
-
-You will need an LLM with support for function-calling (tool-calling). To use it, set the OPENAI_BASE_URL environment variable and run `holmes` with a relevant model name set using `--model`.
-
-**Important: Please verify that your model and inference server support function calling! HolmesGPT is currently unable to check if the LLM it was given supports function-calling or not. Some models that lack function-calling capabilities will  hallucinate answers instead of reporting that they are unable to call functions. This behaviour depends on the model.**
-
-In particular, note that [vLLM does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869), whereas [llama-cpp does support it](https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#function-calling).
-
-</details>
-
-### Install using helm - Run HolmesGPT in your cluster
-
-You can install HolmesGPT in your Kubernetes cluster, and use its rest API to investigate incidents. 
-This works best with the [Robusta-Holmes integration ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html).
+By using the ``Robusta`` integration you’ll benefit from an end-to-end integration that integrates with ``Prometheus alerts`` and ``Slack``. Using the below instructions you’ll have to build many of those components yourself.
 
 In this mode, all the parameters should be passed to the HolmesGPT deployment, using environment variables.
 
@@ -392,6 +310,92 @@ To work with Azure AI, you need to provide the below variables:
           key: awsSecretAccessKey
 
 **Note**: ``bedrock claude`` provides better results when using post-processing to summarize the results.
+</details>
+
+
+</details>
+
+### Getting an API Key
+
+HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
+
+**Instructions for popular LLMs:**
+
+<details>
+<summary>OpenAI</summary>
+  
+To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key).
+
+**Note**: This is different from being a “ChatGPT Plus” subscriber.
+
+Pass your API key to holmes with the `--api-key` cli argument. Because OpenAI is the default LLM, the `--model` flag is optional for OpenAI (gpt-4o is the default).
+
+```
+holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
+```
+
+If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
+
+</details>
+
+<details>
+<summary>Azure OpenAI</summary>
+
+To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource) and to set the following environment variables:
+
+* AZURE_API_VERSION - e.g. 2024-02-15-preview
+* AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
+* AZURE_API_KEY (optional) - equivalent to the `--api-key` cli argument
+
+Set those environment variables and run:
+
+```bash
+holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
+```
+
+Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details. 
+</details>
+
+<details>
+<summary>AWS Bedrock</summary>
+
+Before running the below command you must run `pip install boto3>=1.28.57` and set the following environment variables:
+
+* `AWS_REGION_NAME`
+* `AWS_ACCESS_KEY_ID`
+* `AWS_SECRET_ACCESS_KEY`
+
+If the AWS cli is already configured on your machine, you may be able to find those parameters with:
+
+```console
+cat ~/.aws/credentials ~/.aws/config
+```
+
+Once everything is configured, run:
+```console
+holmes ask "what pods are unhealthy and why?" --model=bedrock/<MODEL_NAME>
+```
+
+Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropic.claude-3-5-sonnet-20240620-v1:0`. To list models your account can access:
+
+```
+aws bedrock list-foundation-models --region=us-east-1
+```
+
+Note that different models are available in different regions. For example, Claude Opus is only available in us-west-2.
+
+Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details. 
+</details>
+
+<details>
+<summary>Using a self-hosted LLM</summary>
+
+You will need an LLM with support for function-calling (tool-calling). To use it, set the OPENAI_BASE_URL environment variable and run `holmes` with a relevant model name set using `--model`.
+
+**Important: Please verify that your model and inference server support function calling! HolmesGPT is currently unable to check if the LLM it was given supports function-calling or not. Some models that lack function-calling capabilities will  hallucinate answers instead of reporting that they are unable to call functions. This behaviour depends on the model.**
+
+In particular, note that [vLLM does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869), whereas [llama-cpp does support it](https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#function-calling).
+
 </details>
 
 ## Other Use Cases
