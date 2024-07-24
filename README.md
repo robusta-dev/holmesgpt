@@ -221,6 +221,99 @@ docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v 
 ```
 </details>
 
+<details>
+<summary>Run HolmesGPT in your cluster (Helm)</summary>
+
+Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the below instructions. 
+
+By using the ``Robusta`` integration you’ll benefit from an end-to-end integration that integrates with ``Prometheus alerts`` and ``Slack``. Using the below instructions you’ll have to build many of those components yourself.
+
+In this mode, all the parameters should be passed to the HolmesGPT deployment, using environment variables.
+
+We recommend pulling sensitive variables from Kubernetes ``secrets``.
+
+First, you'll need to create your ``holmes-values.yaml`` file, for example:
+ 
+    additionalEnvVars:
+    - name: MODEL
+      value: gpt-4o
+    - name: OPENAI_API_KEY
+      value: <your open ai key>
+
+
+Then, install with ``helm``;
+
+    helm repo add robusta https://robusta-charts.storage.googleapis.com && helm repo update
+    helm install holmes robusta/holmes -f holmes-values.yaml
+
+
+For all LLMs you need to provide the ``MODEL`` environment variable, which specifies which model you are using.
+
+Some LLMs requires additional variables:
+
+<details>
+<summary>OpenAI</summary>
+
+For OpenAI, only the ``model`` and ``api-key`` should be provided
+
+    additionalEnvVars:
+    - name: MODEL
+      value: gpt-4o
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: openAiKey
+
+**Note**: ``gpt-4o`` is optional since it's default model. 
+
+</details>
+
+<details>
+<summary>Azure OpenAI</summary>
+
+To work with Azure AI, you need to provide the below variables:
+
+    additionalEnvVars:
+    - name: MODEL
+      value: azure/my-azure-deployment         # your azure deployment name
+    - name: AZURE_API_VERSION
+      value: 2024-02-15-preview                # azure openai api version
+    - name: AZURE_API_BASE
+      value: https://my-org.openai.azure.com/  # base azure openai url
+    - name: AZURE_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: azureOpenAiKey
+
+</details>
+
+<details>
+<summary>AWS Bedrock</summary>
+    
+    enablePostProcessing: true
+    additionalEnvVars:
+    - name: MODEL
+      value: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0 
+    - name: AWS_REGION_NAME
+      value: us-east-1
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: awsAccessKeyId
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: awsSecretAccessKey
+
+**Note**: ``bedrock claude`` provides better results when using post-processing to summarize the results.
+</details>
+
+
+</details>
 
 ### Getting an API Key
 
@@ -252,7 +345,7 @@ To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microso
 
 * AZURE_API_VERSION - e.g. 2024-02-15-preview
 * AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
-* AZURE_OPENAI_API_KEY (optional) - equivalent to the `--api-key` cli argument
+* AZURE_API_KEY (optional) - equivalent to the `--api-key` cli argument
 
 Set those environment variables and run:
 
