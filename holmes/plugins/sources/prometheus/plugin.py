@@ -93,7 +93,7 @@ class AlertManagerSource(SourcePlugin):
             alerts = self.__fetch_issues_from_api()
 
         if self.alertname_filter is not None:
-            alertname_filter = re.compile(self.alertname)
+            alertname_filter = re.compile(self.alertname_filter)
             alerts = [a for a in alerts if alertname_filter.match(a.unique_id)]
 
         return [
