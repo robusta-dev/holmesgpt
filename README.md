@@ -23,7 +23,7 @@ HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR)
 
 <details>
 <summary>
-Find the root cause of a Prometheus alert
+Investigate a Prometheus alert with AI
 </summary>
 
 Install HolmesGPT with brew (<a href="#installation">see alternatives</a>):
