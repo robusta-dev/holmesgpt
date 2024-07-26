@@ -9,7 +9,7 @@
   </p>
 </div>
 
-Increase your uptime and reliability by feeding live data about your environment into powerful AI models, and using them to investigate your alerts.
+Increase your cloud uptime and reliability by feeding live observability data into powerful AI models, and using them to investigate alerts and proactively identify problems.
 
 **By feeding live observability data into LLMs, HolmesGPT removes hallucinations and achieves extremely accurate results.** It supports strict compliance requirements and can use private AI models, deployed in your own cloud account.
 
@@ -17,17 +17,140 @@ HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR)
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
-### Built-In Integrations
-* Investigate problems on Kubernetes, AWS, GCP, and more
-* Launch investigations from Slack, a web UI, or CLI
-* Bi-directional integrations with PagerDuty, OpsGenie, Jira, and more
+## Quick Start
 
-### Benefits
-- **Reduce mean time to response (MTTR)** by investigating incidents with AI
-- **Share knowledge within your team** by teaching HolmesGPT to investigate alerts like your most experienced experts
-- **Spot critical issues faster** with an instant impact-analysis
-- **Surface hidden data** from your existing observability tools
-- **Reduce cognitive load** by guiding engineers where to look
+**Prerequisite:** <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
+
+<details>
+<summary>
+Find the root cause of a Prometheus alert
+</summary>
+
+Install `holmes` locally with brew, or <a href="#installation">an alternative installation method</a>:
+
+```
+brew tap robusta-dev/homebrew-holmesgpt
+brew install holmesgpt
+```
+
+Point holmes at AlertManager, give it an API Key, and start investigating:
+
+👆
+```
+# optional - port-forward alertmanager if it is running in a k8s cluster
+kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
+
+holmes investigate alertmanager --alertmanager-url http://localhost:9093 --api-key=<openai-api-key>
+```
+
+Example output:
+
+TODO
+
+If you are happy with the results, you can get these results on every Prometheus alert, with the click of a button:
+
+![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
+
+👆 To set up, [install the official Holmes+Robusta integration and follow this guide.](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+
+</details>
+
+<details>
+<summary>Root Cause Analysis for PagerDuty/OpsGenie/Jira (and more)</summary>
+**PagerDuty:**
+```bash
+holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
+
+![PagerDuty](./images/pagerduty-holmes-update.png)
+
+**OpsGenie:**
+```bash
+holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
+```
+
+By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
+
+![OpsGenie](./images/opsgenie-holmes-update.png)
+
+**Jira:**
+
+```bash
+holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
+```
+
+**GitHub:**
+
+```bash
+holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
+```
+</details>
+
+<details>
+<summary>Proactively check application rollouts for problems</summary>
+
+You can reduce the risk of application updates by using AI to check the new software version for problems a few minutes after it is deployed.
+
+This is typically setup with CI/CD, but we'll start with a local example:
+
+```bash
+# TODO: deploy a new software version
+holmes ask "I just deployed the .... Is it healthy? Are there any degredations compared to the previous version? Check XYZ"
+```
+
+Now send the results from HolmesGPT to Slack not CLI:
+
+```bash
+TODO
+```
+
+Here is an example of running HolmesGPT inside a GitHub action where you deploy a new version:
+```bash
+TODO
+```
+</details>
+
+<details>
+<summary>Track ArgoCD updates and proactively spot degredations</summary>
+</details>
+
+<details>
+<summary>Proactively scan your cluster for unknown problems</summary>
+</details>
+
+<details>
+<summary>More use cases</summary>
+
+**Analyze errors in a log file (and automatically run commands to investigate errors in the log):**
+```console
+sudo dmesg > dmesg.log
+poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg.log
+```
+
+**Ask Questions About Your Cloud:**
+
+```bash
+holmes ask "what services does my cluster expose externally?"
+```
+
+**Find the right configuration to change in big Helm charts:**
+
+LLM uses the built-in [Helm toolset](./holmes/plugins/toolsets/helm.yaml) to gather information.
+
+```bash
+holmes ask "what helm value should I change to increase memory request of the my-argo-cd-argocd-server-6864949974-lzp6m pod"
+```
+
+**Optimize Docker container size:***
+
+LLM uses the built-in [Docker toolset](./holmes/plugins/toolsets/docker.yaml) to gather information.
+
+```bash
+holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image consume the most storage and suggest some fixes to it"
+```
+</details>
 
 ## Installation
 
@@ -235,7 +358,11 @@ To work with Azure AI, you need to provide the below variables:
 
 ### Getting an API Key
 
-HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
+HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. The LLM is configured with:
+
+* `--model` cli flag - e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`
+* `--api-key` cli flag - optional, not required by all providers
+* Provider-specific environment variables
 
 **Instructions for popular LLMs:**
 
@@ -317,175 +444,15 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 </details>
 
 
-## Usage
-
+## Advanced Features
 <details>
-<summary>Investigate a Prometheus alert from Slack</summary>
-
-Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
-
-![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
-
-</details>
-
-<details>
-<summary>Investigate a Prometheus alert from the cli</summary>
-
-```bash
-kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
-holmes investigate alertmanager --alertmanager-url http://localhost:9093
-```
-
-Note - if on Mac OS and using the Docker image, you will need to use `http://docker.for.mac.localhost:9093` instead of `http://localhost:9093`
-</details>
-
-<details>
-<summary>Ask a free-text question</summary>
-
-```bash
-holmes ask "what pods are unhealthy in my cluster and why?"
-```
-</details>
-
-<details>
-<summary>Analyze a log file</summary>
-
-```console
-sudo dmesg > dmesg.log
-poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg.log
-```
-</details>
-
-<details>
-
-<summary>Investigate a Jira/GitHub Ticket</summary>
-
-**Jira:**
-
-```bash
-holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
-```
-
-**GitHub:**
-
-```bash
-holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
-```
-
-By default results are displayed in the CLI. Use `--update` to get the results as a comment in the issue.
-
-</details>
-
-
-<details>
-<summary>Investigate a PagerDuty/OpsGenie Incident</summary>
-
-**PagerDuty:**
-```bash
-holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
-```
-
-By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
-
-![PagerDuty](./images/pagerduty-holmes-update.png)
-
-**OpsGenie:**
-```bash
-holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
-```
-
-By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
-
-![OpsGenie](./images/opsgenie-holmes-update.png)
-</details>
-</details>
-
-Get started by [installing HolmesGPT](#installation).
-
-## Key Features
-- **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
-- **Compliance Friendly:** Can be run on-premise with your own LLM (or in the cloud with OpenAI or Azure)
-- **Transparent Results:** See a log of the AI’s actions and what data it gathered to understand how it reached conclusions
-- **Extensible Data Sources:** Connect the AI to custom data by providing your own tool definitions
-- **Runbook Automation:** Optionally provide runbooks in plain English and the AI will follow them automatically
-- **Integrates with Existing Workflows:** Connect Slack and Jira to get results inside your existing tools
-
-## Other Use Cases
-
-HolmesGPT is usually used for incident response, but it can function as a general-purpose DevOps assistant too. Here are some examples:
-
-<details>
-<summary>Ask Questions About Your Cloud</summary>
-
-```bash
-holmes ask "what services does my cluster expose externally?"
-```
-</details>
-
-<details>
-<summary>Ticket Management - Automatically Respond to Jira tickets related to DevOps tasks</summary>
-
-```bash
-holmes investigate jira  --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
-```
-</details>
-
-<details>
-<summary>Find the right configuration to change in big Helm charts</summary>
-
-LLM uses the built-in [Helm toolset](./holmes/plugins/toolsets/helm.yaml) to gather information.
-
-```bash
-holmes ask "what helm value should I change to increase memory request of the my-argo-cd-argocd-server-6864949974-lzp6m pod"
-```
-</details>
-
-<details>
-<summary>Optimize Docker container size</summary>
-
-LLM uses the built-in [Docker toolset](./holmes/plugins/toolsets/docker.yaml) to gather information.
-
-```bash
-holmes ask "Tell me what layers of my pavangudiwada/robusta-ai docker image consume the most storage and suggest some fixes to it"
-```
-</details>
-
-## Customizing HolmesGPT
-
-HolmesGPT can investigate many issues out of the box, with no customization or training.
-
-That said, we provide several extension points for teaching HolmesGPT to investigate your issues, according to your best practices. The two main extension points are:
-
-* Custom Tools - give HolmesGPT access to data that it can't otherwise access - e.g. traces, APM data, or custom APIs
-* Custom Runbooks - give HolmesGPT instructions for investigating specific issues it otherwise wouldn't know how to handle
-
-<details>
-<summary>Add Custom Tools</summary>
+<summary>Connect HolmesGPT to your existing observability data</summary>
+TODO - needs more work
 
 The more data you give HolmesGPT, the better it will perform. Give it access to more data by adding custom tools.
 
 New tools are loaded using `-t` from [custom toolset files](./examples/custom_toolset.yaml) or by adding them to the `~/.holmes/config.yaml` with the setting `custom_toolsets: ["/path/to/toolset.yaml"]`.
-</details>
 
-<details>
-<summary>Add Custom Runbooks</summary>
-
-HolmesGPT can investigate by following runbooks written in plain English. Add your own runbooks to provided the LLM specific instructions.
-
-New runbooks are loaded using `-r` from [custom runbook files](./examples/custom_runbook.yaml) or by adding them to the `~/.holmes/config.yaml` with the `custom_runbooks: ["/path/to/runbook.yaml"]`.
-</details>
-
-<details>
-<summary>Reading settings from a config file</summary>
-
-You can customize HolmesGPT's behaviour with command line flags, or you can save common settings in config file for re-use.
-
-You can view an example config file with all available settings [here](config.example.yaml).
-
-By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
-
-<details>
-<summary>Custom Toolsets</summary>
 
 You can define your own custom toolsets to extend the functionality of your setup. These toolsets can include querying company-specific data, fetching logs from observability tools, and more.
 
@@ -494,23 +461,51 @@ You can define your own custom toolsets to extend the functionality of your setu
 # Example: ["path/to/your/custom_toolset.yaml"]
 #custom_toolsets: ["examples/custom_toolset.yaml"]
 ```
+
+</details>
+
+<details>
+<summary>Customize investigations for your needs</summary>
+HolmesGPT can investigate by following runbooks written in plain English. Add your own runbooks to provided the LLM specific instructions.
+
+New runbooks are loaded using `-r` from [custom runbook files](./examples/custom_runbook.yaml) or by adding them to the `~/.holmes/config.yaml` with the `custom_runbooks: ["/path/to/runbook.yaml"]`.
+</details>
+
+<details>
+<summary>View data used by HolmesGPT to make decisions (data transparency)</summary>
+</details>
+
+<details>
+<summary>Bi-directional integrations with Slack/Jira/PagerDuty/etc</summary>
+</details>
+
+<details>
+<summary>Save common settings in a config file</summary>
+
+You can save common cli flags in a config file to avoid specifying them every time.
+
+[Example config file with all available settings](config.example.yaml).
+
+By default, HolmesGPT will try to read `~/.holmes/config.yaml`. You can override with the `--config` flag.
+
+If settings are present in both config file and cli, the cli option takes precedence.
+
+
+## Integration Instructions
+
+Detailed instructions for common integrations:
+
+<summary>Alertmanager</summary>
+
+TODO
+
 </details>
 
 <details>
 
-<summary>Alertmanager Configuration</summary>
+<summary>Jira</summary>
 
-Configure the URL for your Alertmanager instance to enable alert management and notifications.
-
-```bash
-# URL for the Alertmanager
-#alertmanager_url: "http://localhost:9093"
-```
-</details>
-
-<details>
-
-<summary>Jira Integration</summary>
+TODO
 
 Integrate with Jira to automate issue tracking and project management tasks. Provide your Jira credentials and specify the query to fetch issues and optionally update their status.
 
@@ -526,13 +521,14 @@ Integrate with Jira to automate issue tracking and project management tasks. Pro
 2. **jira_api_key**: Follow these [instructions](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) to get your API key.
 3. **jira_url**: The URL of your workspace. For example: [https://workspace.atlassian.net](https://workspace.atlassian.net) (**Note:** schema (https) is required)
 4. **project**: Name of the project you want the Jira tickets to be created in. Go to **Project Settings** -> **Details** -> **Name**.
-5. **status**: Status of a ticket. Example: `To Do`, `In Progress`
+5. **jira_query**: See example above
 </details>
 
 <details>
 
-<summary>GitHub Integration</summary>
+<summary>GitHub</summary>
 
+TODO 
 Integrate with GitHub to automate issue tracking and project management tasks. Provide your GitHub PAT (*personal access token*) and specify the `owner/repository`.
 
 ```bash
@@ -551,7 +547,7 @@ Integrate with GitHub to automate issue tracking and project management tasks. P
 </details>
 
 <details>
-<summary>PagerDuty Integration</summary>
+<summary>PagerDuty</summary>
 
 Integrate with PagerDuty to automate incident tracking and project management tasks. Provide your PagerDuty credentials and specify the user email to update the incident with findings.
 
@@ -567,7 +563,7 @@ pagerduty_incident_key:  "..."
 </details>
 
 <details>
-<summary>OpsGenie Integration</summary>
+<summary>OpsGenie</summary>
 
 Integrate with OpsGenie to automate alert investigations. Provide your OpsGenie credentials and specify the query to fetch alerts.
 
@@ -585,7 +581,7 @@ opsgenie-query: "..."
 
 <details>
 
-<summary>Slack Integration</summary>
+<summary>Slack</summary>
 
 Configure Slack to send notifications to specific channels. Provide your Slack token and the desired channel for notifications.
 
@@ -600,56 +596,6 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 
 </details>
 
-<details>
-
-<summary>Custom Runbooks</summary>
-
-Define custom runbooks to give explicit instructions to the LLM on how to investigate certain alerts. This can help in achieving better results for known alerts.
-
-```bash
-# Add paths to your custom runbooks here
-# Example: ["path/to/your/custom_runbook.yaml"]
-#custom_runbooks: ["examples/custom_runbooks.yaml"]
-```
-</details>
-
-### Large Language Model (LLM) Configuration
-
-Choose between OpenAI, Azure, AWS Bedrock, and more. Provide the necessary API keys and endpoints for the selected service.
-
-
-<details>
-
-<summary>OpenAI</summary>
-
-```bash
-# Configuration for OpenAI LLM
-#api_key: "your-secret-api-key"
-```
-</details>
-
-<details>
-
-<summary>Azure</summary>
-
-```bash
-# Configuration for Azure LLM
-#api_key: "your-secret-api-key"
-#model: "azure/<DEPLOYMENT_NAME>"
-#you will also need to set environment variables - see above
-```
-</details>
-
-<summary>Bedrock</summary>
-
-```bash
-# Configuration for AWS Bedrock LLM
-#model: "bedrock/<MODEL_ID>"
-#you will also need to set environment variables - see above
-```
-</details>
-
-</details>
 
 ## License
 
