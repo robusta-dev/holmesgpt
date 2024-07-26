@@ -588,7 +588,7 @@ def pagerduty(
     try:
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from OpsGenie", exc_info=e)
+        logging.error(f"Failed to fetch issues from PagerDuty", exc_info=e)
         return
 
     console.print(
