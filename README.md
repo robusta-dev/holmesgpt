@@ -31,7 +31,9 @@ HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR)
 
 ## Installation
 
-First you will need <a href="#getting-an-api-key">an OpenAI API key, or the equivalent for another model</a>. Then install with one of the below methods:
+**Prerequisite:** <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
+
+**Installation Methods:**
 
 <details>
   <summary>Brew (Mac/Linux)</summary>
@@ -137,10 +139,105 @@ docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v 
 See <a href="#usage">Usage</a> for examples what to do next.
 </details>
 
+<details>
+<summary>Run HolmesGPT in your cluster (Helm)</summary>
+
+Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the below instructions. 
+
+By using the ``Robusta`` integration you’ll benefit from an end-to-end integration that integrates with ``Prometheus alerts`` and ``Slack``. Using the below instructions you’ll have to build many of those components yourself.
+
+In this mode, all the parameters should be passed to the HolmesGPT deployment, using environment variables.
+
+We recommend pulling sensitive variables from Kubernetes ``secrets``.
+
+First, you'll need to create your ``holmes-values.yaml`` file, for example:
+ 
+    additionalEnvVars:
+    - name: MODEL
+      value: gpt-4o
+    - name: OPENAI_API_KEY
+      value: <your open ai key>
+
+
+Then, install with ``helm``;
+
+    helm repo add robusta https://robusta-charts.storage.googleapis.com && helm repo update
+    helm install holmes robusta/holmes -f holmes-values.yaml
+
+
+For all LLMs you need to provide the ``MODEL`` environment variable, which specifies which model you are using.
+
+Some LLMs requires additional variables:
+
+<details>
+<summary>OpenAI</summary>
+
+For OpenAI, only the ``model`` and ``api-key`` should be provided
+
+    additionalEnvVars:
+    - name: MODEL
+      value: gpt-4o
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: openAiKey
+
+**Note**: ``gpt-4o`` is optional since it's default model. 
+
+</details>
+
+<details>
+<summary>Azure OpenAI</summary>
+
+To work with Azure AI, you need to provide the below variables:
+
+    additionalEnvVars:
+    - name: MODEL
+      value: azure/my-azure-deployment         # your azure deployment name
+    - name: AZURE_API_VERSION
+      value: 2024-02-15-preview                # azure openai api version
+    - name: AZURE_API_BASE
+      value: https://my-org.openai.azure.com/  # base azure openai url
+    - name: AZURE_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: azureOpenAiKey
+
+</details>
+
+<details>
+<summary>AWS Bedrock</summary>
+    
+    enablePostProcessing: true
+    additionalEnvVars:
+    - name: MODEL
+      value: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0 
+    - name: AWS_REGION_NAME
+      value: us-east-1
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: awsAccessKeyId
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: awsSecretAccessKey
+
+**Note**: ``bedrock claude`` provides better results when using post-processing to summarize the results.
+</details>
+
+
+</details>
 
 ### Getting an API Key
 
-HolmesGPT requires an API Key to function. Follow one of the instructions below.
+HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
+
+**Instructions for popular LLMs:**
 
 <details>
 <summary>OpenAI</summary>
@@ -149,7 +246,7 @@ To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key]
 
 **Note**: This is different from being a “ChatGPT Plus” subscriber.
 
-Pass your API key to holmes with the `--api-key` cli argument:
+Pass your API key to holmes with the `--api-key` cli argument. Because OpenAI is the default LLM, the `--model` flag is optional for OpenAI (gpt-4o is the default).
 
 ```
 holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
@@ -162,16 +259,50 @@ If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment
 <details>
 <summary>Azure OpenAI</summary>
 
-To work with Azure AI, you need the [Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource). 
+To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource) and to set the following environment variables:
+
+* AZURE_API_VERSION - e.g. 2024-02-15-preview
+* AZURE_API_BASE - e.g. https://my-org.openai.azure.com/
+* AZURE_API_KEY (optional) - equivalent to the `--api-key` cli argument
+
+Set those environment variables and run:
 
 ```bash
-holmes ask "what pods are unhealthy and why?" --llm=azure --api-key=<PLACEHOLDER> --azure-endpoint='<PLACEHOLDER>'
+holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
 ```
 
-The `--azure-endpoint` should be a URL in the format "https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview"
+Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details. 
+</details>
 
-If you prefer not to pass secrets on the cli, set the AZURE_OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
+<details>
+<summary>AWS Bedrock</summary>
 
+Before running the below command you must run `pip install boto3>=1.28.57` and set the following environment variables:
+
+* `AWS_REGION_NAME`
+* `AWS_ACCESS_KEY_ID`
+* `AWS_SECRET_ACCESS_KEY`
+
+If the AWS cli is already configured on your machine, you may be able to find those parameters with:
+
+```console
+cat ~/.aws/credentials ~/.aws/config
+```
+
+Once everything is configured, run:
+```console
+holmes ask "what pods are unhealthy and why?" --model=bedrock/<MODEL_NAME>
+```
+
+Be sure to replace `MODEL_NAME` with a model you have access to - e.g. `anthropic.claude-3-5-sonnet-20240620-v1:0`. To list models your account can access:
+
+```
+aws bedrock list-foundation-models --region=us-east-1
+```
+
+Note that different models are available in different regions. For example, Claude Opus is only available in us-west-2.
+
+Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details. 
 </details>
 
 <details>
@@ -484,7 +615,7 @@ Define custom runbooks to give explicit instructions to the LLM on how to invest
 
 ### Large Language Model (LLM) Configuration
 
-Choose between OpenAI or Azure for integrating large language models. Provide the necessary API keys and endpoints for the selected service.
+Choose between OpenAI, Azure, AWS Bedrock, and more. Provide the necessary API keys and endpoints for the selected service.
 
 
 <details>
@@ -493,7 +624,6 @@ Choose between OpenAI or Azure for integrating large language models. Provide th
 
 ```bash
 # Configuration for OpenAI LLM
-#llm: "openai"
 #api_key: "your-secret-api-key"
 ```
 </details>
@@ -504,12 +634,20 @@ Choose between OpenAI or Azure for integrating large language models. Provide th
 
 ```bash
 # Configuration for Azure LLM
-#llm: "azure"
 #api_key: "your-secret-api-key"
-#azure_endpoint: "https://some-azure-org.openai.azure.com/openai/deployments/gpt4-1106/chat/completions?api-version=2023-07-01-preview"
+#model: "azure/<DEPLOYMENT_NAME>"
+#you will also need to set environment variables - see above
 ```
 </details>
-  
+
+<summary>Bedrock</summary>
+
+```bash
+# Configuration for AWS Bedrock LLM
+#model: "bedrock/<MODEL_ID>"
+#you will also need to set environment variables - see above
+```
+</details>
 
 </details>
 
