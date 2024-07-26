@@ -13,7 +13,7 @@ Increase your cloud uptime and reliability by feeding live observability data in
 
 **By feeding live data into LLMs, HolmesGPT achieves high-accuracy without hallucinations.** It supports strict compliance requirements and can use private AI models in your own cloud.
 
-HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR) by showing useful and actionable insights. It makes every engineer an expert by giving them a copilot that can be customized for your environment and your alerts.
+HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR) with actionable insights. Make every engineer an expert by giving them an AIOps copilot, customized for your cloud.
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
