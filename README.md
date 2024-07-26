@@ -503,6 +503,7 @@ If settings are present in both config file and cli, the cli option takes preced
 
 Detailed instructions for common integrations:
 
+<details>
 <summary>Alertmanager</summary>
 
 TODO
