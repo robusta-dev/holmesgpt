@@ -366,11 +366,7 @@ To work with Azure AI, you need to provide the below variables:
 
 ### Getting an API Key
 
-HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. The LLM is configured with:
-
-* `--model` cli flag - e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`
-* `--api-key` cli flag - optional, not required by all providers
-* Provider-specific environment variables
+HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To configure, set `--model`, `--api-key` (not required by all providers), and any provider-specific environment variables.
 
 **Instructions for popular LLMs:**
 
