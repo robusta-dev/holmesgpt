@@ -26,14 +26,14 @@ HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR)
 Investigate a Prometheus alert with AI
 </summary>
 
-Install HolmesGPT with brew (<a href="#installation">see alternatives</a>):
+Install HolmesGPT with brew (<a href="#installation">or alternatives</a>):
 
 ```
 brew tap robusta-dev/homebrew-holmesgpt
 brew install holmesgpt
 ```
 
-Point holmes at AlertManager, give it an API Key, and start investigating:
+Run HolmesGPT with an API Key and the URL of AlertManager:
 
 ```
 # optional - port-forward alertmanager if it is running in a k8s cluster
@@ -49,7 +49,7 @@ Example output:
 TODO
 ```
 
-If you are happy with the results, you enable this for all Prometheus alerts in Slack:
+If you are happy with the results, enable this for all Prometheus alerts in Slack:
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
