@@ -11,7 +11,7 @@
 
 Increase your cloud uptime and reliability by feeding live observability data into AI models, and using them to proactively spot problems and investigate alerts.
 
-**By feeding live data into LLMs, HolmesGPT removes hallucinations and achieves high-accuracy.** It supports strict compliance requirements and can use private AI models in your own cloud.
+**By feeding live data into LLMs, HolmesGPT achieves high-accuracy without hallucinations.** It supports strict compliance requirements and can use private AI models in your own cloud.
 
 HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR) by showing useful and actionable insights. It makes every engineer an expert by giving them a copilot that can be customized for your environment and your alerts.
 
