@@ -9,9 +9,9 @@
   </p>
 </div>
 
-Increase your cloud uptime and reliability by feeding live observability data into powerful AI models, and using them to investigate alerts and proactively identify problems.
+Increase your cloud uptime and reliability by feeding live observability data into AI models, and using them to proactively spot problems and investigate alerts.
 
-**By feeding live observability data into LLMs, HolmesGPT removes hallucinations and achieves extremely accurate results.** It supports strict compliance requirements and can use private AI models, deployed in your own cloud account.
+**By feeding live data into LLMs, HolmesGPT removes hallucinations and achieves high-accuracy.** It supports strict compliance requirements and can use private AI models in your own cloud.
 
 HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR) by showing useful and actionable insights. It makes every engineer an expert by giving them a copilot that can be customized for your environment and your alerts.
 
@@ -26,7 +26,7 @@ HolmesGPT is the only AI agent that can reduce your mean time to response (MTTR)
 Find the root cause of a Prometheus alert
 </summary>
 
-Install `holmes` locally with brew, or <a href="#installation">an alternative installation method</a>:
+Install HolmesGPT with brew (<a href="#installation">see alternatives</a>):
 
 ```
 brew tap robusta-dev/homebrew-holmesgpt
@@ -35,45 +35,48 @@ brew install holmesgpt
 
 Point holmes at AlertManager, give it an API Key, and start investigating:
 
-👆
 ```
 # optional - port-forward alertmanager if it is running in a k8s cluster
-kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
+# kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
 
+# run holmes
 holmes investigate alertmanager --alertmanager-url http://localhost:9093 --api-key=<openai-api-key>
 ```
 
 Example output:
 
+```
 TODO
+```
 
-If you are happy with the results, you can get these results on every Prometheus alert, with the click of a button:
+If you are happy with the results, you enable this for all Prometheus alerts in Slack:
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
-👆 To set up, [install the official Holmes+Robusta integration and follow this guide.](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+👆 To set up, [install the official Holmes+Robusta integration and follow this guide.](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html)
 
 </details>
 
 <details>
 <summary>Root Cause Analysis for PagerDuty/OpsGenie/Jira (and more)</summary>
+
 **PagerDuty:**
 ```bash
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
-
 ![PagerDuty](./images/pagerduty-holmes-update.png)
+
+By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
 
 **OpsGenie:**
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
-
 ![OpsGenie](./images/opsgenie-holmes-update.png)
+
+By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
 
 **Jira:**
 
@@ -81,32 +84,35 @@ By default results are displayed in the CLI . Use `--update --opsgenie-team-inte
 holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
 ```
 
+TODO: image
+
 **GitHub:**
 
 ```bash
 holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
 ```
+
 </details>
 
 <details>
-<summary>Proactively check application rollouts for problems</summary>
+<summary>Check application rollouts for problems</summary>
 
-You can reduce the risk of application updates by using AI to check the new software version for problems a few minutes after it is deployed.
+Reduce the risk of application updates by running a scan 5 minutes after a deploy.
 
-This is typically setup with CI/CD, but we'll start with a local example:
+This is typically setup with CI/CD, but lets start with a local example:
 
 ```bash
 # TODO: deploy a new software version
 holmes ask "I just deployed the .... Is it healthy? Are there any degredations compared to the previous version? Check XYZ"
 ```
 
-Now send the results from HolmesGPT to Slack not CLI:
+You can send results to a Slack channel:
 
 ```bash
 TODO
 ```
 
-Here is an example of running HolmesGPT inside a GitHub action where you deploy a new version:
+This can be run from CI/CD on every deploy. For example, in GitHub actions:
 ```bash
 TODO
 ```
@@ -117,7 +123,7 @@ TODO
 </details>
 
 <details>
-<summary>Proactively scan your cluster for unknown problems</summary>
+<summary>Scan your cluster for unknown problems</summary>
 </details>
 
 <details>
@@ -185,20 +191,22 @@ holmes --help
 holmes ask "what issues do I have in my cluster"
 ```
 
-See <a href="#usage">Usage</a> for examples what to do next.
+See <a href="#quick-start">Quick Start</a> for next steps.
 
 </details>
 
 <details>
-<summary>Prebuilt Docker Container</summary>
+<summary>Docker Container</summary>
 
-Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes-dev`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
+**Image:** `docker.pkg.dev/genuine-flight-317411/devel/holmes-dev`
+
+**Tip:** mount config files so that HolmesGPT can read data from your Kubernetes cluster (or other cloud resources):
 
 ```bash
 docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes-dev ask "what pods are unhealthy and why?"
 ```
 
-See <a href="#usage">Usage</a> for examples what to do next.
+See <a href="#quick-start">Quick Start</a> for next steps.
 </details>
 
 <details>
@@ -229,7 +237,7 @@ To upgrade HolmesGPT with pipx, you can run:
 pipx upgrade holmesgpt
 ```
 
-See <a href="#usage">Usage</a> for examples what to do next.
+See <a href="#quick-start">Quick Start</a> for next steps.
 </details>
 
 <details>
@@ -245,7 +253,7 @@ poetry install --no-root
 poetry run python3 holmes.py ask "what pods are unhealthy and why?"
 ```
 
-See <a href="#usage">Usage</a> for examples what to do next.
+See <a href="#quick-start">Quick Start</a> for next steps.
 </details>
 
 <details>
@@ -259,7 +267,7 @@ docker build -t holmes . -f Dockerfile.dev
 docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
 
-See <a href="#usage">Usage</a> for examples what to do next.
+See <a href="#quick-start">Quick Start</a> for next steps.
 </details>
 
 <details>
