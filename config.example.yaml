@@ -1,3 +1,9 @@
+#model: "gpt-4o"
+#api_key: "..."
+
+#model: "azure/model-deployment-name"
+#api_key: "..."
+
 # try adding your own tools here!
 # e.g. query company-specific data, fetch logs from your existing observability tools, etc
 #custom_toolsets: ["examples/custom_toolset.yaml"]
@@ -8,7 +14,7 @@
 #jira_api_key: "..."
 #jira_url: "https://your-company.atlassian.net"
 #jira_query: "project = 'Natan Test Project' and Status = 'To Do'"
- 
+
 #slack_token: "..."
 #slack_channel: "#general"
 
@@ -17,13 +23,6 @@
 #github_url: "https://api.github.com" (default)
 #github_repository: "holmesgpt"
 #github_query: "is:issue is:open"
-
-#llm: "openai"
-#api_key: "..."
-
-# llm: "azure"
-#api_key: "..."
-#azure_endpoint: "..."
 
 # give the LLM explicit instructions how to investigate certain alerts
 # try adding runbooks to get better results on known alerts
