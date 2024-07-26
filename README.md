@@ -99,7 +99,7 @@ holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLA
 
 Reduce the risk of application updates by running a scan 5 minutes after a deploy.
 
-This is typically setup with CI/CD, but lets start with a local example:
+Start with a local example:
 
 ```bash
 # TODO: deploy a new software version
@@ -112,7 +112,7 @@ You can send results to a Slack channel:
 TODO
 ```
 
-This can be run from CI/CD on every deploy. For example, in GitHub actions:
+Run this in CI/CD on every deploy. For example, in GitHub actions:
 ```bash
 TODO
 ```
@@ -497,7 +497,7 @@ You can save common cli flags in a config file to avoid specifying them every ti
 By default, HolmesGPT will try to read `~/.holmes/config.yaml`. You can override with the `--config` flag.
 
 If settings are present in both config file and cli, the cli option takes precedence.
-
+</details>
 
 ## Integration Instructions
 
