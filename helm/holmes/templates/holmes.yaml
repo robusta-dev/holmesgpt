@@ -38,26 +38,10 @@ spec:
           - name: CERTIFICATE
             value: {{ .Values.certificate }}
           {{- end }}
-          - name: HOLMES_LLM
-            value: {{ .Values.llm }}
-          - name: OPENAI_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.secretName }}
-                key: openaiKey
-                optional: true
-          - name: AZURE_OPENAI_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.secretName }}
-                key: azureOpenaiKey
-                optional: true
-          - name: AZURE_ENDPOINT
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.secretName }}
-                key: azureEndpoint
-                optional: true
+          {{ if .Values.enablePostProcessing -}}
+          - name: HOLMES_POST_PROCESSING_PROMPT
+            value: {{ .Values.postProcessingPrompt }}
+          {{- end }}
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
           {{- end }}
@@ -90,18 +74,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: 5050
-{{- if .Values.createSecret  }}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ .Values.secretName }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: holmes
-type: Opaque
-data:
-  openaiKey: {{ .Values.openaiKey | b64enc | quote }}
-  azureEndpoint: {{ .Values.azureEndpoint | b64enc | quote }}
-  azureOpenaiKey: {{ .Values.azureOpenaiKey | b64enc | quote }}
-{{- end }}
