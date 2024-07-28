@@ -1,3 +1,4 @@
+import concurrent.futures
 import datetime
 import json
 import logging
@@ -21,6 +22,7 @@ from holmes.core.tools import YAMLToolExecutor
 
 
 class ToolCallResult(BaseModel):
+    tool_call_id: str
     tool_name: str
     description: str
     result: str
@@ -144,28 +146,21 @@ class ToolCallingLLM:
             if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
                 logging.warning(f"got unexpected response when tools were given: {response_message.content}")
 
-            for t in tools_to_call:
-                tool_name = t.function.name
-                tool_params = json.loads(t.function.arguments)
-                tool = self.tool_executor.get_tool_by_name(tool_name)
-                tool_response = tool.invoke(tool_params)
-                MAX_CHARS = 100_000 # an arbitrary limit - we will do something smarter in the future
-                if len(tool_response) > MAX_CHARS:
-                    logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
-                    tool_response = tool_response[-MAX_CHARS:]
-                messages.append(
-                    {
-                        "tool_call_id": t.id,
-                        "role": "tool",
-                        "name": tool_name,
-                        "content": tool_response,
-                    }
-                )
-                tool_calls.append(
-                    ToolCallResult(
-                        tool_name=tool_name,
-                        description=tool.get_parameterized_one_liner(tool_params),
-                        result=tool_response,
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                futures = []
+                for t in tools_to_call:
+                    futures.append(executor.submit(self._invoke_tool, t))
+
+                for future in concurrent.futures.as_completed(futures):
+                    tool_call_result: ToolCallResult = future.result()
+                    tool_calls.append(tool_call_result)
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_call_result.result,
+                        }
                     )
                 )
 
