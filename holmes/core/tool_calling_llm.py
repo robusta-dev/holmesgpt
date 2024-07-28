@@ -162,7 +162,24 @@ class ToolCallingLLM:
                             "content": tool_call_result.result,
                         }
                     )
-                )
+
+    def _invoke_tool(self, tool_to_call):
+        tool_name = tool_to_call.function.name
+        tool_params = json.loads(tool_to_call.function.arguments)
+        tool_call_id = tool_to_call.id
+        tool = self.tool_executor.get_tool_by_name(tool_name)
+        tool_response = tool.invoke(tool_params)
+        MAX_CHARS = 100_000     # an arbitrary limit - we will do something smarter in the future
+        if len(tool_response) > MAX_CHARS:
+            logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
+            tool_response = tool_response[-MAX_CHARS:]
+
+        return ToolCallResult(
+            tool_call_id=tool_call_id,
+            tool_name=tool_name,
+            description=tool.get_parameterized_one_liner(tool_params),
+            result=tool_response,
+        )
 
     @staticmethod
     def __load_post_processing_user_prompt(input_prompt, investigation, user_prompt: Optional[str] = None) -> str:
