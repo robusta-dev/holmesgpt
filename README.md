@@ -388,6 +388,19 @@ Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/be
 </details>
 
 <details>
+<summary>Private LLM Servers</summary>
+
+* Set the environment variable for your URL with `OPENAI_API_BASE`
+* Set the model as `openai/<your-model-name>` (e.g., `llama3.1:latest`)
+* Set your API key (if your URL doesn't require a key, then add a random value for `--api-key`)
+
+```bash
+export OPENAI_API_BASE=<URL_HERE>
+holmes ask "what pods are unhealthy and why?" --model=openai/<MODEL_NAME> --api-key=<API_KEY_HERE>
+```
+</details>
+
+<details>
 <summary>Using a self-hosted LLM</summary>
 
 You will need an LLM with support for function-calling (tool-calling). To use it, set the OPENAI_BASE_URL environment variable and run `holmes` with a relevant model name set using `--model`.
