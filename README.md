@@ -388,7 +388,9 @@ Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/be
 </details>
 
 <details>
-<summary>Private LLM Servers</summary>
+<summary>Using a self-hosted LLM</summary>
+
+You will need an LLM with support for function-calling (tool-calling).
 
 * Set the environment variable for your URL with `OPENAI_API_BASE`
 * Set the model as `openai/<your-model-name>` (e.g., `llama3.1:latest`)
@@ -398,12 +400,6 @@ Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/be
 export OPENAI_API_BASE=<URL_HERE>
 holmes ask "what pods are unhealthy and why?" --model=openai/<MODEL_NAME> --api-key=<API_KEY_HERE>
 ```
-</details>
-
-<details>
-<summary>Using a self-hosted LLM</summary>
-
-You will need an LLM with support for function-calling (tool-calling). To use it, set the OPENAI_BASE_URL environment variable and run `holmes` with a relevant model name set using `--model`.
 
 **Important: Please verify that your model and inference server support function calling! HolmesGPT is currently unable to check if the LLM it was given supports function-calling or not. Some models that lack function-calling capabilities will  hallucinate answers instead of reporting that they are unable to call functions. This behaviour depends on the model.**
 
