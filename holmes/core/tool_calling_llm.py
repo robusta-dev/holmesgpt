@@ -1,17 +1,18 @@
+import concurrent.futures
 import datetime
+import time
 import json
 import logging
 import textwrap
 import os
-from typing import Dict, Generator, List, Optional
+from typing import Dict, List, Optional
 from holmes.plugins.prompts import load_prompt
 
 import litellm
 import jinja2
-from openai import BadRequestError, OpenAI
+from openai import BadRequestError
 from openai._types import NOT_GIVEN
-from openai.types.chat.chat_completion import Choice
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from pydantic import BaseModel
 from rich.console import Console
 
@@ -21,6 +22,7 @@ from holmes.core.tools import YAMLToolExecutor
 
 
 class ToolCallResult(BaseModel):
+    tool_call_id: str
     tool_name: str
     description: str
     result: str
@@ -144,30 +146,40 @@ class ToolCallingLLM:
             if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
                 logging.warning(f"got unexpected response when tools were given: {response_message.content}")
 
-            for t in tools_to_call:
-                tool_name = t.function.name
-                tool_params = json.loads(t.function.arguments)
-                tool = self.tool_executor.get_tool_by_name(tool_name)
-                tool_response = tool.invoke(tool_params)
-                MAX_CHARS = 100_000 # an arbitrary limit - we will do something smarter in the future
-                if len(tool_response) > MAX_CHARS:
-                    logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
-                    tool_response = tool_response[-MAX_CHARS:]
-                messages.append(
-                    {
-                        "tool_call_id": t.id,
-                        "role": "tool",
-                        "name": tool_name,
-                        "content": tool_response,
-                    }
-                )
-                tool_calls.append(
-                    ToolCallResult(
-                        tool_name=tool_name,
-                        description=tool.get_parameterized_one_liner(tool_params),
-                        result=tool_response,
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                futures = []
+                for t in tools_to_call:
+                    futures.append(executor.submit(self._invoke_tool, t))
+
+                for future in concurrent.futures.as_completed(futures):
+                    tool_call_result: ToolCallResult = future.result()
+                    tool_calls.append(tool_call_result)
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_call_result.result,
+                        }
                     )
-                )
+
+    def _invoke_tool(self, tool_to_call: ChatCompletionMessageToolCall) -> ToolCallResult:
+        tool_name = tool_to_call.function.name
+        tool_params = json.loads(tool_to_call.function.arguments)
+        tool_call_id = tool_to_call.id
+        tool = self.tool_executor.get_tool_by_name(tool_name)
+        tool_response = tool.invoke(tool_params)
+        MAX_CHARS = 100_000     # an arbitrary limit - we will do something smarter in the future
+        if len(tool_response) > MAX_CHARS:
+            logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last {MAX_CHARS} chars")
+            tool_response = tool_response[-MAX_CHARS:]
+
+        return ToolCallResult(
+            tool_call_id=tool_call_id,
+            tool_name=tool_name,
+            description=tool.get_parameterized_one_liner(tool_params),
+            result=tool_response,
+        )
 
     @staticmethod
     def __load_post_processing_user_prompt(input_prompt, investigation, user_prompt: Optional[str] = None) -> str:
