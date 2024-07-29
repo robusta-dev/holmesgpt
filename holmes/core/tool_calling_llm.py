@@ -1,18 +1,18 @@
 import concurrent.futures
 import datetime
+import time
 import json
 import logging
 import textwrap
 import os
-from typing import Dict, Generator, List, Optional
+from typing import Dict, List, Optional
 from holmes.plugins.prompts import load_prompt
 
 import litellm
 import jinja2
-from openai import BadRequestError, OpenAI
+from openai import BadRequestError
 from openai._types import NOT_GIVEN
-from openai.types.chat.chat_completion import Choice
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from pydantic import BaseModel
 from rich.console import Console
 
@@ -163,7 +163,7 @@ class ToolCallingLLM:
                         }
                     )
 
-    def _invoke_tool(self, tool_to_call):
+    def _invoke_tool(self, tool_to_call: ChatCompletionMessageToolCall) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = json.loads(tool_to_call.function.arguments)
         tool_call_id = tool_to_call.id
@@ -171,7 +171,7 @@ class ToolCallingLLM:
         tool_response = tool.invoke(tool_params)
         MAX_CHARS = 100_000     # an arbitrary limit - we will do something smarter in the future
         if len(tool_response) > MAX_CHARS:
-            logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
+            logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last {MAX_CHARS} chars")
             tool_response = tool_response[-MAX_CHARS:]
 
         return ToolCallResult(

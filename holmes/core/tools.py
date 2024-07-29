@@ -174,8 +174,9 @@ class YAMLToolExecutor:
         tool = self.get_tool_by_name(tool_name)
         return tool.invoke(params)
 
-    def get_tool_by_name(self, name: str):
+    def get_tool_by_name(self, name: str) -> YAMLTool:
         return self.tools_by_name[name]
+    
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
