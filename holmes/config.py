@@ -28,20 +28,10 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 
-class LLMType(StrEnum):
-    OPENAI = "openai"
-    AZURE = "azure"
-
-
 class Config(RobustaBaseConfig):
-    llm: Optional[LLMType] = LLMType.OPENAI
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
-    azure_endpoint: Optional[str] = (
-        None  # if None, read from AZURE_OPENAI_ENDPOINT env var
-    )
-    azure_api_version: Optional[str] = "2024-02-01"
     model: Optional[str] = "gpt-4o"
     max_steps: Optional[int] = 10
 
@@ -79,11 +69,10 @@ class Config(RobustaBaseConfig):
 
     @classmethod
     def load_from_env(cls):
-        kwargs = {"llm": LLMType(os.getenv("HOLMES_LLM", "OPENAI").lower())}
+        kwargs = {}
         for field_name in [
             "model",
             "api_key",
-            "azure_endpoint",
             "max_steps",
             "alertmanager_url",
             "alertmanager_username",
@@ -107,22 +96,6 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
         return cls(**kwargs)
-
-    def create_llm(self) -> OpenAI:
-        if self.llm == LLMType.OPENAI:
-            logging.debug(f"Using OpenAI")
-            return OpenAI(
-                api_key=self.api_key.get_secret_value() if self.api_key else None,
-            )
-        elif self.llm == LLMType.AZURE:
-            logging.debug(f"Using Azure with endpoint {self.azure_endpoint}")
-            return AzureOpenAI(
-                api_key=self.api_key.get_secret_value() if self.api_key else None,
-                azure_endpoint=self.azure_endpoint,
-                api_version=self.azure_api_version,
-            )
-        else:
-            raise ValueError(f"Unknown LLM type: {self.llm}")
 
     def _create_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern
@@ -164,8 +137,8 @@ class Config(RobustaBaseConfig):
     ) -> IssueInvestigator:
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return ToolCallingLLM(
-            self.create_llm(),
             self.model,
+            self.api_key.get_secret_value() if self.api_key else None,
             tool_executor,
             self.max_steps,
         )
@@ -180,8 +153,8 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return IssueInvestigator(
-            self.create_llm(),
             self.model,
+            self.api_key.get_secret_value() if self.api_key else None,
             tool_executor,
             runbook_manager,
             self.max_steps,

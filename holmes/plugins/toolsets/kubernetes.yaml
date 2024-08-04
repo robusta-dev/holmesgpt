@@ -10,15 +10,15 @@ toolsets:
 
   - name: "kubectl_get"
     description: "Run `kubectl get <parameters go here> --show-labels`"
-    command: "kubectl get --show-labels {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+    command: "kubectl get --show-labels -o wide {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
 
   - name: "kubectl_get_all"
     description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
-    command: "kubectl get -A --show-labels {{ kind }}"
+    command: "kubectl get -A --show-labels  -o wide {{ kind }}"
 
   - name: "kubectl_find_resource"
-    description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name"
-    command: "kubectl get -A --show-labels {{ kind }} | grep {{ keyword }}"
+    description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name, IP, namespace, or labels"
+    command: "kubectl get -A --show-labels -o wide {{ kind }} | grep {{ keyword }}"
 
   - name: "kubectl_get_yaml"
     description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
@@ -57,6 +57,9 @@ toolsets:
 
 - name: "kubernetes/extras"
   tools:
-  - name: "kubectl_lineage"
-    description: "Get all children of a Kubernetes resource, recursively, including their status"
-    command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
+  - name: "kubectl_lineage_children"
+    description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
+    command: "kube-lineage {{ kind }} {{ name}} -n {{ namespace }}"
+  - name: "kubectl_lineage_parents"
+    description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
+    command: "kube-lineage {{ kind }} {{ name}} -n {{ namespace }} -D"

@@ -1,14 +1,18 @@
+import concurrent.futures
 import datetime
+import time
 import json
 import logging
 import textwrap
-from typing import Dict, Generator, List, Optional
+import os
+from typing import Dict, List, Optional
+from holmes.plugins.prompts import load_prompt
 
+import litellm
 import jinja2
-from openai import BadRequestError, OpenAI
+from openai import BadRequestError
 from openai._types import NOT_GIVEN
-from openai.types.chat.chat_completion import Choice
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from pydantic import BaseModel
 from rich.console import Console
 
@@ -18,6 +22,7 @@ from holmes.core.tools import YAMLToolExecutor
 
 
 class ToolCallResult(BaseModel):
+    tool_call_id: str
     tool_name: str
     description: str
     result: str
@@ -25,6 +30,9 @@ class ToolCallResult(BaseModel):
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
+    unprocessed_result: Optional[str] = None
+
+    # TODO: clean up these two
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
 
@@ -37,17 +45,39 @@ class ToolCallingLLM:
 
     def __init__(
         self,
-        client: OpenAI,
-        model: str,
+        model: Optional[str],
+        api_key: Optional[str],
         tool_executor: YAMLToolExecutor,
         max_steps: int,
     ):
-        self.client = client
         self.tool_executor = tool_executor
         self.max_steps = max_steps
         self.model = model
+        self.api_key = api_key
 
-    def call(self, system_prompt, user_prompt) -> LLMResult:
+        self.check_llm(self.model, self.api_key)
+
+    def check_llm(self, model, api_key):
+        logging.debug(f"Checking LiteLLM model {model}")
+        # TODO: this is a hack to get around the fact that we can't pass in an api key to litellm.validate_environment 
+        # so without this hack it always complains that the environment variable for the api key is missing
+        # to fix that, we always set an api key in the standard format that litellm expects (which is ${PROVIDER}_API_KEY)
+        lookup = litellm.get_llm_provider(self.model)
+        if not lookup:
+            raise Exception(f"Unknown provider for model {model}")
+        provider = lookup[1]
+        api_key_env_var = f"{provider.upper()}_API_KEY"
+        if api_key:
+            os.environ[api_key_env_var] = api_key
+        model_requirements = litellm.validate_environment(model=model)
+        if not model_requirements["keys_in_environment"]:
+            raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
+
+        # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name 
+        #if not litellm.supports_function_calling(model=model):
+        #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
+
+    def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None) -> LLMResult:
         messages = [
             {
                 "role": "system",
@@ -67,8 +97,9 @@ class ToolCallingLLM:
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
             logging.debug(f"sending messages {messages}")
             try:
-                full_response = self.client.chat.completions.create(
+                full_response = litellm.completion(
                     model=self.model,
+                    api_key=self.api_key,
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
@@ -91,42 +122,100 @@ class ToolCallingLLM:
                 )
             )
 
-            tools_to_call = response_message.tool_calls
+            tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
+                # For chatty models post process and summarize the result
+                if post_process_prompt:
+                    logging.info(f"Running post processing on investigation.")
+                    raw_response = response_message.content
+                    post_processed_response = self._post_processing_call(prompt=user_prompt, investigation=raw_response, user_prompt=post_process_prompt)
+                    return LLMResult(
+                        result=post_processed_response,
+                        unprocessed_result = raw_response,
+                        tool_calls=tool_calls,
+                        prompt=json.dumps(messages, indent=2),
+                    )
+                
                 return LLMResult(
                     result=response_message.content,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                 )
 
-            # when asked to run tools, we expect no response other than the request to run tools
-            if response_message.content:
+            # when asked to run tools, we expect no response other than the request to run tools unless bedrock
+            if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
                 logging.warning(f"got unexpected response when tools were given: {response_message.content}")
 
-            for t in tools_to_call:
-                tool_name = t.function.name
-                tool_params = json.loads(t.function.arguments)
-                tool = self.tool_executor.get_tool_by_name(tool_name)
-                tool_response = tool.invoke(tool_params)
-                MAX_CHARS = 100_000 # an arbitrary limit - we will do something smarter in the future
-                if len(tool_response) > MAX_CHARS:
-                    logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last 10000 chars")
-                    tool_response = tool_response[-MAX_CHARS:]
-                messages.append(
-                    {
-                        "tool_call_id": t.id,
-                        "role": "tool",
-                        "name": tool_name,
-                        "content": tool_response,
-                    }
-                )
-                tool_calls.append(
-                    ToolCallResult(
-                        tool_name=tool_name,
-                        description=tool.get_parameterized_one_liner(tool_params),
-                        result=tool_response,
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                futures = []
+                for t in tools_to_call:
+                    futures.append(executor.submit(self._invoke_tool, t))
+
+                for future in concurrent.futures.as_completed(futures):
+                    tool_call_result: ToolCallResult = future.result()
+                    tool_calls.append(tool_call_result)
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_call_result.result,
+                        }
                     )
-                )
+
+    def _invoke_tool(self, tool_to_call: ChatCompletionMessageToolCall) -> ToolCallResult:
+        tool_name = tool_to_call.function.name
+        tool_params = json.loads(tool_to_call.function.arguments)
+        tool_call_id = tool_to_call.id
+        tool = self.tool_executor.get_tool_by_name(tool_name)
+        tool_response = tool.invoke(tool_params)
+        MAX_CHARS = 100_000     # an arbitrary limit - we will do something smarter in the future
+        if len(tool_response) > MAX_CHARS:
+            logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last {MAX_CHARS} chars")
+            tool_response = tool_response[-MAX_CHARS:]
+
+        return ToolCallResult(
+            tool_call_id=tool_call_id,
+            tool_name=tool_name,
+            description=tool.get_parameterized_one_liner(tool_params),
+            result=tool_response,
+        )
+
+    @staticmethod
+    def __load_post_processing_user_prompt(input_prompt, investigation, user_prompt: Optional[str] = None) -> str:
+        if not user_prompt:
+            user_prompt = "builtin://generic_post_processing.jinja2"
+        environment = jinja2.Environment()
+        user_prompt = load_prompt(user_prompt)
+        user_prompt_template = environment.from_string(user_prompt)
+        return user_prompt_template.render(investigation=investigation, prompt=input_prompt)
+
+    def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
+        try:
+            user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(prompt, investigation, user_prompt)
+            logging.debug(f"Post processing prompt:\n\"\"\"\n{user_prompt}\n\"\"\"")
+            messages = [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ]
+            full_response = litellm.completion(
+                model=self.model,
+                api_key=self.api_key,
+                messages=messages,
+                temperature=0
+            )
+            logging.debug(f"Post processing response {full_response}")
+            return full_response.choices[0].message.content
+        except:
+            logging.exception("Failed to run post processing")
+            return investigation
+
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
 class IssueInvestigator(ToolCallingLLM):
@@ -139,17 +228,17 @@ class IssueInvestigator(ToolCallingLLM):
 
     def __init__(
         self,
-        client: OpenAI,
-        model: str,
+        model: Optional[str],
+        api_key: Optional[str],
         tool_executor: YAMLToolExecutor,
         runbook_manager: RunbookManager,
         max_steps: int,
     ):
-        super().__init__(client, model, tool_executor, max_steps)
+        super().__init__(model, api_key, tool_executor, max_steps)
         self.runbook_manager = runbook_manager
 
     def investigate(
-        self, issue: Issue, prompt: str, console: Console
+        self, issue: Issue, prompt: str, console: Console, post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
         environment = jinja2.Environment()
         system_prompt_template = environment.from_string(prompt)
@@ -170,4 +259,4 @@ class IssueInvestigator(ToolCallingLLM):
         logging.debug(
             "Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    ")
         )
-        return self.call(system_prompt, user_prompt)
+        return self.call(system_prompt, user_prompt, post_processing_prompt)

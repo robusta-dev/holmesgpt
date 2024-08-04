@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from rich.console import Console
 
-from holmes.common.env_vars import HOLMES_HOST, HOLMES_PORT, ALLOWED_TOOLSETS
+from holmes.common.env_vars import HOLMES_HOST, HOLMES_PORT, ALLOWED_TOOLSETS, HOLMES_POST_PROCESSING_PROMPT
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
 from holmes.core.issue import Issue
@@ -88,6 +88,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
         issue,
         prompt=load_prompt(investigate_request.prompt_template),
         console=console,
+        post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT
     )
     return InvestigationResult(
         analysis=investigation.result,

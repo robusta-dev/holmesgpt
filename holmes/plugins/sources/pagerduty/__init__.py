@@ -25,10 +25,11 @@ class PagerDutySource(SourcePlugin):
                 "Accept": "application/vnd.pagerduty+json;version=2"
             }
 
+            # excludes resolved
+            query_params = "?statuses[]=triggered&statuses[]=acknowledged"
+
             if self.incident_key:
-                query_params =f"?incident_key={self.incident_key}"
-            else:
-                query_params = ""
+                query_params =f"{query_params}&incident_key={self.incident_key}"
 
             response = requests.get(
                 f"{self.api_url}/incidents{query_params}",

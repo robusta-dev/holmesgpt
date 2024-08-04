@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "holmes-gpt"
+name = "holmesgpt"
 version = "0.1.0"
 description = ""
 authors = ["Natan Yellin <natan@robusta.dev>"]
@@ -28,8 +28,10 @@ supabase = "^2.5"
 colorlog = "^6.8.2"
 strenum = "^0.4.15"
 markdown = "^3.6"
-boto3 = "^1.34.139"
-mysql-connector-python = "^9.0.0"
+litellm = "^1.40.25"
+certifi = "^2024.7.4"
+urllib3 = "^1.26.19"
+boto3 = "^1.34.145"
 
 [build-system]
 requires = ["poetry-core"]
