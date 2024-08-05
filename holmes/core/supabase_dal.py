@@ -12,12 +12,13 @@ from pydantic import BaseModel
 from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
                                     STORE_PASSWORD)
 
+from datetime import datetime, timedelta
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
 ISSUES_TABLE = "Issues"
 EVIDENCE_TABLE = "Evidence"
-
+RUNBOOKS_TABLE = "HolmesRunbooks"
 
 class RobustaConfig(BaseModel):
     sinks_config: List[Dict[str, Dict]]
@@ -98,7 +99,7 @@ class SupabaseDal:
             issue_response = (
                 self.client
                     .table(ISSUES_TABLE)
-                    .select(f"*")
+                    .select("*")
                     .filter("id", "eq", issue_id)
                     .execute()
             )
@@ -113,9 +114,78 @@ class SupabaseDal:
         evidence = (
             self.client
             .table(EVIDENCE_TABLE)
-            .select(f"*")
+            .select("*")
             .filter("issue_id", "eq", issue_id)
             .execute()
         )
         issue_data["evidence"] = evidence.data
         return issue_data
+
+    def get_resource_instructions(self, type: str, name: str) -> List[str]:
+        if not self.enabled or not name:
+            return []
+
+        res = (
+            self.client
+            .table(RUNBOOKS_TABLE)
+            .select("runbook")
+            .eq("account_id", self.account_id)
+            .eq("subject_type", type)
+            .eq("subject_name", name)
+            .execute()
+        )
+        if res.data:
+            return res.data[0].get("runbook").get("instructions")
+
+        return []
+
+    def get_workload_issues(self, resource: dict, since_hours: float) -> List[str]:
+        if not self.enabled or not resource:
+            return []
+
+        cluster = resource.get("cluster")
+        if not cluster:
+            logging.debug("Missing workload cluster for issues.")
+            return []
+
+        since: str = (datetime.now() - timedelta(hours=since_hours)).isoformat()
+
+        svc_key = f"{resource.get('namespace', '')}/{resource.get('kind', '')}/{resource.get('name', '')}"
+        logging.debug(f"getting issues for workload {svc_key}")
+        try:
+            res = (
+                self.client
+                .table(ISSUES_TABLE)
+                .select("id, creation_date, aggregation_key")
+                .eq("account_id", self.account_id)
+                .eq("cluster", cluster)
+                .eq("service_key", svc_key)
+                .gte("creation_date", since)
+                .order("creation_date")
+                .execute()
+            )
+
+            if not res.data:
+                return []
+
+            issue_dict = dict()
+            for issue in res.data:
+                issue_dict[issue.get("aggregation_key")] = issue.get("id")
+
+            unique_issues: list[str] = list(issue_dict.values())
+
+            res = (
+                self.client
+                .table(EVIDENCE_TABLE)
+                .select("data, enrichment_type")
+                .in_("issue_id", unique_issues)
+                .execute()
+            )
+
+            enrichment_blacklist = {"text_file", "alert_labels"}
+            data = [evidence.get("data") for evidence in res.data if evidence.get("enrichment_type") not in enrichment_blacklist]
+            return data
+
+        except:
+            logging.exception("failed to fetch workload issues data")
+            return []
