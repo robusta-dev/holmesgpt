@@ -52,3 +52,10 @@ Relevant logs:
 ```
 
 Validation error led to unhandled Java exception causing a crash.
+
+{% if alerts %}
+Here are issues and configuration changes that happend to this kubernetes workload in recent time. Check if these can help you understand the issue.
+{% for a in alerts %}
+{{ a }}
+{% endfor %}
+{% endif %}
