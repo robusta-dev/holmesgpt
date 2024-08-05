@@ -407,9 +407,30 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
+### Enabling Integrations
+
+<details>
+<summary>Confluence</summary>
+HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
+
+* CONFLUENCE_BASE_URL - e.g. https://robusta-dev-test.atlassian.net
+* CONFLUENCE_USER - e.g. user@company.com
+* CONFLUENCE_API_KEY - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+</details>
+
+<details>
+<summary>
+Jira, GitHub, OpsGenie, PagerDuty, and AlertManager
+</summary>
+
+HolmesGPT can pull tickets/alerts from each of these sources and investigate them.
+
+Refer to `holmes investigate jira --help` etc for details, or view the <a href="#examples">examples</a>.
+</details>
+
 ## Other Use Cases
 
-HolmesGPT is usually used for incident response, but it can function as a general-purpose DevOps assistant too. Here are some examples:
+HolmesGPT was designed for incident response, but it is a general DevOps assistant too. Here are some examples:
 
 <details>
 <summary>Ask Questions About Your Cloud</summary>
