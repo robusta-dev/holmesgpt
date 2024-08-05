@@ -42,7 +42,7 @@ Examples:
 
 User: Why did the webserver-example app crash?
 (Call tool kubectl_find_resource kind=pod keyword=webserver`)
-(Call tool kubectl_logs_previous namespace=demos pod=webserver-example-1299492-d9g9d # this pod name was found from the previous tool call)
+(Call tool kubectl_previous_logs namespace=demos pod=webserver-example-1299492-d9g9d # this pod name was found from the previous tool call)
 
 AI: `webserver-example-1299492-d9g9d` crashed due to email validation error during HTTP request for /api/create_user
 Relevant logs:
