@@ -7,7 +7,7 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATEE
-
+import jinja2
 import logging
 import uvicorn
 import colorlog
@@ -40,6 +40,18 @@ class InvestigateRequest(BaseModel):
     # response_handler: ...
 
 
+class WorkloadHealthRequest(BaseModel):
+    ask: str
+    resource: dict
+    alert_history_since_hours: float = 24
+    alert_history: bool = True
+    stored_instrucitons: bool = True
+    instructions: Optional[List[str]] = []
+    include_tool_calls: bool = False
+    include_tool_call_results: bool = False
+    prompt_template: str = "builtin://generic_ask.jinja2"
+
+
 def init_logging():
     logging_level = os.environ.get("LOG_LEVEL", "INFO")
     logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
@@ -67,11 +79,14 @@ config = Config.load_from_env()
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
     tool_calls: List[ToolCallResult] = []
+    instructions: List[str] = []
 
 
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     context = fetch_context_data(investigate_request.context)
+
+    instructions = dal.get_resource_instructions("alert", investigate_request.context.get("issue_type"))
     raw_data = investigate_request.model_dump()
     if context:
         raw_data["extra_context"] = context
@@ -88,11 +103,36 @@ def investigate_issues(investigate_request: InvestigateRequest):
         issue,
         prompt=load_prompt(investigate_request.prompt_template),
         console=console,
-        post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT
+        post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
+        instructions=instructions,
     )
+
     return InvestigationResult(
         analysis=investigation.result,
         tool_calls=investigation.tool_calls,
+        instructions=investigation.instructions
+    )
+
+
+@app.post("/api/workload_health_check")
+def workload_health_check(request: WorkloadHealthRequest):
+
+    workload_alerts: list[str] = []
+    if request.alert_history:
+       workload_alerts = dal.get_workload_issues(request.resource, request.alert_history_since_hours)
+
+    system_prompt = load_prompt(request.prompt_template)
+    system_prompt = jinja2.Environment().from_string(system_prompt)
+    system_prompt = system_prompt.render(alerts=workload_alerts)
+
+    ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+
+    ai_call = ai.call(system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT)
+
+    return InvestigationResult(
+        analysis=ai_call.result,
+        tool_calls=ai_call.tool_calls,
+        instructions=ai_call.instructions
     )
 
 
