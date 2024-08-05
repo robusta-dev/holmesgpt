@@ -31,6 +31,7 @@ class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
+    instructions: List[str] = []
 
     # TODO: clean up these two
     prompt: Optional[str] = None
@@ -238,11 +239,13 @@ class IssueInvestigator(ToolCallingLLM):
         self.runbook_manager = runbook_manager
 
     def investigate(
-        self, issue: Issue, prompt: str, console: Console, post_processing_prompt: Optional[str] = None
+        self, issue: Issue, prompt: str, console: Console, instructions: List[str] = [], post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
         environment = jinja2.Environment()
         system_prompt_template = environment.from_string(prompt)
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
+        runbooks.extend(instructions)
+
         if runbooks:
             console.print(
                 f"[bold]Analyzing with {len(runbooks)} runbooks: {runbooks}[/bold]"
@@ -259,4 +262,7 @@ class IssueInvestigator(ToolCallingLLM):
         logging.debug(
             "Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    ")
         )
-        return self.call(system_prompt, user_prompt, post_processing_prompt)
+
+        res = self.call(system_prompt, user_prompt, post_processing_prompt)
+        res.instructions = runbooks
+        return res

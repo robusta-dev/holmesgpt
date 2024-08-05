@@ -323,7 +323,7 @@ def alertmanager(
         console.print(
             f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
 
@@ -435,7 +435,7 @@ def jira(
         console.print(
             f"[bold yellow]Analyzing Jira ticket {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -524,7 +524,7 @@ def github(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -601,7 +601,7 @@ def pagerduty(
     results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -679,7 +679,7 @@ def opsgenie(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
