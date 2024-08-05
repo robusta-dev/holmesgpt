@@ -101,8 +101,8 @@ opt_verbose: Optional[bool] = typer.Option(
 )
 opt_echo_request: bool = typer.Option(
     True,
-    "--echo-request/--no-echo-request",
-    help="Include the query HolmesGPT was asked to investigate in the output",
+    "--echo/--no-echo",
+    help="Echo back the question provided to HolmesGPT in the output",
 )
 opt_destination: Optional[DestinationType] = typer.Option(
     DestinationType.CLI,
