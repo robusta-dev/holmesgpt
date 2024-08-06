@@ -118,7 +118,10 @@ class SupabaseDal:
             .filter("issue_id", "eq", issue_id)
             .execute()
         )
-        issue_data["evidence"] = evidence.data
+        enrichment_blacklist = {"text_file", "alert_labels", "ai_analysis", "holmes"}
+        data = [enrich for enrich in evidence.data if enrich.get("enrichment_type") not in enrichment_blacklist]
+
+        issue_data["evidence"] = data
         return issue_data
 
     def get_resource_instructions(self, type: str, name: str) -> List[str]:
@@ -182,7 +185,7 @@ class SupabaseDal:
                 .execute()
             )
 
-            enrichment_blacklist = {"text_file", "alert_labels"}
+            enrichment_blacklist = {"text_file", "alert_labels", "ai_analysis", "holmes"}
             data = [evidence.get("data") for evidence in res.data if evidence.get("enrichment_type") not in enrichment_blacklist]
             return data
 
