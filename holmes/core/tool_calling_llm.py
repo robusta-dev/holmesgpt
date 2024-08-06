@@ -59,9 +59,10 @@ class ToolCallingLLM:
 
     def check_llm(self, model, api_key):
         logging.debug(f"Checking LiteLLM model {model}")
-        # TODO: this is a hack to get around the fact that we can't pass in an api key to litellm.validate_environment 
+        # TODO: this WAS a hack to get around the fact that we can't pass in an api key to litellm.validate_environment 
         # so without this hack it always complains that the environment variable for the api key is missing
         # to fix that, we always set an api key in the standard format that litellm expects (which is ${PROVIDER}_API_KEY)
+        # TODO: we can now handle this better - see https://github.com/BerriAI/litellm/issues/4375#issuecomment-2223684750
         lookup = litellm.get_llm_provider(self.model)
         if not lookup:
             raise Exception(f"Unknown provider for model {model}")

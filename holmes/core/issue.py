@@ -20,7 +20,7 @@ class Issue(BaseModel):
     # Name of the issue - not necessarily unique  
     name: str                                      
 
-    # Source of the issue - e.g. Jira
+    # Source of the issue - e.g. jira
     source_type: str
 
     # Identifier for the instance of the source - e.g. Jira project key                                

@@ -51,7 +51,7 @@ class PagerDutySource(SourcePlugin):
         return Issue(
             id=source_issue["id"],
             name=source_issue["summary"],
-            source_type="PagerDuty",
+            source_type="pagerduty",
             source_instance_id=self.api_url,
             url=f"{source_issue['html_url']}",
             raw=source_issue,
