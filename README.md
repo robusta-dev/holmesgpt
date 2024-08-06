@@ -110,6 +110,77 @@ By default results are displayed in the CLI. Use `--update --pagerduty-user-emai
 ![PagerDuty](./images/pagerduty-holmes-update.png)
 </details>
 
+<details>
+<summary> Incident Investigation from K9s</summary>
+
+Integrate with K9s to investigate cluster issues fast. You can add HolmesGPT as a plugin in the K9s application and get instant root cause analysis.
+
+Add the following plugins to `$XDG_CONFIG_HOME/k9s/plugins.yaml`. Read more about K9s plugins [here](https://k9scli.io/topics/plugins/).
+
+**Note**: HolmesGPT must be installed and configured for the K9s HolmesGPT plugin to work.
+
+Basic plugin to run an investigation on any Kuberntes object with a pre defined command. Use the shortcut `Shift + H` 
+
+```yaml
+plugins:
+  holmesgpt:
+    shortCut: Shift-H 
+    description: Ask HolmesGPT 
+    scopes:
+      - all 
+    command: bash
+    background: false
+    confirm: false
+    args:
+      - -c
+      - |
+        holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+        echo "Press 'q' to exit"
+        while : ; do
+        read -n 1 k <&1
+        if [[ $k = q ]] ; then
+        break
+        fi
+        done
+```
+
+Custom HolmesGPT ask plugin allows you to customize the default question. Use the shortcut `Shift + O` on any K9s page to customize the question and exit the editor to start the investigation.
+```yaml
+plugins:
+  custom-holmesgpt:
+    shortCut: Shift-Q
+    description: Custom HolmesGPT Ask
+    scopes:
+      - all 
+    command: bash
+    background: false
+    confirm: false
+    args:
+      - -c
+      - |
+        INSTRUCTIONS="# Edit the line below. Lines starting with '#' will be ignored."
+        DEFAULT_ASK_COMMAND="why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+
+        echo "$INSTRUCTIONS" > temp-ask.txt
+        echo "$DEFAULT_ASK_COMMAND" >> temp-ask.txt
+
+        # Open the line in the default text editor
+        ${EDITOR:-nano} temp-ask.txt
+
+        # Read the modified line, ignoring lines starting with '#'
+        user_input=$(grep -v '^#' temp-ask.txt)
+
+        echo running: holmes ask "\"$user_input\""
+        holmes ask "$user_input"
+        echo "Press 'q' to exit"
+        while : ; do
+        read -n 1 k <&1
+        if [[ $k = q ]] ; then
+        break
+        fi
+        done
+```
+</details>
 
 Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
 
