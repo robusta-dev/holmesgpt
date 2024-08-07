@@ -55,7 +55,20 @@ toolsets:
     description: "Fetch the definition of a Prometheus target"
     command: "kubectl get --raw '/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets' | jq '.data.activeTargets[] | select(.labels.job == \"{{ target_name }}\")"
 
-- name: "kubernetes/extras"
+- name: "kubernetes/extras" # To make this work, install kube-lineage with krew
+  prerequisites:
+    - command: "kubectl version --client && kubectl lineage --version"
+  tools:
+  - name: "kubectl_lineage_children"
+    description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
+    command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
+  - name: "kubectl_lineage_parents"
+    description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
+    command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }} -D"
+
+- name: "kubernetes/extras" # To make this work, build kube-lineage from source
+  prerequisites:
+    - command: "kubectl version --client && kube-lineage --version"
   tools:
   - name: "kubectl_lineage_children"
     description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
