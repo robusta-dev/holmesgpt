@@ -29,7 +29,8 @@ toolsets:
     command: "kubectl logs {{ name}} -n {{ namespace }} --previous"
 
   - name: "kubernetes_coralogix_logs"
-    description: "Gets all the logs of a kubernetes pod in coralogix."
+    description: "Gets all the logs of a kubernetes pod in coralogix (Previous logs is not relevant if this is called)."
+    user_description: "fetching logs for pod {{ name}} from coralogix"
     command: "./holmes/extras/coralogix_pod_logs.sh {{ name}}"
 
   # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic 
