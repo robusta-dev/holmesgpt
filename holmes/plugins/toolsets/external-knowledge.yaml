@@ -1,0 +1,37 @@
+toolsets:
+- name: "confluence"
+  prerequisites:
+  - command: "curl --version"
+  - env:
+    - CONFLUENCE_USER
+    - CONFLUENCE_API_KEY
+    - CONFLUENCE_BASE_URL
+
+  tools:
+  - name: "fetch_confluence_url"
+    description: "Fetch a page in confluence.  Use this to fetch confluence runbooks if they are present before starting your investigation."
+    user_description: "fetch confluence page {{ confluence_page_id }}"
+    command: "curl -u ${CONFLUENCE_USER}:${CONFLUENCE_API_KEY} -X GET -H 'Content-Type: application/json' ${CONFLUENCE_BASE_URL}/wiki/rest/api/content/{{ confluence_page_id }}?expand=body.storage"
+
+- name: "internet"
+  prerequisites:
+  - command: "w3m -version"
+  tools:
+  - name: "fetch_webpage"
+    description: "Fetch a webpage with w3m. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)"
+    command: "w3m -dump {{ url }}"
+
+- name: "slab"
+  prerequisites:
+  - command: "curl --version"
+  - env:
+    - SLAB_API_KEY
+  tools:
+  - name: "fetch_slab_document"
+    description: "Fetch a document from slab. Use this to fetch runbooks if they are present before starting your investigation."
+    command: |
+      curl -X POST \
+        -H "Authorization: ${SLAB_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d '{"query":"query { post(id: \"{{ post_id }}\") { id title content } }"}' \
+        https://api.slab.com/v1/graphql

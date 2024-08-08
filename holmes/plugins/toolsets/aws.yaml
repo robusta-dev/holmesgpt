@@ -1,0 +1,78 @@
+toolsets:
+- name: "aws/security"
+  tools:
+  - name: "get_black_listed_events"
+    description: "Lists all the cloudtrail event names that the current user has flagged as suspicious"
+    user_description: "get suspicious events list from preferences"
+    script: |
+      #!/bin/bash
+      if [ -z $HOLMES_SUSPICIOUS_AWS_EVENTS ]; then
+        echo "DeleteLogStream StopLogging DeleteConfigRule DeleteDeliveryChannel DeleteEvaluationResults DeleteConfigurationRecorder DeleteVpcEndpoints"
+      else
+        echo "$HOLMES_SUSPICIOUS_AWS_EVENTS"
+      fi
+
+  - name: "aws_event_lookup"
+    description: "Fetches events of a specified type from AWS CloudTrail along with the users that called them"
+    user_description: "get {{ EVENT_NAME }} events"
+    command: |
+      echo "EventName,EventId,EventTime,Username,AccessKeyId,ip,userID"
+      aws cloudtrail lookup-events \
+        --lookup-attributes AttributeKey=EventName,AttributeValue="{{ EVENT_NAME }}" \
+        --start-time $(date -v -7d -u +%Y-%m-%dT%H:%M:%SZ) \
+        --end-time $(date -u +%Y-%m-%dT%H:%M:%SZ) \
+        --query 'Events[*].{EventName:EventName,EventId:EventId,EventTime:EventTime,Username:Username,AccessKeyId:AccessKeyId,ip:CloudTrailEvent.sourceIPAddress,userID:CloudTrailEvent.userIdentity.sessionContext.sessionIssuer.userName}' \
+        --output table
+
+  - name: "aws_event_details"
+    description: "Fetches and returns full event details in JSON format given an event ID"
+    user_description: "looking up event {{ EVENT_ID }}"
+    command: |
+      aws cloudtrail lookup-events \
+          --lookup-attributes AttributeKey=EventId,AttributeValue="{{ EVENT_ID }}" \
+          --query 'Events[0]' --output json
+
+  - name: "aws_user_audit_logs"
+    description: "Fetches audit logs for a specified user from AWS CloudTrail in past 24 hours. Provide username as was outputed by aws_event_lookup or aws_event_details"
+    user_description: "get audit logs for {{ UserName }}"
+    command: |
+      aws cloudtrail lookup-events \
+        --lookup-attributes AttributeKey=Username,AttributeValue="{{ UserName }}" \
+        --start-time $(date -v -1d -u +%Y-%m-%dT%H:%M:%SZ) \
+        --end-time $(date -u +%Y-%m-%dT%H:%M:%SZ) \
+        --query 'Events[*].{EventName:EventName,EventSource:EventSource,EventId:EventId,EventTime:EventTime,Username:Username,AccessKeyId:AccessKeyId,ip:CloudTrailEvent.sourceIPAddress,userID:CloudTrailEvent.userIdentity.sessionContext.sessionIssuer.userName}' \
+        --output table
+
+- name: "aws/rds"
+  tools:
+  - name: "aws_rds_analyse"
+    description: "Analyses aws RDS for any issues using cloudwatch metrics DatabaseConnections and CPUUtilization"
+    user_description: "fetch rds cpu and connection count"
+    command: "python ./holmes/extras/rds_analyse.py"
+
+  - name: "aws_rds_describe_events"
+    description: "Runs aws rds describe-events"
+    user_description: "fetch rds events"
+    command: "aws rds describe-events"
+
+  - name: "aws_rds_describe_instances"
+    description: "Runs aws rds describe-db-instances"
+    user_description: "fetch rds instances"
+    command: "aws rds describe-db-instances"
+
+  - name: "aws_rds_describe_logs"
+    description: "Describe all available logs for an AWS RDS instance."
+    user_description: "list available logs"
+    command: "aws rds describe-db-log-files --db-instance-identifier '{{ db_instance_identifier }}'"
+
+  - name: "aws_rds_fetch_log_by_name"
+    description: "Fetch a specific log for an AWS RDS instance by log file name."
+    user_description: "fetch a specific log"
+    command: "aws rds download-db-log-file-portion --db-instance-identifier '{{ db_instance_identifier }}' --log-file-name '{{ log_file_name }}' --starting-token 0"
+    
+- name: "aws/monitoring"
+  tools:
+  - name: "aws_get_alarms"
+    description: "Lists all cloudwatch alarms, will say OK if they are not firing"
+    command: "python ./holmes/extras/get_cloudwatch_alarms.py"
+    
