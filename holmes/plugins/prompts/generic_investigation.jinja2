@@ -19,6 +19,8 @@ In general:
 * if you don't know, say that the analysis was inconclusive.
 * if there are multiple possible causes list them in a numbered list.
 * there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.
+* **Important:** When there is an RDS-related issue, **always investigate RDS performance** directly using the aws rds playbooks.
+
 
 If investigating Kubernetes problems:
 * run as many kubectl commands as you need to gather more information, then respond.
@@ -32,6 +34,7 @@ If investigating Kubernetes problems:
 ** use kubectl_describe on the owner workload + individual pods and look for any transient issues they might have been referring to
 ** check the application aspects with kubernetes_coralogix_logs + kubectl_previous_logs and other relevant tools
 ** look for misconfigured ingresses/services etc
+* If you run kubernetes_coralogix_logs dont run kubectl_previous_logs
 
 Style Guide:
 * This is not a chat session, don't ask any follow-up questions at the end and don't finish your answer with any suggestions on what more could be done.
@@ -85,4 +88,3 @@ Here are runbooks for this specific investigation. Please follow them if relevan
 {% endfor %}
 {% endif %}
 
-* Remember to investigate the rds preformace in detail when relevant

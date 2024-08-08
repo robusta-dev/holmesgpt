@@ -643,6 +643,7 @@ def opsgenie(
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[bool] = opt_verbose,
+    json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -677,6 +678,7 @@ def opsgenie(
     console.print(
         f"[bold yellow]Analyzing {len(issues)} OpsGenie alerts.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
+    results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
         result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
@@ -693,7 +695,11 @@ def opsgenie(
             console.print(
                 f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
             )
+        results.append({"issue": issue.model_dump(), "result": result.model_dump()})
 
+    if json_output_file:
+        write_json_file(json_output_file, results)
+        
 
 @app.command()
 def version() -> None:

@@ -29,7 +29,7 @@ curl --location 'https://ng-api-http.eu2.coralogix.com/api/v1/dataprime/query' \
 --header "Authorization: Bearer $TOKEN" \
 --header 'Content-Type: application/json' \
 --data "{
-  \"query\": \"source logs | lucene 'coralogix.metadata.applicationName:$POD_NAME' | limit 300\",
+  \"query\": \"source logs | lucene 'coralogix.metadata.applicationName:$POD_NAME' | limit 400\",
   \"metadata\": {
         \"syntax\": \"QUERY_SYNTAX_DATAPRIME\",
         \"startDate\": \"$START_DATE\",
