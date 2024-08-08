@@ -28,9 +28,9 @@ toolsets:
     description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash. Never give a deployment name or a resource that is not a pod."
     command: "kubectl logs {{ name}} -n {{ namespace }} --previous"
 
-  - name: "kubectl_logs"
-    description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
-    command: "kubectl logs {{ name}} -n {{ namespace }}"
+  - name: "kubernetes_coralogix_logs"
+    description: "Gets all the logs of a kubernetes pod in coralogix."
+    command: "./holmes/extras/coralogix_pod_logs.sh {{ name}}"
 
   # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic 
   # http GET capabilities which are more powerful than we want to expose
