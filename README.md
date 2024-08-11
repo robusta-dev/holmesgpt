@@ -111,15 +111,15 @@ By default results are displayed in the CLI. Use `--update --pagerduty-user-emai
 </details>
 
 <details>
-<summary> Incident Investigation from K9s</summary>
+<summary>K9s Plugin</summary>
 
-Integrate with K9s to investigate cluster issues fast. You can add HolmesGPT as a plugin in the K9s application and get instant root cause analysis.
+You can add HolmesGPT as a plugin for K9s to investigate why any Kubernetes resource is unhealthy.
 
-Add the following plugins to `$XDG_CONFIG_HOME/k9s/plugins.yaml`. Read more about K9s plugins [here](https://k9scli.io/topics/plugins/).
+Add the following contents to the K9s plugin file, typically `~/.config/k9s/plugins.yaml` on Linux and `~/Library/Application Support/k9s/plugins.yaml` on Mac .Read more about K9s plugins [here](https://k9scli.io/topics/plugins/) and check your plugin path [here](https://github.com/derailed/k9s?tab=readme-ov-file#k9s-configuration).
 
-**Note**: HolmesGPT must be installed and configured for the K9s HolmesGPT plugin to work.
+**Note**: HolmesGPT must be installed and configured for the K9s plugin to work.
 
-Basic plugin to run an investigation on any Kuberntes object with a pre defined command. Use the shortcut `Shift + H` 
+Basic plugin to run an investigation on any Kubernetes object, using the shortcut `Shift + H` 
 
 ```yaml
 plugins:
@@ -144,7 +144,7 @@ plugins:
         done
 ```
 
-Custom HolmesGPT ask plugin allows you to customize the default question. Use the shortcut `Shift + O` on any K9s page to customize the question and exit the editor to start the investigation.
+Advanced plugin that lets you modify the questions HolmesGPT asks about the LLM, using the shortcut `Shift + O`. (E.g. you can change the question to "generate an HPA for this deployment" and the AI will follow those instructions and output an HPA configuration.)
 ```yaml
 plugins:
   custom-holmesgpt:
