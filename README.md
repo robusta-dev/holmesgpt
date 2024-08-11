@@ -115,11 +115,11 @@ By default results are displayed in the CLI. Use `--update --pagerduty-user-emai
 
 You can add HolmesGPT as a plugin for K9s to investigate why any Kubernetes resource is unhealthy.
 
-Add the following contents to the K9s plugin file, typically `~/.config/k9s/plugins.yaml` on Linux and `~/Library/Application Support/k9s/plugins.yaml` on Mac .Read more about K9s plugins [here](https://k9scli.io/topics/plugins/) and check your plugin path [here](https://github.com/derailed/k9s?tab=readme-ov-file#k9s-configuration).
+Add the following contents to the K9s plugin file, typically `~/.config/k9s/plugins.yaml` on Linux and `~/Library/Application Support/k9s/plugins.yaml` on Mac. Read more about K9s plugins [here](https://k9scli.io/topics/plugins/) and check your plugin path [here](https://github.com/derailed/k9s?tab=readme-ov-file#k9s-configuration).
 
 **Note**: HolmesGPT must be installed and configured for the K9s plugin to work.
 
-Basic plugin to run an investigation on any Kubernetes object, using the shortcut `Shift + H` 
+Basic plugin to run an investigation on any Kubernetes object, using the shortcut `Shift + H`:
 
 ```yaml
 plugins:
