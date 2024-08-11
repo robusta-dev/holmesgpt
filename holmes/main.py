@@ -699,8 +699,10 @@ def opsgenie(
 def version() -> None:
     typer.echo(get_version())
 
+
 def run():
     app()
+
 
 if __name__ == "__main__":
     run()
