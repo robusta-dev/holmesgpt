@@ -1,6 +1,7 @@
 import boto3
 from datetime import datetime, timedelta
 import re
+import sys
 
 def fetch_and_analyze_slow_query_log(db_instance_identifier, start_time, end_time):
     client = boto3.client('rds', region_name="us-east-2")
@@ -109,7 +110,11 @@ def get_rds_logs(db_instance_identifier, log_file_name):
     return '\n'.join(response['LogFileData'].splitlines()[:lines_to_print])
 
 if __name__ == "__main__":
-    db_instance_identifier = 'promotions-db'
+    if len(sys.argv) != 2:
+        print("Usage: python your_script.py <db_instance_identifier>")
+        sys.exit(1)
+
+    db_instance_identifier = sys.argv[1]
 
     # Step 1: Fetch CPU utilization
     end_time = datetime.utcnow()

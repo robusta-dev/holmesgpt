@@ -48,7 +48,7 @@ toolsets:
   - name: "aws_rds_analyse"
     description: "Analyses aws RDS for any issues using cloudwatch metrics DatabaseConnections and CPUUtilization"
     user_description: "fetch rds cpu and connection count"
-    command: "python ./holmes/extras/rds_analyse.py"
+    command: "python ./holmes/extras/rds_analyse.py {{ db_instance_identifier }}"
 
   - name: "aws_rds_describe_events"
     description: "Runs aws rds describe-events"
