@@ -14,8 +14,8 @@ import colorlog
 
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import List, Union, Dict, Any, Optional
-
-from fastapi import FastAPI
+from litellm.exceptions import AuthenticationError
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from rich.console import Console
 
@@ -84,56 +84,63 @@ class InvestigationResult(BaseModel):
 
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
-    context = fetch_context_data(investigate_request.context)
+    try:
+        context = fetch_context_data(investigate_request.context)
 
-    instructions = dal.get_resource_instructions("alert", investigate_request.context.get("issue_type"))
-    raw_data = investigate_request.model_dump()
-    if context:
-        raw_data["extra_context"] = context
+        instructions = dal.get_resource_instructions("alert", investigate_request.context.get("issue_type"))
+        raw_data = investigate_request.model_dump()
+        if context:
+            raw_data["extra_context"] = context
 
-    ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
-    issue = Issue(
-        id=context['id'] if context else "",
-        name=investigate_request.title,
-        source_type=investigate_request.source,
-        source_instance_id=investigate_request.source_instance_id,
-        raw=raw_data,
-    )
-    investigation = ai.investigate(
-        issue,
-        prompt=load_prompt(investigate_request.prompt_template),
-        console=console,
-        post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
-        instructions=instructions,
-    )
+        ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        issue = Issue(
+            id=context['id'] if context else "",
+            name=investigate_request.title,
+            source_type=investigate_request.source,
+            source_instance_id=investigate_request.source_instance_id,
+            raw=raw_data,
+        )
+        investigation = ai.investigate(
+            issue,
+            prompt=load_prompt(investigate_request.prompt_template),
+            console=console,
+            post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
+            instructions=instructions,
+        )
 
-    return InvestigationResult(
-        analysis=investigation.result,
-        tool_calls=investigation.tool_calls,
-        instructions=investigation.instructions
-    )
+        return InvestigationResult(
+            analysis=investigation.result,
+            tool_calls=investigation.tool_calls,
+            instructions=investigation.instructions
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
 
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
 
-    workload_alerts: list[str] = []
-    if request.alert_history:
-       workload_alerts = dal.get_workload_issues(request.resource, request.alert_history_since_hours)
+    try:
+        workload_alerts: list[str] = []
+        if request.alert_history:
+            workload_alerts = dal.get_workload_issues(request.resource, request.alert_history_since_hours)
 
-    system_prompt = load_prompt(request.prompt_template)
-    system_prompt = jinja2.Environment().from_string(system_prompt)
-    system_prompt = system_prompt.render(alerts=workload_alerts)
+        system_prompt = load_prompt(request.prompt_template)
+        system_prompt = jinja2.Environment().from_string(system_prompt)
+        system_prompt = system_prompt.render(alerts=workload_alerts)
 
-    ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
-    ai_call = ai.call(system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT)
+        ai_call = ai.call(system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT)
 
-    return InvestigationResult(
-        analysis=ai_call.result,
-        tool_calls=ai_call.tool_calls,
-        instructions=ai_call.instructions
-    )
+        return InvestigationResult(
+            analysis=ai_call.result,
+            tool_calls=ai_call.tool_calls,
+            instructions=ai_call.instructions
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+
 
 
 def fetch_context_data(context: Dict[str, Any]) -> dict:
