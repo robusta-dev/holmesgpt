@@ -85,7 +85,7 @@ class InvestigationResult(BaseModel):
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
-        context = fetch_context_data(investigate_request.context)
+        context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 
         instructions = dal.get_resource_instructions("alert", investigate_request.context.get("issue_type"))
         raw_data = investigate_request.model_dump()
@@ -139,16 +139,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             instructions=ai_call.instructions
         )
     except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=e.message)
-
-
-
-def fetch_context_data(context: Dict[str, Any]) -> dict:
-    for context_item in context.keys():
-        if context_item == "robusta_issue_id":
-            # Note we only accept a single robusta_issue_id. I don't think it
-            # makes sense to have several of them in the context structure.
-            return dal.get_issue_data(context[context_item])
+        raise HTTPException(status_code=401, detail=e.message)          
 
 
 if __name__ == "__main__":
