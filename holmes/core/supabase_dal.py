@@ -118,7 +118,7 @@ class SupabaseDal:
             .filter("issue_id", "eq", issue_id)
             .execute()
         )
-        enrichment_blacklist = {"text_file", "ai_analysis", "holmes"}
+        enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
         data = [enrich for enrich in evidence.data if enrich.get("enrichment_type") not in enrichment_blacklist]
 
         issue_data["evidence"] = data
@@ -185,7 +185,7 @@ class SupabaseDal:
                 .execute()
             )
 
-            enrichment_blacklist = {"text_file", "ai_analysis", "holmes"}
+            enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
             data = [evidence.get("data") for evidence in res.data if evidence.get("enrichment_type") not in enrichment_blacklist]
             return data
 
