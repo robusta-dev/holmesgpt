@@ -387,6 +387,13 @@ To work with Azure AI, you need to provide the below variables:
 
 </details>
 
+**Trusting custom Certificate Authority (CA) certificate:**
+
+If your llm provider url uses a certificate from a custom CA, in order to trust it, base-64 encode the certificate, and store it in an environment variable named ``CERTIFICATE``
+
+
+
+
 ### Getting an API Key
 
 HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
