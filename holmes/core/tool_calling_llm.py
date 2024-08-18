@@ -254,8 +254,16 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = system_prompt_template.render(issue=issue, runbooks=runbooks)
-        user_prompt = f"{issue.raw}"
+        system_prompt = system_prompt_template.render(issue=issue)
+
+        user_prompt = ""
+        if runbooks:
+            for i in runbooks:
+                user_prompt += f"* {i}\n"
+
+            user_prompt = f'My instructions to check \n"""{user_prompt}"""'
+
+        user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
         logging.debug(
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )
