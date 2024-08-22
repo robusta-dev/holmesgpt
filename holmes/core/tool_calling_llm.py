@@ -15,6 +15,7 @@ from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from pydantic import BaseModel
 from rich.console import Console
+from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
@@ -55,6 +56,11 @@ class ToolCallingLLM:
         self.max_steps = max_steps
         self.model = model
         self.api_key = api_key
+        self.base_url = None
+
+        if ROBUSTA_AI:
+            self.base_url = ROBUSTA_API_ENDPOINT
+            self.model = f"openai/{self.model}"
 
         self.check_llm(self.model, self.api_key)
 
@@ -105,6 +111,7 @@ class ToolCallingLLM:
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
+                    base_url=self.base_url,
                     temperature=0.00000001
                 )
                 logging.debug(f"got response {full_response}")
