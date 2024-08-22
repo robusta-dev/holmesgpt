@@ -115,11 +115,11 @@ By default results are displayed in the CLI. Use `--update --pagerduty-user-emai
 
 You can add HolmesGPT as a plugin for K9s to investigate why any Kubernetes resource is unhealthy.
 
-Add the following contents to the K9s plugin file, typically `~/.config/k9s/plugins.yaml` on Linux and `~/Library/Application Support/k9s/plugins.yaml` on Mac .Read more about K9s plugins [here](https://k9scli.io/topics/plugins/) and check your plugin path [here](https://github.com/derailed/k9s?tab=readme-ov-file#k9s-configuration).
+Add the following contents to the K9s plugin file, typically `~/.config/k9s/plugins.yaml` on Linux and `~/Library/Application Support/k9s/plugins.yaml` on Mac. Read more about K9s plugins [here](https://k9scli.io/topics/plugins/) and check your plugin path [here](https://github.com/derailed/k9s?tab=readme-ov-file#k9s-configuration).
 
 **Note**: HolmesGPT must be installed and configured for the K9s plugin to work.
 
-Basic plugin to run an investigation on any Kubernetes object, using the shortcut `Shift + H` 
+Basic plugin to run an investigation on any Kubernetes object, using the shortcut `Shift + H`:
 
 ```yaml
 plugins:
@@ -160,17 +160,18 @@ plugins:
       - |
         INSTRUCTIONS="# Edit the line below. Lines starting with '#' will be ignored."
         DEFAULT_ASK_COMMAND="why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+        QUESTION_FILE=$(mktemp)
 
-        echo "$INSTRUCTIONS" > temp-ask.txt
-        echo "$DEFAULT_ASK_COMMAND" >> temp-ask.txt
+        echo "$INSTRUCTIONS" > "$QUESTION_FILE"
+        echo "$DEFAULT_ASK_COMMAND" >> "$QUESTION_FILE"
 
         # Open the line in the default text editor
-        ${EDITOR:-nano} temp-ask.txt
+        ${EDITOR:-nano} "$QUESTION_FILE"
 
         # Read the modified line, ignoring lines starting with '#'
-        user_input=$(grep -v '^#' temp-ask.txt)
-
+        user_input=$(grep -v '^#' "$QUESTION_FILE")
         echo running: holmes ask "\"$user_input\""
+  
         holmes ask "$user_input"
         echo "Press 'q' to exit"
         while : ; do
@@ -386,6 +387,13 @@ To work with Azure AI, you need to provide the below variables:
 
 </details>
 
+**Trusting custom Certificate Authority (CA) certificate:**
+
+If your llm provider url uses a certificate from a custom CA, in order to trust it, base-64 encode the certificate, and store it in an environment variable named ``CERTIFICATE``
+
+
+
+
 ### Getting an API Key
 
 HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
@@ -478,9 +486,30 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
+### Enabling Integrations
+
+<details>
+<summary>Confluence</summary>
+HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
+
+* CONFLUENCE_BASE_URL - e.g. https://robusta-dev-test.atlassian.net
+* CONFLUENCE_USER - e.g. user@company.com
+* CONFLUENCE_API_KEY - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+</details>
+
+<details>
+<summary>
+Jira, GitHub, OpsGenie, PagerDuty, and AlertManager
+</summary>
+
+HolmesGPT can pull tickets/alerts from each of these sources and investigate them.
+
+Refer to `holmes investigate jira --help` etc for details, or view the <a href="#examples">examples</a>.
+</details>
+
 ## Other Use Cases
 
-HolmesGPT is usually used for incident response, but it can function as a general-purpose DevOps assistant too. Here are some examples:
+HolmesGPT was designed for incident response, but it is a general DevOps assistant too. Here are some examples:
 
 <details>
 <summary>Ask Questions About Your Cloud</summary>

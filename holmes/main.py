@@ -1,5 +1,13 @@
-# from holmes.ssh_utils import add_custom_certificate
-# add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
+import os
+from holmes.utils.cert_utils import add_custom_certificate
+
+ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
+if add_custom_certificate(ADDITIONAL_CERTIFICATE):
+    print("added custom certificate")
+
+# DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
+# IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
+
 
 import socket
 import uuid
@@ -99,6 +107,11 @@ opt_verbose: Optional[bool] = typer.Option(
     "-v",
     help="Verbose output",
 )
+opt_echo_request: bool = typer.Option(
+    True,
+    "--echo/--no-echo",
+    help="Echo back the question provided to HolmesGPT in the output",
+)
 opt_destination: Optional[DestinationType] = typer.Option(
     DestinationType.CLI,
     "--destination",
@@ -192,6 +205,7 @@ def ask(
         help="File to append to prompt (can specify -f multiple times to add multiple files)",
     ),
     json_output_file: Optional[str] = opt_json_output_file,
+    echo_request: bool = opt_echo_request,
     post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
@@ -209,7 +223,8 @@ def ask(
     )
     system_prompt = load_prompt(system_prompt)
     ai = config.create_toolcalling_llm(console, allowed_toolsets)
-    console.print("[bold yellow]User:[/bold yellow] " + prompt)
+    if echo_request:
+        console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
         f = path.open("r")
         prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
