@@ -31,6 +31,7 @@ class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
+    instructions: List[str] = []
 
     # TODO: clean up these two
     prompt: Optional[str] = None
@@ -239,11 +240,13 @@ class IssueInvestigator(ToolCallingLLM):
         self.runbook_manager = runbook_manager
 
     def investigate(
-        self, issue: Issue, prompt: str, console: Console, post_processing_prompt: Optional[str] = None
+        self, issue: Issue, prompt: str, console: Console, instructions: List[str] = [], post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
         environment = jinja2.Environment()
         system_prompt_template = environment.from_string(prompt)
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
+        runbooks.extend(instructions)
+
         if runbooks:
             console.print(
                 f"[bold]Analyzing with {len(runbooks)} runbooks: {runbooks}[/bold]"
@@ -252,12 +255,23 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = system_prompt_template.render(issue=issue, runbooks=runbooks)
-        user_prompt = f"{issue.raw}"
+        system_prompt = system_prompt_template.render(issue=issue)
+
+        user_prompt = ""
+        if runbooks:
+            for i in runbooks:
+                user_prompt += f"* {i}\n"
+
+            user_prompt = f'My instructions to check \n"""{user_prompt}"""'
+
+        user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
         logging.debug(
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )
         logging.debug(
             "Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    ")
         )
-        return self.call(system_prompt, user_prompt, post_processing_prompt)
+
+        res = self.call(system_prompt, user_prompt, post_processing_prompt)
+        res.instructions = runbooks
+        return res

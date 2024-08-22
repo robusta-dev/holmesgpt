@@ -1,9 +1,7 @@
-import logging
-import textwrap
 from typing import List
 from holmes.core.issue import Issue
 from holmes.plugins.runbooks import Runbook
-import jinja2
+
 
 # TODO: our default prompt has a lot of kubernetes specific stuff - see if we can get that into the runbook
 class RunbookManager:
