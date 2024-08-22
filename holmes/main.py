@@ -347,14 +347,14 @@ def generate_alertmanager_tests(
     alertmanager_password: Optional[str] = typer.Option(
         None, help="Password to use for basic auth"
     ),
-    output: Path = typer.Option(
-        ..., help="Path to dump alertmanager alerts"
+    output: Optional[Path] = typer.Option(
+        None, help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)"
     ),
     config_file: Optional[str] = opt_config_file,
     verbose: Optional[bool] = opt_verbose,
 ):
     """
-    Connect to alertmanager and dump all alerts to a file that you can use for creating tests
+    Connect to alertmanager and dump all alerts as either a json file or curl commands to simulate the alert (depending on --output flag)
     """
     console = init_logging(verbose)
     config = Config.load_from_file(
@@ -365,7 +365,10 @@ def generate_alertmanager_tests(
     )
 
     source = config.create_alertmanager_source()
-    source.dump_raw_alerts_to_file(output)
+    if output is None:
+        source.output_curl_commands(console)
+    else:
+        source.dump_raw_alerts_to_file(output)
 
 
 @investigate_app.command()
