@@ -25,6 +25,10 @@ from holmes.config import Config
 from holmes.core.issue import Issue
 from holmes.plugins.prompts import load_prompt
 
+import uuid
+import jinja2
+import textwrap
+
 
 class InvestigateRequest(BaseModel):
     source: str  # "prometheus" etc
@@ -38,6 +42,45 @@ class InvestigateRequest(BaseModel):
     prompt_template: str = "builtin://generic_investigation.jinja2"
     # TODO in the future
     # response_handler: ...
+
+
+class IssueInvestigationResult(BaseModel):
+    """
+    :var result: A dictionary containing the summary of the issue investigation.
+    :var tools: A list of dictionaries where each dictionary contains information
+                about the tool, its name, description and output.
+    
+    It is based on the holmes investigation saved to Evidence table. 
+    """
+    result: str
+    tools: list[dict]
+
+
+class HolmesConversationHistory(BaseModel):
+    """
+    """
+    id: str
+    ask: str
+    answer: IssueInvestigationResult
+
+
+class HolmesConversationIssueContext(BaseModel):
+    investigation_result: IssueInvestigationResult
+    conversation_history: list[HolmesConversationHistory]
+    issue_type: str
+    robusta_issue_id: str
+    source: str
+
+
+class ConversationRequest(BaseModel):
+    user_prompt: str
+    source: str
+    resource: dict
+    conversation_type: str
+    context: HolmesConversationIssueContext
+    include_tool_calls: bool = False
+    include_tool_call_results: bool = False
+    prompt_template: str = "builtin://generic_ask_for_issue_conversation.jinja2"
 
 
 def init_logging():
@@ -68,6 +111,10 @@ class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
     tool_calls: List[ToolCallResult] = []
 
+class ConversationInvestigationResult(BaseModel):
+    analysis: Optional[str] = None
+    tool_calls: List[ToolCallResult] = []
+    id: str
 
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
@@ -94,6 +141,26 @@ def investigate_issues(investigate_request: InvestigateRequest):
         analysis=investigation.result,
         tool_calls=investigation.tool_calls,
     )
+
+
+@app.post("/api/conversation")
+def investigate_issues(follow_up_request: ConversationRequest):
+    ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+    system_prompt = load_prompt(follow_up_request.prompt_template)
+    environment = jinja2.Environment()
+    system_prompt_template = environment.from_string(system_prompt)
+    system_prompt = system_prompt_template.render(investigation=follow_up_request.context.investigation_result.result, 
+                                                  tools_called_for_investigation=follow_up_request.context.investigation_result.tools,
+                                                  conversation_history=follow_up_request.context.conversation_history)
+    
+    investigation = ai.call(system_prompt, follow_up_request.user_prompt)
+    
+    return InvestigationResult(
+        analysis=investigation.result,
+        tool_calls=investigation.tool_calls,
+        id=uuid.uuid4()
+    )
+
 
 
 def fetch_context_data(context: Dict[str, Any]) -> dict:

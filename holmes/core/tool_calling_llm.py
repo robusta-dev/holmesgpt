@@ -1,11 +1,9 @@
 import concurrent.futures
-import datetime
-import time
 import json
 import logging
 import textwrap
 import os
-from typing import Dict, List, Optional
+from typing import List, Optional
 from holmes.plugins.prompts import load_prompt
 
 import litellm

@@ -3,7 +3,7 @@ import os
 ALLOWED_TOOLSETS = os.environ.get('ALLOWED_TOOLSETS', '*')
 HOLMES_HOST = os.environ.get('HOLMES_HOST', '0.0.0.0')
 HOLMES_PORT = int(os.environ.get('HOLMES_PORT', 5050))
-ROBUSTA_CONFIG_PATH = os.environ.get('ROBUSTA_CONFIG_PATH', "/etc/robusta/config/active_playbooks.yaml")
+ROBUSTA_CONFIG_PATH = os.environ.get('ROBUSTA_CONFIG_PATH', "/home/itisallgood/Documents/robusta/robusta/deployment/playbooks/active_playbooks.yaml")
 
 ROBUSTA_ACCOUNT_ID = os.environ.get("ROBUSTA_ACCOUNT_ID", "")
 STORE_URL = os.environ.get("STORE_URL", "")
