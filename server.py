@@ -7,15 +7,15 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATEE
-
+import jinja2
 import logging
 import uvicorn
 import colorlog
 
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import List, Union, Dict, Any, Optional
-
-from fastapi import FastAPI
+from litellm.exceptions import AuthenticationError
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from rich.console import Console
 
@@ -83,6 +83,18 @@ class ConversationRequest(BaseModel):
     prompt_template: str = "builtin://generic_ask_for_issue_conversation.jinja2"
 
 
+class WorkloadHealthRequest(BaseModel):
+    ask: str
+    resource: dict
+    alert_history_since_hours: float = 24
+    alert_history: bool = True
+    stored_instrucitons: bool = True
+    instructions: Optional[List[str]] = []
+    include_tool_calls: bool = False
+    include_tool_call_results: bool = False
+    prompt_template: str = "builtin://generic_ask.jinja2"
+
+
 def init_logging():
     logging_level = os.environ.get("LOG_LEVEL", "INFO")
     logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
@@ -110,65 +122,99 @@ config = Config.load_from_env()
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
     tool_calls: List[ToolCallResult] = []
+    instructions: List[str] = []
+
 
 class ConversationInvestigationResult(BaseModel):
     analysis: Optional[str] = None
     tool_calls: List[ToolCallResult] = []
     id: str
 
+
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
-    context = fetch_context_data(investigate_request.context)
-    raw_data = investigate_request.model_dump()
-    if context:
-        raw_data["extra_context"] = context
+    try:
+        context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 
-    ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
-    issue = Issue(
-        id=context['id'] if context else "",
-        name=investigate_request.title,
-        source_type=investigate_request.source,
-        source_instance_id=investigate_request.source_instance_id,
-        raw=raw_data,
-    )
-    investigation = ai.investigate(
-        issue,
-        prompt=load_prompt(investigate_request.prompt_template),
-        console=console,
-        post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT
-    )
-    return InvestigationResult(
-        analysis=investigation.result,
-        tool_calls=investigation.tool_calls,
-    )
+        instructions = dal.get_resource_instructions("alert", investigate_request.context.get("issue_type"))
+        raw_data = investigate_request.model_dump()
+        if context:
+            raw_data["extra_context"] = context
+
+        ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        issue = Issue(
+            id=context['id'] if context else "",
+            name=investigate_request.title,
+            source_type=investigate_request.source,
+            source_instance_id=investigate_request.source_instance_id,
+            raw=raw_data,
+        )
+        investigation = ai.investigate(
+            issue,
+            prompt=load_prompt(investigate_request.prompt_template),
+            console=console,
+            post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
+            instructions=instructions,
+        )
+
+        return InvestigationResult(
+            analysis=investigation.result,
+            tool_calls=investigation.tool_calls,
+            instructions=investigation.instructions
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+
+
+@app.post("/api/workload_health_check")
+def workload_health_check(request: WorkloadHealthRequest):
+
+    try:
+        workload_alerts: list[str] = []
+        if request.alert_history:
+            workload_alerts = dal.get_workload_issues(request.resource, request.alert_history_since_hours)
+
+        system_prompt = load_prompt(request.prompt_template)
+        system_prompt = jinja2.Environment().from_string(system_prompt)
+        system_prompt = system_prompt.render(alerts=workload_alerts)
+
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+
+        ai_call = ai.call(system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT)
+
+        return InvestigationResult(
+            analysis=ai_call.result,
+            tool_calls=ai_call.tool_calls,
+            instructions=ai_call.instructions
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)          
 
 
 @app.post("/api/conversation")
 def investigate_issues(follow_up_request: ConversationRequest):
-    ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
-    system_prompt = load_prompt(follow_up_request.prompt_template)
-    environment = jinja2.Environment()
-    system_prompt_template = environment.from_string(system_prompt)
-    system_prompt = system_prompt_template.render(investigation=follow_up_request.context.investigation_result.result, 
-                                                  tools_called_for_investigation=follow_up_request.context.investigation_result.tools,
-                                                  conversation_history=follow_up_request.context.conversation_history)
+    try:
+
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        
+        system_prompt = load_prompt(follow_up_request.prompt_template)
+        environment = jinja2.Environment()
+        system_prompt_template = environment.from_string(system_prompt)
+        system_prompt = system_prompt_template.render(
+            investigation=follow_up_request.context.investigation_result.result, 
+            tools_called_for_investigation=follow_up_request.context.investigation_result.tools,
+            conversation_history=follow_up_request.context.conversation_history
+            )
     
-    investigation = ai.call(system_prompt, follow_up_request.user_prompt)
+        investigation = ai.call(system_prompt, follow_up_request.user_prompt)
     
-    return InvestigationResult(
-        analysis=investigation.result,
-        tool_calls=investigation.tool_calls,
-        id=uuid.uuid4()
-    )
-
-
-
-def fetch_context_data(context: Dict[str, Any]) -> dict:
-    for context_item in context.keys():
-        if context_item == "robusta_issue_id":
-            # Note we only accept a single robusta_issue_id. I don't think it
-            # makes sense to have several of them in the context structure.
-            return dal.get_issue_data(context[context_item])
+        return InvestigationResult(
+            analysis=investigation.result,
+            tool_calls=investigation.tool_calls,
+            id=uuid.uuid4()
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@ Do not say 'based on the tool output' or explicitly refer to tools at all.
 
 Provide an excruciatingly terse analysis of the following {{ issue.source_type }} alert/issue and why it is firing.
 
+If the user provides you with extra instructions in a triple quotes section, ALWAYS perform their instructions and then perform your investigation.
+
 In general:
 * when it can provide extra information, first run as many tools as you need to gather more information, then respond. 
 * if possible, do so repeatedly with different tool calls each time to gather more information.
@@ -77,10 +79,3 @@ User: Why did the webserver-example app crash?
 *Details:* Validation error led to unhandled Java exception causing a crash: `2021-01-01T00:00:00.000Z [ERROR] Missing required field 'email' in request body`
 
 End of Examples
-
-{% if runbooks %}
-Here are runbooks for this specific investigation. Please follow them if relevant.
-{% for r in runbooks %}
-* {{ r }}
-{% endfor %}
-{% endif %}

@@ -1,5 +1,13 @@
-# from holmes.ssh_utils import add_custom_certificate
-# add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
+import os
+from holmes.utils.cert_utils import add_custom_certificate
+
+ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
+if add_custom_certificate(ADDITIONAL_CERTIFICATE):
+    print("added custom certificate")
+
+# DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
+# IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
+
 
 import socket
 import uuid
@@ -330,7 +338,7 @@ def alertmanager(
         console.print(
             f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
 
@@ -347,14 +355,14 @@ def generate_alertmanager_tests(
     alertmanager_password: Optional[str] = typer.Option(
         None, help="Password to use for basic auth"
     ),
-    output: Path = typer.Option(
-        ..., help="Path to dump alertmanager alerts"
+    output: Optional[Path] = typer.Option(
+        None, help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)"
     ),
     config_file: Optional[str] = opt_config_file,
     verbose: Optional[bool] = opt_verbose,
 ):
     """
-    Connect to alertmanager and dump all alerts to a file that you can use for creating tests
+    Connect to alertmanager and dump all alerts as either a json file or curl commands to simulate the alert (depending on --output flag)
     """
     console = init_logging(verbose)
     config = Config.load_from_file(
@@ -365,7 +373,10 @@ def generate_alertmanager_tests(
     )
 
     source = config.create_alertmanager_source()
-    source.dump_raw_alerts_to_file(output)
+    if output is None:
+        source.output_curl_commands(console)
+    else:
+        source.dump_raw_alerts_to_file(output)
 
 
 @investigate_app.command()
@@ -442,7 +453,7 @@ def jira(
         console.print(
             f"[bold yellow]Analyzing Jira ticket {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -531,7 +542,7 @@ def github(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -608,7 +619,7 @@ def pagerduty(
     results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -686,7 +697,7 @@ def opsgenie(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
