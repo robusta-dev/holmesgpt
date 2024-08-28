@@ -26,6 +26,7 @@ class ToolCallResult(BaseModel):
     description: str
     result: str
 
+
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
@@ -82,7 +83,13 @@ class ToolCallingLLM:
         # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name 
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
+    def get_context_window_size(self) -> int:
+        return litellm.get_max_tokens(self.model)
 
+    def count_tokens_for_message(self, messages: list[dict]) -> int:
+        return litellm.token_counter(model=self.model,
+                                     messages=messages)
+    
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None) -> LLMResult:
         messages = [
             {
@@ -135,7 +142,12 @@ class ToolCallingLLM:
                 if post_process_prompt:
                     logging.info(f"Running post processing on investigation.")
                     raw_response = response_message.content
-                    post_processed_response = self._post_processing_call(prompt=user_prompt, investigation=raw_response, user_prompt=post_process_prompt)
+                    post_processed_response = raw_response
+                    try:
+                        post_processed_response = self._post_processing_call(template_context={"prompt":user_prompt, "investigation": raw_response}, user_prompt=post_process_prompt)
+                    except Exception as e:
+                        logging.exception("Post processing failed. Returning raw response instead.")                                                                                                       
+                    
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result = raw_response,
@@ -189,17 +201,21 @@ class ToolCallingLLM:
         )
 
     @staticmethod
-    def __load_post_processing_user_prompt(input_prompt, investigation, user_prompt: Optional[str] = None) -> str:
+    def __load_post_processing_user_prompt(template_context: dict, user_prompt: Optional[str] = None) -> str:
         if not user_prompt:
             user_prompt = "builtin://generic_post_processing.jinja2"
         environment = jinja2.Environment()
         user_prompt = load_prompt(user_prompt)
         user_prompt_template = environment.from_string(user_prompt)
-        return user_prompt_template.render(investigation=investigation, prompt=input_prompt)
+        return user_prompt_template.render(**template_context)
 
-    def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
+    def _post_processing_call(self, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.",
+                              template_context: Optional[dict] = None) -> Optional[str]:
         try:
-            user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(prompt, investigation, user_prompt)
+            if template_context is None:
+                template_context = {}
+
+            user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(template_context, user_prompt)
             logging.debug(f"Post processing prompt:\n\"\"\"\n{user_prompt}\n\"\"\"")
             messages = [
                 {
@@ -219,9 +235,9 @@ class ToolCallingLLM:
             )
             logging.debug(f"Post processing response {full_response}")
             return full_response.choices[0].message.content
-        except:
-            logging.exception("Failed to run post processing")
-            return investigation
+        except Exception as error:
+            logging.exception("Failed to run post processing", exc_info=True)
+            raise error
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 

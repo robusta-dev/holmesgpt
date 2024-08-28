@@ -12,8 +12,6 @@ import logging
 import uvicorn
 import colorlog
 
-from holmes.core.tool_calling_llm import ToolCallResult
-from typing import List, Union, Dict, Any, Optional
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -23,76 +21,21 @@ from holmes.common.env_vars import HOLMES_HOST, HOLMES_PORT, ALLOWED_TOOLSETS, H
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
 from holmes.core.issue import Issue
+from holmes.core.models import (
+    ConversationInvestigationResult, 
+    InvestigationResult, 
+    ConversationRequest, 
+    InvestigateRequest, 
+    WorkloadHealthRequest,
+    ConversationInvestigationResponse)
 from holmes.plugins.prompts import load_prompt
-
-import uuid
+from holmes.utils.cache_utils import SummarizationsCache
+from holmes.utils.summarization_utils import (
+    summarize_tool_calls_for_conversation_history, 
+    summarize_tool_calls_for_investigation_result, 
+    conversation_message_exceeds_context_window
+)
 import jinja2
-import textwrap
-
-
-class InvestigateRequest(BaseModel):
-    source: str  # "prometheus" etc
-    title: str
-    description: str
-    subject: dict
-    context: Dict[str, Any]
-    source_instance_id: str = "ApiRequest"
-    include_tool_calls: bool = False
-    include_tool_call_results: bool = False
-    prompt_template: str = "builtin://generic_investigation.jinja2"
-    # TODO in the future
-    # response_handler: ...
-
-
-class IssueInvestigationResult(BaseModel):
-    """
-    :var result: A dictionary containing the summary of the issue investigation.
-    :var tools: A list of dictionaries where each dictionary contains information
-                about the tool, its name, description and output.
-    
-    It is based on the holmes investigation saved to Evidence table. 
-    """
-    result: str
-    tools: list[dict]
-
-
-class HolmesConversationHistory(BaseModel):
-    """
-    """
-    id: str
-    ask: str
-    answer: IssueInvestigationResult
-
-
-class HolmesConversationIssueContext(BaseModel):
-    investigation_result: IssueInvestigationResult
-    conversation_history: list[HolmesConversationHistory]
-    issue_type: str
-    robusta_issue_id: str
-    source: str
-
-
-class ConversationRequest(BaseModel):
-    user_prompt: str
-    source: str
-    resource: dict
-    conversation_type: str
-    context: HolmesConversationIssueContext
-    include_tool_calls: bool = False
-    include_tool_call_results: bool = False
-    prompt_template: str = "builtin://generic_ask_for_issue_conversation.jinja2"
-
-
-class WorkloadHealthRequest(BaseModel):
-    ask: str
-    resource: dict
-    alert_history_since_hours: float = 24
-    alert_history: bool = True
-    stored_instrucitons: bool = True
-    instructions: Optional[List[str]] = []
-    include_tool_calls: bool = False
-    include_tool_call_results: bool = False
-    prompt_template: str = "builtin://generic_ask.jinja2"
 
 
 def init_logging():
@@ -117,18 +60,7 @@ app = FastAPI()
 
 console = Console()
 config = Config.load_from_env()
-
-
-class InvestigationResult(BaseModel):
-    analysis: Optional[str] = None
-    tool_calls: List[ToolCallResult] = []
-    instructions: List[str] = []
-
-
-class ConversationInvestigationResult(BaseModel):
-    analysis: Optional[str] = None
-    tool_calls: List[ToolCallResult] = []
-    id: str
+summarization_cache = SummarizationsCache()
 
 
 @app.post("/api/investigate")
@@ -192,26 +124,45 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 
 @app.post("/api/conversation")
-def investigate_issues(follow_up_request: ConversationRequest):
+def converstation(conversation_request: ConversationRequest):
     try:
-
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
         
-        system_prompt = load_prompt(follow_up_request.prompt_template)
+        system_prompt = load_prompt(conversation_request.prompt_template)
         environment = jinja2.Environment()
         system_prompt_template = environment.from_string(system_prompt)
+        template_context = {
+            "investigation": conversation_request.context.investigation_result.result,
+            "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
+            "conversation_history": conversation_request.context.conversation_history
+        }
+        if conversation_message_exceeds_context_window(
+            ai, template_context, system_prompt_template, conversation_request.user_prompt
+        ):
+            summarized_conversation_history = summarize_tool_calls_for_conversation_history(conversation_request,
+                                                summarization_cache,
+                                                ai
+                                                )
+            template_context["conversation_history"] = summarized_conversation_history
+            if conversation_message_exceeds_context_window(
+            ai,template_context,system_prompt_template, conversation_request.user_prompt
+                ):
+                summarized_investigation_result = summarize_tool_calls_for_investigation_result(
+                                     conversation_request,
+                                     summarization_cache,
+                                     ai
+                                    )
+                template_context["investigation"] = summarized_investigation_result
+        
         system_prompt = system_prompt_template.render(
-            investigation=follow_up_request.context.investigation_result.result, 
-            tools_called_for_investigation=follow_up_request.context.investigation_result.tools,
-            conversation_history=follow_up_request.context.conversation_history
+            **template_context
             )
-    
-        investigation = ai.call(system_prompt, follow_up_request.user_prompt)
-    
-        return InvestigationResult(
+        
+        investigation = ai.call(system_prompt, conversation_request.user_prompt)
+
+        return ConversationInvestigationResponse(
             analysis=investigation.result,
-            tool_calls=investigation.tool_calls,
-            id=uuid.uuid4()
+            tools=investigation.tool_calls,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
