@@ -1,27 +1,17 @@
-
-
 certificate: "" # base64 encoded
 logLevel: INFO
-
 additionalEnvVars: []
 imagePullSecrets: []
-
 allowedToolsets: "kubernetes/core"
-
 image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
-
 enableAccountsCreate: true
-
 createServiceAccount: true
 customServiceAccountName: ""
-
 customClusterRoleRules: []
-
 enablePostProcessing: false
 postProcessingPrompt: "builtin://generic_post_processing.jinja2"
-
+tolerations: []
 serviceAccount:
   imagePullSecrets: []
   annotations: {}
-
