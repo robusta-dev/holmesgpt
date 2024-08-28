@@ -49,9 +49,10 @@ spec:
           preStop:
             exec:
               command: ["bash", "-c", "kill -SIGINT 1"]
-       {{- if .Values.tolerations }}
-       {{- toYaml .Values.tolerations | nindent 8 }}
-       {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations:
+      {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
         volumeMounts:
           - name: playbooks-config-secret
             mountPath: /etc/robusta/config
