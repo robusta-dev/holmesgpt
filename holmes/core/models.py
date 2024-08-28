@@ -26,11 +26,6 @@ class InvestigateRequest(BaseModel):
 class ToolCallConversationResult(BaseModel):
     tool_name: str
     description: str
-    result: str
-
-class ToolCallIssueInvestigation(BaseModel):
-    tool_name: str
-    description: str
     output: str
 
 
@@ -49,16 +44,15 @@ class IssueInvestigationResult(BaseModel):
     :var result: A dictionary containing the summary of the issue investigation.
     :var tools: A list of dictionaries where each dictionary contains information
                 about the tool, its name, description and output.
-    
-    It is based on the holmes investigation saved to Evidence table. 
+
+    It is based on the holmes investigation saved to Evidence table.
     """
+
     result: str
-    tools: List[ToolCallIssueInvestigation]
+    tools: List[ToolCallConversationResult]
 
 
 class HolmesConversationHistory(BaseModel):
-    """
-    """
     ask: str
     answer: ConversationInvestigationResult
 
