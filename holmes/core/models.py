@@ -1,7 +1,7 @@
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-
+from enum import Enum
 
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
@@ -65,15 +65,18 @@ class HolmesConversationIssueContext(BaseModel):
     source: str
 
 
+class ConversationType(str, Enum):
+    ISSUE = "issue"
+
+
 class ConversationRequest(BaseModel):
     user_prompt: str
     source: str
     resource: dict
-    conversation_type: str
+    conversation_type: ConversationType
     context: HolmesConversationIssueContext
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
-    prompt_template: str = "builtin://generic_ask_for_issue_conversation.jinja2"
 
 
 class WorkloadHealthRequest(BaseModel):

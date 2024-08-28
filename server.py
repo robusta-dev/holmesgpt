@@ -12,6 +12,7 @@ import logging
 import uvicorn
 import colorlog
 
+from typing import Dict, Callable
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -27,7 +28,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
 from holmes.core.issue import Issue
 from holmes.core.models import (
-    ConversationInvestigationResult,
+    ConversationType,
     InvestigationResult,
     ConversationRequest,
     InvestigateRequest,
@@ -41,6 +42,7 @@ from holmes.utils.summarization_utils import (
     summarize_tool_calls_for_investigation_result,
     conversation_message_exceeds_context_window,
 )
+from holmes.core.tool_calling_llm import ToolCallingLLM
 import jinja2
 
 
@@ -74,14 +76,20 @@ summarization_cache = SummarizationsCache()
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
-        context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
+        context = dal.get_issue_data(
+            investigate_request.context.get("robusta_issue_id")
+        )
 
-        instructions = dal.get_resource_instructions("alert", investigate_request.context.get("issue_type"))
+        instructions = dal.get_resource_instructions(
+            "alert", investigate_request.context.get("issue_type")
+        )
         raw_data = investigate_request.model_dump()
         if context:
             raw_data["extra_context"] = context
 
-        ai = config.create_issue_investigator(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        ai = config.create_issue_investigator(
+            console, allowed_toolsets=ALLOWED_TOOLSETS
+        )
         issue = Issue(
             id=context["id"] if context else "",
             name=investigate_request.title,
@@ -100,7 +108,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
         return InvestigationResult(
             analysis=investigation.result,
             tool_calls=investigation.tool_calls,
-            instructions=investigation.instructions
+            instructions=investigation.instructions,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
@@ -112,7 +120,9 @@ def workload_health_check(request: WorkloadHealthRequest):
     try:
         workload_alerts: list[str] = []
         if request.alert_history:
-            workload_alerts = dal.get_workload_issues(request.resource, request.alert_history_since_hours)
+            workload_alerts = dal.get_workload_issues(
+                request.resource, request.alert_history_since_hours
+            )
 
         system_prompt = load_prompt(request.prompt_template)
         system_prompt = jinja2.Environment().from_string(system_prompt)
@@ -125,10 +135,53 @@ def workload_health_check(request: WorkloadHealthRequest):
         return InvestigationResult(
             analysis=ai_call.result,
             tool_calls=ai_call.tool_calls,
-            instructions=ai_call.instructions
+            instructions=ai_call.instructions,
         )
     except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=e.message)          
+        raise HTTPException(status_code=401, detail=e.message)
+
+
+def handle_issue_conversation(
+    conversation_request: ConversationRequest, ai: ToolCallingLLM
+) -> str:
+    system_prompt = load_prompt("builtin://generic_ask_for_issue_conversation.jinja2")
+    system_prompt_template = jinja2.Environment().from_string(system_prompt)
+    template_context = {
+        "investigation": conversation_request.context.investigation_result.result,
+        "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
+        "conversation_history": conversation_request.context.conversation_history,
+    }
+    if conversation_message_exceeds_context_window(
+        ai,
+        template_context,
+        system_prompt_template,
+        conversation_request.user_prompt,
+    ):
+        summarized_conversation_history = summarize_tool_calls_for_conversation_history(
+            conversation_request, summarization_cache, ai
+        )
+        template_context["conversation_history"] = summarized_conversation_history
+        if conversation_message_exceeds_context_window(
+            ai,
+            template_context,
+            system_prompt_template,
+            conversation_request.user_prompt,
+        ):
+            summarized_investigation_result = (
+                summarize_tool_calls_for_investigation_result(
+                    conversation_request, summarization_cache, ai
+                )
+            )
+            template_context["investigation"] = summarized_investigation_result
+
+    system_prompt = system_prompt_template.render(**template_context)
+    return system_prompt
+
+
+conversation_type_handlers: Dict[
+    ConversationType, Callable[[ConversationRequest, any], str]] = {
+    ConversationType.ISSUE: handle_issue_conversation,
+}
 
 
 @app.post("/api/conversation")
@@ -136,40 +189,8 @@ def converstation(conversation_request: ConversationRequest):
     try:
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
-        system_prompt = load_prompt(conversation_request.prompt_template)
-        environment = jinja2.Environment()
-        system_prompt_template = environment.from_string(system_prompt)
-        template_context = {
-            "investigation": conversation_request.context.investigation_result.result,
-            "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
-            "conversation_history": conversation_request.context.conversation_history,
-        }
-        if conversation_message_exceeds_context_window(
-            ai,
-            template_context,
-            system_prompt_template,
-            conversation_request.user_prompt,
-        ):
-            summarized_conversation_history = (
-                summarize_tool_calls_for_conversation_history(
-                    conversation_request, summarization_cache, ai
-                )
-            )
-            template_context["conversation_history"] = summarized_conversation_history
-            if conversation_message_exceeds_context_window(
-                ai,
-                template_context,
-                system_prompt_template,
-                conversation_request.user_prompt,
-            ):
-                summarized_investigation_result = (
-                    summarize_tool_calls_for_investigation_result(
-                        conversation_request, summarization_cache, ai
-                    )
-                )
-                template_context["investigation"] = summarized_investigation_result
-
-        system_prompt = system_prompt_template.render(**template_context)
+        handler = conversation_type_handlers.get(conversation_request.conversation_type)
+        system_prompt = handler(conversation_request, ai)
 
         investigation = ai.call(system_prompt, conversation_request.user_prompt)
 
