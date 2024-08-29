@@ -130,8 +130,9 @@ def workload_health_check(request: WorkloadHealthRequest):
         if request.stored_instrucitons:
             instructions = dal.get_resource_instructions(resource.get("kind"), resource.get("name"))
 
+        nl = '\n'
         if instructions:
-            request.ask = f'{request.ask}\n My instructions for the investigation """{'\n'.join(instructions)}"""'
+            request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
         system_prompt = load_prompt(request.prompt_template)
         system_prompt = jinja2.Environment().from_string(system_prompt)
