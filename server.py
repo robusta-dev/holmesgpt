@@ -126,8 +126,9 @@ def workload_health_check(request: WorkloadHealthRequest):
         if request.alert_history:
             workload_alerts = dal.get_workload_issues(resource, request.alert_history_since_hours)
 
-        instructions = dal.get_resource_instructions(resource.get("kind"), resource.get("name"))
-        instructions.extend(request.instructions)
+        instructions = request.instructions
+        if request.stored_instrucitons:
+            instructions = dal.get_resource_instructions(resource.get("kind"), resource.get("name"))
 
         if instructions:
             request.ask = f'{request.ask}\n My instructions for the investigation """{'\n'.join(instructions)}"""'
