@@ -29,7 +29,7 @@ class SummarizationsCache:
             tool_call_result = ToolCallConversationResult(
                 name=tool_call.name,
                 description=tool_call.description,
-                result=summarization,
+                output=summarization,
             ).model_dump_json()
             self.tool_call_cache[cache_key] = tool_call_result
             return tool_call_result

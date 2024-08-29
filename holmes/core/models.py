@@ -3,6 +3,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from enum import Enum
 
+
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
     tool_calls: List[ToolCallResult] = []
