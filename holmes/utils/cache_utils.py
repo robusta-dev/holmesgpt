@@ -18,7 +18,7 @@ class SummarizationsCache:
     def get_tool_call_summarization_from_cache(
         self, tool_call: ToolCallConversationResult, ai: ToolCallingLLM
     ):
-        cache_key = hashlib.sha256(tool_call.result.encode()).hexdigest()
+        cache_key = hashlib.sha256(tool_call.output.encode()).hexdigest()
         try:
             if cache_key in self.tool_call_cache:
                 return self.tool_call_cache[cache_key]
@@ -27,7 +27,7 @@ class SummarizationsCache:
                 template_context={"tool_call": tool_call},
             )
             tool_call_result = ToolCallConversationResult(
-                tool_name=tool_call.tool_name,
+                name=tool_call.name,
                 description=tool_call.description,
                 result=summarization,
             ).model_dump_json()

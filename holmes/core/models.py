@@ -24,14 +24,14 @@ class InvestigateRequest(BaseModel):
 
 
 class ToolCallConversationResult(BaseModel):
-    tool_name: str
+    name: str
     description: str
     output: str
 
 
 class ConversationInvestigationResponse(BaseModel):
     analysis: Optional[str] = None
-    tools: List[ToolCallResult] = []
+    tool_calls: List[ToolCallResult] = []
 
 
 class ConversationInvestigationResult(BaseModel):
