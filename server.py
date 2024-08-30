@@ -242,10 +242,7 @@ def converstation(conversation_request: ConversationRequest):
 
 @app.get("/api/model")
 def get_model():
-    try:
-        return {"model_name": config.model}
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=e.message)
+    return {"model_name": config.model}
 
 
 if __name__ == "__main__":
