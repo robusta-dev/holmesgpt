@@ -37,7 +37,7 @@ class ConversationInvestigationResponse(BaseModel):
 
 class ConversationInvestigationResult(BaseModel):
     analysis: Optional[str] = None
-    tools: List[ToolCallConversationResult] = []
+    tools:  Optional[List[ToolCallConversationResult]] = []
 
 
 class IssueInvestigationResult(BaseModel):
@@ -50,7 +50,7 @@ class IssueInvestigationResult(BaseModel):
     """
 
     result: str
-    tools: List[ToolCallConversationResult] = []
+    tools: Optional[List[ToolCallConversationResult]] = []
 
 
 class HolmesConversationHistory(BaseModel):
@@ -60,7 +60,7 @@ class HolmesConversationHistory(BaseModel):
 
 class HolmesConversationIssueContext(BaseModel):
     investigation_result: IssueInvestigationResult
-    conversation_history: list[HolmesConversationHistory]
+    conversation_history: Optional[List[HolmesConversationHistory]] = []
     issue_type: str
     robusta_issue_id: Optional[str] = None
     source: Optional[str] = None

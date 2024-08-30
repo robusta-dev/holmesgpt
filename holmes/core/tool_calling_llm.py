@@ -142,9 +142,11 @@ class ToolCallingLLM:
                 if post_process_prompt:
                     logging.info(f"Running post processing on investigation.")
                     raw_response = response_message.content
-                    post_processed_response = self._post_processing_call(prompt=user_prompt, 
-                                                                         investigation=raw_response, 
-                                                                         user_prompt=post_process_prompt)
+                    post_processed_response = self._post_processing_call(
+                                                    prompt=user_prompt, 
+                                                    investigation=raw_response, 
+                                                    user_prompt=post_process_prompt
+                                                )
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result = raw_response,

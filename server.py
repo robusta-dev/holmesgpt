@@ -144,6 +144,23 @@ def handle_issue_conversation(
     system_prompt = load_prompt("builtin://generic_ask_for_issue_conversation.jinja2")
     system_prompt_template = jinja2.Environment().from_string(system_prompt)
     
+    number_of_tools = len(
+        conversation_request.context.investigation_result.tools
+    ) + sum(
+        [
+            len(history.answer.tools)
+            for history in conversation_request.context.conversation_history
+        ]
+    )
+    if number_of_tools == 0:
+        template_context = {
+        "investigation": conversation_request.context.investigation_result.result,
+        "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
+        "conversation_history": conversation_request.context.conversation_history,
+    }
+        system_prompt = system_prompt_template.render(**template_context)
+        return system_prompt
+
     conversation_history_without_tools = [
         HolmesConversationHistory(
             ask=history.ask,
