@@ -52,6 +52,9 @@ spec:
         volumeMounts:
           - name: playbooks-config-secret
             mountPath: /etc/robusta/config
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
         - name: playbooks-config-secret
           secret:
