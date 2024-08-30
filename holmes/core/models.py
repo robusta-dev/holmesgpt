@@ -89,4 +89,4 @@ class WorkloadHealthRequest(BaseModel):
     instructions: Optional[List[str]] = []
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
-    prompt_template: str = "builtin://generic_ask.jinja2"
+    prompt_template: str = "builtin://kubernetes_workload_ask.jinja2"
