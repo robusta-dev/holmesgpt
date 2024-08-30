@@ -134,7 +134,7 @@ class Config(RobustaBaseConfig):
 
     def create_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern
-    ) -> IssueInvestigator:
+    ) -> ToolCallingLLM:
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return ToolCallingLLM(
             self.model,

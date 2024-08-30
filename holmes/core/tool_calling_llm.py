@@ -1,11 +1,9 @@
 import concurrent.futures
-import datetime
-import time
 import json
 import logging
 import textwrap
 import os
-from typing import Dict, List, Optional
+from typing import List, Optional
 from holmes.plugins.prompts import load_prompt
 from litellm import get_supported_openai_params
 import litellm
@@ -27,6 +25,7 @@ class ToolCallResult(BaseModel):
     tool_name: str
     description: str
     result: str
+
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
@@ -87,7 +86,13 @@ class ToolCallingLLM:
         # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name 
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
+    def get_context_window_size(self) -> int:
+        return litellm.model_cost[self.model]['max_input_tokens'] 
 
+    def count_tokens_for_message(self, messages: list[dict]) -> int:
+        return litellm.token_counter(model=self.model,
+                                     messages=messages)
+    
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
             {
@@ -144,7 +149,11 @@ class ToolCallingLLM:
                 if post_process_prompt:
                     logging.info(f"Running post processing on investigation.")
                     raw_response = response_message.content
-                    post_processed_response = self._post_processing_call(prompt=user_prompt, investigation=raw_response, user_prompt=post_process_prompt)
+                    post_processed_response = self._post_processing_call(
+                                                    prompt=user_prompt, 
+                                                    investigation=raw_response, 
+                                                    user_prompt=post_process_prompt
+                                                )
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result = raw_response,
@@ -206,9 +215,11 @@ class ToolCallingLLM:
         user_prompt_template = environment.from_string(user_prompt)
         return user_prompt_template.render(investigation=investigation, prompt=input_prompt)
 
-    def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
+    def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, 
+                              system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
         try:
             user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(prompt, investigation, user_prompt)
+
             logging.debug(f"Post processing prompt:\n\"\"\"\n{user_prompt}\n\"\"\"")
             messages = [
                 {
@@ -228,11 +239,11 @@ class ToolCallingLLM:
             )
             logging.debug(f"Post processing response {full_response}")
             return full_response.choices[0].message.content
-        except:
-            logging.exception("Failed to run post processing")
+        except Exception as error:
+            logging.exception("Failed to run post processing", exc_info=True)
             return investigation
 
-
+           
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
 class IssueInvestigator(ToolCallingLLM):
     """
