@@ -51,7 +51,7 @@ spec:
               command: ["bash", "-c", "kill -SIGINT 1"]
       {{- if .Values.tolerations }}
       tolerations:
-      {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- toYaml .Values.tolerations | nindent 6 }}
       {{- end }}
         volumeMounts:
           - name: playbooks-config-secret
