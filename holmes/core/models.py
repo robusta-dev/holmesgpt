@@ -50,7 +50,7 @@ class IssueInvestigationResult(BaseModel):
     """
 
     result: str
-    tools: List[ToolCallConversationResult]
+    tools: List[ToolCallConversationResult] = []
 
 
 class HolmesConversationHistory(BaseModel):

@@ -34,14 +34,12 @@ from holmes.core.models import (
     InvestigateRequest,
     WorkloadHealthRequest,
     ConversationInvestigationResponse,
+    HolmesConversationHistory,
+    ConversationInvestigationResult,
+    ToolCallConversationResult,
 )
 from holmes.plugins.prompts import load_prompt
 from holmes.utils.cache_utils import SummarizationsCache
-from holmes.utils.summarization_utils import (
-    summarize_tool_calls_for_conversation_history,
-    summarize_tool_calls_for_investigation_result,
-    conversation_message_exceeds_context_window,
-)
 from holmes.core.tool_calling_llm import ToolCallingLLM
 import jinja2
 
@@ -143,43 +141,85 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 def handle_issue_conversation(
     conversation_request: ConversationRequest, ai: ToolCallingLLM
-) -> str:
+):
+    context_window = ai.get_context_window_size()
     system_prompt = load_prompt("builtin://generic_ask_for_issue_conversation.jinja2")
     system_prompt_template = jinja2.Environment().from_string(system_prompt)
+    
+    conversation_history_without_tools = [
+        HolmesConversationHistory(
+            ask=history.ask,
+            answer=ConversationInvestigationResult(analysis=history.answer.analysis),
+        )
+        for history in conversation_request.context.conversation_history
+    ]
     template_context = {
         "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
-        "conversation_history": conversation_request.context.conversation_history,
+        "tools_called_for_investigation": None,
+        "conversation_history": conversation_history_without_tools,
     }
-    if conversation_message_exceeds_context_window(
-        ai,
-        template_context,
-        system_prompt_template,
-        conversation_request.user_prompt,
-    ):
-        summarized_conversation_history = summarize_tool_calls_for_conversation_history(
-            conversation_request, summarization_cache, ai
-        )
-        template_context["conversation_history"] = summarized_conversation_history
-        if conversation_message_exceeds_context_window(
-            ai,
-            template_context,
-            system_prompt_template,
-            conversation_request.user_prompt,
-        ):
-            summarized_investigation_result = (
-                summarize_tool_calls_for_investigation_result(
-                    conversation_request, summarization_cache, ai
-                )
-            )
-            template_context["investigation"] = summarized_investigation_result
-
     system_prompt = system_prompt_template.render(**template_context)
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt,
+        },
+        {
+            "role": "user",
+            "content": conversation_request.user_prompt,
+        },
+    ]
+    message_size_without_tools = ai.count_tokens_for_message(messages)
+    
+    number_of_tools = len(
+        conversation_request.context.investigation_result.tools
+    ) + sum(
+        [
+            len(history.answer.tools)
+            for history in conversation_request.context.conversation_history
+        ]
+    )
+    tool_size = min(
+        10000, int((context_window - message_size_without_tools) / number_of_tools)
+    )
+    
+    truncated_conversation_history_without_tools = [
+        HolmesConversationHistory(
+            ask=history.ask,
+            answer=ConversationInvestigationResult(
+                analysis=history.answer.analysis,
+                tools=[
+                    ToolCallConversationResult(
+                        name=tool.name,
+                        description=tool.description,
+                        output=tool.output[:tool_size],
+                    )
+                    for tool in history.answer.tools
+                ],
+            ),
+        )
+        for history in conversation_request.context.conversation_history
+    ]
+    truncated_investigation_result_tool_calls = [
+        ToolCallConversationResult(
+            name=tool.name, description=tool.description, output=tool.output[:tool_size]
+        )
+        for tool in conversation_request.context.investigation_result.tools
+    ]
+    
+    template_context = {
+        "investigation": conversation_request.context.investigation_result.result,
+        "tools_called_for_investigation": truncated_investigation_result_tool_calls,
+        "conversation_history": truncated_conversation_history_without_tools,
+    }
+    system_prompt = system_prompt_template.render(**template_context)
+    
     return system_prompt
 
 
 conversation_type_handlers: Dict[
-    ConversationType, Callable[[ConversationRequest, any], str]] = {
+    ConversationType, Callable[[ConversationRequest, any], str]
+] = {
     ConversationType.ISSUE: handle_issue_conversation,
 }
 
@@ -208,6 +248,7 @@ def get_model():
         return config.model
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT)

@@ -84,7 +84,7 @@ class ToolCallingLLM:
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
     def get_context_window_size(self) -> int:
-        return litellm.model_cost[self.model]['max_input_tokens']
+        return litellm.model_cost[self.model]['max_input_tokens'] 
 
     def count_tokens_for_message(self, messages: list[dict]) -> int:
         return litellm.token_counter(model=self.model,
