@@ -39,7 +39,6 @@ from holmes.core.models import (
     ToolCallConversationResult,
 )
 from holmes.plugins.prompts import load_prompt
-from holmes.utils.cache_utils import SummarizationsCache
 from holmes.core.tool_calling_llm import ToolCallingLLM
 import jinja2
 
@@ -68,7 +67,6 @@ app = FastAPI()
 
 console = Console()
 config = Config.load_from_env()
-summarization_cache = SummarizationsCache()
 
 
 @app.post("/api/investigate")
@@ -245,7 +243,7 @@ def converstation(conversation_request: ConversationRequest):
 @app.get("/api/model")
 def get_model():
     try:
-        return config.model
+        return {"model_name": config.model}
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
 

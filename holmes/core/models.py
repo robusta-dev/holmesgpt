@@ -62,8 +62,8 @@ class HolmesConversationIssueContext(BaseModel):
     investigation_result: IssueInvestigationResult
     conversation_history: list[HolmesConversationHistory]
     issue_type: str
-    robusta_issue_id: str
-    source: str
+    robusta_issue_id: Optional[str] = None
+    source: Optional[str] = None
 
 
 class ConversationType(str, Enum):
@@ -72,8 +72,8 @@ class ConversationType(str, Enum):
 
 class ConversationRequest(BaseModel):
     user_prompt: str
-    source: str
-    resource: dict
+    source: Optional[str] = None
+    resource: Optional[dict] = None
     conversation_type: ConversationType
     context: HolmesConversationIssueContext
     include_tool_calls: bool = False
