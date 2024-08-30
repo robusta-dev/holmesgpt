@@ -7,7 +7,7 @@ import textwrap
 import os
 from typing import Dict, List, Optional
 from holmes.plugins.prompts import load_prompt
-
+from litellm import get_supported_openai_params
 import litellm
 import jinja2
 from openai import BadRequestError
@@ -58,6 +58,9 @@ class ToolCallingLLM:
         self.api_key = api_key
         self.base_url = None
 
+        params = get_supported_openai_params(model=self.model)
+        self.support_response_format: bool = params and "response_format" in params
+
         if ROBUSTA_AI:
             self.base_url = ROBUSTA_API_ENDPOINT
             self.model = f"openai/{self.model}"
@@ -85,7 +88,7 @@ class ToolCallingLLM:
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
 
-    def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None) -> LLMResult:
+    def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
             {
                 "role": "system",
@@ -98,6 +101,8 @@ class ToolCallingLLM:
         ]
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
+
+        response_format = response_format if self.support_response_format else None
         for i in range(self.max_steps):
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
@@ -112,7 +117,9 @@ class ToolCallingLLM:
                     tools=tools,
                     tool_choice=tool_choice,
                     base_url=self.base_url,
-                    temperature=0.00000001
+                    temperature=0.00000001,
+                    response_format=response_format
+
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
