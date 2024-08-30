@@ -186,14 +186,6 @@ def handle_issue_conversation(
     ]
     message_size_without_tools = ai.count_tokens_for_message(messages)
     
-    number_of_tools = len(
-        conversation_request.context.investigation_result.tools
-    ) + sum(
-        [
-            len(history.answer.tools)
-            for history in conversation_request.context.conversation_history
-        ]
-    )
     tool_size = min(
         10000, int((context_window - message_size_without_tools) / number_of_tools)
     )
