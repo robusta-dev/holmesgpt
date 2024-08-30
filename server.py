@@ -202,5 +202,12 @@ def converstation(conversation_request: ConversationRequest):
         raise HTTPException(status_code=401, detail=e.message)
 
 
+@app.get("/api/model")
+def get_model():
+    try:
+        return config.model
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+
 if __name__ == "__main__":
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT)
