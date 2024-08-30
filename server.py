@@ -114,11 +114,18 @@ def investigate_issues(investigate_request: InvestigateRequest):
 def workload_health_check(request: WorkloadHealthRequest):
 
     try:
+        resource = request.resource
         workload_alerts: list[str] = []
         if request.alert_history:
-            workload_alerts = dal.get_workload_issues(
-                request.resource, request.alert_history_since_hours
-            )
+            workload_alerts = dal.get_workload_issues(resource, request.alert_history_since_hours)
+
+        instructions = request.instructions
+        if request.stored_instrucitons:
+            instructions = dal.get_resource_instructions(resource.get("kind"), resource.get("name"))
+
+        nl = '\n'
+        if instructions:
+            request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
         system_prompt = load_prompt(request.prompt_template)
         system_prompt = jinja2.Environment().from_string(system_prompt)
@@ -126,12 +133,13 @@ def workload_health_check(request: WorkloadHealthRequest):
 
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
-        ai_call = ai.call(system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT)
+        structured_output = {"type": "json_object"}
+        ai_call = ai.call(system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT, structured_output)
 
         return InvestigationResult(
             analysis=ai_call.result,
             tool_calls=ai_call.tool_calls,
-            instructions=ai_call.instructions,
+            instructions=instructions,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
