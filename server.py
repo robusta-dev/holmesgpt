@@ -121,7 +121,8 @@ def workload_health_check(request: WorkloadHealthRequest):
 
         instructions = request.instructions
         if request.stored_instrucitons:
-            instructions = dal.get_resource_instructions(resource.get("kind"), resource.get("name"))
+            stored_instructions = dal.get_resource_instructions(resource.get("kind","").lower(), resource.get("name"))
+            instructions.extend(stored_instructions)
 
         nl = '\n'
         if instructions:
