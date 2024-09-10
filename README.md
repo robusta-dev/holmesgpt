@@ -476,6 +476,14 @@ If you'd like to try using Ollama anyway, see below:
 export OLLAMA_API_BASE="http://localhost:11434"
 holmes ask "what pods are unhealthy in my cluster?" --model="ollama_chat/llama3.1"
 ```
+
+You can also connect to Ollama in the standard OpenAI format (this should be equivalent to the above):
+
+```
+# note the v1 at the end
+export OPENAI_API_BASE="http://localhost:11434/v1"
+holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
+```
   
 </details>
 <details>
