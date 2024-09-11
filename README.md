@@ -482,6 +482,8 @@ You can also connect to Ollama in the standard OpenAI format (this should be equ
 ```
 # note the v1 at the end
 export OPENAI_API_BASE="http://localhost:11434/v1"
+# holmes requires OPENAPI_API_KEY to be set but value does not matter
+export OPENAI_API_KEY=123
 holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
 ```
   
