@@ -116,15 +116,16 @@ class ToolCallingLLM:
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
             tools = NOT_GIVEN if i == self.max_steps - 1 else tools
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
-            logging.debug(f"sending messages {messages}")
             
             total_tokens = self.count_tokens_for_message(messages)
             max_context_size = self.get_context_window_size()
-            
-            if total_tokens > max_context_size:
-                logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(messages, max_context_size)
+            maximum_output_token = self.get_maximum_output_token()
 
+            if (total_tokens + maximum_output_token) > max_context_size:
+                logging.warning("Token limit exceeded. Truncating tool responses.")
+                messages = self.truncate_messages_to_fit_context(messages, max_context_size, maximum_output_token)
+
+            logging.debug(f"sending messages {messages}")
             try:
                 full_response = litellm.completion(
                     model=self.model,
@@ -250,7 +251,7 @@ class ToolCallingLLM:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
 
-    def truncate_messages_to_fit_context(self, messages, max_context_size):
+    def truncate_messages_to_fit_context(self, messages, max_context_size, maximum_output_token):
         messages_except_tools = [message for message in messages if message["role"] != "tool"]
         message_size_without_tools = self.count_tokens_for_message(messages_except_tools)
 
@@ -258,7 +259,6 @@ class ToolCallingLLM:
         if not tool_call_messages or message_size_without_tools >= max_context_size:
             return messages
 
-        maximum_output_token = self.get_maximum_output_token()
         tool_size = min(10000, int((max_context_size - message_size_without_tools - maximum_output_token) / len(tool_call_messages)))
 
         for message in messages:

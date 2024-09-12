@@ -194,9 +194,10 @@ def handle_issue_conversation(
         },
     ]
     message_size_without_tools = ai.count_tokens_for_message(messages)
+    maximum_output_token = ai.get_maximum_output_token()
     
     tool_size = min(
-        10000, int((context_window - message_size_without_tools) / number_of_tools)
+        10000, int((context_window - message_size_without_tools - maximum_output_token) / number_of_tools)
     )
     
     truncated_conversation_history_without_tools = [
