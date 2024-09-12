@@ -93,6 +93,9 @@ class ToolCallingLLM:
         return litellm.token_counter(model=self.model,
                                      messages=messages)
     
+    def get_maximum_output_token(self) -> int:
+         return litellm.model_cost[self.model]['max_output_tokens'] 
+    
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
             {
@@ -114,6 +117,14 @@ class ToolCallingLLM:
             tools = NOT_GIVEN if i == self.max_steps - 1 else tools
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
             logging.debug(f"sending messages {messages}")
+            
+            total_tokens = self.count_tokens_for_message(messages)
+            max_context_size = self.get_context_window_size()
+            
+            if total_tokens > max_context_size:
+                logging.warning("Token limit exceeded. Truncating tool responses.")
+                messages = self.truncate_messages_to_fit_context(messages, max_context_size)
+
             try:
                 full_response = litellm.completion(
                     model=self.model,
@@ -194,10 +205,6 @@ class ToolCallingLLM:
         tool_call_id = tool_to_call.id
         tool = self.tool_executor.get_tool_by_name(tool_name)
         tool_response = tool.invoke(tool_params)
-        MAX_CHARS = 100_000     # an arbitrary limit - we will do something smarter in the future
-        if len(tool_response) > MAX_CHARS:
-            logging.warning(f"tool {tool_name} returned a very long response ({len(tool_response)} chars) - truncating to last {MAX_CHARS} chars")
-            tool_response = tool_response[-MAX_CHARS:]
 
         return ToolCallResult(
             tool_call_id=tool_call_id,
@@ -243,7 +250,22 @@ class ToolCallingLLM:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
 
-           
+    def truncate_messages_to_fit_context(self, messages, max_context_size):
+        messages_except_tools = [message for message in messages if message["role"] != "tool"]
+        message_size_without_tools = self.count_tokens_for_message(messages_except_tools)
+
+        tool_call_messages = [message for message in messages if message["role"] == "tool"]
+        if not tool_call_messages or message_size_without_tools >= max_context_size:
+            return messages
+
+        maximum_output_token = self.get_maximum_output_token()
+        tool_size = min(10000, int((max_context_size - message_size_without_tools - maximum_output_token) / len(tool_call_messages)))
+
+        for message in messages:
+            if message["role"] == "tool":
+                message["content"] = message["content"][:tool_size]
+        return messages
+        
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py 
 class IssueInvestigator(ToolCallingLLM):
     """
