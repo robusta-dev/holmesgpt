@@ -68,7 +68,7 @@ class Config(RobustaBaseConfig):
     custom_toolsets: List[FilePath] = []
 
     @classmethod
-    def load_from_env(cls):
+    def load_from_env(cls, custom_toolset_path: Optional[str]):
         kwargs = {}
         for field_name in [
             "model",
@@ -95,6 +95,8 @@ class Config(RobustaBaseConfig):
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
+        if custom_toolset_path:
+            kwargs["custom_toolsets"] = [custom_toolset_path ]       
         return cls(**kwargs)
 
     def _create_tool_executor(

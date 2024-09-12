@@ -66,7 +66,7 @@ dal = SupabaseDal()
 app = FastAPI()
 
 console = Console()
-config = Config.load_from_env()
+config = Config.load_from_env(os.environ.get("CUSTOM_TOOLSET", None))
 
 
 @app.post("/api/investigate")

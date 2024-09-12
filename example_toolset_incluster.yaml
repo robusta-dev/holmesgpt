@@ -1,0 +1,42 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: toolset-config
+  namespace: default
+data:
+  toolset-config.yaml: |
+    toolsets:
+      - name: "kubernetes/ontap"
+        tools:
+          - name: "curl_netapp_info"
+            description: "Read Netapp documentation from website for all OnTap Volume alerts."
+            command: >
+              curl "https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/low-volume-capacity.html"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    spec:
+      containers:
+        env:
+...
+        - name: ALLOWED_TOOLSETS
+          value: kubernetes/*
+...
+        - name: CUSTOM_TOOLSET
+          value: /etc/toolsets/toolset-config.yaml
+        image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes-dev:hackathon
+...
+        volumeMounts:
+...
+        - name: config-volume
+          mountPath: /etc/toolsets/toolset-config.yaml
+          subPath: toolset-config.yaml
+...
+      terminationGracePeriodSeconds: 30
+      volumes:
+...
+      - name: config-volume
+        configMap:
+          name: toolset-config
