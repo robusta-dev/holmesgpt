@@ -251,7 +251,7 @@ class ToolCallingLLM:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
 
-    def truncate_messages_to_fit_context(self, messages, max_context_size, maximum_output_token):
+    def truncate_messages_to_fit_context(self, messages: list, max_context_size: int, maximum_output_token: int) -> list:
         messages_except_tools = [message for message in messages if message["role"] != "tool"]
         message_size_without_tools = self.count_tokens_for_message(messages_except_tools)
 
