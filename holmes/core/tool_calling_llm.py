@@ -259,7 +259,8 @@ class ToolCallingLLM:
         if not tool_call_messages or message_size_without_tools >= max_context_size:
             return messages
 
-        tool_size = min(10000, int((max_context_size - message_size_without_tools - maximum_output_token) / len(tool_call_messages)))
+        # our AI tests passing better if min(10k, ...) is not used
+        tool_size = int((max_context_size - message_size_without_tools - maximum_output_token) / len(tool_call_messages))
 
         for message in messages:
             if message["role"] == "tool":
