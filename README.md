@@ -467,7 +467,29 @@ Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/be
 </details>
 
 <details>
-<summary>Using a self-hosted LLM</summary>
+<summary>Using Ollama</summary>
+Ollama is supported, but buggy. We recommend using other models if you can, until Ollama tool-calling capabilities improve.
+Specifically, Ollama often calls tools with non-existent or missing parameters.
+
+If you'd like to try using Ollama anyway, see below:
+```
+export OLLAMA_API_BASE="http://localhost:11434"
+holmes ask "what pods are unhealthy in my cluster?" --model="ollama_chat/llama3.1"
+```
+
+You can also connect to Ollama in the standard OpenAI format (this should be equivalent to the above):
+
+```
+# note the v1 at the end
+export OPENAI_API_BASE="http://localhost:11434/v1"
+# holmes requires OPENAPI_API_KEY to be set but value does not matter
+export OPENAI_API_KEY=123
+holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
+```
+  
+</details>
+<details>
+<summary>Using other OpenAI-compatible models</summary>
 
 You will need an LLM with support for function-calling (tool-calling).
 
