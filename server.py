@@ -252,7 +252,7 @@ def converstation(conversation_request: ConversationRequest):
 
         return ConversationInvestigationResponse(
             analysis=investigation.result,
-            tools=investigation.tool_calls,
+            tool_calls=investigation.tool_calls,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
