@@ -26,7 +26,7 @@ from holmes.utils.file_utils import write_json_file
 from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
-from holmes.plugins.prompts import load_prompt
+from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
@@ -254,7 +254,7 @@ def ask(
         slack_token=slack_token,
         slack_channel=slack_channel,
     )
-    system_prompt = load_prompt(system_prompt)
+    system_prompt = load_and_render_prompt(system_prompt)
     ai = config.create_toolcalling_llm(console, allowed_toolsets)
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
@@ -343,7 +343,6 @@ def alertmanager(
         custom_runbooks=custom_runbooks
     )
 
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
 
     source = config.create_alertmanager_source()
@@ -467,8 +466,6 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_jira_source()
     try:
@@ -560,8 +557,6 @@ def github(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_github_source()
     try:
@@ -635,8 +630,6 @@ def pagerduty(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_pagerduty_source()
     try:
@@ -715,8 +708,6 @@ def opsgenie(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_opsgenie_source()
     try:
