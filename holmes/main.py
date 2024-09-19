@@ -73,7 +73,7 @@ def init_logging(verbose_flags: List[bool] = None):
     else:
         logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
 
-    if verbosity.value >= Verbosity.NORMAL.value:
+    if verbosity.value != Verbosity.NORMAL.value:
         logging.info(f"verbosity is {verbosity}")
     
     if verbosity.value >= Verbosity.LOG_QUERIES.value:
