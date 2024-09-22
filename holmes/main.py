@@ -14,6 +14,7 @@ import uuid
 import logging
 import re
 import warnings
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 import typer
@@ -48,8 +49,40 @@ generate_app = typer.Typer(
 app.add_typer(generate_app, name="generate")
 
 
-def init_logging(verbose = False):
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+class Verbosity(Enum):
+    NORMAL = 0
+    LOG_QUERIES = 1
+    VERBOSE = 2
+    VERY_VERBOSE = 3
+
+def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
+    if verbose_flags is None or len(verbose_flags) == 0:
+        return Verbosity.NORMAL
+    elif len(verbose_flags) == 1:
+        return Verbosity.LOG_QUERIES
+    elif len(verbose_flags) == 2:
+        return Verbosity.VERBOSE
+    else:
+        return Verbosity.VERY_VERBOSE
+    
+def init_logging(verbose_flags: List[bool] = None):
+    verbosity = cli_flags_to_verbosity(verbose_flags)
+    
+    if verbosity == Verbosity.VERY_VERBOSE:
+        logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+    else:
+        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+
+    if verbosity.value != Verbosity.NORMAL.value:
+        logging.info(f"verbosity is {verbosity}")
+    
+    if verbosity.value >= Verbosity.LOG_QUERIES.value:
+        # TODO
+        pass
+    
+    if verbosity.value >= Verbosity.VERBOSE.value:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     # disable INFO logs from OpenAI
     logging.getLogger("httpx").setLevel(logging.WARNING)
     # disable INFO logs from LiteLLM
@@ -101,11 +134,11 @@ opt_max_steps: Optional[int] = typer.Option(
     "--max-steps",
     help="Advanced. Maximum number of steps the LLM can take to investigate the issue",
 )
-opt_verbose: Optional[bool] = typer.Option(
-    False,
+opt_verbose: Optional[List[bool]] = typer.Option(
+    [],
     "--verbose",
     "-v",
-    help="Verbose output",
+    help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv or -vvvv",
 )
 opt_echo_request: bool = typer.Option(
     True,
@@ -183,7 +216,7 @@ def ask(
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # semi-common options
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
@@ -278,7 +311,7 @@ def alertmanager(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
@@ -359,7 +392,7 @@ def generate_alertmanager_tests(
         None, help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)"
     ),
     config_file: Optional[str] = opt_config_file,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
 ):
     """
     Connect to alertmanager and dump all alerts as either a json file or curl commands to simulate the alert (depending on --output flag)
@@ -410,7 +443,7 @@ def jira(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
@@ -503,7 +536,7 @@ def github(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -579,7 +612,7 @@ def pagerduty(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
@@ -660,7 +693,7 @@ def opsgenie(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
