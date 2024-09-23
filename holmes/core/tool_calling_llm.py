@@ -4,7 +4,7 @@ import logging
 import textwrap
 import os
 from typing import List, Optional
-from holmes.plugins.prompts import load_prompt
+from holmes.plugins.prompts import load_and_render_prompt
 from litellm import get_supported_openai_params
 import litellm
 import jinja2
@@ -218,10 +218,7 @@ class ToolCallingLLM:
     def __load_post_processing_user_prompt(input_prompt, investigation, user_prompt: Optional[str] = None) -> str:
         if not user_prompt:
             user_prompt = "builtin://generic_post_processing.jinja2"
-        environment = jinja2.Environment()
-        user_prompt = load_prompt(user_prompt)
-        user_prompt_template = environment.from_string(user_prompt)
-        return user_prompt_template.render(investigation=investigation, prompt=input_prompt)
+        return load_and_render_prompt(user_prompt, {"investigation": investigation, "prompt": input_prompt})
 
     def _post_processing_call(self, prompt, investigation, user_prompt: Optional[str] = None, 
                               system_prompt: str ="You are an AI assistant summarizing Kubernetes issues.") -> Optional[str]:
@@ -291,8 +288,6 @@ class IssueInvestigator(ToolCallingLLM):
     def investigate(
         self, issue: Issue, prompt: str, console: Console, instructions: List[str] = [], post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
-        environment = jinja2.Environment()
-        system_prompt_template = environment.from_string(prompt)
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
         runbooks.extend(instructions)
 
@@ -304,7 +299,7 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = system_prompt_template.render(issue=issue)
+        system_prompt = load_and_render_prompt(prompt, {"issue": issue})
 
         user_prompt = ""
         if runbooks:
