@@ -256,8 +256,12 @@ class ToolCallingLLM:
         message_size_without_tools = self.count_tokens_for_message(messages_except_tools)
 
         tool_call_messages = [message for message in messages if message["role"] == "tool"]
-        if not tool_call_messages or message_size_without_tools >= max_context_size:
+        if not tool_call_messages:
             return messages
+        
+        if message_size_without_tools >= (max_context_size - maximum_output_token):
+            logging.error(f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input.")
+            raise Exception(f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input.")
 
         tool_size = min(10000, int((max_context_size - message_size_without_tools - maximum_output_token) / len(tool_call_messages)))
 
