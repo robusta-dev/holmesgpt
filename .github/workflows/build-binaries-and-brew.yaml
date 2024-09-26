@@ -97,7 +97,7 @@ jobs:
         asset_content_type: application/octet-stream
 
     - name: Upload build as artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: holmes-${{ matrix.os }}-${{ github.ref_name }}
         path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
@@ -126,7 +126,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
       - name: Download MacOS artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: holmes-macos-latest-${{ github.ref_name }}
       - name: Calculate hash
@@ -144,7 +144,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
       - name: Download Linux artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: holmes-ubuntu-20.04-${{ github.ref_name }}
       - name: Calculate hash
