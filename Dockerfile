@@ -68,13 +68,14 @@ WORKDIR /app
 COPY --from=builder /app/venv /venv
 COPY . /app
 
-
+# We're installing here libexpat1, to upgrade the package to include a fix to 3 high CVEs. CVE-2024-45491,CVE-2024-45490,CVE-2024-45492
 RUN apt-get update \
     && apt-get install -y \
        git \
        apt-transport-https \
        gnupg2 \
     && apt-get purge -y --auto-remove \
+    && apt-get install -y --no-install-recommends libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up kubectl
