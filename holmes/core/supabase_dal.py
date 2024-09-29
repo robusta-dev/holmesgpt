@@ -47,6 +47,11 @@ class SupabaseDal:
     @staticmethod
     def __load_robusta_config() -> Optional[RobustaToken]:
         config_file_path = ROBUSTA_CONFIG_PATH
+        env_ui_token = os.environ.get("ROBUSTA_UI_TOKEN")
+        if env_ui_token:
+            # token provided as env var
+            return RobustaToken(**json.loads(base64.b64decode(env_ui_token)))
+
         if not os.path.exists(config_file_path):
             logging.info(f"No robusta config in {config_file_path}")
             return None
