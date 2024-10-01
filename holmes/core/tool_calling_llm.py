@@ -62,7 +62,6 @@ class ToolCallingLLM:
 
         if ROBUSTA_AI:
             self.base_url = ROBUSTA_API_ENDPOINT
-            self.model = f"openai/{self.model}"
 
         self.check_llm(self.model, self.api_key)
 
