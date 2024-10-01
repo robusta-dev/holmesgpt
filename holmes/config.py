@@ -27,6 +27,8 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
+
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -103,6 +105,12 @@ class Config(RobustaBaseConfig):
         all_toolsets = load_builtin_toolsets()
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
+
+        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            try:
+                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION))
+            except Exception as error:
+                logging.error(f"An error happened while trying to use custom toolset: {error}")
 
         if allowed_toolsets == "*":
             matching_toolsets = all_toolsets
