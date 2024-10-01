@@ -80,13 +80,17 @@ class ToolCallingLLM:
         if api_key:
             os.environ[api_key_env_var] = api_key
         model_requirements = litellm.validate_environment(model=model)
-        if not model_requirements["keys_in_environment"]:
+        if not model_requirements["keys_in_environment"] and "cohere" not in model:
             raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
+        elif "cohere" in model and not os.environ.get("COHERE_API_KEY", None):
+            raise Exception(f"model {model} requires the following environment variable: COHERE_API_KEY")
 
         # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name 
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
     def get_context_window_size(self) -> int:
+        if "cohere/command-r-plus" in self.model:
+            return 128000
         return litellm.model_cost[self.model]['max_input_tokens'] 
 
     def count_tokens_for_message(self, messages: list[dict]) -> int:
@@ -94,7 +98,9 @@ class ToolCallingLLM:
                                      messages=messages)
     
     def get_maximum_output_token(self) -> int:
-         return litellm.model_cost[self.model]['max_output_tokens'] 
+        if "cohere/command-r-plus" in self.model:
+            return 4000
+        return litellm.model_cost[self.model]['max_output_tokens'] 
     
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
@@ -254,12 +260,11 @@ class ToolCallingLLM:
 
         tool_call_messages = [message for message in messages if message["role"] == "tool"]
         
-        if message_size_without_tools >= (max_context_size - maximum_output_token):
+        if  message_size_without_tools >= (max_context_size - maximum_output_token):
             logging.error(f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input.")
             raise Exception(f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input.")
-
         tool_size = min(10000, int((max_context_size - message_size_without_tools - maximum_output_token) / len(tool_call_messages)))
-
+    
         for message in messages:
             if message["role"] == "tool":
                 message["content"] = message["content"][:tool_size]
