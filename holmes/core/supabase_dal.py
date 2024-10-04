@@ -2,12 +2,16 @@ import base64
 import json
 import logging
 import os
+import threading
 from typing import Dict, Optional, List
+from uuid import uuid4
 
 import yaml
+from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
 from pydantic import BaseModel
+from cachetools import TTLCache
 
 from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
                                     STORE_PASSWORD)
@@ -19,6 +23,7 @@ SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 ISSUES_TABLE = "Issues"
 EVIDENCE_TABLE = "Evidence"
 RUNBOOKS_TABLE = "HolmesRunbooks"
+SESSION_TOKENS_TABLE = "AuthTokens"
 
 class RobustaConfig(BaseModel):
     sinks_config: List[Dict[str, Dict]]
@@ -42,7 +47,10 @@ class SupabaseDal:
         logging.info(f"Initializing robusta store for account {self.account_id}")
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
         self.client = create_client(self.url, self.api_key, options)
-        self.sign_in()
+        self.user_id = self.sign_in()
+        ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
+        self.token_cache = TTLCache(maxsize=1, ttl=ttl)
+        self.lock = threading.Lock()
 
     @staticmethod
     def __load_robusta_config() -> Optional[RobustaToken]:
@@ -87,11 +95,12 @@ class SupabaseDal:
         # valid only if all store parameters are provided
         return all([self.account_id, self.url, self.api_key, self.email, self.password])
 
-    def sign_in(self):
+    def sign_in(self) -> str:
         logging.info("Supabase DAL login")
         res = self.client.auth.sign_in_with_password({"email": self.email, "password": self.password})
         self.client.auth.set_session(res.session.access_token, res.session.refresh_token)
         self.client.postgrest.auth(res.session.access_token)
+        return res.user.id
 
     def get_issue_data(self, issue_id: str) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no
@@ -146,6 +155,27 @@ class SupabaseDal:
             return res.data[0].get("runbook").get("instructions")
 
         return []
+
+    def create_session_token(self) -> str:
+        token = str(uuid4())
+        self.client.table(SESSION_TOKENS_TABLE).insert(
+            {
+                "account_id": self.account_id,
+                "user_id": self.user_id,
+                "token": token,
+                "type": "HOLMES",
+            }, returning=ReturnMethod.minimal  # must use this, because the user cannot read this table
+        ).execute()
+        return token
+
+    def get_ai_credentials(self) -> (str, str):
+        with self.lock:
+            session_token = self.token_cache.get("session_token")
+            if not session_token:
+                session_token = self.create_session_token()
+                self.token_cache["session_token"] = session_token
+
+        return self.account_id, session_token
 
     def get_workload_issues(self, resource: dict, since_hours: float) -> List[str]:
         if not self.enabled or not resource:
