@@ -454,7 +454,7 @@ To work with Oracle Cloud Infrastructure (OCI) Generative AI models, you need to
 Set those environment variables and run:
 
 ```bash
-poetry run python3 holmes.py ask "what kubernetes pods are Crashlooping?" --model="oci/cohere"
+poetry run python3 holmes.py ask "what kubernetes pods are Crashlooping?" --model="oci/cohere.command-r-plus"
 ```
 
 Ensure that your `~/.oci/config` file is properly configured with your API key. Refer to OCI CLI Configuration Guide ↗ for more details.

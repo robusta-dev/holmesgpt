@@ -16,7 +16,12 @@ class Choice(BaseModel):
 class OCIResponse(BaseModel):
     choices: List[Choice]
 
+class ModelSupportException(Exception):
+    pass
+
 class OCILLM:
+    supported_models = ['cohere.command-r-plus', 'cohere.command-r-16k']
+
     def __init__(self):
         # Get values from environment variables, with defaults if not set
         self.config_profile = os.environ.get("OCI_CONFIG_PROFILE", "DEFAULT")  # Default profile if not set
@@ -124,10 +129,19 @@ class OCILLM:
 
         chat_response = self.generative_ai_inference_client.chat(chat_detail)
         return self.process_oci_response(chat_response)
-    
+
     @staticmethod
     def supports_llm(model: str) -> bool:
-        return 'oci' in model.lower()
+        
+        
+        # Check if the model is supported
+        if 'oci' in model.lower():
+            return True
+        elif model.lower() in OCILLM.supported_models:
+            return True
+        else:
+            # Raise an exception if the model is not supported
+            raise ModelSupportException(f"Unsupported model: {model}. Supported models are: {', '.join(OCILLM.supported_models)}")
 
     @staticmethod
     def check_llm() -> bool:
@@ -140,10 +154,14 @@ class OCILLM:
 
     @staticmethod
     def get_context_window_size(model) -> int:
-        if "cohere" in model:
+        if "cohere.command-r-plus" in model:
             return 128000
-    
+        elif 'cohere.command-r-16k' in model:
+            return 16000
+        raise ModelSupportException(f"Unsupported model: {model}. Supported models are: {', '.join(OCILLM.supported_models)}")
+
     @staticmethod
     def get_maximum_output_token(model) -> int:
-        if "cohere" in model:
+        if "cohere.command-r-plus" in model or 'cohere.command-r-16k' in model:
             return 4000
+        raise ModelSupportException(f"Unsupported model: {model}. Supported models are: {', '.join(OCILLM.supported_models)}")
