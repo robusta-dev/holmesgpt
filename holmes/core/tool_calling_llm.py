@@ -135,8 +135,9 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages {messages}")
             try:
+                temperature = 0.00000001
                 if OCILLM.supports_llm(self.model):
-                    full_response = OCILLM().oci_chat(message=user_prompt,messages=messages, tools=tools)
+                    full_response = OCILLM().oci_chat(message=user_prompt,messages=messages,model=self.model, tools=tools, temperature= temperature)
                 else:
                     full_response = litellm.completion(
                         model=self.model,
@@ -145,7 +146,7 @@ class ToolCallingLLM:
                         tools=tools,
                         tool_choice=tool_choice,
                         base_url=self.base_url,
-                        temperature=0.00000001,
+                        temperature=temperature,
                         response_format=response_format
 
                     )

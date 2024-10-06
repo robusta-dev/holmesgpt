@@ -79,7 +79,7 @@ class OCILLM:
         choice = Choice(message=message)
         return LiteLLMResponse(choices=[choice])
 
-    def _convert_to_chat_history(self, messages: List[dict]) -> List[oci.generative_ai_inference.models.CohereMessage]:
+    def _convert_to_chat_history(self, messages: List[Dict]) -> List[oci.generative_ai_inference.models.CohereMessage]:
         chat_history = []
         for message in messages:
             role = message.get("role")
@@ -100,18 +100,15 @@ class OCILLM:
                 tool_results.append(tool_result)
         return tool_results if tool_results else None
 
-    def oci_chat(self, message, messages, tools) -> LiteLLMResponse:
+    def oci_chat(self, message: str, messages: List, model: str, tools: Optional[List], temperature: float) -> LiteLLMResponse:
         chat_detail = oci.generative_ai_inference.models.ChatDetails()
         chat_request = oci.generative_ai_inference.models.CohereChatRequest()
         chat_request.message = message
         chat_request.chat_history = self._convert_to_chat_history(messages)
-        chat_request.max_tokens = 2000
-        chat_request.temperature = 0.25
-        chat_request.frequency_penalty = 0
-        chat_request.top_p = 0.75
-        chat_request.top_k = 0
+        chat_request.max_tokens = self.get_maximum_output_token(model)
         chat_request.tool_results = self._convert_to_tool_results(messages)
         chat_request.is_force_single_step = True
+        chat_request.temperature = temperature
 
         cohere_tools = []
         if tools:
