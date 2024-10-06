@@ -6,7 +6,9 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
     print("added custom certificate")
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
-# IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATEE
+# IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
+
+
 import jinja2
 import logging
 import uvicorn
@@ -15,7 +17,7 @@ import colorlog
 from typing import Dict, Callable
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import SecretStr
 from rich.console import Console
 
 from holmes.common.env_vars import (
@@ -40,7 +42,6 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
-import jinja2
 
 
 def init_logging():
@@ -69,9 +70,16 @@ console = Console()
 config = Config.load_from_env()
 
 
+def load_robusta_api_key():
+    if os.environ.get("ROBUSTA_AI"):
+        account_id, token = dal.get_ai_credentials()
+        config.api_key = SecretStr(f"{account_id} {token}")
+
+
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
+        load_robusta_api_key()
         context = dal.get_issue_data(
             investigate_request.context.get("robusta_issue_id")
         )
@@ -112,7 +120,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
-
+    load_robusta_api_key()
     try:
         resource = request.resource
         workload_alerts: list[str] = []
@@ -149,6 +157,7 @@ def workload_health_check(request: WorkloadHealthRequest):
 def handle_issue_conversation(
     conversation_request: ConversationRequest, ai: ToolCallingLLM
 ):
+    load_robusta_api_key()
     context_window = ai.get_context_window_size()    
     number_of_tools = len(
         conversation_request.context.investigation_result.tools
@@ -240,6 +249,7 @@ conversation_type_handlers: Dict[
 @app.post("/api/conversation")
 def converstation(conversation_request: ConversationRequest):
     try:
+        load_robusta_api_key()
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
         handler = conversation_type_handlers.get(conversation_request.conversation_type)
