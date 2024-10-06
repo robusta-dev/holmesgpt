@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 import oci
 import os
 import json
@@ -13,14 +13,14 @@ class Message(BaseModel):
 class Choice(BaseModel):
     message: Message
 
-class OCIResponse(BaseModel):
+class LiteLLMResponse(BaseModel):
     choices: List[Choice]
 
 class ModelSupportException(Exception):
     pass
 
 class OCILLM:
-    supported_models = ['cohere.command-r-plus', 'cohere.command-r-16k']
+    supported_models = ['oci/cohere.command-r-plus', 'oci/cohere.command-r-16k']
 
     def __init__(self):
         # Get values from environment variables, with defaults if not set
@@ -43,7 +43,7 @@ class OCILLM:
             timeout=(10, 240)
         )
 
-    def convert_parameters(self, parameters):
+    def _convert_parameters(self, parameters) -> Dict[str, CohereParameterDefinition]:
         parameter_definitions = {}
         for param_name, param_properties in parameters['properties'].items():
             parameter_definitions[param_name] = CohereParameterDefinition(
@@ -53,18 +53,21 @@ class OCILLM:
             )
         return parameter_definitions
 
-    def make_jsonable(self, obj):
+    def _make_jsonable(self, obj) -> str:
         try:
             return json.dumps(obj)
         except (TypeError, ValueError):
             return str(obj)
 
-    def process_oci_response(self, full_response):
+    def _process_oci_response(self, full_response: oci.response.Response) -> LiteLLMResponse:
+        """
+            Converts from oci.response.Response to the response format of LiteLLMResponse 
+        """
         chat_response = full_response.data.chat_response
         tool_calls = []
         if chat_response.tool_calls:
             for tc in chat_response.tool_calls:
-                function = Function(name=tc.name, arguments=self.make_jsonable(tc.parameters))
+                function = Function(name=tc.name, arguments=self._make_jsonable(tc.parameters))
                 tool_call = ChatCompletionMessageToolCall(
                     id=tc.name,
                     function=function,
@@ -74,9 +77,9 @@ class OCILLM:
 
         message = Message(content=chat_response.text, tool_calls=tool_calls)
         choice = Choice(message=message)
-        return OCIResponse(choices=[choice])
+        return LiteLLMResponse(choices=[choice])
 
-    def convert_to_chat_history(self, messages: List[dict]):
+    def _convert_to_chat_history(self, messages: List[dict]) -> List[oci.generative_ai_inference.models.CohereMessage]:
         chat_history = []
         for message in messages:
             role = message.get("role")
@@ -88,7 +91,7 @@ class OCILLM:
                 chat_history.append(user_message)
         return chat_history
 
-    def convert_to_tool_results(self, messages: List[dict]):
+    def _convert_to_tool_results(self, messages: List[dict]) -> Optional[List[CohereToolResult]]:
         tool_results = []
         for message in messages:
             if message.get("role") == "tool":
@@ -97,24 +100,24 @@ class OCILLM:
                 tool_results.append(tool_result)
         return tool_results if tool_results else None
 
-    def oci_chat(self, message, messages, tools):
+    def oci_chat(self, message, messages, tools) -> LiteLLMResponse:
         chat_detail = oci.generative_ai_inference.models.ChatDetails()
         chat_request = oci.generative_ai_inference.models.CohereChatRequest()
         chat_request.message = message
-        chat_request.chat_history = self.convert_to_chat_history(messages)
+        chat_request.chat_history = self._convert_to_chat_history(messages)
         chat_request.max_tokens = 2000
         chat_request.temperature = 0.25
         chat_request.frequency_penalty = 0
         chat_request.top_p = 0.75
         chat_request.top_k = 0
-        chat_request.tool_results = self.convert_to_tool_results(messages)
+        chat_request.tool_results = self._convert_to_tool_results(messages)
         chat_request.is_force_single_step = True
 
         cohere_tools = []
         if tools:
             for tool in tools:
                 tool_function = tool["function"]
-                parameter_definitions = self.convert_parameters(tool_function['parameters'])
+                parameter_definitions = self._convert_parameters(tool_function['parameters'])
                 cohere_tool = CohereTool(
                     name=tool_function['name'],
                     description=tool_function['description'],
@@ -128,23 +131,25 @@ class OCILLM:
         chat_detail.compartment_id = self.compartment_id
 
         chat_response = self.generative_ai_inference_client.chat(chat_detail)
-        return self.process_oci_response(chat_response)
+        return self._process_oci_response(chat_response)
 
     @staticmethod
     def supports_llm(model: str) -> bool:
-        
-        
         # Check if the model is supported
-        if 'oci' in model.lower():
-            return True
-        elif model.lower() in OCILLM.supported_models:
+        if 'oci' not in model.lower():
+            return False
+
+        if model in OCILLM.supported_models:
             return True
         else:
-            # Raise an exception if the model is not supported
+            # Raise an exception if it is oci but model is not supported like 'oci/llama'
             raise ModelSupportException(f"Unsupported model: {model}. Supported models are: {', '.join(OCILLM.supported_models)}")
 
     @staticmethod
     def check_llm() -> bool:
+        """
+            Verifies all the env vars exist to run the LLM
+        """
         required_vars = ["OCI_MODEL_ID", "OCI_COMPARTMENT_ID", "OCI_ENDPOINT"]
         missing_vars = [var for var in required_vars if var not in os.environ]
         if missing_vars:
