@@ -342,6 +342,31 @@ For OpenAI, only the ``model`` and ``api-key`` should be provided
 </details>
 
 <details>
+<summary>OCI (Oracle Cloud Infrastructure) in Kubernetes</summary>
+
+To configure OCI in Kubernetes, you need to provide the following environment variables:
+
+    additionalEnvVars:
+    - name: MODEL
+      value: oci/cohere                               # Your OCI model identifier
+    - name: OCI_ENDPOINT
+      value: https://inference.generativeai.<region>.oci.oraclecloud.com  # OCI endpoint URL
+    - name: OCI_COMPARTMENT_ID
+      value: ocid1.tenancy.oc1..example                # Your OCI Compartment OCID
+    - name: OCI_MODEL_ID
+      value: ocid1.generativeaimodel.oc1.<region>.example  # Your OCI Model OCID
+
+Additionally, ensure your `~/.oci/config` is set up with the correct API key, and provide the API key using Kubernetes secrets:
+
+    - name: OCI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: my-holmes-secret
+          key: ociApiKey
+
+</details>
+
+<details>
 <summary>Azure OpenAI</summary>
 
 To work with Azure AI, you need to provide the below variables:
@@ -416,6 +441,25 @@ holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
 If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
 
 </details>
+
+<details>
+<summary>OCI (Oracle Cloud Infrastructure)</summary>
+
+To work with Oracle Cloud Infrastructure (OCI) Generative AI models, you need to set the following environment variables:
+
+* OCI_ENDPOINT - e.g. https://inference.generativeai.<region>.oci.oraclecloud.com
+* OCI_COMPARTMENT_ID - Your OCI Compartment OCID
+* OCI_MODEL_ID - Your OCI Generative AI Model OCID
+
+Set those environment variables and run:
+
+```bash
+poetry run python3 holmes.py ask "what kubernetes pods are Crashlooping?" --model="oci/cohere.command-r-plus"
+```
+
+Ensure that your `~/.oci/config` file is properly configured with your API key. Refer to OCI CLI Configuration Guide ↗ for more details.
+
+</details> 
 
 <details>
 <summary>Azure OpenAI</summary>

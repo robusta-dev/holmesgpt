@@ -4,6 +4,7 @@ import logging
 import textwrap
 import os
 from typing import List, Optional
+from holmes.core.aux_llms.oci_llms import OCILLM
 from holmes.plugins.prompts import load_and_render_prompt
 from litellm import get_supported_openai_params
 import litellm
@@ -62,8 +63,10 @@ class ToolCallingLLM:
 
         if ROBUSTA_AI:
             self.base_url = ROBUSTA_API_ENDPOINT
-
-        self.check_llm(self.model, self.api_key)
+        if OCILLM.supports_llm(self.model):
+            OCILLM.check_llm()
+        else:
+            self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model, api_key):
         logging.debug(f"Checking LiteLLM model {model}")
@@ -86,14 +89,20 @@ class ToolCallingLLM:
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
     def get_context_window_size(self) -> int:
-        return litellm.model_cost[self.model]['max_input_tokens']
+        if OCILLM.supports_llm(self.model):
+            return OCILLM.get_context_window_size(self.model)
+        else:
+            return litellm.model_cost[self.model]['max_input_tokens'] 
 
     def count_tokens_for_message(self, messages: list[dict]) -> int:
         return litellm.token_counter(model=self.model,
                                      messages=messages)
     
     def get_maximum_output_token(self) -> int:
-         return litellm.model_cost[self.model]['max_output_tokens'] 
+        if OCILLM.supports_llm(self.model):
+            return OCILLM.get_maximum_output_token(self.model)
+        else:
+            return litellm.model_cost[self.model]['max_output_tokens'] 
     
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
@@ -126,17 +135,21 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages {messages}")
             try:
-                full_response = litellm.completion(
-                    model=self.model,
-                    api_key=self.api_key,
-                    messages=messages,
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    base_url=self.base_url,
-                    temperature=0.00000001,
-                    response_format=response_format
+                temperature = 0.00000001
+                if OCILLM.supports_llm(self.model):
+                    full_response = OCILLM().oci_chat(message=user_prompt,messages=messages,model=self.model, tools=tools, temperature= temperature)
+                else:
+                    full_response = litellm.completion(
+                        model=self.model,
+                        api_key=self.api_key,
+                        messages=messages,
+                        tools=tools,
+                        tool_choice=tool_choice,
+                        base_url=self.base_url,
+                        temperature=temperature,
+                        response_format=response_format
 
-                )
+                    )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
