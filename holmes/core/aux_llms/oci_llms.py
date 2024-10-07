@@ -24,16 +24,25 @@ class OCILLM:
 
     def __init__(self):
         # Get values from environment variables, with defaults if not set
-        self.config_profile = os.environ.get("OCI_CONFIG_PROFILE", "DEFAULT")  # Default profile if not set
+        self.config_profile = os.environ.get("OCI_CONFIG_PROFILE", "DEFAULT")
         self.endpoint = os.environ.get("OCI_ENDPOINT", None)
         self.model_id = os.environ.get("OCI_MODEL_ID", None)
         self.compartment_id = os.environ.get("OCI_COMPARTMENT_ID", None)
+        self.tenancy_id = os.environ.get("OCI_TENANCY_ID", None)
+        self.user_id = os.environ.get("OCI_USER_ID", None)
+        self.fingerprint = os.environ.get("OCI_FINGERPRINT", None)
+        self.private_key = os.environ.get("OCI_PRIVATE_KEY", None)  # Read private key as string
+        self.region = os.environ.get("OCI_REGION", None)
+        self.passphrase = os.environ.get("OCI_PRIVATE_KEY_PASSPHRASE", None)  # Optional passphrase
 
-        # Ensure required OCI environment variables are set
+        # Check if we have all environment variables needed; if not, fall back to config file
+        if self.tenancy_id and self.user_id and self.fingerprint and self.private_key and self.region:
+            self.use_env_config()
+        else:
+            self.use_file_config()
+
+        # Ensure required variables are set, whether from env or config file
         self.check_llm()
-
-        # Load OCI config
-        self.config = oci.config.from_file('~/.oci/config', self.config_profile)
 
         # Set up the Generative AI client
         self.generative_ai_inference_client = oci.generative_ai_inference.GenerativeAiInferenceClient(
@@ -42,6 +51,22 @@ class OCILLM:
             retry_strategy=oci.retry.NoneRetryStrategy(),
             timeout=(10, 240)
         )
+
+    def use_env_config(self):
+        """Use environment variables for OCI config."""
+        self.config = {
+            "user": self.user_id,
+            "fingerprint": self.fingerprint,
+            "key_content": self.private_key,  # Pass the private key as a string
+            "tenancy": self.tenancy_id,
+            "region": self.region,
+            "pass_phrase": self.passphrase  # If the private key has a passphrase
+        }
+
+    def use_file_config(self):
+        """Fallback to OCI config file if environment variables are missing."""
+        print("Falling back to OCI config file")
+        self.config = oci.config.from_file('~/.oci/config', self.config_profile)
 
     def _convert_parameters(self, parameters) -> Dict[str, CohereParameterDefinition]:
         parameter_definitions = {}
