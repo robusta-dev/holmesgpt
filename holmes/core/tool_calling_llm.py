@@ -82,18 +82,32 @@ class ToolCallingLLM:
         if not model_requirements["keys_in_environment"]:
             raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
 
+    def _strip_model_prefix(self) -> str:
+        """
+        Helper function to strip 'openai/' prefix from model name if it exists.
+        model cost is taken from here which does not have the openai prefix
+        https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+        """
+        model_name = self.model
+        if model_name.startswith('openai/'):
+            model_name = model_name[len('openai/'):]  # Strip the 'openai/' prefix
+        return model_name
+
+
         # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name 
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
     def get_context_window_size(self) -> int:
-        return litellm.model_cost[self.model]['max_input_tokens']
+        model_name = self._strip_model_prefix()
+        return litellm.model_cost[model_name]['max_input_tokens']
 
     def count_tokens_for_message(self, messages: list[dict]) -> int:
         return litellm.token_counter(model=self.model,
                                      messages=messages)
     
     def get_maximum_output_token(self) -> int:
-         return litellm.model_cost[self.model]['max_output_tokens'] 
+        model_name = self._strip_model_prefix()
+        return litellm.model_cost[model_name]['max_output_tokens']
     
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
