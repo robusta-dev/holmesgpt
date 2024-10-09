@@ -88,6 +88,18 @@ class ToolCallingLLM:
         model cost is taken from here which does not have the openai prefix
         https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
         """
+        if "azure" in self.model:
+            if not os.getenv("AZURE_MODEL_TYPE"):
+                response = litellm.completion(
+                    model = self.model,
+                    messages = [{ "content": "","role": "user"}],
+                    base_url=os.getenv("AZURE_API_BASE")
+                )
+                os.environ['AZURE_MODEL_TYPE'] = response.model
+                logging.info(f"Detected azure model {response.model}")
+                return response.model
+            else:
+                return os.environ['AZURE_MODEL_TYPE'] 
         model_name = self.model
         if model_name.startswith('openai/'):
             model_name = model_name[len('openai/'):]  # Strip the 'openai/' prefix
