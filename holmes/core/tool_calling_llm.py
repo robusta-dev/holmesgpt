@@ -57,9 +57,6 @@ class ToolCallingLLM:
         self.api_key = api_key
         self.base_url = None
 
-        params = get_supported_openai_params(model=self.model)
-        self.support_response_format: bool = params and "response_format" in params
-
         if ROBUSTA_AI:
             self.base_url = ROBUSTA_API_ENDPOINT
 
@@ -131,7 +128,6 @@ class ToolCallingLLM:
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
 
-        response_format = response_format if self.support_response_format else None
         for i in range(self.max_steps):
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
@@ -156,8 +152,8 @@ class ToolCallingLLM:
                     tool_choice=tool_choice,
                     base_url=self.base_url,
                     temperature=0.00000001,
-                    response_format=response_format
-
+                    response_format=response_format,
+                    drop_params=True
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
