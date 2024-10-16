@@ -52,10 +52,19 @@ spec:
         volumeMounts:
           - name: playbooks-config-secret
             mountPath: /etc/robusta/config
+          - name: custom-toolsets-configmap
+            mountPath: /etc/holmes/config
+      {{- if .Values.tolerations }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
         - name: playbooks-config-secret
           secret:
             secretName: robusta-playbooks-config-secret
+            optional: true
+        - name: custom-toolsets-configmap
+          configMap:
+            name: custom-toolsets-configmap
             optional: true
 
 ---

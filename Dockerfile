@@ -27,8 +27,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
 
 # Set the architecture-specific kube lineage URLs
-ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-macos-latest-v2.0.1
-ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.0.1/kube-lineage-ubuntu-latest-v2.0.1
+ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.1/kube-lineage-macos-latest-v2.1
+ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.1/kube-lineage-ubuntu-latest-v2.1
 # Define a build argument to identify the platform
 ARG TARGETPLATFORM
 # Conditional download based on the platform
@@ -68,13 +68,14 @@ WORKDIR /app
 COPY --from=builder /app/venv /venv
 COPY . /app
 
-
+# We're installing here libexpat1, to upgrade the package to include a fix to 3 high CVEs. CVE-2024-45491,CVE-2024-45490,CVE-2024-45492
 RUN apt-get update \
     && apt-get install -y \
        git \
        apt-transport-https \
        gnupg2 \
     && apt-get purge -y --auto-remove \
+    && apt-get install -y --no-install-recommends libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up kubectl
@@ -95,6 +96,9 @@ ARG AWS_REGION
 
 # Patching CVE-2024-32002
 RUN git config --global core.symlinks false
+
+# Remove setuptools-65.5.1 installed from python:3.11-slim base image as fix for CVE-2024-6345 until image will be updated
+RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-65.5.1.dist-info
 
 ENTRYPOINT ["python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]

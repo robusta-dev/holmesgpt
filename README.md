@@ -110,6 +110,78 @@ By default results are displayed in the CLI. Use `--update --pagerduty-user-emai
 ![PagerDuty](./images/pagerduty-holmes-update.png)
 </details>
 
+<details>
+<summary>K9s Plugin</summary>
+
+You can add HolmesGPT as a plugin for K9s to investigate why any Kubernetes resource is unhealthy.
+
+Add the following contents to the K9s plugin file, typically `~/.config/k9s/plugins.yaml` on Linux and `~/Library/Application Support/k9s/plugins.yaml` on Mac. Read more about K9s plugins [here](https://k9scli.io/topics/plugins/) and check your plugin path [here](https://github.com/derailed/k9s?tab=readme-ov-file#k9s-configuration).
+
+**Note**: HolmesGPT must be installed and configured for the K9s plugin to work.
+
+Basic plugin to run an investigation on any Kubernetes object, using the shortcut `Shift + H`:
+
+```yaml
+plugins:
+  holmesgpt:
+    shortCut: Shift-H 
+    description: Ask HolmesGPT 
+    scopes:
+      - all 
+    command: bash
+    background: false
+    confirm: false
+    args:
+      - -c
+      - |
+        holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+        echo "Press 'q' to exit"
+        while : ; do
+        read -n 1 k <&1
+        if [[ $k = q ]] ; then
+        break
+        fi
+        done
+```
+
+Advanced plugin that lets you modify the questions HolmesGPT asks about the LLM, using the shortcut `Shift + O`. (E.g. you can change the question to "generate an HPA for this deployment" and the AI will follow those instructions and output an HPA configuration.)
+```yaml
+plugins:
+  custom-holmesgpt:
+    shortCut: Shift-Q
+    description: Custom HolmesGPT Ask
+    scopes:
+      - all 
+    command: bash
+    background: false
+    confirm: false
+    args:
+      - -c
+      - |
+        INSTRUCTIONS="# Edit the line below. Lines starting with '#' will be ignored."
+        DEFAULT_ASK_COMMAND="why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+        QUESTION_FILE=$(mktemp)
+
+        echo "$INSTRUCTIONS" > "$QUESTION_FILE"
+        echo "$DEFAULT_ASK_COMMAND" >> "$QUESTION_FILE"
+
+        # Open the line in the default text editor
+        ${EDITOR:-nano} "$QUESTION_FILE"
+
+        # Read the modified line, ignoring lines starting with '#'
+        user_input=$(grep -v '^#' "$QUESTION_FILE")
+        echo running: holmes ask "\"$user_input\""
+  
+        holmes ask "$user_input"
+        echo "Press 'q' to exit"
+        while : ; do
+        read -n 1 k <&1
+        if [[ $k = q ]] ; then
+        break
+        fi
+        done
+```
+</details>
 
 Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
 
@@ -159,10 +231,10 @@ holmes ask "what issues do I have in my cluster"
 <details>
 <summary>Prebuilt Docker Container</summary>
 
-Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes-dev`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
+Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
 
 ```bash
-docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes-dev ask "what pods are unhealthy and why?"
+docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
 ```
 </details>
 
@@ -315,6 +387,13 @@ To work with Azure AI, you need to provide the below variables:
 
 </details>
 
+**Trusting custom Certificate Authority (CA) certificate:**
+
+If your llm provider url uses a certificate from a custom CA, in order to trust it, base-64 encode the certificate, and store it in an environment variable named ``CERTIFICATE``
+
+
+
+
 ### Getting an API Key
 
 HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
@@ -388,7 +467,29 @@ Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/be
 </details>
 
 <details>
-<summary>Using a self-hosted LLM</summary>
+<summary>Using Ollama</summary>
+Ollama is supported, but buggy. We recommend using other models if you can, until Ollama tool-calling capabilities improve.
+Specifically, Ollama often calls tools with non-existent or missing parameters.
+
+If you'd like to try using Ollama anyway, see below:
+```
+export OLLAMA_API_BASE="http://localhost:11434"
+holmes ask "what pods are unhealthy in my cluster?" --model="ollama_chat/llama3.1"
+```
+
+You can also connect to Ollama in the standard OpenAI format (this should be equivalent to the above):
+
+```
+# note the v1 at the end
+export OPENAI_API_BASE="http://localhost:11434/v1"
+# holmes requires OPENAPI_API_KEY to be set but value does not matter
+export OPENAI_API_KEY=123
+holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
+```
+  
+</details>
+<details>
+<summary>Using other OpenAI-compatible models</summary>
 
 You will need an LLM with support for function-calling (tool-calling).
 
@@ -407,9 +508,30 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
+### Enabling Integrations
+
+<details>
+<summary>Confluence</summary>
+HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
+
+* CONFLUENCE_BASE_URL - e.g. https://robusta-dev-test.atlassian.net
+* CONFLUENCE_USER - e.g. user@company.com
+* CONFLUENCE_API_KEY - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+</details>
+
+<details>
+<summary>
+Jira, GitHub, OpsGenie, PagerDuty, and AlertManager
+</summary>
+
+HolmesGPT can pull tickets/alerts from each of these sources and investigate them.
+
+Refer to `holmes investigate jira --help` etc for details, or view the <a href="#examples">examples</a>.
+</details>
+
 ## Other Use Cases
 
-HolmesGPT is usually used for incident response, but it can function as a general-purpose DevOps assistant too. Here are some examples:
+HolmesGPT was designed for incident response, but it is a general DevOps assistant too. Here are some examples:
 
 <details>
 <summary>Ask Questions About Your Cloud</summary>

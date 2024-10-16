@@ -1,11 +1,20 @@
-# from holmes.ssh_utils import add_custom_certificate
-# add_custom_certificate("cert goes here as a string (not path to the cert rather the cert itself)")
+import os
+from holmes.utils.cert_utils import add_custom_certificate
+
+ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
+if add_custom_certificate(ADDITIONAL_CERTIFICATE):
+    print("added custom certificate")
+
+# DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
+# IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
+
 
 import socket
 import uuid
 import logging
 import re
 import warnings
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 import typer
@@ -17,7 +26,7 @@ from holmes.utils.file_utils import write_json_file
 from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
-from holmes.plugins.prompts import load_prompt
+from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
@@ -40,8 +49,40 @@ generate_app = typer.Typer(
 app.add_typer(generate_app, name="generate")
 
 
-def init_logging(verbose = False):
-    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+class Verbosity(Enum):
+    NORMAL = 0
+    LOG_QUERIES = 1
+    VERBOSE = 2
+    VERY_VERBOSE = 3
+
+def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
+    if verbose_flags is None or len(verbose_flags) == 0:
+        return Verbosity.NORMAL
+    elif len(verbose_flags) == 1:
+        return Verbosity.LOG_QUERIES
+    elif len(verbose_flags) == 2:
+        return Verbosity.VERBOSE
+    else:
+        return Verbosity.VERY_VERBOSE
+    
+def init_logging(verbose_flags: List[bool] = None):
+    verbosity = cli_flags_to_verbosity(verbose_flags)
+    
+    if verbosity == Verbosity.VERY_VERBOSE:
+        logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+    else:
+        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+
+    if verbosity.value >= Verbosity.NORMAL.value:
+        logging.info(f"verbosity is {verbosity}")
+    
+    if verbosity.value >= Verbosity.LOG_QUERIES.value:
+        # TODO
+        pass
+    
+    if verbosity.value >= Verbosity.VERBOSE.value:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     # disable INFO logs from OpenAI
     logging.getLogger("httpx").setLevel(logging.WARNING)
     # disable INFO logs from LiteLLM
@@ -93,11 +134,16 @@ opt_max_steps: Optional[int] = typer.Option(
     "--max-steps",
     help="Advanced. Maximum number of steps the LLM can take to investigate the issue",
 )
-opt_verbose: Optional[bool] = typer.Option(
-    False,
+opt_verbose: Optional[List[bool]] = typer.Option(
+    [],
     "--verbose",
     "-v",
-    help="Verbose output",
+    help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv or -vvvv",
+)
+opt_echo_request: bool = typer.Option(
+    True,
+    "--echo/--no-echo",
+    help="Echo back the question provided to HolmesGPT in the output",
 )
 opt_destination: Optional[DestinationType] = typer.Option(
     DestinationType.CLI,
@@ -170,7 +216,7 @@ def ask(
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # semi-common options
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
@@ -192,6 +238,7 @@ def ask(
         help="File to append to prompt (can specify -f multiple times to add multiple files)",
     ),
     json_output_file: Optional[str] = opt_json_output_file,
+    echo_request: bool = opt_echo_request,
     post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
@@ -207,9 +254,10 @@ def ask(
         slack_token=slack_token,
         slack_channel=slack_channel,
     )
-    system_prompt = load_prompt(system_prompt)
+    system_prompt = load_and_render_prompt(system_prompt)
     ai = config.create_toolcalling_llm(console, allowed_toolsets)
-    console.print("[bold yellow]User:[/bold yellow] " + prompt)
+    if echo_request:
+        console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
         f = path.open("r")
         prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
@@ -263,7 +311,7 @@ def alertmanager(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
@@ -295,7 +343,6 @@ def alertmanager(
         custom_runbooks=custom_runbooks
     )
 
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
 
     source = config.create_alertmanager_source()
@@ -323,7 +370,7 @@ def alertmanager(
         console.print(
             f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
 
@@ -340,14 +387,14 @@ def generate_alertmanager_tests(
     alertmanager_password: Optional[str] = typer.Option(
         None, help="Password to use for basic auth"
     ),
-    output: Path = typer.Option(
-        ..., help="Path to dump alertmanager alerts"
+    output: Optional[Path] = typer.Option(
+        None, help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)"
     ),
     config_file: Optional[str] = opt_config_file,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
 ):
     """
-    Connect to alertmanager and dump all alerts to a file that you can use for creating tests
+    Connect to alertmanager and dump all alerts as either a json file or curl commands to simulate the alert (depending on --output flag)
     """
     console = init_logging(verbose)
     config = Config.load_from_file(
@@ -358,7 +405,10 @@ def generate_alertmanager_tests(
     )
 
     source = config.create_alertmanager_source()
-    source.dump_raw_alerts_to_file(output)
+    if output is None:
+        source.output_curl_commands(console)
+    else:
+        source.dump_raw_alerts_to_file(output)
 
 
 @investigate_app.command()
@@ -392,7 +442,7 @@ def jira(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
@@ -416,8 +466,6 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_jira_source()
     try:
@@ -435,7 +483,7 @@ def jira(
         console.print(
             f"[bold yellow]Analyzing Jira ticket {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -485,7 +533,7 @@ def github(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -509,8 +557,6 @@ def github(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_github_source()
     try:
@@ -524,7 +570,7 @@ def github(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -561,7 +607,7 @@ def pagerduty(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     json_output_file: Optional[str] = opt_json_output_file,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
@@ -584,8 +630,6 @@ def pagerduty(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_pagerduty_source()
     try:
@@ -601,7 +645,7 @@ def pagerduty(
     results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -642,7 +686,7 @@ def opsgenie(
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
-    verbose: Optional[bool] = opt_verbose,
+    verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -664,8 +708,6 @@ def opsgenie(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-
-    system_prompt = load_prompt(system_prompt)
     ai = config.create_issue_investigator(console, allowed_toolsets)
     source = config.create_opsgenie_source()
     try:
@@ -679,7 +721,7 @@ def opsgenie(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, post_processing_prompt)
+        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -699,8 +741,10 @@ def opsgenie(
 def version() -> None:
     typer.echo(get_version())
 
+
 def run():
     app()
+
 
 if __name__ == "__main__":
     run()

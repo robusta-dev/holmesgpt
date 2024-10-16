@@ -6,9 +6,11 @@ from typing import List, Literal, Optional, Pattern
 
 import humanize
 import requests
+import rich
 from pydantic import BaseModel, ValidationError, parse_obj_as, validator
 from pydantic.json import pydantic_encoder
 from requests.auth import HTTPBasicAuth
+import rich.segment
 
 from holmes.core.issue import Issue
 from holmes.plugins.interfaces import SourcePlugin
@@ -117,6 +119,20 @@ class AlertManagerSource(SourcePlugin):
         alerts = self.__fetch_issues_from_api()
         with open(path, "w") as f:
             f.write(json.dumps(alerts, default=pydantic_encoder, indent=2))
+
+    def output_curl_commands(self, console: rich.console.Console) -> None:
+        """
+        Outputs curl commands to send each alert to Alertmanager via the API.
+        """
+        alerts = self.__fetch_issues_from_api()
+        for alert in alerts:
+            alert_json = json.dumps([alert.model_dump()], default=pydantic_encoder)  # Wrap in a list
+            curl_command = (
+                f"curl -X POST -H 'Content-Type: application/json' "
+                f"-d '{alert_json}' {self.url}/api/v2/alerts"
+            )
+            console.print(f"[green]{alert.name} alert[/green]")
+            console.print(f"[yellow]{curl_command}[/yellow]", soft_wrap=True)
 
     @staticmethod
     def __format_issue_metadata(alert: PrometheusAlert) -> Optional[str]:

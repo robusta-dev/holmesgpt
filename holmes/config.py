@@ -27,6 +27,8 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
+
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -104,6 +106,12 @@ class Config(RobustaBaseConfig):
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
 
+        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            try:
+                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION))
+            except Exception as error:
+                logging.error(f"An error happened while trying to use custom toolset: {error}")
+
         if allowed_toolsets == "*":
             matching_toolsets = all_toolsets
         else:
@@ -118,10 +126,10 @@ class Config(RobustaBaseConfig):
                     f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}"
                 )
             elif ts not in enabled_toolsets:
-                console.print(
-                    f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
-                )
-                #console.print(f"[red]The following tools will be disabled: {[t.name for t in ts.tools]}[/red])")
+                logging.debug(f"Not loading toolset {ts.name} ({ts.get_disabled_reason()})")
+                # console.print(
+                #     f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
+                # )
             else:
                 logging.debug(f"Loaded toolset {ts.name} from {ts.get_path()}")
                 # console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
@@ -134,7 +142,7 @@ class Config(RobustaBaseConfig):
 
     def create_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern
-    ) -> IssueInvestigator:
+    ) -> ToolCallingLLM:
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return ToolCallingLLM(
             self.model,
