@@ -32,6 +32,15 @@ toolsets:
     description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
     command: "kubectl logs {{ name}} -n {{ namespace }}"
 
+  - name: "kubectl_top_pods"
+    description: "Retrieves real-time CPU and memory usage for each pod in the cluster."
+    command: >
+      kubectl top pods -A
+  - name: "kubectl_top_nodes"
+    description: "Retrieves real-time CPU and memory usage for each node in the cluster."
+    command: >
+      kubectl top nodes
+
   # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic 
   # http GET capabilities which are more powerful than we want to expose
   #- name: "check_liveness_probe"
