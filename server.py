@@ -28,6 +28,7 @@ from holmes.common.env_vars import (
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
+from holmes.core.conversations import handle_chat_conversation, handle_issue_conversation
 from holmes.core.issue import Issue
 from holmes.core.models import (
     ConversationType,
@@ -154,95 +155,12 @@ def workload_health_check(request: WorkloadHealthRequest):
         raise HTTPException(status_code=401, detail=e.message)
 
 
-def handle_issue_conversation(
-    conversation_request: ConversationRequest, ai: ToolCallingLLM
-):
-    load_robusta_api_key()
-    context_window = ai.get_context_window_size()    
-    number_of_tools = len(
-        conversation_request.context.investigation_result.tools
-    ) + sum(
-        [
-            len(history.answer.tools)
-            for history in conversation_request.context.conversation_history
-        ]
-    )
-    if number_of_tools == 0:
-        template_context = {
-        "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
-        "conversation_history": conversation_request.context.conversation_history,
-    }
-        system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
-        return system_prompt
-
-    conversation_history_without_tools = [
-        HolmesConversationHistory(
-            ask=history.ask,
-            answer=ConversationInvestigationResult(analysis=history.answer.analysis),
-        )
-        for history in conversation_request.context.conversation_history
-    ]
-    template_context = {
-        "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": None,
-        "conversation_history": conversation_history_without_tools,
-    }
-    system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": conversation_request.user_prompt,
-        },
-    ]
-    message_size_without_tools = ai.count_tokens_for_message(messages)
-    maximum_output_token = ai.get_maximum_output_token()
-    
-    tool_size = min(
-        10000, int((context_window - message_size_without_tools - maximum_output_token) / number_of_tools)
-    )
-    
-    truncated_conversation_history_without_tools = [
-        HolmesConversationHistory(
-            ask=history.ask,
-            answer=ConversationInvestigationResult(
-                analysis=history.answer.analysis,
-                tools=[
-                    ToolCallConversationResult(
-                        name=tool.name,
-                        description=tool.description,
-                        output=tool.output[:tool_size],
-                    )
-                    for tool in history.answer.tools
-                ],
-            ),
-        )
-        for history in conversation_request.context.conversation_history
-    ]
-    truncated_investigation_result_tool_calls = [
-        ToolCallConversationResult(
-            name=tool.name, description=tool.description, output=tool.output[:tool_size]
-        )
-        for tool in conversation_request.context.investigation_result.tools
-    ]
-    
-    template_context = {
-        "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": truncated_investigation_result_tool_calls,
-        "conversation_history": truncated_conversation_history_without_tools,
-    }    
-    system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
-    return system_prompt
-
 
 conversation_type_handlers: Dict[
     ConversationType, Callable[[ConversationRequest, any], str]
 ] = {
     ConversationType.ISSUE: handle_issue_conversation,
+    ConversationType.CHAT: handle_chat_conversation
 }
 
 

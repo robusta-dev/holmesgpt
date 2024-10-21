@@ -1,6 +1,6 @@
 from holmes.core.tool_calling_llm import ToolCallResult
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from typing import Optional, List, Dict, Any, Union, Literal
+from pydantic import BaseModel, ValidationError, model_validator
 from enum import Enum
 
 
@@ -66,8 +66,13 @@ class HolmesConversationIssueContext(BaseModel):
     source: Optional[str] = None
 
 
+class HolmesConversationChatContext(BaseModel):
+    conversation_history: Optional[List[HolmesConversationHistory]] = []
+
+
 class ConversationType(str, Enum):
     ISSUE = "issue"
+    CHAT = "chat"
 
 
 class ConversationRequest(BaseModel):
@@ -75,10 +80,35 @@ class ConversationRequest(BaseModel):
     source: Optional[str] = None
     resource: Optional[dict] = None
     conversation_type: ConversationType
-    context: HolmesConversationIssueContext
+    context: Union[HolmesConversationIssueContext, HolmesConversationChatContext, dict]
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
 
+    @model_validator(mode='before')
+    def validate_and_parse_context(cls, data):
+        conversation_type = data.get('conversation_type')
+        context_data = data.get('context')
+
+        if context_data is None:
+            raise ValueError("The 'context' field is required.")
+
+        if conversation_type == ConversationType.ISSUE:
+            try:
+                context = HolmesConversationIssueContext(**context_data)
+                data['context'] = context
+            except ValidationError as e:
+                raise ValueError(f"Invalid context for conversation_type 'issue': {e}")
+        elif conversation_type == ConversationType.CHAT:
+            try:
+                context = HolmesConversationChatContext(**context_data)
+                data['context'] = context
+            except ValidationError as e:
+                raise ValueError(f"Invalid context for conversation_type 'chat': {e}")
+        else:
+            raise ValueError(f"Unsupported conversation_type: {conversation_type}")
+
+        return data
+    
 
 class WorkloadHealthRequest(BaseModel):
     ask: str
