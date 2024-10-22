@@ -45,6 +45,11 @@ toolsets:
     user_description: "fetch rds events"
     command: "aws rds describe-events"
 
+  - name: "aws_rds_describe_instance"
+    description: "Get the configuration of a RDS instance"
+    user_description: "Get the configuration of a RDS instance"
+    command: "aws rds describe-db-instances --db-instance-identifier '{{ db_instance_identifier }}'"
+
   - name: "aws_rds_describe_instances"
     description: "Runs aws rds describe-db-instances"
     user_description: "fetch rds instances"
