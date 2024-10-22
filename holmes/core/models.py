@@ -80,7 +80,7 @@ class ConversationRequest(BaseModel):
     source: Optional[str] = None
     resource: Optional[dict] = None
     conversation_type: ConversationType
-    context: Union[HolmesConversationIssueContext, HolmesConversationChatContext, dict]
+    context: Union[HolmesConversationIssueContext, HolmesConversationChatContext]
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
 
@@ -100,6 +100,7 @@ class ConversationRequest(BaseModel):
                 raise ValueError(f"Invalid context for conversation_type 'chat': {e}")
             
         raise ValueError(f"Invalid conversation_type {conversation_type}")
+
 
 class WorkloadHealthRequest(BaseModel):
     ask: str
