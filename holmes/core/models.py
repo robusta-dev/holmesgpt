@@ -1,6 +1,6 @@
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import Optional, List, Dict, Any, Union, Literal
-from pydantic import BaseModel, ValidationError, model_validator
+from pydantic import BaseModel, ValidationError, field_validator, ValidationInfo
 from enum import Enum
 
 
@@ -37,7 +37,7 @@ class ConversationInvestigationResponse(BaseModel):
 
 class ConversationInvestigationResult(BaseModel):
     analysis: Optional[str] = None
-    tools:  Optional[List[ToolCallConversationResult]] = []
+    tools: Optional[List[ToolCallConversationResult]] = []
 
 
 class IssueInvestigationResult(BaseModel):
@@ -84,31 +84,22 @@ class ConversationRequest(BaseModel):
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
 
-    @model_validator(mode='before')
-    def validate_and_parse_context(cls, data):
-        conversation_type = data.get('conversation_type')
-        context_data = data.get('context')
-
-        if context_data is None:
-            raise ValueError("The 'context' field is required.")
+    @field_validator('context', mode='before')
+    def validate_and_parse_context(cls, v, info: ValidationInfo):
+        conversation_type = info.data.get('conversation_type')
 
         if conversation_type == ConversationType.ISSUE:
             try:
-                context = HolmesConversationIssueContext(**context_data)
-                data['context'] = context
+                return HolmesConversationIssueContext.model_validate(v)
             except ValidationError as e:
                 raise ValueError(f"Invalid context for conversation_type 'issue': {e}")
-        elif conversation_type == ConversationType.CHAT:
+        if conversation_type == ConversationType.CHAT:
             try:
-                context = HolmesConversationChatContext(**context_data)
-                data['context'] = context
+                return HolmesConversationChatContext.model_validate(v)
             except ValidationError as e:
                 raise ValueError(f"Invalid context for conversation_type 'chat': {e}")
-        else:
-            raise ValueError(f"Unsupported conversation_type: {conversation_type}")
-
-        return data
-    
+            
+        raise ValueError(f"Invalid conversation_type {conversation_type}")
 
 class WorkloadHealthRequest(BaseModel):
     ask: str
