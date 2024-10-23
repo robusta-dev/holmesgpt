@@ -12,6 +12,8 @@ from supabase import create_client
 from supabase.lib.client_options import ClientOptions
 from pydantic import BaseModel
 from cachetools import TTLCache
+from postgrest._sync.request_builder import SyncQueryRequestBuilder
+from postgrest.exceptions import APIError as PostgrestAPIError
 
 from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
                                     STORE_PASSWORD)
@@ -51,6 +53,25 @@ class SupabaseDal:
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
         self.token_cache = TTLCache(maxsize=1, ttl=ttl)
         self.lock = threading.Lock()
+    
+    def patch_postgrest_execute(self):
+        # Patch the execute method of SyncQueryRequestBuilder to handle JWT expiration
+        original_execute = SyncQueryRequestBuilder.execute
+
+        def execute_with_retry(instance):
+            try:
+                return original_execute(instance)
+            except PostgrestAPIError as exc:
+                message = exc.message or ""
+                if exc.code == "PGRST301" or "expired" in message.lower():
+                    # JWT expired. Sign in again and retry the query
+                    logging.error("JWT token expired/invalid. Signing in to Supabase again.")
+                    self.sign_in()
+                    return original_execute(instance)
+                else:
+                    raise
+
+        SyncQueryRequestBuilder.execute = execute_with_retry
 
     @staticmethod
     def __load_robusta_config() -> Optional[RobustaToken]:
