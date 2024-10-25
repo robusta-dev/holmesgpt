@@ -86,7 +86,7 @@ def html_to_markdown(page_source):
     page_source = str(soup)
 
     try:
-        md = pypandoc.convert_text(page_source, "markdown", format="html")
+        md = pypandoc.convert_text(source=page_source, to="markdown", format="html", extra_args=["--atx-headers"])
     except OSError:
         return page_source
 
