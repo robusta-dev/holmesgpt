@@ -7,6 +7,7 @@ from typing import Dict, Optional, List
 from uuid import uuid4
 
 import yaml
+from holmes.core.models import ResourceInstructionContextURL, ResourceInstructions
 from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
@@ -138,9 +139,9 @@ class SupabaseDal:
         issue_data["evidence"] = data
         return issue_data
 
-    def get_resource_instructions(self, type: str, name: str) -> List[str]:
+    def get_resource_instructions(self, type: str, name: Optional[str]) -> Optional[ResourceInstructions]:
         if not self.enabled or not name:
-            return []
+            return None
 
         res = (
             self.client
@@ -152,9 +153,18 @@ class SupabaseDal:
             .execute()
         )
         if res.data:
-            return res.data[0].get("runbook").get("instructions")
+            instructions = res.data[0].get("runbook").get("instructions")
+            context_items = res.data[0].get("runbook").get("context")
+            context = []
+            for item in context_items:
+                if item.url:
+                    context.append(ResourceInstructionContextURL(url=item.url))
+                else:
+                    logging.warning(f"Unsupported runbook.context item for subject_type={type} / subject_name={name}")
 
-        return []
+            return ResourceInstructions(instructions=instructions, context=context)
+
+        return None
 
     def create_session_token(self) -> str:
         token = str(uuid4())
