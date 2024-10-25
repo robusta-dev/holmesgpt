@@ -112,9 +112,6 @@ def looks_like_html(content):
         return any(re.search(pattern, content, re.IGNORECASE) for pattern in html_patterns)
     return False
 
-# content = fetch("https://incpmpm.atlassian.net/wiki/spaces/PUB/overview")
-# print(content)
-
 class FetchWebpage(Tool):
     def __init__(self):
         super().__init__(
