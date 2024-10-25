@@ -1,4 +1,5 @@
 import os
+import re
 import pytest
 from pathlib import Path
 
@@ -12,6 +13,14 @@ def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read().strip()
 
+def parse_fixture_id(file_name:str) -> str:
+    match = re.match(r'fixture(\d+)', file_name)
+    if match:
+        # Extract the number
+        return match.group(1)
+    else:
+        raise Exception(f"Could not find fixture id in filename {file_name}")
+
 def load_all_fixtures():
     """
     Load the fixtures in the fixtures folder by pair fixtureX_input.html with fixtureX_output.md
@@ -22,7 +31,7 @@ def load_all_fixtures():
     test_cases = []
 
     for input_file in input_files:
-        number = input_file.stem[7:8]  # Extract the number from 'fixtureX_input.html'
+        number = parse_fixture_id(input_file.stem)
         output_file = fixtures_dir / f'fixture{number}_output.md'
 
         if output_file.exists():
