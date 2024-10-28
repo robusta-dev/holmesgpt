@@ -7,7 +7,7 @@ from typing import Dict, Optional, List
 from uuid import uuid4
 
 import yaml
-from holmes.core.models import ResourceInstructionContextURL, ResourceInstructions
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
 from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
@@ -54,7 +54,7 @@ class SupabaseDal:
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
         self.token_cache = TTLCache(maxsize=1, ttl=ttl)
         self.lock = threading.Lock()
-    
+
     def patch_postgrest_execute(self):
         # Patch the execute method of SyncQueryRequestBuilder to handle JWT expiration
         original_execute = SyncQueryRequestBuilder.execute
@@ -175,15 +175,15 @@ class SupabaseDal:
         )
         if res.data:
             instructions = res.data[0].get("runbook").get("instructions")
-            context_items = res.data[0].get("runbook").get("context")
-            context = []
-            for item in context_items:
-                if item.url:
-                    context.append(ResourceInstructionContextURL(url=item.url))
+            documents_data = res.data[0].get("runbook").get("documents")
+            documents = []
+            for document_data in documents_data:
+                if document_data.url:
+                    documents.append(ResourceInstructionDocument(url=document_data.url))
                 else:
                     logging.warning(f"Unsupported runbook.context item for subject_type={type} / subject_name={name}")
 
-            return ResourceInstructions(instructions=instructions, context=context)
+            return ResourceInstructions(instructions=instructions, documents=documents)
 
         return None
 

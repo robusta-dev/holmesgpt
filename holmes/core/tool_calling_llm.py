@@ -43,22 +43,16 @@ class LLMResult(BaseModel):
             [f"`{tool_call.description}`" for tool_call in self.tool_calls]
         )
 
-
-class ResourceInstructionContextType(Enum):
-    URL = "url"
-
-
-class ResourceInstructionContext(BaseModel):
+class ResourceInstructionDocument(BaseModel):
     """ Represents context necessary for an investigation in the form of a URL
     It is expected that Holmes will use that URL to fetch additional context about an error.
     This URL can for example be the location of a runbook
     """
-    type: ResourceInstructionContextType = ResourceInstructionContextType.URL
     url: str
 
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
-    context: List[ResourceInstructionContext] = []
+    documents: List[ResourceInstructionDocument] = []
 
 
 class ToolCallingLLM:
@@ -322,10 +316,12 @@ class IssueInvestigator(ToolCallingLLM):
         self.runbook_manager = runbook_manager
 
     def investigate(
-        self, issue: Issue, prompt: str, console: Console, instructions: List[str] = [], context: List[ResourceInstructionContext] = [], post_processing_prompt: Optional[str] = None
+        self, issue: Issue, prompt: str, console: Console, instructions: Optional[ResourceInstructions], post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
-        runbooks.extend(instructions)
+
+        if instructions != None and instructions.instructions:
+            runbooks.extend(instructions.instructions)
 
         if runbooks:
             console.print(
@@ -337,11 +333,11 @@ class IssueInvestigator(ToolCallingLLM):
             )
         system_prompt = load_and_render_prompt(prompt, {"issue": issue})
 
-        contextInstructions = []
-        if len(context) > 0:
-            for context_item in context:
-                contextInstructions.append(f"* fetch information from this URL: {context_item.url}\n")
-            runbooks.extend(contextInstructions)
+        if instructions != None and len(instructions.documents) > 0:
+            docPrompts = []
+            for document in instructions.documents:
+                docPrompts.append(f"* fetch information from this URL: {document.url}\n")
+            runbooks.extend(docPrompts)
 
         user_prompt = ""
         if runbooks:

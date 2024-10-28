@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 THIS_DIR = os.path.dirname(__file__)
-FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures')
+FIXTURES_DIR = os.path.join(THIS_DIR, 'test_fetch_url', 'fixtures')
 
 # Import your function here
 from holmes.plugins.toolsets.internet import html_to_markdown

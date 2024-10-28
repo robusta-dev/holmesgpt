@@ -15,7 +15,7 @@ from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
 # TODO: change and make it holmes
-USER_AGENT_STR = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+USER_AGENT_STR = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0"
 PAGE_LOAD_TIMEOUT_SECONDS = 10000
 
 def scrape_with_playwright(url):
@@ -153,7 +153,8 @@ class InternetToolset(Toolset):
             name = "internet",
             prerequisites = [
                 ToolsetCommandPrerequisite(command="pandoc --version"),
-                ToolsetCommandPrerequisite(command="playwright screenshot https://www.example.com test.png"),
+                # Take a screenshot sucessfuly ensures playwright is correctly installed
+                ToolsetCommandPrerequisite(command="playwright screenshot https://www.example.com playwright.png"),
             ],
             tools = [FetchWebpage()],
         )

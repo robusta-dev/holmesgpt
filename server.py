@@ -41,7 +41,7 @@ from holmes.core.models import (
     ToolCallConversationResult,
 )
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, ToolCallingLLM
 
 
 def init_logging():
@@ -84,9 +84,10 @@ def investigate_issues(investigate_request: InvestigateRequest):
             investigate_request.context.get("robusta_issue_id")
         )
 
-        resource_instructions = dal.get_resource_instructions(
-            "alert", investigate_request.context.get("issue_type")
-        ) or []
+        # resource_instructions = dal.get_resource_instructions(
+        #     "alert", investigate_request.context.get("issue_type")
+        # )
+        resource_instructions = ResourceInstructions(instructions=[], documents=[ResourceInstructionDocument(url="https://containersolutions.github.io/runbooks/posts/kubernetes/create-container-error/")])
         raw_data = investigate_request.model_dump()
         if context:
             raw_data["extra_context"] = context
@@ -101,13 +102,13 @@ def investigate_issues(investigate_request: InvestigateRequest):
             source_instance_id=investigate_request.source_instance_id,
             raw=raw_data,
         )
+
         investigation = ai.investigate(
             issue,
             prompt=investigate_request.prompt_template,
             console=console,
             post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
-            instructions=resource_instructions?.instructions,
-            context=resource_instructions?.context,
+            instructions=resource_instructions,
         )
 
         return InvestigationResult(

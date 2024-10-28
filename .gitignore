@@ -157,3 +157,5 @@ cython_debug/
 .idea/
 
 .vscode
+
+playwright.png

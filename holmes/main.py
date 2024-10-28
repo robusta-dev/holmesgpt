@@ -28,7 +28,7 @@ from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionContext
+from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
@@ -175,27 +175,25 @@ opt_post_processing_prompt: Optional[str] = typer.Option(
     envvar="HOLMES_POST_PROCESSING_PROMPT",
 )
 
-opt_context: Optional[str] = typer.Option(
+opt_documents: Optional[str] = typer.Option(
     None,
-    "--context",
-    help="Additional context to provide the LLM (typically URLs to runbooks)",
+    "--documents",
+    help="Additional documents to provide the LLM (typically URLs to runbooks)",
 )
-
 
 # Common help texts
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
 
-def parse_context(context:str|None) -> List[ResourceInstructionContext]:
-    resource_contexts = []
+def parse_documents(documents:Optional[str]) -> List[ResourceInstructionDocument]:
+    resource_documents = []
 
-    if context:
-        data = json.loads(context)
+    if documents is not None:
+        data = json.loads(documents)
         for item in data:
-            context = ResourceInstructionContext(**item)
-            resource_contexts.append(context)
+            resource_document = ResourceInstructionDocument(**item)
+            resource_documents.append(resource_document)
 
-    return resource_contexts
-
+    return resource_documents
 
 def handle_result(
     result: LLMResult,
@@ -339,8 +337,7 @@ def alertmanager(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
-    additional_context: Optional[str] = opt_context
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a Prometheus/Alertmanager alert
@@ -394,8 +391,7 @@ def alertmanager(
             issue=issue,
             prompt=system_prompt,
             console=console,
-            instructions=[],
-            context=parse_context(additional_context),
+            instructions=None,
             post_processing_prompt=post_processing_prompt)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
@@ -474,8 +470,7 @@ def jira(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
-    additional_context: Optional[str] = opt_context
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a Jira ticket
@@ -514,7 +509,7 @@ def jira(
             issue=issue,
             prompt=system_prompt,
             console=console,
-            context=parse_context(additional_context),
+            instructions=None,
             post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
@@ -570,8 +565,7 @@ def github(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
-    additional_context: Optional[str] = opt_context
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a GitHub issue
@@ -608,7 +602,7 @@ def github(
             issue=issue,
             prompt=system_prompt,
             console=console,
-            context=parse_context(additional_context),
+            instructions=None,
             post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
@@ -652,8 +646,7 @@ def pagerduty(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
-    additional_context: Optional[str] = opt_context
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt
 ):
     """
     Investigate a PagerDuty incident
@@ -690,7 +683,7 @@ def pagerduty(
             issue=issue,
             prompt=system_prompt,
             console=console,
-            context=parse_context(additional_context),
+            instructions=None,
             post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
@@ -738,7 +731,7 @@ def opsgenie(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
-    additional_context: Optional[str] = opt_context
+    documents: Optional[str] = opt_documents
 ):
     """
     Investigate an OpsGenie alert
@@ -772,6 +765,7 @@ def opsgenie(
             issue=issue,
             prompt=system_prompt,
             console=console,
+            instructions=None,
             post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
