@@ -185,7 +185,9 @@ class ToolCallingLLM:
                 )
             )
 
+            print("** response_message", response_message)
             tools_to_call = getattr(response_message, "tool_calls", None)
+            print("** tools_to_call", tools_to_call)
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 if post_process_prompt:
@@ -319,7 +321,6 @@ class IssueInvestigator(ToolCallingLLM):
         self, issue: Issue, prompt: str, console: Console, instructions: Optional[ResourceInstructions], post_processing_prompt: Optional[str] = None
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
-
         if instructions != None and instructions.instructions:
             runbooks.extend(instructions.instructions)
 
