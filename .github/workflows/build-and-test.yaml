@@ -38,7 +38,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          [[ -z "${DEPLOY_ENV}" ]] && echo "KO" || echo "OK"
+          [[ -z "${OPENAI_API_KEY}" ]] && echo "KO" || echo "OK"
 
       - name: check api key (connection)
         shell: bash
