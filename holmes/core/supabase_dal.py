@@ -153,6 +153,38 @@ class SupabaseDal:
             .filter("issue_id", "eq", issue_id)
             .execute()
         )
+
+        # get changes
+        changes_data = None
+        try:
+            changes_response = (
+                self.client
+                    .table(ISSUES_TABLE)
+                    .select("*")
+                    .filter("account_id", "eq", issue_data["account_id"])
+                    .filter("cluster", "eq", issue_data["cluster"])
+                    .filter("aggregation_key", "eq", "ConfigurationChange/KubernetesResource/Change")
+                    .filter("service_key", "eq", issue_data["service_key"])
+                    .execute()
+            )
+            if len(changes_response.data):
+                issue_data["changes"] = []
+                for change in changes_response.data:
+                    change_evidence = (
+                        self.client
+                        .table(EVIDENCE_TABLE)
+                        .select("*")
+                        .filter("issue_id", "eq", change["id"])
+                        .execute()
+                    )
+
+                    if change_evidence.data:
+                        issue_data["changes"].append(change_evidence.data[0]["data"])
+
+        except:  # e.g. invalid id format
+            logging.exception("Supabase error while retrieving issue related changes")
+            return None
+
         enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
         data = [enrich for enrich in evidence.data if enrich.get("enrichment_type") not in enrichment_blacklist]
 
