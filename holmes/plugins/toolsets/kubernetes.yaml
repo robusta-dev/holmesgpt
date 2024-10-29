@@ -54,6 +54,9 @@ toolsets:
   #- name: "healthcheck_plugin"
   #  description: "Check why a kubernetes health probe is failing. First call get_healthcheck_details"
   #  command: "kubectl exec -n {{namespace}} {{ pod_name }} -- wget {{ url }}:{{port}}"
+  - name: "kubernetes_jq_query"
+    description: Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
+    command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
 
   # try adding your own tools here!
   # e.g. to query company-specific data or run your own commands

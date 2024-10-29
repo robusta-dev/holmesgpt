@@ -72,6 +72,7 @@ COPY . /app
 RUN apt-get update \
     && apt-get install -y \
        git \
+       jq \
        apt-transport-https \
        gnupg2 \
     && apt-get purge -y --auto-remove \
