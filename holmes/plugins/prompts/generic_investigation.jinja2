@@ -19,24 +19,13 @@ Style Guide:
 * But only quote relevant numbers or metrics that are available. Do not guess.
 * Remove unnecessary words
 
-Give your answer in the following format (do NOT add a "Tools" section to the output)
+Give your answer in the following format (there is no need for a section listing all tools that were called but you can mention them in other sections if relevant)
 
 # Alert Explanation
-<1-2 sentences explaining the alert itself - note don't say "The alert indicates a warning event related to a Kubernetes pod doing blah" rather just say "The pod XYZ did blah". In other words, don't say "The alert was triggered because XYZ" rather say "XYZ">
+<1-2 sentences explaining the alert itself - note don't say "The alert indicates a warning event related to a Kubernetes pod doing blah" rather just say "The pod XYZ did blah" because that is what the user actually cares about>
 
 # Investigation
-<
-what you checked and found
-each point should start with 
-🟢 if the check was successful
-🟡 if the check showed a potential problem or minor issue
-🔴 if there was a definite major issue.
-🔒 if you couldn't run the check itself (e.g. due to lack of permissions or lack of integration)
-
-A check should be in the format 'EMOJI *Check name*: details'
-If there is both a logs and previous_logs tool usage (regardless of whether previous logs failed or succeeded), merge them together into one item named Logs.
-Never mention that you were unable to retrieve previous logs! That error should be ignored and not shown to the user.
->
+<what you checked and found>
 
 # Conclusions and Possible Root causes
 <what conclusions can you reach based on the data you found? what are possible root causes (if you have enough conviction to say) or what uncertainty remains>
