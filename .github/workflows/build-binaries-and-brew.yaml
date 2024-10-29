@@ -44,7 +44,7 @@ jobs:
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-20.04'
         run: |
-          sudo apt-get install -y binutils pandoc
+          sudo apt-get install -y binutils
 
       - name: Update package version (Linux)
         if: matrix.os == 'ubuntu-20.04'
@@ -55,7 +55,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: sed -i '' 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
 
-      # windows has no sed, so we use powershell
+      # windows has no sed, so we use  powershell
       - name: Update package version (Windows)
         if: matrix.os == 'windows-latest'
         run: |
