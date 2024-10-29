@@ -28,9 +28,9 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
           poetry config virtualenvs.create false
           poetry install --no-root
+          poetry run python -m playwright install --with-deps chromium
 
           sudo apt-get install -y binutils pandoc
-          poetry run python -m playwright install --with-deps chromium
           pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --collect-data litellm
           ls dist
 

@@ -16,96 +16,98 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      if: matrix.os != 'windows-latest'
-      run: |
-        python -m pip install --upgrade pip setuptools pyinstaller
-        curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
-        poetry config virtualenvs.create false
-        poetry install --no-root
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      if: matrix.os == 'windows-latest'
-      run: |
-        python -m pip install --upgrade pip setuptools pyinstaller
-        curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
-        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry config virtualenvs.create false
-        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry install --no-root
+      - name: Install dependencies
+        if: matrix.os != 'windows-latest'
+        run: |
+          python -m pip install --upgrade pip setuptools pyinstaller
+          curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
+          poetry config virtualenvs.create false
+          poetry install --no-root
+          poetry run python -m playwright install --with-deps chromium
 
-    - name: Install dependencies (Linux)
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-        sudo apt-get install -y binutils
-    
-    - name: Update package version (Linux)
-      if: matrix.os == 'ubuntu-20.04'
-      run: sed -i 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
+      - name: Install dependencies
+        if: matrix.os == 'windows-latest'
+        run: |
+          python -m pip install --upgrade pip setuptools pyinstaller
+          curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
+          C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry config virtualenvs.create false
+          C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry install --no-root
+          C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry run python -m playwright install --with-deps chromium
 
-    # mac has BSD style sed command where you specify -i '' and not just -i
-    - name: Update package version (macOS)
-      if: matrix.os == 'macos-latest'
-      run: sed -i '' 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-20.04'
+        run: |
+          sudo apt-get install -y binutils pandoc
 
-    # windows has no sed, so we use powershell
-    - name: Update package version (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        $filePath = 'holmes/__init__.py'
-        (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
-      shell: pwsh
+      - name: Update package version (Linux)
+        if: matrix.os == 'ubuntu-20.04'
+        run: sed -i 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
 
-    # if you change something here, you must also change it in .github/workflows/build-and-test.yaml
-    - name: Build with PyInstaller
-      shell: bash
-      # regarding the tiktoken part of the command, see https://github.com/openai/tiktoken/issues/80
-      # regarding the litellm part of the command, see https://github.com/pyinstaller/pyinstaller/issues/8620#issuecomment-2186540504
-      run: |
-        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --collect-data litellm 
-        ls dist
+      # mac has BSD style sed command where you specify -i '' and not just -i
+      - name: Update package version (macOS)
+        if: matrix.os == 'macos-latest'
+        run: sed -i '' 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
 
-    - name: Zip the application (Unix)
-      if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-20.04'
-      run: |
-        cd dist
-        zip -r holmes-${{ matrix.os }}-${{ github.ref_name }}.zip holmes
-        mv holmes-${{ matrix.os }}-${{ github.ref_name }}.zip ../
-        cd ..
+      # windows has no sed, so we use powershell
+      - name: Update package version (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          $filePath = 'holmes/__init__.py'
+          (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
+        shell: pwsh
 
-    - name: Zip the application (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        Set-Location -Path dist
-        Compress-Archive -Path holmes -DestinationPath holmes-${{ matrix.os }}-${{ github.ref_name }}.zip -Force
-        Move-Item -Path holmes-${{ matrix.os }}-${{ github.ref_name }}.zip -Destination ..\
-        Set-Location -Path ..
+      # if you change something here, you must also change it in .github/workflows/build-and-test.yaml
+      - name: Build with PyInstaller
+        shell: bash
+        # regarding the tiktoken part of the command, see https://github.com/openai/tiktoken/issues/80
+        # regarding the litellm part of the command, see https://github.com/pyinstaller/pyinstaller/issues/8620#issuecomment-2186540504
+        run: |
+          pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --collect-data litellm
+          ls dist
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1.0.2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }} 
-        asset_path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
-        asset_name: holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
-        asset_content_type: application/octet-stream
+      - name: Zip the application (Unix)
+        if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-20.04'
+        run: |
+          cd dist
+          zip -r holmes-${{ matrix.os }}-${{ github.ref_name }}.zip holmes
+          mv holmes-${{ matrix.os }}-${{ github.ref_name }}.zip ../
+          cd ..
 
-    - name: Upload build as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: holmes-${{ matrix.os }}-${{ github.ref_name }}
-        path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
+      - name: Zip the application (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Set-Location -Path dist
+          Compress-Archive -Path holmes -DestinationPath holmes-${{ matrix.os }}-${{ github.ref_name }}.zip -Force
+          Move-Item -Path holmes-${{ matrix.os }}-${{ github.ref_name }}.zip -Destination ..\
+          Set-Location -Path ..
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
+          asset_name: holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
+          asset_content_type: application/octet-stream
+
+      - name: Upload build as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: holmes-${{ matrix.os }}-${{ github.ref_name }}
+          path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
 
   check-latest:
     needs: build
     runs-on: ubuntu-20.04
-    outputs: 
+    outputs:
       IS_LATEST: ${{ steps.check-latest.outputs.release == github.ref_name }}
     steps:
       - id: check-latest

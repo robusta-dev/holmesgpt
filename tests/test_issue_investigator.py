@@ -53,9 +53,8 @@ def test_investigate_issue_using_fetch_webpage():
 
     assert len(webpage_tool_calls) == 1
     assert runbook_url in webpage_tool_calls[0].description
-    assert False
 
-def _test_investigate_issue_without_fetch_webpage():
+def test_investigate_issue_without_fetch_webpage():
     investigate_request = InvestigateRequest(
         source="prometheus",
         title="starting container process caused",
