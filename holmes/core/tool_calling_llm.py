@@ -140,6 +140,7 @@ class ToolCallingLLM:
         ]
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
+        print("** tools", tools)
 
         for i in range(self.max_steps):
             logging.debug(f"running iteration {i}")
@@ -222,6 +223,7 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
+                    print("*** ", tool_call_result)
                     tool_calls.append(tool_call_result)
                     messages.append(
                         {

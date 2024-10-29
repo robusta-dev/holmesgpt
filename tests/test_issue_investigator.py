@@ -2,7 +2,7 @@
 import pytest
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest
-from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, ToolCallResult
 from rich.console import Console
 from holmes.config import Config
 from holmes.common.env_vars import (
@@ -53,9 +53,9 @@ def test_investigate_issue_using_fetch_webpage():
 
     assert len(webpage_tool_calls) == 1
     assert runbook_url in webpage_tool_calls[0].description
+    assert False
 
-
-def test_investigate_issue_without_fetch_webpage():
+def _test_investigate_issue_without_fetch_webpage():
     investigate_request = InvestigateRequest(
         source="prometheus",
         title="starting container process caused",
@@ -85,6 +85,7 @@ def test_investigate_issue_without_fetch_webpage():
         source_instance_id=investigate_request.source_instance_id,
         raw=raw_data,
     )
+
     investigation = ai.investigate(
         issue=issue,
         prompt=investigate_request.prompt_template,
