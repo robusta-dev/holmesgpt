@@ -7,6 +7,7 @@ from typing import Dict, Optional, List
 from uuid import uuid4
 
 import yaml
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
 from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
@@ -53,7 +54,7 @@ class SupabaseDal:
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
         self.token_cache = TTLCache(maxsize=1, ttl=ttl)
         self.lock = threading.Lock()
-    
+
     def patch_postgrest_execute(self):
         # Patch the execute method of SyncQueryRequestBuilder to handle JWT expiration
         original_execute = SyncQueryRequestBuilder.execute
@@ -159,9 +160,9 @@ class SupabaseDal:
         issue_data["evidence"] = data
         return issue_data
 
-    def get_resource_instructions(self, type: str, name: str) -> List[str]:
+    def get_resource_instructions(self, type: str, name: Optional[str]) -> Optional[ResourceInstructions]:
         if not self.enabled or not name:
-            return []
+            return None
 
         res = (
             self.client
@@ -173,9 +174,20 @@ class SupabaseDal:
             .execute()
         )
         if res.data:
-            return res.data[0].get("runbook").get("instructions")
+            instructions = res.data[0].get("runbook").get("instructions")
+            documents_data = res.data[0].get("runbook").get("documents")
+            documents = []
 
-        return []
+            if documents_data:
+                for document_data in documents_data:
+                    if document_data.url:
+                        documents.append(ResourceInstructionDocument(url=document_data.url))
+                    else:
+                        logging.warning(f"Unsupported runbook.context item for subject_type={type} / subject_name={name}")
+
+            return ResourceInstructions(instructions=instructions, documents=documents)
+
+        return None
 
     def create_session_token(self) -> str:
         token = str(uuid4())

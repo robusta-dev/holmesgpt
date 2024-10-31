@@ -41,7 +41,7 @@ from holmes.core.models import (
     ToolCallConversationResult,
 )
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, ToolCallingLLM
 
 
 def init_logging():
@@ -84,7 +84,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
             investigate_request.context.get("robusta_issue_id")
         )
 
-        instructions = dal.get_resource_instructions(
+        resource_instructions = dal.get_resource_instructions(
             "alert", investigate_request.context.get("issue_type")
         )
         raw_data = investigate_request.model_dump()
@@ -101,12 +101,13 @@ def investigate_issues(investigate_request: InvestigateRequest):
             source_instance_id=investigate_request.source_instance_id,
             raw=raw_data,
         )
+
         investigation = ai.investigate(
             issue,
             prompt=investigate_request.prompt_template,
             console=console,
             post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
-            instructions=instructions,
+            instructions=resource_instructions,
         )
 
         return InvestigationResult(
@@ -158,7 +159,7 @@ def handle_issue_conversation(
     conversation_request: ConversationRequest, ai: ToolCallingLLM
 ):
     load_robusta_api_key()
-    context_window = ai.get_context_window_size()    
+    context_window = ai.get_context_window_size()
     number_of_tools = len(
         conversation_request.context.investigation_result.tools
     ) + sum(
@@ -201,11 +202,11 @@ def handle_issue_conversation(
     ]
     message_size_without_tools = ai.count_tokens_for_message(messages)
     maximum_output_token = ai.get_maximum_output_token()
-    
+
     tool_size = min(
         10000, int((context_window - message_size_without_tools - maximum_output_token) / number_of_tools)
     )
-    
+
     truncated_conversation_history_without_tools = [
         HolmesConversationHistory(
             ask=history.ask,
@@ -229,12 +230,12 @@ def handle_issue_conversation(
         )
         for tool in conversation_request.context.investigation_result.tools
     ]
-    
+
     template_context = {
         "investigation": conversation_request.context.investigation_result.result,
         "tools_called_for_investigation": truncated_investigation_result_tool_calls,
         "conversation_history": truncated_conversation_history_without_tools,
-    }    
+    }
     system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
     return system_prompt
 

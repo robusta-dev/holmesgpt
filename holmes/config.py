@@ -11,7 +11,7 @@ from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
-                                          YAMLToolExecutor)
+                                          ToolExecutor)
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import (load_builtin_runbooks,
@@ -65,7 +65,7 @@ class Config(RobustaBaseConfig):
     opsgenie_api_key: Optional[SecretStr] = None
     opsgenie_team_integration_key: Optional[SecretStr] = None
     opsgenie_query: Optional[str] = None
-    
+
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
@@ -101,7 +101,7 @@ class Config(RobustaBaseConfig):
 
     def _create_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern
-    ) -> YAMLToolExecutor:
+    ) -> ToolExecutor:
         all_toolsets = load_builtin_toolsets()
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
@@ -138,7 +138,7 @@ class Config(RobustaBaseConfig):
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
-        return YAMLToolExecutor(enabled_toolsets)
+        return ToolExecutor(enabled_toolsets)
 
     def create_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern
@@ -207,21 +207,21 @@ class Config(RobustaBaseConfig):
             repository=self.github_repository,
             query=self.github_query,
         )
-    
+
     def create_pagerduty_source(self) -> OpsGenieSource:
         if self.pagerduty_api_key is None:
             raise ValueError("--pagerduty-api-key must be specified")
-        
+
         return PagerDutySource(
             api_key=self.pagerduty_api_key.get_secret_value(),
             user_email=self.pagerduty_user_email,
             incident_key=self.pagerduty_incident_key,
         )
-    
+
     def create_opsgenie_source(self) -> OpsGenieSource:
         if self.opsgenie_api_key is None:
             raise ValueError("--opsgenie-api-key must be specified")
-        
+
         return OpsGenieSource(
             api_key=self.opsgenie_api_key.get_secret_value(),
             query=self.opsgenie_query,

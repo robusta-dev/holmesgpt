@@ -13,9 +13,9 @@ The only AI assistant that investigates incidents **like a human does** - by loo
 
 ### What Can HolmesGPT Do?
 - **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
-- **Bidirectional Integrations** see investigation results inside your existing ticketing/incident management system 
+- **Bidirectional Integrations** see investigation results inside your existing ticketing/incident management system
 - **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
-- **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster   
+- **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster
 - **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
 - **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
 
@@ -92,7 +92,7 @@ By default results are displayed in the CLI. Use `--update` to get the results a
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info. 
+By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info.
 
 ![OpsGenie](./images/opsgenie-holmes-update.png)
 </details>
@@ -105,7 +105,7 @@ By default results are displayed in the CLI . Use `--update --opsgenie-team-inte
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
 ```
 
-By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info. 
+By default results are displayed in the CLI. Use `--update --pagerduty-user-email <PLACEHOLDER_EMAIL>` to get the results as a comment in the PagerDuty issue. Refer to the CLI help for more info.
 
 ![PagerDuty](./images/pagerduty-holmes-update.png)
 </details>
@@ -124,10 +124,10 @@ Basic plugin to run an investigation on any Kubernetes object, using the shortcu
 ```yaml
 plugins:
   holmesgpt:
-    shortCut: Shift-H 
-    description: Ask HolmesGPT 
+    shortCut: Shift-H
+    description: Ask HolmesGPT
     scopes:
-      - all 
+      - all
     command: bash
     background: false
     confirm: false
@@ -151,7 +151,7 @@ plugins:
     shortCut: Shift-Q
     description: Custom HolmesGPT Ask
     scopes:
-      - all 
+      - all
     command: bash
     background: false
     confirm: false
@@ -171,7 +171,7 @@ plugins:
         # Read the modified line, ignoring lines starting with '#'
         user_input=$(grep -v '^#' "$QUESTION_FILE")
         echo running: holmes ask "\"$user_input\""
-  
+
         holmes ask "$user_input"
         echo "Press 'q' to exit"
         while : ; do
@@ -296,7 +296,7 @@ docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v 
 <details>
 <summary>Run HolmesGPT in your cluster (Helm)</summary>
 
-Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the below instructions. 
+Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the below instructions.
 
 By using the ``Robusta`` integration you’ll benefit from an end-to-end integration that integrates with ``Prometheus alerts`` and ``Slack``. Using the below instructions you’ll have to build many of those components yourself.
 
@@ -305,7 +305,7 @@ In this mode, all the parameters should be passed to the HolmesGPT deployment, u
 We recommend pulling sensitive variables from Kubernetes ``secrets``.
 
 First, you'll need to create your ``holmes-values.yaml`` file, for example:
- 
+
     additionalEnvVars:
     - name: MODEL
       value: gpt-4o
@@ -337,7 +337,7 @@ For OpenAI, only the ``model`` and ``api-key`` should be provided
           name: my-holmes-secret
           key: openAiKey
 
-**Note**: ``gpt-4o`` is optional since it's default model. 
+**Note**: ``gpt-4o`` is optional since it's default model.
 
 </details>
 
@@ -363,11 +363,11 @@ To work with Azure AI, you need to provide the below variables:
 
 <details>
 <summary>AWS Bedrock</summary>
-    
+
     enablePostProcessing: true
     additionalEnvVars:
     - name: MODEL
-      value: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0 
+      value: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0
     - name: AWS_REGION_NAME
       value: us-east-1
     - name: AWS_ACCESS_KEY_ID
@@ -402,7 +402,7 @@ HolmesGPT requires an LLM API Key to function. The most common option is OpenAI,
 
 <details>
 <summary>OpenAI</summary>
-  
+
 To work with OpenAI’s GPT 3.5 or GPT-4 models you need a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key).
 
 **Note**: This is different from being a “ChatGPT Plus” subscriber.
@@ -432,7 +432,7 @@ Set those environment variables and run:
 holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
 ```
 
-Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details. 
+Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details.
 </details>
 
 <details>
@@ -463,7 +463,7 @@ aws bedrock list-foundation-models --region=us-east-1
 
 Note that different models are available in different regions. For example, Claude Opus is only available in us-west-2.
 
-Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details. 
+Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details.
 </details>
 
 <details>
@@ -486,7 +486,7 @@ export OPENAI_API_BASE="http://localhost:11434/v1"
 export OPENAI_API_KEY=123
 holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
 ```
-  
+
 </details>
 <details>
 <summary>Using other OpenAI-compatible models</summary>
@@ -527,6 +527,16 @@ Jira, GitHub, OpsGenie, PagerDuty, and AlertManager
 HolmesGPT can pull tickets/alerts from each of these sources and investigate them.
 
 Refer to `holmes investigate jira --help` etc for details, or view the <a href="#examples">examples</a>.
+</details>
+
+
+<details>
+<summary>
+Fetching runbooks through URLs
+</summary>
+
+HolmesGPT can consult webpages containing runbooks or other relevant information.
+HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
 </details>
 
 ## Other Use Cases
@@ -698,7 +708,7 @@ opsgenie-query: "..."
 
 1. **opsgenie_api_key**: The OpsGenie API key. Get it from Settings > API key management > Add new API key
 2. **opsgenie-team-integration-key**: OpsGenie Team Integration key for writing back results. (NOT a normal API Key.) Get it from Teams > YourTeamName > Integrations > Add Integration > API Key. Don't forget to turn on the integration and add the Team as Responders to the alert.
-3. **opsgenie-query**: E.g. 'message: Foo' (see https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/) 
+3. **opsgenie-query**: E.g. 'message: Foo' (see https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/)
 </details>
 
 
@@ -786,7 +796,7 @@ To contribute to HolmesGPT, first follow the <a href="#installation"><strong>Ins
 <details>
 <summary>Adding new runbooks</summary>
 
-You can contribute knowledge on solving common alerts and HolmesGPT will use this knowledge to solve related issues. To do so, add a new file to [./holmes/plugins/runbooks](holmes/plugins/runbooks) - or edit an existing runbooks file in that same directory. 
+You can contribute knowledge on solving common alerts and HolmesGPT will use this knowledge to solve related issues. To do so, add a new file to [./holmes/plugins/runbooks](holmes/plugins/runbooks) - or edit an existing runbooks file in that same directory.
 
 Note: if you prefer to keep your runbooks private, you can store them locally and pass them to HolmesGPT with the `-r` flag. However, if your runbooks relate to common problems that others may encounter, please consider opening a PR and making HolmesGPT better for everyone!
 
@@ -795,7 +805,7 @@ Note: if you prefer to keep your runbooks private, you can store them locally an
 <details>
 <summary>Adding new toolsets</summary>
 
-You can add define new tools in YAML and HolmesGPT will use those tools in it's investigation. To do so, add a new file to [./holmes/plugins/toolsets](holmes/plugins/toolsets) - or edit an existing toolsets file in that same directory. 
+You can add define new tools in YAML and HolmesGPT will use those tools in it's investigation. To do so, add a new file to [./holmes/plugins/toolsets](holmes/plugins/toolsets) - or edit an existing toolsets file in that same directory.
 
 Note: if you prefer to keep your tools private, you can store them locally and pass them to HolmesGPT with the `-t` flag. However, please consider contributing your toolsets! At least one other community member will probably find them useful!
 
