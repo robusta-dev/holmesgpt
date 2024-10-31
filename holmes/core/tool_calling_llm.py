@@ -176,8 +176,7 @@ class ToolCallingLLM:
             )
 
             tools_to_call = getattr(response_message, "tool_calls", None)
-            #print(messages)
-            #print(response_message)
+
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 if post_process_prompt:
@@ -188,7 +187,7 @@ class ToolCallingLLM:
                                                     investigation=raw_response, 
                                                     user_prompt=post_process_prompt
                                                 )
-                    print(messages)
+
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result = raw_response,
