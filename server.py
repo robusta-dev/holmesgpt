@@ -28,7 +28,7 @@ from holmes.common.env_vars import (
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
-from holmes.core.conversations import handle_chat_conversation, handle_issue_conversation
+from holmes.core.conversations import build_issue_chat_messages, build_chat_messages, handle_issue_conversation
 from holmes.core.issue import Issue
 from holmes.core.models import (
     ConversationType,
@@ -40,6 +40,8 @@ from holmes.core.models import (
     HolmesConversationHistory,
     ConversationInvestigationResult,
     ToolCallConversationResult,
+    ChatRequest, ChatResponse,
+    IssueChatRequest
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
@@ -156,21 +158,13 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 
 
-conversation_type_handlers: Dict[
-    ConversationType, Callable[[ConversationRequest, any], str]
-] = {
-    ConversationType.ISSUE: handle_issue_conversation,
-    ConversationType.CHAT: handle_chat_conversation
-}
-
-
 @app.post("/api/conversation")
-def converstation(conversation_request: ConversationRequest):
+def issue_conversation(conversation_request: ConversationRequest):
     try:
         load_robusta_api_key()
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
-        handler = conversation_type_handlers.get(conversation_request.conversation_type)
+        handler = handle_issue_conversation(conversation_request.conversation_type)
         system_prompt = handler(conversation_request, ai)
 
         investigation = ai.call(system_prompt, conversation_request.user_prompt)
@@ -181,6 +175,45 @@ def converstation(conversation_request: ConversationRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+
+
+
+
+@app.post("/api/issue_chat")
+def issue_conversation(issue_chat_request: IssueChatRequest):
+    try:
+        load_robusta_api_key()
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        messages = build_issue_chat_messages(issue_chat_request, ai)
+        llm_call = ai.call(messages=messages)
+
+        return ChatResponse(
+            analysis=llm_call.result,
+            tool_calls=llm_call.tool_calls,
+            conversation_history=llm_call.messages
+
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+    
+
+@app.post("/api/chat")
+def chat(chat_request: ChatRequest):
+    try:
+        load_robusta_api_key()
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        messages = build_chat_messages(chat_request.ask, chat_request.conversation_history,
+                                     ai=ai)
+        llm_call = ai.call(messages=messages)
+        return ChatResponse(
+            analysis=llm_call.result,
+            tool_calls=llm_call.tool_calls,
+            conversation_history=llm_call.messages
+
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+
 
 
 @app.get("/api/model")

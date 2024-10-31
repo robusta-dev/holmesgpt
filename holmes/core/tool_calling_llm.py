@@ -114,8 +114,11 @@ class ToolCallingLLM:
             logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens")
             return 4096
     
-    def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
-        messages = [
+    def call(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None, post_process_prompt: Optional[str] = None, response_format: dict = None,
+             messages: Optional[list] = None) -> LLMResult:
+        
+        if not messages:
+            messages = [
             {
                 "role": "system",
                 "content": system_prompt,
@@ -173,6 +176,8 @@ class ToolCallingLLM:
             )
 
             tools_to_call = getattr(response_message, "tool_calls", None)
+            #print(messages)
+            #print(response_message)
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 if post_process_prompt:
@@ -183,17 +188,19 @@ class ToolCallingLLM:
                                                     investigation=raw_response, 
                                                     user_prompt=post_process_prompt
                                                 )
+                    print(messages)
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result = raw_response,
                         tool_calls=tool_calls,
                         prompt=json.dumps(messages, indent=2),
+                        messages=messages
                     )
-                
                 return LLMResult(
                     result=response_message.content,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
+                    messages=messages
                 )
 
             # when asked to run tools, we expect no response other than the request to run tools unless bedrock

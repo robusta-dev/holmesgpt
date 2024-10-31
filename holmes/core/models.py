@@ -1,6 +1,6 @@
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import Optional, List, Dict, Any, Union, Literal
-from pydantic import BaseModel, ValidationError, field_validator, ValidationInfo
+from pydantic import BaseModel, ValidationError, field_validator, ValidationInfo, Json
 from enum import Enum
 
 
@@ -102,6 +102,18 @@ class ConversationRequest(BaseModel):
         raise ValueError(f"Invalid conversation_type {conversation_type}")
 
 
+class HolmesConversationIssueContext(BaseModel):
+    investigation_result: IssueInvestigationResult
+    issue_type: str
+
+
+class IssueChatRequest(BaseModel):
+    ask: str
+    investigation_result: IssueInvestigationResult
+    issue_type: str
+    conversation_history: Optional[list[dict]] = None
+
+
 class WorkloadHealthRequest(BaseModel):
     ask: str
     resource: dict
@@ -112,3 +124,14 @@ class WorkloadHealthRequest(BaseModel):
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://kubernetes_workload_ask.jinja2"
+
+
+class ChatRequest(BaseModel):
+    ask: str
+    conversation_history: Optional[list[dict]] = None
+
+
+class ChatResponse(BaseModel):
+    analysis: str
+    conversation_history: list[dict]
+    tool_calls: Optional[List[ToolCallResult]] = []
