@@ -1,6 +1,6 @@
 <div align="center">
-  <h1 align="center">Get a head start on fixing alerts with AI investigation</h1>
-  <h2 align="center">HolmesGPT - The Open Source On-Call/DevOps Agent</h2>
+  <h1 align="center">Solve Prometheus alerts faster with an AI assistant</h1>
+  <h2 align="center">HolmesGPT - AI Agent for On-Call Engineers 🔥</h2>
   <p align="center">
     <a href="#examples"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
@@ -9,32 +9,42 @@
   </p>
 </div>
 
-The only AI assistant that investigates incidents **like a human does** - by looking at alerts and fetching missing data until it finds the root cause. Powered by OpenAI, Azure AI, AWS Bedrock, or any tool-calling LLM of your choice, including open source models.
+Transforms your existing cloud alerts from this 👇
 
-### What Can HolmesGPT Do?
-- **Investigate Incidents (AIOps)** from PagerDuty/OpsGenie/Prometheus/Jira/more
-- **Bidirectional Integrations** see investigation results inside your existing ticketing/incident management system
-- **Automated Triage:** Use HolmesGPT as a first responder. Flag critical alerts and prioritize them for your team to look at
-- **Alert Enrichment:** Automatically add context to alerts - like logs and microservice health info - to find root causes faster
-- **Identify Cloud Problems** by asking HolmesGPT questions about unhealthy infrastructure
-- **Runbook Automation in Plain English:** Speed up your response to known issues by investigating according to runbooks you provide
+![Screenshot 2024-10-31 at 12 01 12 2](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
+
+
+To this 👇
+
+![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/9e2c7a23-b942-4720-8a98-488323e092ca)
+
+### Key Features
+- **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
+- **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
+- **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
+- **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
+- **Integrates with your existing tools** including Prometheus, PagerDuty, OpsGenie, Jira, and more
 
 ### See it in Action
 
-![AI Alert Analysis](images/holmesgptdemo.gif)
-
-## Examples
+<a href="https://www.loom.com/share/4c55f395dbd64ef3b69670eccf961124">
+<img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/4c55f395dbd64ef3b69670eccf961124-db2004995e8d621c-full-play.gif">
+</a>
+  
+## Ways to Use HolmesGPT
 
 <details>
-<summary>Kubernetes Troubleshooting</summary>
+<summary> AI analysis in Robusta UI</summary>
+Includes free use of the Robusta AI model.
 
-```bash
-holmes ask "what pods are unhealthy in my cluster and why?"
-```
+![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/2e90cc7b-4b0a-4386-ab4f-0d36692b549c)
+
+
+[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme) (Kubernetes cluster required) or contact us about on-premise options.
 </details>
 
 <details>
-<summary>Prometheus Alert RCA (root cause analysis)</summary>
+<summary>Root cause for Prometheus alerts in Slack</summary>
 
 Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
 
@@ -50,43 +60,17 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093
 Note - if on Mac OS and using the Docker image, you will need to use `http://docker.for.mac.localhost:9093` instead of `http://localhost:9093`
 </details>
 
-<details>
-<summary>Log File Analysis</summary>
-
-Attach files to the HolmesGPT session with `-f`:
-
-```console
-sudo dmesg > dmesg.log
-poetry run python3 holmes.py ask "investigate errors in this dmesg log" -f dmesg.log
-```
-</details>
 
 <details>
-
-<summary>Jira Ticket Investigation</summary>
+<summary>Free-text questions (CLI)</summary>
 
 ```bash
-holmes investigate jira --jira-url https://<PLACEDHOLDER>.atlassian.net --jira-username <PLACEHOLDER_EMAIL> --jira-api-key <PLACEHOLDER_API_KEY>
+holmes ask "what pods are in crashloopbackoff in my cluster and why?"
 ```
-
-By default results are displayed in the CLI . Use `--update` to get the results as a comment in the Jira ticket.
-
 </details>
 
 <details>
-<summary>GitHub Issue Investigation</summary>
-
-```bash
-holmes investigate github --github-url https://<PLACEHOLDER> --github-owner <PLACEHOLDER_OWNER_NAME> --github-repository <PLACEHOLDER_GITHUB_REPOSITORY> --github-pat <PLACEHOLDER_GITHUB_PAT>
-```
-
-By default results are displayed in the CLI. Use `--update` to get the results as a comment in the GitHub issue.
-
-</details>
-
-
-<details>
-<summary>OpsGenie Alert Investigation</summary>
+<summary>OpsGenie Integration</summary>
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
@@ -99,7 +83,7 @@ By default results are displayed in the CLI . Use `--update --opsgenie-team-inte
 
 
 <details>
-<summary>PagerDuty Incident Investigation</summary>
+<summary>PagerDuty Integration</summary>
 
 ```bash
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
@@ -184,14 +168,6 @@ plugins:
 </details>
 
 Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
-
-## Key Features
-- **Connects to Existing Observability Data:** Find correlations you didn’t know about. No need to gather new data or add instrumentation.
-- **Compliance Friendly:** Can be run on-premise with your own LLM (or in the cloud with OpenAI/Azure/AWS)
-- **Transparent Results:** See a log of the AI’s actions and what data it gathered to understand how it reached conclusions
-- **Extensible Data Sources:** Connect the AI to custom data by providing your own tool definitions
-- **Runbook Automation:** Optionally provide runbooks in plain English and the AI will follow them automatically
-- **Integrates with Existing Workflows:** Connect Slack and Jira to get results inside your existing tools
 
 ## Installation
 
