@@ -14,6 +14,7 @@ import uuid
 import logging
 import re
 import warnings
+import json
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional
@@ -27,7 +28,7 @@ from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import LLMResult
+from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
@@ -64,10 +65,10 @@ def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
         return Verbosity.VERBOSE
     else:
         return Verbosity.VERY_VERBOSE
-    
+
 def init_logging(verbose_flags: List[bool] = None):
     verbosity = cli_flags_to_verbosity(verbose_flags)
-    
+
     if verbosity == Verbosity.VERY_VERBOSE:
         logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
     else:
@@ -75,11 +76,11 @@ def init_logging(verbose_flags: List[bool] = None):
 
     if verbosity.value >= Verbosity.NORMAL.value:
         logging.info(f"verbosity is {verbosity}")
-    
+
     if verbosity.value >= Verbosity.LOG_QUERIES.value:
         # TODO
         pass
-    
+
     if verbosity.value >= Verbosity.VERBOSE.value:
         logging.getLogger().setLevel(logging.DEBUG)
 
@@ -105,7 +106,7 @@ opt_api_key: Optional[str] = typer.Option(
     help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_API_KEY)",
 )
 opt_model: Optional[str] = typer.Option(
-    None, 
+    None,
     help="Model to use for the LLM"
 )
 opt_config_file: Optional[Path] = typer.Option(
@@ -174,9 +175,25 @@ opt_post_processing_prompt: Optional[str] = typer.Option(
     envvar="HOLMES_POST_PROCESSING_PROMPT",
 )
 
+opt_documents: Optional[str] = typer.Option(
+    None,
+    "--documents",
+    help="Additional documents to provide the LLM (typically URLs to runbooks)",
+)
+
 # Common help texts
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
 
+def parse_documents(documents:Optional[str]) -> List[ResourceInstructionDocument]:
+    resource_documents = []
+
+    if documents is not None:
+        data = json.loads(documents)
+        for item in data:
+            resource_document = ResourceInstructionDocument(**item)
+            resource_documents.append(resource_document)
+
+    return resource_documents
 
 def handle_result(
     result: LLMResult,
@@ -198,12 +215,12 @@ def handle_result(
         console.print(Markdown(result.result))
         if add_separator:
             console.print(Rule())
-                    
+
     elif destination == DestinationType.SLACK:
         slack = config.create_slack_destination()
         slack.send_issue(issue, result)
 
-    
+
 # TODO: add interactive interpreter mode
 # TODO: add streaming output
 @app.command()
@@ -221,7 +238,7 @@ def ask(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
-    
+
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_ask.jinja2", help=system_prompt_help
@@ -352,7 +369,7 @@ def alertmanager(
     except Exception as e:
         logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
         return
-    
+
     if alertmanager_limit is not None:
         console.print(f"[bold yellow]Limiting to {alertmanager_limit}/{len(issues)} issues.[/bold yellow]")
         issues = issues[:alertmanager_limit]
@@ -370,7 +387,12 @@ def alertmanager(
         console.print(
             f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
+        result = ai.investigate(
+            issue=issue,
+            prompt=system_prompt,
+            console=console,
+            instructions=None,
+            post_processing_prompt=post_processing_prompt)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
 
@@ -477,13 +499,18 @@ def jira(
     console.print(
         f"[bold yellow]Analyzing {len(issues)} Jira tickets.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
-    
+
     results = []
     for i, issue in enumerate(issues):
         console.print(
             f"[bold yellow]Analyzing Jira ticket {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
         )
-        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
+        result = ai.investigate(
+            issue=issue,
+            prompt=system_prompt,
+            console=console,
+            instructions=None,
+            post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -570,7 +597,13 @@ def github(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
+
+        result = ai.investigate(
+            issue=issue,
+            prompt=system_prompt,
+            console=console,
+            instructions=None,
+            post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -645,7 +678,13 @@ def pagerduty(
     results = []
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
+
+        result = ai.investigate(
+            issue=issue,
+            prompt=system_prompt,
+            console=console,
+            instructions=None,
+            post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -691,7 +730,8 @@ def opsgenie(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    documents: Optional[str] = opt_documents
 ):
     """
     Investigate an OpsGenie alert
@@ -721,7 +761,12 @@ def opsgenie(
     )
     for i, issue in enumerate(issues):
         console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
-        result = ai.investigate(issue, system_prompt, console, [], post_processing_prompt)
+        result = ai.investigate(
+            issue=issue,
+            prompt=system_prompt,
+            console=console,
+            instructions=None,
+            post_processing_prompt=post_processing_prompt)
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")

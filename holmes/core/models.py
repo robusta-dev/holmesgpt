@@ -1,8 +1,7 @@
 from holmes.core.tool_calling_llm import ToolCallResult
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel
 from enum import Enum
-
 
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
