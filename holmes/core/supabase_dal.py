@@ -168,18 +168,22 @@ class SupabaseDal:
                     .execute()
             )
             if len(changes_response.data):
+                issue_data["changes_ids"] = []
                 issue_data["changes"] = []
                 for change in changes_response.data:
+                    issue_id = change["id"]
                     change_evidence = (
                         self.client
                         .table(EVIDENCE_TABLE)
                         .select("*")
-                        .filter("issue_id", "eq", change["id"])
+                        .filter("issue_id", "eq", issue_id)
                         .execute()
                     )
 
                     if change_evidence.data:
+                        issue_data["changes_ids"].append(issue_id)
                         issue_data["changes"].append(change_evidence.data[0]["data"])
+
 
         except:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue related changes")
