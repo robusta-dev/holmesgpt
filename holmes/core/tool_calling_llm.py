@@ -59,6 +59,7 @@ class ToolCallingLLM:
 
     def __init__(
         self,
+        completion,
         model: Optional[str],
         api_key: Optional[str],
         tool_executor: ToolExecutor,
@@ -66,6 +67,7 @@ class ToolCallingLLM:
     ):
         self.tool_executor = tool_executor
         self.max_steps = max_steps
+        self.completion = completion
         self.model = model
         self.api_key = api_key
         self.base_url = None
@@ -73,7 +75,7 @@ class ToolCallingLLM:
         if ROBUSTA_AI:
             self.base_url = ROBUSTA_API_ENDPOINT
 
-        self.check_llm(self.model, self.api_key)
+        # self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model, api_key):
         logging.debug(f"Checking LiteLLM model {model}")
@@ -157,16 +159,16 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages {messages}")
             try:
-                full_response = litellm.completion(
+                full_response = self.completion.create(
                     model=self.model,
-                    api_key=self.api_key,
+                    # api_key=self.api_key,
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
-                    base_url=self.base_url,
+                    # base_url=self.base_url,
                     temperature=0.00000001,
                     response_format=response_format,
-                    drop_params=True
+                    # drop_params=True
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
