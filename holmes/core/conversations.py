@@ -47,6 +47,7 @@ def truncate_tool_messages(conversation_history: list, tool_size: int) -> None:
             message["content"] = message["content"][:tool_size]
 
 
+# handle_issue_conversation is a method for older api /api/conversation which does not support conversation history
 def handle_issue_conversation(
     conversation_request: ConversationRequest, ai: ToolCallingLLM
 ) -> str:

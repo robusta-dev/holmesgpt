@@ -28,7 +28,11 @@ from holmes.common.env_vars import (
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
-from holmes.core.conversations import build_issue_chat_messages, build_chat_messages, handle_issue_conversation
+from holmes.core.conversations import (
+    build_issue_chat_messages,
+    build_chat_messages,
+    handle_issue_conversation,
+)
 from holmes.core.issue import Issue
 from holmes.core.models import (
     ConversationType,
@@ -40,11 +44,16 @@ from holmes.core.models import (
     HolmesConversationHistory,
     ConversationInvestigationResult,
     ToolCallConversationResult,
-    ChatRequest, ChatResponse,
-    IssueChatRequest
+    ChatRequest,
+    ChatResponse,
+    IssueChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, ToolCallingLLM
+from holmes.core.tool_calling_llm import (
+    ResourceInstructionDocument,
+    ResourceInstructions,
+    ToolCallingLLM,
+)
 
 
 def init_logging():
@@ -129,14 +138,18 @@ def workload_health_check(request: WorkloadHealthRequest):
         resource = request.resource
         workload_alerts: list[str] = []
         if request.alert_history:
-            workload_alerts = dal.get_workload_issues(resource, request.alert_history_since_hours)
+            workload_alerts = dal.get_workload_issues(
+                resource, request.alert_history_since_hours
+            )
 
         instructions = request.instructions
         if request.stored_instrucitons:
-            stored_instructions = dal.get_resource_instructions(resource.get("kind","").lower(), resource.get("name"))
+            stored_instructions = dal.get_resource_instructions(
+                resource.get("kind", "").lower(), resource.get("name")
+            )
             instructions.extend(stored_instructions)
 
-        nl = '\n'
+        nl = "\n"
         if instructions:
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
@@ -147,7 +160,9 @@ def workload_health_check(request: WorkloadHealthRequest):
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
         structured_output = {"type": "json_object"}
-        ai_call = ai.call(system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT, structured_output)
+        ai_call = ai.call(
+            system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT, structured_output
+        )
 
         return InvestigationResult(
             analysis=ai_call.result,
@@ -158,7 +173,7 @@ def workload_health_check(request: WorkloadHealthRequest):
         raise HTTPException(status_code=401, detail=e.message)
 
 
-
+# older api that does not support conversation history
 @app.post("/api/conversation")
 def issue_conversation(conversation_request: ConversationRequest):
     try:
@@ -178,8 +193,6 @@ def issue_conversation(conversation_request: ConversationRequest):
         raise HTTPException(status_code=401, detail=e.message)
 
 
-
-
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
@@ -191,30 +204,28 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
-            conversation_history=llm_call.messages
-
+            conversation_history=llm_call.messages,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
-    
+
 
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key()
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
-        messages = build_chat_messages(chat_request.ask, chat_request.conversation_history,
-                                     ai=ai)
+        messages = build_chat_messages(
+            chat_request.ask, chat_request.conversation_history, ai=ai
+        )
         llm_call = ai.call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
-            conversation_history=llm_call.messages
-
+            conversation_history=llm_call.messages,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
-
 
 
 @app.get("/api/model")

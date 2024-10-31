@@ -5,10 +5,7 @@ import textwrap
 import os
 from typing import List, Optional
 from holmes.plugins.prompts import load_and_render_prompt
-from litellm import get_supported_openai_params
 import litellm
-import jinja2
-from enum import Enum
 from openai import BadRequestError
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
