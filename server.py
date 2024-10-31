@@ -44,7 +44,7 @@ from holmes.core.models import (
     IssueChatRequest
 )
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, ToolCallingLLM
 
 
 def init_logging():
@@ -87,7 +87,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
             investigate_request.context.get("robusta_issue_id")
         )
 
-        instructions = dal.get_resource_instructions(
+        resource_instructions = dal.get_resource_instructions(
             "alert", investigate_request.context.get("issue_type")
         )
         raw_data = investigate_request.model_dump()
@@ -104,12 +104,13 @@ def investigate_issues(investigate_request: InvestigateRequest):
             source_instance_id=investigate_request.source_instance_id,
             raw=raw_data,
         )
+
         investigation = ai.investigate(
             issue,
             prompt=investigate_request.prompt_template,
             console=console,
             post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
-            instructions=instructions,
+            instructions=resource_instructions,
         )
 
         return InvestigationResult(
@@ -157,6 +158,100 @@ def workload_health_check(request: WorkloadHealthRequest):
         raise HTTPException(status_code=401, detail=e.message)
 
 
+<<<<<<< HEAD
+=======
+def handle_issue_conversation(
+    conversation_request: ConversationRequest, ai: ToolCallingLLM
+):
+    load_robusta_api_key()
+    context_window = ai.get_context_window_size()
+    number_of_tools = len(
+        conversation_request.context.investigation_result.tools
+    ) + sum(
+        [
+            len(history.answer.tools)
+            for history in conversation_request.context.conversation_history
+        ]
+    )
+    if number_of_tools == 0:
+        template_context = {
+        "investigation": conversation_request.context.investigation_result.result,
+        "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
+        "conversation_history": conversation_request.context.conversation_history,
+    }
+        system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
+        return system_prompt
+
+    conversation_history_without_tools = [
+        HolmesConversationHistory(
+            ask=history.ask,
+            answer=ConversationInvestigationResult(analysis=history.answer.analysis),
+        )
+        for history in conversation_request.context.conversation_history
+    ]
+    template_context = {
+        "investigation": conversation_request.context.investigation_result.result,
+        "tools_called_for_investigation": None,
+        "conversation_history": conversation_history_without_tools,
+    }
+    system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt,
+        },
+        {
+            "role": "user",
+            "content": conversation_request.user_prompt,
+        },
+    ]
+    message_size_without_tools = ai.count_tokens_for_message(messages)
+    maximum_output_token = ai.get_maximum_output_token()
+
+    tool_size = min(
+        10000, int((context_window - message_size_without_tools - maximum_output_token) / number_of_tools)
+    )
+
+    truncated_conversation_history_without_tools = [
+        HolmesConversationHistory(
+            ask=history.ask,
+            answer=ConversationInvestigationResult(
+                analysis=history.answer.analysis,
+                tools=[
+                    ToolCallConversationResult(
+                        name=tool.name,
+                        description=tool.description,
+                        output=tool.output[:tool_size],
+                    )
+                    for tool in history.answer.tools
+                ],
+            ),
+        )
+        for history in conversation_request.context.conversation_history
+    ]
+    truncated_investigation_result_tool_calls = [
+        ToolCallConversationResult(
+            name=tool.name, description=tool.description, output=tool.output[:tool_size]
+        )
+        for tool in conversation_request.context.investigation_result.tools
+    ]
+
+    template_context = {
+        "investigation": conversation_request.context.investigation_result.result,
+        "tools_called_for_investigation": truncated_investigation_result_tool_calls,
+        "conversation_history": truncated_conversation_history_without_tools,
+    }
+    system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
+    return system_prompt
+
+
+conversation_type_handlers: Dict[
+    ConversationType, Callable[[ConversationRequest, any], str]
+] = {
+    ConversationType.ISSUE: handle_issue_conversation,
+}
+
+>>>>>>> origin/master
 
 @app.post("/api/conversation")
 def issue_conversation(conversation_request: ConversationRequest):

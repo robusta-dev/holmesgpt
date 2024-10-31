@@ -4,17 +4,16 @@ ENV PATH="/root/.local/bin/:$PATH"
 
 RUN apt-get update \
     && apt-get install -y \
-       curl \
-       git \
-       apt-transport-https \
-       gnupg2 \
-       build-essential \
-       unzip \
+    curl \
+    git \
+    apt-transport-https \
+    gnupg2 \
+    build-essential \
+    unzip \
     && apt-get purge -y --auto-remove \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 
 # Create and activate virtual environment
 RUN python -m venv /app/venv --upgrade-deps && \
@@ -33,11 +32,11 @@ ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.1/k
 ARG TARGETPLATFORM
 # Conditional download based on the platform
 RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-        curl -L -o kube-lineage $ARM_URL; \
+    curl -L -o kube-lineage $ARM_URL; \
     elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-        curl -L -o kube-lineage $AMD_URL; \
+    curl -L -o kube-lineage $AMD_URL; \
     else \
-        echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
+    echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
     fi
 RUN chmod 777 kube-lineage
 RUN ./kube-lineage --version
@@ -47,7 +46,7 @@ ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     pip config set global.index-url "${PRIVATE_PACKAGE_REGISTRY}"; \
     fi \
-    && pip install poetry    
+    && pip install poetry
 ARG POETRY_REQUESTS_TIMEOUT
 RUN poetry config virtualenvs.create false
 COPY pyproject.toml poetry.lock /app/
@@ -71,9 +70,10 @@ COPY . /app
 # We're installing here libexpat1, to upgrade the package to include a fix to 3 high CVEs. CVE-2024-45491,CVE-2024-45490,CVE-2024-45492
 RUN apt-get update \
     && apt-get install -y \
-       git \
-       apt-transport-https \
-       gnupg2 \
+    git \
+    apt-transport-https \
+    gnupg2 \
+    pandoc \
     && apt-get purge -y --auto-remove \
     && apt-get install -y --no-install-recommends libexpat1 \
     && rm -rf /var/lib/apt/lists/*
@@ -99,6 +99,8 @@ RUN git config --global core.symlinks false
 
 # Remove setuptools-65.5.1 installed from python:3.11-slim base image as fix for CVE-2024-6345 until image will be updated
 RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-65.5.1.dist-info
+
+RUN python -m playwright install --with-deps chromium
 
 ENTRYPOINT ["python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]
