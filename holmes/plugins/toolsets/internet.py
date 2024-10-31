@@ -87,7 +87,8 @@ def html_to_markdown(page_source):
 
     try:
         md = pypandoc.convert_text(source=page_source, to="markdown", format="html", extra_args=["--atx-headers"])
-    except OSError:
+    except OSError as e:
+        logging.error(f"There was an error using pandoc to convert the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}")
         return page_source
 
     md = re.sub(r"</div>", "      ", md)

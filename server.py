@@ -84,10 +84,9 @@ def investigate_issues(investigate_request: InvestigateRequest):
             investigate_request.context.get("robusta_issue_id")
         )
 
-        # resource_instructions = dal.get_resource_instructions(
-        #     "alert", investigate_request.context.get("issue_type")
-        # )
-        resource_instructions = ResourceInstructions(instructions=[], documents=[ResourceInstructionDocument(url="https://containersolutions.github.io/runbooks/posts/kubernetes/create-container-error/")])
+        resource_instructions = dal.get_resource_instructions(
+            "alert", investigate_request.context.get("issue_type")
+        )
         raw_data = investigate_request.model_dump()
         if context:
             raw_data["extra_context"] = context

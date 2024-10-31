@@ -74,8 +74,8 @@ def test_investigate_issue_without_fetch_webpage():
     console = Console()
     config = Config.load_from_env()
     ai = config.create_issue_investigator(
-                console, allowed_toolsets='*'
-            )
+        console, allowed_toolsets='*'
+    )
 
     issue = Issue(
         id="",

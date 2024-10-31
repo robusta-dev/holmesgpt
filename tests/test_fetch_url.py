@@ -4,9 +4,8 @@ import pytest
 from pathlib import Path
 
 THIS_DIR = os.path.dirname(__file__)
-FIXTURES_DIR = os.path.join(THIS_DIR, 'test_fetch_url', 'fixtures')
+FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
 
-# Import your function here
 from holmes.plugins.toolsets.internet import html_to_markdown
 
 def read_file(file_path):
@@ -39,6 +38,7 @@ def load_all_fixtures():
             output_content = read_file(output_file)
             test_cases.append((input_content, output_content))
 
+    assert len(test_cases) > 0
     return test_cases
 
 @pytest.mark.parametrize("input,expected_output", load_all_fixtures())
