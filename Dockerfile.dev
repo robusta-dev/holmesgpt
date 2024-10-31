@@ -86,6 +86,8 @@ RUN apt-get update \
        git \
        apt-transport-https \
        gnupg2 \
+       curl \
+       jq \
     && apt-get purge -y --auto-remove \
     && rm -rf /var/lib/apt/lists/*
 
