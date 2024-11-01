@@ -241,14 +241,12 @@ class IssueInvestigator(ToolCallingLLM):
 
     def __init__(
         self,
-        model: Optional[str],
-        api_key: Optional[str],
         tool_executor: ToolExecutor,
         runbook_manager: RunbookManager,
         max_steps: int,
         llm: LLM
     ):
-        super().__init__(model, api_key, tool_executor, max_steps, llm)
+        super().__init__(tool_executor, max_steps, llm)
         self.runbook_manager = runbook_manager
 
     def investigate(

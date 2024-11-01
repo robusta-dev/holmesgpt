@@ -69,7 +69,6 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
-    llm_module: Optional[str] = None
 
     @classmethod
     def load_from_env(cls):
@@ -147,8 +146,6 @@ class Config(RobustaBaseConfig):
     ) -> ToolCallingLLM:
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return ToolCallingLLM(
-            self.model,
-            self.api_key.get_secret_value() if self.api_key else None,
             tool_executor,
             self.max_steps,
             self._get_llm()
@@ -166,8 +163,6 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return IssueInvestigator(
-            self.model,
-            self.api_key.get_secret_value() if self.api_key else None,
             tool_executor,
             runbook_manager,
             self.max_steps,
@@ -274,7 +269,5 @@ class Config(RobustaBaseConfig):
         return cls(**merged_config)
 
     def _get_llm(self) -> LLM:
-        if(self.llm_module):
-            raise Exception("Not implemented")
-        else:
-            return DefaultLLM(self.model, self.api_key)
+        api_key = self.api_key.get_secret_value() if self.api_key else None
+        return DefaultLLM(self.model, api_key)

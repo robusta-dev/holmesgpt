@@ -1,7 +1,11 @@
 
 import logging
 from abc import abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Type, Union
+
+from litellm.types.utils import ModelResponse
+from pydantic.types import SecretStr
+
 from holmes.core.tools import Tool
 from pydantic import BaseModel
 from litellm import get_supported_openai_params
@@ -9,48 +13,11 @@ import litellm
 import os
 from openai._types import NOT_GIVEN
 
-from holmes.core.tool_calling_llm import LLMResult
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 
-class LLMCompletionUsage(BaseModel):
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
-
-class LLMCompletionChoice(BaseModel):
-    finish_reason: str
-    index: int
-    message: Dict[str, str]
-    role: str
-    content: str
-
-class LLMCompletionResult(BaseModel):
-    choices: List[LLMCompletionChoice]
-    created: str
-    model: str
-    usage: LLMCompletionUsage
-
-class LLMMessage(BaseModel):
-    role: str
-    content: str
-
-class LLMToolMessage(LLMMessage, BaseModel):
-    tool_call_id: str
-    name: str
-
-type ToolChoice = Union[NOT_GIVEN, "auto"]
+ToolChoice = Union[NOT_GIVEN, Literal["auto"]]
 
 class LLM:
-    model: Optional[str]
-    api_key: Optional[str]
-
-    def __init__(
-        self,
-        model: Optional[str],
-        api_key: Optional[str]
-    ):
-        self.model = model
-        self.api_key = api_key
 
     @abstractmethod
     def get_context_window_size(self) -> int:
@@ -65,20 +32,23 @@ class LLM:
         pass
 
     @abstractmethod
-    def completion(self, messages: List[Union[LLMMessage, LLMToolMessage]], tools: List[Tool], tool_choice: ToolChoice, response_format) -> LLMCompletionResult:
+    def completion(self, messages: List[Dict[str, Any]], tools: List[Tool] = [], tool_choice: ToolChoice = "auto", response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None) -> ModelResponse:
         pass
 
 
 class DefaultLLM(LLM):
 
+    model: str
+    api_key: str
     base_url: Optional[str]
 
     def __init__(
         self,
-        model: Optional[str],
-        api_key: Optional[str]
+        model: str,
+        api_key: str
     ):
-        super().__init__(model, api_key)
+        self.model = model
+        self.api_key = api_key
         self.base_url = None
 
         if ROBUSTA_AI:
@@ -129,6 +99,23 @@ class DefaultLLM(LLM):
     def count_tokens_for_message(self, messages: list[dict]) -> int:
         return litellm.token_counter(model=self.model,
                                         messages=messages)
+
+    def completion(self, messages: List[Dict[str, Any]], tools: List[Tool] = [], tool_choice: ToolChoice = "auto", response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None) -> ModelResponse:
+        result = litellm.completion(
+            model=self.model,
+            api_key=self.api_key,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            base_url=self.base_url,
+            temperature=temperature,
+            response_format=response_format,
+            drop_params=True
+        )
+        if isinstance(result, ModelResponse):
+            return result
+        else:
+            raise Exception(f"Unexpected type returned by the LLM {type(result)}")
 
     def get_maximum_output_token(self) -> int:
         model_name = self._strip_model_prefix()
