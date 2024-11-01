@@ -4,9 +4,8 @@ import logging
 import textwrap
 import os
 from typing import List, Optional
+from holmes.core.llm import LLM
 from holmes.plugins.prompts import load_and_render_prompt
-from litellm import get_supported_openai_params
-import litellm
 import jinja2
 from enum import Enum
 from openai import BadRequestError
@@ -57,75 +56,18 @@ class ResourceInstructions(BaseModel):
 
 class ToolCallingLLM:
 
+    llm: LLM
+
     def __init__(
         self,
-        model: Optional[str],
-        api_key: Optional[str],
         tool_executor: ToolExecutor,
         max_steps: int,
+        llm: LLM
     ):
         self.tool_executor = tool_executor
         self.max_steps = max_steps
-        self.model = model
-        self.api_key = api_key
-        self.base_url = None
+        self.llm = llm
 
-        if ROBUSTA_AI:
-            self.base_url = ROBUSTA_API_ENDPOINT
-
-        self.check_llm(self.model, self.api_key)
-
-    def check_llm(self, model, api_key):
-        logging.debug(f"Checking LiteLLM model {model}")
-        # TODO: this WAS a hack to get around the fact that we can't pass in an api key to litellm.validate_environment
-        # so without this hack it always complains that the environment variable for the api key is missing
-        # to fix that, we always set an api key in the standard format that litellm expects (which is ${PROVIDER}_API_KEY)
-        # TODO: we can now handle this better - see https://github.com/BerriAI/litellm/issues/4375#issuecomment-2223684750
-        lookup = litellm.get_llm_provider(self.model)
-        if not lookup:
-            raise Exception(f"Unknown provider for model {model}")
-        provider = lookup[1]
-        api_key_env_var = f"{provider.upper()}_API_KEY"
-        if api_key:
-            os.environ[api_key_env_var] = api_key
-        model_requirements = litellm.validate_environment(model=model)
-        if not model_requirements["keys_in_environment"]:
-            raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
-
-    def _strip_model_prefix(self) -> str:
-        """
-        Helper function to strip 'openai/' prefix from model name if it exists.
-        model cost is taken from here which does not have the openai prefix
-        https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
-        """
-        model_name = self.model
-        if model_name.startswith('openai/'):
-            model_name = model_name[len('openai/'):]  # Strip the 'openai/' prefix
-        return model_name
-
-
-        # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name
-        #if not litellm.supports_function_calling(model=model):
-        #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
-    def get_context_window_size(self) -> int:
-        model_name = self._strip_model_prefix()
-        try:
-            return litellm.model_cost[model_name]['max_input_tokens']
-        except Exception as e:
-            logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 128k tokens for max_input_tokens")
-            return 128000
-
-    def count_tokens_for_message(self, messages: list[dict]) -> int:
-        return litellm.token_counter(model=self.model,
-                                     messages=messages)
-
-    def get_maximum_output_token(self) -> int:
-        model_name = self._strip_model_prefix()
-        try:
-            return litellm.model_cost[model_name]['max_output_tokens']
-        except Exception as e:
-            logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens")
-            return 4096
 
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
@@ -147,9 +89,9 @@ class ToolCallingLLM:
             tools = NOT_GIVEN if i == self.max_steps - 1 else tools
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
 
-            total_tokens = self.count_tokens_for_message(messages)
-            max_context_size = self.get_context_window_size()
-            maximum_output_token = self.get_maximum_output_token()
+            total_tokens = self.llm.count_tokens_for_message(messages)
+            max_context_size = self.llm.get_context_window_size()
+            maximum_output_token = self.llm.get_maximum_output_token()
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
@@ -157,16 +99,11 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages {messages}")
             try:
-                full_response = litellm.completion(
-                    model=self.model,
-                    api_key=self.api_key,
+                full_response = self.llm.completion(
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
-                    base_url=self.base_url,
-                    temperature=0.00000001,
-                    response_format=response_format,
-                    drop_params=True
+                    response_format=response_format
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -266,9 +203,7 @@ class ToolCallingLLM:
                     "content": user_prompt,
                 },
             ]
-            full_response = litellm.completion(
-                model=self.model,
-                api_key=self.api_key,
+            full_response = self.llm.completion(
                 messages=messages,
                 temperature=0
             )
@@ -311,8 +246,9 @@ class IssueInvestigator(ToolCallingLLM):
         tool_executor: ToolExecutor,
         runbook_manager: RunbookManager,
         max_steps: int,
+        llm: LLM
     ):
-        super().__init__(model, api_key, tool_executor, max_steps)
+        super().__init__(model, api_key, tool_executor, max_steps, llm)
         self.runbook_manager = runbook_manager
 
     def investigate(
