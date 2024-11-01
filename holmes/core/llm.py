@@ -100,7 +100,7 @@ class DefaultLLM(LLM):
         return litellm.token_counter(model=self.model,
                                         messages=messages)
 
-    def completion(self, messages: List[Dict[str, Any]], tools: List[Tool] = [], tool_choice: ToolChoice = "auto", response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: List[Tool] = [], tool_choice: ToolChoice = "auto", response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
@@ -110,7 +110,7 @@ class DefaultLLM(LLM):
             base_url=self.base_url,
             temperature=temperature,
             response_format=response_format,
-            drop_params=True
+            drop_params=drop_params
         )
         if isinstance(result, ModelResponse):
             return result
