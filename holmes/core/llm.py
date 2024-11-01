@@ -108,7 +108,15 @@ class DefaultLLM(LLM):
             response_format=response_format,
             drop_params=drop_params
         )
+
+
+
         if isinstance(result, ModelResponse):
+            response = result.choices[0]
+            response_message = response.message
+            # when asked to run tools, we expect no response other than the request to run tools unless bedrock
+            if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
+                logging.warning(f"got unexpected response when tools were given: {response_message.content}")
             return result
         else:
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")

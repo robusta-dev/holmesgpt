@@ -146,10 +146,6 @@ class ToolCallingLLM:
                     prompt=json.dumps(messages, indent=2),
                 )
 
-            # when asked to run tools, we expect no response other than the request to run tools unless bedrock
-            if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
-                logging.warning(f"got unexpected response when tools were given: {response_message.content}")
-
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for t in tools_to_call:
