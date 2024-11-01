@@ -8,14 +8,10 @@ from pydantic.types import SecretStr
 
 from holmes.core.tools import Tool
 from pydantic import BaseModel
-from litellm import get_supported_openai_params
 import litellm
 import os
-from openai._types import NOT_GIVEN
 
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
-
-ToolChoice = Union[NOT_GIVEN, Literal["auto"]]
 
 class LLM:
 
@@ -32,7 +28,7 @@ class LLM:
         pass
 
     @abstractmethod
-    def completion(self, messages: List[Dict[str, Any]], tools: List[Tool] = [], tool_choice: ToolChoice = "auto", response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         pass
 
 
@@ -100,7 +96,7 @@ class DefaultLLM(LLM):
         return litellm.token_counter(model=self.model,
                                         messages=messages)
 
-    def completion(self, messages: List[Dict[str, Any]], tools: List[Tool] = [], tool_choice: ToolChoice = "auto", response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
