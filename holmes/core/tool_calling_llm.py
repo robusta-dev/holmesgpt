@@ -215,7 +215,7 @@ class ToolCallingLLM:
 
     def truncate_messages_to_fit_context(self, messages: list, max_context_size: int, maximum_output_token: int) -> list:
         messages_except_tools = [message for message in messages if message["role"] != "tool"]
-        message_size_without_tools = self.count_tokens_for_message(messages_except_tools)
+        message_size_without_tools = self.llm.count_tokens_for_message(messages_except_tools)
 
         tool_call_messages = [message for message in messages if message["role"] == "tool"]
 
