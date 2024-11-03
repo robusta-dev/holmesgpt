@@ -21,6 +21,15 @@ from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 
 
+def environ_get_safe_int(env_var, default="0"):
+    try:
+        return max(int(os.environ.get(env_var, default)), 0)
+    except ValueError:
+        return int(default)
+
+OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
+OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
+
 class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
@@ -108,6 +117,10 @@ class ToolCallingLLM:
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
     def get_context_window_size(self) -> int:
+        if OVERRIDE_MAX_CONTENT_SIZE:
+            logging.debug(f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}")
+            return OVERRIDE_MAX_CONTENT_SIZE
+
         model_name = self._strip_model_prefix()
         try:
             return litellm.model_cost[model_name]['max_input_tokens']
@@ -120,6 +133,10 @@ class ToolCallingLLM:
                                      messages=messages)
 
     def get_maximum_output_token(self) -> int:
+        if OVERRIDE_MAX_OUTPUT_TOKEN:
+            logging.debug(f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}")
+            return OVERRIDE_MAX_OUTPUT_TOKEN
+        
         model_name = self._strip_model_prefix()
         try:
             return litellm.model_cost[model_name]['max_output_tokens']
