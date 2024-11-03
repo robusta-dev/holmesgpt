@@ -13,6 +13,8 @@ class IssueMatcher (RobustaBaseConfig):
     issue_name: Optional[Pattern] = None    # not necessary unique
     source: Optional[Pattern] = None
 
+class RunbookContext(RobustaBaseConfig):
+    type: "URL"
 
 class Runbook(RobustaBaseConfig):
     match: IssueMatcher
@@ -22,7 +24,7 @@ class Runbook(RobustaBaseConfig):
 
     def set_path(self, path: str):
         self._path = path
-    
+
     def get_path(self) -> str:
         return self._path
 
