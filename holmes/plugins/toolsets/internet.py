@@ -8,7 +8,7 @@ import re
 import sys
 import logging
 import playwright
-import pypandoc
+from markdownify import markdownify
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
@@ -16,13 +16,13 @@ from bs4 import BeautifulSoup
 
 # TODO: change and make it holmes
 USER_AGENT_STR = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0"
-PAGE_LOAD_TIMEOUT_SECONDS = 10000
+PAGE_LOAD_TIMEOUT_SECONDS = 60000
 
 def scrape_with_playwright(url):
 
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch()
+            browser = p.firefox.launch()
         except Exception as e:
             logging.error(str(e))
             return None, None
@@ -86,9 +86,9 @@ def html_to_markdown(page_source):
     page_source = str(soup)
 
     try:
-        md = pypandoc.convert_text(source=page_source, to="markdown", format="html", extra_args=["--atx-headers"])
+        md = markdownify(page_source)
     except OSError as e:
-        logging.error(f"There was an error using pandoc to convert the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}")
+        logging.error(f"There was an error in converting the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}")
         return page_source
 
     md = re.sub(r"</div>", "      ", md)
@@ -96,6 +96,7 @@ def html_to_markdown(page_source):
 
     md = re.sub(r"\n\s*\n", "\n\n", md)
 
+    print(md)
     return md
 
 def looks_like_html(content):
@@ -153,7 +154,6 @@ class InternetToolset(Toolset):
         super().__init__(
             name = "internet",
             prerequisites = [
-                ToolsetCommandPrerequisite(command="pandoc --version"),
                 # Take a screenshot sucessfuly ensures playwright is correctly installed
                 ToolsetCommandPrerequisite(command="playwright screenshot https://www.example.com playwright.png"),
             ],

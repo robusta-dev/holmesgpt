@@ -6,7 +6,7 @@ from pathlib import Path
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
 
-from holmes.plugins.toolsets.internet import html_to_markdown
+from holmes.plugins.toolsets.internet import html_to_markdown, FetchWebpage
 
 def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -45,3 +45,19 @@ def load_all_fixtures():
 def test_html_to_markdown(input, expected_output):
     actual_output = html_to_markdown(input)
     assert actual_output.strip() == expected_output.strip()
+
+
+def test_url_to_markdown():
+    fetcher = FetchWebpage()
+    actual_output = fetcher.invoke({"url": "https://www.example.com"})
+    assert actual_output.strip() == """
+Example Domain
+
+Example Domain
+==============
+
+This domain is for use in illustrative examples in documents. You may use this
+ domain in literature without prior coordination or asking for permission.
+
+More information...
+""".strip()

@@ -36,8 +36,8 @@ setuptools = "^72.1.0"
 aiohttp = "^3.10.2"
 cachetools = "^5.5.0"
 playwright = "^1.48.0"
-pypandoc = "^1.14"
 bs4 = "^0.0.2"
+markdownify = "^0.13.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
