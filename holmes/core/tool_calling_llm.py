@@ -19,13 +19,11 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 
-
 class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
     description: str
     result: str
-
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
@@ -67,7 +65,6 @@ class ToolCallingLLM:
         self.tool_executor = tool_executor
         self.max_steps = max_steps
         self.llm = llm
-
 
     def call(self, system_prompt, user_prompt, post_process_prompt: Optional[str] = None, response_format: dict = None) -> LLMResult:
         messages = [
