@@ -103,7 +103,9 @@ class ToolCallingLLM:
                     messages=messages,
                     tools=tools,
                     tool_choice=tool_choice,
-                    response_format=response_format
+                    temperature=0.00000001,
+                    response_format=response_format,
+                    drop_params=True
                 )
                 logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
