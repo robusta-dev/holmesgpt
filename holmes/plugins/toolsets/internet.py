@@ -96,7 +96,6 @@ def html_to_markdown(page_source):
 
     md = re.sub(r"\n\s*\n", "\n\n", md)
 
-    print(md)
     return md
 
 def looks_like_html(content):
