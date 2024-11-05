@@ -30,7 +30,7 @@ To this 👇
 <a href="https://www.loom.com/share/4c55f395dbd64ef3b69670eccf961124">
 <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/4c55f395dbd64ef3b69670eccf961124-db2004995e8d621c-full-play.gif">
 </a>
-  
+
 ## Ways to Use HolmesGPT
 
 <details>
@@ -137,10 +137,7 @@ plugins:
     scopes:
       - all
     command: bash
-    background: false
-    confirm: false
-    args:
-      - -c
+
       - |
         INSTRUCTIONS="# Edit the line below. Lines starting with '#' will be ignored."
         DEFAULT_ASK_COMMAND="why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
@@ -165,6 +162,18 @@ plugins:
         fi
         done
 ```
+</details>
+
+
+### Bring your own LLM
+<details>
+<summary>Bring your own LLM</summary>
+
+You can use Holmes as a library and pass in your own LLM implementation. This is particularly useful if LiteLLM or the default Holmes implementation does not suit you.
+
+See an example implementation [here](examples/custom_llm.py).
+
+
 </details>
 
 Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
