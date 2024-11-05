@@ -63,7 +63,6 @@ class YAMLTool(Tool, BaseModel):
         super().__init__(**data)
         self.__infer_parameters()
 
-
     def __infer_parameters(self):
         # Find parameters that appear inside self.command or self.script but weren't declared in parameters
         template = self.command or self.script

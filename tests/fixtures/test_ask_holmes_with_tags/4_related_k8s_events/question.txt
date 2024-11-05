@@ -1,0 +1,1 @@
+What kubernetes events are related to @some-app

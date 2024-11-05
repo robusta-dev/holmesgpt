@@ -1,0 +1,4 @@
+user_prompt: 'What is wrong with << { "pod": "robusta-runner" } >> ?'
+expected_output: "Nothing is wrong with that pod"
+retrieval_context:
+  - The tool kubectl_get_all reports that the robusta-runner pod is running and healthy

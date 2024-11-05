@@ -37,8 +37,14 @@ aiohttp = "^3.10.2"
 cachetools = "^5.5.0"
 playwright = "^1.48.0"
 bs4 = "^0.0.2"
+<<<<<<< Updated upstream
 markdownify = "^0.13.1"
 starlette = "^0.40"
+=======
+braintrust = "^0.0.167"
+autoevals = "^0.0.101"
+deepeval = "^1.4.8"
+>>>>>>> Stashed changes
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -46,3 +52,10 @@ pytest = "^8.3.3"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[virtualenvs]
+in-project = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
