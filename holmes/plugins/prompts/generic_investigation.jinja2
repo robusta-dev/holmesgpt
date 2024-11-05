@@ -19,7 +19,7 @@ Style Guide:
 * But only quote relevant numbers or metrics that are available. Do not guess.
 * Remove unnecessary words
 
-Give your answer in the following format (do NOT add a "Tools" section to the output)
+Give your answer in the following format
 
 # Alert Explanation
 <1-2 sentences explaining the alert itself - note don't say "The alert indicates a warning event related to a Kubernetes pod doing blah" rather just say "The pod XYZ did blah". In other words, don't say "The alert was triggered because XYZ" rather say "XYZ">
@@ -28,10 +28,10 @@ Give your answer in the following format (do NOT add a "Tools" section to the ou
 <
 what you checked and found
 each point should start with 
-🟢 if the check was successful
-🟡 if the check showed a potential problem or minor issue
-🔴 if there was a definite major issue.
-🔒 if you couldn't run the check itself (e.g. due to lack of permissions or lack of integration)
+🟢 if the check was successful and no problems were found
+🟡 if the check showed a potential problem or minor issue or if the check itself could not run
+🔴 if there was a definite major issue
+🔒 if you failed to run the check itself due to lack of permissions or lack of integration
 
 A check should be in the format 'EMOJI *Check name*: details'
 If there is both a logs and previous_logs tool usage (regardless of whether previous logs failed or succeeded), merge them together into one item named Logs.
