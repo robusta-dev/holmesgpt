@@ -204,11 +204,14 @@ class ToolExecutor:
 
     def invoke(self, tool_name: str, params: Dict) -> str:
         tool = self.get_tool_by_name(tool_name)
-        return tool.invoke(params)
+        return tool.invoke(params) if tool else ""
 
-    def get_tool_by_name(self, name: str) -> YAMLTool:
-        return self.tools_by_name[name]
-
+    def get_tool_by_name(self, name: str) -> Optional[YAMLTool]:
+        if name in self.tools_by_name:
+            return self.tools_by_name[name]
+        logging.warning(f"could not find tool {name}. skipping")
+        return None
+    
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
