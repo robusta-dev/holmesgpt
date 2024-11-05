@@ -87,6 +87,9 @@ class DefaultLLM(LLM):
         model_name = self.model
         if model_name.startswith('openai/'):
             model_name = model_name[len('openai/'):]  # Strip the 'openai/' prefix
+        elif model_name.startswith('bedrock/'):
+            model_name = model_name[len('bedrock/'):]  # Strip the 'bedrock/' prefix
+
         return model_name
 
 
@@ -97,7 +100,8 @@ class DefaultLLM(LLM):
         if OVERRIDE_MAX_CONTENT_SIZE:
             logging.debug(f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}")
             return OVERRIDE_MAX_CONTENT_SIZE
-        model_name = self._strip_model_prefix()
+
+        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_input_tokens']
         except Exception as e:
@@ -137,7 +141,8 @@ class DefaultLLM(LLM):
         if OVERRIDE_MAX_OUTPUT_TOKEN:
             logging.debug(f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}")
             return OVERRIDE_MAX_OUTPUT_TOKEN
-        model_name = self._strip_model_prefix()
+
+        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_output_tokens']
         except Exception as e:
