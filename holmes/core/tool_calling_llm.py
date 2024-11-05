@@ -121,7 +121,7 @@ class ToolCallingLLM:
             logging.debug(f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}")
             return OVERRIDE_MAX_CONTENT_SIZE
 
-        model_name = self._strip_model_prefix()
+        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_input_tokens']
         except Exception as e:
@@ -136,8 +136,7 @@ class ToolCallingLLM:
         if OVERRIDE_MAX_OUTPUT_TOKEN:
             logging.debug(f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}")
             return OVERRIDE_MAX_OUTPUT_TOKEN
-        
-        model_name = self._strip_model_prefix()
+        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_output_tokens']
         except Exception as e:
@@ -249,9 +248,19 @@ class ToolCallingLLM:
 
     def _invoke_tool(self, tool_to_call: ChatCompletionMessageToolCall) -> ToolCallResult:
         tool_name = tool_to_call.function.name
-        tool_params = json.loads(tool_to_call.function.arguments)
+        tool_params = None
+        try:
+            tool_params = json.loads(tool_to_call.function.arguments)
+        except Exception:
+            logging.warning(f"Failed to parse arguments for tool: {tool_name}. args: {tool_to_call.function.arguments}")
+
         tool_call_id = tool_to_call.id
         tool = self.tool_executor.get_tool_by_name(tool_name)
+
+        if (not tool) or (tool_params is None):
+            logging.warning(f"Skipping tool execution for {tool_name}: args: {tool_to_call.function.arguments}")
+            return ToolCallResult(tool_call_id=tool_call_id, tool_name=tool_name, description="NA", result="NA")
+
         tool_response = tool.invoke(tool_params)
 
         return ToolCallResult(
