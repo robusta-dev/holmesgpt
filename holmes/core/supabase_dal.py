@@ -7,11 +7,14 @@ from typing import Dict, Optional, List
 from uuid import uuid4
 
 import yaml
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
 from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
 from pydantic import BaseModel
 from cachetools import TTLCache
+from postgrest._sync.request_builder import SyncQueryRequestBuilder
+from postgrest.exceptions import APIError as PostgrestAPIError
 
 from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
                                     STORE_PASSWORD)
@@ -49,8 +52,30 @@ class SupabaseDal:
         self.client = create_client(self.url, self.api_key, options)
         self.user_id = self.sign_in()
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
+        self.patch_postgrest_execute()
         self.token_cache = TTLCache(maxsize=1, ttl=ttl)
         self.lock = threading.Lock()
+
+    def patch_postgrest_execute(self):
+        logging.info("Patching postgres execute")
+        # This is somewhat hacky.
+        def execute_with_retry(_self):
+            try:
+                return self._original_execute(_self)
+            except PGAPIError as exc:
+                message = exc.message or ""
+                if exc.code == "PGRST301" or "expired" in message.lower():
+                    # JWT expired. Sign in again and retry the query
+                    logging.error("JWT token expired/invalid, signing in to Supabase again")
+                    self.sign_in()
+                    # update the session to the new one, after re-sign in
+                    _self.session = self.client.postgrest.session
+                    return self._original_execute(_self)
+                else:
+                    raise
+
+        self._original_execute = SyncQueryRequestBuilder.execute
+        SyncQueryRequestBuilder.execute = execute_with_retry
 
     @staticmethod
     def __load_robusta_config() -> Optional[RobustaToken]:
@@ -138,9 +163,9 @@ class SupabaseDal:
         issue_data["evidence"] = data
         return issue_data
 
-    def get_resource_instructions(self, type: str, name: str) -> List[str]:
+    def get_resource_instructions(self, type: str, name: Optional[str]) -> Optional[ResourceInstructions]:
         if not self.enabled or not name:
-            return []
+            return None
 
         res = (
             self.client
@@ -152,9 +177,20 @@ class SupabaseDal:
             .execute()
         )
         if res.data:
-            return res.data[0].get("runbook").get("instructions")
+            instructions = res.data[0].get("runbook").get("instructions")
+            documents_data = res.data[0].get("runbook").get("documents")
+            documents = []
 
-        return []
+            if documents_data:
+                for document_data in documents_data:
+                    if document_data.url:
+                        documents.append(ResourceInstructionDocument(url=document_data.url))
+                    else:
+                        logging.warning(f"Unsupported runbook.context item for subject_type={type} / subject_name={name}")
+
+            return ResourceInstructions(instructions=instructions, documents=documents)
+
+        return None
 
     def create_session_token(self) -> str:
         token = str(uuid4())

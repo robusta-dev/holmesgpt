@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import logging
 import os
 import re
@@ -16,14 +17,47 @@ class ToolParameter(BaseModel):
     type: str = "string"
     required: bool = True
 
-# TODO: we may want to add an abstract base class for tools, which can be non-yaml too
-class YAMLTool(BaseModel):
+class Tool(ABC, BaseModel):
     name: str
     description: str
+    parameters: Dict[str, ToolParameter] = {}
+    user_description: Optional[str] = None # templated string to show to the user describing this tool invocation (not seen by llm)
+
+    def __init__(self, **data):
+        super().__init__(**data)
+
+    def get_openai_format(self):
+        tool_properties = {}
+        for param_name, param_attributes in self.parameters.items():
+            tool_properties[param_name] = { "type": param_attributes.type }
+            if param_attributes.description is not None:
+                tool_properties[param_name]["description"] = param_attributes.description
+
+        result = {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "properties": tool_properties,
+                    "required": [param_name for param_name, param_attributes in self.parameters.items() if param_attributes.required],
+                    "type": "object",
+                }
+            },
+        }
+        return result
+
+    @abstractmethod
+    def invoke(self, params) -> str:
+        return ""
+
+    @abstractmethod
+    def get_parameterized_one_liner(self, params) -> str:
+        return ""
+
+class YAMLTool(Tool, BaseModel):
     command: Optional[str] = None
     script: Optional[str] = None
-    parameters: Dict[str, ToolParameter] = {}
-    user_description: Optional[str] = None # templated string to show to the user describing this tool invocation (not seen by llm) 
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -45,28 +79,7 @@ class YAMLTool(BaseModel):
             if param not in self.parameters:
                 self.parameters[param] = ToolParameter()
 
-    def get_openai_format(self):
-        tool_properties = {}
-        for param_name, param_attributes in self.parameters.items():
-            tool_properties[param_name] = { "type": param_attributes.type }
-            if param_attributes.description is not None:
-                tool_properties[param_name]["description"] = param_attributes.description
-        
-        result = {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": { 
-                    "properties": tool_properties, 
-                    "required": [param_name for param_name, param_attributes in self.parameters.items() if param_attributes.required],
-                    "type": "object", 
-                }
-            },
-        }
-        return result
-
-    def get_parameterized_one_liner(self, params):
+    def get_parameterized_one_liner(self, params) -> str:
         params = sanitize_params(params)
         if self.user_description:
             template = Template(self.user_description)
@@ -74,7 +87,7 @@ class YAMLTool(BaseModel):
             cmd_or_script = self.command or self.script
             template = Template(cmd_or_script)
         return template.render(params)
-    
+
     def invoke(self, params) -> str:
         params = sanitize_params(params)
         logging.info(f"Running tool: {self.get_parameterized_one_liner(params)}")
@@ -127,7 +140,7 @@ class Toolset(BaseModel):
 
     name: str
     prerequisites: List[Union[ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
-    tools: List[YAMLTool]
+    tools: List[Tool]
 
     _path: PrivateAttr = None
     _enabled: PrivateAttr = None
@@ -135,15 +148,15 @@ class Toolset(BaseModel):
 
     def set_path(self, path):
         self._path = path
-    
+
     def get_path(self):
         return self._path
-    
+
     def is_enabled(self):
         if self._enabled is None:
             raise Exception("Must call check_prerequisites() before is_enabled()")
         return self._enabled
-    
+
     def get_disabled_reason(self):
         if self._enabled != False:
             raise Exception("Can only get disabled reason for disabled toolset")
@@ -161,7 +174,7 @@ class Toolset(BaseModel):
                 except subprocess.CalledProcessError as e:
                     self._enabled = False
                     self._disabled_reason = f"prereq check failed with errorcode {e.returncode}"
-                    logging.debug(f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}")
+                    logging.debug(f"YAMLToolset {self.name} : Failed to run prereq command {prereq}; {str(e)}")
                     return
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
@@ -171,14 +184,17 @@ class Toolset(BaseModel):
                         return
         self._enabled = True
 
-class YAMLToolExecutor:
+class YAMLToolset(Toolset, BaseModel):
+    tools: List[YAMLTool]
+
+class ToolExecutor:
     def __init__(self, toolsets: List[Toolset]):
         toolsets_by_name = {}
         for ts in toolsets:
             if ts.name in toolsets_by_name:
                 logging.warning(f"Overriding toolset '{ts.name}'!")
             toolsets_by_name[ts.name] = ts
-        
+
         self.tools_by_name = {}
         for ts in toolsets_by_name.values():
             for tool in ts.tools:
@@ -188,10 +204,13 @@ class YAMLToolExecutor:
 
     def invoke(self, tool_name: str, params: Dict) -> str:
         tool = self.get_tool_by_name(tool_name)
-        return tool.invoke(params)
+        return tool.invoke(params) if tool else ""
 
-    def get_tool_by_name(self, name: str) -> YAMLTool:
-        return self.tools_by_name[name]
+    def get_tool_by_name(self, name: str) -> Optional[YAMLTool]:
+        if name in self.tools_by_name:
+            return self.tools_by_name[name]
+        logging.warning(f"could not find tool {name}. skipping")
+        return None
     
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
@@ -214,7 +233,7 @@ def sanitize(param):
     # and if not to take that into account via an appropriate jinja template
     if param == "":
         return ""
-    
+
     return shlex.quote(str(param))
 
 def sanitize_params(params):
