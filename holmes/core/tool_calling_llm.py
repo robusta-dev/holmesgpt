@@ -164,9 +164,19 @@ class ToolCallingLLM:
 
     def _invoke_tool(self, tool_to_call: ChatCompletionMessageToolCall) -> ToolCallResult:
         tool_name = tool_to_call.function.name
-        tool_params = json.loads(tool_to_call.function.arguments)
+        tool_params = None
+        try:
+            tool_params = json.loads(tool_to_call.function.arguments)
+        except Exception:
+            logging.warning(f"Failed to parse arguments for tool: {tool_name}. args: {tool_to_call.function.arguments}")
+
         tool_call_id = tool_to_call.id
         tool = self.tool_executor.get_tool_by_name(tool_name)
+
+        if (not tool) or (tool_params is None):
+            logging.warning(f"Skipping tool execution for {tool_name}: args: {tool_to_call.function.arguments}")
+            return ToolCallResult(tool_call_id=tool_call_id, tool_name=tool_name, description="NA", result="NA")
+
         tool_response = tool.invoke(tool_params)
 
         return ToolCallResult(
