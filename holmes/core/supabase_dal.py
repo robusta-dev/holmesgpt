@@ -52,26 +52,29 @@ class SupabaseDal:
         self.client = create_client(self.url, self.api_key, options)
         self.user_id = self.sign_in()
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
+        self.patch_postgrest_execute()
         self.token_cache = TTLCache(maxsize=1, ttl=ttl)
         self.lock = threading.Lock()
 
     def patch_postgrest_execute(self):
-        # Patch the execute method of SyncQueryRequestBuilder to handle JWT expiration
-        original_execute = SyncQueryRequestBuilder.execute
-
-        def execute_with_retry(instance):
+        logging.info("Patching postgres execute")
+        # This is somewhat hacky.
+        def execute_with_retry(_self):
             try:
-                return original_execute(instance)
-            except PostgrestAPIError as exc:
+                return self._original_execute(_self)
+            except PGAPIError as exc:
                 message = exc.message or ""
                 if exc.code == "PGRST301" or "expired" in message.lower():
                     # JWT expired. Sign in again and retry the query
-                    logging.error("JWT token expired/invalid. Signing in to Supabase again.")
+                    logging.error("JWT token expired/invalid, signing in to Supabase again")
                     self.sign_in()
-                    return original_execute(instance)
+                    # update the session to the new one, after re-sign in
+                    _self.session = self.client.postgrest.session
+                    return self._original_execute(_self)
                 else:
                     raise
 
+        self._original_execute = SyncQueryRequestBuilder.execute
         SyncQueryRequestBuilder.execute = execute_with_retry
 
     @staticmethod
