@@ -35,25 +35,16 @@ from holmes.core.conversations import (
 )
 from holmes.core.issue import Issue
 from holmes.core.models import (
-    ConversationType,
     InvestigationResult,
     ConversationRequest,
     InvestigateRequest,
     WorkloadHealthRequest,
     ConversationInvestigationResponse,
-    HolmesConversationHistory,
-    ConversationInvestigationResult,
-    ToolCallConversationResult,
     ChatRequest,
     ChatResponse,
     IssueChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import (
-    ResourceInstructionDocument,
-    ResourceInstructions,
-    ToolCallingLLM,
-)
 
 
 def init_logging():
@@ -160,7 +151,7 @@ def workload_health_check(request: WorkloadHealthRequest):
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
         structured_output = {"type": "json_object"}
-        ai_call = ai.call(
+        ai_call = ai.prompt_call(
             system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT, structured_output
         )
 
@@ -183,7 +174,7 @@ def issue_conversation(conversation_request: ConversationRequest):
         handler = handle_issue_conversation(conversation_request.conversation_type)
         system_prompt = handler(conversation_request, ai)
 
-        investigation = ai.call(system_prompt, conversation_request.user_prompt)
+        investigation = ai.prompt_call(system_prompt, conversation_request.user_prompt)
 
         return ConversationInvestigationResponse(
             analysis=investigation.result,
@@ -199,7 +190,7 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         load_robusta_api_key()
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
         messages = build_issue_chat_messages(issue_chat_request, ai)
-        llm_call = ai.call(messages=messages)
+        llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
             analysis=llm_call.result,
@@ -218,7 +209,7 @@ def chat(chat_request: ChatRequest):
         messages = build_chat_messages(
             chat_request.ask, chat_request.conversation_history, ai=ai
         )
-        llm_call = ai.call(messages=messages)
+        llm_call = ai.messages_call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,

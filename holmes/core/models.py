@@ -1,7 +1,8 @@
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from enum import Enum
+
 
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
@@ -57,6 +58,7 @@ class HolmesConversationHistory(BaseModel):
     answer: ConversationInvestigationResult
 
 
+# HolmesConversationIssueContext, ConversationType and ConversationRequest classes will be deprecated later
 class HolmesConversationIssueContext(BaseModel):
     investigation_result: IssueInvestigationResult
     conversation_history: Optional[List[HolmesConversationHistory]] = []
@@ -67,14 +69,14 @@ class HolmesConversationIssueContext(BaseModel):
 
 class ConversationType(str, Enum):
     ISSUE = "issue"
-    CHAT = "chat"
 
 
 class ConversationRequest(BaseModel):
     user_prompt: str
     source: Optional[str] = None
     resource: Optional[dict] = None
-    conversation_type: ConversationType
+    # ConversationType.ISSUE is default as we gonna deprecate this class and won't add new conversation types
+    conversation_type: Optional[ConversationType] = ConversationType.ISSUE
     context: HolmesConversationIssueContext
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
@@ -85,11 +87,26 @@ class HolmesConversationIssueContext(BaseModel):
     issue_type: str
 
 
-class IssueChatRequest(BaseModel):
+class ChatRequestBaseModel(BaseModel):
+    conversation_history: Optional[list[dict]] = None
+    
+    # In our setup with litellm, the first message in conversation_history 
+    # should follow the structure [{"role": "system", "content": ...}], 
+    # where the "role" field is expected to be "system".
+    @model_validator(mode="after")
+    def check_first_item_role(cls, values):
+        conversation_history = values.conversation_history
+        if conversation_history and isinstance(conversation_history, list) and len(conversation_history)>0:
+            first_item = conversation_history[0]
+            if not first_item.get("role") == "system":
+                raise ValueError("The first item in conversation_history must contain 'role': 'system'")
+        return values
+
+
+class IssueChatRequest(ChatRequestBaseModel):
     ask: str
     investigation_result: IssueInvestigationResult
     issue_type: str
-    conversation_history: Optional[list[dict]] = None
 
 
 class WorkloadHealthRequest(BaseModel):
@@ -104,9 +121,8 @@ class WorkloadHealthRequest(BaseModel):
     prompt_template: str = "builtin://kubernetes_workload_ask.jinja2"
 
 
-class ChatRequest(BaseModel):
+class ChatRequest(ChatRequestBaseModel):
     ask: str
-    conversation_history: Optional[list[dict]] = None
 
 
 class ChatResponse(BaseModel):

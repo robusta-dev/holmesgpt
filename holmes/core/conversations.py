@@ -131,6 +131,40 @@ def handle_issue_conversation(
 
 
 def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCallingLLM):
+    """
+    This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations 
+    by truncating tool outputs as necessary before sending to llm.
+
+    We always expect conversation_history to be passed in the openAI format which is supported by litellm and passed back by us.
+    That's why we assume that first message in the conversation is system message and truncate tools for it.   
+    Example structure of conversation history:
+    conversation_history = [
+    # System prompt
+    {"role": "system", "content": "...."},
+    # User message
+    {"role": "user", "content": "Can you get the weather forecast for today?"},
+    # Assistant initiates a tool call
+    {
+        "role": "assistant",
+        "content": None,
+        "tool_call": {
+            "name": "get_weather",
+            "arguments": "{\"location\": \"San Francisco\"}"
+        }
+    },
+    # Tool/Function response
+    {
+        "role": "tool",  
+        "name": "get_weather",
+        "content": "{\"forecast\": \"Sunny, 70 degrees Fahrenheit.\"}"
+    },
+    # Assistant's final response to the user
+    {
+        "role": "assistant",
+        "content": "The weather in San Francisco today is sunny with a high of 70 degrees Fahrenheit."
+    },
+    ]
+    """
     template_path = "generic_ask_for_issue_conversation.jinja2"
 
     conversation_history = issue_chat_request.conversation_history

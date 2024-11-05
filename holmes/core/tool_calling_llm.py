@@ -3,7 +3,7 @@ import json
 import logging
 import textwrap
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 from holmes.plugins.prompts import load_and_render_prompt
 import litellm
 from openai import BadRequestError
@@ -124,20 +124,34 @@ class ToolCallingLLM:
             logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens")
             return 4096
     
-    def call(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None, post_process_prompt: Optional[str] = None, response_format: dict = None,
-             messages: Optional[list] = None) -> LLMResult:
+    def prompt_call(
+    self,
+    system_prompt: str,
+    user_prompt: str,
+    post_process_prompt: Optional[str] = None,
+    response_format: Optional[dict] = None,
+        ) -> LLMResult:
+        messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+        return self.call(
+        messages, post_process_prompt, response_format, user_prompt=user_prompt
+    )
+
+    def messages_call(
+    self,
+    messages: List[Dict[str, str]],
+    post_process_prompt: Optional[str] = None,
+    response_format: Optional[dict] = None,
+    ) -> LLMResult:
         
-        if not messages:
-            messages = [
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": user_prompt,
-            },
-        ]
+        return self.call(messages, post_process_prompt, response_format)
+
+
+    def call(self, messages: List[Dict[str, str]], post_process_prompt: Optional[str] = None, response_format: dict = None,
+            user_prompt: Optional[str] = None,) -> LLMResult:
+        
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
 
@@ -357,6 +371,6 @@ class IssueInvestigator(ToolCallingLLM):
             "Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    ")
         )
 
-        res = self.call(system_prompt, user_prompt, post_processing_prompt)
+        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt)
         res.instructions = runbooks
         return res
