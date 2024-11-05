@@ -14,7 +14,7 @@ from supabase.lib.client_options import ClientOptions
 from pydantic import BaseModel
 from cachetools import TTLCache
 from postgrest._sync.request_builder import SyncQueryRequestBuilder
-from postgrest.exceptions import APIError as PostgrestAPIError
+from postgrest.exceptions import APIError as PGAPIError
 
 from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
                                     STORE_PASSWORD)
