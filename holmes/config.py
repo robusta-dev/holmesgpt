@@ -1,6 +1,7 @@
 import logging
 import os
 import os.path
+from holmes.core.llm import LLM, DefaultLLM
 from strenum import StrEnum
 from typing import List, Optional
 
@@ -145,14 +146,15 @@ class Config(RobustaBaseConfig):
     ) -> ToolCallingLLM:
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return ToolCallingLLM(
-            self.model,
-            self.api_key.get_secret_value() if self.api_key else None,
             tool_executor,
             self.max_steps,
+            self._get_llm()
         )
 
     def create_issue_investigator(
-        self, console: Console, allowed_toolsets: ToolsetPattern
+        self,
+        console: Console,
+        allowed_toolsets: ToolsetPattern
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
@@ -161,11 +163,10 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self._create_tool_executor(console, allowed_toolsets)
         return IssueInvestigator(
-            self.model,
-            self.api_key.get_secret_value() if self.api_key else None,
             tool_executor,
             runbook_manager,
             self.max_steps,
+            self._get_llm()
         )
 
     def create_jira_source(self) -> JiraSource:
@@ -266,3 +267,7 @@ class Config(RobustaBaseConfig):
         merged_config = config_from_file.dict()
         merged_config.update(cli_options)
         return cls(**merged_config)
+
+    def _get_llm(self) -> LLM:
+        api_key = self.api_key.get_secret_value() if self.api_key else None
+        return DefaultLLM(self.model, api_key)

@@ -159,7 +159,7 @@ def handle_issue_conversation(
     conversation_request: ConversationRequest, ai: ToolCallingLLM
 ):
     load_robusta_api_key()
-    context_window = ai.get_context_window_size()
+    context_window = ai.llm.get_context_window_size()
     number_of_tools = len(
         conversation_request.context.investigation_result.tools
     ) + sum(
@@ -200,8 +200,8 @@ def handle_issue_conversation(
             "content": conversation_request.user_prompt,
         },
     ]
-    message_size_without_tools = ai.count_tokens_for_message(messages)
-    maximum_output_token = ai.get_maximum_output_token()
+    message_size_without_tools = ai.llm.count_tokens_for_message(messages)
+    maximum_output_token = ai.llm.get_maximum_output_token()
 
     tool_size = min(
         10000, int((context_window - message_size_without_tools - maximum_output_token) / number_of_tools)
