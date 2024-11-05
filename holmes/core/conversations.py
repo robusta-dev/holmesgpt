@@ -165,7 +165,7 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
     },
     ]
     """
-    template_path = "generic_ask_for_issue_conversation.jinja2"
+    template_path = "builtin://generic_ask_for_issue_conversation.jinja2"
 
     conversation_history = issue_chat_request.conversation_history
     user_prompt = issue_chat_request.ask
@@ -300,7 +300,7 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
 def build_chat_messages(
     ask: str, conversation_history: list, ai: ToolCallingLLM
 ) -> list[dict]:
-    template_path = "generic_ask.jinja2"
+    template_path = "builtin://generic_ask.jinja2"
 
     if not conversation_history or len(conversation_history) == 0:
         system_prompt = load_and_render_prompt(template_path, {})

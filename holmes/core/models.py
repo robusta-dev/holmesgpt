@@ -93,9 +93,9 @@ class ChatRequestBaseModel(BaseModel):
     # In our setup with litellm, the first message in conversation_history 
     # should follow the structure [{"role": "system", "content": ...}], 
     # where the "role" field is expected to be "system".
-    @model_validator(mode="after")
+    @model_validator(mode="before")
     def check_first_item_role(cls, values):
-        conversation_history = values.conversation_history
+        conversation_history = values.get("conversation_history")
         if conversation_history and isinstance(conversation_history, list) and len(conversation_history)>0:
             first_item = conversation_history[0]
             if not first_item.get("role") == "system":
