@@ -111,7 +111,7 @@ class ToolCallingLLM:
         if model_name.startswith('openai/'):
             model_name = model_name[len('openai/'):]  # Strip the 'openai/' prefix
         elif model_name.startswith('bedrock/'):
-            model_name = model_name[len('bedrock/'):]  # Strip the 'openai/' prefix
+            model_name = model_name[len('bedrock/'):]  # Strip the 'bedrock/' prefix
         return model_name
 
 
