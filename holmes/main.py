@@ -280,7 +280,7 @@ def ask(
         prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
-    response = ai.call(system_prompt, prompt, post_processing_prompt)
+    response = ai.prompt_call(system_prompt, prompt, post_processing_prompt)
 
     if json_output_file:
         write_json_file(json_output_file, response.model_dump())

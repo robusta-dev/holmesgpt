@@ -52,7 +52,7 @@ def ask_holmes():
         llm=MyCustomLLM()
     )
 
-    response = ai.call(system_prompt, prompt)
+    response = ai.prompt_call(system_prompt, prompt)
 
     print(response.model_dump())
 
