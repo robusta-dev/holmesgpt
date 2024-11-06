@@ -60,6 +60,7 @@ spec:
             memory: {{ .Values.resources.requests.memory }}
           limits:
             memory: {{ .Values.resources.limits.memory }}
+            {{ if .Values.resources.limits.cpu }}cpu: {{ .Values.resources.limits.cpu | quote }}{{ end }}
       {{- if .Values.tolerations }}
       tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
       {{- end }}
