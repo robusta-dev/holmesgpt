@@ -62,7 +62,7 @@ class SupabaseDal:
         def execute_with_retry(_self):
             try:
                 return self._original_execute(_self)
-            except PostgrestAPIError as exc:
+            except PGAPIError as exc:
                 message = exc.message or ""
                 if exc.code == "PGRST301" or "expired" in message.lower():
                     # JWT expired. Sign in again and retry the query
