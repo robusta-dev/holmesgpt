@@ -326,7 +326,7 @@ def build_chat_messages(
         [message for message in conversation_history if message.get("role") == "tool"]
     )
     if number_of_tools == 0:
-        return messages
+        return conversation_history
 
     conversation_history_without_tools = [
         message for message in conversation_history if message.get("role") != "tool"
