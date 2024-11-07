@@ -48,11 +48,11 @@ class Tool(ABC, BaseModel):
         return result
 
     @abstractmethod
-    def invoke(self, params) -> str:
+    def invoke(self, params:Dict) -> str:
         return ""
 
     @abstractmethod
-    def get_parameterized_one_liner(self, params) -> str:
+    def get_parameterized_one_liner(self, params:Dict) -> str:
         return ""
 
 class YAMLTool(Tool, BaseModel):

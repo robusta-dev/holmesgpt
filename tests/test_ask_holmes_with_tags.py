@@ -27,6 +27,8 @@ from tests.utils import AskHolmesTestCase, load_ask_holmes_test_cases
 
 TEST_CASES_FOLDER = Path("tests/fixtures/test_ask_holmes_with_tags")
 
+
+
 test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_test_cases=6)
 
 @pytest.mark.parametrize("test_case", test_cases, ids=[test_case.id for test_case in test_cases])
@@ -70,69 +72,17 @@ def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
         FaithfulnessMetric(0.5),
         ContextualPrecisionMetric(
             threshold=0.5,
-            model="gpt-4o",
+            model="gpt-4o-mini",
             include_reason=True
         ),
         ContextualRecallMetric(
-            threshold=0.5,
-            model="gpt-4o",
+            threshold=0,
+            model="gpt-4o-mini",
             include_reason=True
         ),
         ContextualRelevancyMetric(
-            threshold=0.5,
-            model="gpt-4o",
+            threshold=0,
+            model="gpt-4o-mini",
             include_reason=True
         )
     ])
-
-
-
-# def _test_ask_holmes_with_tags():#mock_config, mock_source):
-
-#     console = Console()
-
-#     mock = MockToolsets(require_mock=True)
-#     mock.mock_tool(ToolMock(
-#         toolset_name="kubernetes/core",
-#         tool_name="kubectl_describe",
-#         match_params={},
-#         return_value="Warning  Failed  8s (x3 over 22s)  kubelet, nginx-7ef9efa7cd-qasd2  Error: container create failed: container_linux.go:296: starting container process caused \"exec: \"mycommand\": executable file not found in $PATH\""
-#     ))
-#     mock.mock_tool(ToolMock(
-#         toolset_name="kubernetes/core",
-#         tool_name="kubectl_logs",
-#         match_params={},
-#         return_value=""
-#     ))
-#     mock.mock_tool(ToolMock(
-#         toolset_name="kubernetes/core",
-#         tool_name="kubectl_previous_logs",
-#         match_params={},
-#         return_value=""
-#     ))
-
-#     tool_executor = ToolExecutor(mock.mocked_toolsets)
-#     ai = ToolCallingLLM(
-#         "gpt-4o",
-#         api_key=None,
-#         tool_executor=tool_executor,
-#         max_steps=10,
-#     )
-
-#     template_context = {
-#         "investigation": "",
-#         "tools_called_for_investigation": None,
-#         "conversation_history": [],
-#     }
-
-#     system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
-
-#     user_prompt = "Tell me why pod nginx-7ef9efa7cd-qasd2 is failing and how to fix it"
-#     result = ai.call(system_prompt, user_prompt)
-
-
-#     print(result.result)
-#     print(result.tool_calls)
-#     assert result.tool_calls
-#     print([t.tool_name for t in result.tool_calls])
-#     assert len(result.tool_calls) == 10

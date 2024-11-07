@@ -4,6 +4,7 @@ import os.path
 import subprocess
 from typing import List
 
+from holmes.plugins.toolsets.findings import FindingsToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 from pydantic import BaseModel
 
@@ -24,7 +25,7 @@ def load_toolsets_from_file(path: str) -> List[YAMLToolset]:
 
 def load_python_toolsets() -> List[Toolset]:
     logging.debug(f"loading python toolsets")
-    return [InternetToolset()]
+    return [InternetToolset(), FindingsToolset()]
 
 def load_builtin_toolsets() -> List[Toolset]:
     all_toolsets = []

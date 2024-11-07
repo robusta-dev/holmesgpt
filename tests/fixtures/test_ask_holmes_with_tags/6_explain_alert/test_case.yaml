@@ -1,4 +1,5 @@
-user_prompt: 'why is alert << { "type": "prometheus-alert", "finding_id": "1234567890" } >> firing?'
-expected_output: "The image version of the `robusta-runner` pod is `0.18.0`."
+user_prompt: 'Explain << { "type": "finding", "finding_id": "asodfkq1209edyhqawdo2uydqawidh" } >>'
+expected_output: "The finding indicates that the pod `my-cluster-kafka-0` in the `kafka` namespace was evicted due to low ephemeral storage on the node. The threshold was 2126213140, but only 1884540Ki was available. The `kafka` container was using 3264Ki of ephemeral storage, with no specific request set, leading to higher consumption. This resulted in a warning and the container being stopped. The issue occurred in the `payments-kafka-eu-eks-v2` cluster."
 retrieval_context:
-  - "image: robustadev/robusta-runner:0.18.0"
+  - "Pod my-cluster-kafka was evicted"
+  - "The node was low on resource: ephemeral-storage. Threshold quantity: 2126213140, available: 1884540Ki. Container kafka was using 3264Ki, request is 0, has larger consumption of ephemeral-storage."
