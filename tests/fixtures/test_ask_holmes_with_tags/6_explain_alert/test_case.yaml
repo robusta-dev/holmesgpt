@@ -1,0 +1,4 @@
+user_prompt: 'why is alert << { "type": "prometheus-alert", "finding_id": "1234567890" } >> firing?'
+expected_output: "The image version of the `robusta-runner` pod is `0.18.0`."
+retrieval_context:
+  - "image: robustadev/robusta-runner:0.18.0"

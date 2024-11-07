@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"prometheusrule","keyword":"1234567890"}}
+Command `kubectl get -A --show-labels -o wide prometheusrule | grep 1234567890` failed with return code 1
+stdout:
+
+stderr:

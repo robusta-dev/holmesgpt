@@ -44,13 +44,13 @@ class LLM:
 class DefaultLLM(LLM):
 
     model: str
-    api_key: str
+    api_key: Optional[SecretStr]
     base_url: Optional[str]
 
     def __init__(
         self,
         model: str,
-        api_key: str
+        api_key: Optional[SecretStr] = None
     ):
         self.model = model
         self.api_key = api_key
@@ -61,7 +61,7 @@ class DefaultLLM(LLM):
 
         self.check_llm(self.model, self.api_key)
 
-    def check_llm(self, model, api_key):
+    def check_llm(self, model:str, api_key:Optional[SecretStr]):
         logging.debug(f"Checking LiteLLM model {model}")
         # TODO: this WAS a hack to get around the fact that we can't pass in an api key to litellm.validate_environment
         # so without this hack it always complains that the environment variable for the api key is missing
@@ -113,9 +113,12 @@ class DefaultLLM(LLM):
                                         messages=messages)
 
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+        api_key = None
+        if self.api_key:
+            api_key = self.api_key.get_secret_value()
         result = litellm.completion(
             model=self.model,
-            api_key=self.api_key,
+            api_key=api_key,
             messages=messages,
             tools=tools,
             tool_choice=tool_choice,

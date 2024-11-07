@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/kube-prometheus-stack","tool_name":"get_prometheus_target","match_params":{"prometheus_namespace":"default","prometheus_service_name":"prometheus","target_name":"1234567890"}}
+Command `kubectl get --raw '/api/v1/namespaces/default/services/prometheus:9090/proxy/api/v1/targets' | jq '.data.activeTargets[] | select(.labels.job == "1234567890")` failed with return code 2
+stdout:
+
+stderr:
+/bin/sh: 1: Syntax error: Unterminated quoted string

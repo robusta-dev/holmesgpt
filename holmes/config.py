@@ -253,8 +253,6 @@ class Config(RobustaBaseConfig):
         if config_file is not None:
             logging.debug(f"Loading config from file %s", config_file)
             config_from_file = load_model_from_file(cls, config_file)
-            print("************")
-            print(config_from_file)
         elif os.path.exists(DEFAULT_CONFIG_LOCATION):
             logging.debug(f"Loading config from default location {DEFAULT_CONFIG_LOCATION}")
             config_from_file = load_model_from_file(cls, DEFAULT_CONFIG_LOCATION)
@@ -270,9 +268,6 @@ class Config(RobustaBaseConfig):
 
         merged_config = config_from_file.dict()
         merged_config.update(cli_options)
-        print("***")
-        print(str(merged_config["alertmanager_url"]))
-        print("***")
         return cls(**merged_config)
 
     def _get_llm(self) -> LLM:
