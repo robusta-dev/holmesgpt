@@ -28,3 +28,10 @@ serviceAccount:
   annotations: {}
 
 toolsets: []
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 512Mi
+  limits:
+    memory: 512Mi
