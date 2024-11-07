@@ -56,7 +56,18 @@ def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
 
     system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
 
-    result = ai.call(system_prompt, test_case.user_prompt)
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt,
+        },
+        {
+            "role": "user",
+            "content": test_case.user_prompt,
+        },
+    ]
+
+    result = ai.messages_call(messages=messages)
 
     test_case = LLMTestCase(
         name=f"ask_holmes:{test_case.id}",
