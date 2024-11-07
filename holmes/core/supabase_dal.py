@@ -183,10 +183,11 @@ class SupabaseDal:
 
             if documents_data:
                 for document_data in documents_data:
-                    if document_data.url:
-                        documents.append(ResourceInstructionDocument(url=document_data.url))
+                    url = document_data.get("url", None)
+                    if url:
+                        documents.append(ResourceInstructionDocument(url=url))
                     else:
-                        logging.warning(f"Unsupported runbook.context item for subject_type={type} / subject_name={name}")
+                        logging.warning(f"Unsupported runbook for subject_type={type} / subject_name={name}: {document_data}")
 
             return ResourceInstructions(instructions=instructions, documents=documents)
 
