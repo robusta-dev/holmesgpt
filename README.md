@@ -511,7 +511,7 @@ Jira, GitHub, OpsGenie, PagerDuty, and AlertManager
 
 HolmesGPT can pull tickets/alerts from each of these sources and investigate them.
 
-Refer to `holmes investigate jira --help` etc for details, or view the <a href="#examples">examples</a>.
+Refer to `holmes investigate jira --help` etc for details.
 </details>
 
 
