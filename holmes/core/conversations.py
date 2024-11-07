@@ -11,18 +11,20 @@ from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
 
 
+DEFAULT_TOOL_SIZE = 10000
+
 def calculate_tool_size(
     ai: ToolCallingLLM, messages_without_tools: list[dict], number_of_tools: int
 ) -> int:
     if number_of_tools == 0:
-        return 10000
+        return DEFAULT_TOOL_SIZE
     
     context_window = ai.llm.get_context_window_size()
     message_size_without_tools = ai.llm.count_tokens_for_message(messages_without_tools)
     maximum_output_token = ai.llm.get_maximum_output_token()
     
     tool_size = min(
-        10000,
+        DEFAULT_TOOL_SIZE,
         int(
             (context_window - message_size_without_tools - maximum_output_token)
             / number_of_tools
