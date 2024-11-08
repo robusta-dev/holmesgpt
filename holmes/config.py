@@ -70,6 +70,8 @@ class Config(RobustaBaseConfig):
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
+    _builtin_toolsets = load_builtin_toolsets()
+
     @classmethod
     def load_from_env(cls):
         kwargs = {}
@@ -103,7 +105,7 @@ class Config(RobustaBaseConfig):
     def _create_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern
     ) -> ToolExecutor:
-        all_toolsets = load_builtin_toolsets()
+        all_toolsets = list(self._builtin_toolsets)
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
 
