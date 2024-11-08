@@ -13,6 +13,7 @@ from holmes.core.tool_calling_llm import ToolCallingLLM
 
 DEFAULT_TOOL_SIZE = 10000
 
+
 def calculate_tool_size(
     ai: ToolCallingLLM, messages_without_tools: list[dict], number_of_tools: int
 ) -> int:
