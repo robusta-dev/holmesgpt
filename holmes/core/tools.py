@@ -173,8 +173,8 @@ class Toolset(BaseModel):
                         return
                 except subprocess.CalledProcessError as e:
                     self._enabled = False
-                    self._disabled_reason = f"prereq check failed with errorcode {e.returncode}"
-                    logging.debug(f"YAMLToolset {self.name} : Failed to run prereq command {prereq}; {str(e)}")
+                    self._disabled_reason = f"prereq check failed with errorcode {e.returncode}: {str(e)}"
+                    logging.debug(f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}")
                     return
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
@@ -211,7 +211,7 @@ class ToolExecutor:
             return self.tools_by_name[name]
         logging.warning(f"could not find tool {name}. skipping")
         return None
-    
+
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 

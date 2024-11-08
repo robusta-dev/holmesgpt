@@ -6,7 +6,21 @@ from pathlib import Path
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
 
-from holmes.plugins.toolsets.internet import html_to_markdown, FetchWebpage
+from holmes.core.tools import ToolExecutor
+from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown, FetchWebpage
+
+TEST_URL = "https://www.example.com"
+EXPECTED_TEST_RESULT = """
+Example Domain
+
+Example Domain
+==============
+
+This domain is for use in illustrative examples in documents. You may use this
+ domain in literature without prior coordination or asking for permission.
+
+More information...
+""".strip()
 
 def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -47,17 +61,16 @@ def test_html_to_markdown(input, expected_output):
     assert actual_output.strip() == expected_output.strip()
 
 
-def test_url_to_markdown():
-    fetcher = FetchWebpage()
-    actual_output = fetcher.invoke({"url": "https://www.example.com"})
-    assert actual_output.strip() == """
-Example Domain
+def test_internet_toolset_prerequisites():
+    toolset = InternetToolset()
 
-Example Domain
-==============
+    toolset.check_prerequisites()
+    assert toolset.is_enabled() == True, ("" if toolset.is_enabled() else toolset.get_disabled_reason() + ". Make sure playwright is installed by running `playwright install`.")
 
-This domain is for use in illustrative examples in documents. You may use this
- domain in literature without prior coordination or asking for permission.
-
-More information...
-""".strip()
+def test_fetch_webpage():
+    toolset = InternetToolset()
+    tool_executor = ToolExecutor(toolsets=[toolset])
+    fetch_webpage_tool = tool_executor.get_tool_by_name('fetch_webpage')
+    assert fetch_webpage_tool
+    actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
+    assert actual_output.strip() == EXPECTED_TEST_RESULT
