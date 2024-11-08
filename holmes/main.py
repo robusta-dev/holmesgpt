@@ -1,5 +1,8 @@
 import os
+from holmes.core.conversations import build_chat_messages
+from holmes.core.models import ChatRequest, ChatResponse
 from holmes.utils.cert_utils import add_custom_certificate
+from server import load_robusta_api_key
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -28,7 +31,7 @@ from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument
+from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument, ToolCallingLLM
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
@@ -780,6 +783,19 @@ def opsgenie(
             console.print(
                 f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
             )
+
+def chat(chat_request:ChatRequest, ai:ToolCallingLLM) -> ChatResponse:
+
+    load_robusta_api_key()
+    messages = build_chat_messages(
+        chat_request.ask, chat_request.conversation_history, ai=ai
+    )
+    llm_call = ai.messages_call(messages=messages)
+    return ChatResponse(
+        analysis=llm_call.result,
+        tool_calls=llm_call.tool_calls,
+        conversation_history=llm_call.messages,
+    )
 
 
 @app.command()

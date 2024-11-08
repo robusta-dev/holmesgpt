@@ -45,6 +45,7 @@ from holmes.core.models import (
     IssueChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.main import chat as holmes_chat
 
 
 def init_logging():
@@ -205,17 +206,7 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
-        load_robusta_api_key()
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
-        messages = build_chat_messages(
-            chat_request.ask, chat_request.conversation_history, ai=ai
-        )
-        llm_call = ai.messages_call(messages=messages)
-        return ChatResponse(
-            analysis=llm_call.result,
-            tool_calls=llm_call.tool_calls,
-            conversation_history=llm_call.messages,
-        )
+        return holmes_chat(chat_request, config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS))
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
 

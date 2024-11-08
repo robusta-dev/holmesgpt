@@ -7,13 +7,13 @@ from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
 from holmes.core.issue import Issue
 from holmes.core.llm import DefaultLLM
-from holmes.core.models import ConversationType, InvestigateRequest
+from holmes.core.models import ChatRequest, ConversationType, InvestigateRequest
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tool_calling_llm import IssueInvestigator, ResourceInstructions, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.toolsets import load_builtin_toolsets
-from holmes.main import alertmanager, init_logging
+from holmes.main import alertmanager, chat, init_logging
 from holmes.plugins.destinations import DestinationType
 from rich.console import Console
 from tests.mock_toolset import MockMetadata, MockToolsets, ToolMock
@@ -21,7 +21,6 @@ from tests.mock_toolset import MockMetadata, MockToolsets, ToolMock
 from deepeval import assert_test
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, ContextualPrecisionMetric, ContextualRecallMetric, ContextualRelevancyMetric
-
 
 from tests.utils import AskHolmesTestCase, load_ask_holmes_test_cases
 
@@ -52,45 +51,35 @@ def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
         "conversation_history": [],
     }
 
+    chat_request = ChatRequest(ask=test_case.user_prompt)
+
+    result = chat(chat_request, ai)
     system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
 
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": test_case.user_prompt,
-        },
-    ]
-
-    result = ai.messages_call(messages=messages)
-
-    test_case = LLMTestCase(
+    deepeval_test_case = LLMTestCase(
         name=f"ask_holmes:{test_case.id}",
         input=test_case.user_prompt,
-        actual_output=result.result,
+        actual_output=result.analysis,
         expected_output=test_case.expected_output,
         retrieval_context=test_case.retrieval_context,
         tools_called=[tool_call.tool_name for tool_call in (result.tool_calls or [])],
         expected_tools=expected_tools
     )
-    assert_test(test_case, [
-        AnswerRelevancyMetric(0.5),
-        FaithfulnessMetric(0.5),
+    assert_test(deepeval_test_case, [
+        AnswerRelevancyMetric(test_case.evaluation.answer_relevancy),
+        FaithfulnessMetric(test_case.evaluation.faithfulness),
         ContextualPrecisionMetric(
-            threshold=0.5,
+            threshold=test_case.evaluation.contextual_precision,
             model="gpt-4o-mini",
             include_reason=True
         ),
         ContextualRecallMetric(
-            threshold=0,
+            threshold=test_case.evaluation.contextual_recall,
             model="gpt-4o-mini",
             include_reason=True
         ),
         ContextualRelevancyMetric(
-            threshold=0,
+            threshold=test_case.evaluation.contextual_relevancy,
             model="gpt-4o-mini",
             include_reason=True
         )

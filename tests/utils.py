@@ -9,6 +9,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, TypeAdapter
 from tests.mock_toolset import AUTO_GENERATED_FILE_SUFFIX, MockMetadata, ToolMock
+from enum import Enum
 
 def read_file(file_path:Path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -17,6 +18,13 @@ def read_file(file_path:Path):
 
 TEST_CASE_ID_PATTERN = r'^[\d+]_(?:[a-z]+_)*[a-z]+$'
 CONFIG_FILE_NAME = "test_case.yaml"
+
+class LLMEvaluation(BaseModel):
+    answer_relevancy: float = 0.5
+    faithfulness: float = 0.5
+    contextual_precision: float = 0.5
+    contextual_recall: float = 0
+    contextual_relevancy: float = 0
 
 class Message(BaseModel):
     message: str
@@ -27,6 +35,7 @@ class AskHolmesTestCase(BaseModel):
     tools_passthrough: bool = False # If True, unmocked tools can be invoked by the LLM without error
     user_prompt: str # The user's question to ask holmes
     expected_output: str # Whether an output is expected
+    evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[str] = [] # Elements helping to evaluate the correctness of the LLM response
     tool_mocks: List[ToolMock] = []
 

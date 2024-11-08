@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 from holmes.core.models import (
     ConversationRequest,
@@ -18,11 +18,11 @@ def calculate_tool_size(
 ) -> int:
     if number_of_tools == 0:
         return DEFAULT_TOOL_SIZE
-    
+
     context_window = ai.llm.get_context_window_size()
     message_size_without_tools = ai.llm.count_tokens_for_message(messages_without_tools)
     maximum_output_token = ai.llm.get_maximum_output_token()
-    
+
     tool_size = min(
         DEFAULT_TOOL_SIZE,
         int(
@@ -137,11 +137,11 @@ def handle_issue_conversation(
 
 def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCallingLLM):
     """
-    This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations 
+    This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations
     by truncating tool outputs as necessary before sending to llm.
 
     We always expect conversation_history to be passed in the openAI format which is supported by litellm and passed back by us.
-    That's why we assume that first message in the conversation is system message and truncate tools for it.   
+    That's why we assume that first message in the conversation is system message and truncate tools for it.
     Example structure of conversation history:
     conversation_history = [
     # System prompt
@@ -159,7 +159,7 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
     },
     # Tool/Function response
     {
-        "role": "tool",  
+        "role": "tool",
         "name": "get_weather",
         "content": "{\"forecast\": \"Sunny, 70 degrees Fahrenheit.\"}"
     },
@@ -303,7 +303,7 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
 
 
 def build_chat_messages(
-    ask: str, conversation_history: list, ai: ToolCallingLLM
+    ask: str, conversation_history: list[Dict[str, str]], ai: ToolCallingLLM
 ) -> list[dict]:
     template_path = "builtin://generic_ask.jinja2"
 
