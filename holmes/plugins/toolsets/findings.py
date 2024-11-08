@@ -59,7 +59,7 @@ class FetchRobustaFinding(Tool):
 class FindingsToolset(Toolset):
     def __init__(self):
         super().__init__(
-            name = "findings",
+            name = "findings/core",
             prerequisites = [],
             tools = [FetchRobustaFinding()],
         )

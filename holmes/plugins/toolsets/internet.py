@@ -151,7 +151,7 @@ class FetchWebpage(Tool):
 class InternetToolset(Toolset):
     def __init__(self):
         super().__init__(
-            name = "internet",
+            name = "internet/core",
             prerequisites = [
                 # Take a screenshot sucessfuly ensures playwright is correctly installed
                 ToolsetCommandPrerequisite(command="python -m playwright screenshot --browser firefox https://www.example.com playwright.png"),
