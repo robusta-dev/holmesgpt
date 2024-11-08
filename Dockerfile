@@ -101,6 +101,5 @@ RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-65.5.1.dist-info
 
 RUN python -m playwright install firefox --with-deps
 
-# ENTRYPOINT ["python", "holmes.py"]
-ENTRYPOINT ["python", "./holmes/test.py"]
+ENTRYPOINT ["python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]
