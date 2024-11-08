@@ -11,7 +11,7 @@ import sys
 import logging
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
-PARAM_FINDING_ID = "finding_id"
+PARAM_FINDING_ID = "id"
 
 class FetchRobustaFinding(Tool):
 
@@ -49,7 +49,7 @@ class FetchRobustaFinding(Tool):
                 return f"Could not find a finding with finding_id={finding_id}"
         except Exception as e:
             logging.error(e)
-            logging.error("Failed to ")
+            logging.error(f"Failed to ")
 
         return f"There was an internal error while fetching finding {finding_id}"
 

@@ -1,4 +1,4 @@
-user_prompt: 'How many pods do I have running on << { "node": "ip-172-31-8-128.us-east-2.compute.internal" } >> ?'
+user_prompt: 'How many pods do I have running on << { "type": "node", "name": "ip-172-31-8-128.us-east-2.compute.internal" } >> ?'
 #user_prompt: "How many pods do I have running on node ip-172-31-8-128.us-east-2.compute.internal?"
 expected_output: "5 pods are running on ip-172-31-8-128.us-east-2.compute.internal"
 retrieval_context:
