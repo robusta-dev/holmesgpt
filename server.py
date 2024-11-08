@@ -1,5 +1,6 @@
 import os
 from holmes.utils.cert_utils import add_custom_certificate
+from holmes.utils.robusta import load_robusta_api_key
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -74,16 +75,10 @@ console = Console()
 config = Config.load_from_env()
 
 
-def load_robusta_api_key():
-    if os.environ.get("ROBUSTA_AI"):
-        account_id, token = dal.get_ai_credentials()
-        config.api_key = SecretStr(f"{account_id} {token}")
-
-
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
-        load_robusta_api_key()
+        load_robusta_api_key(dal=dal, config=config)
         context = dal.get_issue_data(
             investigate_request.context.get("robusta_issue_id")
         )
@@ -125,7 +120,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
-    load_robusta_api_key()
+    load_robusta_api_key(dal=dal, config=config)
     try:
         resource = request.resource
         workload_alerts: list[str] = []
@@ -170,7 +165,7 @@ def workload_health_check(request: WorkloadHealthRequest):
 @app.post("/api/conversation")
 def issue_conversation(conversation_request: ConversationRequest):
     try:
-        load_robusta_api_key()
+        load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
 
         handler = handle_issue_conversation(conversation_request.conversation_type)
@@ -189,7 +184,7 @@ def issue_conversation(conversation_request: ConversationRequest):
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
-        load_robusta_api_key()
+        load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
         messages = build_issue_chat_messages(issue_chat_request, ai)
         llm_call = ai.messages_call(messages=messages)
@@ -206,6 +201,7 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
+        load_robusta_api_key(dal=dal, config=config)
         return holmes_chat(chat_request, config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS))
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)

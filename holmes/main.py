@@ -2,7 +2,6 @@ import os
 from holmes.core.conversations import build_chat_messages
 from holmes.core.models import ChatRequest, ChatResponse
 from holmes.utils.cert_utils import add_custom_certificate
-from server import load_robusta_api_key
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -786,7 +785,6 @@ def opsgenie(
 
 def chat(chat_request:ChatRequest, ai:ToolCallingLLM) -> ChatResponse:
 
-    load_robusta_api_key()
     messages = build_chat_messages(
         chat_request.ask, chat_request.conversation_history, ai=ai
     )

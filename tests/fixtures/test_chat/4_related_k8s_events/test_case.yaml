@@ -1,5 +1,5 @@
-#user_prompt: 'What kubernetes events are related to << { "pod": "nginx" } >>'
-user_prompt: "What kubernetes events are related to the nginx pod >>"
+user_prompt: 'What kubernetes events are related to << { "pod": "nginx" } >>'
+#user_prompt: "What kubernetes events are related to the nginx pod >>"
 expected_output: |
   Kubernetes events related to the `nginx-6958c5bdd8-69gtn` pod include:
 

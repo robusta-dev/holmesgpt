@@ -82,16 +82,11 @@ class ConversationRequest(BaseModel):
     include_tool_call_results: bool = False
 
 
-class HolmesConversationIssueContext(BaseModel):
-    investigation_result: IssueInvestigationResult
-    issue_type: str
-
-
 class ChatRequestBaseModel(BaseModel):
     conversation_history: Optional[list[dict]] = None
-    
-    # In our setup with litellm, the first message in conversation_history 
-    # should follow the structure [{"role": "system", "content": ...}], 
+
+    # In our setup with litellm, the first message in conversation_history
+    # should follow the structure [{"role": "system", "content": ...}],
     # where the "role" field is expected to be "system".
     @model_validator(mode="before")
     def check_first_item_role(cls, values):

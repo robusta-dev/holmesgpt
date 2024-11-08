@@ -24,7 +24,7 @@ from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, Contextu
 
 from tests.utils import AskHolmesTestCase, load_ask_holmes_test_cases
 
-TEST_CASES_FOLDER = Path("tests/fixtures/test_chat_using_tags")
+TEST_CASES_FOLDER = Path("tests/fixtures/test_chat")
 
 test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_test_cases=6)
 
