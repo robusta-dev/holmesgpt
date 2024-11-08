@@ -82,11 +82,6 @@ class ConversationRequest(BaseModel):
     include_tool_call_results: bool = False
 
 
-class HolmesConversationIssueContext(BaseModel):
-    investigation_result: IssueInvestigationResult
-    issue_type: str
-
-
 class ChatRequestBaseModel(BaseModel):
     conversation_history: Optional[list[dict]] = None
     
