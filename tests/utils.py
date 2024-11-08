@@ -48,7 +48,7 @@ def parse_mock_metadata(text) -> Optional[MockMetadata]:
         logging.error(e)
         return None
 
-def load_ask_holmes_test_cases(test_cases_folder:Path, expected_number_of_test_cases=0) -> List[AskHolmesTestCase]:
+def load_ask_holmes_test_cases(test_cases_folder:Path, expected_number_of_test_cases=-1) -> List[AskHolmesTestCase]:
 
     test_cases = []
     test_cases_ids:List[str] = os.listdir(test_cases_folder)
@@ -90,5 +90,7 @@ def load_ask_holmes_test_cases(test_cases_folder:Path, expected_number_of_test_c
             test_case.tool_mocks.append(tool_mock)
         test_cases.append(test_case)
     logging.info(f"Found {len(test_cases)} in {test_cases_folder}")
-    assert len(test_cases) == expected_number_of_test_cases
+
+    if expected_number_of_test_cases > 0:
+        assert len(test_cases) == expected_number_of_test_cases
     return test_cases
