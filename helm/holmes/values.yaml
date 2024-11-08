@@ -6,7 +6,7 @@ logLevel: INFO
 additionalEnvVars: []
 imagePullSecrets: []
 
-allowedToolsets: "kubernetes/core"
+allowedToolsets: "kubernetes/core,internet"
 
 image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
@@ -31,7 +31,7 @@ toolsets: []
 
 resources:
   requests:
-    cpu: 50m
-    memory: 512Mi
+    cpu: 100m
+    memory: 1024Mi
   limits:
-    memory: 512Mi
+    memory: 1024Mi
