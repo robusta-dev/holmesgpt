@@ -64,7 +64,7 @@ class RaiseExceptionTool(Tool):
 
     def invoke(self, params) -> str:
         self._auto_generate_mock_file(params)
-        raise Exception(f"Tool {self.name} was invoked but a mock is required. A mock file was generated for you at {self._get_mock_file_path()}. Remove the '{AUTO_GENERATED_FILE_SUFFIX}' suffix to enable that file")
+        raise Exception(f"Tool {self.name} was invoked but a mock is required. A mock file was generated for you at {self._get_mock_file_path()}. Remove the '{AUTO_GENERATED_FILE_SUFFIX}' suffix to enable that file. Params={str(params)}")
 
 
     def get_parameterized_one_liner(self, params) -> str:
