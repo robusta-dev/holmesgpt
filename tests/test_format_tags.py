@@ -1,6 +1,6 @@
 import pytest
 
-from holmes.utils.tags import format_message_tags, format_messages_tags
+from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 
 @pytest.mark.parametrize("input, expected_output", [
     (
@@ -24,11 +24,11 @@ from holmes.utils.tags import format_message_tags, format_messages_tags
         'What caused issue issue-id (name=KubeJobFailed, subject_namespace=my-namespace, subject_name=my-pod)?'
     )
 ])
-def test_format_message_tags(input, expected_output):
-    assert format_message_tags(input) == expected_output
+def test_format_tags_in_string(input, expected_output):
+    assert format_tags_in_string(input) == expected_output
 
-def test_format_messages_tags():
-    assert format_messages_tags([{
+def test_parse_message_tags():
+    assert parse_messages_tags([{
         "role": "user",
         "content": 'how many pods are running on << { "type": "node", "name": "my-node" } >>?'
     }])[0] == {

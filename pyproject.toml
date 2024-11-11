@@ -44,14 +44,8 @@ starlette = "^0.40"
 pytest = "^8.3.3"
 deepeval = "^1.4.8"
 pytest-xdist = "^3.6.1"
+ruff = "^0.7.3"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[virtualenvs]
-in-project = true
-
-[tool.pyright]
-venvPath = "."
-venv = ".venv"

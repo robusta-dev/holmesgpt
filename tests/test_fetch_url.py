@@ -4,12 +4,12 @@ import pytest
 from pathlib import Path
 
 from tests.utils import read_file
+from holmes.core.tools import ToolExecutor
+from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown, FetchWebpage
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
 
-from holmes.core.tools import ToolExecutor
-from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown, FetchWebpage
 
 TEST_URL = "https://www.example.com"
 EXPECTED_TEST_RESULT = """

@@ -160,3 +160,4 @@ cython_debug/
 
 playwright.png
 .deepeval*
+pyrightconfig.json

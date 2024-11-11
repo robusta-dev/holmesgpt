@@ -9,7 +9,6 @@ from typing import List, Optional
 
 from pydantic import BaseModel, TypeAdapter
 from tests.mock_toolset import AUTO_GENERATED_FILE_SUFFIX, MockMetadata, ToolMock
-from enum import Enum
 
 def read_file(file_path:Path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -70,12 +69,12 @@ def load_ask_holmes_test_cases(test_cases_folder:Path, expected_number_of_test_c
             config_dict["folder"] = str(test_case_folder)
             test_case:AskHolmesTestCase = pydantic_test_case.validate_python(config_dict)
             logging.info(f"Successfully loaded test case {test_case_id}")
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             logging.info(f"Folder {test_cases_folder}/{test_case_id} ignored because it is missing a {CONFIG_FILE_NAME} file.")
             continue
 
         mock_file_names:List[str] = os.listdir(test_case_folder)
-        mocks:List[ToolMock] = []
+
         for mock_file_name in mock_file_names:
             if mock_file_name == CONFIG_FILE_NAME:
                 continue
@@ -88,7 +87,7 @@ def load_ask_holmes_test_cases(test_cases_folder:Path, expected_number_of_test_c
             mock_value = mock_text[mock_text.find('\n') + 1:] # remove first line
             if not metadata:
                 logging.warning(f"Failed to parse metadata from test case file at {str(mock_file_path)}. It will be skipped")
-                continue;
+                continue
             tool_mock = ToolMock(
                 toolset_name= metadata.toolset_name,
                 tool_name= metadata.tool_name,

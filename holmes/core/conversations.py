@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from holmes.core.models import (
     ConversationRequest,
@@ -305,8 +305,8 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
 
 
 def build_chat_messages(
-    ask: str, conversation_history: list[Dict[str, str]], ai: ToolCallingLLM
-) -> list[dict]:
+    ask: str, conversation_history: Optional[List[Dict[str, str]]], ai: ToolCallingLLM
+) -> List[dict]:
     template_path = "builtin://generic_ask.jinja2"
 
     if not conversation_history or len(conversation_history) == 0:

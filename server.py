@@ -1,6 +1,5 @@
 import os
 from holmes.utils.cert_utils import add_custom_certificate
-from holmes.utils.robusta import load_robusta_api_key
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -15,11 +14,10 @@ import logging
 import uvicorn
 import colorlog
 
-from typing import Dict, Callable
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException
-from pydantic import SecretStr
 from rich.console import Console
+from holmes.utils.robusta import load_robusta_api_key
 
 from holmes.common.env_vars import (
     HOLMES_HOST,
@@ -30,8 +28,8 @@ from holmes.common.env_vars import (
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
 from holmes.core.conversations import (
-    build_issue_chat_messages,
     build_chat_messages,
+    build_issue_chat_messages,
     handle_issue_conversation,
 )
 from holmes.core.issue import Issue
@@ -46,7 +44,6 @@ from holmes.core.models import (
     IssueChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.main import chat as holmes_chat
 
 
 def init_logging():
@@ -91,7 +88,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
             raw_data["extra_context"] = context
 
         ai = config.create_issue_investigator(
-            console, allowed_toolsets=ALLOWED_TOOLSETS
+            console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal
         )
         issue = Issue(
             id=context["id"] if context else "",
@@ -145,7 +142,7 @@ def workload_health_check(request: WorkloadHealthRequest):
         system_prompt = jinja2.Environment().from_string(system_prompt)
         system_prompt = system_prompt.render(alerts=workload_alerts)
 
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
 
         structured_output = {"type": "json_object"}
         ai_call = ai.prompt_call(
@@ -166,7 +163,7 @@ def workload_health_check(request: WorkloadHealthRequest):
 def issue_conversation(conversation_request: ConversationRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
 
         handler = handle_issue_conversation(conversation_request.conversation_type)
         system_prompt = handler(conversation_request, ai)
@@ -185,7 +182,7 @@ def issue_conversation(conversation_request: ConversationRequest):
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS)
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
         messages = build_issue_chat_messages(issue_chat_request, ai)
         llm_call = ai.messages_call(messages=messages)
 
@@ -202,7 +199,17 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
 def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        return holmes_chat(chat_request, config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS))
+
+        messages = build_chat_messages(
+            chat_request.ask, chat_request.conversation_history, ai=ai
+        )
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        llm_call = ai.messages_call(messages=messages)
+        return ChatResponse(
+            analysis=llm_call.result,
+            tool_calls=llm_call.tool_calls,
+            conversation_history=llm_call.messages,
+        )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
 

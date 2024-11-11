@@ -4,7 +4,7 @@ import logging
 import textwrap
 import os
 from typing import List, Optional, Dict
-from holmes.utils.tags import format_message_tags, format_messages_tags
+from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
 import litellm
 from typing import List, Optional
@@ -125,7 +125,7 @@ class ToolCallingLLM:
             logging.debug(f"sending messages {messages}")
             try:
                 full_response = self.llm.completion(
-                    messages=format_messages_tags(messages),
+                    messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
                     temperature=0.00000001,
@@ -263,7 +263,7 @@ class ToolCallingLLM:
                 },
                 {
                     "role": "user",
-                    "content": format_message_tags(user_prompt),
+                    "content": format_tags_in_string(user_prompt),
                 },
             ]
             full_response = self.llm.completion(messages=messages, temperature=0)

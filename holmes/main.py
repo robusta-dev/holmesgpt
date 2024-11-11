@@ -1,6 +1,4 @@
 import os
-from holmes.core.conversations import build_chat_messages
-from holmes.core.models import ChatRequest, ChatResponse
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -33,6 +31,8 @@ from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument, ToolCallingLLM
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
+from holmes.core.conversations import build_chat_messages
+from holmes.core.models import ChatRequest, ChatResponse
 
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -274,7 +274,7 @@ def ask(
         slack_channel=slack_channel,
     )
     system_prompt = load_and_render_prompt(system_prompt)
-    ai = config.create_toolcalling_llm(console, allowed_toolsets)
+    ai = config.create_toolcalling_llm(console, allowed_toolsets=allowed_toolsets, dal=None)
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
@@ -362,7 +362,7 @@ def alertmanager(
         custom_runbooks=custom_runbooks
     )
 
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_issue_investigator(console, allowed_toolsets=allowed_toolsets)
 
     source = config.create_alertmanager_source()
 
@@ -490,7 +490,7 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_issue_investigator(console, allowed_toolsets=allowed_toolsets)
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()
@@ -782,18 +782,6 @@ def opsgenie(
             console.print(
                 f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
             )
-
-def chat(chat_request:ChatRequest, ai:ToolCallingLLM) -> ChatResponse:
-
-    messages = build_chat_messages(
-        chat_request.ask, chat_request.conversation_history, ai=ai
-    )
-    llm_call = ai.messages_call(messages=messages)
-    return ChatResponse(
-        analysis=llm_call.result,
-        tool_calls=llm_call.tool_calls,
-        conversation_history=llm_call.messages,
-    )
 
 
 @app.command()

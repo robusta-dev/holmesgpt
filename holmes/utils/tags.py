@@ -1,11 +1,23 @@
 
 
+from typing import Optional
 from typing_extensions import Dict, List
 import re
 import json
 from copy import deepcopy
 
-def format_tag(tag:Dict[str, str]):
+def stringify_tag(tag:Dict[str, str]) -> Optional[str]:
+    """
+    This serializes a dictionary into something more readable to the LLM.
+    Although I have not seen much difference in quality of output, in theory this can help the LLM
+    understand better how to link the tag values with the tools.
+
+    Here are some examples of formatting (more can be found in the test for this function):
+        - { "type": "node", "name": "my-node" }
+            -> "node my-node"
+        - { "type": "issue", "id": "issue-id", "name": "KubeJobFailed", "subject_namespace": "my-namespace", "subject_name": "my-pod" }
+            -> issue issue-id (name=KubeJobFailed, subject_namespace=my-namespace, subject_name=my-pod)
+    """
     type = tag.pop("type")
     if not type:
         return None
@@ -29,7 +41,13 @@ def format_tag(tag:Dict[str, str]):
 
     return formatted_string
 
-def format_message_tags(user_prompt):
+def format_tags_in_string(user_prompt):
+    """
+    Formats the tags included in a user's message.
+    E.g.
+        'how many pods are running on << { "type": "node", "name": "my-node" } >>?'
+            -> 'how many pods are running on node my-node?'
+    """
     try:
         pattern = r'<<(.*?)>>'
         match = re.search(pattern, user_prompt)
@@ -40,7 +58,7 @@ def format_message_tags(user_prompt):
         json_str = match.group(1)
         json_obj = json.loads(json_str)
 
-        formatted = format_tag(json_obj)
+        formatted = stringify_tag(json_obj)
         if not formatted:
             return user_prompt
 
@@ -49,16 +67,19 @@ def format_message_tags(user_prompt):
         return user_prompt
 
 
-def format_messages_tags(messages:List[Dict[str, str]]) -> List[Dict[str, str]]:
+def parse_messages_tags(messages:List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
         Parses the user messages for tags and format these.
-        This method returns a shallow copy of the messages list with the exception of the messages that have been parsed.
+        System messages and llm responses are ignored and left as-is
+
+        This method returns a shallow copy of the messages list with the exception
+        of the messages that have been parsed.
     """
     formatted_messages = []
 
     for message in messages:
         if message.get("role") == "user":
-            formatted_str = format_message_tags(message.get("content"))
+            formatted_str = format_tags_in_string(message.get("content"))
             if formatted_str != message.get("content"):
                 formatted_message = deepcopy(message)
                 formatted_message["content"] = formatted_str

@@ -126,6 +126,9 @@ class YAMLTool(Tool, BaseModel):
         except subprocess.CalledProcessError as e:
             return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
 
+class StaticPrerequisite(BaseModel):
+    enabled: bool
+    disabled_reason: str
 
 class ToolsetCommandPrerequisite(BaseModel):
     command: str                 # must complete successfully (error code 0) for prereq to be satisfied
@@ -138,7 +141,7 @@ class Toolset(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     name: str
-    prerequisites: List[Union[ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
+    prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
     tools: List[Tool]
 
     _path: PrivateAttr = None
@@ -181,6 +184,12 @@ class Toolset(BaseModel):
                         self._enabled = False
                         self._disabled_reason = f"prereq check failed because environment variable {env_var} was not set"
                         return
+
+            elif isinstance(prereq, StaticPrerequisite):
+                if not prereq.enabled:
+                    self._enabled = False
+                    self._disabled_reason = prereq.disabled_reason
+                    return
         self._enabled = True
 
 class YAMLToolset(Toolset, BaseModel):

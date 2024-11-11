@@ -1,25 +1,14 @@
-import json
 from pathlib import Path
-from typing import List, Optional
 import pytest
-from unittest.mock import Mock, patch
-from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
-from holmes.config import Config
-from holmes.core.issue import Issue
+from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
-from holmes.core.models import ChatRequest, ConversationType, InvestigateRequest
-from holmes.core.runbooks import RunbookManager
-from holmes.core.tool_calling_llm import IssueInvestigator, ResourceInstructions, ToolCallingLLM
+from holmes.core.models import ChatRequest
+from holmes.core.tool_calling_llm import ToolCallingLLM
 from holmes.core.tools import ToolExecutor
-from holmes.plugins.prompts import load_and_render_prompt
-from holmes.plugins.toolsets import load_builtin_toolsets
-from holmes.main import alertmanager, chat, init_logging
-from holmes.plugins.destinations import DestinationType
-from rich.console import Console
-from tests.mock_toolset import MockMetadata, MockToolsets, ToolMock
+from tests.mock_toolset import MockToolsets
 
 from deepeval import assert_test
-from deepeval.test_case import LLMTestCase, LLMTestCaseParams
+from deepeval.test_case import LLMTestCase
 from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, ContextualPrecisionMetric, ContextualRecallMetric, ContextualRelevancyMetric
 
 from tests.utils import AskHolmesTestCase, load_ask_holmes_test_cases
@@ -30,7 +19,7 @@ test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_te
 
 @pytest.mark.parametrize("test_case", test_cases, ids=[test_case.id for test_case in test_cases])
 def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
-    console = init_logging  ()
+
     mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
 
     expected_tools = []
@@ -45,24 +34,20 @@ def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
         llm=DefaultLLM("gpt-4o")
     )
 
-    template_context = {
-        "investigation": "",
-        "tools_called_for_investigation": None,
-        "conversation_history": [],
-    }
-
     chat_request = ChatRequest(ask=test_case.user_prompt)
 
-    result = chat(chat_request, ai)
-    system_prompt = load_and_render_prompt("builtin://generic_ask_for_issue_conversation.jinja2", template_context)
+    messages = build_chat_messages(
+        chat_request.ask, [], ai=ai
+    )
+    llm_call = ai.messages_call(messages=messages)
 
     deepeval_test_case = LLMTestCase(
         name=f"ask_holmes:{test_case.id}",
         input=test_case.user_prompt,
-        actual_output=result.analysis,
+        actual_output=llm_call.result or "",
         expected_output=test_case.expected_output,
         retrieval_context=test_case.retrieval_context,
-        tools_called=[tool_call.tool_name for tool_call in (result.tool_calls or [])],
+        tools_called=[tool_call.tool_name for tool_call in (llm_call.tool_calls or [])],
         expected_tools=expected_tools
     )
     assert_test(deepeval_test_case, [
