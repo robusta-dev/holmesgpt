@@ -63,7 +63,7 @@ class FindingsToolset(Toolset):
                 disabled_reason="Data access layer is disabled")
 
         super().__init__(
-            name = "findings/core",
+            name = "findings",
             prerequisites = [dal_prereq],
             tools = [FetchRobustaFinding(dal)],
         )

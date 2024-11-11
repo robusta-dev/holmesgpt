@@ -4,7 +4,7 @@ logLevel: INFO
 additionalEnvVars: []
 imagePullSecrets: []
 
-allowedToolsets: "*/core"
+allowedToolsets: "kubernetes/core,findings,internet"
 
 image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
