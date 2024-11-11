@@ -1,3 +1,4 @@
+import json
 import logging
 
 from typing import Optional
@@ -40,7 +41,7 @@ class FetchRobustaFinding(Tool):
         try:
             finding = self._fetch_finding(finding_id)
             if finding:
-                return str(finding)
+                return json.dumps(finding, indent=2)
             else:
                 return f"Could not find a finding with finding_id={finding_id}"
         except Exception as e:
