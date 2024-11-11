@@ -42,7 +42,7 @@ def stringify_tag(tag:Dict[str, str]) -> Optional[str]:
 
     return formatted_string
 
-def format_tags_in_string(user_prompt):
+def format_tags_in_string(user_prompt:str) -> str:
     """
     Formats the tags included in a user's message.
     E.g.
@@ -51,20 +51,20 @@ def format_tags_in_string(user_prompt):
     """
     try:
         pattern = r'<<(.*?)>>'
-        match = re.search(pattern, user_prompt)
 
-        if not match:
-            return user_prompt
+        def replace_match(match):
+            try:
+                json_str = match.group(1)
+                json_obj = json.loads(json_str)
+                formatted = stringify_tag(json_obj)
+                return formatted if formatted else match.group(0)
+            except (json.JSONDecodeError, AttributeError):
+                logging.warning(f"Failed to parse tag in string: {user_prompt}")
+                return match.group(0)
 
-        json_str = match.group(1)
-        json_obj = json.loads(json_str)
-
-        formatted = stringify_tag(json_obj)
-        if not formatted:
-            return user_prompt
-
-        return re.sub(pattern, formatted, user_prompt)
-    except (json.JSONDecodeError, AttributeError):
+        return re.sub(pattern, replace_match, user_prompt)
+    except Exception:
+        logging.warning(f"Failed to parse string: {user_prompt}")
         return user_prompt
 
 
@@ -77,16 +77,15 @@ def parse_messages_tags(messages:List[Dict[str, str]]) -> List[Dict[str, str]]:
         of the messages that have been parsed.
     """
     formatted_messages = []
-    logging.info(f"Parsing {len(messages)} messages")
     for message in messages:
-        if message.get("role") == "user":
-            logging.info(f"** User message {message.get('content')}")
-            formatted_str = format_tags_in_string(message.get("content"))
+        original_message = message.get("content")
+        if message.get("role") == "user" and original_message:
+            formatted_str = format_tags_in_string(original_message)
             if formatted_str != message.get("content"):
                 formatted_message = deepcopy(message)
                 formatted_message["content"] = formatted_str
                 formatted_messages.append(formatted_message)
-                logging.info(f"** ** formatted to {formatted_message}")
+                logging.debug(f"Message with tags '{original_message}' formatted to '{formatted_message}'")
             else:
                 formatted_messages.append(message)
 

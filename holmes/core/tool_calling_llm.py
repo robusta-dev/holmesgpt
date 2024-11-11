@@ -6,12 +6,9 @@ import os
 from typing import List, Optional, Dict
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
-import litellm
 from typing import List, Optional
 from holmes.core.llm import LLM
 from holmes.plugins.prompts import load_and_render_prompt
-import jinja2
-from enum import Enum
 from openai import BadRequestError
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -19,7 +16,6 @@ from openai.types.chat.chat_completion_message_tool_call import (
 )
 from pydantic import BaseModel
 from rich.console import Console
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager

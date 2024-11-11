@@ -200,10 +200,11 @@ def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
+        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
         messages = build_chat_messages(
             chat_request.ask, chat_request.conversation_history, ai=ai
         )
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+
         llm_call = ai.messages_call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,

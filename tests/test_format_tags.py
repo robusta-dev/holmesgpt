@@ -22,6 +22,10 @@ from holmes.utils.tags import format_tags_in_string, parse_messages_tags
     (
         'What caused << { "type": "issue", "id": "issue-id", "name": "KubeJobFailed", "subject_namespace": "my-namespace", "subject_name": "my-pod" } >>?',
         'What caused issue issue-id (name=KubeJobFailed, subject_namespace=my-namespace, subject_name=my-pod)?'
+    ),
+    (
+        'tell me about << {"type":"service","namespace":"sock-shop","kind":"Deployment","name":"carts"} >> and << { "type": "node", "name": "my-node" } >> and << {"type":"service","namespace":"sock-shop","kind":"Deployment","name":"front-end"} >>',
+        'tell me about service carts (namespace=sock-shop, kind=Deployment) and node my-node and service front-end (namespace=sock-shop, kind=Deployment)'
     )
 ])
 def test_format_tags_in_string(input, expected_output):
