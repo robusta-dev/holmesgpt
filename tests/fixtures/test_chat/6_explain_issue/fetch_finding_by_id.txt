@@ -1,4 +1,4 @@
-{"toolset_name":"findings/core","tool_name":"fetch_finding_by_id","match_params":{"id":"asodfkq1209edyhqawdo2uydqawidh"}}
+{"toolset_name":"findings","tool_name":"fetch_finding_by_id","match_params":{"id":"asodfkq1209edyhqawdo2uydqawidh"}}
 {
     "id": "asodfkq1209edyhqawdo2uydqawidh",
     "description": "The node was low on resource: ephemeral-storage. Threshold quantity: 2126213140, available: 1884540Ki. Container kafka was using 3264Ki, request is 0, has larger consumption of ephemeral-storage. ",
