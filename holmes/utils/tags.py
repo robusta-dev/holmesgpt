@@ -1,5 +1,6 @@
 
 
+import logging
 from typing import Optional
 from typing_extensions import Dict, List
 import re
@@ -76,14 +77,16 @@ def parse_messages_tags(messages:List[Dict[str, str]]) -> List[Dict[str, str]]:
         of the messages that have been parsed.
     """
     formatted_messages = []
-
+    logging.info(f"Parsing {len(messages)} messages")
     for message in messages:
         if message.get("role") == "user":
+            logging.info(f"** User message {message.get('content')}")
             formatted_str = format_tags_in_string(message.get("content"))
             if formatted_str != message.get("content"):
                 formatted_message = deepcopy(message)
                 formatted_message["content"] = formatted_str
                 formatted_messages.append(formatted_message)
+                logging.info(f"** ** formatted to {formatted_message}")
             else:
                 formatted_messages.append(message)
 

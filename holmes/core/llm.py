@@ -1,7 +1,7 @@
 
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 from litellm.types.utils import ModelResponse
 from pydantic.types import SecretStr
@@ -10,6 +10,8 @@ from holmes.core.tools import Tool
 from pydantic import BaseModel
 import litellm
 import os
+from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
+
 
 def environ_get_safe_int(env_var, default="0"):
     try:
@@ -19,8 +21,6 @@ def environ_get_safe_int(env_var, default="0"):
 
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
-
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 
 class LLM:
 
@@ -104,7 +104,7 @@ class DefaultLLM(LLM):
         model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_input_tokens']
-        except Exception as e:
+        except Exception:
             logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 128k tokens for max_input_tokens")
             return 128000
 
@@ -131,11 +131,11 @@ class DefaultLLM(LLM):
 
 
         if isinstance(result, ModelResponse):
-            response = result.choices[0]
-            response_message = response.message
+            # response = result.choices[0]
+            # response_message = response.message
             # when asked to run tools, we expect no response other than the request to run tools unless bedrock
-            if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
-                logging.warning(f"got unexpected response when tools were given: {response_message.content}")
+            # if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
+            #     logging.warning(f"got unexpected response when tools were given: {response_message.content}")
             return result
         else:
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
@@ -148,6 +148,6 @@ class DefaultLLM(LLM):
         model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_output_tokens']
-        except Exception as e:
+        except Exception:
             logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens")
             return 4096

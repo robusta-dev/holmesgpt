@@ -9,9 +9,6 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from copy import deepcopy
-import re
-import json
 
 DEFAULT_TOOL_SIZE = 10000
 

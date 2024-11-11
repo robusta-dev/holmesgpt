@@ -12,7 +12,6 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 import socket
 import uuid
 import logging
-import re
 import warnings
 import json
 from enum import Enum
@@ -28,11 +27,9 @@ from holmes.config import Config
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument, ToolCallingLLM
+from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
-from holmes.core.conversations import build_chat_messages
-from holmes.core.models import ChatRequest, ChatResponse
 
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
