@@ -118,7 +118,7 @@ class ToolCallingLLM:
                     messages, max_context_size, maximum_output_token
                 )
 
-            print(f"sending messages {messages}")
+            logging.debug(f"sending messages {messages}")
             try:
                 full_response = self.llm.completion(
                     messages=parse_messages_tags(messages),
@@ -128,7 +128,7 @@ class ToolCallingLLM:
                     response_format=response_format,
                     drop_params=True,
                 )
-                print(f"got response {full_response}")
+                logging.debug(f"got response {full_response}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if (
@@ -222,7 +222,6 @@ class ToolCallingLLM:
 
         tool_response = tool.invoke(tool_params)
 
-        print(f"invoked tool {tool_name} with params={tool_params}. result={tool_response}")
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
