@@ -12,7 +12,6 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 import socket
 import uuid
 import logging
-import re
 import warnings
 import json
 from enum import Enum
@@ -272,7 +271,7 @@ def ask(
         slack_channel=slack_channel,
     )
     system_prompt = load_and_render_prompt(system_prompt)
-    ai = config.create_toolcalling_llm(console, allowed_toolsets)
+    ai = config.create_toolcalling_llm(console, allowed_toolsets=allowed_toolsets, dal=None)
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
@@ -360,7 +359,7 @@ def alertmanager(
         custom_runbooks=custom_runbooks
     )
 
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_issue_investigator(console, allowed_toolsets=allowed_toolsets)
 
     source = config.create_alertmanager_source()
 
@@ -488,7 +487,7 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_issue_investigator(console, allowed_toolsets=allowed_toolsets)
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()

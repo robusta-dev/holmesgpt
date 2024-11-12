@@ -3,11 +3,13 @@ import re
 import pytest
 from pathlib import Path
 
+from tests.utils import read_file
+from holmes.core.tools import ToolExecutor
+from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown, FetchWebpage
+
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
 
-from holmes.core.tools import ToolExecutor
-from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown, FetchWebpage
 
 TEST_URL = "https://www.example.com"
 EXPECTED_TEST_RESULT = """
@@ -21,10 +23,6 @@ This domain is for use in illustrative examples in documents. You may use this
 
 More information...
 """.strip()
-
-def read_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read().strip()
 
 def parse_fixture_id(file_name:str) -> str:
     match = re.match(r'fixture(\d+)', file_name)

@@ -1,12 +1,10 @@
-
-
 certificate: "" # base64 encoded
 logLevel: INFO
 
 additionalEnvVars: []
 imagePullSecrets: []
 
-allowedToolsets: "kubernetes/core,internet"
+allowedToolsets: "kubernetes/core,findings,internet"
 
 image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
