@@ -2,7 +2,7 @@
 NAME                           READY   STATUS    RESTARTS   AGE
 pod/grafana-69946c9bd6-kwjb6   1/1     Running   0          7m27s
 
-NAME              TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)          AGE
+NAME                       TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)          AGE
 service/my_grafana_4j981   LoadBalancer   10.5.243.226                   3000:31171/TCP   7m27s
 
 NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
