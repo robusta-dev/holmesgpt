@@ -1,4 +1,4 @@
-import json
+import yaml
 import logging
 
 from typing import Optional
@@ -41,7 +41,7 @@ class FetchRobustaFinding(Tool):
         try:
             finding = self._fetch_finding(finding_id)
             if finding:
-                return json.dumps(finding, indent=2)
+                return yaml.dump(finding)
             else:
                 return f"Could not find a finding with finding_id={finding_id}"
         except Exception as e:
