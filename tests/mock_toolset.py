@@ -70,7 +70,7 @@ class RaiseExceptionTool(Tool):
         return self.unmocked_tool.get_parameterized_one_liner(params)
 
 
-class MockTool(Tool):
+class MockToolWrapper(Tool):
     unmocked_tool:Tool
     mocks: List[ToolMock] = []
     def __init__(self, unmocked_tool:Tool):
@@ -83,7 +83,7 @@ class MockTool(Tool):
         )
 
     def find_matching_mock(self, params:Dict) -> Optional[ToolMock]:
-        print(f"** looking for mock {self.unmocked_tool.name} {str(params)} among {len(self.mocks)} options")
+        print(f"** looking for mock {self.unmocked_tool.name} {str(params)} among {len(self.mocks)} options: {str(self.mocks)}")
         for mock in self.mocks:
             if not mock.match_params: # wildcard
                 return mock
@@ -145,8 +145,9 @@ class MockToolsets:
                 wrapped_tool = self._wrap_tool_with_exception_if_required(tool=tool, toolset_name=toolset.name)
 
                 if len(mocks) > 0:
-                    mock_tool = MockTool(unmocked_tool=wrapped_tool)
+                    mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
                     mock_tool.mocks = mocks
+                    print(f"** tool {mocks} now has {len(mocks)} mocks")
                     mocked_tools.append(mock_tool)
                 else:
                     mocked_tools.append(wrapped_tool)
