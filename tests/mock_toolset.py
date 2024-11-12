@@ -112,7 +112,7 @@ class MockToolWrapper(Tool):
 class MockToolsets:
     unmocked_toolsets: List[Toolset]
     mocked_toolsets: List[Toolset] = []
-    mocks: List[ToolMock] = []
+    _mocks: List[ToolMock] = []
     tools_passthrough: bool
     test_case_folder: str
 
@@ -125,12 +125,12 @@ class MockToolsets:
 
     def mock_tool(self, tool_mock:ToolMock):
         print(f"MockToolsets.mock_tool {tool_mock}")
-        self.mocks.append(tool_mock)
+        self._mocks.append(tool_mock)
         self._update()
 
     def _find_mocks_for_tool(self, toolset_name:str, tool_name:str) -> List[ToolMock]:
         found_mocks = []
-        for tool_mock in self.mocks:
+        for tool_mock in self._mocks:
             if tool_mock.toolset_name == toolset_name and tool_mock.tool_name == tool_name:
                 found_mocks.append(tool_mock)
         return found_mocks
@@ -142,22 +142,21 @@ class MockToolsets:
             return RaiseExceptionTool(unmocked_tool=tool, toolset_name=toolset_name, test_case_folder=self.test_case_folder)
 
     def _update(self):
-        print(f"** MockToolsets._update()")
+        print("** MockToolsets._update()")
         mocked_toolsets = []
         print(f"** MockToolsets._update: {len(self.unmocked_toolsets)} unmocked_toolsets")
         for toolset in self.unmocked_toolsets:
             mocked_tools = []
-            print(f"** MockToolsets._update: {len(toolset.tools)} tools in toolset {toolset.name}")
+            print(f"*** toolset {toolset.name}. {len(toolset.tools)} tools")
             for i in range(len(toolset.tools)):
                 tool = toolset.tools[i]
-                print(f"** MockToolsets._update: evaluating tool {tool.name}")
                 mocks = self._find_mocks_for_tool(toolset_name=toolset.name, tool_name=tool.name)
                 wrapped_tool = self._wrap_tool_with_exception_if_required(tool=tool, toolset_name=toolset.name)
 
                 if len(mocks) > 0:
                     mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
                     mock_tool.mocks = mocks
-                    print(f"** tool {mocks} now has {len(mocks)} mocks")
+                    print(f"**** tool {mocks} now has {len(mocks)} mocks")
                     mocked_tools.append(mock_tool)
                 else:
                     print(f"** MockToolsets._update: tool {tool.name} is unmocked")
