@@ -21,7 +21,6 @@ test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER)
 def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
 
     mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
-    print("**", str(test_case))
     expected_tools = []
     for tool_mock in test_case.tool_mocks:
         mock.mock_tool(tool_mock)
