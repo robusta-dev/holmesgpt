@@ -1,0 +1,2 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get","match_params":{"kind":"pod","name":"my_grafana_4j981","namespace":"default"}}
+NAME                                         STATUS   ROLES    AGE   VERSION               INTERNAL-IP    EXTERNAL-IP    OS-IMAGE         KERNEL-VERSION                  CONTAINER-RUNTIME     LABELS
