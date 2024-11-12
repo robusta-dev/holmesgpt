@@ -26,14 +26,14 @@ class MyCustomLLM(LLM):
             "finish_reason": "stop",
             "index": 0,
             "message": {
-            "role": "assistant",
-            "content": "There are no issues with your cluster"
+                "role": "assistant",
+                "content": "There are no issues with your cluster"
             }
         }],
         usage={
-        "prompt_tokens": 0,       # Integer
-        "completion_tokens": 0,
-        "total_tokens": 0
+            "prompt_tokens": 0,       # Integer
+            "completion_tokens": 0,
+            "total_tokens": 0
         }
     )
 

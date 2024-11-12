@@ -1,8 +1,7 @@
 
-import pytest
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest
-from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, ToolCallResult
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
 from rich.console import Console
 from holmes.config import Config
 from holmes.common.env_vars import (

@@ -11,6 +11,7 @@ from pydash.arrays import concat
 from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
                                           ToolExecutor)
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets
@@ -70,7 +71,6 @@ class Config(RobustaBaseConfig):
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
-    _builtin_toolsets = load_builtin_toolsets()
 
     @classmethod
     def load_from_env(cls):
@@ -103,9 +103,9 @@ class Config(RobustaBaseConfig):
         return cls(**kwargs)
 
     def _create_tool_executor(
-        self, console: Console, allowed_toolsets: ToolsetPattern
+        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        all_toolsets = list(self._builtin_toolsets)
+        all_toolsets = load_builtin_toolsets(dal=dal)
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
 
@@ -144,9 +144,9 @@ class Config(RobustaBaseConfig):
         return ToolExecutor(enabled_toolsets)
 
     def create_toolcalling_llm(
-        self, console: Console, allowed_toolsets: ToolsetPattern
+        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self._create_tool_executor(console, allowed_toolsets)
+        tool_executor = self._create_tool_executor(console, allowed_toolsets, dal)
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -156,14 +156,15 @@ class Config(RobustaBaseConfig):
     def create_issue_investigator(
         self,
         console: Console,
-        allowed_toolsets: ToolsetPattern
+        allowed_toolsets: ToolsetPattern,
+        dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self._create_tool_executor(console, allowed_toolsets)
+        tool_executor = self._create_tool_executor(console, allowed_toolsets, dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,

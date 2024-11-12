@@ -42,6 +42,9 @@ starlette = "^0.40"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
+deepeval = "^1.4.8"
+pytest-xdist = "^3.6.1"
+ruff = "^0.7.3"
 
 [build-system]
 requires = ["poetry-core"]
