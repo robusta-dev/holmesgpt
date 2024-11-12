@@ -114,7 +114,7 @@ class MockToolsets:
         self.unmocked_toolsets = load_builtin_toolsets()
         self.tools_passthrough = tools_passthrough
         self.test_case_folder = test_case_folder
-        self._mocks = [] # needs reset otherwise it gets reused from another test in the github runners
+        self._mocks = []
         self.mocked_toolsets = []
         self._update()
 
