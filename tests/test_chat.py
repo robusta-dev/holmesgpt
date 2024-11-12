@@ -51,21 +51,29 @@ def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
         expected_tools=expected_tools
     )
     assert_test(deepeval_test_case, [
-        AnswerRelevancyMetric(test_case.evaluation.answer_relevancy),
-        FaithfulnessMetric(test_case.evaluation.faithfulness),
+        AnswerRelevancyMetric(
+            threshold=test_case.evaluation.answer_relevancy,
+            model="gpt-4o",
+            include_reason=True
+        ),
+        FaithfulnessMetric(
+            threshold=test_case.evaluation.faithfulness,
+            model="gpt-4o",
+            include_reason=True
+        ),
         ContextualPrecisionMetric(
             threshold=test_case.evaluation.contextual_precision,
-            model="gpt-4o-mini",
+            model="gpt-4o",
             include_reason=True
         ),
         ContextualRecallMetric(
             threshold=test_case.evaluation.contextual_recall,
-            model="gpt-4o-mini",
+            model="gpt-4o",
             include_reason=True
         ),
         ContextualRelevancyMetric(
             threshold=test_case.evaluation.contextual_relevancy,
-            model="gpt-4o-mini",
+            model="gpt-4o",
             include_reason=True
         )
     ])
