@@ -22,9 +22,6 @@ class ToolMock(MockMetadata):
     source_file: str
     return_value: str
 
-    def __str__(self):
-        return f"{self.toolset_name} - {self.tool_name}({self.match_params}) - {self.source_file}"
-
 
 class RaiseExceptionTool(Tool):
     """
@@ -87,7 +84,6 @@ class MockToolWrapper(Tool):
         )
 
     def find_matching_mock(self, params:Dict) -> Optional[ToolMock]:
-        print(f"** looking for mock {self.unmocked_tool.name} {str(params)} among {len(self.mocks)} options: {str(self.mocks)}")
         for mock in self.mocks:
             if not mock.match_params: # wildcard
                 return mock
@@ -100,10 +96,8 @@ class MockToolWrapper(Tool):
     def invoke(self, params) -> str:
         mock = self.find_matching_mock(params)
         if mock:
-            print(f"** invoking mock {self.unmocked_tool.name} {str(params)} {mock.return_value}")
             return mock.return_value
         else:
-            print(f"** invoking unmocked tool {self.unmocked_tool.name} {str(params)}")
             return self.unmocked_tool.invoke(params)
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -111,8 +105,8 @@ class MockToolWrapper(Tool):
 
 class MockToolsets:
     unmocked_toolsets: List[Toolset]
-    mocked_toolsets: List[Toolset] = []
-    _mocks: List[ToolMock] = []
+    mocked_toolsets: List[Toolset]
+    _mocks: List[ToolMock]
     tools_passthrough: bool
     test_case_folder: str
 
@@ -122,11 +116,9 @@ class MockToolsets:
         self.test_case_folder = test_case_folder
         self._mocks = [] # needs reset otherwise it gets reused from another test in the github runners
         self.mocked_toolsets = []
-        print(f"MockToolsets init. unmocked_toolsets={len(self.unmocked_toolsets)}, tools_passthrough={tools_passthrough}, test_case_folder={test_case_folder}. mocks={self._mocks}")
         self._update()
 
     def mock_tool(self, tool_mock:ToolMock):
-        print(f"MockToolsets.mock_tool {tool_mock}. curent mocks {self._mocks}")
         self._mocks.append(tool_mock)
         self._update()
 
@@ -144,19 +136,15 @@ class MockToolsets:
             return RaiseExceptionTool(unmocked_tool=tool, toolset_name=toolset_name, test_case_folder=self.test_case_folder)
 
     def _update(self):
-        print("** MockToolsets._update()")
         mocked_toolsets = []
-        print(f"** MockToolsets._update: {len(self.unmocked_toolsets)} unmocked_toolsets")
         for toolset in self.unmocked_toolsets:
             mocked_tools = []
-            print(f"*** toolset {toolset.name}. {len(toolset.tools)} tools")
             for i in range(len(toolset.tools)):
                 tool = toolset.tools[i]
                 mocks = self._find_mocks_for_tool(toolset_name=toolset.name, tool_name=tool.name)
                 wrapped_tool = self._wrap_tool_with_exception_if_required(tool=tool, toolset_name=toolset.name)
 
                 if len(mocks) > 0:
-                    print(f"**** tool {tool} has {len(mocks)} mocks: {mocks}")
                     mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
                     mock_tool.mocks = mocks
                     mocked_tools.append(mock_tool)

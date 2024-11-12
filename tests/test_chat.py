@@ -24,11 +24,9 @@ def idfn(test_case:AskHolmesTestCase):
 @pytest.mark.parametrize("test_case", test_cases, ids=idfn)
 def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
 
-    print(f"** {str(test_case)}")
     mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
     expected_tools = []
     for tool_mock in test_case.tool_mocks:
-        print(f"** mocking tool {tool_mock.tool_name} {tool_mock.match_params} with file {tool_mock.source_file}")
         mock.mock_tool(tool_mock)
         expected_tools.append(tool_mock.tool_name)
 
