@@ -17,9 +17,14 @@ TEST_CASES_FOLDER = Path("tests/fixtures/test_chat")
 
 test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_test_cases=6)
 
-@pytest.mark.parametrize("test_case", test_cases, ids=[test_case.id for test_case in test_cases])
+
+def idfn(test_case:AskHolmesTestCase):
+    return test_case.id
+
+@pytest.mark.parametrize("test_case", test_cases, ids=idfn)
 def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
 
+    print(f"** {str(test_case)}")
     mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
     expected_tools = []
     for tool_mock in test_case.tool_mocks:
