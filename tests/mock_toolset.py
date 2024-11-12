@@ -22,6 +22,10 @@ class ToolMock(MockMetadata):
     source_file: str
     return_value: str
 
+    def __str__(self):
+        return f"{self.toolset_name} - {self.tool_name}({self.match_params}) - {self.source_file}"
+
+
 class RaiseExceptionTool(Tool):
     """
     Tool that raises an exception if invoked.
@@ -116,9 +120,11 @@ class MockToolsets:
         self.unmocked_toolsets = load_builtin_toolsets()
         self.tools_passthrough = tools_passthrough
         self.test_case_folder = test_case_folder
+        print(f"MockToolsets init. unmocked_toolsets={len(self.unmocked_toolsets)}, tools_passthrough={tools_passthrough}, test_case_folder={test_case_folder}")
         self._update()
 
     def mock_tool(self, tool_mock:ToolMock):
+        print(f"MockToolsets.mock_tool {tool_mock}")
         self.mocks.append(tool_mock)
         self._update()
 
