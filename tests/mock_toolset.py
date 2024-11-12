@@ -120,11 +120,11 @@ class MockToolsets:
         self.unmocked_toolsets = load_builtin_toolsets()
         self.tools_passthrough = tools_passthrough
         self.test_case_folder = test_case_folder
-        print(f"MockToolsets init. unmocked_toolsets={len(self.unmocked_toolsets)}, tools_passthrough={tools_passthrough}, test_case_folder={test_case_folder}")
+        print(f"MockToolsets init. unmocked_toolsets={len(self.unmocked_toolsets)}, tools_passthrough={tools_passthrough}, test_case_folder={test_case_folder}. mocks={self._mocks}")
         self._update()
 
     def mock_tool(self, tool_mock:ToolMock):
-        print(f"MockToolsets.mock_tool {tool_mock}")
+        print(f"MockToolsets.mock_tool {tool_mock}. curent mocks {self._mocks}")
         self._mocks.append(tool_mock)
         self._update()
 
@@ -154,12 +154,11 @@ class MockToolsets:
                 wrapped_tool = self._wrap_tool_with_exception_if_required(tool=tool, toolset_name=toolset.name)
 
                 if len(mocks) > 0:
+                    print(f"**** tool {tool} has {len(mocks)} mocks: {mocks}")
                     mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
                     mock_tool.mocks = mocks
-                    print(f"**** tool {mocks} now has {len(mocks)} mocks")
                     mocked_tools.append(mock_tool)
                 else:
-                    print(f"** MockToolsets._update: tool {tool.name} is unmocked")
                     mocked_tools.append(wrapped_tool)
 
             mocked_toolset = Toolset(
