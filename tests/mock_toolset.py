@@ -19,6 +19,7 @@ class MockMetadata(BaseModel):
     match_params: Optional[Dict] = None # None will match all params
 
 class ToolMock(MockMetadata):
+    source_file: str
     return_value: str
 
 class RaiseExceptionTool(Tool):
@@ -82,6 +83,7 @@ class MockTool(Tool):
         )
 
     def find_matching_mock(self, params:Dict) -> Optional[ToolMock]:
+        print(f"** looking for mock {self.unmocked_tool.name} {str(params)} among {len(self.mocks)} options")
         for mock in self.mocks:
             if not mock.match_params: # wildcard
                 return mock
@@ -94,8 +96,10 @@ class MockTool(Tool):
     def invoke(self, params) -> str:
         mock = self.find_matching_mock(params)
         if mock:
+            print(f"** invoking mock {self.unmocked_tool.name} {str(params)} {mock.return_value}")
             return mock.return_value
         else:
+            print(f"** invoking unmocked tool {self.unmocked_tool.name} {str(params)}")
             return self.unmocked_tool.invoke(params)
 
     def get_parameterized_one_liner(self, params) -> str:

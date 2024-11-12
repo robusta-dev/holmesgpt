@@ -28,6 +28,7 @@ def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
     mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
     expected_tools = []
     for tool_mock in test_case.tool_mocks:
+        print(f"** mocking tool {tool_mock.tool_name} {tool_mock.match_params} with file {tool_mock.source_file}")
         mock.mock_tool(tool_mock)
         expected_tools.append(tool_mock.tool_name)
 
