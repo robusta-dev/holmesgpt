@@ -3,22 +3,32 @@ toolsets:
     prerequisites:
       - command: "kubectl version --client"
 
-    tools:
-      - name: "kubectl_describe"
-        description: "Run kubectl describe on a Kubernetes resource"
-        command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
+  tools:
+  - name: "kubectl_describe"
+    description: > 
+      Run kubectl describe <kind> <name> -n <namespace>, 
+      call this when users ask for description, 
+      for example when a user asks
+        - 'desctibe pod xyz-123' 
+        - 'show service xyz-123 in namespace my-ns'
+        - 'show information about deployment my-deployment"
+    command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
-      - name: "kubectl_get"
-        description: "Run `kubectl get <parameters go here> --show-labels`"
-        command: "kubectl get --show-labels -o wide {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+  - name: "kubectl_get_by_name"
+    description: "Run `kubectl get <kind> <name> --show-labels`"
+    command: "kubectl get --show-labels -o wide {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
-      - name: "kubectl_get_all"
-        description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
-        command: "kubectl get -A --show-labels  -o wide {{ kind }}"
+  - name: "kubectl_get_by_kind_in_namespace"
+    description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace"
+    command: "kubectl get --show-labels -o wide {{ kind }} -n {{namespace}}"
 
-      - name: "kubectl_find_resource"
-        description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name, IP, namespace, or labels"
-        command: "kubectl get -A --show-labels -o wide {{ kind }} | grep {{ keyword }}"
+  - name: "kubectl_get_by_kind_in_cluster"
+    description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
+    command: "kubectl get -A --show-labels -o wide {{ kind }}"
+ 
+  - name: "kubectl_find_resource"
+    description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name, IP, namespace, or labels"
+    command: "kubectl get -A --show-labels -o wide {{ kind }} | grep {{ keyword }}"
 
       - name: "kubectl_get_yaml"
         description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
