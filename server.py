@@ -165,8 +165,7 @@ def issue_conversation(conversation_request: ConversationRequest):
         load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
 
-        handler = handle_issue_conversation(conversation_request.conversation_type)
-        system_prompt = handler(conversation_request, ai)
+        system_prompt = handle_issue_conversation(conversation_request, ai)
 
         investigation = ai.prompt_call(system_prompt, conversation_request.user_prompt)
 
