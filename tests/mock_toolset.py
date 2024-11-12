@@ -142,11 +142,15 @@ class MockToolsets:
             return RaiseExceptionTool(unmocked_tool=tool, toolset_name=toolset_name, test_case_folder=self.test_case_folder)
 
     def _update(self):
+        print(f"** MockToolsets._update()")
         mocked_toolsets = []
+        print(f"** MockToolsets._update: {len(self.unmocked_toolsets)} unmocked_toolsets")
         for toolset in self.unmocked_toolsets:
             mocked_tools = []
+            print(f"** MockToolsets._update: {len(toolset.tools)} tools in toolset {toolset.name}")
             for i in range(len(toolset.tools)):
                 tool = toolset.tools[i]
+                print(f"** MockToolsets._update: evaluating tool {tool.name}")
                 mocks = self._find_mocks_for_tool(toolset_name=toolset.name, tool_name=tool.name)
                 wrapped_tool = self._wrap_tool_with_exception_if_required(tool=tool, toolset_name=toolset.name)
 
@@ -156,6 +160,7 @@ class MockToolsets:
                     print(f"** tool {mocks} now has {len(mocks)} mocks")
                     mocked_tools.append(mock_tool)
                 else:
+                    print(f"** MockToolsets._update: tool {tool.name} is unmocked")
                     mocked_tools.append(wrapped_tool)
 
             mocked_toolset = Toolset(
