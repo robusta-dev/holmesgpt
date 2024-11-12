@@ -5,3 +5,5 @@ retrieval_context:
   - "The tool kubectl_get_all` reports that a grafana service is running but does not have an external IP address"
   - "The tool kubectl_get_all` reports that the name of the grafana service is my_grafana_4j981"
   - "By default grafana runs on port 3000. We can assume the user's grafana instance runs on that port"
+evaluation:
+  faithfulness: 0.2
