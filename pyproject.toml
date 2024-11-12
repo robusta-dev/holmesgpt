@@ -45,7 +45,6 @@ pytest = "^8.3.3"
 deepeval = "^1.4.8"
 pytest-xdist = "^3.6.1"
 ruff = "^0.7.3"
-langsmith = "^0.1.142"
 
 [build-system]
 requires = ["poetry-core"]
