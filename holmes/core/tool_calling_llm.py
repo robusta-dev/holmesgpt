@@ -2,7 +2,6 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-import os
 from typing import List, Optional, Dict
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
