@@ -1,13 +1,8 @@
-from typing import Any, cast
-from typing_extensions import Dict
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetCommandPrerequisite
-
-#!/usr/bin/env python
-
 import re
-import sys
 import logging
-import playwright
+
+from typing import Any
+from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetCommandPrerequisite
 from markdownify import markdownify
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -153,8 +148,8 @@ class InternetToolset(Toolset):
         super().__init__(
             name = "internet",
             prerequisites = [
-                # Take a screenshot sucessfuly ensures playwright is correctly installed
-                ToolsetCommandPrerequisite(command="python -m playwright screenshot --browser firefox https://www.example.com playwright.png"),
+                # Take a sucessful screenshot ensures playwright is correctly installed
+                ToolsetCommandPrerequisite(command="python -m playwright screenshot --browser firefox https://www.google.com playwright.png"),
             ],
             tools = [FetchWebpage()],
         )

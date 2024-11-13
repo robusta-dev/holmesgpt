@@ -1,9 +1,10 @@
 import logging
 import os
 import os.path
-import subprocess
-from typing import List
+from typing import List, Optional
 
+from holmes.core.supabase_dal import SupabaseDal
+from holmes.plugins.toolsets.findings import FindingsToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 from pydantic import BaseModel
 
@@ -22,11 +23,11 @@ def load_toolsets_from_file(path: str) -> List[YAMLToolset]:
         toolset.set_path(path)
     return data.toolsets
 
-def load_python_toolsets() -> List[Toolset]:
-    logging.debug(f"loading python toolsets")
-    return [InternetToolset()]
+def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
+    logging.debug("loading python toolsets")
+    return [InternetToolset(), FindingsToolset(dal)]
 
-def load_builtin_toolsets() -> List[Toolset]:
+def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
@@ -35,5 +36,5 @@ def load_builtin_toolsets() -> List[Toolset]:
         path = os.path.join(THIS_DIR, filename)
         all_toolsets.extend(load_toolsets_from_file(path))
 
-    all_toolsets.extend(load_python_toolsets())
+    all_toolsets.extend(load_python_toolsets(dal))
     return all_toolsets

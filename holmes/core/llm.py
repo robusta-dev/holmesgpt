@@ -1,7 +1,7 @@
 
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, List, Literal, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 from litellm.types.utils import ModelResponse
 from pydantic.types import SecretStr
@@ -10,6 +10,8 @@ from holmes.core.tools import Tool
 from pydantic import BaseModel
 import litellm
 import os
+from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
+
 
 def environ_get_safe_int(env_var, default="0"):
     try:
@@ -19,8 +21,6 @@ def environ_get_safe_int(env_var, default="0"):
 
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
-
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 
 class LLM:
 
@@ -44,13 +44,13 @@ class LLM:
 class DefaultLLM(LLM):
 
     model: str
-    api_key: str
+    api_key: Optional[str]
     base_url: Optional[str]
 
     def __init__(
         self,
         model: str,
-        api_key: str
+        api_key: Optional[str] = None
     ):
         self.model = model
         self.api_key = api_key
@@ -61,7 +61,7 @@ class DefaultLLM(LLM):
 
         self.check_llm(self.model, self.api_key)
 
-    def check_llm(self, model, api_key):
+    def check_llm(self, model:str, api_key:Optional[str]):
         logging.debug(f"Checking LiteLLM model {model}")
         # TODO: this WAS a hack to get around the fact that we can't pass in an api key to litellm.validate_environment
         # so without this hack it always complains that the environment variable for the api key is missing
@@ -136,7 +136,7 @@ class DefaultLLM(LLM):
         model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_input_tokens']
-        except Exception as e:
+        except Exception:
             logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 128k tokens for max_input_tokens")
             return 128000
 
@@ -177,6 +177,6 @@ class DefaultLLM(LLM):
         model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
         try:
             return litellm.model_cost[model_name]['max_output_tokens']
-        except Exception as e:
+        except Exception:
             logging.warning(f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens")
             return 4096

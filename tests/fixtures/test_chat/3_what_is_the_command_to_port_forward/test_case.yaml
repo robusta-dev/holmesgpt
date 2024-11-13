@@ -1,0 +1,9 @@
+user_prompt: 'what is the command to port-forward to << { "type": "pod", "name": "my_grafana_4j981" } >>'
+#user_prompt: "what is the command to port-forward to my grafana service?"
+expected_output: "kubectl port-forward service/my_grafana_4j981 3000:3000"
+retrieval_context:
+  - "The tool kubectl_get_all` reports that a grafana service is running but does not have an external IP address"
+  - "The tool kubectl_get_all` reports that the name of the grafana service is my_grafana_4j981"
+  - "By default grafana runs on port 3000. We can assume the user's grafana instance runs on that port"
+evaluation:
+  faithfulness: 0.2
