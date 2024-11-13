@@ -149,7 +149,7 @@ class InternetToolset(Toolset):
             name = "internet",
             prerequisites = [
                 # Take a sucessful screenshot ensures playwright is correctly installed
-                ToolsetCommandPrerequisite(command="python -m playwright screenshot --browser firefox https://www.example.com playwright.png"),
+                ToolsetCommandPrerequisite(command="python -m playwright screenshot --browser firefox https://www.google.com playwright.png"),
             ],
             tools = [FetchWebpage()],
         )

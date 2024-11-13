@@ -65,7 +65,7 @@ ENV PYTHONPATH=$PYTHONPATH:.:/app/holmes
 WORKDIR /app
 
 COPY --from=builder /app/venv /venv
-COPY . /app
+RUN python -m playwright install firefox --with-deps
 
 # We're installing here libexpat1, to upgrade the package to include a fix to 3 high CVEs. CVE-2024-45491,CVE-2024-45490,CVE-2024-45492
 RUN apt-get update \
@@ -99,7 +99,7 @@ RUN git config --global core.symlinks false
 # Remove setuptools-65.5.1 installed from python:3.11-slim base image as fix for CVE-2024-6345 until image will be updated
 RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-65.5.1.dist-info
 
-RUN python -m playwright install firefox --with-deps
+COPY . /app
 
 ENTRYPOINT ["python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]

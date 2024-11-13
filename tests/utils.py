@@ -89,6 +89,7 @@ def load_ask_holmes_test_cases(test_cases_folder:Path, expected_number_of_test_c
                 logging.warning(f"Failed to parse metadata from test case file at {str(mock_file_path)}. It will be skipped")
                 continue
             tool_mock = ToolMock(
+                source_file=str(mock_file_path),
                 toolset_name= metadata.toolset_name,
                 tool_name= metadata.tool_name,
                 match_params= metadata.match_params,

@@ -17,12 +17,14 @@ TEST_CASES_FOLDER = Path("tests/fixtures/test_chat")
 
 test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_test_cases=6)
 
-@pytest. mark. skip(reason="Tests failing on GH runners")
-@pytest.mark.parametrize("test_case", test_cases, ids=[test_case.id for test_case in test_cases])
+
+def idfn(test_case:AskHolmesTestCase):
+    return test_case.id
+
+@pytest.mark.parametrize("test_case", test_cases, ids=idfn)
 def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
 
     mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
-
     expected_tools = []
     for tool_mock in test_case.tool_mocks:
         mock.mock_tool(tool_mock)
@@ -52,21 +54,29 @@ def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
         expected_tools=expected_tools
     )
     assert_test(deepeval_test_case, [
-        AnswerRelevancyMetric(test_case.evaluation.answer_relevancy),
-        FaithfulnessMetric(test_case.evaluation.faithfulness),
+        AnswerRelevancyMetric(
+            threshold=test_case.evaluation.answer_relevancy,
+            model="gpt-4o",
+            include_reason=True
+        ),
+        FaithfulnessMetric(
+            threshold=test_case.evaluation.faithfulness,
+            model="gpt-4o",
+            include_reason=True
+        ),
         ContextualPrecisionMetric(
             threshold=test_case.evaluation.contextual_precision,
-            model="gpt-4o-mini",
+            model="gpt-4o",
             include_reason=True
         ),
         ContextualRecallMetric(
             threshold=test_case.evaluation.contextual_recall,
-            model="gpt-4o-mini",
+            model="gpt-4o",
             include_reason=True
         ),
         ContextualRelevancyMetric(
             threshold=test_case.evaluation.contextual_relevancy,
-            model="gpt-4o-mini",
+            model="gpt-4o",
             include_reason=True
         )
     ])
