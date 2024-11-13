@@ -9,9 +9,8 @@ toolsets:
       Run kubectl describe <kind> <name> -n <namespace>, 
       call this when users ask for description, 
       for example when a user asks
-        - 'desctibe pod xyz-123' 
+        - 'describe pod xyz-123' 
         - 'show service xyz-123 in namespace my-ns'
-        - 'show information about deployment my-deployment"
     command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
   - name: "kubectl_get_by_name"
