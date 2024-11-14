@@ -1,112 +1,96 @@
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List
+from litellm.types.utils import Tuple
 from pydantic import TypeAdapter
-import pytest
+import random
+import string
+
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
 from tests.mock_toolset import MockToolsets
-import json
-from langsmith import Client
-from langsmith.evaluation import LangChainStringEvaluator, evaluate
+from braintrust import Eval, EvalCase, Experiment, ReadonlyExperiment
 
-from tests.utils import AskHolmesTestCase, load_ask_holmes_test_cases
+from autoevals.llm import Factuality, Battle
+import braintrust
+from datetime import datetime
+from tests.mock_utils import AskHolmesTestCase, load_ask_holmes_test_cases
+from tests.utils import get_machine_state_tags
 
 TEST_CASES_FOLDER = Path("tests/fixtures/test_chat")
 
-test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_test_cases=6)
+test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER)
 
 pydantic_test_case = TypeAdapter(AskHolmesTestCase)
 
-def prep_data(run, example) -> dict[str,str]:
-    return {
-        "prediction": run.outputs["result"],
-        "reference": example.outputs["expected_output"],
-        "input": example.inputs["user_prompt"],
-    }
-
-qa_evaluator = LangChainStringEvaluator(
-    "qa",
-    prepare_data=prep_data
-)
+from autoevals import LLMClassifier
+eval_factuality = Factuality()
 
 
-def find_test_case(id:Optional[str], test_cases: List[AskHolmesTestCase]) -> Optional[AskHolmesTestCase]:
-    if not id:
-        return None
+def timestamp():
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+PROJECT="HolmesGPT"
+DATASET_NAME = "ask_holmes"
+
+def _test_upload_dataset():
+    dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
+
     for test_case in test_cases:
-        if test_case.id == id:
-            return test_case
-            break
-    return None
+        id = dataset.insert(
+            id=f"ask_holmes_{test_case.id}",
+            input=test_case.user_prompt,
+            expected=test_case.expected_output,
+            metadata=test_case.model_dump(),
+            tags=["common","holmesgpt","ask_holmes","basic"],
+        )
+        print("Inserted record with id", id)
+
+    print(dataset.summarize())
+
+pydantic_test_case = TypeAdapter(AskHolmesTestCase)
 
 
-def test_upload_dataset():
-    client = Client()
-    dataset_name = "Basic holmes dataset"
+def test_ask_holmes():
 
-    dataset = client.read_dataset(dataset_name=dataset_name)
-    new_dataset:bool = False
-    if not dataset:
-        dataset = client.create_dataset(dataset_name, description="Fundamental testing of Holmes' effectiveness")
-        new_dataset = True
+    dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
+    experiment:Experiment|ReadonlyExperiment = braintrust.init(
+        project=PROJECT,
+        experiment="ask_holmes",
+        dataset=dataset,
+        open=False,
+        update=False,
+        metadata=get_machine_state_tags())
 
-    examples = client.list_examples(dataset_id=dataset.id)
-    for example in examples:
-        example.id
-    for test_case in test_cases:
-        if new_dataset:
-            client.create_example(
-                inputs={"test_case_id": test_case.id, "user_prompt": test_case.user_prompt},
-                outputs={"test_case_id": test_case.id, "expected_output": test_case.expected_output},
-                metadata=test_case.model_dump(),
-                dataset_id=dataset.id
-            )
-        else:
-            client.update_example(
-                inputs={"test_case_id": test_case.id, "user_prompt": test_case.user_prompt},
-                outputs={"test_case_id": test_case.id, "expected_output": test_case.expected_output},
-                metadata=test_case.model_dump(),
-                dataset_id=dataset.id,
-                example_id=test_case.id
-            )
+    if isinstance(experiment, ReadonlyExperiment):
+        raise Exception("Experiment must be writable. The above options open=False and update=False ensure this is the case so this exception should never be raised")
 
-    def execute(data:dict[str, Any]) -> dict[str, Any]:
-        print("** EXECUTE", data)
-        test_case_id = data.get("test_case_id")
-        test_case = find_test_case(test_case_id, test_cases)
-        if not test_case:
-            raise Exception(f"Could not find test case with id={test_case_id}")
-        # test_case = pydantic_test_case.validate_python(data)
-        # test_case = AskHolmesTestCase(**data)
-        #
-        result = ask_holmes(test_case=test_case)
-        # print("***** EXECUTE", test_case)
-        return {
-            "result": result.result,
-            "tool_calls": [tool_call.tool_name for tool_call in (result.tool_calls or [])]
-        }
+    for dataset_row in dataset:
+        test_case = pydantic_test_case.validate_python(dataset_row["metadata"])
 
-        # return ask_holmes(test_case).model_dump()
+        span = experiment.start_span(name=f"test_ask_holmes:{test_case.id}")
+        result = ask_holmes(test_case)
+        span.end()
 
-    res = evaluate(
-        execute, # Your AI system goes here
-        data=dataset_name, # The data to predict and grade over
-        evaluators=[qa_evaluator], # The evaluators to score the results
-        experiment_prefix="MAIN-2356", # The name of the experiment
-        metadata={
-            "version": "1.0.0",
-            "revision_id": "beta"
-        },
-    )
-    print(res)
-    assert False
+        input = test_case.user_prompt
+        output = result.result
+        expected = test_case.expected_output
+
+        span.log(
+            input=input,
+            output=output,
+            expected=expected,
+            dataset_record_id=dataset_row["id"],
+            scores={
+                "faithfulness": eval_factuality(output, expected, input=input).score
+            }
+        )
+
+    experiment.flush()
 
 
-# @pytest. mark. skip(reason="Tests failing on GH runners")
-# @pytest.mark.parametrize("test_case", test_cases, ids=[test_case.id for test_case in test_cases])
 def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
 
     mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
@@ -129,33 +113,3 @@ def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
         chat_request.ask, [], ai=ai
     )
     return ai.messages_call(messages=messages)
-
-
-    # deepeval_test_case = LLMTestCase(
-    #     name=f"ask_holmes:{test_case.id}",
-    #     input=test_case.user_prompt,
-    #     actual_output=llm_call.result or "",
-    #     expected_output=test_case.expected_output,
-    #     retrieval_context=test_case.retrieval_context,
-    #     tools_called=[tool_call.tool_name for tool_call in (llm_call.tool_calls or [])],
-    #     expected_tools=expected_tools
-    # )
-    # assert_test(deepeval_test_case, [
-    #     AnswerRelevancyMetric(test_case.evaluation.answer_relevancy),
-    #     FaithfulnessMetric(test_case.evaluation.faithfulness),
-    #     ContextualPrecisionMetric(
-    #         threshold=test_case.evaluation.contextual_precision,
-    #         model="gpt-4o-mini",
-    #         include_reason=True
-    #     ),
-    #     ContextualRecallMetric(
-    #         threshold=test_case.evaluation.contextual_recall,
-    #         model="gpt-4o-mini",
-    #         include_reason=True
-    #     ),
-    #     ContextualRelevancyMetric(
-    #         threshold=test_case.evaluation.contextual_relevancy,
-    #         model="gpt-4o-mini",
-    #         include_reason=True
-    #     )
-    # ])
