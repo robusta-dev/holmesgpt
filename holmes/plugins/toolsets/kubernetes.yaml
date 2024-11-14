@@ -32,6 +32,10 @@ toolsets:
     description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
     command: "kubectl logs {{ name}} -n {{ namespace }}"
 
+  - name: "kubectl_logs_grep"
+    description: "Search for a specific term in the logs of a single Kubernetes pod. Only provide a pod name, not a deployment or other resource."
+    command: "kubectl logs {{ name }} -n {{ namespace }} | grep {{ search_term }}"
+
   # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic 
   # http GET capabilities which are more powerful than we want to expose
   #- name: "check_liveness_probe"
