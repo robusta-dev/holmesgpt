@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 from pydantic import TypeAdapter
 import os
 import pytest
@@ -9,87 +8,39 @@ from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
+from tests.llm.common import PROJECT, get_context_classifier, readable_timestamp
 from tests.mock_toolset import MockToolsets
 from braintrust import Experiment, ReadonlyExperiment
 
 from autoevals.llm import Factuality
 import braintrust
-from datetime import datetime
-from tests.mock_utils import AskHolmesTestCase, load_ask_holmes_test_cases
-from tests.utils import get_machine_state_tags
-from autoevals import LLMClassifier
+from tests.mock_utils import AskHolmesTestCase, MockHelper, upload_dataset
+from tests.llm.utils import get_machine_state_tags
+from os import path
 
-TEST_CASES_FOLDER = Path("tests/fixtures/test_chat")
+TEST_CASES_FOLDER = Path(path.abspath(path.join(
+    path.dirname(__file__),
+    "fixtures", "test_ask_holmes"
+)))
 
-test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER)
-
-pydantic_test_case = TypeAdapter(AskHolmesTestCase)
-
-def get_context_classifier(context_items:List[str]):
-    context = "\n- ".join(context_items)
-    prompt_prefix = f"""
-CONTEXT
--------
-{context}
-
-
-QUESTION
---------
-{{{{input}}}}
-
-
-ANSWER
-------
-{{{{output}}}}
-
-
-Evaluate whether the ANSWER to the QUESTION refers to all items mentioned in the CONTEXT.
-Then evaluate which of the following statement is match the closest and return the corresponding letter:
-
-A. No item mentioned in the CONTEXT is mentioned in the ANSWER
-B. Less than half of items present in the CONTEXT are mentioned in the ANSWER
-C. More than half of items present in the CONTEXT are mentioned in the ANSWER
-D. All items present in the CONTEXT are mentioned in the ANSWER
-    """
-
-    return LLMClassifier(
-        name="ContextPrecision",
-        prompt_template=prompt_prefix,
-        choice_scores={"A": 0, "B": 0.33, "C": 0.67, "D": 1},
-        use_cot=True,
-    )
-
-
-def timestamp():
-    return datetime.now().strftime("%Y%m%d_%H%M%S")
-
-PROJECT="HolmesGPT"
 DATASET_NAME = "ask_holmes"
 
-def _test_upload_dataset():
-    dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
-
-    for test_case in test_cases:
-        id = dataset.insert(
-            id=f"ask_holmes_{test_case.id}",
-            input=test_case.user_prompt,
-            expected=test_case.expected_output,
-            metadata=test_case.model_dump(),
-            tags=["common","holmesgpt","ask_holmes","basic"],
-        )
-        print("Inserted record with id", id)
-
-    print(dataset.summarize())
-
-pydantic_test_case = TypeAdapter(AskHolmesTestCase)
 
 @pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
 def test_ask_holmes():
 
+
+    mh = MockHelper(TEST_CASES_FOLDER)
+    upload_dataset(
+        test_cases=mh.load_investigate_test_cases(),
+        project_name=PROJECT,
+        dataset_name=DATASET_NAME
+    )
+
     dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
     experiment:Experiment|ReadonlyExperiment = braintrust.init(
         project=PROJECT,
-        experiment="ask_holmes",
+        experiment=f"ask_holmes_{readable_timestamp()}",
         dataset=dataset,
         open=False,
         update=False,
@@ -101,9 +52,9 @@ def test_ask_holmes():
 
     eval_factuality = Factuality()
     for dataset_row in dataset:
-        test_case = pydantic_test_case.validate_python(dataset_row["metadata"])
+        test_case = TypeAdapter(AskHolmesTestCase).validate_python(dataset_row["metadata"])
 
-        span = experiment.start_span(name=f"test_ask_holmes:{test_case.id}")
+        span = experiment.start_span(name=f"ask_holmes:{test_case.id}", span_attributes={"test_case_id": test_case.id})
         result = ask_holmes(test_case)
         span.end()
 

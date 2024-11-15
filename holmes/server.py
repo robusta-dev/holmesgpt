@@ -1,4 +1,5 @@
 import os
+from holmes.core import investigation
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -75,41 +76,11 @@ config = Config.load_from_env()
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
-        load_robusta_api_key(dal=dal, config=config)
-        context = dal.get_issue_data(
-            investigate_request.context.get("robusta_issue_id")
-        )
-
-        resource_instructions = dal.get_resource_instructions(
-            "alert", investigate_request.context.get("issue_type")
-        )
-        raw_data = investigate_request.model_dump()
-        if context:
-            raw_data["extra_context"] = context
-
-        ai = config.create_issue_investigator(
-            console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal
-        )
-        issue = Issue(
-            id=context["id"] if context else "",
-            name=investigate_request.title,
-            source_type=investigate_request.source,
-            source_instance_id=investigate_request.source_instance_id,
-            raw=raw_data,
-        )
-
-        investigation = ai.investigate(
-            issue,
-            prompt=investigate_request.prompt_template,
-            console=console,
-            post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
-            instructions=resource_instructions,
-        )
-
-        return InvestigationResult(
-            analysis=investigation.result,
-            tool_calls=investigation.tool_calls,
-            instructions=investigation.instructions,
+        return investigation.investigate_issues(
+            investigate_request=investigate_request,
+            dal=dal,
+            config=config,
+            console=console
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)

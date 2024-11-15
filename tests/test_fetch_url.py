@@ -3,9 +3,9 @@ import re
 import pytest
 from pathlib import Path
 
-from tests.utils import read_file
 from holmes.core.tools import ToolExecutor
-from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown, FetchWebpage
+from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown
+from tests.mock_utils import read_file
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')

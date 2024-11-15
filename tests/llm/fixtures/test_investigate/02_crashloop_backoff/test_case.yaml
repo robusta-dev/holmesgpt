@@ -1,0 +1,32 @@
+expected_output: |
+  Alert Explanation
+
+  The pod inventory-management-api in the default namespace is experiencing a CrashLoopBackOff due to repeated failures in starting its container.
+
+  Investigation
+
+  - The pod inventory-management-api is using the nginx image and attempts to execute a command wge which is not found in the container's $PATH. This results in a StartError with an exit code 128.
+  - The pod has restarted 4 times and is currently in a Waiting state with the reason CrashLoopBackOff.
+  - The error message indicates: exec: "wge": executable file not found in $PATH.
+
+  Conclusions and Possible Root Causes
+
+  - Incorrect Command: The command wge is likely a typo or misconfiguration. The intended command might be wget, which is a common utility for downloading files.
+  - Missing Executable: The required executable is not present in the container's image, leading to the failure to start the container.
+
+  Next Steps
+
+  - Correct the command in the pod's configuration to use the correct executable, likely wget, if that was the intended command.
+  - Verify the container image includes all necessary executables and dependencies.
+  - Update the pod configuration and redeploy the pod with the corrected command. You can do this by editing the pod's YAML configuration and applying the changes:
+
+  ```
+  kubectl edit pod inventory-management-api -n default
+  ```
+
+evaluation:
+  answer_relevancy: 0
+  faithfulness: 0
+  contextual_precision: 0
+  contextual_recall: 0
+  contextual_relevancy: 0
