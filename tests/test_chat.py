@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import Any, Dict, List
-from litellm.types.utils import Tuple
+from typing import List
 from pydantic import TypeAdapter
-import random
-import string
+import os
+import pytest
 
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
@@ -11,13 +10,14 @@ from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
 from tests.mock_toolset import MockToolsets
-from braintrust import Eval, EvalCase, Experiment, ReadonlyExperiment
+from braintrust import Experiment, ReadonlyExperiment
 
-from autoevals.llm import Factuality, Battle
+from autoevals.llm import Factuality
 import braintrust
 from datetime import datetime
 from tests.mock_utils import AskHolmesTestCase, load_ask_holmes_test_cases
 from tests.utils import get_machine_state_tags
+from autoevals import LLMClassifier
 
 TEST_CASES_FOLDER = Path("tests/fixtures/test_chat")
 
@@ -25,8 +25,39 @@ test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER)
 
 pydantic_test_case = TypeAdapter(AskHolmesTestCase)
 
-from autoevals import LLMClassifier
-eval_factuality = Factuality()
+def get_context_classifier(context_items:List[str]):
+    context = "\n- ".join(context_items)
+    prompt_prefix = f"""
+CONTEXT
+-------
+{context}
+
+
+QUESTION
+--------
+{{{{input}}}}
+
+
+ANSWER
+------
+{{{{output}}}}
+
+
+Evaluate whether the ANSWER to the QUESTION refers to all items mentioned in the CONTEXT.
+Then evaluate which of the following statement is match the closest and return the corresponding letter:
+
+A. No item mentioned in the CONTEXT is mentioned in the ANSWER
+B. Less than half of items present in the CONTEXT are mentioned in the ANSWER
+C. More than half of items present in the CONTEXT are mentioned in the ANSWER
+D. All items present in the CONTEXT are mentioned in the ANSWER
+    """
+
+    return LLMClassifier(
+        name="ContextPrecision",
+        prompt_template=prompt_prefix,
+        choice_scores={"A": 0, "B": 0.33, "C": 0.67, "D": 1},
+        use_cot=True,
+    )
 
 
 def timestamp():
@@ -52,7 +83,7 @@ def _test_upload_dataset():
 
 pydantic_test_case = TypeAdapter(AskHolmesTestCase)
 
-
+@pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
 def test_ask_holmes():
 
     dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
@@ -67,6 +98,8 @@ def test_ask_holmes():
     if isinstance(experiment, ReadonlyExperiment):
         raise Exception("Experiment must be writable. The above options open=False and update=False ensure this is the case so this exception should never be raised")
 
+
+    eval_factuality = Factuality()
     for dataset_row in dataset:
         test_case = pydantic_test_case.validate_python(dataset_row["metadata"])
 
@@ -78,14 +111,20 @@ def test_ask_holmes():
         output = result.result
         expected = test_case.expected_output
 
+        scores = {
+            "faithfulness": eval_factuality(output, expected, input=input).score,
+        }
+
+        if len(test_case.retrieval_context) > 0:
+            evaluate_context_usage = get_context_classifier(test_case.retrieval_context)
+            scores["context"] = evaluate_context_usage(output, expected, input=input).score
+
         span.log(
             input=input,
             output=output,
             expected=expected,
             dataset_record_id=dataset_row["id"],
-            scores={
-                "faithfulness": eval_factuality(output, expected, input=input).score
-            }
+            scores=scores
         )
 
     experiment.flush()

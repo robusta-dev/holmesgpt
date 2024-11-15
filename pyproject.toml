@@ -39,15 +39,14 @@ playwright = "^1.48.0"
 bs4 = "^0.0.2"
 markdownify = "^0.13.1"
 starlette = "^0.40"
-braintrust = "^0.0.168"
-autoevals = "^0.0.103"
-langfuse = "^2.53.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
 deepeval = "^1.4.8"
 pytest-xdist = "^3.6.1"
 ruff = "^0.7.3"
+braintrust = "^0.0.168"
+autoevals = "^0.0.103"
 
 [build-system]
 requires = ["poetry-core"]
