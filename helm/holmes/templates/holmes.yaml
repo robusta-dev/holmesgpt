@@ -45,6 +45,9 @@ spec:
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
           {{- end }}
+          {{- if .Values.additional_env_vars -}}
+          {{ toYaml .Values.additional_env_vars | nindent 10 }}
+          {{- end }}
         lifecycle:
           preStop:
             exec:
