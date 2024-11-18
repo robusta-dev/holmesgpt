@@ -5,7 +5,6 @@ from pathlib import Path
 
 from holmes.core.tools import ToolExecutor
 from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown
-from tests.mock_utils import read_file
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
@@ -23,6 +22,10 @@ This domain is for use in illustrative examples in documents. You may use this
 
 More information...
 """.strip()
+
+def read_file(file_path:Path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read().strip()
 
 def parse_fixture_id(file_name:str) -> str:
     match = re.match(r'fixture(\d+)', file_name)
