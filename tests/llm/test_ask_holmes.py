@@ -8,14 +8,16 @@ from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
-from tests.llm.common import PROJECT, get_context_classifier, readable_timestamp
-from tests.mock_toolset import MockToolsets
+from tests.llm.utils.classifiers import get_context_classifier
+from tests.llm.utils.constants import PROJECT
+from tests.llm.utils.system import readable_timestamp
+from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust import Experiment, ReadonlyExperiment
 
 from autoevals.llm import Factuality
 import braintrust
-from tests.mock_utils import AskHolmesTestCase, MockHelper, upload_dataset
-from tests.llm.utils import get_machine_state_tags
+from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper, upload_dataset
+from tests.llm.utils.system import get_machine_state_tags
 from os import path
 
 TEST_CASES_FOLDER = Path(path.abspath(path.join(
@@ -83,7 +85,7 @@ def test_ask_holmes():
 
 def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
 
-    mock = MockToolsets(tools_passthrough=test_case.tools_passthrough, test_case_folder=test_case.folder)
+    mock = MockToolsets(tools_passthrough=test_case.mocks_passthrough, test_case_folder=test_case.folder)
 
     expected_tools = []
     for tool_mock in test_case.tool_mocks:

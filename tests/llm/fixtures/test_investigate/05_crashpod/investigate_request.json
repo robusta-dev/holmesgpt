@@ -1,0 +1,22 @@
+{
+  "source": "prometheus",
+  "title": "KubePodCrashLooping",
+  "description": "",
+  "subject": {
+    "name": "db-certs-authenticator-7ffd769f48-vndgd",
+    "namespace": "default",
+    "kind": "pod",
+    "node": null,
+    "container": null,
+    "cluster": null
+  },
+  "context": {
+    "issue_type": "KubePodCrashLooping",
+    "robusta_issue_id": "46001a4e-ce6a-4995-a025-89dbb846b821",
+    "source": "prometheus"
+  },
+  "source_instance_id": "ApiRequest",
+  "include_tool_calls": true,
+  "include_tool_call_results": true,
+  "prompt_template": "builtin://generic_investigation.jinja2"
+}

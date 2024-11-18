@@ -145,7 +145,7 @@ class SupabaseDal:
             if len(issue_response.data):
                 issue_data = issue_response.data[0]
 
-        except:  # e.g. invalid id format
+        except Exception:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue data")
             return None
         if not issue_data:

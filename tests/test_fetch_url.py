@@ -63,7 +63,7 @@ def test_internet_toolset_prerequisites():
     toolset = InternetToolset()
 
     toolset.check_prerequisites()
-    assert toolset.is_enabled() == True, ("" if toolset.is_enabled() else toolset.get_disabled_reason() + ". Make sure playwright is installed by running `playwright install`.")
+    assert toolset.is_enabled(), ("" if toolset.is_enabled() else toolset.get_disabled_reason() + ". Make sure playwright is installed by running `playwright install`.")
 
 def test_fetch_webpage():
     toolset = InternetToolset()

@@ -12,7 +12,8 @@ from typing import Generic, List, Optional, TypeVar, Union, cast
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
 from holmes.core.tool_calling_llm import ResourceInstructions
-from tests.mock_toolset import AUTO_GENERATED_FILE_SUFFIX, MockMetadata, ToolMock
+from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
+from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
 
 def read_file(file_path:Path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -37,7 +38,7 @@ T = TypeVar('T')
 class HolmesTestCase(BaseModel, Generic[T]):
     id: str
     folder: str
-    tools_passthrough: bool = False # If True, unmocked tools can be invoked by the LLM without error
+    mocks_passthrough: bool = False # If True, unmocked tools and dal can be invoked by the LLM without error
     expected_output: str # Whether an output is expected
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[str] = [] # Elements helping to evaluate the correctness of the LLM response
@@ -201,50 +202,3 @@ def load_investigate_request(test_case_folder:Path) -> InvestigateRequest:
     if investigate_request_path.exists():
         return TypeAdapter(InvestigateRequest).validate_json(read_file(Path(investigate_request_path)))
     raise Exception(f"Investigate test case declared in folder {str(test_case_folder)} should have an investigate_request.json file but none is present")
-
-# def load_ask_holmes_test_cases(test_cases_folder:Path, expected_number_of_test_cases=-1) -> List[AskHolmesTestCase]:
-
-#     test_cases = []
-#     test_cases_ids:List[str] = os.listdir(test_cases_folder)
-#     for test_case_id in test_cases_ids:
-#         test_case_folder = test_cases_folder.joinpath(test_case_id)
-#         logging.info("Evaluating potential test case folder: {test_case_folder}")
-#         try:
-#             config_dict = yaml.safe_load(read_file(test_case_folder.joinpath(CONFIG_FILE_NAME)))
-#             config_dict["id"] = test_case_id
-#             config_dict["folder"] = str(test_case_folder)
-#             test_case:AskHolmesTestCase = pydantic_test_case.validate_python(config_dict)
-#             logging.info(f"Successfully loaded test case {test_case_id}")
-#         except FileNotFoundError:
-#             logging.info(f"Folder {test_cases_folder}/{test_case_id} ignored because it is missing a {CONFIG_FILE_NAME} file.")
-#             continue
-
-#         mock_file_names:List[str] = os.listdir(test_case_folder)
-
-#         for mock_file_name in mock_file_names:
-#             if mock_file_name == CONFIG_FILE_NAME:
-#                 continue
-#             if mock_file_name.endswith(AUTO_GENERATED_FILE_SUFFIX):
-#                 continue
-#             mock_file_path = test_case_folder.joinpath(mock_file_name)
-#             mock_text = read_file(mock_file_path)
-
-#             metadata = parse_mock_metadata(mock_text)
-#             mock_value = mock_text[mock_text.find('\n') + 1:] # remove first line
-#             if not metadata:
-#                 logging.warning(f"Failed to parse metadata from test case file at {str(mock_file_path)}. It will be skipped")
-#                 continue
-#             tool_mock = ToolMock(
-#                 toolset_name= metadata.toolset_name,
-#                 tool_name= metadata.tool_name,
-#                 match_params= metadata.match_params,
-#                 return_value=mock_value
-#             )
-#             logging.info(f"Successfully loaded tool mock {tool_mock}")
-#             test_case.tool_mocks.append(tool_mock)
-#         test_cases.append(test_case)
-#     logging.info(f"Found {len(test_cases)} in {test_cases_folder}")
-
-#     if expected_number_of_test_cases > 0:
-#         assert len(test_cases) == expected_number_of_test_cases
-#     return test_cases

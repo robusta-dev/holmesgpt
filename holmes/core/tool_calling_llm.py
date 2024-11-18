@@ -332,6 +332,7 @@ class IssueInvestigator(ToolCallingLLM):
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
+
         if instructions != None and instructions.instructions:
             runbooks.extend(instructions.instructions)
 

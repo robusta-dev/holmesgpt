@@ -1,11 +1,7 @@
-
-
-
 from holmes.core.tools import ToolExecutor
-from tests.mock_toolset import MockToolsets, ToolMock
+from tests.llm.utils.mock_toolset import MockToolsets, ToolMock
 import pytest
 import tempfile
-
 
 @pytest.mark.parametrize("params", [
     ({"field1": "1", "field2": "2"}),

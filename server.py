@@ -76,12 +76,15 @@ config = Config.load_from_env()
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
-        return investigation.investigate_issues(
+        print(f"** InvestigateRequest: {investigate_request.model_dump_json()}")
+        result = investigation.investigate_issues(
             investigate_request=investigate_request,
             dal=dal,
             config=config,
             console=console
         )
+
+        print(f"** InvestigateRequest results: {result.model_dump_json()}")
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
 
