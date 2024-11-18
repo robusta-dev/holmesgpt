@@ -21,9 +21,7 @@ from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper, upload_dataset
 from os import path
-from langfuse import Langfuse
 
-langfuse = Langfuse()
 
 TEST_CASES_FOLDER = Path(path.abspath(path.join(
     path.dirname(__file__),
@@ -82,9 +80,6 @@ def test_investigate():
     # for dataset_row in dataset:
 
     #     test_case = TypeAdapter(InvestigateTestCase).validate_python(dataset_row["metadata"])
-
-        if test_case.id != "09_high_latency":
-            continue
 
         config = MockConfig(test_case)
         mock_dal = MockSupabaseDal(
@@ -152,7 +147,6 @@ def test_investigate():
 
     print(json.dumps(runs, indent=2))
     assert failed_runs == [], f"The following llm runs failed: {str(failed_runs)}"
-    assert False
 
 
 

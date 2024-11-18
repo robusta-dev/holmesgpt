@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name":"inventory-management-api","namespace":"default"}}
+Command `kubectl logs inventory-management-api -n default` failed with return code 1
+stdout:
+
+stderr:
+error: error from server (NotFound): pods "inventory-management-api" not found in namespace "default"

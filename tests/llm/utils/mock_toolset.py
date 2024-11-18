@@ -19,7 +19,9 @@ class MockMetadata(BaseModel):
     match_params: Optional[Dict] = None # None will match all params
 
 class ToolMock(MockMetadata):
+    source_file: str
     return_value: str
+
 
 class RaiseExceptionTool(Tool):
     """
@@ -70,7 +72,7 @@ class RaiseExceptionTool(Tool):
         return self.unmocked_tool.get_parameterized_one_liner(params)
 
 
-class MockTool(Tool):
+class MockToolWrapper(Tool):
     unmocked_tool:Tool
     mocks: List[ToolMock] = []
     def __init__(self, unmocked_tool:Tool):
@@ -104,8 +106,8 @@ class MockTool(Tool):
 
 class MockToolsets:
     unmocked_toolsets: List[Toolset]
-    mocked_toolsets: List[Toolset] = []
-    mocks: List[ToolMock] = []
+    mocked_toolsets: List[Toolset]
+    _mocks: List[ToolMock]
     tools_passthrough: bool
     test_case_folder: str
 
@@ -113,15 +115,17 @@ class MockToolsets:
         self.unmocked_toolsets = load_builtin_toolsets()
         self.tools_passthrough = tools_passthrough
         self.test_case_folder = test_case_folder
+        self._mocks = []
+        self.mocked_toolsets = []
         self._update()
 
     def mock_tool(self, tool_mock:ToolMock):
-        self.mocks.append(tool_mock)
+        self._mocks.append(tool_mock)
         self._update()
 
     def _find_mocks_for_tool(self, toolset_name:str, tool_name:str) -> List[ToolMock]:
         found_mocks = []
-        for tool_mock in self.mocks:
+        for tool_mock in self._mocks:
             if tool_mock.toolset_name == toolset_name and tool_mock.tool_name == tool_name:
                 found_mocks.append(tool_mock)
         return found_mocks
@@ -142,7 +146,7 @@ class MockToolsets:
                 wrapped_tool = self._wrap_tool_with_exception_if_required(tool=tool, toolset_name=toolset.name)
 
                 if len(mocks) > 0:
-                    mock_tool = MockTool(unmocked_tool=wrapped_tool)
+                    mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
                     mock_tool.mocks = mocks
                     mocked_tools.append(mock_tool)
                 else:

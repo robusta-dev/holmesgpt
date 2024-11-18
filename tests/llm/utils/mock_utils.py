@@ -127,6 +127,7 @@ class MockHelper():
                     logging.warning(f"Failed to parse metadata from test case file at {str(mock_file_path)}. It will be skipped")
                     continue
                 tool_mock = ToolMock(
+                    source_file=mock_file_name,
                     toolset_name= metadata.toolset_name,
                     tool_name= metadata.tool_name,
                     match_params= metadata.match_params,

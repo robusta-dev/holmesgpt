@@ -10,6 +10,7 @@ import tempfile
 def test_mock_tools_match(params):
     mock = MockToolsets(test_case_folder=tempfile.gettempdir(), tools_passthrough=False)
     mock.mock_tool(ToolMock(
+        source_file="test",
         toolset_name="kubernetes/core",
         tool_name="kubectl_describe",
         match_params={"field1": "1", "field2": "2"},
@@ -31,6 +32,7 @@ def test_mock_tools_match(params):
 def test_mock_tools_do_not_match(params):
     mock = MockToolsets(test_case_folder=tempfile.gettempdir(), tools_passthrough=True)
     mock.mock_tool(ToolMock(
+        source_file="test",
         toolset_name="kubernetes/core",
         tool_name="kubectl_describe",
         match_params={"field1": "1", "field2": "2"},

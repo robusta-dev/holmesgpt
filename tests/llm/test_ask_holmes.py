@@ -31,34 +31,35 @@ DATASET_NAME = "ask_holmes"
 @pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
 def test_ask_holmes():
 
-
     mh = MockHelper(TEST_CASES_FOLDER)
-    upload_dataset(
-        test_cases=mh.load_investigate_test_cases(),
-        project_name=PROJECT,
-        dataset_name=DATASET_NAME
-    )
+    # upload_dataset(
+    #     test_cases=mh.load_investigate_test_cases(),
+    #     project_name=PROJECT,
+    #     dataset_name=DATASET_NAME
+    # )
 
-    dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
-    experiment:Experiment|ReadonlyExperiment = braintrust.init(
-        project=PROJECT,
-        experiment=f"ask_holmes_{readable_timestamp()}",
-        dataset=dataset,
-        open=False,
-        update=False,
-        metadata=get_machine_state_tags())
+    # dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
+    # experiment:Experiment|ReadonlyExperiment = braintrust.init(
+    #     project=PROJECT,
+    #     experiment=f"ask_holmes_{readable_timestamp()}",
+    #     dataset=dataset,
+    #     open=False,
+    #     update=False,
+    #     metadata=get_machine_state_tags())
 
-    if isinstance(experiment, ReadonlyExperiment):
-        raise Exception("Experiment must be writable. The above options open=False and update=False ensure this is the case so this exception should never be raised")
+    # if isinstance(experiment, ReadonlyExperiment):
+    #     raise Exception("Experiment must be writable. The above options open=False and update=False ensure this is the case so this exception should never be raised")
 
 
     eval_factuality = Factuality()
-    for dataset_row in dataset:
-        test_case = TypeAdapter(AskHolmesTestCase).validate_python(dataset_row["metadata"])
+    test_cases = mh.load_ask_holmes_test_cases()
+    for test_case in test_cases:
+    # for dataset_row in dataset:
+    #     test_case = TypeAdapter(AskHolmesTestCase).validate_python(dataset_row["metadata"])
 
-        span = experiment.start_span(name=f"ask_holmes:{test_case.id}", span_attributes={"test_case_id": test_case.id})
+        # span = experiment.start_span(name=f"ask_holmes:{test_case.id}", span_attributes={"test_case_id": test_case.id})
         result = ask_holmes(test_case)
-        span.end()
+        # span.end()
 
         input = test_case.user_prompt
         output = result.result
@@ -72,15 +73,15 @@ def test_ask_holmes():
             evaluate_context_usage = get_context_classifier(test_case.retrieval_context)
             scores["context"] = evaluate_context_usage(output, expected, input=input).score
 
-        span.log(
-            input=input,
-            output=output,
-            expected=expected,
-            dataset_record_id=dataset_row["id"],
-            scores=scores
-        )
+        # span.log(
+        #     input=input,
+        #     output=output,
+        #     expected=expected,
+        #     dataset_record_id=dataset_row["id"],
+        #     scores=scores
+        # )
 
-    experiment.flush()
+    # experiment.flush()
 
 
 def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
