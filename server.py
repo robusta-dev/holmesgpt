@@ -82,6 +82,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
             config=config,
             console=console
         )
+        return result
 
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
