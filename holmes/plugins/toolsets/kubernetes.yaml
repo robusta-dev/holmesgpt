@@ -48,10 +48,15 @@ toolsets:
         description: "Run `kubectl logs` on a single container within a Kubernetes pod. This is to get the logs of a specific container in a multi-container pod."
         command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} "
 
+
       - name: "kubectl_logs_grep"
         description: "Search for a specific term in the logs of a single Kubernetes pod. Only provide a pod name, not a deployment or other resource."
         command: "kubectl logs {{ name }} -n {{ namespace }} | grep {{ search_term }}"
 
+      - name: "kubectl_events"
+        description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment, 'job'', 'node', etc."
+        command: "kubectl events --for {{resource_type}}/{{ pod_name }} -n {{ namespace }}"
+        
       - name: "kubectl_memory_requests_all_namespaces"
         description: "Fetch and display memory requests for all pods across all namespaces in MiB, summing requests across multiple containers where applicable and handling binary, decimal, and millibyte units correctly."
         command: |
@@ -135,6 +140,7 @@ toolsets:
               }
               print namespace, name, sum_memory(requests) " Mi";
             }' | sort -k3 -nr
+
 
     # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic
     # http GET capabilities which are more powerful than we want to expose

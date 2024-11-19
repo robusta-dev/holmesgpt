@@ -1,0 +1,25 @@
+user_prompt: "Fetch all kubernetes events related to the robusta-runner pod"
+expected_output: |
+  The `robusta-runner-746d848db9-f8ns9` pod in the `default` namespace has the following events:
+
+  1. **Pulling**: Pulling image `robustadev/robusta-runner:0.19.0`.
+  2. **Scheduled**: Successfully assigned default/robusta-runner-746d848db9-f8ns9 to kind-control-plane
+  3. **Pulled**: Successfully pulled image "robustadev/robusta-runner:0.19.0" in 13.508s (58.067s including waiting). Image size: 281790224 bytes.
+  4. **Created**: Created container `runner`.
+  5. **Started**: Started container `runner`.
+
+retrieval_context:
+  - |
+    Here are the events:
+    Pulling image "robustadev/robusta-runner:0.19.0"
+    Successfully assigned default/robusta-runner-746d848db9-f8ns9 to kind-control-plane
+    Successfully pulled image "robustadev/robusta-runner:0.19.0" in 13.508s (58.067s including waiting). Image size: 281790224 bytes.
+    Created container runner
+    Started container runner
+
+evaluation:
+  answer_relevancy: .5
+  faithfulness: .5
+  contextual_precision: .5
+  contextual_recall: .5
+  contextual_relevancy: .5
