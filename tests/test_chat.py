@@ -15,7 +15,7 @@ from tests.utils import AskHolmesTestCase, load_ask_holmes_test_cases
 
 TEST_CASES_FOLDER = Path("tests/fixtures/test_chat")
 
-test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_test_cases=6)
+test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER, expected_number_of_test_cases=7)
 
 
 def idfn(test_case:AskHolmesTestCase):
