@@ -48,6 +48,7 @@ class MockConfig(Config):
 
         return ToolExecutor(mock.mocked_toolsets)
 
+@pytest.mark.llm
 @pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
 def test_investigate():
 

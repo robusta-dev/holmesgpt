@@ -39,7 +39,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          poetry run pytest
+          poetry run pytest -m "not llm"
 
       - name: Test the binary
         shell: bash

@@ -27,7 +27,7 @@ TEST_CASES_FOLDER = Path(path.abspath(path.join(
 
 DATASET_NAME = "ask_holmes"
 
-
+@pytest.mark.llm
 @pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
 def test_ask_holmes():
 
