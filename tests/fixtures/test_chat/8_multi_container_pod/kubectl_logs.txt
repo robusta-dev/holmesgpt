@@ -1,0 +1,52 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_container_logs","match_params":{"name": "customer-orders-67889fd856-k94k7", "namespace": "default"}}
+Defaulted container "curl-sidecar" out of: curl-sidecar, fastapi-app
+
+    <html>
+        <head>
+            <title>Checkout Status</title>
+        </head>
+        <body>
+            <h1>Success!</h1>
+            <p>Promotions: True</p>
+        </body>
+    </html>
+
+    <html>
+        <head>
+            <title>Checkout Status</title>
+        </head>
+        <body>
+            <h1>Success!</h1>
+            <p>Promotions: True</p>
+        </body>
+    </html>
+
+    <html>
+        <head>
+            <title>Checkout Status</title>
+        </head>
+        <body>
+            <h1>Success!</h1>
+            <p>Promotions: True</p>
+        </body>
+    </html>
+
+    <html>
+        <head>
+            <title>Checkout Status</title>
+        </head>
+        <body>
+            <h1>Success!</h1>
+            <p>Promotions: True</p>
+        </body>
+    </html>
+
+    <html>
+        <head>
+            <title>Checkout Status</title>
+        </head>
+        <body>
+            <h1>Success!</h1>
+            <p>Promotions: True</p>
+        </body>
+    </html>
