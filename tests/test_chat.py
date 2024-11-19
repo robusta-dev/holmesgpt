@@ -21,6 +21,7 @@ test_cases = load_ask_holmes_test_cases(TEST_CASES_FOLDER)
 def idfn(test_case:AskHolmesTestCase):
     return test_case.id
 
+@pytest.mark.llm
 @pytest.mark.parametrize("test_case", test_cases, ids=idfn)
 def test_ask_holmes_with_tags(test_case:AskHolmesTestCase):
 
