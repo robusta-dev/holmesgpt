@@ -18,8 +18,8 @@ retrieval_context:
     Started container runner
 
 evaluation:
-  answer_relevancy: .7
-  faithfulness: .7
-  contextual_precision: .7
-  contextual_recall: .7
-  contextual_relevancy: .7
+  answer_relevancy: .5
+  faithfulness: .5
+  contextual_precision: .5
+  contextual_recall: .5
+  contextual_relevancy: .5

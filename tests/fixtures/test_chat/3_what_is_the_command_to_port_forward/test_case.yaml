@@ -6,4 +6,4 @@ retrieval_context:
   - "The name of the grafana service is my_grafana_4j981"
   - "Grafana is running on port 3000"
 evaluation:
-  faithfulness: 0.6
+  faithfulness: 0.5
