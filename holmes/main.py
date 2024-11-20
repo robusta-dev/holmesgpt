@@ -51,7 +51,7 @@ app.add_typer(generate_app, name="generate")
 
 class Verbosity(Enum):
     NORMAL = 0
-    LOG_QUERIES = 1
+    LOG_QUERIES = 1  # TODO: currently unused
     VERBOSE = 2
     VERY_VERBOSE = 3
 
@@ -65,24 +65,7 @@ def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
     else:
         return Verbosity.VERY_VERBOSE
 
-def init_logging(verbose_flags: List[bool] = None):
-    verbosity = cli_flags_to_verbosity(verbose_flags)
-
-    if verbosity == Verbosity.VERY_VERBOSE:
-        logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
-    else:
-        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
-
-    if verbosity.value >= Verbosity.NORMAL.value:
-        logging.info(f"verbosity is {verbosity}")
-
-    if verbosity.value >= Verbosity.LOG_QUERIES.value:
-        # TODO
-        pass
-
-    if verbosity.value >= Verbosity.VERBOSE.value:
-        logging.getLogger().setLevel(logging.DEBUG)
-
+def suppress_noisy_logs():
     # disable INFO logs from OpenAI
     logging.getLogger("httpx").setLevel(logging.WARNING)
     # disable INFO logs from LiteLLM
@@ -94,8 +77,24 @@ def init_logging(verbose_flags: List[bool] = None):
     logging.getLogger("openai._base_client").setLevel(logging.INFO)
     logging.getLogger("httpcore").setLevel(logging.INFO)
     logging.getLogger("markdown_it").setLevel(logging.INFO)
-    # Suppress UserWarnings from the slack_sdk module
+    # suppress UserWarnings from the slack_sdk module
     warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
+
+def init_logging(verbose_flags: List[bool] = None):
+    verbosity = cli_flags_to_verbosity(verbose_flags)
+
+    if verbosity == Verbosity.VERY_VERBOSE:
+        logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+    elif verbosity == Verbosity.VERBOSE:
+        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+        logging.getLogger().setLevel(logging.DEBUG)
+        suppress_noisy_logs()
+    else:
+        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+        suppress_noisy_logs()
+
+    logging.debug(f"verbosity is {verbosity}")
+
     return Console()
 
 # Common cli options
