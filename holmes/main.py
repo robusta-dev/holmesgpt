@@ -137,7 +137,7 @@ opt_verbose: Optional[List[bool]] = typer.Option(
     [],
     "--verbose",
     "-v",
-    help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv or -vvvv",
+    help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv",
 )
 opt_echo_request: bool = typer.Option(
     True,
