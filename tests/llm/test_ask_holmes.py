@@ -1,4 +1,5 @@
 from pathlib import Path
+from langfuse import Langfuse
 from pydantic import TypeAdapter
 import os
 import pytest
@@ -8,15 +9,16 @@ from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
-from tests.llm.utils.classifiers import get_context_classifier
+from tests.llm.utils.classifiers import get_context_classifier, get_logs_explanation_classifier
 from tests.llm.utils.constants import PROJECT
+from tests.llm.utils.langfuse import resolve_dataset_item, upload_test_cases
 from tests.llm.utils.system import readable_timestamp
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust import Experiment, ReadonlyExperiment
 
 from autoevals.llm import Factuality
 import braintrust
-from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper, upload_dataset
+from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
 from tests.llm.utils.system import get_machine_state_tags
 from os import path
 
@@ -27,9 +29,98 @@ TEST_CASES_FOLDER = Path(path.abspath(path.join(
 
 DATASET_NAME = "ask_holmes"
 
+langfuse = Langfuse()
+
+def get_test_cases():
+    experiment_name = f"{readable_timestamp()}:gpt-4o-mini"
+
+    mh = MockHelper(TEST_CASES_FOLDER)
+    upload_test_cases(mh.load_test_cases(), DATASET_NAME)
+
+    test_cases = mh.load_ask_holmes_test_cases()
+    return [(experiment_name, test_case) for test_case in test_cases]
+
+def idfn(val):
+    if isinstance(val, AskHolmesTestCase):
+        return val.id
+    else:
+        return str(val)
+
+
+@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
+@pytest.mark.llm
+def test_ask_holmes(experiment_name, test_case):
+
+    eval_factuality = Factuality()
+
+    metadata = get_machine_state_tags()
+    # trace = langfuse.trace(
+    #     name = f"{test_case.id}",
+    #     metadata = metadata,
+    #     input = get_input(test_case),
+    #     tags = ["test"]
+    # )
+    input = test_case.user_prompt
+    expected = test_case.expected_output
+
+    generation = langfuse.generation(
+        name= f"{test_case.id}",
+        input=input,
+        metadata=metadata
+    )
+    result = ask_holmes(test_case)
+    # span.end()
+
+    output = result.result
+
+
+    generation.update(
+        output=output
+    )
+
+    evaluate_logs_explanation = get_logs_explanation_classifier()
+    factuality = eval_factuality(output, expected, input=input)
+    previous_logs = evaluate_logs_explanation(output, expected, input=input)
+    scores = {
+        "runs_successfully": 1,
+        "factuality": factuality.score,
+        "previous_logs": previous_logs.score
+    }
+    generation.score(
+        name="factuality",
+        value=f"{factuality.score}",
+        comment=factuality.metadata["rationale"]
+    )
+    generation.score(
+        name="previous_logs",
+        value=f"{previous_logs.score}",
+        comment=previous_logs.metadata["rationale"]
+    )
+
+
+    if len(test_case.retrieval_context) > 0:
+        evaluate_context_usage = get_context_classifier(test_case.retrieval_context)
+        context_score = evaluate_context_usage(output, expected, input=input)
+        scores["context"] = context_score.score
+        generation.score(
+            name="context",
+            value=f"{context_score.score}",
+            comment=context_score.metadata["rationale"]
+        )
+
+    lf_item = resolve_dataset_item(test_case, DATASET_NAME)
+    if not lf_item:
+        raise Exception(f"Failed to resolve dataset item for test case {test_case.id}")
+    lf_item.link(
+        generation,
+        f"{experiment_name}",
+        run_metadata=metadata
+    )
+    langfuse.flush()
+
 @pytest.mark.llm
 @pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
-def test_ask_holmes():
+def _test_ask_holmes():
 
     mh = MockHelper(TEST_CASES_FOLDER)
     # upload_dataset(
@@ -97,7 +188,7 @@ def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
-        llm=DefaultLLM("gpt-4o")
+        llm=DefaultLLM("gpt-4o-mini")
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)

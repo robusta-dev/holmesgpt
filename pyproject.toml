@@ -39,6 +39,7 @@ playwright = "^1.48.0"
 bs4 = "^0.0.2"
 markdownify = "^0.13.1"
 starlette = "^0.40"
+langfuse = "^2.53.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
