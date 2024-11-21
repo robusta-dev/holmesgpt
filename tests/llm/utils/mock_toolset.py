@@ -61,7 +61,6 @@ class RaiseExceptionTool(Tool):
         with open(mock_file_path, 'w') as f:
             f.write(mock_metadata_json + '\n')
             f.write(output)
-            f.close()
 
     def invoke(self, params) -> str:
         self._auto_generate_mock_file(params)

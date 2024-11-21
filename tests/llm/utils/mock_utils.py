@@ -13,6 +13,7 @@ from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
+from tests.llm.utils.mock_dal import load_issue_data
 from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
 
 def read_file(file_path:Path):
@@ -35,7 +36,7 @@ class Message(BaseModel):
 
 T = TypeVar('T')
 
-class HolmesTestCase(BaseModel, Generic[T]):
+class HolmesTestCase(BaseModel):
     id: str
     folder: str
     mocks_passthrough: bool = False # If True, unmocked tools and dal can be invoked by the LLM without error
@@ -184,19 +185,6 @@ def upload_dataset(
         logging.info("Inserted dataset record with id", id)
 
     logging.info(dataset.summarize())
-
-def load_issue_data(test_case_folder:Path) -> Optional[Dict]:
-
-    issue_data_mock_path = test_case_folder.joinpath(Path("issue_data.json"))
-    if issue_data_mock_path.exists():
-        return json.loads(read_file(issue_data_mock_path))
-    return None
-
-def load_resource_instructions(test_case_folder:Path) -> Optional[ResourceInstructions]:
-    resource_instructions_mock_path = test_case_folder.joinpath(Path("resource_instructions.json"))
-    if resource_instructions_mock_path.exists():
-        return TypeAdapter(ResourceInstructions).validate_json(read_file(Path(resource_instructions_mock_path)))
-    return None
 
 def load_investigate_request(test_case_folder:Path) -> InvestigateRequest:
     investigate_request_path = test_case_folder.joinpath(Path("investigate_request.json"))

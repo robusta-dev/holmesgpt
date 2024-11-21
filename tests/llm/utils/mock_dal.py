@@ -23,6 +23,7 @@ class MockSupabaseDal(SupabaseDal):
         if self._issue_data is not None:
             return self._issue_data
         else:
+            file_path = self._get_mock_file_path("issue_data")
             data = super().get_issue_data(issue_id)
             file_path = self._get_mock_file_path("issue_data")
 
@@ -40,7 +41,6 @@ class MockSupabaseDal(SupabaseDal):
         if self._resource_instructions is not None:
             return self._resource_instructions
         else:
-            print(f"**** self._resource_instructions={str(self._resource_instructions)}")
             data = super().get_resource_instructions(type, name)
             file_path = self._get_mock_file_path("resource_instructions")
 
@@ -60,15 +60,8 @@ class MockSupabaseDal(SupabaseDal):
 pydantic_resource_instructions = TypeAdapter(ResourceInstructions)
 
 def load_mock_dal(test_case_folder:Path, dal_passthrough:bool = False):
-    issue_data_mock_path = test_case_folder.joinpath(Path("issue_data.json"))
-    issue_data = None
-    if issue_data_mock_path.exists():
-        issue_data = json.loads(read_file(issue_data_mock_path))
-
-    resource_instructions_mock_path = test_case_folder.joinpath(Path("resource_instructions.json"))
-    resource_instructions = None
-    if resource_instructions_mock_path.exists():
-        resource_instructions = pydantic_resource_instructions.validate_json(read_file(Path(resource_instructions_mock_path)))
+    issue_data = load_issue_data(test_case_folder)
+    resource_instructions = load_resource_instructions(test_case_folder)
 
     return MockSupabaseDal(
         test_case_folder=test_case_folder,
@@ -76,3 +69,17 @@ def load_mock_dal(test_case_folder:Path, dal_passthrough:bool = False):
         resource_instructions=resource_instructions,
         dal_passthrough=dal_passthrough
     )
+
+def load_issue_data(test_case_folder:Path) -> Optional[Dict]:
+
+    issue_data_mock_path = test_case_folder.joinpath(Path("issue_data.json"))
+    if issue_data_mock_path.exists():
+        return json.loads(read_file(issue_data_mock_path))
+    return None
+
+
+def load_resource_instructions(test_case_folder:Path) -> Optional[ResourceInstructions]:
+    resource_instructions_mock_path = test_case_folder.joinpath(Path("resource_instructions.json"))
+    if resource_instructions_mock_path.exists():
+        return TypeAdapter(ResourceInstructions).validate_json(read_file(Path(resource_instructions_mock_path)))
+    return None
