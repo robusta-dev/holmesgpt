@@ -8,7 +8,7 @@ from pydantic import TypeAdapter
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
-from tests.llm.utils.mock_utils import read_file
+from tests.llm.utils.mock_utils import load_issue_data, load_resource_instructions, read_file
 
 class MockSupabaseDal(SupabaseDal):
 
@@ -69,17 +69,3 @@ def load_mock_dal(test_case_folder:Path, dal_passthrough:bool = False):
         resource_instructions=resource_instructions,
         dal_passthrough=dal_passthrough
     )
-
-def load_issue_data(test_case_folder:Path) -> Optional[Dict]:
-
-    issue_data_mock_path = test_case_folder.joinpath(Path("issue_data.json"))
-    if issue_data_mock_path.exists():
-        return json.loads(read_file(issue_data_mock_path))
-    return None
-
-
-def load_resource_instructions(test_case_folder:Path) -> Optional[ResourceInstructions]:
-    resource_instructions_mock_path = test_case_folder.joinpath(Path("resource_instructions.json"))
-    if resource_instructions_mock_path.exists():
-        return TypeAdapter(ResourceInstructions).validate_json(read_file(Path(resource_instructions_mock_path)))
-    return None

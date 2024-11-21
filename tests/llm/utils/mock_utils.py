@@ -13,7 +13,6 @@ from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
-from tests.llm.utils.mock_dal import load_issue_data
 from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
 
 def read_file(file_path:Path):
@@ -191,3 +190,17 @@ def load_investigate_request(test_case_folder:Path) -> InvestigateRequest:
     if investigate_request_path.exists():
         return TypeAdapter(InvestigateRequest).validate_json(read_file(Path(investigate_request_path)))
     raise Exception(f"Investigate test case declared in folder {str(test_case_folder)} should have an investigate_request.json file but none is present")
+
+def load_issue_data(test_case_folder:Path) -> Optional[Dict]:
+
+    issue_data_mock_path = test_case_folder.joinpath(Path("issue_data.json"))
+    if issue_data_mock_path.exists():
+        return json.loads(read_file(issue_data_mock_path))
+    return None
+
+
+def load_resource_instructions(test_case_folder:Path) -> Optional[ResourceInstructions]:
+    resource_instructions_mock_path = test_case_folder.joinpath(Path("resource_instructions.json"))
+    if resource_instructions_mock_path.exists():
+        return TypeAdapter(ResourceInstructions).validate_json(read_file(Path(resource_instructions_mock_path)))
+    return None
