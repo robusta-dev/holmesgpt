@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs_grep","match_params":{"name":"customer-orders-67889fd856-k94k7","namespace":"default","search_term":"render time"}}
+Command `kubectl logs customer-orders-67889fd856-k94k7 -n default | grep 'render time'` failed with return code 1
+stdout:
+
+stderr:
+Defaulted container "curl-sidecar" out of: curl-sidecar, fastapi-app
