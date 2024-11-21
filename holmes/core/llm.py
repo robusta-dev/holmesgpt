@@ -41,6 +41,18 @@ class LLM:
         pass
 
 
+def get_lite_llm_config(api_key:Optional[str], base_url:Optional[str]) -> Dict[str, Any]:
+
+    if os.environ.get("AZURE_API_BASE"):
+        # Let litellm read environment variables
+        return {}
+
+    return {
+        "api_key": api_key,
+        "base_url": base_url
+    }
+
+
 class DefaultLLM(LLM):
 
     model: str
@@ -115,14 +127,13 @@ class DefaultLLM(LLM):
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
             model=self.model,
-            api_key=self.api_key,
             messages=messages,
             tools=tools,
             tool_choice=tool_choice,
-            base_url=self.base_url,
             temperature=temperature,
             response_format=response_format,
-            drop_params=drop_params
+            drop_params=drop_params,
+            **get_lite_llm_config(api_key=self.api_key, base_url=self.base_url)
         )
 
 
