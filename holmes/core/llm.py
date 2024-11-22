@@ -152,7 +152,7 @@ class DefaultLLM(LLM):
 
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
-            # model=self.model,
+            model=self.model,
             messages=messages,
             tools=tools,
             tool_choice=tool_choice,
