@@ -41,7 +41,7 @@ class LLM:
         pass
 
 
-def get_lite_llm_config(api_key:Optional[str], base_url:Optional[str]) -> Dict[str, Any]:
+def get_litellm_params(api_key:Optional[str], base_url:Optional[str]) -> Dict[str, Any]:
 
     if os.environ.get("HOLMES_FORCE_AZURE_LITELLM_VARS"):
         litellm_config:Dict[str, Any] = {
@@ -59,6 +59,7 @@ def get_lite_llm_config(api_key:Optional[str], base_url:Optional[str]) -> Dict[s
         if azure_ad_token_provider_url:
             litellm_config["azure_ad_token_provider"] = get_bearer_token_provider(DefaultAzureCredential(), azure_ad_token_provider_url)
         return litellm_config
+
     if os.environ.get("AZURE_API_BASE"):
         # Let litellm read environment variables
         return {}
@@ -158,8 +159,7 @@ class DefaultLLM(LLM):
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
-
-
+            **get_litellm_params(api_key=self.api_key, base_url=self.base_url)
         )
 
 
