@@ -105,7 +105,7 @@ opt_api_key: Optional[str] = typer.Option(
     help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_API_KEY)",
 )
 opt_model: Optional[str] = typer.Option(
-    None,
+    os.environ.get("MODEL", None),
     help="Model to use for the LLM"
 )
 opt_config_file: Optional[Path] = typer.Option(
