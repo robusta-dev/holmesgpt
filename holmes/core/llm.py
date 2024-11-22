@@ -2,7 +2,7 @@
 import logging
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Type, Union
-from azure.identity import ClientSecretCredential, get_bearer_token_provider
+from azure.identity import get_bearer_token_provider, DefaultAzureCredential
 
 from litellm.types.utils import ModelResponse
 
@@ -57,12 +57,7 @@ def get_lite_llm_config(api_key:Optional[str], base_url:Optional[str]) -> Dict[s
 
         azure_ad_token_provider_url = os.environ.get("AZURE_OID_PROVIDER") # AZURE_OID_PROVIDER="https://cognitiveservices.azure.com/.default"
         if azure_ad_token_provider_url:
-            credential = ClientSecretCredential(
-                client_id=os.environ["AZURE_CLIENT_ID"],
-                client_secret=os.environ["AZURE_CLIENT_SECRET"],
-                tenant_id=os.environ["AZURE_TENANT_ID"],
-            )
-            litellm_config["azure_ad_token_provider"] = get_bearer_token_provider(credential, azure_ad_token_provider_url)
+            litellm_config["azure_ad_token_provider"] = get_bearer_token_provider(DefaultAzureCredential(), azure_ad_token_provider_url)
         return litellm_config
     if os.environ.get("AZURE_API_BASE"):
         # Let litellm read environment variables
