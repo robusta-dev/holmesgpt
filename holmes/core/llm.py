@@ -159,15 +159,6 @@ class DefaultLLM(LLM):
             response_format=response_format,
             drop_params=drop_params,
 
-            model="azure/prod-robusta-ai",
-            api_version= "2024-06-01",
-            api_base= "https://robustagpttest.openai.azure.com",
-            tenant_id="00831b2d-a453-47eb-b06d-317841d875e5",
-            client_secret="5bdab1c1-1360-4c69-ad7e-8741aca365f6",
-            client_id="e6b88819-3883-4183-b7fa-cb9965bc6925",
-            # azure_ad_token_provider=get_azure_ad_token_provider(),
-            azure_ad_token="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Inp4ZWcyV09OcFRrd041R21lWWN1VGR0QzZKMCIsImtpZCI6Inp4ZWcyV09OcFRrd041R21lWWN1VGR0QzZKMCJ9.eyJhdWQiOiJodHRwczovL2NvZ25pdGl2ZXNlcnZpY2VzLmF6dXJlLmNvbSIsImlzcyI6Imh0dHBzOi8vc3RzLndpbmRvd3MubmV0LzAwODMxYjJkLWE0NTMtNDdlYi1iMDZkLTMxNzg0MWQ4NzVlNS8iLCJpYXQiOjE3MzIyNzIwMTQsIm5iZiI6MTczMjI3MjAxNCwiZXhwIjoxNzMyMjc2NTgyLCJhY3IiOiIxIiwiYWlvIjoiQVZRQXEvOFlBQUFBc1E2K0pMRjNaUlYxNHdGZ0RnVlVTY2o4SndnZlVucGN1dzZjWUsxdFFadXpBV3ljK3dmbmgzbVhRVHBDMlBqMUhmMWM3Z3pOQ3FubHVxcVE3a2F0WWg1V2ZNYnRiZUhVUXFQMXFpcVhkeDg9IiwiYW1yIjpbInB3ZCIsIm1mYSJdLCJhcHBpZCI6IjA0YjA3Nzk1LThkZGItNDYxYS1iYmVlLTAyZjllMWJmN2I0NiIsImFwcGlkYWNyIjoiMCIsImdyb3VwcyI6WyJlYjdlN2FhYS0yNTlhLTQ2NTQtYTAzZC0yODI3YzI0MmM1Y2EiXSwiaWR0eXAiOiJ1c2VyIiwiaXBhZGRyIjoiMTg4LjE1MS4xNjAuNDMiLCJuYW1lIjoibmljb2xhcyIsIm9pZCI6ImJlY2QyYzEzLTA4MWMtNDY5OS05NDdiLTUxYTdhOGVhOGJiZiIsInB1aWQiOiIxMDAzMjAwM0Y1NzQyNDY3IiwicmgiOiIxLkFYa0FMUnVEQUZPazYwZXdiVEY0UWRoMTVaQWlNWDNJS0R4SG9PMk9VM1NiYlcwTUFVMTVBQS4iLCJzY3AiOiJ1c2VyX2ltcGVyc29uYXRpb24iLCJzdWIiOiIwSlF1NlRyOGRBOFh5d2didHRZWmpGamo5QTZOM09vX3g4MEZsdFV3YmcwIiwidGlkIjoiMDA4MzFiMmQtYTQ1My00N2ViLWIwNmQtMzE3ODQxZDg3NWU1IiwidW5pcXVlX25hbWUiOiJuaWNvbGFzQHJvYnVzdGEuZGV2IiwidXBuIjoibmljb2xhc0Byb2J1c3RhLmRldiIsInV0aSI6IlROaVg1X09VQjBTUzgwQTk4TnBRQUEiLCJ2ZXIiOiIxLjAiLCJ3aWRzIjpbIjYyZTkwMzk0LTY5ZjUtNDIzNy05MTkwLTAxMjE3NzE0NWUxMCIsImI3OWZiZjRkLTNlZjktNDY4OS04MTQzLTc2YjE5NGU4NTUwOSJdLCJ4bXNfaWRyZWwiOiIxIDIwIn0.eQo1nYNt9jZwi_lR6bPfn0XT6RBp4gAQ7AE5mD1EzusSSzSIlXpMVAGGSZGpd07spvs5CO8AYhIcVKiErb2fuKn9B1WyNvmMVkQbkFd3PdtCXgcrY3h9h-_UPF2umMiqtMKLQfSVDPgTKw-Igd4fFaBhckJiXFLmX8yAOdRGEte_GrwUU670s8_8my5QI82Zm8diiiJ-twecpnQXCeyDk4S7XNpVv3BK0yqN00-haO87DcFm9250WvFOHa8MDVxf8iunQTPNqequFmHVycqP22UuC-8d5BUa4TfzEw5Lz8oTXheSvpoX5mpE1rjT8O-pg-keJfHMZDUbBtBHBFLr0g"
-
 
         )
 
