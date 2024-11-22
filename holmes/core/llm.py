@@ -55,7 +55,7 @@ def get_litellm_params(api_key:Optional[str], base_url:Optional[str]) -> Dict[st
         if azure_ad_token:
             litellm_config["azure_ad_token"] = azure_ad_token
 
-        azure_ad_token_provider_url = os.environ.get("AZURE_OID_PROVIDER") # AZURE_OID_PROVIDER="https://cognitiveservices.azure.com/.default"
+        azure_ad_token_provider_url = os.environ.get("AZURE_AD_BEARER_TOKEN_PROVIDER") # AZURE_AD_BEARER_TOKEN_PROVIDER="https://cognitiveservices.azure.com/.default"
         if azure_ad_token_provider_url:
             litellm_config["azure_ad_token_provider"] = get_bearer_token_provider(DefaultAzureCredential(), azure_ad_token_provider_url)
         return litellm_config
