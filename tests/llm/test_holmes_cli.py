@@ -47,78 +47,6 @@ def idfn(val):
     else:
         return str(val)
 
-
-@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-@pytest.mark.llm
-def _test_ask_holmes_with_langfuse(experiment_name, test_case):
-
-    eval_factuality = Factuality()
-
-    metadata = get_machine_state_tags()
-    # trace = langfuse.trace(
-    #     name = f"{test_case.id}",
-    #     metadata = metadata,
-    #     input = get_input(test_case),
-    #     tags = ["test"]
-    # )
-    input = test_case.user_prompt
-    expected = test_case.expected_output
-
-    generation = langfuse.generation(
-        name= f"{test_case.id}",
-        input=input,
-        metadata=metadata
-    )
-    result = ask_holmes(test_case)
-    # span.end()
-
-    output = result.result
-
-
-    generation.update(
-        output=output
-    )
-
-    evaluate_logs_explanation = get_logs_explanation_classifier()
-    factuality = eval_factuality(output, expected, input=input)
-    previous_logs = evaluate_logs_explanation(output, expected, input=input)
-    scores = {
-        "runs_successfully": 1,
-        "factuality": factuality.score,
-        "previous_logs": previous_logs.score
-    }
-    generation.score(
-        name="factuality",
-        value=f"{factuality.score}",
-        comment=factuality.metadata["rationale"]
-    )
-    generation.score(
-        name="previous_logs",
-        value=f"{previous_logs.score}",
-        comment=previous_logs.metadata["rationale"]
-    )
-
-
-    if len(test_case.retrieval_context) > 0:
-        evaluate_context_usage = get_context_classifier(test_case.retrieval_context)
-        context_score = evaluate_context_usage(output, expected, input=input)
-        scores["context"] = context_score.score
-        generation.score(
-            name="context",
-            value=f"{context_score.score}",
-            comment=context_score.metadata["rationale"]
-        )
-
-    lf_item = resolve_dataset_item(test_case, DATASET_NAME)
-    if not lf_item:
-        raise Exception(f"Failed to resolve dataset item for test case {test_case.id}")
-    lf_item.link(
-        generation,
-        f"{experiment_name}",
-        run_metadata=metadata
-    )
-    langfuse.flush()
-
 @pytest.mark.llm
 @pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
 def test_ask_holmes_with_braintrust():
@@ -129,7 +57,6 @@ def test_ask_holmes_with_braintrust():
     #     project_name=PROJECT,
     #     dataset_name=DATASET_NAME
     # )
-
 
     dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
     experiment:Experiment|ReadonlyExperiment = braintrust.init(
@@ -142,7 +69,6 @@ def test_ask_holmes_with_braintrust():
 
     if isinstance(experiment, ReadonlyExperiment):
         raise Exception("Experiment must be writable. The above options open=False and update=False ensure this is the case so this exception should never be raised")
-
 
     eval_factuality = Factuality()
     test_cases = mh.load_ask_holmes_test_cases()
