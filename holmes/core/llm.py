@@ -2,9 +2,9 @@
 import logging
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Type, Union
+from azure.identity import get_bearer_token_provider, DefaultAzureCredential
 
 from litellm.types.utils import ModelResponse
-from pydantic.types import SecretStr
 
 from holmes.core.tools import Tool
 from pydantic import BaseModel
@@ -39,6 +39,35 @@ class LLM:
     @abstractmethod
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         pass
+
+
+def get_litellm_params(api_key:Optional[str], base_url:Optional[str]) -> Dict[str, Any]:
+
+    if os.environ.get("HOLMES_FORCE_AZURE_LITELLM_VARS"):
+        litellm_config:Dict[str, Any] = {
+            "api_version": os.environ.get("AZURE_API_VERSION"),
+            "api_base": os.environ.get("AZURE_API_BASE"),
+            "tenant_id": os.environ.get("AZURE_TENANT_ID"),
+            "client_id": os.environ.get("AZURE_CLIENT_ID"),
+            "client_secret": os.environ.get("AZURE_CLIENT_SECRET"),
+        }
+        azure_ad_token = os.environ.get("AZURE_AD_TOKEN")
+        if azure_ad_token:
+            litellm_config["azure_ad_token"] = azure_ad_token
+
+        azure_ad_token_provider_url = os.environ.get("AZURE_AD_BEARER_TOKEN_PROVIDER") # AZURE_AD_BEARER_TOKEN_PROVIDER="https://cognitiveservices.azure.com/.default"
+        if azure_ad_token_provider_url:
+            litellm_config["azure_ad_token_provider"] = get_bearer_token_provider(DefaultAzureCredential(), azure_ad_token_provider_url)
+        return litellm_config
+
+    if os.environ.get("AZURE_API_BASE"):
+        # Let litellm read environment variables
+        return {}
+
+    return {
+        "api_key": api_key,
+        "base_url": base_url
+    }
 
 
 class DefaultLLM(LLM):
@@ -76,7 +105,7 @@ class DefaultLLM(LLM):
             os.environ[api_key_env_var] = api_key
         model_requirements = litellm.validate_environment(model=model)
         if not model_requirements["keys_in_environment"]:
-            raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
+            logging.warning(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
 
     def _strip_model_prefix(self) -> str:
         """
@@ -93,7 +122,16 @@ class DefaultLLM(LLM):
         return model_name
 
 
-        # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name
+        result = litellm.completion(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            temperature=temperature,
+            response_format=response_format,
+            drop_params=drop_params,
+            **get_lite_llm_config(api_key=self.api_key, base_url=self.base_url)
+        )# this unfortunately does not seem to work for azure if the deployment name is not a well-known model name
         #if not litellm.supports_function_calling(model=model):
         #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
     def get_context_window_size(self) -> int:
@@ -115,14 +153,13 @@ class DefaultLLM(LLM):
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
             model=self.model,
-            api_key=self.api_key,
             messages=messages,
             tools=tools,
             tool_choice=tool_choice,
-            base_url=self.base_url,
             temperature=temperature,
             response_format=response_format,
-            drop_params=drop_params
+            drop_params=drop_params,
+            **get_litellm_params(api_key=self.api_key, base_url=self.base_url)
         )
 
         if isinstance(result, ModelResponse):
