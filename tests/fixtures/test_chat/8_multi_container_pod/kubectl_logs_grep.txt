@@ -1,6 +1,6 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs_grep","match_params":{"name":"customer-orders-67889fd856-k94k7","namespace":"default","search_term":"render time"}}
-Command `kubectl logs customer-orders-67889fd856-k94k7 -n default | grep 'render time'` failed with return code 1
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs_grep","match_params":{"pod_name":"customer-orders-67889fd856-k94k7","namespace":"default","extended_regexp_pattern":"render time"}}
+Command `kubectl logs customer-orders-67889fd856-k94k7 -n default | grep -E 'render time'` failed with return code 1
 stdout:
 
 stderr:
-Defaulted container "curl-sidecar" out of: curl-sidecar, fastapi-app
+error: error from server (NotFound): pods "customer-orders-67889fd856-k94k7" not found in namespace "default"
