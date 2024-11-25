@@ -63,7 +63,9 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 
 
 <details>
-<summary>Free-text questions (CLI)</summary>
+<summary>Query observability data in human language</summary>
+
+Via the Holmes CLI or [a free UI (video)](https://www.loom.com/share/3cdcd94ed6bc458888b338493b108d1d?t=0)
 
 ```bash
 holmes ask "what pods are in crashloopbackoff in my cluster and why?"
