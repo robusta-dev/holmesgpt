@@ -34,7 +34,8 @@ To this 👇
 ## Ways to Use HolmesGPT
 
 <details>
-<summary> AI analysis in Robusta UI</summary>
+<summary> Analyze your alerts in a free UI</summary>
+
 Includes free use of the Robusta AI model.
 
 ![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/2e90cc7b-4b0a-4386-ab4f-0d36692b549c)
@@ -44,7 +45,7 @@ Includes free use of the Robusta AI model.
 </details>
 
 <details>
-<summary>Root cause for Prometheus alerts in Slack</summary>
+<summary>Add root-cause-analysic to Prometheus alerts in Slack</summary>
 
 Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
 
