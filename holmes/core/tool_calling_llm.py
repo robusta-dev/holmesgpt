@@ -2,7 +2,6 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-import os
 from typing import List, Optional, Dict
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
@@ -333,6 +332,7 @@ class IssueInvestigator(ToolCallingLLM):
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
+
         if instructions != None and instructions.instructions:
             runbooks.extend(instructions.instructions)
 

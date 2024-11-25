@@ -1,0 +1,68 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"customer-orders-c88c44547-sxg6h","namespace":"default"}}
+stdout:
+Name:             customer-orders-c88c44547-sxg6h
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             ip-172-31-8-128.us-east-2.compute.internal/172.31.8.128
+Start Time:       Mon, 18 Nov 2024 14:00:06 +0100
+Labels:           app=customer-orders
+                  pod-template-hash=c88c44547
+Annotations:      <none>
+Status:           Running
+IP:               172.31.5.200
+IPs:
+  IP:           172.31.5.200
+Controlled By:  ReplicaSet/customer-orders-c88c44547
+Containers:
+  fastapi-app:
+    Container ID:   containerd://cdf17f6b5bf5e8ba5007dff4dd71be5f2ad45562776ece098f2d67f2ce1de46f
+    Image:          us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo:nicolas-no-db
+    Image ID:       us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo@sha256:4fb95fef92b4a3bb59b28fd50feb2abfe51e1cfab7376edeee72c06c3f3b9b8c
+    Ports:          8000/TCP, 8001/TCP
+    Host Ports:     0/TCP, 0/TCP
+    State:          Running
+      Started:      Mon, 18 Nov 2024 14:00:13 +0100
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-zrggv (ro)
+  curl-sidecar:
+    Container ID:  containerd://4290436349a40b333d469ade52dfc23499648c59ded642b1550ef5ce1bcf484c
+    Image:         curlimages/curl
+    Image ID:      docker.io/curlimages/curl@sha256:83a505ba2ba62f208ed6e410c268b7b9aa48f0f7b403c8108b9773b44199dbba
+    Port:          <none>
+    Host Port:     <none>
+    Args:
+      /bin/sh
+      -c
+      while true; do curl -s http://localhost:8000; sleep 60; done
+    State:          Running
+      Started:      Mon, 18 Nov 2024 14:00:14 +0100
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-zrggv (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  kube-api-access-zrggv:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
+
+stderr:

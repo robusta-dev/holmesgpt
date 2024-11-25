@@ -1,0 +1,3 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name":"customer-relations-webapp-5d98ffcfd-tz4nc","namespace":"default"}}
+Command `kubectl logs customer-relations-webapp-5d98ffcfd-tz4nc -n default` failed with return code 1
+Error from server (BadRequest): container "crw-main-container" in pod "customer-relations-webapp-5d98ffcfd-tz4nc" is waiting to start: image can't be pulled

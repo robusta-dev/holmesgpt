@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get","match_params":{"kind":"deployment","name":"customer-orders","namespace":"default"}}
+stdout:
+NAME              READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS                 IMAGES                                                                                          SELECTOR              LABELS
+customer-orders   1/1     1            1           17m   fastapi-app,curl-sidecar   us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo:nicolas-no-db,curlimages/curl   app=customer-orders   <none>
+
+stderr:

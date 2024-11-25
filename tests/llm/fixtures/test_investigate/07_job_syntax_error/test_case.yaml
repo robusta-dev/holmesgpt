@@ -1,0 +1,26 @@
+expected_output: |
+  The `KubeJobFailed` alert indicates that the Kubernetes job `product-data-scraper` in the `default` namespace failed to complete successfully.
+
+  # Investigation
+  1. The job `product-data-scraper` was configured to complete 5 times but failed all 5 attempts, reaching the backoff limit of 4.
+  2. The job's pods (`product-data-scraper-2fqrh`, `product-data-scraper-5fdj6`, etc.) were created successfully but encountered errors during execution.
+  3. The logs from one of the pods, `product-data-scraper-2fqrh`, show a syntax error: `/bin/sh: syntax error: unexpected "fi"`.
+
+  # Conclusions and Possible Root Causes
+  1. *Syntax Error in Command*: The job's container command has a syntax error, specifically an unexpected "fi", which is causing the job to fail.
+  2. *Job Configuration*: The job's backoff limit was reached due to repeated failures, indicating that the job's command needs correction.
+
+  # Next Steps
+  1. **Fix the Command**: Correct the syntax error in the job's command. Ensure that the shell script logic is correct.
+  2. **Redeploy the Job**: After fixing the command, delete the failed job and redeploy it to clear the alert.
+  3. **Verify**: Monitor the job to ensure it completes successfully without hitting the backoff limit.
+
+  To fix the job, you can edit the job's YAML to correct the command and then apply the changes:
+  ```bash
+  kubectl edit job product-data-scraper -n default
+  ```
+  After editing, delete the existing job and create a new one:
+  ```bash
+  kubectl delete job product-data-scraper -n default
+  kubectl apply -f <corrected-job-definition>.yaml
+  ```
