@@ -175,7 +175,7 @@ See an example implementation [here](examples/custom_llm.py).
 
 </details>
 
-Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
+Like what you see? Discover [more use cases](#more-use-cases) or get started by [installing HolmesGPT](#installation).
 
 ## Installation
 
@@ -523,7 +523,7 @@ HolmesGPT can consult webpages containing runbooks or other relevant information
 HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
 </details>
 
-## Other Use Cases
+## More Use Cases
 
 HolmesGPT was designed for incident response, but it is a general DevOps assistant too. Here are some examples:
 
