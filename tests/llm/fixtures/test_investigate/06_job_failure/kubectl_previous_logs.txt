@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_previous_logs","match_params":{"name":"java-api-checker-slp89","namespace":"default"}}
+Command `kubectl logs java-api-checker-slp89 -n default --previous` failed with return code 1
+stdout:
+
+stderr:
+error: error from server (NotFound): pods "java-api-checker-slp89" not found in namespace "default"

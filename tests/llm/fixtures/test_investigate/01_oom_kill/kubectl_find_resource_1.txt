@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"oomkill-deployment-696dbdbf67"}}
+Command `kubectl get -A --show-labels -o wide pod | grep oomkill-deployment-696dbdbf67` failed with return code 1
+stdout:
+
+stderr:

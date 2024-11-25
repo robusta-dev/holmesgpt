@@ -1,0 +1,45 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"job","name":"java-api-checker","namespace":"default"}}
+stdout:
+Name:             java-api-checker
+Namespace:        default
+Selector:         batch.kubernetes.io/controller-uid=9872d2b2-9be8-489b-8b90-7c94f2d01e14
+Labels:           batch.kubernetes.io/controller-uid=9872d2b2-9be8-489b-8b90-7c94f2d01e14
+                  batch.kubernetes.io/job-name=java-api-checker
+                  controller-uid=9872d2b2-9be8-489b-8b90-7c94f2d01e14
+                  job-name=java-api-checker
+Annotations:      <none>
+Parallelism:      1
+Completions:      1
+Completion Mode:  NonIndexed
+Start Time:       Mon, 18 Nov 2024 09:17:12 +0000
+Pods Statuses:    0 Active (0 Ready) / 0 Succeeded / 2 Failed
+Pod Template:
+  Labels:  batch.kubernetes.io/controller-uid=9872d2b2-9be8-489b-8b90-7c94f2d01e14
+           batch.kubernetes.io/job-name=java-api-checker
+           controller-uid=9872d2b2-9be8-489b-8b90-7c94f2d01e14
+           job-name=java-api-checker
+  Containers:
+   java-beans:
+    Image:      busybox
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      /bin/sh
+      -c
+    Args:
+      echo 'Java Network Exception:
+      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
+      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
+      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
+      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256'; sleep 60; exit 1
+    Environment:  <none>
+    Mounts:       <none>
+  Volumes:        <none>
+Events:
+  Type     Reason                Age    From            Message
+  ----     ------                ----   ----            -------
+  Normal   SuccessfulCreate      5m45s  job-controller  Created pod: java-api-checker-slp89
+  Normal   SuccessfulCreate      4m34s  job-controller  Created pod: java-api-checker-tgmn7
+  Warning  BackoffLimitExceeded  3m31s  job-controller  Job has reached the specified backoff limit
+
+stderr:

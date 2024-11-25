@@ -1,18 +1,17 @@
 <div align="center">
-  <h1 align="center">Solve Prometheus alerts faster with an AI assistant</h1>
+  <h1 align="center">Solve cloud alerts faster with an AI assistant</h1>
   <h2 align="center">HolmesGPT - AI Agent for On-Call Engineers 🔥</h2>
   <p align="center">
-    <a href="#examples"><strong>Examples</strong></a> |
+    <a href="#ways-to-use-holmesgpt"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
 
-Transforms your existing cloud alerts from this 👇
+Improve developer experience and reduce mean-time-to-respond (MTTR) by transforming alerts from this 👇
 
 ![Screenshot 2024-10-31 at 12 01 12 2](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
-
 
 To this 👇
 
@@ -34,7 +33,8 @@ To this 👇
 ## Ways to Use HolmesGPT
 
 <details>
-<summary> AI analysis in Robusta UI</summary>
+<summary> Analyze your alerts in a free UI</summary>
+
 Includes free use of the Robusta AI model.
 
 ![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/2e90cc7b-4b0a-4386-ab4f-0d36692b549c)
@@ -44,7 +44,7 @@ Includes free use of the Robusta AI model.
 </details>
 
 <details>
-<summary>Root cause for Prometheus alerts in Slack</summary>
+<summary>Add root-cause-analysis to Prometheus alerts in Slack</summary>
 
 Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
 
@@ -62,7 +62,9 @@ Note - if on Mac OS and using the Docker image, you will need to use `http://doc
 
 
 <details>
-<summary>Free-text questions (CLI)</summary>
+<summary>Query observability data in human language</summary>
+
+Via the Holmes CLI or [a free UI (video)](https://www.loom.com/share/3cdcd94ed6bc458888b338493b108d1d?t=0)
 
 ```bash
 holmes ask "what pods are in crashloopbackoff in my cluster and why?"
@@ -164,19 +166,16 @@ plugins:
 ```
 </details>
 
-
-### Bring your own LLM
 <details>
-<summary>Bring your own LLM</summary>
+<summary>Importing Holmes as a Python library and bringing your own LLM</summary>
 
 You can use Holmes as a library and pass in your own LLM implementation. This is particularly useful if LiteLLM or the default Holmes implementation does not suit you.
 
 See an example implementation [here](examples/custom_llm.py).
 
-
 </details>
 
-Like what you see? Checkout [other use cases](#other-use-cases) or get started by [installing HolmesGPT](#installation).
+Like what you see? Discover [more use cases](#more-use-cases) or get started by [installing HolmesGPT](#installation).
 
 ## Installation
 
@@ -372,13 +371,6 @@ To work with Azure AI, you need to provide the below variables:
 
 </details>
 
-**Trusting custom Certificate Authority (CA) certificate:**
-
-If your llm provider url uses a certificate from a custom CA, in order to trust it, base-64 encode the certificate, and store it in an environment variable named ``CERTIFICATE``
-
-
-
-
 ### Getting an API Key
 
 HolmesGPT requires an LLM API Key to function. The most common option is OpenAI, but many [LiteLLM-compatible](https://docs.litellm.ai/docs/providers/) models are supported. To use an LLM, set `--model` (e.g. `gpt-4o` or `bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0`) and `--api-key` (if necessary). Depending on the provider, you may need to set environment variables too.
@@ -493,6 +485,13 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
+**Additional LLM Configuration:**
+
+<details>
+<summary>Trusting custom Certificate Authority (CA) certificate</summary>
+If your llm provider url uses a certificate from a custom CA, in order to trust it, base-64 encode the certificate, and store it in an environment variable named <b>CERTIFICATE</b>
+</details>
+
 ### Enabling Integrations
 
 <details>
@@ -524,7 +523,7 @@ HolmesGPT can consult webpages containing runbooks or other relevant information
 HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
 </details>
 
-## Other Use Cases
+## More Use Cases
 
 HolmesGPT was designed for incident response, but it is a general DevOps assistant too. Here are some examples:
 
