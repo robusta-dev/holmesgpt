@@ -2,7 +2,7 @@
   <h1 align="center">Solve cloud alerts faster with an AI assistant</h1>
   <h2 align="center">HolmesGPT - AI Agent for On-Call Engineers 🔥</h2>
   <p align="center">
-    <a href="#examples"><strong>Examples</strong></a> |
+    <a href="#ways-to-use-holmesgpt"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
