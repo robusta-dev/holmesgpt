@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name":"product-data-scraper-bg7vg","namespace":"default"}}
+stdout:
+/bin/sh: syntax error: unexpected "fi"
+
+stderr:
