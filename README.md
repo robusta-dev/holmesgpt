@@ -485,7 +485,8 @@ In particular, note that [vLLM does not yet support function calling](https://gi
 
 </details>
 
-### Additional LLM Configuration
+**Additional LLM Configuration:**
+
 <details>
 <summary>Trusting custom Certificate Authority (CA) certificate</summary>
 If your llm provider url uses a certificate from a custom CA, in order to trust it, base-64 encode the certificate, and store it in an environment variable named ``CERTIFICATE``
