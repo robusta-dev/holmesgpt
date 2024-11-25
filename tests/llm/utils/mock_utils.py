@@ -43,6 +43,8 @@ class HolmesTestCase(BaseModel, Generic[T]):
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[str] = [] # Elements helping to evaluate the correctness of the LLM response
     tool_mocks: List[ToolMock] = []
+    before_test: Optional[str] = None
+    after_test: Optional[str] = None
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
     user_prompt: str # The user's question to ask holmes

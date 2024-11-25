@@ -11,6 +11,7 @@ from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
 from tests.llm.utils.braintrust import upload_dataset
 from tests.llm.utils.classifiers import get_context_classifier, get_logs_explanation_classifier
+from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.langfuse import resolve_dataset_item, upload_test_cases
 from tests.llm.utils.system import readable_timestamp
@@ -53,7 +54,6 @@ def idfn(val):
 def _test_ask_holmes_with_langfuse(experiment_name, test_case):
 
     eval_factuality = Factuality()
-
     metadata = get_machine_state_tags()
     # trace = langfuse.trace(
     #     name = f"{test_case.id}",
@@ -69,7 +69,12 @@ def _test_ask_holmes_with_langfuse(experiment_name, test_case):
         input=input,
         metadata=metadata
     )
-    result = ask_holmes(test_case)
+    result = None
+    try:
+        before_test(test_case)
+        result = ask_holmes(test_case)
+    finally:
+        after_test(test_case)
     # span.end()
 
     output = result.result
