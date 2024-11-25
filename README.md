@@ -9,10 +9,9 @@
   </p>
 </div>
 
-Transforms your existing cloud alerts from this 👇
+Improve developer experience and reduce mean-time-to-respond (MTTR) by transforming alerts from this 👇
 
 ![Screenshot 2024-10-31 at 12 01 12 2](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
-
 
 To this 👇
 
@@ -167,15 +166,12 @@ plugins:
 ```
 </details>
 
-
-### Bring your own LLM
 <details>
-<summary>Bring your own LLM</summary>
+<summary>Importing Holmes as a Python library and bringing your own LLM</summary>
 
 You can use Holmes as a library and pass in your own LLM implementation. This is particularly useful if LiteLLM or the default Holmes implementation does not suit you.
 
 See an example implementation [here](examples/custom_llm.py).
-
 
 </details>
 
