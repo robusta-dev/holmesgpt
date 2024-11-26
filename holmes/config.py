@@ -39,6 +39,7 @@ class Config(RobustaBaseConfig):
     )
     model: Optional[str] = "gpt-4o"
     max_steps: Optional[int] = 10
+    cluster_name: Optional[str] = None
 
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
@@ -77,6 +78,7 @@ class Config(RobustaBaseConfig):
     def load_from_env(cls):
         kwargs = {}
         for field_name in [
+            "cluster_name",
             "model",
             "api_key",
             "max_steps",

@@ -1,6 +1,8 @@
 certificate: "" # base64 encoded
 logLevel: INFO
 
+clusterName: ""
+
 additionalEnvVars: []
 additional_env_vars: []
 imagePullSecrets: []

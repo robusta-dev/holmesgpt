@@ -1,6 +1,8 @@
 import os
 from holmes.core import investigation
 from holmes.utils.cert_utils import add_custom_certificate
+from contextlib import asynccontextmanager
+from holmes.utils.holmes_status import update_holmes_status_in_db
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -67,10 +69,16 @@ def init_logging():
 
 init_logging()
 dal = SupabaseDal()
-app = FastAPI()
-
-console = Console()
 config = Config.load_from_env()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    update_holmes_status_in_db(dal, config)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+console = Console()
 
 
 @app.post("/api/investigate")

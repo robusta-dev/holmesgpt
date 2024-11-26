@@ -27,6 +27,9 @@ ISSUES_TABLE = "Issues"
 EVIDENCE_TABLE = "Evidence"
 RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
+HOLMES_STATUS_TABLE = "HolmesStatus"
+HOLMES_TOOLSET = "HolmesToolsStatus"
+
 
 class RobustaConfig(BaseModel):
     sinks_config: List[Dict[str, Dict]]
@@ -264,3 +267,24 @@ class SupabaseDal:
         except:
             logging.exception("failed to fetch workload issues data")
             return []
+
+    def upsert_holmes_status(self, holmes_status_data: dict) -> None:
+        updated_at = datetime.now().isoformat()
+        try:
+            res = (
+                self.client
+                .table(HOLMES_STATUS_TABLE)
+                .upsert({
+                    "account_id": self.account_id,
+                    "updated_at": updated_at,
+                    **holmes_status_data
+                })
+                .execute()
+            )
+        except Exception as error:
+            logging.error("Error happened during upserting holmes status", exc_info=True)
+
+        return None
+    
+    def upsert_holmes_tools(self, holmes_toolset_data: dict) -> None:
+        pass

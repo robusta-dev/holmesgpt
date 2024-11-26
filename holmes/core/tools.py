@@ -12,10 +12,12 @@ from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 ToolsetPattern = Union[Literal['*'], List[str]]
 
+
 class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
     required: bool = True
+
 
 class Tool(ABC, BaseModel):
     name: str
@@ -54,6 +56,7 @@ class Tool(ABC, BaseModel):
     @abstractmethod
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return ""
+
 
 class YAMLTool(Tool, BaseModel):
     command: Optional[str] = None
@@ -126,16 +129,20 @@ class YAMLTool(Tool, BaseModel):
         except subprocess.CalledProcessError as e:
             return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
 
+
 class StaticPrerequisite(BaseModel):
     enabled: bool
     disabled_reason: str
+
 
 class ToolsetCommandPrerequisite(BaseModel):
     command: str                 # must complete successfully (error code 0) for prereq to be satisfied
     expected_output: str = None  # optional
 
+
 class ToolsetEnvironmentPrerequisite(BaseModel):
     env: List[str] = []          # optional
+
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra='forbid')
