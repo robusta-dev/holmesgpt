@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import threading
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 from uuid import uuid4
 
 import yaml
@@ -30,7 +30,6 @@ SESSION_TOKENS_TABLE = "AuthTokens"
 
 class RobustaConfig(BaseModel):
     sinks_config: List[Dict[str, Dict]]
-
 
 class RobustaToken(BaseModel):
     store_url: str
@@ -127,10 +126,11 @@ class SupabaseDal:
         self.client.postgrest.auth(res.session.access_token)
         return res.user.id
 
-    def get_issue_data(self, issue_id: str) -> Optional[Dict]:
+    def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no
         # foreign key relation between Issues and Evidence.
-
+        if not issue_id:
+            return None
         if not self.enabled:  # store not initialized
             return None
         issue_data = None
@@ -145,7 +145,7 @@ class SupabaseDal:
             if len(issue_response.data):
                 issue_data = issue_response.data[0]
 
-        except:  # e.g. invalid id format
+        except Exception:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue data")
             return None
         if not issue_data:
@@ -205,7 +205,7 @@ class SupabaseDal:
         ).execute()
         return token
 
-    def get_ai_credentials(self) -> (str, str):
+    def get_ai_credentials(self) -> Tuple[str, str]:
         with self.lock:
             session_token = self.token_cache.get("session_token")
             if not session_token:

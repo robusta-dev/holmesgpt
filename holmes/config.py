@@ -10,6 +10,7 @@ from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
 from rich.console import Console
 
+
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
@@ -102,7 +103,7 @@ class Config(RobustaBaseConfig):
                 kwargs[field_name] = val
         return cls(**kwargs)
 
-    def _create_tool_executor(
+    def create_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         all_toolsets = load_builtin_toolsets(dal=dal)
@@ -146,7 +147,7 @@ class Config(RobustaBaseConfig):
     def create_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self._create_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_tool_executor(console, allowed_toolsets, dal)
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -164,7 +165,7 @@ class Config(RobustaBaseConfig):
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self._create_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_tool_executor(console, allowed_toolsets, dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,

@@ -2,7 +2,6 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-import os
 from typing import List, Optional, Dict
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
@@ -118,7 +117,7 @@ class ToolCallingLLM:
                     messages, max_context_size, maximum_output_token
                 )
 
-            logging.debug(f"sending messages {messages}")
+            logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
                 full_response = self.llm.completion(
                     messages=parse_messages_tags(messages),
@@ -128,7 +127,7 @@ class ToolCallingLLM:
                     response_format=response_format,
                     drop_params=True,
                 )
-                logging.debug(f"got response {full_response}")
+                logging.debug(f"got response {full_response.to_json()}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if (
@@ -333,6 +332,7 @@ class IssueInvestigator(ToolCallingLLM):
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
+
         if instructions != None and instructions.instructions:
             runbooks.extend(instructions.instructions)
 

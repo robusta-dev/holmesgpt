@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"db-certs-authenticator","namespace":"default"}}
+Command `kubectl get -A --show-labels -o wide pod | grep db-certs-authenticator` failed with return code 1
+stdout:
+
+stderr:
