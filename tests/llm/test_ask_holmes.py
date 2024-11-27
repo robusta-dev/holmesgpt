@@ -1,6 +1,4 @@
 from pathlib import Path
-from langfuse import Langfuse
-from pydantic import TypeAdapter
 import os
 import pytest
 
@@ -9,17 +7,14 @@ from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
-from tests.llm.utils.braintrust import upload_dataset
-from tests.llm.utils.classifiers import get_context_classifier, get_logs_explanation_classifier
+import tests.llm.utils.braintrust as braintrust_util
+from tests.llm.utils.classifiers import get_context_classifier
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.langfuse import resolve_dataset_item, upload_test_cases
 from tests.llm.utils.system import readable_timestamp
 from tests.llm.utils.mock_toolset import MockToolsets
-from braintrust import Experiment, ReadonlyExperiment
 
 from autoevals.llm import Factuality
-import braintrust
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
 from tests.llm.utils.system import get_machine_state_tags
 from os import path
@@ -29,15 +24,19 @@ TEST_CASES_FOLDER = Path(path.abspath(path.join(
     "fixtures", "test_ask_holmes"
 )))
 
-DATASET_NAME = "ask_holmes"
-
-langfuse = Langfuse()
+system_metadata = get_machine_state_tags()
+DATASET_NAME = f"ask_holmes:{system_metadata.get('branch', 'unknown_branch')}"
 
 def get_test_cases():
-    experiment_name = f"{readable_timestamp()}:gpt-4o-mini"
+
+    experiment_name = f'ask_holmes:{os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())}'
 
     mh = MockHelper(TEST_CASES_FOLDER)
-    upload_test_cases(mh.load_test_cases(), DATASET_NAME)
+
+    if os.environ.get('UPLOAD_DATASET'):
+        if os.environ.get('BRAINTRUST_API_KEY'):
+            bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
+            bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_ask_holmes_test_cases()
     return [(experiment_name, test_case) for test_case in test_cases]
@@ -48,137 +47,53 @@ def idfn(val):
     else:
         return str(val)
 
-
-@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 @pytest.mark.llm
-def _test_ask_holmes_with_langfuse(experiment_name, test_case):
+@pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
+@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
+def test_ask_holmes_with_braintrust(experiment_name, test_case):
+
+    bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
+
+    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     eval_factuality = Factuality()
-    metadata = get_machine_state_tags()
-    # trace = langfuse.trace(
-    #     name = f"{test_case.id}",
-    #     metadata = metadata,
-    #     input = get_input(test_case),
-    #     tags = ["test"]
-    # )
-    input = test_case.user_prompt
-    expected = test_case.expected_output
 
-    generation = langfuse.generation(
-        name= f"{test_case.id}",
-        input=input,
-        metadata=metadata
-    )
-    result = None
     try:
         before_test(test_case)
+    except Exception as e:
+        after_test(test_case)
+        raise e
+
+    try:
         result = ask_holmes(test_case)
     finally:
         after_test(test_case)
-    # span.end()
 
+    input = test_case.user_prompt
     output = result.result
+    expected = test_case.expected_output
 
-
-    generation.update(
-        output=output
-    )
-
-    evaluate_logs_explanation = get_logs_explanation_classifier()
-    factuality = eval_factuality(output, expected, input=input)
-    previous_logs = evaluate_logs_explanation(output, expected, input=input)
     scores = {
-        "runs_successfully": 1,
-        "factuality": factuality.score,
-        "previous_logs": previous_logs.score
+        "faithfulness": eval_factuality(output, expected, input=input).score
     }
-    generation.score(
-        name="factuality",
-        value=f"{factuality.score}",
-        comment=factuality.metadata["rationale"]
-    )
-    generation.score(
-        name="previous_logs",
-        value=f"{previous_logs.score}",
-        comment=previous_logs.metadata["rationale"]
-    )
-
 
     if len(test_case.retrieval_context) > 0:
         evaluate_context_usage = get_context_classifier(test_case.retrieval_context)
-        context_score = evaluate_context_usage(output, expected, input=input)
-        scores["context"] = context_score.score
-        generation.score(
-            name="context",
-            value=f"{context_score.score}",
-            comment=context_score.metadata["rationale"]
-        )
+        scores["context"] = evaluate_context_usage(output, expected, input=input).score
 
-    lf_item = resolve_dataset_item(test_case, DATASET_NAME)
-    if not lf_item:
-        raise Exception(f"Failed to resolve dataset item for test case {test_case.id}")
-    lf_item.link(
-        generation,
-        f"{experiment_name}",
-        run_metadata=metadata
+    bt_helper.end_evaluation(
+        eval=eval,
+        input=input,
+        output=output or "",
+        expected=expected,
+        id=test_case.id,
+        scores=scores
     )
-    langfuse.flush()
+    print(f"** OUTPUT **\n{output}")
+    print(f"** SCORES **\n{scores}")
 
-@pytest.mark.llm
-@pytest.mark.skipif(not os.environ.get('BRAINTRUST_API_KEY'), reason="BRAINTRUST_API_KEY must be set to run LLM evaluations")
-def test_ask_holmes_with_braintrust():
-
-    mh = MockHelper(TEST_CASES_FOLDER)
-    # upload_dataset(
-    #     test_cases=mh.load_investigate_test_cases(),
-    #     project_name=PROJECT,
-    #     dataset_name=DATASET_NAME
-    # )
-
-
-    dataset = braintrust.init_dataset(project=PROJECT, name=DATASET_NAME)
-    experiment:Experiment|ReadonlyExperiment = braintrust.init(
-        project=PROJECT,
-        experiment=f"ask_holmes_{readable_timestamp()}",
-        dataset=dataset,
-        open=False,
-        update=False,
-        metadata=get_machine_state_tags())
-
-    if isinstance(experiment, ReadonlyExperiment):
-        raise Exception("Experiment must be writable. The above options open=False and update=False ensure this is the case so this exception should never be raised")
-
-
-    eval_factuality = Factuality()
-    test_cases = mh.load_ask_holmes_test_cases()
-    # for test_case in test_cases:
-    for dataset_row in dataset:
-        test_case = TypeAdapter(AskHolmesTestCase).validate_python(dataset_row["metadata"])
-        with experiment.start_span(name=test_case.id) as span:
-
-            result = ask_holmes(test_case)
-
-            input = test_case.user_prompt
-            output = result.result
-            expected = test_case.expected_output
-
-            scores = {
-                "faithfulness": eval_factuality(output, expected, input=input).score,
-            }
-
-            if len(test_case.retrieval_context) > 0:
-                evaluate_context_usage = get_context_classifier(test_case.retrieval_context)
-                scores["context"] = evaluate_context_usage(output, expected, input=input).score
-
-            span.log(
-                input=input,
-                output=output,
-                expected=expected,
-                dataset_record_id=dataset_row["id"],
-                scores=scores
-            )
-
-    experiment.flush()
+    assert scores.get("faithfulness") >= test_case.evaluation.faithfulness
+    assert scores.get("context", 0) >= test_case.evaluation.context
 
 
 def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
@@ -186,9 +101,10 @@ def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
     mock = MockToolsets(tools_passthrough=test_case.mocks_passthrough, test_case_folder=test_case.folder)
 
     expected_tools = []
-    for tool_mock in test_case.tool_mocks:
-        mock.mock_tool(tool_mock)
-        expected_tools.append(tool_mock.tool_name)
+    if not os.environ.get("RUN_LIVE"):
+        for tool_mock in test_case.tool_mocks:
+            mock.mock_tool(tool_mock)
+            expected_tools.append(tool_mock.tool_name)
 
     tool_executor = ToolExecutor(mock.mocked_toolsets)
     ai = ToolCallingLLM(

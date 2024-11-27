@@ -1,0 +1,8 @@
+user_prompt: "Why is there high latency with the customer-orders deployment?"
+expected_output: |
+  High latency in the `customer-orders` deployment is due to slow database calls.
+  The logs show that database operations, specifically fetching data using a stored procedure, are taking between 5 to 10 seconds to complete.
+  This delay directly impacts the page rendering time, causing high latency in the application.
+before_test: kubectl apply -f ./helm/manifest.yaml
+after_test: kubectl delete -f ./helm/manifest.yaml
+mocks_passthrough: False

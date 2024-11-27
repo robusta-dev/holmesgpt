@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"logging-agent"}}
+stdout:
+default              logging-agent                                            0/1     Init:RunContainerError       3 (5s ago)       46s    10.244.0.166   kind-control-plane   <none>           <none>            <none>
+
+stderr:

@@ -1,0 +1,12 @@
+user_prompt: "What is the issue with search-engine-service"
+expected_output: |
+  The `search-engine-service` pod is running but not ready due to a failing readiness probe.
+  The readiness probe is set to execute `sh -c exit 1`, which always fails, causing the pod to be marked as not ready.
+  Adjust the readiness probe to a command that accurately reflects the pod's readiness state.
+
+# before_test: |
+#   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/readiness_probe_fail/failing_readiness_probe.yaml
+#   sleep 30
+# after_test: |
+#   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/readiness_probe_fail/failing_readiness_probe.yaml
+mocks_passthrough: False

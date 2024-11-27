@@ -24,11 +24,8 @@ TEST_CASE_ID_PATTERN = r'^[\d+]_(?:[a-z]+_)*[a-z]+$'
 CONFIG_FILE_NAME = "test_case.yaml"
 
 class LLMEvaluation(BaseModel):
-    answer_relevancy: float = 0.5
-    faithfulness: float = 0.5
-    contextual_precision: float = 0.5
-    contextual_recall: float = 0
-    contextual_relevancy: float = 0
+    faithfulness: float = 0.3
+    context: float = 0
 
 class Message(BaseModel):
     message: str

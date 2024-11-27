@@ -8,6 +8,3 @@ retrieval_context:
 evaluation:
   answer_relevancy: 0
   faithfulness: 0
-  contextual_precision: 0
-  contextual_recall: 0
-  contextual_relevancy: 0

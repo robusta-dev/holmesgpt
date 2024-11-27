@@ -13,17 +13,17 @@ spec:
         app: customer-orders
     spec:
       containers:
+        - name: fastapi-app
+          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo:no-db-v1
+          ports:
+            - containerPort: 8000
+            - containerPort: 8001
         - name: curl-sidecar
           image: curlimages/curl
           args:
             - /bin/sh
             - -c
             - while true; do curl -s http://localhost:8000; sleep 60; done
-        - name: fastapi-app
-          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo:no-db-v1
-          ports:
-            - containerPort: 8000
-            - containerPort: 8001
 ---
 apiVersion: v1
 kind: Service

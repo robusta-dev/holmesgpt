@@ -14,3 +14,5 @@ expected_output: |
   2. Check network connectivity between the Kubernetes cluster and the database.
   3. Review and possibly increase the database's connection limits or queue size.
   4. Consider adjusting the job's retry logic or backoff limit to allow more retries if transient issues are expected.
+evaluation:
+  faithfulness: 0

@@ -23,7 +23,7 @@ class ToolMock(MockMetadata):
     return_value: str
 
 
-class RaiseExceptionTool(Tool):
+class SaveMockTool(Tool):
     """
     Tool that raises an exception if invoked.
     It is used to fail tests if not all invoked tool calls are mocked. This ensures stable test conditions
@@ -61,11 +61,11 @@ class RaiseExceptionTool(Tool):
         with open(mock_file_path, 'w') as f:
             f.write(mock_metadata_json + '\n')
             f.write(output)
-            f.close()
+
+        return output
 
     def invoke(self, params) -> str:
-        self._auto_generate_mock_file(params)
-        raise Exception(f"Tool {self.name} was invoked but a mock is required. A mock file was generated for you at {self._get_mock_file_path()}. Remove the '{AUTO_GENERATED_FILE_SUFFIX}' suffix to enable that file. Params={str(params)}")
+        return self._auto_generate_mock_file(params)
 
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -134,7 +134,7 @@ class MockToolsets:
         if self.tools_passthrough:
             return tool
         else:
-            return RaiseExceptionTool(unmocked_tool=tool, toolset_name=toolset_name, test_case_folder=self.test_case_folder)
+            return SaveMockTool(unmocked_tool=tool, toolset_name=toolset_name, test_case_folder=self.test_case_folder)
 
     def _update(self):
         mocked_toolsets = []

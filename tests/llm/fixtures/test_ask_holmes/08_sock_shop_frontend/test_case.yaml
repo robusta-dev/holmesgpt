@@ -1,0 +1,22 @@
+user_prompt: "Why did the sock-shop front-end stop working?"
+expected_output: |
+  The sock-shop front-end stopped working due to an internal server error related to MongoDB. The error message indicates that the MongoDB client driver may require an upgrade due to an unsupported OP_QUERY command. This results in a failure to process orders, causing a crash in the front-end application.
+
+  To resolve this issue, consider upgrading the MongoDB client driver to a version that supports the current MongoDB server's command set.
+
+  The sock-shop front-end stopped working due to an internal server error caused by an outdated MongoDB client driver. The error message indicates that the `find` command is unsupported, suggesting the client driver needs an upgrade. This led to a failure in processing orders, resulting in a crash with a `TypeError` when trying to access `customerOrders`.
+
+  To resolve this, update the MongoDB client driver to a version that supports the current MongoDB server's commands.
+retrieval_context:
+  - "The sock-shop front-end crashed"
+  - "The mongodb client driver may require an upgrade"
+  - "Query failed with error code 352 and error message 'Unsupported OP_QUERY command: find"
+before_test: |
+  kubectl apply -f ./helm/sock-shop.yaml
+  sleep 20
+  kubectl apply -f ./helm/trigger-carts-issue.yaml
+  sleep 10
+  kubectl delete -f ./helm/trigger-carts-issue.yaml
+after_test: |
+  kubectl delete -f ./helm/sock-shop.yaml || true
+  kubectl delete -f ./helm/trigger-carts-issue.yaml

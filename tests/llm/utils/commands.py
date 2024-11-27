@@ -1,5 +1,6 @@
 
 import logging
+import os
 import subprocess
 from tests.llm.utils.mock_utils import HolmesTestCase
 
@@ -23,9 +24,13 @@ def invoke_command(
         raise e
 
 def before_test(test_case:HolmesTestCase):
-    if test_case.before_test:
-        invoke_command(command=test_case.before_test, cwd=test_case.folder)
+    if test_case.before_test and os.environ.get("RUN_LIVE"):
+        commands = test_case.before_test.split("\n")
+        for command in commands:
+            invoke_command(command=command, cwd=test_case.folder)
 
 def after_test(test_case:HolmesTestCase):
-    if test_case.after_test:
-        invoke_command(command=test_case.after_test, cwd=test_case.folder)
+    if test_case.after_test and os.environ.get("RUN_LIVE"):
+        commands = test_case.after_test.split("\n")
+        for command in commands:
+            invoke_command(command=command, cwd=test_case.folder)
