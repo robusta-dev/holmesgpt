@@ -48,10 +48,9 @@ toolsets:
         description: "Run `kubectl logs` on a single container within a Kubernetes pod. This is to get the logs of a specific container in a multi-container pod."
         command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} "
 
-
       - name: "kubectl_logs_grep"
-        description: "Search for a specific term in the logs of a single Kubernetes pod. Only provide a pod name, not a deployment or other resource."
-        command: "kubectl logs {{ name }} -n {{ namespace }} | grep {{ search_term }}"
+        description: "Search for a specific pattern(s) in a log by running `kubectl logs` and 'grep -E' on a single Kubernetes pod. Handles long logs better is output is not truncated."
+        command: "kubectl logs {{ pod_name }} -n {{ namespace }} | grep -E {{ extended_regexp_pattern }}"
 
       - name: "kubectl_events"
         description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment, 'job'', 'node', etc."
