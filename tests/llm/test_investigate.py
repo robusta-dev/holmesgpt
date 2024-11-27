@@ -37,7 +37,7 @@ class MockConfig(Config):
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
 
-        mock = MockToolsets(tools_passthrough=self._test_case.mocks_passthrough, test_case_folder=self._test_case.folder)
+        mock = MockToolsets(generate_mocks=self._test_case.generate_mocks, test_case_folder=self._test_case.folder)
 
         expected_tools = []
         for tool_mock in self._test_case.tool_mocks:
@@ -49,7 +49,11 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    experiment_name = f'investigate:{os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())}'
+
+    unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
+    experiment_name = f'investigate:{unique_test_id}'
+    if os.environ.get("EXPERIMENT_ID"):
+        experiment_name = f'investigate:{os.environ.get("EXPERIMENT_ID")}'
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
@@ -78,7 +82,7 @@ def test_investigate(experiment_name, test_case):
     config = MockConfig(test_case)
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
-        dal_passthrough=test_case.mocks_passthrough,
+        generate_mocks=test_case.generate_mocks,
         issue_data=test_case.issue_data,
         resource_instructions=test_case.resource_instructions
     )

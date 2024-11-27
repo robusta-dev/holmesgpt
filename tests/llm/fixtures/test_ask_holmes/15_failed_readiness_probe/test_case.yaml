@@ -9,4 +9,3 @@ expected_output: |
 #   sleep 30
 # after_test: |
 #   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/readiness_probe_fail/failing_readiness_probe.yaml
-mocks_passthrough: False

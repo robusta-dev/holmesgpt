@@ -35,7 +35,7 @@ T = TypeVar('T')
 class HolmesTestCase(BaseModel, Generic[T]):
     id: str
     folder: str
-    mocks_passthrough: bool = True # If True, unmocked tools and dal can be invoked by the LLM without error
+    generate_mocks: bool = False # If True, generate mocks
     expected_output: str # Whether an output is expected
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[str] = [] # Elements helping to evaluate the correctness of the LLM response

@@ -29,7 +29,10 @@ DATASET_NAME = f"ask_holmes:{system_metadata.get('branch', 'unknown_branch')}"
 
 def get_test_cases():
 
-    experiment_name = f'ask_holmes:{os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())}'
+    unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
+    experiment_name = f'ask_holmes:{unique_test_id}'
+    if os.environ.get("EXPERIMENT_ID"):
+        experiment_name = f'ask_holmes:{os.environ.get("EXPERIMENT_ID")}'
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
@@ -98,7 +101,7 @@ def test_ask_holmes_with_braintrust(experiment_name, test_case):
 
 def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
 
-    mock = MockToolsets(tools_passthrough=test_case.mocks_passthrough, test_case_folder=test_case.folder)
+    mock = MockToolsets(generate_mocks=test_case.generate_mocks, test_case_folder=test_case.folder)
 
     expected_tools = []
     if not os.environ.get("RUN_LIVE"):

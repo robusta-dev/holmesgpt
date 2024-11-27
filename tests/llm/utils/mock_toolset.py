@@ -108,12 +108,12 @@ class MockToolsets:
     unmocked_toolsets: List[Toolset]
     mocked_toolsets: List[Toolset]
     _mocks: List[ToolMock]
-    tools_passthrough: bool
+    generate_mocks: bool
     test_case_folder: str
 
-    def __init__(self, test_case_folder:str, tools_passthrough: bool = True) -> None:
+    def __init__(self, test_case_folder:str, generate_mocks: bool = True) -> None:
         self.unmocked_toolsets = load_builtin_toolsets()
-        self.tools_passthrough = tools_passthrough
+        self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
         self._mocks = []
         self.mocked_toolsets = []
@@ -131,10 +131,10 @@ class MockToolsets:
         return found_mocks
 
     def _wrap_tool_with_exception_if_required(self, tool:Tool, toolset_name:str) -> Tool:
-        if self.tools_passthrough:
-            return tool
-        else:
+        if self.generate_mocks:
             return SaveMockTool(unmocked_tool=tool, toolset_name=toolset_name, test_case_folder=self.test_case_folder)
+        else:
+            return tool
 
     def _update(self):
         mocked_toolsets = []

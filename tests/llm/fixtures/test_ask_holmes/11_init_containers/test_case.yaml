@@ -10,4 +10,3 @@ expected_output: |
 #   sleep 40
 # after_test: |
 #   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/init_crashloop_backoff/create_init_crashloop_backoff.yaml
-mocks_passthrough: False
