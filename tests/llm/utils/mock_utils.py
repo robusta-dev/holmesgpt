@@ -32,7 +32,7 @@ class Message(BaseModel):
 
 T = TypeVar('T')
 
-class HolmesTestCase(BaseModel, Generic[T]):
+class HolmesTestCase(BaseModel):
     id: str
     folder: str
     generate_mocks: bool = False # If True, generate mocks
@@ -146,6 +146,7 @@ def load_issue_data(test_case_folder:Path) -> Optional[Dict]:
     if issue_data_mock_path.exists():
         return json.loads(read_file(issue_data_mock_path))
     return None
+
 
 def load_resource_instructions(test_case_folder:Path) -> Optional[ResourceInstructions]:
     resource_instructions_mock_path = test_case_folder.joinpath(Path("resource_instructions.json"))

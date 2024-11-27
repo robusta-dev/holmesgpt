@@ -70,6 +70,8 @@ RUN python -m playwright install firefox --with-deps
 # We're installing here libexpat1, to upgrade the package to include a fix to 3 high CVEs. CVE-2024-45491,CVE-2024-45490,CVE-2024-45492
 RUN apt-get update \
     && apt-get install -y \
+    curl \
+    jq \
     git \
     apt-transport-https \
     gnupg2 \

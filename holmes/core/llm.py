@@ -71,12 +71,44 @@ class DefaultLLM(LLM):
         if not lookup:
             raise Exception(f"Unknown provider for model {model}")
         provider = lookup[1]
-        api_key_env_var = f"{provider.upper()}_API_KEY"
-        if api_key:
-            os.environ[api_key_env_var] = api_key
-        model_requirements = litellm.validate_environment(model=model)
+        if provider == "watsonx":
+            # NOTE: LiteLLM's validate_environment does not currently include checks for IBM WatsonX.
+            # The following WatsonX-specific variables are set based on documentation from:
+            # https://docs.litellm.ai/docs/providers/watsonx
+            # Required variables for WatsonX:
+            # - WATSONX_URL: Base URL of your WatsonX instance (required)
+            # - WATSONX_APIKEY or WATSONX_TOKEN: IBM Cloud API key or IAM auth token (one is required)
+            model_requirements = {'missing_keys': [], 'keys_in_environment': True}
+            if api_key:
+                os.environ["WATSONX_APIKEY"] = api_key
+            if not "WATSONX_URL" in os.environ:
+                model_requirements['missing_keys'].append("WATSONX_URL")
+                model_requirements['keys_in_environment'] = False
+            if not "WATSONX_APIKEY" in os.environ and not "WATSONX_TOKEN" in os.environ:
+                model_requirements['missing_keys'].extend(["WATSONX_APIKEY", "WATSONX_TOKEN"])
+                model_requirements['keys_in_environment'] = False
+            # WATSONX_PROJECT_ID is required because we don't let user pass it to completion call directly
+            if not "WATSONX_PROJECT_ID" in os.environ:
+                model_requirements['missing_keys'].append("WATSONX_PROJECT_ID")
+                model_requirements['keys_in_environment'] = False
+            # https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces
+            # using custom watsonx deployments might require to set WATSONX_DEPLOYMENT_SPACE_ID env
+            if "watsonx/deployment/" in self.model:
+                logging.warning(
+                            "Custom WatsonX deployment detected. You may need to set the WATSONX_DEPLOYMENT_SPACE_ID "
+                            "environment variable for proper functionality. For more information, refer to the documentation: "
+                            "https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces"
+                )
+        else:
+            # 
+            api_key_env_var = f"{provider.upper()}_API_KEY"
+            if api_key:
+                os.environ[api_key_env_var] = api_key
+            model_requirements = litellm.validate_environment(model=model)
+        
         if not model_requirements["keys_in_environment"]:
             raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
+
 
     def _strip_model_prefix(self) -> str:
         """
@@ -125,14 +157,7 @@ class DefaultLLM(LLM):
             drop_params=drop_params
         )
 
-
-
         if isinstance(result, ModelResponse):
-            response = result.choices[0]
-            response_message = response.message
-            # when asked to run tools, we expect no response other than the request to run tools unless bedrock
-            if response_message.content and ('bedrock' not in self.model and logging.DEBUG != logging.root.level):
-                logging.warning(f"got unexpected response when tools were given: {response_message.content}")
             return result
         else:
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
