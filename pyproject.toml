@@ -28,7 +28,7 @@ supabase = "^2.5"
 colorlog = "^6.8.2"
 strenum = "^0.4.15"
 markdown = "^3.6"
-litellm = "^1.50.2"
+litellm = "^1.52.6"
 certifi = "^2024.7.4"
 urllib3 = "^1.26.19"
 boto3 = "^1.34.145"
@@ -42,9 +42,10 @@ starlette = "^0.40"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
-deepeval = "^1.4.8"
 pytest-xdist = "^3.6.1"
 ruff = "^0.7.3"
+braintrust = "^0.0.168"
+autoevals = "^0.0.103"
 
 [build-system]
 requires = ["poetry-core"]

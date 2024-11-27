@@ -1,0 +1,72 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"oomkill-deployment-696dbdbf67-d47z6","namespace":"default"}}
+stdout:
+Name:             inventory-management-api
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             ip-172-31-21-139.us-east-2.compute.internal/172.31.21.139
+Start Time:       Fri, 15 Nov 2024 15:41:31 +0000
+Labels:           <none>
+Annotations:      <none>
+Status:           Running
+IP:               172.31.23.45
+IPs:
+  IP:  172.31.23.45
+Containers:
+  nginx:
+    Container ID:  containerd://dcd66290c2c48eb9e97d3b6c61258d6b58b392640d1dbad653d4e9947d69e7fb
+    Image:         nginx
+    Image ID:      docker.io/library/nginx@sha256:bc5eac5eafc581aeda3008b4b1f07ebba230de2f27d47767129a6a905c84f470
+    Port:          80/TCP
+    Host Port:     0/TCP
+    Command:
+      wge
+      -O
+      /work-dir/index.html
+      https://home.robusta.dev
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       StartError
+      Message:      failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: exec: "wge": executable file not found in $PATH: unknown
+      Exit Code:    128
+      Started:      Thu, 01 Jan 1970 00:00:00 +0000
+      Finished:     Fri, 15 Nov 2024 15:43:02 +0000
+    Ready:          False
+    Restart Count:  4
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jffrr (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  kube-api-access-jffrr:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age                   From               Message
+  ----     ------     ----                  ----               -------
+  Normal   Scheduled  2m57s                 default-scheduler  Successfully assigned default/inventory-management-api to ip-172-31-21-139.us-east-2.compute.internal
+  Normal   Pulled     2m52s                 kubelet            Successfully pulled image "nginx" in 4.534s (4.534s including waiting). Image size: 72955450 bytes.
+  Normal   Pulled     2m51s                 kubelet            Successfully pulled image "nginx" in 229ms (229ms including waiting). Image size: 72955450 bytes.
+  Normal   Pulled     2m37s                 kubelet            Successfully pulled image "nginx" in 212ms (212ms including waiting). Image size: 72955450 bytes.
+  Normal   Created    2m9s (x4 over 2m52s)  kubelet            Created container nginx
+  Warning  Failed     2m9s (x4 over 2m52s)  kubelet            Error: failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: exec: "wge": executable file not found in $PATH: unknown
+  Normal   Pulled     2m9s                  kubelet            Successfully pulled image "nginx" in 190ms (190ms including waiting). Image size: 72955450 bytes.
+  Warning  BackOff    102s (x7 over 2m50s)  kubelet            Back-off restarting failed container nginx in pod inventory-management-api_default(735cc85c-9bae-4b2a-b626-4066b0661c59)
+  Normal   Pulling    87s (x5 over 2m57s)   kubelet            Pulling image "nginx"
+  Normal   Pulled     87s                   kubelet            Successfully pulled image "nginx" in 276ms (276ms including waiting). Image size: 72955450 bytes.
+
+stderr:
