@@ -25,6 +25,7 @@ CONFIG_FILE_NAME = "test_case.yaml"
 
 class LLMEvaluation(BaseModel):
     faithfulness: float = 0.3
+    correctness: float = 0.3
     context: float = 0
 
 class Message(BaseModel):
@@ -36,7 +37,7 @@ class HolmesTestCase(BaseModel):
     id: str
     folder: str
     generate_mocks: bool = False # If True, generate mocks
-    expected_output: str # Whether an output is expected
+    expected_output: Union[str, List[str]] # Whether an output is expected
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[str] = [] # Elements helping to evaluate the correctness of the LLM response
     tool_mocks: List[ToolMock] = []

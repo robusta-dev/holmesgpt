@@ -1,0 +1,26 @@
+expected_output: |
+  # Alert Explanation
+  The `KubeDeploymentReplicasMismatch` alert is triggered because the `payment-processing-worker` deployment in the `default` namespace has not matched the expected number of replicas for over 15 minutes.
+
+  # Investigation
+  1. **Deployment Details**: The `payment-processing-worker` deployment is configured with 1 desired replica, but currently has 0 available replicas. The deployment is using a `RollingUpdate` strategy with 25% max unavailable and 25% max surge. The deployment's condition indicates `Available: False` due to `MinimumReplicasUnavailable` and `Progressing: False` due to `ProgressDeadlineExceeded`.
+
+  2. **Pod Status**: The pod `robusta-kube-state-metrics-8667fd9775-kbsp7` is running and has restarted 15 times over the past 10 days, but this is unrelated to the `payment-processing-worker` deployment.
+
+  # Conclusions and Possible Root Causes
+  1. *Deployment Configuration Issue*: The deployment is not able to maintain the desired number of replicas, possibly due to a misconfiguration or resource constraints.
+  2. *Pod Scheduling Issues*: The unavailability of the `payment-processing-worker` pod could be due to node resource constraints or affinity/anti-affinity rules preventing scheduling.
+  3. *Application Errors*: The command in the container checks for an environment variable `DEPLOY_ENV`, and if not set, it logs an error. This could be causing the pod to fail to become ready.
+
+  # Next Steps
+  1. **Check Node Resources**: Ensure there are sufficient resources on the nodes to schedule the pod.
+  2. **Review Deployment Configuration**: Verify the deployment configuration, especially the environment variables and resource requests/limits.
+  3. **Inspect Pod Logs**: Check the logs of the `payment-processing-worker` pod to identify any application-level errors.
+  4. **Adjust Deployment Strategy**: Consider adjusting the deployment strategy or increasing the number of replicas if needed.
+
+  To further troubleshoot, you can run:
+  ```bash
+  kubectl logs <pod-name> -n default
+  kubectl describe pod <pod-name> -n default
+  ```
+generate_mocks: True
