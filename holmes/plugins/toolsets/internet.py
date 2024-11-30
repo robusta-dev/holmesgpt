@@ -149,7 +149,7 @@ class InternetToolset(Toolset):
             name = "internet",
             description="",
             docs_url="",
-            icon_url="",
+            icon_url="https://upload.wikimedia.org/wikipedia/commons/0/08/Internet-icon.svg",
             
             prerequisites = [
                 # Take a sucessful screenshot ensures playwright is correctly installed
