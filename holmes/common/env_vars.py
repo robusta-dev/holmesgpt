@@ -7,8 +7,8 @@ def load_bool(env_var, default: bool):
     return json.loads(s.lower())
 
 
-ALLOWED_TOOLSETS = os.environ.get('ALLOWED_TOOLSETS', '*')
-DEFAULT_TOOLSETS = os.environ.get('DEFAULT_TOOLSETS', '*')
+ALLOWED_TOOLSETS = os.environ.get('ALLOWED_TOOLSETS', 'kubernetes/core,kubernetes/logs,findings,internet')
+DEFAULT_TOOLSETS = os.environ.get('DEFAULT_TOOLSETS', 'kubernetes/core,kubernetes/logs,findings,internet')
 CLUSTER_NAME = os.environ.get('CLUSTER_NAME', 'cluster-name-not-specified')
 HOLMES_HOST = os.environ.get('HOLMES_HOST', '0.0.0.0')
 HOLMES_PORT = int(os.environ.get('HOLMES_PORT', 5050))
