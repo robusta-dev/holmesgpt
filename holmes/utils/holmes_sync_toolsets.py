@@ -12,17 +12,20 @@ import os
 from pydantic import ValidationError 
 from holmes.core.tools import DefaultToolsetYamlConfig, ToolsetYamlConfig, ToolsetDBModel
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tools import TOols
-from holmes.config import CUSTOM_TOOLSET_LOCATION
+from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
+from datetime import datetime
+
 
 def holmes_sync_toolsets_status(dal: SupabaseDal):
-    default_toolsets = load_builtin_toolsets()
+    default_toolsets = load_builtin_toolsets(dal)
     default_toolsets_names = {toolset.name for toolset in default_toolsets}
+    print(f"Default Toolsets: {default_toolsets_names}")
 
     matching_toolsets = get_matching_toolsets(
     default_toolsets, DEFAULT_TOOLSETS.split(",")
     )
     matching_toolsets_names = {toolset.name for toolset in matching_toolsets}
+    print(f"Matching Toolsets: {matching_toolsets_names}")
 
     validated_toolsets_from_config = []
     
@@ -53,10 +56,9 @@ def holmes_sync_toolsets_status(dal: SupabaseDal):
     for toolset in validated_toolsets_from_config:
         if toolset not in enabled_toolsets and toolset.enabled:
             enabled_toolsets.append(toolset)
-    from datetime import datetime
     db_toolsets = []
     updated_at = datetime.now().isoformat()
-    for toolset in matching_toolsets:
+    for toolset in enabled_toolsets:
         instructions = render_default_installation_instructions_for_toolset(toolset)
         toolset.check_prerequisites()
         if not toolset.installation_instructions:
@@ -69,8 +71,9 @@ def holmes_sync_toolsets_status(dal: SupabaseDal):
                                           status=toolset.get_status(),
                                           error=toolset.get_error(),
                                           ).model_dump(exclude_none=True))
+    print("DB_TOOLSETS")
+    print(db_toolsets)
     dal.sync_toolsets(db_toolsets)
-    dal.get_toolsets_for_holmes()
 
 
 def render_default_installation_instructions_for_toolset(

@@ -30,10 +30,10 @@ from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.core.tools import DefaultToolsetYamlConfig, ToolsetYamlConfig
+from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
-CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
 
 
 class Config(RobustaBaseConfig):
