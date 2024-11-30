@@ -47,6 +47,7 @@ from holmes.core.models import (
     IssueChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
 
 
 def init_logging():
@@ -71,9 +72,11 @@ init_logging()
 dal = SupabaseDal()
 config = Config.load_from_env()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     update_holmes_status_in_db(dal, config)
+    holmes_sync_toolsets_status(dal)
     yield
 
 

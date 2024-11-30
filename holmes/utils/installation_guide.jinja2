@@ -1,0 +1,14 @@
+## Install
+
+Add this snippet to Robusta's Helm values `<generated_values.yaml>` to enable HolmesGPT:
+
+```yaml
+enableHolmesGPT: true
+holmes:
+  additionalEnvVars:
+    - name: ROBUSTA_AI
+      value: "true"
+{% for env in env_vars %}
+    - name: {{ env }}
+      value: ""
+{% endfor %}

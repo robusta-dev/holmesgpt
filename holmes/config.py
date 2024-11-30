@@ -1,9 +1,11 @@
 import logging
 import os
+import yaml
 import os.path
 from holmes.core.llm import LLM, DefaultLLM
 from strenum import StrEnum
 from typing import List, Optional
+
 
 from openai import AzureOpenAI, OpenAI
 from pydantic import FilePath, SecretStr
@@ -27,7 +29,8 @@ from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
-
+from holmes.core.tools import DefaultToolsetYamlConfig, ToolsetYamlConfig
+from pydantic import ValidationError
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
@@ -104,19 +107,16 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
         return cls(**kwargs)
-
-    def create_tool_executor(
+    
+    def create_console_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
+        # needs to get enabled toolsets from db 
+        # after that load only enabled
         all_toolsets = load_builtin_toolsets(dal=dal)
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
-
-        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            try:
-                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION))
-            except Exception as error:
-                logging.error(f"An error happened while trying to use custom toolset: {error}")
+        default_toolsets_names = [toolset.name for toolset in all_toolsets]
 
         if allowed_toolsets == "*":
             matching_toolsets = all_toolsets
@@ -125,7 +125,43 @@ class Config(RobustaBaseConfig):
                 all_toolsets, allowed_toolsets.split(",")
             )
 
-        enabled_toolsets = [ts for ts in matching_toolsets if ts.is_enabled()]
+        validated_toolsets_from_config = []
+        
+        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            with open(CUSTOM_TOOLSET_LOCATION) as file:
+                parsed_yaml = yaml.safe_load(file)
+                toolsets = parsed_yaml.get("toolsets", {})
+                for name, config in toolsets.items():
+                    try:
+                        if name in default_toolsets_names:
+                        # Override existing toolset
+                            validated_toolset = DefaultToolsetYamlConfig(**config, name=name)
+                        else:
+                        # New toolset defined in config file
+                            validated_toolset = ToolsetYamlConfig(**config, name=name)
+                            matching_toolsets.append(validated_toolset)  # Add new toolset to all_toolsets
+                        validated_toolsets_from_config.append(validated_toolset)
+                    except ValidationError as e:
+                        console.print(f"Toolset '{name}' is invalid: {e}")
+
+        overrides = {toolset.name: toolset for toolset in validated_toolsets_from_config}
+        enabled_toolsets = []
+        for toolset in matching_toolsets:
+            if toolset.name in overrides:
+                override_toolset = overrides[toolset.name]
+                if override_toolset.enabled:
+                    enabled_toolsets.append(override_toolset)
+                else:
+                    console.print(
+                    f"[yellow]Toolset {toolset.name} is disabled via configuration.[/yellow]"
+                )
+            else:
+                enabled_toolsets.append(toolset)
+        
+        for toolset in enabled_toolsets:
+            toolset.check_prerequisites()
+
+        enabled_toolsets = [ts for ts in enabled_toolsets if ts.is_enabled()]
         for ts in all_toolsets:
             if ts not in matching_toolsets:
                 console.print(
@@ -145,6 +181,41 @@ class Config(RobustaBaseConfig):
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
         return ToolExecutor(enabled_toolsets)
+
+    def create_tool_executor(
+        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
+    ) -> ToolExecutor:
+        
+        enabled_toolsets_names = dal.get_toolsets_for_holmes()
+        
+        all_toolsets = load_builtin_toolsets(dal=dal)
+        for ts_path in self.custom_toolsets:
+            all_toolsets.extend(load_toolsets_from_file(ts_path))
+
+        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            try:
+                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION))
+            except Exception as error:
+                logging.error(f"An error happened while trying to use custom toolset: {error}")
+
+
+        enabled_toolsets = [ts for ts in all_toolsets if ts.name in enabled_toolsets_names]
+        
+        enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
+        logging.debug(
+            f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
+        )
+        return ToolExecutor(enabled_toolsets)
+    
+    def create_console_toolcalling_llm(
+        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
+    ) -> ToolCallingLLM:
+        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
+        return ToolCallingLLM(
+            tool_executor,
+            self.max_steps,
+            self._get_llm()
+        )
 
     def create_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
@@ -168,6 +239,25 @@ class Config(RobustaBaseConfig):
 
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_tool_executor(console, allowed_toolsets, dal)
+        return IssueInvestigator(
+            tool_executor,
+            runbook_manager,
+            self.max_steps,
+            self._get_llm()
+        )
+    
+    def create_console_issue_investigator(
+        self,
+        console: Console,
+        allowed_toolsets: ToolsetPattern,
+        dal: Optional[SupabaseDal] = None
+    ) -> IssueInvestigator:
+        all_runbooks = load_builtin_runbooks()
+        for runbook_path in self.custom_runbooks:
+            all_runbooks.extend(load_runbooks_from_file(runbook_path))
+
+        runbook_manager = RunbookManager(all_runbooks)
+        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,

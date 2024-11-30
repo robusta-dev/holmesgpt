@@ -17,7 +17,7 @@ from postgrest._sync.request_builder import SyncQueryRequestBuilder
 from postgrest.exceptions import APIError as PGAPIError
 
 from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
-                                    STORE_PASSWORD)
+                                    STORE_PASSWORD, CLUSTER_NAME)
 
 from datetime import datetime, timedelta
 
@@ -286,5 +286,34 @@ class SupabaseDal:
 
         return None
     
-    def upsert_holmes_tools(self, holmes_toolset_data: dict) -> None:
-        pass
+    def sync_toolsets(self, toolsets) -> None:
+        provided_toolset_names = [toolset['toolset_name'] for toolset in toolsets]
+        try:
+            self.client.table("HolmesToolsStatus").upsert(
+                toolsets,
+                on_conflict='account_id, cluster_id, toolset_name'
+            ).execute()
+
+            logging.info("Toolsets upserted successfully.")
+
+            
+            self.client.table(HOLMES_TOOLSET).delete().eq("account_id", 
+                                                                       self.account_id).eq('cluster_id', CLUSTER_NAME).not_.in_(
+                'toolset_name', provided_toolset_names
+            ).execute()
+
+            logging.info("Toolsets synchronized successfully.")
+
+        except Exception as e:
+            logging.exception(f"An error occurred during toolset synchronization: {e}")
+
+    def get_toolsets_for_holmes(self,):
+        try:
+            response = self.client.table(HOLMES_TOOLSET).select("toolset_name", "status").eq(
+            "account_id", self.account_id).eq(
+                "cluster_id", CLUSTER_NAME).execute()
+            data = [toolset.get("toolset_name") for toolset in response.data if toolset.get("status") == "enabled"]
+            return data
+        except:
+            logging.exception("failed to fetch workload issues data")
+            return []

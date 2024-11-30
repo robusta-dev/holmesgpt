@@ -1,42 +1,44 @@
 toolsets:
-- name: "docker/core"
-  prerequisites:
-  - command: "docker version"
+  docker/core:
+    description: "docker/core"
+    docs_url: "docker/core"
+    prerequisites:
+    - command: "docker version"
 
-  tools:
-  - name: "docker_images"
-    description: "List all Docker images"
-    command: "docker images"
-    
-  - name: "docker_ps"
-    description: "List all running Docker containers"
-    command: "docker ps"
+    tools:
+    - name: "docker_images"
+      description: "List all Docker images"
+      command: "docker images"
 
-  - name: "docker_ps_all"
-    description: "List all Docker containers, including stopped ones"
-    command: "docker ps -a"
+    - name: "docker_ps"
+      description: "List all running Docker containers"
+      command: "docker ps"
 
-  - name: "docker_inspect"
-    description: "Inspect detailed information about a Docker container or image"
-    command: "docker inspect {{ container_or_image_id }}"
+    - name: "docker_ps_all"
+      description: "List all Docker containers, including stopped ones"
+      command: "docker ps -a"
 
-  - name: "docker_logs"
-    description: "Fetch the logs of a Docker container"
-    command: "docker logs {{ container_id }}"
+    - name: "docker_inspect"
+      description: "Inspect detailed information about a Docker container or image"
+      command: "docker inspect {{ container_or_image_id }}"
 
-  - name: "docker_top"
-    description: "Display the running processes of a container"
-    command: "docker top {{ container_id }}"
+    - name: "docker_logs"
+      description: "Fetch the logs of a Docker container"
+      command: "docker logs {{ container_id }}"
 
-  - name: "docker_events"
-    description: "Get real-time events from the Docker server"
-    command: "docker events"
+    - name: "docker_top"
+      description: "Display the running processes of a container"
+      command: "docker top {{ container_id }}"
 
-  - name: "docker_history"
-    description: "Show the history of an image"
-    command: "docker history {{ image_id }}"
+    - name: "docker_events"
+      description: "Get real-time events from the Docker server"
+      command: "docker events"
 
-  - name: "docker_diff"
-    description: "Inspect changes to files or directories on a container's filesystem"
-    command: "docker diff {{ container_id }}"
+    - name: "docker_history"
+      description: "Show the history of an image"
+      command: "docker history {{ image_id }}"
+
+    - name: "docker_diff"
+      description: "Inspect changes to files or directories on a container's filesystem"
+      command: "docker diff {{ container_id }}"
 

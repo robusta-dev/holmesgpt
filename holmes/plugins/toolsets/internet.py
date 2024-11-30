@@ -147,6 +147,10 @@ class InternetToolset(Toolset):
     def __init__(self):
         super().__init__(
             name = "internet",
+            description="",
+            docs_url="",
+            icon_url="",
+            
             prerequisites = [
                 # Take a sucessful screenshot ensures playwright is correctly installed
                 ToolsetCommandPrerequisite(command="python -m playwright screenshot --browser firefox https://www.google.com playwright.png"),

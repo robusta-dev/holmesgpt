@@ -8,7 +8,7 @@ import tempfile
 from typing import Dict, List, Literal, Optional, Union
 
 from jinja2 import Template
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator, Field, model_validator
 
 ToolsetPattern = Union[Literal['*'], List[str]]
 
@@ -49,11 +49,9 @@ class Tool(ABC, BaseModel):
         }
         return result
 
-    @abstractmethod
     def invoke(self, params:Dict) -> str:
         return ""
 
-    @abstractmethod
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return ""
 
@@ -61,6 +59,7 @@ class Tool(ABC, BaseModel):
 class YAMLTool(Tool, BaseModel):
     command: Optional[str] = None
     script: Optional[str] = None
+    toolset_parent_variables: Dict[str, str] = Field(default_factory=dict, exclude=True)
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -78,7 +77,7 @@ class YAMLTool(Tool, BaseModel):
         #    if param not in self.parameters:
         #        self.parameters[param] = ToolParameter()
         for param in inferred_params:
-            if param not in self.parameters:
+            if param not in self.parameters and param not in self.toolset_parent_variables.keys():
                 self.parameters[param] = ToolParameter()
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -89,23 +88,38 @@ class YAMLTool(Tool, BaseModel):
             cmd_or_script = self.command or self.script
             template = Template(cmd_or_script)
         return template.render(params)
+    
+    def _build_context(self, params):
+        params = sanitize_params(params)
+        # Use variables from parent_toolset.variables
+        if self.toolset_parent_variables:
+            toolset_vars = self.toolset_parent_variables
+        else:
+            toolset_vars = {}
+        # Merge params with toolset variables (params take precedence)
+        context = {**toolset_vars, **params}
+        return context
 
     def invoke(self, params) -> str:
-        params = sanitize_params(params)
-        logging.info(f"Running tool: {self.get_parameterized_one_liner(params)}")
+        context = self._build_context(params)
+        logging.info(f"Running tool: {self.get_parameterized_one_liner(context)}")
         if self.command is not None:
             return self.__invoke_command(params)
         else:
             return self.__invoke_script(params)
 
     def __invoke_command(self, params) -> str:
-        template = Template(self.command)
-        rendered_command = template.render(params)
+        context = self._build_context(params)
+        command = os.path.expandvars(self.command)
+        template = Template(command)
+        rendered_command = template.render(context)
         return self.__execute_subprocess(rendered_command)
 
     def __invoke_script(self, params) -> str:
-        template = Template(self.script)
-        rendered_script = template.render(params)
+        context = self._build_context(params)
+        script = os.path.expandvars(self.script)
+        template = Template(script)
+        rendered_script = template.render(context)
 
         with tempfile.NamedTemporaryFile(
             mode="w+", delete=False, suffix=".sh"
@@ -148,18 +162,41 @@ class Toolset(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     name: str
+    description: str
+    docs_url: str
+    icon_url: Optional[str] = None
+    installation_instructions: Optional[str] = None
+    additional_instructions: Optional[str] = ""
     prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
     tools: List[Tool]
+    variables: Dict[str,str] = {}
 
     _path: PrivateAttr = None
     _enabled: PrivateAttr = None
     _disabled_reason: PrivateAttr = None
+    _status: PrivateAttr = "disabled"
+    _error: PrivateAttr = None
 
+
+    @field_validator('variables')
+    def process_variables(cls, v):
+        if not isinstance(v, dict):
+            raise ValueError('variables must be a dictionary')
+
+        processed_variables = {key: os.path.expandvars(value) for key, value in v.items()}
+        return processed_variables
+        
     def set_path(self, path):
         self._path = path
 
     def get_path(self):
         return self._path
+    
+    def get_status(self):
+        return self._status
+
+    def get_error(self):
+        return self._error
 
     def is_enabled(self):
         if self._enabled is None:
@@ -171,25 +208,66 @@ class Toolset(BaseModel):
             raise Exception("Can only get disabled reason for disabled toolset")
         return self._disabled_reason
 
+    def get_environment_variables(self) -> List[str]:
+        """
+        Extracts environment variables from Toolset prerequisites.
+        """
+        env_vars = set()
+
+        for prereq in self.prerequisites:
+            if isinstance(prereq, ToolsetEnvironmentPrerequisite):
+                # Collect environment variables directly
+                env_vars.update(prereq.env)
+        return list(env_vars)
+    
+    def interpolate_command(self, command: str) -> str:
+        command = os.path.expandvars(command)
+
+        template = Template(command)
+        try:
+            interpolated_command = template.render(self.variables)
+        except KeyError as e:
+            missing_var = e.args[0]
+            raise Exception(f"Missing variable '{missing_var}' required for command interpolation.")
+        
+        return interpolated_command
+    
+    @model_validator(mode='before')
+    def set_variables_on_tools(cls, values):
+        variables = values.get('variables', {})
+        tools = values.get('tools', [])
+        print(tools)
+        if tools:
+            for tool in tools:
+                if isinstance(tool, dict):
+                    tool["toolset_parent_variables"] = variables
+        return values
+    
     def check_prerequisites(self):
         for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetCommandPrerequisite):
                 try:
-                    result = subprocess.run(prereq.command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    command = self.interpolate_command(prereq.command)
+                    result = subprocess.run(command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     if prereq.expected_output and prereq.expected_output not in result.stdout:
                         self._enabled = False
                         self._disabled_reason = f"prereq check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
                     self._enabled = False
+                    self._status = "error"
                     self._disabled_reason = f"prereq check failed with errorcode {e.returncode}: {str(e)}"
                     logging.debug(f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}")
+                    self._error =f"prereq check failed with errorcode {e.returncode}: {str(e)}"
                     return
+                
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
                         self._enabled = False
+                        self._status = "error"
                         self._disabled_reason = f"prereq check failed because environment variable {env_var} was not set"
+                        self._error = f"prereq check failed because environment variable {env_var} was not set"
                         return
 
             elif isinstance(prereq, StaticPrerequisite):
@@ -197,13 +275,18 @@ class Toolset(BaseModel):
                     self._enabled = False
                     self._disabled_reason = prereq.disabled_reason
                     return
+                
+        self._status = "enabled"
         self._enabled = True
+
 
 class YAMLToolset(Toolset, BaseModel):
     tools: List[YAMLTool]
 
+
 class ToolExecutor:
     def __init__(self, toolsets: List[Toolset]):
+        print("creating toolsets")
         toolsets_by_name = {}
         for ts in toolsets:
             if ts.name in toolsets_by_name:
@@ -253,3 +336,43 @@ def sanitize(param):
 
 def sanitize_params(params):
     return {k: sanitize(str(v)) for k, v in params.items()}
+
+
+class ToolsetYamlConfig(BaseModel):
+    name: str
+    enabled: bool
+    auth_bearer_token: Optional[str] = None
+    url: Optional[str] = None
+    additional_instructions: Optional[str] = None
+    prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
+    tools: Optional[List[Tool]]
+    description: str
+    docs_url: Optional[str] = None
+    icon_url: Optional[str] = None
+    installation_instructions: Optional[str] = None
+
+
+class DefaultToolsetYamlConfig(BaseModel):
+    name: str
+    enabled: bool
+    auth_bearer_token: Optional[str] = None
+    url: Optional[str] = None
+    additional_instructions: Optional[str] = None
+    prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
+    tools: Optional[List[Tool]] = []
+    description: Optional[str] = None
+    docs_url: Optional[str] = None
+    icon_url: Optional[str] = None
+    installation_instructions: Optional[str] = None
+
+
+class ToolsetDBModel(BaseModel):
+    account_id: str
+    cluster_id: str
+    toolset_name: str
+    icon_url: Optional[str] = None
+    status: Optional[str] = None
+    error: Optional[str] = None
+    description: Optional[str] = None
+    docs_url: Optional[str] = None
+    installation_instructions: Optional[str] = None

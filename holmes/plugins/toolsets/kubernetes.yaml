@@ -1,5 +1,7 @@
 toolsets:
-  - name: "kubernetes/core"
+  kubernetes/core:
+    description: "kubernetes/core"
+    docs_url: "kubernetes/core"
     prerequisites:
       - command: "kubectl version --client"
 
@@ -23,35 +25,6 @@ toolsets:
       - name: "kubectl_get_yaml"
         description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
         command: "kubectl get -o yaml {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
-
-      - name: "kubectl_previous_logs"
-        description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash. Never give a deployment name or a resource that is not a pod."
-        command: "kubectl logs {{ name}} -n {{ namespace }} --previous"
-
-      - name: "kubectl_previous_logs_all_containers"
-        description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash."
-        command: "kubectl logs {{pod_name}} -n {{ namespace }} --previous --all-containers"
-
-      - name: "kubectl_container_previous_logs"
-        description: "Run `kubectl logs --previous` on a single container of a Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash."
-        command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} --previous"
-
-      - name: "kubectl_logs"
-        description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
-        command: "kubectl logs {{name}} -n {{ namespace }}"
-
-      - name: "kubectl_logs_all_containers"
-        description: "Run `kubectl logs` on all containers within a single Kubernetes pod."
-        command: "kubectl logs {{pod_name}} -n {{ namespace }} --all-containers"
-
-      - name: "kubectl_container_logs"
-        description: "Run `kubectl logs` on a single container within a Kubernetes pod. This is to get the logs of a specific container in a multi-container pod."
-        command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} "
-
-
-      - name: "kubectl_logs_grep"
-        description: "Search for a specific term in the logs of a single Kubernetes pod. Only provide a pod name, not a deployment or other resource."
-        command: "kubectl logs {{ name }} -n {{ namespace }} | grep {{ search_term }}"
 
       - name: "kubectl_events"
         description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment, 'job'', 'node', etc."
@@ -159,7 +132,7 @@ toolsets:
     # try adding your own tools here!
     # e.g. to query company-specific data or run your own commands
 
-  - name: "kubernetes/live-metrics"
+  kubernetes/live-metrics:
     tools:
       - name: "kubectl_top_pods"
         description: "Retrieves real-time CPU and memory usage for each pod in the cluster."
@@ -170,13 +143,13 @@ toolsets:
         command: >
           kubectl top nodes
 
-  - name: "kubernetes/kube-prometheus-stack"
+  kubernetes/kube-prometheus-stack:
     tools:
       - name: "get_prometheus_target"
         description: "Fetch the definition of a Prometheus target"
         command: 'kubectl get --raw ''/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets'' | jq ''.data.activeTargets[] | select(.labels.job == "{{ target_name }}")'
 
-  - name: "kubernetes/extras" # To make this work, install kube-lineage with krew
+  kubernetes/krew/extras: # To make this work, install kube-lineage with krew
     prerequisites:
       - command: "kubectl version --client && kubectl lineage --version"
     tools:
@@ -187,7 +160,7 @@ toolsets:
         description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
         command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }} -D"
 
-  - name: "kubernetes/extras" # To make this work, build kube-lineage from source
+  kubernetes/kube-lineage/extras: # To make this work, build kube-lineage from source
     prerequisites:
       - command: "kubectl version --client && kube-lineage --version"
     tools:

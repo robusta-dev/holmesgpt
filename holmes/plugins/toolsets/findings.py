@@ -64,6 +64,9 @@ class FindingsToolset(Toolset):
                 disabled_reason="Data access layer is disabled")
 
         super().__init__(
+            docs_url="",
+            icon_url="",
+            description = "Fetches a robusta finding. Findings are events, like a Prometheus alert or a deployment update",
             name = "findings",
             prerequisites = [dal_prereq],
             tools = [FetchRobustaFinding(dal)],
