@@ -25,7 +25,6 @@ from holmes.utils.robusta import load_robusta_api_key
 from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
-    ALLOWED_TOOLSETS,
     HOLMES_POST_PROCESSING_PROMPT,
 )
 from holmes.core.supabase_dal import SupabaseDal
@@ -126,7 +125,7 @@ def workload_health_check(request: WorkloadHealthRequest):
         system_prompt = jinja2.Environment().from_string(system_prompt)
         system_prompt = system_prompt.render(alerts=workload_alerts)
 
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
 
         structured_output = {"type": "json_object"}
         ai_call = ai.prompt_call(
@@ -147,7 +146,7 @@ def workload_health_check(request: WorkloadHealthRequest):
 def issue_conversation(conversation_request: ConversationRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
 
         system_prompt = handle_issue_conversation(conversation_request, ai)
 
@@ -165,7 +164,7 @@ def issue_conversation(conversation_request: ConversationRequest):
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
         messages = build_issue_chat_messages(issue_chat_request, ai)
         llm_call = ai.messages_call(messages=messages)
 
@@ -183,7 +182,7 @@ def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
         messages = build_chat_messages(
             chat_request.ask, chat_request.conversation_history, ai=ai
         )

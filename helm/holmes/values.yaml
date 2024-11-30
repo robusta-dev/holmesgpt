@@ -7,8 +7,6 @@ additionalEnvVars: []
 additional_env_vars: []
 imagePullSecrets: []
 
-allowedToolsets: "kubernetes/core,findings,internet,docker/core"
-
 image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
 

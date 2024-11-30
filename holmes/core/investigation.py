@@ -22,7 +22,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         raw_data["extra_context"] = context
 
     ai = config.create_issue_investigator(
-        console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal
+        console, dal=dal
     )
     issue = Issue(
         id=context["id"] if context else "",

@@ -134,10 +134,8 @@ class Config(RobustaBaseConfig):
                 for name, config in toolsets.items():
                     try:
                         if name in default_toolsets_names:
-                        # Override existing toolset
                             validated_toolset = DefaultToolsetYamlConfig(**config, name=name)
                         else:
-                        # New toolset defined in config file
                             validated_toolset = ToolsetYamlConfig(**config, name=name)
                             matching_toolsets.append(validated_toolset)  # Add new toolset to all_toolsets
                         validated_toolsets_from_config.append(validated_toolset)
@@ -183,7 +181,7 @@ class Config(RobustaBaseConfig):
         return ToolExecutor(enabled_toolsets)
 
     def create_tool_executor(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
+        self, console: Console, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         
         enabled_toolsets_names = dal.get_toolsets_for_holmes()
@@ -218,9 +216,9 @@ class Config(RobustaBaseConfig):
         )
 
     def create_toolcalling_llm(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
+        self, console: Console,  dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_tool_executor(console, dal)
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -230,7 +228,6 @@ class Config(RobustaBaseConfig):
     def create_issue_investigator(
         self,
         console: Console,
-        allowed_toolsets: ToolsetPattern,
         dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
@@ -238,7 +235,7 @@ class Config(RobustaBaseConfig):
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_tool_executor(console, dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,

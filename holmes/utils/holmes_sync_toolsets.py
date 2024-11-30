@@ -2,10 +2,7 @@ import yaml
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets import load_builtin_toolsets, get_matching_toolsets
 from holmes.common.env_vars import (
-    HOLMES_HOST,
-    HOLMES_PORT,
     DEFAULT_TOOLSETS,
-    HOLMES_POST_PROCESSING_PROMPT,
     CLUSTER_NAME
 )
 import os
@@ -71,8 +68,6 @@ def holmes_sync_toolsets_status(dal: SupabaseDal):
                                           status=toolset.get_status(),
                                           error=toolset.get_error(),
                                           ).model_dump(exclude_none=True))
-    print("DB_TOOLSETS")
-    print(db_toolsets)
     dal.sync_toolsets(db_toolsets)
 
 
