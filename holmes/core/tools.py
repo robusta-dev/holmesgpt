@@ -13,6 +13,36 @@ from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator, Field,
 ToolsetPattern = Union[Literal['*'], List[str]]
 
 
+def sanitize(param):
+    # allow empty strings to be unquoted - useful for optional params
+    # it is up to the user to ensure that the command they are using is ok with empty strings
+    # and if not to take that into account via an appropriate jinja template
+    if param == "":
+        return ""
+
+    return shlex.quote(str(param))
+
+
+def sanitize_params(params):
+    return {k: sanitize(str(v)) for k, v in params.items()}
+
+
+def get_matching_toolsets(
+    all_toolsets: List['Toolset'], pattern: ToolsetPattern
+) -> List['Toolset']:
+    """
+    Get toolsets matching a given pattern.
+    """
+    if pattern == "*":
+        return all_toolsets
+
+    matching_toolsets = []
+    for pat in pattern:
+        regex = re.compile(pat.replace('*', '.*'))
+        matching_toolsets.extend([ts for ts in all_toolsets if regex.match(ts.name)])
+    return matching_toolsets
+
+
 class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
@@ -24,9 +54,6 @@ class Tool(ABC, BaseModel):
     description: str
     parameters: Dict[str, ToolParameter] = {}
     user_description: Optional[str] = None # templated string to show to the user describing this tool invocation (not seen by llm)
-
-    def __init__(self, **data):
-        super().__init__(**data)
 
     def get_openai_format(self):
         tool_properties = {}
@@ -49,9 +76,11 @@ class Tool(ABC, BaseModel):
         }
         return result
 
-    def invoke(self, params:Dict) -> str:
+    @abstractmethod
+    def invoke(self, params: Dict) -> str:
         return ""
 
+    @abstractmethod
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return ""
 
@@ -189,6 +218,9 @@ class Toolset(BaseModel):
     def set_path(self, path):
         self._path = path
 
+    def set_status(self, status):
+        self._status = status
+
     def get_path(self):
         return self._path
     
@@ -286,7 +318,6 @@ class YAMLToolset(Toolset, BaseModel):
 
 class ToolExecutor:
     def __init__(self, toolsets: List[Toolset]):
-        print("creating toolsets")
         toolsets_by_name = {}
         for ts in toolsets:
             if ts.name in toolsets_by_name:
@@ -314,38 +345,12 @@ class ToolExecutor:
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
 
-def get_matching_toolsets(all_toolsets: List[Toolset], pattern: ToolsetPattern):
-    if pattern == "*":
-        return all_toolsets
-
-    matching_toolsets = []
-    for pat in pattern:
-        pat = re.compile(pat.replace('*', '.*'))
-        matching_toolsets.extend([ts for ts in all_toolsets if pat.match(ts.name)])
-
-    return matching_toolsets
-
-def sanitize(param):
-    # allow empty strings to be unquoted - useful for optional params
-    # it is up to the user to ensure that the command they are using is ok with empty strings
-    # and if not to take that into account via an appropriate jinja template
-    if param == "":
-        return ""
-
-    return shlex.quote(str(param))
-
-def sanitize_params(params):
-    return {k: sanitize(str(v)) for k, v in params.items()}
-
-
-class ToolsetYamlConfig(BaseModel):
+class ToolsetYamlConfig(Toolset):
     name: str
     enabled: bool
-    auth_bearer_token: Optional[str] = None
-    url: Optional[str] = None
     additional_instructions: Optional[str] = None
     prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
-    tools: Optional[List[Tool]]
+    tools: Optional[List[YAMLTool]]
     description: str
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
@@ -355,11 +360,9 @@ class ToolsetYamlConfig(BaseModel):
 class DefaultToolsetYamlConfig(BaseModel):
     name: str
     enabled: bool
-    auth_bearer_token: Optional[str] = None
-    url: Optional[str] = None
     additional_instructions: Optional[str] = None
     prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
-    tools: Optional[List[Tool]] = []
+    tools: Optional[List[YAMLTool]] = []
     description: Optional[str] = None
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None

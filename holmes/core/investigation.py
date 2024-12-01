@@ -1,6 +1,6 @@
 
 from rich.console import Console
-from holmes.common.env_vars import ALLOWED_TOOLSETS, HOLMES_POST_PROCESSING_PROMPT
+from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest, InvestigationResult

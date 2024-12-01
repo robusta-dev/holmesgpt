@@ -3,11 +3,9 @@ import os
 import yaml
 import os.path
 from holmes.core.llm import LLM, DefaultLLM
-from strenum import StrEnum
 from typing import List, Optional
 
 
-from openai import AzureOpenAI, OpenAI
 from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
 from rich.console import Console
@@ -15,7 +13,8 @@ from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
+from holmes.core.tool_calling_llm import (IssueInvestigator, 
+                                          ToolCallingLLM,
                                           ToolExecutor)
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets
 from holmes.plugins.destinations.slack import SlackDestination
@@ -32,6 +31,7 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.core.tools import DefaultToolsetYamlConfig, ToolsetYamlConfig
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
+
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 

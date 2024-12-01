@@ -34,6 +34,7 @@ HOLMES_TOOLSET = "HolmesToolsStatus"
 class RobustaConfig(BaseModel):
     sinks_config: List[Dict[str, Dict]]
 
+
 class RobustaToken(BaseModel):
     store_url: str
     api_key: str
@@ -265,7 +266,7 @@ class SupabaseDal:
             return data
 
         except:
-            logging.exception("failed to fetch workload issues data")
+            logging.exception("failed to fetch workload issues data", exc_info=True)
             return []
 
     def upsert_holmes_status(self, holmes_status_data: dict) -> None:
@@ -282,14 +283,20 @@ class SupabaseDal:
                 .execute()
             )
         except Exception as error:
-            logging.error("Error happened during upserting holmes status", exc_info=True)
+            logging.error(f"Error happened during upserting holmes status: {error}", 
+                          exc_info=True)
 
         return None
     
-    def sync_toolsets(self, toolsets) -> None:
+    def sync_toolsets(self, toolsets: list[dict]) -> None:
+        if not toolsets:
+            logging.error("No toolsets were provided for synchronization.")
+            return
+        
         provided_toolset_names = [toolset['toolset_name'] for toolset in toolsets]
+   
         try:
-            self.client.table("HolmesToolsStatus").upsert(
+            self.client.table(HOLMES_TOOLSET).upsert(
                 toolsets,
                 on_conflict='account_id, cluster_id, toolset_name'
             ).execute()
@@ -298,14 +305,16 @@ class SupabaseDal:
 
             
             self.client.table(HOLMES_TOOLSET).delete().eq("account_id", 
-                                                                       self.account_id).eq('cluster_id', CLUSTER_NAME).not_.in_(
+                                                                       self.account_id).eq(
+                                                                           'cluster_id', CLUSTER_NAME).not_.in_(
                 'toolset_name', provided_toolset_names
             ).execute()
 
             logging.info("Toolsets synchronized successfully.")
 
         except Exception as e:
-            logging.exception(f"An error occurred during toolset synchronization: {e}")
+            logging.exception(f"An error occurred during toolset synchronization: {e}",
+                              exc_info=True)
 
     def get_toolsets_for_holmes(self,):
         try:
@@ -315,5 +324,5 @@ class SupabaseDal:
             data = [toolset.get("toolset_name") for toolset in response.data if toolset.get("status") == "enabled"]
             return data
         except:
-            logging.exception("failed to fetch workload issues data")
+            logging.exception("Failed to fetch the most recent toolsets", exc_info=True)
             return []

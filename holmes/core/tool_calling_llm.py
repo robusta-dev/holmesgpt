@@ -20,9 +20,6 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 
-import litellm
-litellm.turn_off_message_logging=True
-
 
 class ToolCallResult(BaseModel):
     tool_call_id: str

@@ -41,14 +41,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal):
                     print(f"Toolset '{name}' is invalid: {e}")
     
     overrides = {toolset.name: toolset for toolset in validated_toolsets_from_config}
-    enabled_toolsets = []
-    for toolset in matching_toolsets:
-        if toolset.name in overrides:
-            override_toolset = overrides[toolset.name]
-            if override_toolset.enabled:
-                enabled_toolsets.append(override_toolset)
-        else:
-            enabled_toolsets.append(toolset)
+    enabled_toolsets = matching_toolsets
 
     for toolset in validated_toolsets_from_config:
         if toolset not in enabled_toolsets and toolset.enabled:
@@ -60,6 +53,10 @@ def holmes_sync_toolsets_status(dal: SupabaseDal):
         toolset.check_prerequisites()
         if not toolset.installation_instructions:
             toolset.installation_instructions = instructions
+        if toolset in matching_toolsets and toolset.name in overrides.keys():
+            override_toolset = overrides[toolset.name]
+            if not override_toolset.enabled:
+                toolset.set_status("disabled")
         db_toolsets.append(ToolsetDBModel(**toolset.dict(exclude_none=True), 
                                           toolset_name=toolset.name,
                                           cluster_id=CLUSTER_NAME, 
