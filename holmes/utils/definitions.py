@@ -1,1 +1,1 @@
-CUSTOM_TOOLSET_LOCATION = "/home/itisallgood/Documents/robustagpt/holmesgpt/.vscode/testtoolset1.yaml"
+CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
