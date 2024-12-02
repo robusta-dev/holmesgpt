@@ -1,6 +1,6 @@
 toolsets:
   kubernetes/core:
-    description: "kubernetes/core tools"
+    description: "Essential tools for managing Kubernetes resources with 'kubectl'. These tools simplify common tasks like inspecting resources, fetching configurations, and analyzing cluster-wide resource usage."
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     prerequisites:

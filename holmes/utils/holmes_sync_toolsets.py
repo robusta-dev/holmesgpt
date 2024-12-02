@@ -74,7 +74,8 @@ def holmes_sync_toolsets_status(dal: SupabaseDal):
         if toolset.enabled:
             toolset.check_prerequisites()
         if not toolset.installation_instructions:
-            instructions = render_default_installation_instructions_for_toolset(toolset)
+            is_default_toolset = bool(toolset.name in default_toolsets_by_name.keys())
+            instructions = render_default_installation_instructions_for_toolset(toolset, is_default_toolset)
             toolset.installation_instructions = instructions
         db_toolsets.append(ToolsetDBModel(**toolset.model_dump(exclude_none=True), 
                                           toolset_name=toolset.name,
@@ -87,7 +88,16 @@ def holmes_sync_toolsets_status(dal: SupabaseDal):
     
 
 def render_default_installation_instructions_for_toolset(
-        toolset
-):
-    default_installation_instructions = load_and_render_prompt("file://holmes/utils/installation_guide.jinja2", {"env_vars": [toolset.get_environment_variables()]})
-    return default_installation_instructions
+        toolset: YAMLToolset, 
+        default_toolset: bool
+    ):
+    env_vars = toolset.get_environment_variables()
+    context = {"env_vars": env_vars if env_vars else [],
+               "toolset_name": toolset.name,
+                "default_toolsets": DEFAULT_TOOLSETS
+               }
+    if default_toolset:
+        installation_instructions = load_and_render_prompt("file://holmes/utils/default_toolset_installation_guide.jinja2", context)
+        return installation_instructions
+    installation_instructions = load_and_render_prompt("file://holmes/utils/installation_guide.jinja2", context)
+    return installation_instructions

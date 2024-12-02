@@ -1,0 +1,30 @@
+## Install
+
+This is a built-in toolset. To enable it, ensure the following:
+
+1. Holmes is configured correctly, and the toolset's name is included in the DEFAULT_TOOLSETS environment variable or set to * to enable all default toolsets.
+2. The toolset is not explicitly disabled in the toolsets configuration.
+
+```yaml
+enableHolmesGPT: true
+holmes:
+  additionalEnvVars:
+    - name: ROBUSTA_AI
+      value: "true"
+    - name: DEFAULT_TOOLSETS # Your DEFAULT_TOOLSETS value is set as - DEFAULT_TOOLSETS={{default_toolsets}}
+      value: "{{toolset_name}},..." # Use '*' to enable all default toolsets
+{% if env_vars %}
+{% for env in env_vars %}
+    - name: {{ env }}
+      value: ""
+{% endfor %}
+{% endif %}
+```
+
+Ensure that toolset is not explicitly disabled in the toolsets configuration:
+
+```yaml
+toolsets:
+    {{toolset_name}}:
+        enabled: false
+```

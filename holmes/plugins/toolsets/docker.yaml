@@ -1,7 +1,8 @@
 toolsets:
   docker/core:
     description: "docker/core"
-    docs_url: "docker/core"
+    docs_url: "https://docs.docker.com/"
+    icon_url: "https://www.docker.com/wp-content/uploads/2023/08/logo-guide-logos-2.svg"
     prerequisites:
     - command: "docker version"
 

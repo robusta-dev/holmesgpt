@@ -64,8 +64,8 @@ class FindingsToolset(Toolset):
                 disabled_reason="Data access layer is disabled")
 
         super().__init__(
-            docs_url="",
-            icon_url="",
+            docs_url="https://docs.robusta.dev/master/configuration/ai-analysis.html",
+            icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
             description = "Fetches a robusta finding. Findings are events, like a Prometheus alert or a deployment update",
             name = "findings",
             prerequisites = [dal_prereq],

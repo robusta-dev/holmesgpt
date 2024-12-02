@@ -147,9 +147,9 @@ class InternetToolset(Toolset):
     def __init__(self):
         super().__init__(
             name = "internet",
-            description="",
-            docs_url="",
-            icon_url="https://upload.wikimedia.org/wikipedia/commons/0/08/Internet-icon.svg",
+            description="A comprehensive toolset for fetching and analyzing web-based content.",
+            docs_url="https://docs.robusta.dev/master/configuration/ai-analysis.html",
+            icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
             
             prerequisites = [
                 # Take a sucessful screenshot ensures playwright is correctly installed
