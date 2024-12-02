@@ -147,8 +147,7 @@ class InternetToolset(Toolset):
     def __init__(self):
         super().__init__(
             name = "internet",
-            description="A comprehensive toolset for fetching and analyzing web-based content.",
-            docs_url="https://docs.robusta.dev/master/configuration/ai-analysis.html",
+            description="Fetch webpages.",
             icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
             
             prerequisites = [

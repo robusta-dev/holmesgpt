@@ -1,6 +1,6 @@
 toolsets:
   kubernetes/logs:
-    description: "A suite of tools for managing and troubleshooting Kubernetes pod logs. Includes commands for fetching current and previous logs, working with specific containers, and searching within logs."
+    description: "Read pod logs."
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     prerequisites:

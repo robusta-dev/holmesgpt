@@ -229,7 +229,7 @@ class Toolset(BaseModel):
     enabled: bool = True
     name: str
     description: str
-    docs_url: str
+    docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     additional_instructions: Optional[str] = ""
