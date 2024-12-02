@@ -260,11 +260,13 @@ class Toolset(BaseModel):
         processed_variables = {key: os.path.expandvars(value) for key, value in variables.items()}
         values['variables'] = processed_variables
 
+        additional_instructions = values.get('additional_instructions', "")
         tools_data = values.get('tools', [])
         tools = []
         for tool in tools_data:
             if isinstance(tool, dict):
                 tool['toolset_parent_variables'] = processed_variables
+                tool['additional_instructions'] = additional_instructions
                 tools.append(tool)
         values['tools'] = tools
 
