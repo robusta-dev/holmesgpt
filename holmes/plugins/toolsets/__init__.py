@@ -8,20 +8,11 @@ from holmes.plugins.toolsets.findings import FindingsToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 from pydantic import BaseModel
 
-from holmes.core.tools import Toolset, YAMLToolset, ToolsetYamlConfig, ToolsetDBModel, get_matching_toolsets, DefaultToolsetYamlConfig
-from holmes.utils.pydantic_utils import load_model_from_file
-#from holmes.config import CUSTOM_TOOLSET_LOCATION
+from holmes.core.tools import Toolset, YAMLToolset
 from typing import Dict
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel
 from typing import Optional
 import yaml
-from holmes.common.env_vars import (
-    HOLMES_HOST,
-    HOLMES_PORT,
-    DEFAULT_TOOLSETS,
-    HOLMES_POST_PROCESSING_PROMPT,
-)
-from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -34,7 +25,7 @@ class ToolsetsYaml(BaseModel):
     toolsets: Dict[str, YAMLToolset]
 
 
-def load_toolsets_from_file(path: str) -> List[YAMLToolset]:
+def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLToolset]:
     file_toolsets = []
     with open(path) as file:
         parsed_yaml = yaml.safe_load(file)
@@ -45,7 +36,9 @@ def load_toolsets_from_file(path: str) -> List[YAMLToolset]:
                 toolset.set_path(path)
                 file_toolsets.append(YAMLToolset(**config, name=name))
             except Exception as e:
-                logging.error("",exc_info=True)
+                if not silent_fail:
+                    logging.error(f"Error happened while loading {name} toolset from {path}",
+                                  exc_info=True)
 
     return file_toolsets
 

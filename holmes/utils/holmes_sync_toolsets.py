@@ -1,72 +1,90 @@
 import yaml
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.plugins.toolsets import load_builtin_toolsets, get_matching_toolsets
+from holmes.plugins.toolsets import load_builtin_toolsets
+from holmes.core.tools import get_matching_toolsets
 from holmes.common.env_vars import (
     DEFAULT_TOOLSETS,
     CLUSTER_NAME
 )
 import os
 from pydantic import ValidationError 
-from holmes.core.tools import DefaultToolsetYamlConfig, ToolsetYamlConfig, ToolsetDBModel
+from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
-from datetime import datetime
+import logging
 
 
-def holmes_sync_toolsets_status(dal: SupabaseDal):
-    default_toolsets = load_builtin_toolsets(dal)
-    default_toolsets_names = {toolset.name for toolset in default_toolsets}
-    print(f"Default Toolsets: {default_toolsets_names}")
-
-    matching_toolsets = get_matching_toolsets(
-    default_toolsets, DEFAULT_TOOLSETS.split(",")
-    )
-    matching_toolsets_names = {toolset.name for toolset in matching_toolsets}
-    print(f"Matching Toolsets: {matching_toolsets_names}")
-
-    validated_toolsets_from_config = []
-    
+def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
+    loaded_toolsets = []
     if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
         with open(CUSTOM_TOOLSET_LOCATION) as file:
             parsed_yaml = yaml.safe_load(file)
             toolsets = parsed_yaml.get("toolsets", {})
             for name, config in toolsets.items():
                 try:
-                    if name in default_toolsets_names:
-                        validated_toolsets_from_config.append(DefaultToolsetYamlConfig(**config, name=name))
-                    else:
-                        validated_config = ToolsetYamlConfig(**config, name=name)
-                    validated_toolsets_from_config.append(validated_config)
+                    validated_config = ToolsetYamlFromConfig(**config, name=name)
+                    validated_config.set_path(CUSTOM_TOOLSET_LOCATION)
+                    loaded_toolsets.append(validated_config)
                 except ValidationError as e:
-                    print(f"Toolset '{name}' is invalid: {e}")
-    
-    overrides = {toolset.name: toolset for toolset in validated_toolsets_from_config}
-    enabled_toolsets = matching_toolsets
+                    logging.error(f"Toolset '{name}' is invalid: {e}")
+    return loaded_toolsets
 
-    for toolset in validated_toolsets_from_config:
-        if toolset not in enabled_toolsets and toolset.enabled:
-            enabled_toolsets.append(toolset)
+
+def merge_and_override_bultin_toolsets_with_toolsets_config(
+        toolsets_loaded_from_config: list[ToolsetYamlFromConfig],
+        default_toolsets_by_name: dict[str, YAMLToolset],
+        filtered_toolsets_by_name: dict[str, YAMLToolset],
+
+) -> dict:
+    for toolset in toolsets_loaded_from_config:
+        if toolset.name in filtered_toolsets_by_name.keys():
+            filtered_toolsets_by_name[toolset.name].override_with(toolset)
+
+        if toolset.name not in filtered_toolsets_by_name.keys() and toolset.name in default_toolsets_by_name.keys():
+            
+            filtered_toolsets_by_name[toolset.name] = default_toolsets_by_name[toolset.name].override_with(toolset)
+  
+        if toolset.name not in filtered_toolsets_by_name.keys() and toolset.name not in default_toolsets_by_name.keys():
+            try:
+                validated_toolset = YAMLToolset(**toolset.model_dump(exclude_none=True))
+                filtered_toolsets_by_name[toolset.name] = validated_toolset
+            except Exception as error:
+                logging.error(f"Toolset '{toolset.name}' is invalid: {error} ", exc_info=True)
+
+    return filtered_toolsets_by_name
+
+
+def holmes_sync_toolsets_status(dal: SupabaseDal):
+    default_toolsets = load_builtin_toolsets(dal)
+    default_toolsets_by_name = {toolset.name: toolset for toolset in default_toolsets}
+
+    matching_toolsets = get_matching_toolsets(
+    default_toolsets, DEFAULT_TOOLSETS.split(",")
+    )
+    toolsets_for_sync_by_name = {toolset.name: toolset for toolset in matching_toolsets}
+
+    toolsets_loaded_from_config = load_custom_toolsets_config()
+
+    toolsets_for_sync_by_name = merge_and_override_bultin_toolsets_with_toolsets_config(toolsets_loaded_from_config,
+                                                    default_toolsets_by_name,
+                                                    toolsets_for_sync_by_name)
+    
     db_toolsets = []
-    updated_at = datetime.now().isoformat()
-    for toolset in enabled_toolsets:
-        instructions = render_default_installation_instructions_for_toolset(toolset)
-        toolset.check_prerequisites()
+    for toolset in toolsets_for_sync_by_name.values():
+        if toolset.enabled:
+            toolset.check_prerequisites()
         if not toolset.installation_instructions:
+            instructions = render_default_installation_instructions_for_toolset(toolset)
             toolset.installation_instructions = instructions
-        if toolset in matching_toolsets and toolset.name in overrides.keys():
-            override_toolset = overrides[toolset.name]
-            if not override_toolset.enabled:
-                toolset.set_status("disabled")
-        db_toolsets.append(ToolsetDBModel(**toolset.dict(exclude_none=True), 
+        db_toolsets.append(ToolsetDBModel(**toolset.model_dump(exclude_none=True), 
                                           toolset_name=toolset.name,
                                           cluster_id=CLUSTER_NAME, 
                                           account_id=dal.account_id,
-                                          updated_at=updated_at,
                                           status=toolset.get_status(),
                                           error=toolset.get_error(),
                                           ).model_dump(exclude_none=True))
     dal.sync_toolsets(db_toolsets)
-
+    
 
 def render_default_installation_instructions_for_toolset(
         toolset

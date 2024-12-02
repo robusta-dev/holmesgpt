@@ -16,7 +16,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import (IssueInvestigator, 
                                           ToolCallingLLM,
                                           ToolExecutor)
-from holmes.core.tools import ToolsetPattern, get_matching_toolsets
+from holmes.core.tools import ToolsetPattern, get_matching_toolsets, ToolsetStatusEnum
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import (load_builtin_runbooks,
                                      load_runbooks_from_file)
@@ -28,9 +28,9 @@ from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
-from holmes.core.tools import DefaultToolsetYamlConfig, ToolsetYamlConfig
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
+from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
 
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
@@ -101,7 +101,6 @@ class Config(RobustaBaseConfig):
             "github_query",
             # TODO
             # custom_runbooks
-            # custom_toolsets
         ]:
             val = os.getenv(field_name.upper(), None)
             if val is not None:
@@ -111,69 +110,43 @@ class Config(RobustaBaseConfig):
     def create_console_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        # needs to get enabled toolsets from db 
-        # after that load only enabled
-        all_toolsets = load_builtin_toolsets(dal=dal)
-        for ts_path in self.custom_toolsets:
-            all_toolsets.extend(load_toolsets_from_file(ts_path))
-        default_toolsets_names = [toolset.name for toolset in all_toolsets]
+        default_toolsets = load_builtin_toolsets(dal=dal)
+        default_toolsets_by_name = {toolset.name: toolset for toolset in default_toolsets}
 
         if allowed_toolsets == "*":
-            matching_toolsets = all_toolsets
+            matching_toolsets = default_toolsets
         else:
             matching_toolsets = get_matching_toolsets(
-                all_toolsets, allowed_toolsets.split(",")
+                default_toolsets, allowed_toolsets.split(",")
             )
-
-        validated_toolsets_from_config = []
+        matching_toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
         
-        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            with open(CUSTOM_TOOLSET_LOCATION) as file:
-                parsed_yaml = yaml.safe_load(file)
-                toolsets = parsed_yaml.get("toolsets", {})
-                for name, config in toolsets.items():
-                    try:
-                        if name in default_toolsets_names:
-                            validated_toolset = DefaultToolsetYamlConfig(**config, name=name)
-                        else:
-                            validated_toolset = ToolsetYamlConfig(**config, name=name)
-                            matching_toolsets.append(validated_toolset)  # Add new toolset to all_toolsets
-                        validated_toolsets_from_config.append(validated_toolset)
-                    except ValidationError as e:
-                        console.print(f"Toolset '{name}' is invalid: {e}")
-
-        overrides = {toolset.name: toolset for toolset in validated_toolsets_from_config}
-        enabled_toolsets = []
-        for toolset in matching_toolsets:
-            if toolset.name in overrides:
-                override_toolset = overrides[toolset.name]
-                if override_toolset.enabled:
-                    enabled_toolsets.append(override_toolset)
-                else:
-                    console.print(
-                    f"[yellow]Toolset {toolset.name} is disabled via configuration.[/yellow]"
-                )
-            else:
-                enabled_toolsets.append(toolset)
         
-        for toolset in enabled_toolsets:
+        toolsets_loaded_from_config = load_custom_toolsets_config()
+
+        filtered_toolsets_by_name = merge_and_override_bultin_toolsets_with_toolsets_config(
+            toolsets_loaded_from_config,
+            default_toolsets_by_name,
+            matching_toolsets_by_name
+        )
+        
+        for toolset in filtered_toolsets_by_name.values():
             toolset.check_prerequisites()
-
-        enabled_toolsets = [ts for ts in enabled_toolsets if ts.is_enabled()]
-        for ts in all_toolsets:
-            if ts not in matching_toolsets:
-                console.print(
-                    f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}"
-                )
-            elif ts not in enabled_toolsets:
-                logging.debug(f"Not loading toolset {ts.name} ({ts.get_disabled_reason()})")
-                # console.print(
-                #     f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
-                # )
-            else:
+        
+        enabled_toolsets = []
+        for ts in filtered_toolsets_by_name.values():
+            if ts.get_status() == ToolsetStatusEnum.ENABLED:
+                enabled_toolsets.append(ts)
                 logging.debug(f"Loaded toolset {ts.name} from {ts.get_path()}")
-                # console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
-
+            elif ts.get_status() == ToolsetStatusEnum.DISABLED:
+                logging.debug(f"Disabled toolset: {ts.name} from {ts.get_path()})")
+            elif ts.get_status() == ToolsetStatusEnum.ERROR:
+                logging.debug(f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})")
+        
+        for ts in default_toolsets:
+            if ts.name not in filtered_toolsets_by_name.keys():
+                 logging.debug(f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value")
+        
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
@@ -185,20 +158,16 @@ class Config(RobustaBaseConfig):
     ) -> ToolExecutor:
         
         enabled_toolsets_names = dal.get_toolsets_for_holmes()
-        
+
         all_toolsets = load_builtin_toolsets(dal=dal)
-        for ts_path in self.custom_toolsets:
-            all_toolsets.extend(load_toolsets_from_file(ts_path))
 
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             try:
-                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION))
+                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION, silent_fail=True))
             except Exception as error:
                 logging.error(f"An error happened while trying to use custom toolset: {error}")
 
-
         enabled_toolsets = [ts for ts in all_toolsets if ts.name in enabled_toolsets_names]
-        
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"

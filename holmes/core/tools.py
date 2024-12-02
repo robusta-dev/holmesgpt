@@ -6,9 +6,14 @@ import shlex
 import subprocess
 import tempfile
 from typing import Dict, List, Literal, Optional, Union
+from enum import Enum
+from datetime import datetime
 
 from jinja2 import Template
 from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator, Field, model_validator
+
+from holmes.plugins.prompts import load_and_render_prompt
+
 
 ToolsetPattern = Union[Literal['*'], List[str]]
 
@@ -43,6 +48,12 @@ def get_matching_toolsets(
     return matching_toolsets
 
 
+class ToolsetStatusEnum(str, Enum):
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    ERROR = "error"
+
+
 class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
@@ -54,6 +65,8 @@ class Tool(ABC, BaseModel):
     description: str
     parameters: Dict[str, ToolParameter] = {}
     user_description: Optional[str] = None # templated string to show to the user describing this tool invocation (not seen by llm)
+    additional_instructions: Optional[str] = None
+    toolset_parent_variables: Dict[str, str] = Field(default_factory=dict, exclude=True)
 
     def get_openai_format(self):
         tool_properties = {}
@@ -133,9 +146,33 @@ class YAMLTool(Tool, BaseModel):
         context = self._build_context(params)
         logging.info(f"Running tool: {self.get_parameterized_one_liner(context)}")
         if self.command is not None:
-            return self.__invoke_command(params)
+            raw_output = self.__invoke_command(params)
         else:
-            return self.__invoke_script(params)
+            raw_output =  self.__invoke_script(params)
+        
+        if self.additional_instructions:
+            logging.info(f"Applying additional instructions: {self.additional_instructions}")
+            return self.__apply_additional_instructions(raw_output)
+        return raw_output
+    
+
+    def __apply_additional_instructions(self, raw_output: str) -> str:
+        try:
+            result = subprocess.run(
+                self.additional_instructions,
+                input=raw_output,
+                shell=True,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            logging.error(
+                f"Failed to apply additional instructions: {self.additional_instructions}. "
+                f"Error: {e.stderr}"
+            )
+            return f"Error applying additional instructions: {e.stderr}"
 
     def __invoke_command(self, params) -> str:
         context = self._build_context(params)
@@ -189,7 +226,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra='forbid')
-
+    enabled: bool = True
     name: str
     description: str
     docs_url: str
@@ -197,29 +234,44 @@ class Toolset(BaseModel):
     installation_instructions: Optional[str] = None
     additional_instructions: Optional[str] = ""
     prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
-    tools: List[Tool]
     variables: Dict[str,str] = {}
-
+    tools: List[Tool]
+    
     _path: PrivateAttr = None
-    _enabled: PrivateAttr = None
-    _disabled_reason: PrivateAttr = None
-    _status: PrivateAttr = "disabled"
+    _status: PrivateAttr = ToolsetStatusEnum.DISABLED
     _error: PrivateAttr = None
 
+    def override_with(self, override: "ToolsetYamlFromConfig") -> None:
+        """
+        Overrides the current attributes with values from the ToolsetYamlFromConfig loaded from custom config
+        if they are not None.
+        """
+        for field, value in override.model_dump(exclude_unset=True, exclude=('name')).items():
+            if field in self.model_fields and value not in (None, [], {}, ""):
+                setattr(self, field, value)
+    
 
-    @field_validator('variables')
-    def process_variables(cls, v):
-        if not isinstance(v, dict):
+    @model_validator(mode='before')
+    def preprocess_variables_and_tools(cls, values):
+        variables = values.get('variables', {})
+        if not isinstance(variables, dict):
             raise ValueError('variables must be a dictionary')
 
-        processed_variables = {key: os.path.expandvars(value) for key, value in v.items()}
-        return processed_variables
+        processed_variables = {key: os.path.expandvars(value) for key, value in variables.items()}
+        values['variables'] = processed_variables
+
+        tools_data = values.get('tools', [])
+        tools = []
+        for tool in tools_data:
+            if isinstance(tool, dict):
+                tool['toolset_parent_variables'] = processed_variables
+                tools.append(tool)
+        values['tools'] = tools
+
+        return values
         
     def set_path(self, path):
         self._path = path
-
-    def set_status(self, status):
-        self._status = status
 
     def get_path(self):
         return self._path
@@ -230,25 +282,11 @@ class Toolset(BaseModel):
     def get_error(self):
         return self._error
 
-    def is_enabled(self):
-        if self._enabled is None:
-            raise Exception("Must call check_prerequisites() before is_enabled()")
-        return self._enabled
-
-    def get_disabled_reason(self):
-        if self._enabled != False:
-            raise Exception("Can only get disabled reason for disabled toolset")
-        return self._disabled_reason
-
     def get_environment_variables(self) -> List[str]:
-        """
-        Extracts environment variables from Toolset prerequisites.
-        """
         env_vars = set()
 
         for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetEnvironmentPrerequisite):
-                # Collect environment variables directly
                 env_vars.update(prereq.env)
         return list(env_vars)
     
@@ -263,18 +301,7 @@ class Toolset(BaseModel):
             raise Exception(f"Missing variable '{missing_var}' required for command interpolation.")
         
         return interpolated_command
-    
-    @model_validator(mode='before')
-    def set_variables_on_tools(cls, values):
-        variables = values.get('variables', {})
-        tools = values.get('tools', [])
-        print(tools)
-        if tools:
-            for tool in tools:
-                if isinstance(tool, dict):
-                    tool["toolset_parent_variables"] = variables
-        return values
-    
+
     def check_prerequisites(self):
         for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetCommandPrerequisite):
@@ -282,13 +309,11 @@ class Toolset(BaseModel):
                     command = self.interpolate_command(prereq.command)
                     result = subprocess.run(command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     if prereq.expected_output and prereq.expected_output not in result.stdout:
-                        self._enabled = False
-                        self._disabled_reason = f"prereq check gave wrong output"
+                        self._status = ToolsetStatusEnum.ERROR
+                        self._error = f"prereq check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
-                    self._enabled = False
-                    self._status = "error"
-                    self._disabled_reason = f"prereq check failed with errorcode {e.returncode}: {str(e)}"
+                    self._status = ToolsetStatusEnum.ERROR
                     logging.debug(f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}")
                     self._error =f"prereq check failed with errorcode {e.returncode}: {str(e)}"
                     return
@@ -296,23 +321,19 @@ class Toolset(BaseModel):
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
-                        self._enabled = False
-                        self._status = "error"
-                        self._disabled_reason = f"prereq check failed because environment variable {env_var} was not set"
+                        self._status = ToolsetStatusEnum.ERROR
                         self._error = f"prereq check failed because environment variable {env_var} was not set"
                         return
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
-                    self._enabled = False
-                    self._disabled_reason = prereq.disabled_reason
+                    self._status = ToolsetStatusEnum.DISABLED
                     return
                 
-        self._status = "enabled"
-        self._enabled = True
+        self._status = ToolsetStatusEnum.ENABLED
 
 
-class YAMLToolset(Toolset, BaseModel):
+class YAMLToolset(Toolset):
     tools: List[YAMLTool]
 
 
@@ -323,7 +344,6 @@ class ToolExecutor:
             if ts.name in toolsets_by_name:
                 logging.warning(f"Overriding toolset '{ts.name}'!")
             toolsets_by_name[ts.name] = ts
-
         self.tools_by_name = {}
         for ts in toolsets_by_name.values():
             for tool in ts.tools:
@@ -345,21 +365,9 @@ class ToolExecutor:
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
 
-class ToolsetYamlConfig(Toolset):
+class ToolsetYamlFromConfig(Toolset):
     name: str
-    enabled: bool
-    additional_instructions: Optional[str] = None
-    prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
-    tools: Optional[List[YAMLTool]]
-    description: str
-    docs_url: Optional[str] = None
-    icon_url: Optional[str] = None
-    installation_instructions: Optional[str] = None
-
-
-class DefaultToolsetYamlConfig(BaseModel):
-    name: str
-    enabled: bool
+    enabled: bool = True
     additional_instructions: Optional[str] = None
     prerequisites: List[Union[StaticPrerequisite, ToolsetCommandPrerequisite, ToolsetEnvironmentPrerequisite]] = []
     tools: Optional[List[YAMLTool]] = []
@@ -367,6 +375,7 @@ class DefaultToolsetYamlConfig(BaseModel):
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
+    variables: Dict[str,str] = {}
 
 
 class ToolsetDBModel(BaseModel):
@@ -379,3 +388,4 @@ class ToolsetDBModel(BaseModel):
     description: Optional[str] = None
     docs_url: Optional[str] = None
     installation_instructions: Optional[str] = None
+    updated_at: str = Field(default_factory=datetime.now().isoformat)

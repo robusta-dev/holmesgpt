@@ -101,7 +101,6 @@ class ToolCallingLLM:
 
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
-
         for i in range(self.max_steps):
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
