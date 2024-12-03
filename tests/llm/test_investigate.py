@@ -75,6 +75,8 @@ def idfn(val):
 def test_investigate(experiment_name, test_case):
 
     config = MockConfig(test_case)
+    config.model = os.environ.get("MODEL", "gpt-4o")
+
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
         generate_mocks=test_case.generate_mocks,

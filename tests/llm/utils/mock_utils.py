@@ -1,13 +1,12 @@
 
 import json
-import braintrust
 from typing_extensions import Dict
 import yaml
 import logging
 import os
 import re
 from pathlib import Path
-from typing import Generic, List, Optional, TypeVar, Union, cast
+from typing import List, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
@@ -18,7 +17,6 @@ from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
 def read_file(file_path:Path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read().strip()
-
 
 TEST_CASE_ID_PATTERN = r'^[\d+]_(?:[a-z]+_)*[a-z]+$'
 CONFIG_FILE_NAME = "test_case.yaml"

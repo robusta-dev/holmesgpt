@@ -1,14 +1,4 @@
-expected_output: |
-  # Alert Explanation
-  The `Watchdog` alert is designed to always be active. It serves as a health check for the alerting pipeline, ensuring that the Alertmanager is functioning correctly. This alert should always be firing, and if it stops, it indicates a problem with the alerting system.
-
-  # Investigation
-  The alert is currently active, which is expected behavior. The `Watchdog` alert is meant to continuously fire to confirm that the alerting mechanism is operational. The alert's configuration uses a simple expression `vector(1)` to ensure it always triggers.
-
-  # Conclusions and Possible Root Causes
-  1. *Alert is Functioning as Intended*: The `Watchdog` alert is firing as expected, indicating that the alerting pipeline is operational.
-  2. *No Issues Detected*: Since this alert is supposed to be always active, its current status does not indicate any issues.
-
-  # Next Steps
-  No immediate action is required as the `Watchdog` alert is functioning as intended. However, ensure that any notification mechanisms (e.g., PagerDuty) are configured to alert if this `Watchdog` alert stops firing, as that would indicate a problem with the alerting system.
-generate_mocks: True
+expected_output:
+  - This is not an issue
+  - The `Watchdog` alert is designed to always be active. It serves as a health check for the alerting pipeline, ensuring that the Alertmanager is functioning correctly.
+  - This alert should always be firing, and if it stops, it indicates a problem with the alerting system.

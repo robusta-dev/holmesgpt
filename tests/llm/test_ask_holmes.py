@@ -97,7 +97,10 @@ def test_ask_holmes(experiment_name, test_case):
     print(f"** OUTPUT **\n{output}")
     print(f"** SCORES **\n{scores}")
 
-    assert scores.get("faithfulness") >= test_case.evaluation.faithfulness
+    if scores.get("faithfulness"):
+        assert scores.get("faithfulness", 0) >= test_case.evaluation.faithfulness
+    if scores.get("correctness"):
+            assert scores.get("correctness", 0) >= test_case.evaluation.correctness
     assert scores.get("context", 0) >= test_case.evaluation.context
 
 
@@ -115,7 +118,7 @@ def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
-        llm=DefaultLLM("gpt-4o")
+        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"))
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)

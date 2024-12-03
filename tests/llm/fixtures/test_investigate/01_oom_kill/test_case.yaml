@@ -1,34 +1,9 @@
-expected_output: |
-  The alert indicates that the pod `oomkill-deployment-696dbdbf67-d47z6` in the `default` namespace was experiencing a `CrashLoopBackOff` state, which typically means the pod was repeatedly crashing and restarting.
-
-  # Investigation
-  I attempted to gather more information by describing the pod and fetching its logs, but the pod `oomkill-deployment-696dbdbf67-d47z6` could not be found in the cluster. This suggests that the pod may have been deleted or the deployment was scaled down after the alert was triggered.
-
-  # Conclusions and Possible Root causes
-  1. *Pod Deletion*: The pod might have been manually deleted or automatically removed by a scaling operation or deployment update.
-  2. *Deployment Update*: A new deployment or update might have replaced the pod, leading to its removal.
-  3. *Resource Constraints*: If the pod was indeed crashing due to resource constraints (e.g., OOMKilled), it might have been removed as part of a cleanup process.
-
-  # Next Steps
-  1. Verify if the deployment `oomkill-deployment` is still present and check its current status using:
-     ```bash
-     kubectl get deployment oomkill-deployment -n default
-     ```
-  2. If the deployment exists, check the replica set and any new pods created:
-     ```bash
-     kubectl get rs -n default
-     kubectl get pods -n default
-     ```
-  3. Review any recent changes or events related to the deployment:
-     ```bash
-     kubectl describe deployment oomkill-deployment -n default
-     ```
-  4. If resource constraints were suspected, consider increasing the resources allocated to the pods in the deployment configuration.
-
+expected_output:
+  - Pod `oomkill-deployment-696dbdbf67-d47z6` is experiencing a `CrashLoopBackOff`
 retrieval_context:
   - There is a total of 12 pods on node ip-172-31-8-128.us-east-2.compute.internal
   - There are 5 pods in running state
   - 7 pods are not running as indicated by the STATUS column
 evaluation:
   answer_relevancy: 0
-  faithfulness: 0
+  correctness: 0
