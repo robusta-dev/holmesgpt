@@ -8,15 +8,16 @@ from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset
 
 PARAM_FINDING_ID = "id"
 
+
 class FetchRobustaFinding(Tool):
 
-    _dal:Optional[SupabaseDal]
+    _dal: Optional[SupabaseDal]
 
-    def __init__(self, dal:Optional[SupabaseDal]):
+    def __init__(self, dal: Optional[SupabaseDal]):
         super().__init__(
-            name = "fetch_finding_by_id",
-            description = "Fetches a robusta finding. Findings are events, like a Prometheus alert or a deployment update",
-            parameters = {
+            name="fetch_finding_by_id",
+            description="Fetches a robusta finding. Findings are events, like a Prometheus alert or a deployment update",
+            parameters={
                 PARAM_FINDING_ID: ToolParameter(
                     description="The id of the finding to fetch",
                     type="string",
@@ -26,11 +27,9 @@ class FetchRobustaFinding(Tool):
         )
         self._dal = dal
 
-    def _fetch_finding(self, finding_id:str) -> Optional[Dict]:
+    def _fetch_finding(self, finding_id: str) -> Optional[Dict]:
         if self._dal and self._dal.enabled:
-            return self._dal.get_issue_data(
-                finding_id
-            )
+            return self._dal.get_issue_data(finding_id)
         else:
             error = f"Failed to find a finding with finding_id={finding_id}: Holmes' data access layer is not enabled."
             logging.error(error)
@@ -46,28 +45,31 @@ class FetchRobustaFinding(Tool):
                 return f"Could not find a finding with finding_id={finding_id}"
         except Exception as e:
             logging.error(e)
-            logging.error(f"There was an internal error while fetching finding {finding_id}. {str(e)}")
+            logging.error(
+                f"There was an internal error while fetching finding {finding_id}. {str(e)}"
+            )
 
         return f"There was an internal error while fetching finding {finding_id}"
 
-    def get_parameterized_one_liner(self, params:Dict) -> str:
+    def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched finding with finding_id={params[PARAM_FINDING_ID]}"
 
+
 class FindingsToolset(Toolset):
-    def __init__(self, dal:Optional[SupabaseDal]):
+    def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
             enabled=True if dal else False,
-            disabled_reason="The data access layer is not available")
+            disabled_reason="The data access layer is not available",
+        )
         if dal:
             dal_prereq = StaticPrerequisite(
-                enabled=dal.enabled,
-                disabled_reason="Data access layer is disabled")
+                enabled=dal.enabled, disabled_reason="Data access layer is disabled"
+            )
 
         super().__init__(
             icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
-            description = "Fetches alerts metadata and change history",
-            name = "Robusta SaaS",
-            prerequisites = [dal_prereq],
-            tools = [FetchRobustaFinding(dal)],
+            description="Fetches alerts metadata and change history",
+            name="Robusta SaaS",
+            prerequisites=[dal_prereq],
+            tools=[FetchRobustaFinding(dal)],
         )
-        self.check_prerequisites()

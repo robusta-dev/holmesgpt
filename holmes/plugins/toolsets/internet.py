@@ -10,7 +10,9 @@ from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
 # TODO: change and make it holmes
-USER_AGENT_STR = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0"
+USER_AGENT_STR = (
+    "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0"
+)
 PAGE_LOAD_TIMEOUT_SECONDS = 60000
 
 
@@ -31,10 +33,14 @@ def scrape_with_playwright(url):
 
             response = None
             try:
-                response = page.goto(url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT_SECONDS)
-                context.cookies() # Reading cookies allows to load some pages checking that cookies are enabled
+                response = page.goto(
+                    url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT_SECONDS
+                )
+                context.cookies()  # Reading cookies allows to load some pages checking that cookies are enabled
             except PlaywrightTimeoutError:
-                logging.error(f"Failed to load {url}. Timeout after {PAGE_LOAD_TIMEOUT_SECONDS} seconds")
+                logging.error(
+                    f"Failed to load {url}. Timeout after {PAGE_LOAD_TIMEOUT_SECONDS} seconds"
+                )
             except PlaywrightError as e:
                 logging.error(f"Failed to load {url}: {str(e)}")
                 return None, None
@@ -86,7 +92,9 @@ def html_to_markdown(page_source):
     try:
         md = markdownify(page_source)
     except OSError as e:
-        logging.error(f"There was an error in converting the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}")
+        logging.error(
+            f"There was an error in converting the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}"
+        )
         return page_source
 
     md = re.sub(r"</div>", "      ", md)
@@ -103,22 +111,19 @@ def looks_like_html(content):
     """
     if isinstance(content, str):
         # Check for common HTML tags
-        html_patterns = [
-            r"<!DOCTYPE\s+html",
-            r"<html",
-            r"<head",
-            r"<body"
-        ]
-        return any(re.search(pattern, content, re.IGNORECASE) for pattern in html_patterns)
+        html_patterns = [r"<!DOCTYPE\s+html", r"<html", r"<head", r"<body"]
+        return any(
+            re.search(pattern, content, re.IGNORECASE) for pattern in html_patterns
+        )
     return False
 
 
 class FetchWebpage(Tool):
     def __init__(self):
         super().__init__(
-            name = "fetch_webpage",
-            description = "Fetch a webpage with w3m. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
-            parameters = {
+            name="fetch_webpage",
+            description="Fetch a webpage with w3m. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
+            parameters={
                 "url": ToolParameter(
                     description="The URL to fetch",
                     type="string",
@@ -127,9 +132,9 @@ class FetchWebpage(Tool):
             },
         )
 
-    def invoke(self, params:Any) -> str:
+    def invoke(self, params: Any) -> str:
 
-        url:str = params["url"]
+        url: str = params["url"]
         content, mime_type = scrape_with_playwright(url)
 
         if not content:
@@ -145,21 +150,21 @@ class FetchWebpage(Tool):
         return content
 
     def get_parameterized_one_liner(self, params) -> str:
-        url:str = params["url"]
+        url: str = params["url"]
         return f"fetched webpage {url}"
 
 
 class InternetToolset(Toolset):
     def __init__(self):
         super().__init__(
-            name = "internet",
+            name="internet",
             description="Fetch webpages",
             icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
-            
-            prerequisites = [
+            prerequisites=[
                 # Take a sucessful screenshot ensures playwright is correctly installed
-                ToolsetCommandPrerequisite(command="python -m playwright screenshot --browser firefox https://www.google.com playwright.png"),
+                ToolsetCommandPrerequisite(
+                    command="python -m playwright screenshot --browser firefox https://www.google.com playwright.png"
+                ),
             ],
-            tools = [FetchWebpage()],
+            tools=[FetchWebpage()],
         )
-        self.check_prerequisites()

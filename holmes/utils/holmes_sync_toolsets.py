@@ -9,6 +9,7 @@ from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 import logging
+from datetime import datetime
 
 
 def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
@@ -115,6 +116,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal) -> None:
     )
 
     db_toolsets = []
+    updated_at = datetime.now().isoformat()
     for toolset in toolsets_for_sync_by_name.values():
         if toolset.enabled:
             toolset.check_prerequisites()
@@ -132,8 +134,10 @@ def holmes_sync_toolsets_status(dal: SupabaseDal) -> None:
                 account_id=dal.account_id,
                 status=toolset.get_status(),
                 error=toolset.get_error(),
+                updated_at=updated_at
             ).model_dump(exclude_none=True)
         )
+    print(db_toolsets)
     dal.sync_toolsets(db_toolsets)
 
 
