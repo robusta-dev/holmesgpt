@@ -300,7 +300,10 @@ class Toolset(BaseModel):
             if isinstance(tool, dict):
                 tool["toolset_parent_variables"] = processed_variables
                 tool["additional_instructions"] = additional_instructions
-                tools.append(tool)
+            if isinstance(tool, Tool):
+                tool.additional_instructions = additional_instructions
+                tool.toolset_parent_variables = processed_variables
+            tools.append(tool)
         values["tools"] = tools
 
         return values
