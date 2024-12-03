@@ -278,8 +278,9 @@ class SupabaseDal:
                 .upsert({
                     "account_id": self.account_id,
                     "updated_at": updated_at,
-                    **holmes_status_data
-                })
+                    **holmes_status_data,
+                },
+                on_conflict='account_id, cluster_id')
                 .execute()
             )
         except Exception as error:

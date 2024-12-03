@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 USER_AGENT_STR = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0"
 PAGE_LOAD_TIMEOUT_SECONDS = 60000
 
+
 def scrape_with_playwright(url):
 
     with sync_playwright() as p:
@@ -54,6 +55,7 @@ def scrape_with_playwright(url):
 
     return content, mime_type
 
+
 def cleanup(soup):
     """Remove all elements that are irrelevant to the textual representation of a web page.
     This includes images, extra data, even links as there is no intention to navigate from that page.
@@ -74,6 +76,7 @@ def cleanup(soup):
 
     return soup
 
+
 def html_to_markdown(page_source):
 
     soup = BeautifulSoup(page_source, "html.parser")
@@ -93,6 +96,7 @@ def html_to_markdown(page_source):
 
     return md
 
+
 def looks_like_html(content):
     """
     Check if the content looks like HTML.
@@ -107,6 +111,7 @@ def looks_like_html(content):
         ]
         return any(re.search(pattern, content, re.IGNORECASE) for pattern in html_patterns)
     return False
+
 
 class FetchWebpage(Tool):
     def __init__(self):
@@ -143,11 +148,12 @@ class FetchWebpage(Tool):
         url:str = params["url"]
         return f"fetched webpage {url}"
 
+
 class InternetToolset(Toolset):
     def __init__(self):
         super().__init__(
             name = "internet",
-            description="Fetch webpages.",
+            description="Fetch webpages",
             icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
             
             prerequisites = [

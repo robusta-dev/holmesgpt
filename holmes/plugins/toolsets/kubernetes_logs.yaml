@@ -1,6 +1,6 @@
 toolsets:
   kubernetes/logs:
-    description: "Read pod logs."
+    description: "Read pod logs"
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     prerequisites:
