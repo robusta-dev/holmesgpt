@@ -154,7 +154,8 @@ class MockToolsets:
             mocked_toolset = Toolset(
                 name = toolset.name,
                 prerequisites = toolset.prerequisites,
-                tools = toolset.tools
+                tools = toolset.tools,
+                description=toolset.description
             )
             mocked_toolset.tools = mocked_tools
             mocked_toolsets.append(mocked_toolset)
