@@ -2,7 +2,7 @@ import yaml
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.core.tools import get_matching_toolsets
-from holmes.common.env_vars import DEFAULT_TOOLSETS, CLUSTER_NAME
+from holmes.common.env_vars import ENABLED_BY_DEFAULT_TOOLSETS, CLUSTER_NAME
 import os
 from pydantic import ValidationError
 from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset
@@ -56,45 +56,38 @@ def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
 def merge_and_override_bultin_toolsets_with_toolsets_config(
     toolsets_loaded_from_config: list[ToolsetYamlFromConfig],
     default_toolsets_by_name: dict[str, YAMLToolset],
-    filtered_toolsets_by_name: dict[str, YAMLToolset],
+    enabled_by_default_toolsets: list[YAMLToolset],
 ) -> dict[str, YAMLToolset]:
     """
-    Merges and overrides filtered_toolsets_by_name with custom 
+    Merges and overrides default_toolsets_by_name with custom 
     config from /etc/holmes/config/custom_toolset.yaml
     """
+    toolsets_with_updated_statuses = {}
+    for toolset in default_toolsets_by_name.values():
+        if toolset in enabled_by_default_toolsets:
+            toolset.enabled = True
+        toolsets_with_updated_statuses[toolset.name] = toolset
+    
     for toolset in toolsets_loaded_from_config:
-        if toolset.name in filtered_toolsets_by_name.keys():
-            filtered_toolsets_by_name[toolset.name].override_with(toolset)
-
-        if (
-            toolset.name not in filtered_toolsets_by_name.keys()
-            and toolset.name in default_toolsets_by_name.keys()
-        ):
-
-            filtered_toolsets_by_name[toolset.name] = default_toolsets_by_name[
-                toolset.name
-            ].override_with(toolset)
-
-        if (
-            toolset.name not in filtered_toolsets_by_name.keys()
-            and toolset.name not in default_toolsets_by_name.keys()
-        ):
+        if toolset.name in toolsets_with_updated_statuses.keys():
+            toolsets_with_updated_statuses[toolset.name].override_with(toolset)
+        else:
             try:
                 validated_toolset = YAMLToolset(**toolset.model_dump(exclude_none=True))
-                filtered_toolsets_by_name[toolset.name] = validated_toolset
+                toolsets_with_updated_statuses[toolset.name] = validated_toolset
             except Exception as error:
                 logging.error(
                     f"Toolset '{toolset.name}' is invalid: {error} ", exc_info=True
                 )
-
-    return filtered_toolsets_by_name
+    
+    return toolsets_with_updated_statuses
 
 
 def holmes_sync_toolsets_status(dal: SupabaseDal) -> None:
     """
     Method for synchronizing toolsets with the database:
     1) Fetch all built-in toolsets from the holmes/plugins/toolsets directory
-    2) Select the toolsets specified in the DEFAULT_TOOLSETS environment variable from the loaded built-in toolsets
+    2) Select the toolsets specified in the ENABLED_BY_DEFAULT_TOOLSETS environment variable from the loaded built-in toolsets
     3) Load custom toolsets defined in /etc/holmes/config/custom_toolset.yaml
     4) Override default toolsets with corresponding custom configurations
        and add any new custom toolsets that are not part of the defaults
@@ -104,15 +97,14 @@ def holmes_sync_toolsets_status(dal: SupabaseDal) -> None:
     default_toolsets = load_builtin_toolsets(dal)
     default_toolsets_by_name = {toolset.name: toolset for toolset in default_toolsets}
 
-    matching_toolsets = get_matching_toolsets(
-        default_toolsets, DEFAULT_TOOLSETS.split(",")
+    enabled_by_default_toolsets = get_matching_toolsets(
+        default_toolsets, ENABLED_BY_DEFAULT_TOOLSETS.split(",")
     )
-    toolsets_for_sync_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
     toolsets_loaded_from_config = load_custom_toolsets_config()
 
     toolsets_for_sync_by_name = merge_and_override_bultin_toolsets_with_toolsets_config(
-        toolsets_loaded_from_config, default_toolsets_by_name, toolsets_for_sync_by_name
+        toolsets_loaded_from_config, default_toolsets_by_name, enabled_by_default_toolsets
     )
 
     db_toolsets = []
@@ -137,7 +129,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal) -> None:
                 updated_at=updated_at
             ).model_dump(exclude_none=True)
         )
-    print(db_toolsets)
+
     dal.sync_toolsets(db_toolsets)
 
 
@@ -148,7 +140,8 @@ def render_default_installation_instructions_for_toolset(
     context = {
         "env_vars": env_vars if env_vars else [],
         "toolset_name": toolset.name,
-        "default_toolsets": DEFAULT_TOOLSETS,
+        "enabled": toolset.enabled,
+        "default_toolset": default_toolset
     }
     if default_toolset:
         installation_instructions = load_and_render_prompt(

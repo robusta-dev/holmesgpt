@@ -250,7 +250,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    enabled: bool = True
+    enabled: bool = False
     name: str
     description: str
     docs_url: Optional[str] = None

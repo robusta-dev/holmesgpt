@@ -2,7 +2,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
 from holmes import get_version
 import logging
-from holmes.common.env_vars import DEFAULT_TOOLSETS, CLUSTER_NAME
+from holmes.common.env_vars import  CLUSTER_NAME
 
 
 def update_holmes_status_in_db(dal: SupabaseDal, config: Config):

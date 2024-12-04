@@ -1,9 +1,7 @@
-## Install
+{% if enabled %}
+This is a built-in toolset which is enabled by default. 
 
-This is a built-in toolset. To enable it, ensure the following:
-
-1. Holmes is configured correctly, and the toolset's name is included in the DEFAULT_TOOLSETS environment variable or set to * to enable all default toolsets.
-2. The toolset is not explicitly disabled in the toolsets configuration.
+If you would like to disable this toolset (not recommended), you need to update the `generated_values.yaml` configuration.
 
 ```yaml
 enableHolmesGPT: true
@@ -11,20 +9,35 @@ holmes:
   additionalEnvVars:
     - name: ROBUSTA_AI
       value: "true"
-    - name: DEFAULT_TOOLSETS # Your DEFAULT_TOOLSETS value is set as - DEFAULT_TOOLSETS={{default_toolsets}}
-      value: "{{toolset_name}},..." # Use '*' to enable all default toolsets
-{% if env_vars %}
-{% for env in env_vars %}
+toolsets:
+    {{toolset_name}}:
+        enabled: false
+```
+
+{% else %}
+This is a built-in toolset which is disabled by default. 
+If you would like enable this toolset, you need to update the `generated_values.yaml` configuration.
+
+```yaml
+enableHolmesGPT: true
+holmes:
+  additionalEnvVars:
+    - name: ROBUSTA_AI
+      value: "true"
+{% if env_vars %}{% for env in env_vars %}
     - name: {{ env }}
       value: ""
 {% endfor %}
 {% endif %}
+  toolsets:
+    {{toolset_name}}:
+      enabled: true
 ```
 
-Ensure that toolset is not explicitly disabled in the toolsets configuration:
+{% endif %}
 
-```yaml
-toolsets:
-    {{toolset_name}}:
-        enabled: false
+And deploy the updated configuration using Helm
+
+```bash
+helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
 ```

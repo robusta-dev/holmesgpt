@@ -1,7 +1,7 @@
 toolsets:
   confluence:
-    description: "confluence"
-    docs_url: "confluence"
+    description: "Fetch confluence pages"
+    docs_url: "https://confluence.atlassian.com/alldoc/atlassian-documentation-32243719.html"
     prerequisites:
     - command: "curl --version"
     - env:

@@ -26,7 +26,7 @@ serviceAccount:
   imagePullSecrets: []
   annotations: {}
 
-defaultToolsets: "kubernetes/core,kubernetes/logs,findings,internet"
+enabledByDefaultToolsets: "kubernetes/core,kubernetes/logs,findings,internet"
 toolsets: {}
 
 resources:

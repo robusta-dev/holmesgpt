@@ -118,20 +118,19 @@ class Config(RobustaBaseConfig):
         else:
             matching_toolsets = get_matching_toolsets(
                 default_toolsets, allowed_toolsets.split(",")
-            )
-        matching_toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
-        
+            )        
         
         toolsets_loaded_from_config = load_custom_toolsets_config()
 
         filtered_toolsets_by_name = merge_and_override_bultin_toolsets_with_toolsets_config(
             toolsets_loaded_from_config,
             default_toolsets_by_name,
-            matching_toolsets_by_name
+            matching_toolsets
         )
         
         for toolset in filtered_toolsets_by_name.values():
-            toolset.check_prerequisites()
+            if toolset.enabled:
+                toolset.check_prerequisites()
         
         enabled_toolsets = []
         for ts in filtered_toolsets_by_name.values():

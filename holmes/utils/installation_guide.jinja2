@@ -1,9 +1,4 @@
-## Install
-
-To install the toolset, ensure the following:
-
-1. Verify if the toolset is already included in holmes/plugins/toolsets. If so, just ensure its name is listed in the DEFAULT_TOOLSETS environment variable and not disabled by toolset's config.
-2. If the toolset is not part of the defaults, define it explicitly under the toolsets configuration.
+To install the toolset, you need to define the toolset and update the `generated_values.yaml` configuration:
 
 Example Configuration:
 
@@ -13,8 +8,7 @@ holmes:
   additionalEnvVars:
     - name: ROBUSTA_AI
       value: "true"
-{% if env_vars %}
-{% for env in env_vars %}
+{% if env_vars %}{% for env in env_vars %}
     - name: {{ env }}
       value: ""
 {% endfor %}

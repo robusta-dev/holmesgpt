@@ -291,7 +291,7 @@ class SupabaseDal:
     
     def sync_toolsets(self, toolsets: list[dict]) -> None:
         if not toolsets:
-            logging.error("No toolsets were provided for synchronization.")
+            logging.warning("No toolsets were provided for synchronization.")
             return
         
         provided_toolset_names = [toolset['toolset_name'] for toolset in toolsets]
