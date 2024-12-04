@@ -23,12 +23,13 @@ In this folder, add a `test_case.yaml` file:
 
 ```yaml
 user_prompt: 'Is pod xyz healthy? '
-expected_output: "Yes, pod xyz is healthy. It is running and there are no errors in the logs."
+expected_output:
+  - pod xyz is running and healthy
 retrieval_context:
   - Any element of context. This will inform the evaluation score 'context'
   - These context elements are expected to be present in the output
 evaluation: # expected evaluation scores. The test will fail unless the LLM scores at least the following:
-  faithfulness: 0.5 # defaults to 0.3
+  correctness: 0.5 # defaults to 0.3
   context: 0 # defaults to 0
 before-test: kubectl apply -f manifest.yaml
 after-test: kubectl delete -f manifest.yaml
@@ -67,3 +68,4 @@ The test may pass or not based on whether the evaluation scores are high enough.
 | BRAINTRUST_API_KEY | BRAINTRUST_API_KEY=sk-1dh1...swdO02 | The braintrust API key you get from your account. Log in https://www.braintrust.dev -> top right persona logo -> settings -> API keys. |
 | UPLOAD_DATASET     | UPLOAD_DATASET=1                    | Synchronise the dataset from the local machine to braintrust. This is usually safe as datasets are separated by branch name.           |
 | EXPERIMENT_ID      | EXPERIMENT_ID=nicolas_gemini_v1     | Override the experiment name in Braintrust. Helps with identifying and comparing experiments. Must be unique across ALL experiments.   |
+| MODEL              | MODEL=anthropic/claude-3.5          | The model to use for generation.                                                                                                       |
