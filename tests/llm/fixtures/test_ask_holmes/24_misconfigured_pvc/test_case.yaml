@@ -3,7 +3,7 @@ expected_output:
   - The PersistentVolumeClaim (pvc) is misconfigured
   - That the storage class standard-v2 does not exist
 evaluation:
-  faithfulness: 0
+  correctness: 0
 before_test: |
   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pvc-misconfiguration/redis-deployment.yaml
 after_test: |
