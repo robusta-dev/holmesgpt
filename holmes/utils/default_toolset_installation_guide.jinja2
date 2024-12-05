@@ -4,29 +4,24 @@ This is a built-in toolset which is enabled by default.
 If you would like to disable this toolset (not recommended), you need to update the `generated_values.yaml` configuration.
 
 ```yaml
-enableHolmesGPT: true
 holmes:
-  additionalEnvVars:
-    - name: ROBUSTA_AI
-      value: "true"
-toolsets:
+  ....
+  toolsets:
     {{toolset_name}}:
         enabled: false
 ```
 
 {% else %}
-This is a built-in toolset which is disabled by default. 
-If you would like enable this toolset, you need to update the `generated_values.yaml` configuration.
+To enable this integration, update the Helm values for Robusta (`generated_values.yaml`):
 
 ```yaml
-enableHolmesGPT: true
 holmes:
+  ....
+{% if env_vars %}
   additionalEnvVars:
-    - name: ROBUSTA_AI
-      value: "true"
-{% if env_vars %}{% for env in env_vars %}
+{% for env in env_vars %}
     - name: {{ env }}
-      value: ""
+      value: <{{ env }}>
 {% endfor %}
 {% endif %}
   toolsets:
@@ -36,7 +31,7 @@ holmes:
 
 {% endif %}
 
-And deploy the updated configuration using Helm
+And deploy the updated configuration using Helm:
 
 ```bash
 helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>

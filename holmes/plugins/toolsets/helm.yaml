@@ -3,6 +3,8 @@ toolsets:
     description: "Read access to cluster's Helm charts and releases"
     docs_url: "https://helm.sh/docs/"
     icon_url: "https://helm.sh/img/helm.svg"
+    tags:
+      - core
     prerequisites:
     - command: "helm version"
 

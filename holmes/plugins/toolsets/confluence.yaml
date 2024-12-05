@@ -2,6 +2,9 @@ toolsets:
   confluence:
     description: "Fetch confluence pages"
     docs_url: "https://confluence.atlassian.com/alldoc/atlassian-documentation-32243719.html"
+    icon_url: "https://platform.robusta.dev/demos/confluence.svg"
+    tags:
+      - core
     prerequisites:
     - command: "curl --version"
     - env:

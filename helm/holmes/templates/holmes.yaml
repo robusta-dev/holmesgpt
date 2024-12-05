@@ -32,8 +32,6 @@ spec:
         env:
           - name: LOG_LEVEL
             value: {{ .Values.logLevel }}
-          - name: ENABLED_BY_DEFAULT_TOOLSETS
-            value: {{ .Values.enabledByDefaultToolsets }}
           - name: CLUSTER_NAME
             value: {{ .Values.ClusterName }}
           {{ if .Values.certificate -}}

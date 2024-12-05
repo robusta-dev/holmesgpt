@@ -5,7 +5,7 @@ from holmes.core.tools import get_matching_toolsets
 from holmes.common.env_vars import ENABLED_BY_DEFAULT_TOOLSETS, CLUSTER_NAME
 import os
 from pydantic import ValidationError
-from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset
+from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset, ToolsetTag
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 import logging
@@ -94,8 +94,9 @@ def holmes_sync_toolsets_status(dal: SupabaseDal) -> None:
     5) Run the check_prerequisites method for each toolset
     6) Use sync_toolsets to upsert toolset's status and remove toolsets that are not loaded from configs or folder with default directory
     """
-    default_toolsets = load_builtin_toolsets(dal)
+    default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLUSTER) for tag in toolset.tags)]
     default_toolsets_by_name = {toolset.name: toolset for toolset in default_toolsets}
+
 
     enabled_by_default_toolsets = get_matching_toolsets(
         default_toolsets, ENABLED_BY_DEFAULT_TOOLSETS.split(",")

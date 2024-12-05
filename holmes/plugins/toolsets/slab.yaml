@@ -1,7 +1,10 @@
 toolsets:
   slab:
-    description: "slab"
-    docs_url: "slab"
+    description: "Fetches slab pages"
+    docs_url: "https://help.slab.com/en/"
+    icon_url: "https://platform.robusta.dev/demos/slab-mark.svg"
+    tags:
+      - core
     prerequisites:
     - command: "curl --version"
     - env:

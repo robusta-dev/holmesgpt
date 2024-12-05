@@ -72,4 +72,5 @@ class FindingsToolset(Toolset):
             name="robusta",
             prerequisites=[dal_prereq],
             tools=[FetchRobustaFinding(dal)],
+            tags=["core",]
         )

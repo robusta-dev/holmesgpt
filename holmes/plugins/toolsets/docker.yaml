@@ -2,7 +2,9 @@ toolsets:
   docker/core:
     description: "Read access to Docker resources"
     docs_url: "https://docs.docker.com/"
-    icon_url: "https://www.docker.com/wp-content/uploads/2023/08/logo-guide-logos-2.svg"
+    icon_url: "https://platform.robusta.dev/demos/docker.svg"
+    tags:
+      - cli
     prerequisites:
     - command: "docker version"
 

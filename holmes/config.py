@@ -16,7 +16,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import (IssueInvestigator, 
                                           ToolCallingLLM,
                                           ToolExecutor)
-from holmes.core.tools import ToolsetPattern, get_matching_toolsets, ToolsetStatusEnum
+from holmes.core.tools import ToolsetPattern, get_matching_toolsets, ToolsetStatusEnum, ToolsetTag
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import (load_builtin_runbooks,
                                      load_runbooks_from_file)
@@ -110,7 +110,10 @@ class Config(RobustaBaseConfig):
     def create_console_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        default_toolsets = load_builtin_toolsets(dal=dal)
+        """
+        Creates ToolExecutor for the cli 
+        """
+        default_toolsets = default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
         default_toolsets_by_name = {toolset.name: toolset for toolset in default_toolsets}
 
         if allowed_toolsets == "*":
@@ -155,7 +158,9 @@ class Config(RobustaBaseConfig):
     def create_tool_executor(
         self, console: Console, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        
+        """
+        Creates ToolExecutor for the server endpoints 
+        """
         enabled_toolsets_names = dal.get_toolsets_for_holmes()
 
         all_toolsets = load_builtin_toolsets(dal=dal)

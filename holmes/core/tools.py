@@ -60,6 +60,11 @@ class ToolsetStatusEnum(str, Enum):
     DISABLED = "disabled"
     ERROR = "error"
 
+class ToolsetTag(str, Enum):
+    CORE = "core"
+    CLUSTER = "cluster"
+    CLI = "cli"
+
 
 class ToolParameter(BaseModel):
     description: Optional[str] = None
@@ -266,6 +271,7 @@ class Toolset(BaseModel):
     ] = []
     variables: Dict[str, str] = {}
     tools: List[Tool]
+    tags: List[ToolsetTag] = Field(default_factory=lambda: [ToolsetTag.CORE],)
 
     _path: PrivateAttr = None
     _status: PrivateAttr = ToolsetStatusEnum.DISABLED

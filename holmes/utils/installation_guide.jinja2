@@ -1,14 +1,12 @@
-To install the toolset, you need to define the toolset and update the `generated_values.yaml` configuration:
+To enable this integration, update the Helm values for Robusta (`generated_values.yaml`):
 
 Example Configuration:
 
 ```yaml
-enableHolmesGPT: true
 holmes:
+  {% if env_vars %}
   additionalEnvVars:
-    - name: ROBUSTA_AI
-      value: "true"
-{% if env_vars %}{% for env in env_vars %}
+{% for env in env_vars %}
     - name: {{ env }}
       value: ""
 {% endfor %}

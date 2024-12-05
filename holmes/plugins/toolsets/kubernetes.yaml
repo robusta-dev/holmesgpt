@@ -3,6 +3,8 @@ toolsets:
     description: "Read access to cluster resources (excluding secrets and other sensitive data)"
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    tags:
+      - core
     prerequisites:
       - command: "kubectl version --client"
 
@@ -134,9 +136,11 @@ toolsets:
     # e.g. to query company-specific data or run your own commands
 
   kubernetes/live-metrics:
-    description: "kubernetes/live-metrics tools"
+    description: "Provides real-time metrics for pods and nodes"
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    tags:
+      - core
     tools:
       - name: "kubectl_top_pods"
         description: "Retrieves real-time CPU and memory usage for each pod in the cluster."
@@ -148,18 +152,22 @@ toolsets:
           kubectl top nodes
 
   kubernetes/kube-prometheus-stack:
-    description: "kubernetes/kube-prometheus-stack"
+    description: "Fetches prometheus definition"
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    tags:
+      - core
     tools:
       - name: "get_prometheus_target"
         description: "Fetch the definition of a Prometheus target"
         command: 'kubectl get --raw ''/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets'' | jq ''.data.activeTargets[] | select(.labels.job == "{{ target_name }}")'
 
   kubernetes/krew-extras: # To make this work, install kube-lineage with krew
-    description: "kubernetes/krew-extras"
+    description: "Fetches children/dependents and parents/dependencies resources using kube-lineage installed via `kubectl krew`"
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    tags:
+      - core
     prerequisites:
       - command: "kubectl version --client && kubectl lineage --version"
     tools:
@@ -171,7 +179,7 @@ toolsets:
         command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }} -D"
 
   kubernetes/kube-lineage-extras: # To make this work, build kube-lineage from source
-    description: "kubernetes/kube-lineage-extras"
+    description: "Fetches children/dependents and parents/dependencies resources using kube-lineage"
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     prerequisites:

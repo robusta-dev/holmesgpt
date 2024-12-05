@@ -159,7 +159,7 @@ class InternetToolset(Toolset):
         super().__init__(
             name="internet",
             description="Fetch webpages",
-            icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
+            icon_url="https://platform.robusta.dev/demos/internet-access.svg",
             prerequisites=[
                 # Take a sucessful screenshot ensures playwright is correctly installed
                 ToolsetCommandPrerequisite(
@@ -167,4 +167,5 @@ class InternetToolset(Toolset):
                 ),
             ],
             tools=[FetchWebpage()],
+            tags=["core",]
         )

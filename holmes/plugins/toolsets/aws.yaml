@@ -3,6 +3,8 @@ toolsets:
     description: "Set of tools to audit AWS security"
     docs_url: "https://docs.aws.amazon.com/"
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg"
+    tags:
+      - core
     prerequisites:
     - command: "aws sts get-caller-identity"
 
@@ -42,6 +44,8 @@ toolsets:
     description: "Read access to Amazon RDS resources"
     docs_url: "https://docs.aws.amazon.com/rds/"
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg"
+    tags:
+      - core
     prerequisites:
     - command: "aws sts get-caller-identity"
 
