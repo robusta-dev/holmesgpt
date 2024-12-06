@@ -1,9 +1,11 @@
 import logging
 import os
 import os.path
+
+from pydantic.main import BaseModel
 from holmes.core.llm import LLM, DefaultLLM
 from strenum import StrEnum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from openai import AzureOpenAI, OpenAI
 from pydantic import FilePath, SecretStr
@@ -31,7 +33,6 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
-
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -72,6 +73,7 @@ class Config(RobustaBaseConfig):
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
+    opensearch_clusters: Optional[List[Dict]] = None # Passed through to opensearchpy.OpenSearch constructor
 
     @classmethod
     def load_from_env(cls):
@@ -106,7 +108,7 @@ class Config(RobustaBaseConfig):
     def create_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, opensearch_clusters=self.opensearch_clusters)
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
 
