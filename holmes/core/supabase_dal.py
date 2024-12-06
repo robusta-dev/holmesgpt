@@ -316,14 +316,3 @@ class SupabaseDal:
         except Exception as e:
             logging.exception(f"An error occurred during toolset synchronization: {e}",
                               exc_info=True)
-
-    def get_toolsets_for_holmes(self,):
-        try:
-            response = self.client.table(HOLMES_TOOLSET).select("toolset_name", "status").eq(
-            "account_id", self.account_id).eq(
-                "cluster_id", CLUSTER_NAME).execute()
-            data = [toolset.get("toolset_name") for toolset in response.data if toolset.get("status") == "enabled"]
-            return data
-        except:
-            logging.exception("Failed to fetch the most recent toolsets", exc_info=True)
-            return []

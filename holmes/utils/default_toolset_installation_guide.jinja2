@@ -1,11 +1,10 @@
 {% if enabled %}
-This is a built-in toolset which is enabled by default. 
+This integration is enabled by default. 
 
 If you would like to disable this toolset (not recommended), you need to update the `generated_values.yaml` configuration.
 
 ```yaml
 holmes:
-  ....
   toolsets:
     {{toolset_name}}:
         enabled: false
@@ -16,7 +15,6 @@ To enable this integration, update the Helm values for Robusta (`generated_value
 
 ```yaml
 holmes:
-  ....
 {% if env_vars %}
   additionalEnvVars:
 {% for env in env_vars %}

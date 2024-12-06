@@ -6,7 +6,7 @@ from holmes.core.llm import LLM, DefaultLLM
 from typing import List, Optional
 
 
-from pydantic import FilePath, SecretStr
+from pydantic import FilePath, SecretStr, Field
 from pydash.arrays import concat
 from rich.console import Console
 
@@ -31,7 +31,7 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
 from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
-
+from holmes.core.tools import YAMLToolset
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 
@@ -75,7 +75,8 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
-
+    
+    enabled_toolsets_names: List[str] = Field(default_factory=list)
 
     @classmethod
     def load_from_env(cls):
@@ -113,9 +114,8 @@ class Config(RobustaBaseConfig):
         """
         Creates ToolExecutor for the cli 
         """
-        default_toolsets = default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
-        default_toolsets_by_name = {toolset.name: toolset for toolset in default_toolsets}
-
+        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
+        
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
         else:
@@ -123,12 +123,16 @@ class Config(RobustaBaseConfig):
                 default_toolsets, allowed_toolsets.split(",")
             )        
         
+        # Enable all matching toolsets
+        for toolset in matching_toolsets:
+            matching_toolsets.enabled = True
+
+        matched_default_toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
         toolsets_loaded_from_config = load_custom_toolsets_config()
 
         filtered_toolsets_by_name = merge_and_override_bultin_toolsets_with_toolsets_config(
             toolsets_loaded_from_config,
-            default_toolsets_by_name,
-            matching_toolsets
+            matched_default_toolsets_by_name,
         )
         
         for toolset in filtered_toolsets_by_name.values():
@@ -161,7 +165,6 @@ class Config(RobustaBaseConfig):
         """
         Creates ToolExecutor for the server endpoints 
         """
-        enabled_toolsets_names = dal.get_toolsets_for_holmes()
 
         all_toolsets = load_builtin_toolsets(dal=dal)
 
@@ -171,7 +174,7 @@ class Config(RobustaBaseConfig):
             except Exception as error:
                 logging.error(f"An error happened while trying to use custom toolset: {error}")
 
-        enabled_toolsets = [ts for ts in all_toolsets if ts.name in enabled_toolsets_names]
+        enabled_toolsets = [ts for ts in all_toolsets if ts.name in self.enabled_toolsets_names]
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
