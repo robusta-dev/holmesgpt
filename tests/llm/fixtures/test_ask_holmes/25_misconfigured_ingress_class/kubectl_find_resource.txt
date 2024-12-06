@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"deployment","keyword":"my-http-app-deployment"}}
+stdout:
+default              my-http-app-deployment                1/1     1            1           6s     my-http-app                                           nginx                                                                                                      app=my-http-app                                                                <none>
+
+stderr:

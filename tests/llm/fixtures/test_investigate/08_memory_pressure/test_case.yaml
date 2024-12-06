@@ -17,3 +17,5 @@ expected_output: |
   2. **Increase Node Capacity**: Add more nodes to the cluster or upgrade existing nodes to a larger instance type to accommodate more pods.
   3. **Define Resource Requests**: Ensure all pods have defined CPU and memory requests to improve scheduling efficiency.
   4. **Adjust Kubelet Configuration**: If feasible, increase the `maxPods` setting in the Kubelet configuration for nodes that can handle more pods.
+evaluation:
+  faithfulness: 0

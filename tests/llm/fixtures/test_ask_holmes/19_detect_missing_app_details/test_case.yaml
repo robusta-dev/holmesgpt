@@ -1,0 +1,4 @@
+user_prompt: "Why is frontend-certs-validator in a crashloopbackoff?"
+expected_output: I couldn't find a pod named "frontend-certs-validator." Please check the name and try again.
+retrieval_context:
+  - "The pod frontend-certs-validator is not present in the cluster"
