@@ -25,3 +25,5 @@ expected_output: |
      kubectl describe deployment db-certs-authenticator -n default
      ```
   4. **Monitor for Recurrence**: Keep an eye on the deployment for any new crash loop alerts to identify if the issue persists.
+evaluation:
+  faithfulness: 0

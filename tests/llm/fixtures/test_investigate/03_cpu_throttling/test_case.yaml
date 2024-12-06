@@ -20,3 +20,5 @@ expected_output: |
     - Consider removing or increasing the CPU limit for the stress container if the application requires more CPU resources. This can be done by editing the pod's resource configuration:
       `kubectl edit pod frontend-service -n default`
     - Adjust the resources.limits.cpu value to a higher number or remove it entirely if appropriate.
+evaluation:
+  faithfulness: 0

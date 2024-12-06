@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: get-data
+  namespace: default
+spec:
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      serviceAccountName: get-data-service-account
+      containers:
+        - name: curl-container
+          image: curlimages/curl:latest
+          command:
+            - curl
+            - "http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343"
+      restartPolicy: Never

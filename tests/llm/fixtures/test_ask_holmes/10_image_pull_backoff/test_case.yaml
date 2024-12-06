@@ -1,0 +1,14 @@
+user_prompt: What is the issue with customer-relations-webapp?
+expected_output: |
+  The `customer-relations-webapp` pods are failing to start due to an `ImagePullBackOff` error. The issue is caused by the inability to pull the Docker image `yourcompany/crw:latest`. The error message indicates that the image pull failed because the repository does not exist or may require authorization.
+
+  Possible solutions:
+  1. Verify the image name and tag are correct.
+  2. Ensure the image is available in the specified repository.
+  3. Check if authentication credentials are needed to access the repository and configure them in Kubernetes if necessary.
+
+# before_test: |
+#   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml
+#   sleep 20
+# after_test: |
+#   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml
