@@ -46,6 +46,7 @@ pytest-xdist = "^3.6.1"
 ruff = "^0.7.3"
 braintrust = "^0.0.168"
 autoevals = "^0.0.103"
+pre-commit = "^4.0.1"
 
 [build-system]
 requires = ["poetry-core"]

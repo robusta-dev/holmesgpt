@@ -5,5 +5,4 @@ retrieval_context:
   - There are 5 pods in running state
   - 7 pods are not running as indicated by the STATUS column
 evaluation:
-  answer_relevancy: 0
   correctness: 0
