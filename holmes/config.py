@@ -2,7 +2,11 @@ import logging
 import os
 import yaml
 import os.path
+
+from pydantic.main import BaseModel
 from holmes.core.llm import LLM, DefaultLLM
+from strenum import StrEnum
+from typing import Any, Dict, List, Optional
 from typing import List, Optional
 
 
@@ -33,7 +37,6 @@ from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
-
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -76,6 +79,8 @@ class Config(RobustaBaseConfig):
     custom_toolsets: List[FilePath] = []
 
     enabled_toolsets_names: List[str] = Field(default_factory=list)
+
+    opensearch_clusters: Optional[List[Dict]] = None # Passed through to opensearchpy.OpenSearch constructor
 
     @classmethod
     def load_from_env(cls):
