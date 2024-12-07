@@ -1,0 +1,12 @@
+user_prompt: "What is the issue with logging-agent?"
+expected_output: |
+  The `logging-agent` pod is failing to initialize due to an error in the init container `downloader`.
+  The command `wge` is not found, likely a typo for `wget`.
+  This causes the container to fail with a `RunContainerError`.
+  Correct the command in the init container to use `wget` instead of `wge`.
+
+# before_test: |
+#   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/init_crashloop_backoff/create_init_crashloop_backoff.yaml
+#   sleep 40
+# after_test: |
+#   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/init_crashloop_backoff/create_init_crashloop_backoff.yaml

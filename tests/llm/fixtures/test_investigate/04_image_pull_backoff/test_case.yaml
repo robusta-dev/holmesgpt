@@ -16,3 +16,5 @@ expected_output: |
   - Check if the image `yourcompany/crw:latest` exists in the Docker registry and is accessible.
   - Update the Kubernetes secret used for Docker registry credentials if necessary.
   - Consider specifying a specific image tag instead of `latest` to avoid potential issues with image resolution.
+evaluation:
+  faithfulness: 0

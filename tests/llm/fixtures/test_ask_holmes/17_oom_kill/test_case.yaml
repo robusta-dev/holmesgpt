@@ -1,0 +1,12 @@
+user_prompt: "What is the issue with analytics-exporter-fast?"
+expected_output: |
+  The `analytics-exporter-fast` pod is crashing due to being OOMKilled (Out of Memory Killed).
+  The container `memory-eater` is configured with a memory limit of 100Mi, and it is exceeding this limit, leading to termination.
+
+  To resolve this, consider increasing the memory limit for the container or optimizing the application's memory usage.
+
+before_test: |
+  kubectl apply -f ./fast_oom_deployment.yaml
+  sleep 5
+after_test: |
+  kubectl delete -f ./fast_oom_deployment.yaml

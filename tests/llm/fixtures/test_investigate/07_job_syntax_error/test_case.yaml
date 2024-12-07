@@ -24,3 +24,5 @@ expected_output: |
   kubectl delete job product-data-scraper -n default
   kubectl apply -f <corrected-job-definition>.yaml
   ```
+evaluation:
+  faithfulness: 0

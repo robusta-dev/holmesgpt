@@ -1,0 +1,14 @@
+user_prompt: "What is the issue with job java-api-checker"
+expected_output: |
+  The `java-api-checker` job is experiencing a network exception.
+  It repeatedly fails to connect to the database at `prod-db:3333`,
+  with the error indicating that no available connection exists and the
+  queue has reached its maximum size of 256.
+  This suggests a potential issue with the database being unreachable or overloaded.
+
+# before_test: |
+#   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_failure/job_crash.yaml || true
+#   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_failure/job_crash.yaml
+#   sleep 40
+# after_test: |
+#   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_failure/job_crash.yaml
