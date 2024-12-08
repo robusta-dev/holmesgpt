@@ -1,0 +1,43 @@
+toolsets:
+  - name: "git/core"
+    prerequisites:
+      - command: "git --version"
+      
+    tools:
+      - name: "git_read_file"
+        description: |
+          Reads a specific file from the remote Git repository.
+          Parameters:
+          - filepath: The path of the file in the repository to read.
+        command: >
+          curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
+          "https://api.github.com/repos/${GIT_REPO}/contents/{{ filepath }}" | 
+          jq -r '.content' | base64 -d
+
+      - name: "git_list_files"
+        description: |
+          Lists all files and directories in the remote Git repository (recursively).
+        command: >
+          curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
+          "https://api.github.com/repos/${GIT_REPO}/git/trees/master?recursive=1" | 
+          jq -r '.tree[] | .path'
+
+
+      - name: "git_execute_changes"
+        description: |
+          Executes remote changes in the Git repository and optionally opens a pull request.
+          Parameters:
+          - line: The line number in the file to modify.
+          - filename: The path of the file in the repository to modify.
+          - command: The type of change (insert, update, remove).
+          - code: Content to insert or replace (leave empty for remove).
+          - open_pr: true/false, whether to open a pull request after committing.
+          - commit_pr: The title of the commit or PR.
+        command: >
+          ./remote_git_operations.sh 
+          "{{ line }}" 
+          "{{ filename }}" 
+          "{{ command }}" 
+          "{{ code }}" 
+          "{{ open_pr }}" 
+          "{{ commit_pr }}"
