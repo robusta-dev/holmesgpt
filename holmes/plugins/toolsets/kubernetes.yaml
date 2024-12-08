@@ -167,7 +167,7 @@ toolsets:
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     tags:
-      - core
+      - cli
     prerequisites:
       - command: "kubectl version --client && kubectl lineage --version"
     tools:
@@ -182,6 +182,8 @@ toolsets:
     description: "Fetches children/dependents and parents/dependencies resources using kube-lineage"
     docs_url: "https://kubernetes.io/docs/home/"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    tags:
+      - cluster
     prerequisites:
       - command: "kubectl version --client && kube-lineage --version"
     tools:

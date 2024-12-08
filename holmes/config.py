@@ -125,7 +125,7 @@ class Config(RobustaBaseConfig):
         
         # Enable all matching toolsets
         for toolset in matching_toolsets:
-            matching_toolsets.enabled = True
+            toolset.enabled = True
 
         matched_default_toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
         toolsets_loaded_from_config = load_custom_toolsets_config()
@@ -138,7 +138,7 @@ class Config(RobustaBaseConfig):
         for toolset in filtered_toolsets_by_name.values():
             if toolset.enabled:
                 toolset.check_prerequisites()
-        
+
         enabled_toolsets = []
         for ts in filtered_toolsets_by_name.values():
             if ts.get_status() == ToolsetStatusEnum.ENABLED:

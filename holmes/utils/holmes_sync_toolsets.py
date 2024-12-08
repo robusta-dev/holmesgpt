@@ -10,7 +10,6 @@ from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 import logging
 from datetime import datetime
-from holmes.config import Config
 
 
 def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
@@ -66,7 +65,6 @@ def merge_and_override_bultin_toolsets_with_toolsets_config(
         toolset.name: toolset for toolset in default_toolsets_by_name.values()
     }
     
-    toolsets_with_updated_statuses = {}
     for toolset in toolsets_loaded_from_config:
         if toolset.name in toolsets_with_updated_statuses.keys():
             toolsets_with_updated_statuses[toolset.name].override_with(toolset)
@@ -82,7 +80,7 @@ def merge_and_override_bultin_toolsets_with_toolsets_config(
     return toolsets_with_updated_statuses
 
 
-def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
+def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
     """
     Method for synchronizing toolsets with the database:
     1) Fetch all built-in toolsets from the holmes/plugins/toolsets directory
