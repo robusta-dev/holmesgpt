@@ -4,15 +4,16 @@ toolsets:
       - command: "git --version"
       
     tools:
-      - name: "git_read_file"
+      - name: "git_read_file_with_line_numbers"
         description: |
-          Reads a specific file from the remote Git repository.
+          Reads a specific file from the remote Git repository and prints each line with its corresponding line number.
           Parameters:
           - filepath: The path of the file in the repository to read.
         command: >
           curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
           "https://api.github.com/repos/${GIT_REPO}/contents/{{ filepath }}" | 
-          jq -r '.content' | base64 -d
+          jq -r '.content' | base64 -d | 
+          nl -ba
 
       - name: "git_list_files"
         description: |
