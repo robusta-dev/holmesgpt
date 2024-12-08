@@ -1,29 +1,5 @@
-expected_output: |
-  The pod `db-certs-authenticator-7ffd769f48-vndgd` in the `default` namespace is experiencing a `CrashLoopBackOff`, indicating that the application within the pod is repeatedly crashing and Kubernetes is attempting to restart it.
-
-  # Investigation
-  1. The runbook for `KubePodCrashLooping` suggests checking pod events, logs, and configuration for issues such as resource constraints, misconfigurations, or missing dependencies.
-  2. Attempts to describe the pod and fetch logs failed because the pod `db-certs-authenticator-7ffd769f48-vndgd` is not currently found in the cluster.
-  3. A search for the pod across all namespaces confirmed that it is not present.
-
-  # Conclusions and Possible Root Causes
-  1. *Pod Deletion*: The pod `db-certs-authenticator-7ffd769f48-vndgd` may have been deleted after the alert was triggered, which is why it is not found in the cluster.
-  2. *Transient Issue*: The crash loop might have been a transient issue that resolved itself, leading to the pod being replaced or removed.
-  3. *Configuration or Resource Issue*: If the pod was deleted due to a configuration or resource issue, it might recur when the pod is redeployed.
-
-  # Next Steps
-  1. **Verify Deployment**: Check the deployment `db-certs-authenticator` to ensure it is correctly configured and running.
-     ```bash
-     kubectl get deployment db-certs-authenticator -n default
-     ```
-  2. **Check for New Pods**: Look for any new pods created by the deployment to replace the crashed pod.
-     ```bash
-     kubectl get pods -n default -l app=db-certs-authenticator
-     ```
-  3. **Review Deployment Configuration**: Ensure that the deployment configuration does not have issues that could cause pods to crash.
-     ```bash
-     kubectl describe deployment db-certs-authenticator -n default
-     ```
-  4. **Monitor for Recurrence**: Keep an eye on the deployment for any new crash loop alerts to identify if the issue persists.
+expected_output:
+  - The pod `db-certs-authenticator-7ffd769f48-vndgd` in the `default` namespace is experiencing a `CrashLoopBackOff`
+  - Mention the runbook `KubePodCrashLooping`
 evaluation:
-  faithfulness: 0
+  correctness: 0

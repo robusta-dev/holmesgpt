@@ -1,18 +1,6 @@
-expected_output: |
-  The job `java-api-checker` in the `default` namespace has failed because it reached the specified backoff limit.
-
-  # Investigation
-  The job `java-api-checker` was configured with a `backoffLimit` of 1, meaning it would retry once upon failure. The job failed twice, as indicated by the events and logs. The logs from the pod `java-api-checker-slp89` show repeated network exceptions indicating that all attempts to connect to the database at `prod-db:3333` failed due to no available connections and a full queue.
-
-  # Conclusions and Possible Root Causes
-  1. *Database Connectivity Issues*: The primary issue is a failure to connect to the database at `prod-db:3333`. This could be due to network issues, the database being down, or the database being overloaded.
-  2. *Configuration Error*: The job's configuration might not be suitable for the current database load, leading to connection failures.
-  3. *Resource Limitations*: The database might be hitting its connection limits or queue size, preventing new connections.
-
-  # Next Steps
-  1. Verify the status and availability of the database at `prod-db:3333`.
-  2. Check network connectivity between the Kubernetes cluster and the database.
-  3. Review and possibly increase the database's connection limits or queue size.
-  4. Consider adjusting the job's retry logic or backoff limit to allow more retries if transient issues are expected.
+expected_output:
+  - The job `java-api-checker` in the `default` namespace has failed because it reached the specified backoff limit.
+  - The job `java-api-checker` was configured with a `backoffLimit` of 1
+  - The logs from the pod `java-api-checker-slp89` show repeated network exceptions indicating that all attempts to connect to the database at `prod-db:3333` failed
 evaluation:
-  faithfulness: 0
+  correctness: 0

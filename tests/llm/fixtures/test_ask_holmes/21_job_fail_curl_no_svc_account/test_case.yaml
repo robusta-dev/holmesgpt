@@ -1,12 +1,6 @@
 user_prompt: "Why get-data job failed?"
-expected_output: |
-  The `get-data` job failed because the `curl` command in the `curl-container` exited with code 6.
-  This exit code indicates a "Could not resolve host" error, meaning the specified URL
-  `http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343` could not be resolved to an IP address.
-
-  To fix this, ensure the URL is correct and accessible from the cluster.
-  If it's a typo or a temporary issue with the DNS, correcting the URL or ensuring DNS resolution should resolve the problem.
-
+expected_output:
+  - The specified URL `http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343` could not be resolved to an IP address
 retrieval_context:
   - "The job ran and returned with an error: curl: (6) Could not resolve host: kldsvklnsdiogjerkngernjk23432i90erfefjio.com"
 before_test: |
@@ -19,5 +13,5 @@ after_test: |
   kubectl delete -f ./job-service-account-event/get-data-job.yaml
   kubectl delete -f ./job-service-account-event/get-data-service-account.yaml
 evaluation:
-  faithfulness: 0.3
+  correctness: 0.3
   context: 0.3

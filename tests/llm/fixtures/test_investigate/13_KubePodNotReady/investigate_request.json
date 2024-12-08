@@ -1,0 +1,22 @@
+{
+  "source": "prometheus",
+  "title": "KubePodNotReady",
+  "description": "",
+  "subject": {
+    "name": "user-profile-import",
+    "namespace": "default",
+    "kind": "pod",
+    "node": null,
+    "container": null,
+    "cluster": null
+  },
+  "context": {
+    "issue_type": "KubePodNotReady",
+    "robusta_issue_id": "KubePodNotReady-02d9413092785cdd-2024-11-29 08:40:27.669000+00:00",
+    "source": "prometheus"
+  },
+  "source_instance_id": "ApiRequest",
+  "include_tool_calls": true,
+  "include_tool_call_results": true,
+  "prompt_template": "builtin://generic_investigation.jinja2"
+}

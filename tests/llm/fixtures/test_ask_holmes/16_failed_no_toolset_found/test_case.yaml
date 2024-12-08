@@ -1,4 +1,3 @@
 user_prompt: "Why is my Digital ocean droplet not working fine"
-expected_output: |
-  I don't have access to Digital Ocean droplets.
-  You can add a Holmes Digital Ocean integration which will give me access yo your droplets.
+expected_output:
+  - The answer should prompt the user to add a Holmes Digital Ocean integration to access droplets

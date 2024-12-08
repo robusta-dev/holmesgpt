@@ -1,13 +1,11 @@
 user_prompt: 'What kubernetes events are related to << { "type": "pod", "name": "nginx-6958c5bdd8-69gtn" } >>'
 #user_prompt: "What kubernetes events are related to the nginx pod >>"
-expected_output: |
-  Kubernetes events related to the `nginx-6958c5bdd8-69gtn` pod include:
-
-  1. **Scheduled**: Successfully assigned to node `aks-nodepool1-26081864-vmss000004`.
-  2. **Pulling**: Pulling image "nginx".
-  3. **Pulled**: Successfully pulled image "nginx".
-  4. **Created**: Created container `nginxreplica`.
-  5. **Started**: Started container `nginxreplica`.
+expected_output:
+  - "Scheduled: Successfully assigned to node `aks-nodepool1-26081864-vmss000004`"
+  - "Pulling: Pulling image `nginx`"
+  - "Pulled: Successfully pulled image `nginx`"
+  - "Created: Created container `nginxreplica`"
+  - "Started: Started container `nginxreplica`"
 retrieval_context:
   - |
     Events:
@@ -21,6 +19,3 @@ retrieval_context:
 evaluation:
   answer_relevancy: 0
   faithfulness: 0
-  contextual_precision: 0
-  contextual_recall: 0
-  contextual_relevancy: 0

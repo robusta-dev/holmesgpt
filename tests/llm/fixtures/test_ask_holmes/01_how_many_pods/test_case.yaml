@@ -1,10 +1,12 @@
 user_prompt: 'How many pods do I have running on << { "type": "node", "name": "ip-172-31-8-128.us-east-2.compute.internal" } >> ?'
 #user_prompt: "How many pods do I have running on node ip-172-31-8-128.us-east-2.compute.internal?"
-expected_output: "5 pods are running on ip-172-31-8-128.us-east-2.compute.internal"
+expected_output:
+  - 6 pods are in a running state on node ip-172-31-8-128.us-east-2.compute.internal
 retrieval_context:
   - There is a total of 12 pods on node ip-172-31-8-128.us-east-2.compute.internal
-  - There are 5 pods in running state
-  - 7 pods are not running as indicated by the STATUS column
+  - There are 6 pods in running state
+  - One of the pod is in running state but has a container in the process of starting or restarting
+  - 6 pods are not running as indicated by the STATUS column
 evaluation:
   answer_relevancy: 0
   faithfulness: 0

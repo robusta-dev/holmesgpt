@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from autoevals import Factuality
 import pytest
 from rich.console import Console
 
@@ -12,7 +11,7 @@ from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import ToolExecutor, ToolsetPattern
-from tests.llm.utils.classifiers import get_context_classifier, get_logs_explanation_classifier
+from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness, evaluate_factuality, evaluate_previous_logs_mention
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 from tests.llm.utils.mock_dal import MockSupabaseDal
@@ -46,8 +45,6 @@ class MockConfig(Config):
 
         return ToolExecutor(mock.mocked_toolsets)
 
-
-
 def get_test_cases():
 
     unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
@@ -77,9 +74,9 @@ def idfn(val):
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(experiment_name, test_case):
 
-    eval_factuality = Factuality()
-
     config = MockConfig(test_case)
+    config.model = os.environ.get("MODEL", "gpt-4o")
+
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
         generate_mocks=test_case.generate_mocks,
@@ -108,28 +105,31 @@ def test_investigate(experiment_name, test_case):
 
     output = result.analysis
 
-    evaluate_logs_explanation = get_logs_explanation_classifier()
-    factuality = eval_factuality(output, expected, input=input)
-    previous_logs = evaluate_logs_explanation(output, expected, input=input)
-    scores = {
-        "faithfulness": factuality.score,
-        "previous_logs": previous_logs.score
-    }
+    scores = {}
+
+    if isinstance(expected, list):
+        scores["correctness"] = evaluate_correctness(output=output, expected_elements=expected).score
+    else:
+        scores["faithfulness"] = evaluate_factuality(output=output, expected=expected, input=input).score
+    scores["previous_logs"] = evaluate_previous_logs_mention(output=output).score
 
     if len(test_case.retrieval_context) > 0:
-            evaluate_context_usage = get_context_classifier(test_case.retrieval_context)
-            scores["context"] = evaluate_context_usage(output, expected, input=input).score
+            scores["context"] = evaluate_context_usage(input=input, output=output, context_items=test_case.retrieval_context).score
 
     bt_helper.end_evaluation(
         eval=eval,
         input=input,
         output=output or "",
-        expected=expected,
+        expected=str(expected),
         id=test_case.id,
         scores=scores
     )
     print(f"** OUTPUT **\n{output}")
     print(f"** SCORES **\n{scores}")
 
-    assert scores.get("faithfulness") >= test_case.evaluation.faithfulness
+    if scores.get("faithfulness"):
+        assert scores.get("faithfulness") >= test_case.evaluation.faithfulness
+
+    if scores.get("correctness"):
+        assert scores.get("correctness") >= test_case.evaluation.correctness
     assert scores.get("context", 0) >= test_case.evaluation.context
