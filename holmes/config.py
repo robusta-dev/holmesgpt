@@ -123,7 +123,7 @@ class Config(RobustaBaseConfig):
                 default_toolsets, allowed_toolsets.split(",")
             )        
         
-        # Enable all matching toolsets
+        # Enable all matching toolsets that have CORE or CLI tag
         for toolset in matching_toolsets:
             toolset.enabled = True
 

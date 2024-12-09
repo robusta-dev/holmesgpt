@@ -31,7 +31,7 @@ toolsets:
     enabled: true
   kubernetes/logs:
     enabled: true
-  findings:
+  robusta:
     enabled: true
   internet:
     enabled: true
