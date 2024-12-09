@@ -368,7 +368,6 @@ def alertmanager(
         logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
         return
 
-    write_json_file(f"./issue_{alertmanager_label}.json", issues)
     if alertmanager_limit is not None:
         console.print(f"[bold yellow]Limiting to {alertmanager_limit}/{len(issues)} issues.[/bold yellow]")
         issues = issues[:alertmanager_limit]
@@ -398,7 +397,6 @@ def alertmanager(
 
     if json_output_file:
         write_json_file(json_output_file, results)
-    write_json_file(f"./result_{alertmanager_label}.json", results)
 
 
 @generate_app.command("alertmanager-tests")
