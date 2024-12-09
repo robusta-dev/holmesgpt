@@ -2,7 +2,6 @@ import yaml
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.core.tools import get_matching_toolsets
-from holmes.common.env_vars import CLUSTER_NAME
 import os
 from pydantic import ValidationError
 from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset, ToolsetTag
@@ -114,7 +113,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
             ToolsetDBModel(
                 **toolset.model_dump(exclude_none=True),
                 toolset_name=toolset.name,
-                cluster_id=CLUSTER_NAME,
+                cluster_id=config.cluster_name,
                 account_id=dal.account_id,
                 status=toolset.get_status(),
                 error=toolset.get_error(),
@@ -122,7 +121,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
             ).model_dump(exclude_none=True)
         )
     config.enabled_toolsets_names = [toolset.name for toolset in toolsets_for_sync_by_name.values() if toolset.enabled]
-    dal.sync_toolsets(db_toolsets)
+    dal.sync_toolsets(db_toolsets, config.cluster_name)
 
 
 def render_default_installation_instructions_for_toolset(

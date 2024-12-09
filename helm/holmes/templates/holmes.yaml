@@ -32,8 +32,6 @@ spec:
         env:
           - name: LOG_LEVEL
             value: {{ .Values.logLevel }}
-          - name: CLUSTER_NAME
-            value: {{ .Values.ClusterName }}
           {{ if .Values.certificate -}}
           - name: CERTIFICATE
             value: {{ .Values.certificate }}

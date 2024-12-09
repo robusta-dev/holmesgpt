@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import yaml
 from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
+from holmes.utils.definitions import RobustaConfig
 from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
@@ -17,7 +18,7 @@ from postgrest._sync.request_builder import SyncQueryRequestBuilder
 from postgrest.exceptions import APIError as PGAPIError
 
 from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
-                                    STORE_PASSWORD, CLUSTER_NAME)
+                                    STORE_PASSWORD)
 
 from datetime import datetime, timedelta
 
@@ -29,10 +30,6 @@ RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
 HOLMES_STATUS_TABLE = "HolmesStatus"
 HOLMES_TOOLSET = "HolmesToolsStatus"
-
-
-class RobustaConfig(BaseModel):
-    sinks_config: List[Dict[str, Dict]]
 
 
 class RobustaToken(BaseModel):
@@ -289,7 +286,7 @@ class SupabaseDal:
 
         return None
     
-    def sync_toolsets(self, toolsets: list[dict]) -> None:
+    def sync_toolsets(self, toolsets: list[dict], cluster_name: str) -> None:
         if not toolsets:
             logging.warning("No toolsets were provided for synchronization.")
             return
@@ -307,7 +304,7 @@ class SupabaseDal:
             
             self.client.table(HOLMES_TOOLSET).delete().eq("account_id", 
                                                                        self.account_id).eq(
-                                                                           'cluster_id', CLUSTER_NAME).not_.in_(
+                                                                           'cluster_id', cluster_name).not_.in_(
                 'toolset_name', provided_toolset_names
             ).execute()
 

@@ -32,6 +32,8 @@ from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
 from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
 from holmes.core.tools import YAMLToolset
+from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
+from holmes.utils.definitions import RobustaConfig
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 
@@ -82,7 +84,6 @@ class Config(RobustaBaseConfig):
     def load_from_env(cls):
         kwargs = {}
         for field_name in [
-            "cluster_name",
             "model",
             "api_key",
             "max_steps",
@@ -106,8 +107,28 @@ class Config(RobustaBaseConfig):
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
+            kwargs["cluster_name"] = Config.__get_cluster_name()
         return cls(**kwargs)
     
+    @staticmethod
+    def __get_cluster_name() -> Optional[str]:
+        config_file_path = ROBUSTA_CONFIG_PATH
+        env_cluster_name = os.environ.get("CLUSTER_NAME")
+        if env_cluster_name:
+            return env_cluster_name
+
+        if not os.path.exists(config_file_path):
+            logging.info(f"No robusta config in {config_file_path}")
+            return None
+
+        logging.info(f"loading config {config_file_path}")
+        with open(config_file_path) as file:
+            yaml_content = yaml.safe_load(file)
+            config = RobustaConfig(**yaml_content)
+            return config.global_config.get("cluster_name")
+
+        return None
+
     def create_console_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
