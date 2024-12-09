@@ -1,13 +1,12 @@
 
 import json
-import braintrust
 from typing_extensions import Dict
 import yaml
 import logging
 import os
 import re
 from pathlib import Path
-from typing import Generic, List, Optional, TypeVar, Union, cast
+from typing import List, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
@@ -19,12 +18,12 @@ def read_file(file_path:Path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read().strip()
 
-
 TEST_CASE_ID_PATTERN = r'^[\d+]_(?:[a-z]+_)*[a-z]+$'
 CONFIG_FILE_NAME = "test_case.yaml"
 
 class LLMEvaluation(BaseModel):
     faithfulness: float = 0.3
+    correctness: float = 0.3
     context: float = 0
 
 class Message(BaseModel):
@@ -36,7 +35,7 @@ class HolmesTestCase(BaseModel):
     id: str
     folder: str
     generate_mocks: bool = False # If True, generate mocks
-    expected_output: str # Whether an output is expected
+    expected_output: Union[str, List[str]] # Whether an output is expected
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[str] = [] # Elements helping to evaluate the correctness of the LLM response
     tool_mocks: List[ToolMock] = []

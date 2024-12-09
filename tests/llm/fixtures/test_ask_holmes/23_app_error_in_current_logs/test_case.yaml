@@ -1,9 +1,7 @@
 user_prompt: "Why is meme-deployment not working"
-expected_output: |
-  The `meme-deployment` is experiencing issues due to a DNS resolution error.
-  The application is trying to connect to the host `memcom`, but it fails with the error "No address associated with hostname."
-  This indicates that the hostname `memcom` cannot be resolved to an IP address.
-
+expected_output:
+  - The `meme-deployment` is experiencing issues due to a DNS resolution error.
+  - This indicates that the hostname `memcom` cannot be resolved to an IP address.
 retrieval_context:
   - "There is a DNS resolution error"
   - "hostname `memcom` cannot be resolved to an IP address"

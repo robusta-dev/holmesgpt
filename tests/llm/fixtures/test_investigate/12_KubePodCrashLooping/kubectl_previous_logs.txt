@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_previous_logs","match_params":{"name": "payment-processing-worker-747ccfb9db-pd6wz", "namespace": "default"}}
+stdout:
+Environment variable DEPLOY_ENV is undefined
+
+stderr:

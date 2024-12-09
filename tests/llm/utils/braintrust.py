@@ -1,6 +1,6 @@
 
 import braintrust
-from braintrust import Dataset, Experiment, ReadonlyExperiment
+from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
 from typing import Any, List, Optional
 
@@ -78,7 +78,7 @@ class BraintrustEvalHelper():
     def resolve_dataset_item(self, test_case:HolmesTestCase) -> Optional[Any]:
         return find_dataset_row_by_test_case(self.dataset, test_case)
 
-    def start_evaluation(self, experiment_name:str, name:str):
+    def start_evaluation(self, experiment_name:str, name:str) -> Span:
         if not self.experiment:
             experiment:Experiment|ReadonlyExperiment = braintrust.init(
                 project=self.project_name,
@@ -93,7 +93,7 @@ class BraintrustEvalHelper():
             self.experiment = experiment
         return self.experiment.start_span(name=name)
 
-    def end_evaluation(self, eval:Any, input:str, output:str, expected:str, id:str, scores:dict[str, Any]):
+    def end_evaluation(self, eval:Span, input:str, output:str, expected:str, id:str, scores:dict[str, Any]):
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")
 

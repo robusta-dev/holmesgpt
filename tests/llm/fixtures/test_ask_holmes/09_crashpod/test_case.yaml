@@ -1,7 +1,6 @@
 user_prompt: "What is the issue with payment-processing-worker?"
-expected_output: |
-  The `payment-processing-worker` pod is crashing due to an undefined environment variable `DEPLOY_ENV`. The container is set to check for this variable, and if it's not defined, it exits immediately, causing a CrashLoopBackOff state.
-  To resolve this, define the `DEPLOY_ENV` environment variable in the pod's configuration.
+expected_output:
+  - The `DEPLOY_ENV` environment variable is undefined or missing
 retrieval_context:
   - "logs from payment-processing-worker mention: Environment variable DEPLOY_ENV is undefined"
 # before_test: |
