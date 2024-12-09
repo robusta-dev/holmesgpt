@@ -1,4 +1,4 @@
-{{- if gt (len .Values.toolsets) 0 }}
+{{- if .Values.toolsets | not | empty }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import yaml
 from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
+from holmes.utils.definitions import RobustaConfig
 from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
@@ -27,9 +28,9 @@ ISSUES_TABLE = "Issues"
 EVIDENCE_TABLE = "Evidence"
 RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
+HOLMES_STATUS_TABLE = "HolmesStatus"
+HOLMES_TOOLSET = "HolmesToolsStatus"
 
-class RobustaConfig(BaseModel):
-    sinks_config: List[Dict[str, Dict]]
 
 class RobustaToken(BaseModel):
     store_url: str
@@ -262,5 +263,53 @@ class SupabaseDal:
             return data
 
         except:
-            logging.exception("failed to fetch workload issues data")
+            logging.exception("failed to fetch workload issues data", exc_info=True)
             return []
+
+    def upsert_holmes_status(self, holmes_status_data: dict) -> None:
+        updated_at = datetime.now().isoformat()
+        try:
+            res = (
+                self.client
+                .table(HOLMES_STATUS_TABLE)
+                .upsert({
+                    "account_id": self.account_id,
+                    "updated_at": updated_at,
+                    **holmes_status_data,
+                },
+                on_conflict='account_id, cluster_id')
+                .execute()
+            )
+        except Exception as error:
+            logging.error(f"Error happened during upserting holmes status: {error}", 
+                          exc_info=True)
+
+        return None
+    
+    def sync_toolsets(self, toolsets: list[dict], cluster_name: str) -> None:
+        if not toolsets:
+            logging.warning("No toolsets were provided for synchronization.")
+            return
+        
+        provided_toolset_names = [toolset['toolset_name'] for toolset in toolsets]
+   
+        try:
+            self.client.table(HOLMES_TOOLSET).upsert(
+                toolsets,
+                on_conflict='account_id, cluster_id, toolset_name'
+            ).execute()
+
+            logging.info("Toolsets upserted successfully.")
+
+            
+            self.client.table(HOLMES_TOOLSET).delete().eq("account_id", 
+                                                                       self.account_id).eq(
+                                                                           'cluster_id', cluster_name).not_.in_(
+                'toolset_name', provided_toolset_names
+            ).execute()
+
+            logging.info("Toolsets synchronized successfully.")
+
+        except Exception as e:
+            logging.exception(f"An error occurred during toolset synchronization: {e}",
+                              exc_info=True)
