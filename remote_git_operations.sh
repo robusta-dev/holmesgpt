@@ -95,18 +95,32 @@ create_commit() {
         log_error "Failed to fetch SHA for $FILENAME."
     fi
 
-    CONTENT=$(base64 "$TEMP_FILE_NEW")
+    CONTENT=$(cat "$TEMP_FILE_NEW" | base64 | tr -d '\n')
 
-    echo "Pushing changes to branch $BRANCH_NAME..." >&2
-    curl -s -X PUT -H "Authorization: token $TOKEN" \
+    echo "DEBUG: JSON Payload:" >&2
+    echo "{
+        \"message\": \"$COMMIT_PR\",
+        \"content\": \"$CONTENT\",
+        \"sha\": \"$SHA\",
+        \"branch\": \"$BRANCH_NAME\"
+    }" >&2
+
+    RESPONSE=$(curl -s -X PUT -H "Authorization: token $TOKEN" \
         -H "Content-Type: application/json" \
         -d "{
             \"message\": \"$COMMIT_PR\",
             \"content\": \"$CONTENT\",
             \"sha\": \"$SHA\",
             \"branch\": \"$BRANCH_NAME\"
-        }" "https://api.github.com/repos/$REPO/contents/$FILENAME" || log_error "Failed to push changes to branch $BRANCH_NAME."
+        }" "https://api.github.com/repos/$REPO/contents/$FILENAME")
+
+    if echo "$RESPONSE" | grep -q "\"message\": \"Problems parsing JSON\""; then
+        echo "ERROR: Failed to push changes due to JSON parsing issues." >&2
+        echo "Response: $RESPONSE" >&2
+        exit 1
+    fi
 }
+
 
 # Function to open a pull request
 open_pull_request() {
@@ -123,13 +137,49 @@ open_pull_request() {
 }
 
 # Main logic
-fetch_file_content
-sanitize_code
-update_file_content
-create_commit
+# Function to check if the branch existed before running the script
+check_branch_existence() {
+    echo "Checking if branch $BRANCH_NAME existed prior to script execution..." >&2
+    BRANCH_EXISTS=$(curl -s -H "Authorization: token $TOKEN" \
+        "https://api.github.com/repos/$REPO/git/refs/heads/$BRANCH_NAME" | jq -r '.ref' | grep -c "$BRANCH_NAME")
 
+    if [[ "$BRANCH_EXISTS" -eq 1 ]]; then
+        echo "Branch $BRANCH_NAME existed prior to script execution." >&2
+        PRE_EXISTING_BRANCH=true
+    else
+        echo "Branch $BRANCH_NAME did not exist prior to script execution." >&2
+        PRE_EXISTING_BRANCH=false
+    fi
+}
+
+# Function to delete remote branch
+delete_remote_branch() {
+    if [[ "$PRE_EXISTING_BRANCH" == "false" ]]; then
+        echo "Deleting branch $BRANCH_NAME due to script failure..." >&2
+        curl -s -X DELETE -H "Authorization: token $TOKEN" \
+            "https://api.github.com/repos/$REPO/git/refs/heads/$BRANCH_NAME" || {
+            echo "ERROR: Failed to delete branch $BRANCH_NAME." >&2
+        }
+    else
+        echo "Branch $BRANCH_NAME will not be deleted as it existed prior to script execution." >&2
+    fi
+}
+
+# Main script logic
+BRANCH_NAME="feature/$(echo "$COMMIT_PR" | tr ' ' '_' | tr -d "'")"
+
+# Check if branch existed before script execution
+check_branch_existence
+
+# Fetch file content, process, and create commit
+fetch_file_content || { delete_remote_branch; exit 1; }
+sanitize_code
+update_file_content || { delete_remote_branch; exit 1; }
+create_commit || { delete_remote_branch; exit 1; }
+
+# Open pull request if requested
 if [[ "$OPEN_PR" == "true" ]]; then
-    open_pull_request
+    open_pull_request || { delete_remote_branch; exit 1; }
 fi
 
 # Cleanup
