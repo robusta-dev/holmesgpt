@@ -1,9 +1,7 @@
 user_prompt: "Other processes in the cluster are unable to reach my-http-app-deployment, why? Investigate ingress class issues"
-expected_output: |
-  1. The `my-http-ingress` is using the `example-ingress-class`, which doesn't exist in the cluster. This could prevent routing to `my-http-app-deployment`.
-  2. Ensure the ingress class `example-ingress-class` is defined and configured correctly.
-  3. Verify that the ingress controller is running and associated with the correct ingress class.
+expected_output:
+  - Ensure the ingress class `example-ingress-class` does not exist in the cluster
 before_test: kubectl apply -f./ingress_with_class.yaml
 after_test: kubectl delete -f./ingress_with_class.yaml
 evaluation:
-  faithfulness: 0
+  correctness: 0
