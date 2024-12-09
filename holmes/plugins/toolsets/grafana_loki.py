@@ -5,8 +5,6 @@ import yaml
 from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset
 from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_loki_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
 
-# SiCEvFjRZKVJUlp8Xk40oNA2y22DahKwF4l58XRH
-
 def get_param_or_raise(dict:Dict, param:str) -> Any:
     value = dict.get(param)
     if not value:
