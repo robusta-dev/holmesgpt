@@ -1,0 +1,4 @@
+{"toolset_name":"kubernetes/live-metrics","tool_name":"kubectl_previous_logs","match_params":{"name": "user-profile-import", "namespace": "default"}}
+stdout:
+
+stderr:
