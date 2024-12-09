@@ -35,18 +35,31 @@ fetch_file_content() {
 # Function to update the file content based on the command
 update_file_content() {
     echo "Updating file content with command '$COMMAND'..." >&2
-
     cp "$TEMP_FILE" "$TEMP_FILE_NEW" || log_error "Failed to copy file content."
 
     case $COMMAND in
         insert)
-            awk -v line="$LINE" -v code="$CODE" 'NR == line { print code } { print }' "$TEMP_FILE" > "$TEMP_FILE_NEW" || log_error "Failed to insert code."
+            awk -v line="$LINE" -v code="$CODE" '
+                NR == line { print code }
+                { print }
+            ' "$TEMP_FILE" > "$TEMP_FILE_NEW" || log_error "Failed to insert code."
             ;;
         update)
-            awk -v line="$LINE" -v code="$CODE" 'NR == line { print code; next } { print }' "$TEMP_FILE" > "$TEMP_FILE_NEW" || log_error "Failed to update code."
+            awk -v line="$LINE" -v code="$CODE" '
+                NR == line {
+                    # Handle indentation
+                    match($0, /^[[:space:]]+/)
+                    indent = substr($0, RSTART, RLENGTH)
+                    print indent code
+                    next
+                }
+                { print }
+            ' "$TEMP_FILE" > "$TEMP_FILE_NEW" || log_error "Failed to update code."
             ;;
         remove)
-            awk -v line="$LINE" 'NR != line { print }' "$TEMP_FILE" > "$TEMP_FILE_NEW" || log_error "Failed to remove line."
+            awk -v line="$LINE" '
+                NR != line { print }
+            ' "$TEMP_FILE" > "$TEMP_FILE_NEW" || log_error "Failed to remove line."
             ;;
         *)
             log_error "Invalid command. Use insert, update, or remove."
@@ -55,6 +68,12 @@ update_file_content() {
 
     echo "DEBUG: Updated file content:" >&2
     cat "$TEMP_FILE_NEW" >&2
+}
+
+# Function to sanitize the CODE input
+sanitize_code() {
+    CODE=$(echo "$CODE" | sed "s/^'//;s/'$//") # Remove surrounding single quotes
+    echo "Sanitized CODE: $CODE" >&2
 }
 
 # Function to create a commit
@@ -105,6 +124,7 @@ open_pull_request() {
 
 # Main logic
 fetch_file_content
+sanitize_code
 update_file_content
 create_commit
 
