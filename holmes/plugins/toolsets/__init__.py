@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
+from holmes.plugins.toolsets.grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 from pydantic import BaseModel
 
@@ -25,7 +26,7 @@ def load_toolsets_from_file(path: str) -> List[YAMLToolset]:
 
 def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    return [InternetToolset(), FindingsToolset(dal)]
+    return [InternetToolset(), FindingsToolset(dal), GrafanaLokiToolset()]
 
 def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
     all_toolsets = []
