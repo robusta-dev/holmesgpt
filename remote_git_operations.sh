@@ -7,6 +7,7 @@ COMMAND="$3"     # insert/update/remove
 CODE="$4"        # Code to insert or replace with
 OPEN_PR="$5"     # Whether to open a PR (true/false)
 COMMIT_PR="$6"   # Commit/PR name
+DRY_RUN="$7"   # Commit/PR name
 
 # GitHub repo details
 REPO=$GIT_REPO
@@ -165,8 +166,43 @@ delete_remote_branch() {
     fi
 }
 
+# Function to handle dry-run
+dry_run_mode() {
+    echo "Dry-run mode enabled. Parsing proposed changes directly..." >&2
+
+    # Use existing fetch_file_content function
+    fetch_file_content || log_error "Failed to fetch file content during dry-run."
+
+    # Use sanitize_code to clean the input code
+    sanitize_code
+
+    # Apply changes using update_file_content
+    update_file_content || log_error "Failed to update file content during dry-run."
+
+    # Save the updated content to a dry-run output file
+    DRY_RUN_OUTPUT_FILE="dry_run_output.yaml"
+    echo "DEBUG: Writing updated file content to $DRY_RUN_OUTPUT_FILE..." >&2
+    cp "$TEMP_FILE_NEW" "$DRY_RUN_OUTPUT_FILE" || log_error "Failed to write updated file content during dry-run."
+
+    # Print the content to the terminal for verification
+    echo "DEBUG: Printing updated file content for dry-run:" >&2
+    cat "$DRY_RUN_OUTPUT_FILE" || log_error "Failed to read the updated file content during dry-run."
+
+    # Cleanup temporary files
+    echo "DEBUG: Cleaning up temporary files used during dry-run..." >&2
+    rm -f "$TEMP_FILE" "$TEMP_FILE_NEW"
+
+    echo "DEBUG: Dry-run completed successfully. No remote changes were made." >&2
+    exit 0
+}
+
 # Main script logic
 BRANCH_NAME="feature/$(echo "$COMMIT_PR" | tr ' ' '_' | tr -d "'")"
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    dry_run_mode
+fi
+
 
 # Check if branch existed before script execution
 check_branch_existence

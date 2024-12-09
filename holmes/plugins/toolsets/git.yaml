@@ -34,6 +34,7 @@ toolsets:
           - code: Content to insert or replace (leave empty for remove).
           - open_pr: true/false, whether to open a pull request after committing.
           - commit_pr: The title of the commit or PR.
+          - dry_run: true/false, whether to simulate the changes and print the resulting content without making remote changes.
         command: >
           ./remote_git_operations.sh 
           "{{ line }}" 
@@ -41,4 +42,5 @@ toolsets:
           "{{ command }}" 
           "{{ code }}" 
           "{{ open_pr }}" 
-          "{{ commit_pr }}"
+          "{{ commit_pr }}" 
+          "{{ dry_run }}"
