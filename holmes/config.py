@@ -124,6 +124,7 @@ class Config(RobustaBaseConfig):
             )
 
         enabled_toolsets = [ts for ts in matching_toolsets if ts.is_enabled()]
+        print(f"toolsets={str([ts.name for ts in enabled_toolsets])}")
         for ts in all_toolsets:
             if ts not in matching_toolsets:
                 console.print(
