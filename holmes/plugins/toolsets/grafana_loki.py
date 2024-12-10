@@ -126,10 +126,15 @@ class GetLokiLogsByPod(Tool):
                     type="string",
                     required=True,
                 ),
-                "time_range_minutes": ToolParameter(
-                    description="Time range to query in minutes",
+                "start_timestamp": ToolParameter(
+                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
                     type="string",
-                    required=True,
+                    required=False,
+                ),
+                "end_timestamp": ToolParameter(
+                    description="The ending time boundary for the log search period. Epoch in seconds. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    type="string",
+                    required=False,
                 ),
                 "limit": ToolParameter(
                     description="Maximum number of logs to return.",
