@@ -1,16 +1,6 @@
-expected_output: |
-  The `HighLatencyForCustomerCheckout` alert is triggered because HTTP requests to the `/checkout` endpoint in the `customer-orders` application are taking longer than 3 seconds to complete.
-
-  # Investigation
-  1. **Deployment Details**: The `customer-orders` deployment in the `default` namespace is running with one replica. The deployment uses the `fastapi-app` container from the image `us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo:nicolas-no-db`.
-  2. **Pod Logs**: The logs from the `fastapi-app` container show that database calls are taking a significant amount of time, ranging from 5 to 10 seconds, which is contributing to the high latency of the checkout page rendering.
-
-  # Conclusions and Possible Root Causes
-  1. *Database Latency*: The primary cause of the high latency appears to be the time taken for database calls. The logs indicate that the database call `sp_CheckUserNotifications` is taking between 5 to 10 seconds to complete, which directly impacts the response time of the `/checkout` endpoint.
-  2. *Database Connection Issues*: The logs mention connecting to a database at `None`, which might indicate a misconfiguration or an issue with the database connection string.
-
-  # Next Steps
-  1. **Database Optimization**: Investigate the stored procedure `sp_CheckUserNotifications` for potential optimizations to reduce execution time.
-  2. **Configuration Check**: Verify the database connection settings in the application configuration to ensure they are correct and pointing to the intended database.
-  3. **Monitoring and Metrics**: Implement detailed monitoring on the database to identify any bottlenecks or resource constraints that could be causing delays.
-  4. **Scaling**: Consider scaling the database resources or the application if the load is higher than expected.
+expected_output:
+  - There is a HighLatencyForCustomerCheckout alert
+  - It is triggered by HTTP requests to the `/checkout` endpoint in the `customer-orders` application which are taking longer than 3 seconds to complete
+  - logs indicate that the database call `sp_CheckUserNotifications` is taking between 5 to 10 seconds to complete
+evaluation:
+  correctness: 0

@@ -1,7 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_events","match_params":{"resource_type":"pod","pod_name":"robusta-runner-746d848db9-f8ns9","namespace":"default"}}
-LAST SEEN   TYPE     REASON      OBJECT                                MESSAGE
-35m         Normal   Pulling     Pod/robusta-runner-746d848db9-f8ns9   Pulling image "robustadev/robusta-runner:0.19.0"
-35m         Normal   Scheduled   Pod/robusta-runner-746d848db9-f8ns9   Successfully assigned default/robusta-runner-746d848db9-f8ns9 to kind-control-plane
-34m         Normal   Pulled      Pod/robusta-runner-746d848db9-f8ns9   Successfully pulled image "robustadev/robusta-runner:0.19.0" in 13.508s (58.067s including waiting). Image size: 281790224 bytes.
-34m         Normal   Created     Pod/robusta-runner-746d848db9-f8ns9   Created container runner
-34m         Normal   Started     Pod/robusta-runner-746d848db9-f8ns9   Started container runner

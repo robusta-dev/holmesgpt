@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get","match_params":{"kind":"pod","name":"meme-deployment-74db7bc95c","namespace":"default"}}
+Command `kubectl get --show-labels -o wide pod meme-deployment-74db7bc95c -n default` failed with return code 1
+stdout:
+
+stderr:
+Error from server (NotFound): pods "meme-deployment-74db7bc95c" not found

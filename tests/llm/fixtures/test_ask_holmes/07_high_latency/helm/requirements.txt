@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pymysql
+prometheus-fastapi-instrumentator

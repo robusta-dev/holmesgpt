@@ -1,0 +1,27 @@
+{"toolset_name":"kubernetes/extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"deployment","name":"meme-deployment","namespace":"default"}}
+stdout:
+NAME                                                                  READY   STATUS                                                                                                                                     AGE
+Deployment/meme-deployment                                            2/2                                                                                                                                                75s
+├── Event/meme-deployment.180b8190e00b0b39                            -       ScalingReplicaSet: Scaled up replica set meme-deployment-74db7bc95c to 2                                                                   75s
+└── ReplicaSet/meme-deployment-74db7bc95c                             2/2                                                                                                                                                75s
+    ├── Event/meme-deployment-74db7bc95c.180b8190e0742cd8             -       SuccessfulCreate: Created pod: meme-deployment-74db7bc95c-hg7bl                                                                            75s
+    ├── Event/meme-deployment-74db7bc95c.180b8190e11fafb7             -       SuccessfulCreate: Created pod: meme-deployment-74db7bc95c-4bnh6                                                                            75s
+    ├── Pod/meme-deployment-74db7bc95c-4bnh6                          1/1     Running                                                                                                                                    75s
+    │   ├── Event/meme-deployment-74db7bc95c-4bnh6.180b8190e16887e1   -       Scheduled: Successfully assigned default/meme-deployment-74db7bc95c-4bnh6 to kind-control-plane                                            75s
+    │   ├── Event/meme-deployment-74db7bc95c-4bnh6.180b8190fc1da2a4   -       Pulling: Pulling image "pavangudiwada/meme-generator:latest"                                                                               74s
+    │   ├── Event/meme-deployment-74db7bc95c-4bnh6.180b81916075a99e   -       Pulled: Successfully pulled image "pavangudiwada/meme-generator:latest" in 836ms (1.683s including waiting). Image size: 52945473 bytes.   72s
+    │   ├── Event/meme-deployment-74db7bc95c-4bnh6.180b819162bf7459   -       Created: Created container meme-app                                                                                                        72s
+    │   ├── Event/meme-deployment-74db7bc95c-4bnh6.180b819168bd078f   -       Started: Started container meme-app                                                                                                        72s
+    │   ├── Service/kubernetes                                        -                                                                                                                                                  8d
+    │   └── Service/meme-service                                      -                                                                                                                                                  75s
+    │       └── EndpointSlice/meme-service-48jqg                      -                                                                                                                                                  75s
+    └── Pod/meme-deployment-74db7bc95c-hg7bl                          1/1     Running                                                                                                                                    75s
+        ├── Event/meme-deployment-74db7bc95c-hg7bl.180b8190e11fd090   -       Scheduled: Successfully assigned default/meme-deployment-74db7bc95c-hg7bl to kind-control-plane                                            75s
+        ├── Event/meme-deployment-74db7bc95c-hg7bl.180b8190fbdd78c3   -       Pulling: Pulling image "pavangudiwada/meme-generator:latest"                                                                               74s
+        ├── Event/meme-deployment-74db7bc95c-hg7bl.180b81912e960390   -       Pulled: Successfully pulled image "pavangudiwada/meme-generator:latest" in 850ms (850ms including waiting). Image size: 52945473 bytes.    73s
+        ├── Event/meme-deployment-74db7bc95c-hg7bl.180b819130d656cc   -       Created: Created container meme-app                                                                                                        73s
+        ├── Event/meme-deployment-74db7bc95c-hg7bl.180b8191372ce9f8   -       Started: Started container meme-app                                                                                                        73s
+        ├── Service/kubernetes                                        -                                                                                                                                                  8d
+        └── Service/meme-service                                      -                                                                                                                                                  75s
+
+stderr:

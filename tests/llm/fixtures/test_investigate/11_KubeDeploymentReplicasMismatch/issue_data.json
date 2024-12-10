@@ -1,0 +1,39 @@
+{
+  "id": "KubeDeploymentReplicasMismatch-412453fa9d1e6ca0-2024-11-29 08:39:57.669000+00:00",
+  "name": "KubeDeploymentReplicasMismatch",
+  "source_type": "prometheus",
+  "source_instance_id": "http://localhost:9093",
+  "url": "http://robusta-kube-prometheus-st-prometheus.default:9090/graph?g0.expr=%28kube_deployment_spec_replicas%7Bjob%3D%22kube-state-metrics%22%2Cnamespace%3D~%22.%2A%22%7D+%3E+kube_deployment_status_replicas_available%7Bjob%3D%22kube-state-metrics%22%2Cnamespace%3D~%22.%2A%22%7D%29+and+%28changes%28kube_deployment_status_replicas_updated%7Bjob%3D%22kube-state-metrics%22%2Cnamespace%3D~%22.%2A%22%7D%5B10m%5D%29+%3D%3D+0%29&g0.tab=1",
+  "raw": {
+    "status": "active",
+    "labels": {
+      "alertname": "KubeDeploymentReplicasMismatch",
+      "container": "kube-state-metrics",
+      "deployment": "payment-processing-worker",
+      "endpoint": "http",
+      "instance": "10.244.0.3:8080",
+      "job": "kube-state-metrics",
+      "namespace": "default",
+      "pod": "robusta-kube-state-metrics-8667fd9775-kbsp7",
+      "prometheus": "default/robusta-kube-prometheus-st-prometheus",
+      "service": "robusta-kube-state-metrics",
+      "severity": "warning"
+    },
+    "annotations": {
+      "description": "Deployment default/payment-processing-worker has not matched the expected number of replicas for longer than 15 minutes.",
+      "runbook_url": "https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedeploymentreplicasmismatch",
+      "summary": "Deployment has not matched the expected number of replicas."
+    },
+    "startsAt": "2024-11-29 08:39:57.669000+00:00",
+    "endsAt": "2024-11-29 08:55:57.669000+00:00",
+    "generatorURL": "http://robusta-kube-prometheus-st-prometheus.default:9090/graph?g0.expr=%28kube_deployment_spec_replicas%7Bjob%3D%22kube-state-metrics%22%2Cnamespace%3D~%22.%2A%22%7D+%3E+kube_deployment_status_replicas_available%7Bjob%3D%22kube-state-metrics%22%2Cnamespace%3D~%22.%2A%22%7D%29+and+%28changes%28kube_deployment_status_replicas_updated%7Bjob%3D%22kube-state-metrics%22%2Cnamespace%3D~%22.%2A%22%7D%5B10m%5D%29+%3D%3D+0%29&g0.tab=1",
+    "fingerprint": "412453fa9d1e6ca0",
+    "unique_id": "KubeDeploymentReplicasMismatch-412453fa9d1e6ca0-2024-11-29 08:39:57.669000+00:00",
+    "duration": "0:16:00",
+    "name": "KubeDeploymentReplicasMismatch",
+    "definition": "(kube_deployment_spec_replicas{job=\"kube-state-metrics\",namespace=~\".*\"} > kube_deployment_status_replicas_available{job=\"kube-state-metrics\",namespace=~\".*\"}) and (changes(kube_deployment_status_replicas_updated{job=\"kube-state-metrics\",namespace=~\".*\"}[10m]) == 0)"
+  },
+  "presentation_status": null,
+  "presentation_key_metadata": "*Severity*: warning\n*Start Time*: 2024-11-29 08:39:57 UTC\n*Duration*: 16 minutes",
+  "presentation_all_metadata": "*Labels:*\n• *alertname*: KubeDeploymentReplicasMismatch\n• *container*: kube-state-metrics\n• *deployment*: payment-processing-worker\n• *endpoint*: http\n• *instance*: 10.244.0.3:8080\n• *job*: kube-state-metrics\n• *namespace*: default\n• *pod*: robusta-kube-state-metrics-8667fd9775-kbsp7\n• *prometheus*: default/robusta-kube-prometheus-st-prometheus\n• *service*: robusta-kube-state-metrics\n• *severity*: warning\n*Annotations:*\n• *description*: Deployment default/payment-processing-worker has not matched the expected number of replicas for longer than 15 minutes.\n• *runbook_url*: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedeploymentreplicasmismatch\n• *summary*: Deployment has not matched the expected number of replicas.\n"
+}

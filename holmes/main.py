@@ -394,6 +394,7 @@ def alertmanager(
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
 
+
     if json_output_file:
         write_json_file(json_output_file, results)
 

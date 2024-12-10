@@ -1,0 +1,9 @@
+user_prompt: "What is the issue with search-engine-service"
+expected_output:
+  - The `search-engine-service` pod is running but not ready due to a failing readiness probe
+  - The readiness probe fails
+before_test: |
+  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/readiness_probe_fail/failing_readiness_probe.yaml
+  sleep 30
+after_test: |
+  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/readiness_probe_fail/failing_readiness_probe.yaml

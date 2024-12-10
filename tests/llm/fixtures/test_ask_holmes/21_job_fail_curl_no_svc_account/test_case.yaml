@@ -1,0 +1,17 @@
+user_prompt: "Why get-data job failed?"
+expected_output:
+  - The specified URL `http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343` could not be resolved to an IP address
+retrieval_context:
+  - "The job ran and returned with an error: curl: (6) Could not resolve host: kldsvklnsdiogjerkngernjk23432i90erfefjio.com"
+before_test: |
+  kubectl apply -f ./job-service-account-event/get-data-job.yaml
+  timeout 5 bash -c 'until kubectl get events -n default --field-selector involvedObject.name=get-data | grep -q FailedCreate; do sleep 1; done; echo "FailedCreate event detected." || echo "No FailedCreate event detected within the timeout period."'
+  kubectl apply -f ./job-service-account-event/get-data-service-account.yaml
+  timeout 10 bash -c 'until kubectl get events -n default --field-selector involvedObject.name=get-data | grep -q SuccessfulCreate; do sleep 1; done; echo "SuccessfulCreate event detected." || echo "No SuccessfulCreate event detected within the timeout period."'
+  kubectl wait --for=condition=failed job/get-data -n default --timeout=5s && echo "Job has failed." || echo "Job has not failed within the timeout period."
+after_test: |
+  kubectl delete -f ./job-service-account-event/get-data-job.yaml
+  kubectl delete -f ./job-service-account-event/get-data-service-account.yaml
+evaluation:
+  correctness: 0.3
+  context: 0.3
