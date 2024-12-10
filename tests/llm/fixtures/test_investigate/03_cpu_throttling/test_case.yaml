@@ -1,24 +1,10 @@
-expected_output: |
-  Alert Explanation
-
-  The frontend-service pod in the default namespace is experiencing 100% CPU throttling for the stress container. This means the container is being limited by its CPU quota, potentially affecting performance.
-  Investigation
-
-    - The frontend-service pod is running on node ip-172-31-21-139.us-east-2.compute.internal.
-    - The stress container is configured with CPU limits and requests set to 10m.
-    - The container is running a command to stress the CPU with 100 threads, which is likely causing the CPU throttling.
-    - The pod is in a Running state with no restarts, indicating it hasn't crashed or been restarted recently.
-    - Current logs show the stress command is actively running, but there are no previous logs available, suggesting the container hasn't been restarted.
-
-  Conclusions and Possible Root Causes
-
-    - CPU Limit Configuration: The stress container has a CPU limit of 10m, which is insufficient for the workload it is trying to perform (100 CPU threads). This is causing the CPU throttling.
-    - Application Design: The application is designed to use a high number of CPU threads, which is not compatible with the current CPU limits.
-
-  Next Steps
-
-    - Consider removing or increasing the CPU limit for the stress container if the application requires more CPU resources. This can be done by editing the pod's resource configuration:
-      `kubectl edit pod frontend-service -n default`
-    - Adjust the resources.limits.cpu value to a higher number or remove it entirely if appropriate.
+expected_output:
+  - The frontend-service pod in the default namespace is experiencing 100% CPU throttling for the stress container
+  - Suggest increasing the CPU limit
+retrieval_context:
+  - The frontend-service pod is running on node ip-172-31-21-139.us-east-2.compute.internal
+  - The stress container is configured with CPU limits and requests set to 10m
+  - The container is running a command to stress the CPU with 100 threads
+  - The pod is in a Running state with no restarts
 evaluation:
-  faithfulness: 0
+  correctness: 0

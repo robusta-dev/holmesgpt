@@ -1,12 +1,11 @@
 user_prompt: 'Explain << { "type": "issue", "id": "asodfkq1209edyhqawdo2uydqawidh" } >>'
-expected_output: "The finding indicates that the pod `my-cluster-kafka-0` in the `kafka` namespace was evicted due to low ephemeral storage on the node. The threshold was 2126213140, but only 1884540Ki was available. The `kafka` container was using 3264Ki of ephemeral storage, with no specific request set, leading to higher consumption. This resulted in a warning and the container being stopped. The issue occurred in the `payments-kafka-eu-eks-v2` cluster."
+expected_output:
+  - The pod `my-cluster-kafka-0` in the `kafka` namespace was evicted due to low ephemeral storage on the node
+  - The threshold was 2126213140, but only 1884540Ki was available
+  - The `kafka` container was using 3264Ki of ephemeral storage
 retrieval_context:
   - "Pod my-cluster-kafka was evicted"
   - "The node was low on resource: ephemeral-storage. Threshold quantity: 2126213140, available: 1884540Ki. Container kafka was using 3264Ki, request is 0, has larger consumption of ephemeral-storage."
-
 evaluation:
   answer_relevancy: 0
   faithfulness: 0
-  contextual_precision: 0
-  contextual_recall: 0
-  contextual_relevancy: 0
