@@ -34,8 +34,8 @@ class GetLokiLogsByNode(Tool):
             name = "fetch_loki_logs_by_node",
             description = """Fetches the Loki logs for a given node""",
             parameters = {
-                "loki_datasource_uid": ToolParameter(
-                    description="The uid of the loki datasource to use. Call the tool list_loki_datasources",
+                "loki_datasource_id": ToolParameter(
+                    description="The id of the loki datasource to use. Call the tool list_loki_datasources",
                     type="string",
                     required=True,
                 ),
@@ -59,14 +59,13 @@ class GetLokiLogsByNode(Tool):
 
     def invoke(self, params: Dict) -> str:
 
-        print(params)
-        datasources= query_loki_logs_by_node(
-            loki_datasource_uid=get_param_or_raise(params, "loki_datasource_uid"),
+        logs = query_loki_logs_by_node(
+            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
             node_name=get_param_or_raise(params, "node_name"),
             time_range_minutes=int(get_param_or_raise(params, "time_range_minutes")),
             limit=int(get_param_or_raise(params, "limit"))
         )
-        return yaml.dump(datasources)
+        return yaml.dump(logs)
 
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
@@ -79,13 +78,18 @@ class GetLokiLogsByPod(Tool):
             name = "fetch_loki_logs_by_pod",
             description = "Fetches the Loki logs for a given pod",
             parameters = {
-                "loki_datasource_uid": ToolParameter(
-                    description="The uid of the loki datasource to use. Call the tool list_loki_datasources",
+                "loki_datasource_id": ToolParameter(
+                    description="The id of the loki datasource to use. Call the tool list_loki_datasources",
                     type="string",
                     required=True,
                 ),
                 "pod_regex": ToolParameter(
                     description="Regular expression to match pod names",
+                    type="string",
+                    required=True,
+                ),
+                "namespace": ToolParameter(
+                    description="The pod's namespace",
                     type="string",
                     required=True,
                 ),
@@ -105,15 +109,14 @@ class GetLokiLogsByPod(Tool):
 
     def invoke(self, params: Dict) -> str:
 
-        print(params)
-        datasources= query_loki_logs_by_pod(
-            loki_datasource_uid=get_param_or_raise(params, "loki_datasource_uid"),
+        logs = query_loki_logs_by_pod(
+            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
             pod_regex=get_param_or_raise(params, "pod_regex"),
             namespace=get_param_or_raise(params, "namespace"),
             time_range_minutes=int(get_param_or_raise(params, "time_range_minutes")),
             limit=int(get_param_or_raise(params, "limit"))
         )
-        return yaml.dump(datasources)
+        return yaml.dump(logs)
 
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return f"Fetched Loki logs({str(params)})"

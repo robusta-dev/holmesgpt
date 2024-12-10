@@ -47,7 +47,7 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
     return parsed_logs
 
 def execute_loki_query(
-    loki_datasource_uid:str,
+    loki_datasource_id:str,
     query: str,
     time_range_minutes: int,
     limit: int) -> List[Dict]:
@@ -69,15 +69,15 @@ def execute_loki_query(
     params = {
         'query': query,
         'limit': limit,
-        'start': int(start_time.timestamp() * 1000),
-        'end': int(end_time.timestamp() * 1000)
+        'start': int(start_time.timestamp()),
+        'end': int(end_time.timestamp())
     }
-
 
     try:
         (grafana_url, api_key) = get_connection_info()
+        url = f'{grafana_url}/api/datasources/proxy/{loki_datasource_id}/loki/api/v1/query_range'
         response = requests.get(
-            f'{grafana_url}/api/datasources/proxy/{loki_datasource_uid}/loki/api/v1/query_range',
+            url,
             headers=headers(api_key=api_key),
             params=params
         )
@@ -110,7 +110,7 @@ def list_loki_datasources() -> List[Dict]:
         # Print datasources for debugging
         loki_datasources = []
         for ds in datasources:
-            print(f"Found datasource: {ds['name']} (type: {ds['type']}, uid: {ds['uid']})")
+            print(f"Found datasource: {ds['name']} (type: {ds['type']}, id: {ds['id']})")
             if ds['type'].lower() == 'loki':
                 loki_datasources.append(ds)
 
@@ -119,7 +119,7 @@ def list_loki_datasources() -> List[Dict]:
         raise Exception(f"Failed to list datasources: {str(e)}")
 
 def query_loki_logs_by_node(
-    loki_datasource_uid:str,
+    loki_datasource_id:str,
     node_name: str,
     time_range_minutes: int = 60,
     limit: int = 1000) -> List[Dict]:
@@ -136,14 +136,15 @@ def query_loki_logs_by_node(
     """
 
     query = f'{{node="{node_name}"}}'
+
     return execute_loki_query(
-        loki_datasource_uid=loki_datasource_uid,
+        loki_datasource_id=loki_datasource_id,
         query=query,
         time_range_minutes=time_range_minutes,
         limit=limit)
 
 def query_loki_logs_by_pod(
-    loki_datasource_uid:str,
+    loki_datasource_id:str,
     namespace: str,
     pod_regex: str,
     time_range_minutes: int = 60,
@@ -162,9 +163,8 @@ def query_loki_logs_by_pod(
     """
 
     query = f'{{namespace="{namespace}", pod=~"{pod_regex}"}}'
-
     return execute_loki_query(
-        loki_datasource_uid=loki_datasource_uid,
+        loki_datasource_id=loki_datasource_id,
         query=query,
         time_range_minutes=time_range_minutes,
         limit=limit)

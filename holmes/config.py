@@ -6,7 +6,7 @@ from strenum import StrEnum
 from typing import List, Optional
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import FilePath, SecretStr
+from pydantic import BaseModel, FilePath, SecretStr
 from pydash.arrays import concat
 from rich.console import Console
 
@@ -32,6 +32,13 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
 
+class GrafanaLokiConfig(BaseModel):
+    pod_name_search_key: str = "pod"
+    namespace_search_key: str = "namespace"
+    node_name_search_key: str = "node"
+
+class GrafanaConfig(BaseModel):
+    loki: GrafanaLokiConfig = GrafanaLokiConfig()
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -71,6 +78,8 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
+
+    grafana: GrafanaConfig = GrafanaConfig()
 
 
     @classmethod
