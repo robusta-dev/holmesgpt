@@ -121,6 +121,7 @@ def list_loki_datasources() -> List[Dict]:
 def query_loki_logs_by_node(
     loki_datasource_id:str,
     node_name: str,
+    node_name_search_key: str = "node",
     time_range_minutes: int = 60,
     limit: int = 1000) -> List[Dict]:
     """
@@ -135,7 +136,7 @@ def query_loki_logs_by_node(
         List of log entries
     """
 
-    query = f'{{node="{node_name}"}}'
+    query = f'{{{node_name_search_key}="{node_name}"}}'
 
     return execute_loki_query(
         loki_datasource_id=loki_datasource_id,
@@ -147,6 +148,8 @@ def query_loki_logs_by_pod(
     loki_datasource_id:str,
     namespace: str,
     pod_regex: str,
+    pod_name_search_key: str = "pod",
+    namespace_search_key: str = "namespace",
     time_range_minutes: int = 60,
     limit: int = 1000) -> List[Dict]:
     """
@@ -162,7 +165,7 @@ def query_loki_logs_by_pod(
         List of log entries
     """
 
-    query = f'{{namespace="{namespace}", pod=~"{pod_regex}"}}'
+    query = f'{{{namespace_search_key}="{namespace}", {pod_name_search_key}=~"{pod_regex}"}}'
     return execute_loki_query(
         loki_datasource_id=loki_datasource_id,
         query=query,

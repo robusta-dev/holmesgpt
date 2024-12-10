@@ -1,9 +1,18 @@
 
 from typing import Any, Dict
+from pydantic import BaseModel
 import yaml
 
 from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset
 from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_loki_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
+
+class GrafanaLokiConfig(BaseModel):
+    pod_name_search_key: str = "pod"
+    namespace_search_key: str = "namespace"
+    node_name_search_key: str = "node"
+
+class GrafanaConfig(BaseModel):
+    loki: GrafanaLokiConfig = GrafanaLokiConfig()
 
 def get_param_or_raise(dict:Dict, param:str) -> Any:
     value = dict.get(param)
@@ -29,7 +38,7 @@ class ListLokiDatasources(Tool):
 
 class GetLokiLogsByNode(Tool):
 
-    def __init__(self):
+    def __init__(self, config: GrafanaLokiConfig):
         super().__init__(
             name = "fetch_loki_logs_by_node",
             description = """Fetches the Loki logs for a given node""",
@@ -56,12 +65,14 @@ class GetLokiLogsByNode(Tool):
                 )
             },
         )
+        self._config = config
 
     def invoke(self, params: Dict) -> str:
 
         logs = query_loki_logs_by_node(
             loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
             node_name=get_param_or_raise(params, "node_name"),
+            node_name_search_key=self._config.node_name_search_key,
             time_range_minutes=int(get_param_or_raise(params, "time_range_minutes")),
             limit=int(get_param_or_raise(params, "limit"))
         )
@@ -73,7 +84,7 @@ class GetLokiLogsByNode(Tool):
 
 class GetLokiLogsByPod(Tool):
 
-    def __init__(self):
+    def __init__(self, config: GrafanaLokiConfig):
         super().__init__(
             name = "fetch_loki_logs_by_pod",
             description = "Fetches the Loki logs for a given pod",
@@ -106,6 +117,7 @@ class GetLokiLogsByPod(Tool):
 
             },
         )
+        self._config = config
 
     def invoke(self, params: Dict) -> str:
 
@@ -113,6 +125,8 @@ class GetLokiLogsByPod(Tool):
             loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
             pod_regex=get_param_or_raise(params, "pod_regex"),
             namespace=get_param_or_raise(params, "namespace"),
+            namespace_search_key=self._config.namespace_search_key,
+            pod_name_search_key=self._config.pod_name_search_key,
             time_range_minutes=int(get_param_or_raise(params, "time_range_minutes")),
             limit=int(get_param_or_raise(params, "limit"))
         )
@@ -122,7 +136,7 @@ class GetLokiLogsByPod(Tool):
         return f"Fetched Loki logs({str(params)})"
 
 class GrafanaLokiToolset(Toolset):
-    def __init__(self):
+    def __init__(self, config: GrafanaLokiConfig):
         super().__init__(
             name = "grafana_loki",
             prerequisites = [
@@ -131,8 +145,8 @@ class GrafanaLokiToolset(Toolset):
             ],
             tools = [
                 ListLokiDatasources(),
-                GetLokiLogsByNode(),
-                GetLokiLogsByPod(),
+                GetLokiLogsByNode(config),
+                GetLokiLogsByPod(config),
             ],
         )
         self.check_prerequisites()

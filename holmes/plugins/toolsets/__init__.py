@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
-from holmes.plugins.toolsets.grafana_loki import GrafanaLokiToolset
+from holmes.plugins.toolsets.grafana_loki import GrafanaConfig, GrafanaLokiToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 from pydantic import BaseModel
 
@@ -24,11 +24,11 @@ def load_toolsets_from_file(path: str) -> List[YAMLToolset]:
         toolset.set_path(path)
     return data.toolsets
 
-def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
+def load_python_toolsets(dal:Optional[SupabaseDal], grafana_config:GrafanaConfig) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    return [InternetToolset(), FindingsToolset(dal), GrafanaLokiToolset()]
+    return [InternetToolset(), FindingsToolset(dal), GrafanaLokiToolset(grafana_config.loki)]
 
-def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
+def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:GrafanaConfig = GrafanaConfig()) -> List[Toolset]:
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
@@ -37,5 +37,5 @@ def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
         path = os.path.join(THIS_DIR, filename)
         all_toolsets.extend(load_toolsets_from_file(path))
 
-    all_toolsets.extend(load_python_toolsets(dal))
+    all_toolsets.extend(load_python_toolsets(dal, grafana_config))
     return all_toolsets

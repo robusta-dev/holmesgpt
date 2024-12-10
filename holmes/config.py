@@ -26,19 +26,12 @@ from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
+from holmes.plugins.toolsets.grafana_loki import GrafanaConfig
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
-
-class GrafanaLokiConfig(BaseModel):
-    pod_name_search_key: str = "pod"
-    namespace_search_key: str = "namespace"
-    node_name_search_key: str = "node"
-
-class GrafanaConfig(BaseModel):
-    loki: GrafanaLokiConfig = GrafanaLokiConfig()
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -115,7 +108,7 @@ class Config(RobustaBaseConfig):
     def create_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, grafana_config=self.grafana)
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
 
