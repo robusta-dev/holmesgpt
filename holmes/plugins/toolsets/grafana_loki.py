@@ -1,8 +1,8 @@
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union
 from pydantic import BaseModel
 import yaml
-
+import time
 from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset
 from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_loki_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
 
@@ -36,9 +36,25 @@ class ListLokiDatasources(Tool):
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return "Fetched Grafana Loki datasources"
 
+ONE_HOUR = 3600
+
+def process_timestamps(start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]):
+    if start_timestamp and isinstance(start_timestamp, str):
+        start_timestamp = int(start_timestamp)
+    if end_timestamp and isinstance(end_timestamp, str):
+        end_timestamp = int(end_timestamp)
+
+    if not end_timestamp:
+        end_timestamp = int(time.time())
+    if not start_timestamp:
+        start_timestamp = end_timestamp - ONE_HOUR
+    if start_timestamp < 0:
+        start_timestamp = end_timestamp + start_timestamp
+    return (start_timestamp, end_timestamp)
+
 class GetLokiLogsByNode(Tool):
 
-    def __init__(self, config: GrafanaLokiConfig):
+    def __init__(self, config: GrafanaLokiConfig = GrafanaLokiConfig()):
         super().__init__(
             name = "fetch_loki_logs_by_node",
             description = """Fetches the Loki logs for a given node""",
@@ -53,10 +69,15 @@ class GetLokiLogsByNode(Tool):
                     type="string",
                     required=True,
                 ),
-                "time_range_minutes": ToolParameter(
-                    description="Time range to query in minutes",
+                "start_timestamp": ToolParameter(
+                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
                     type="string",
-                    required=True,
+                    required=False,
+                ),
+                "end_timestamp": ToolParameter(
+                    description="The ending time boundary for the log search period. Epoch in seconds. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    type="string",
+                    required=False,
                 ),
                 "limit": ToolParameter(
                     description="Maximum number of logs to return.",
@@ -68,12 +89,13 @@ class GetLokiLogsByNode(Tool):
         self._config = config
 
     def invoke(self, params: Dict) -> str:
-
+        (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_node(
             loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
             node_name=get_param_or_raise(params, "node_name"),
             node_name_search_key=self._config.node_name_search_key,
-            time_range_minutes=int(get_param_or_raise(params, "time_range_minutes")),
+            start=start,
+            end=end,
             limit=int(get_param_or_raise(params, "limit"))
         )
         return yaml.dump(logs)
@@ -84,7 +106,7 @@ class GetLokiLogsByNode(Tool):
 
 class GetLokiLogsByPod(Tool):
 
-    def __init__(self, config: GrafanaLokiConfig):
+    def __init__(self, config: GrafanaLokiConfig = GrafanaLokiConfig()):
         super().__init__(
             name = "fetch_loki_logs_by_pod",
             description = "Fetches the Loki logs for a given pod",
@@ -120,14 +142,15 @@ class GetLokiLogsByPod(Tool):
         self._config = config
 
     def invoke(self, params: Dict) -> str:
-
+        (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_pod(
             loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
             pod_regex=get_param_or_raise(params, "pod_regex"),
             namespace=get_param_or_raise(params, "namespace"),
             namespace_search_key=self._config.namespace_search_key,
             pod_name_search_key=self._config.pod_name_search_key,
-            time_range_minutes=int(get_param_or_raise(params, "time_range_minutes")),
+            start=start,
+            end=end,
             limit=int(get_param_or_raise(params, "limit"))
         )
         return yaml.dump(logs)

@@ -1,4 +1,5 @@
 
+import logging
 import os
 import requests
 from typing import Dict, List, Tuple
@@ -49,28 +50,27 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
 def execute_loki_query(
     loki_datasource_id:str,
     query: str,
-    time_range_minutes: int,
+    start: int,
+    end: int,
     limit: int) -> List[Dict]:
     """
     Execute a Loki query through Grafana
 
     Args:
         query: Loki query string
-        time_range_minutes: Time range to query in minutes
+        start: Start of the time window to fetch the logs for. Epoch timestamp in seconds
+        end: End of the time window to fetch the logs for. Epoch timestamp in seconds
         limit: Maximum number of log lines to return
 
     Returns:
         List of log entries
     """
 
-    end_time = datetime.now()
-    start_time = end_time - timedelta(minutes=time_range_minutes)
-
     params = {
         'query': query,
         'limit': limit,
-        'start': int(start_time.timestamp()),
-        'end': int(end_time.timestamp())
+        'start': start,
+        'end': end
     }
 
     try:
@@ -107,10 +107,9 @@ def list_loki_datasources() -> List[Dict]:
         response.raise_for_status()
         datasources = response.json()
 
-        # Print datasources for debugging
         loki_datasources = []
         for ds in datasources:
-            print(f"Found datasource: {ds['name']} (type: {ds['type']}, id: {ds['id']})")
+            logging.info(f"Found datasource: {ds['name']} (type: {ds['type']}, id: {ds['id']})")
             if ds['type'].lower() == 'loki':
                 loki_datasources.append(ds)
 
@@ -121,15 +120,17 @@ def list_loki_datasources() -> List[Dict]:
 def query_loki_logs_by_node(
     loki_datasource_id:str,
     node_name: str,
+    start: int,
+    end: int,
     node_name_search_key: str = "node",
-    time_range_minutes: int = 60,
     limit: int = 1000) -> List[Dict]:
     """
     Query Loki logs filtered by node name
 
     Args:
         node_name: Kubernetes node name
-        time_range_minutes: Time range to query in minutes
+        start: Start of the time window to fetch the logs for. Epoch timestamp in seconds
+        end: End of the time window to fetch the logs for. Epoch timestamp in seconds
         limit: Maximum number of log lines to return
 
     Returns:
@@ -141,16 +142,18 @@ def query_loki_logs_by_node(
     return execute_loki_query(
         loki_datasource_id=loki_datasource_id,
         query=query,
-        time_range_minutes=time_range_minutes,
+        start=start,
+        end=end,
         limit=limit)
 
 def query_loki_logs_by_pod(
     loki_datasource_id:str,
     namespace: str,
     pod_regex: str,
+    start: int,
+    end: int,
     pod_name_search_key: str = "pod",
     namespace_search_key: str = "namespace",
-    time_range_minutes: int = 60,
     limit: int = 1000) -> List[Dict]:
     """
     Query Loki logs filtered by namespace and pod name regex
@@ -158,7 +161,8 @@ def query_loki_logs_by_pod(
     Args:
         namespace: Kubernetes namespace
         pod_regex: Regular expression to match pod names
-        time_range_minutes: Time range to query in minutes
+        start: Start of the time window to fetch the logs for. Epoch timestamp in seconds
+        end: End of the time window to fetch the logs for. Epoch timestamp in seconds
         limit: Maximum number of log lines to return
 
     Returns:
@@ -169,5 +173,6 @@ def query_loki_logs_by_pod(
     return execute_loki_query(
         loki_datasource_id=loki_datasource_id,
         query=query,
-        time_range_minutes=time_range_minutes,
+        start=start,
+        end=end,
         limit=limit)
