@@ -537,7 +537,8 @@ For access and authentication, add the following environment variables:
 * GRAFANA_URL - e.g. https://my-org.grafana.net
 * GRAFANA_API_KEY - e.g. glsa_bsm6ZS_sdfs25f
 
-For configuration, you can optionally append this to your Holmes configuration file:
+For search terms, you can optionally tweak the search terms used by the toolset.
+This is done by appending the following to your Holmes configuration file:
 
 ```yaml
 grafana:
