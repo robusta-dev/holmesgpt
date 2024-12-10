@@ -498,9 +498,9 @@ If your llm provider url uses a certificate from a custom CA, in order to trust 
 <summary>Confluence</summary>
 HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
 
-* CONFLUENCE_BASE_URL - e.g. https://robusta-dev-test.atlassian.net
-* CONFLUENCE_USER - e.g. user@company.com
-* CONFLUENCE_API_KEY - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+* `CONFLUENCE_BASE_URL` - e.g. https://robusta-dev-test.atlassian.net
+* `CONFLUENCE_USER` - e.g. user@company.com
+* `CONFLUENCE_API_KEY` - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
 </details>
 
 <details>
@@ -521,6 +521,35 @@ Fetching runbooks through URLs
 
 HolmesGPT can consult webpages containing runbooks or other relevant information.
 HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
+</details>
+
+<details>
+<summary>
+Using Grafana Loki
+</summary>
+
+HolmesGPT can consult logs from [Loki](https://grafana.com/oss/loki/) by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
+
+There are 2 parts to configuring access to Grafana Loki: Access/Authentication and search terms.
+
+For access and authentication, add the following environment variables:
+
+* `GRAFANA_URL` - e.g. https://my-org.grafana.net
+* `GRAFANA_API_KEY` - e.g. glsa_bsm6ZS_sdfs25f
+
+For search terms, you can optionally tweak the search terms used by the toolset.
+This is done by appending the following to your Holmes configuration file:
+
+```yaml
+grafana:
+  loki:
+    pod_name_search_key: "pod"
+    namespace_search_key: "namespace"
+    node_name_search_key: "node"
+```
+
+> You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+
 </details>
 
 ## More Use Cases

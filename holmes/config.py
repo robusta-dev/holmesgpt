@@ -6,7 +6,7 @@ from strenum import StrEnum
 from typing import List, Optional
 
 from openai import AzureOpenAI, OpenAI
-from pydantic import FilePath, SecretStr
+from pydantic import BaseModel, FilePath, SecretStr
 from pydash.arrays import concat
 from rich.console import Console
 
@@ -26,12 +26,12 @@ from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
+from holmes.plugins.toolsets.grafana_loki import GrafanaConfig
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
-
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -72,6 +72,8 @@ class Config(RobustaBaseConfig):
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
+    grafana: GrafanaConfig = GrafanaConfig()
+
 
     @classmethod
     def load_from_env(cls):
@@ -106,7 +108,7 @@ class Config(RobustaBaseConfig):
     def create_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, grafana_config=self.grafana)
         for ts_path in self.custom_toolsets:
             all_toolsets.extend(load_toolsets_from_file(ts_path))
 

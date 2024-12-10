@@ -130,6 +130,17 @@ class StaticPrerequisite(BaseModel):
     enabled: bool
     disabled_reason: str
 
+class EnvironmentVariablePrerequisite(StaticPrerequisite):
+    def __init__(self, env_var_name:str) -> None:
+        env_var = os.environ.get(env_var_name)
+        enabled = False
+        disabled_reason = f'Missing environment variable "{env_var_name}"'
+        if env_var:
+            enabled = True
+            disabled_reason = ""
+        super().__init__(enabled=enabled, disabled_reason=disabled_reason)
+
+
 class ToolsetCommandPrerequisite(BaseModel):
     command: str                 # must complete successfully (error code 0) for prereq to be satisfied
     expected_output: str = None  # optional
