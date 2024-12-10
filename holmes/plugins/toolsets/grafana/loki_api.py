@@ -3,7 +3,6 @@ import logging
 import os
 import requests
 from typing import Dict, List, Tuple
-from datetime import datetime, timedelta
 
 def headers(api_key:str):
     return {

@@ -523,6 +523,34 @@ HolmesGPT can consult webpages containing runbooks or other relevant information
 HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
 </details>
 
+<details>
+<summary>
+Using Grafana Loki
+</summary>
+
+HolmesGPT can consult logs from [Loki](https://grafana.com/oss/loki/) by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
+
+There are 2 parts to configuring access to Grafana Loki: Access/Authentication and search terms.
+
+For access and authentication, add the following environment variables:
+
+* GRAFANA_URL - e.g. https://my-org.grafana.net
+* GRAFANA_API_KEY - e.g. glsa_bsm6ZS_sdfs25f
+
+For configuration, you can optionally append this to your Holmes configuration file:
+
+```yaml
+grafana:
+  loki:
+    pod_name_search_key: "pod"
+    namespace_search_key: "namespace"
+    node_name_search_key: "node"
+```
+
+You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+
+</details>
+
 ## More Use Cases
 
 HolmesGPT was designed for incident response, but it is a general DevOps assistant too. Here are some examples:
