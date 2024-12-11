@@ -51,7 +51,7 @@ class FetchRobustaFinding(Tool):
         return f"There was an internal error while fetching finding {finding_id}"
 
     def get_parameterized_one_liner(self, params:Dict) -> str:
-        return f"Fetched finding with finding_id={params[PARAM_FINDING_ID]}"
+        return f"Fetch metadata and history"
 
 class FindingsToolset(Toolset):
     def __init__(self, dal:Optional[SupabaseDal]):
