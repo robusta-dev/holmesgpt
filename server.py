@@ -74,8 +74,14 @@ config = Config.load_from_env()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    update_holmes_status_in_db(dal, config)
-    holmes_sync_toolsets_status(dal, config)
+    try:
+        update_holmes_status_in_db(dal, config)
+    except Exception as error:
+        logging.error("Failed to update holmes status", exc_info=True)
+    try:
+        holmes_sync_toolsets_status(dal, config)
+    except Exception as error:
+        logging.error("Failed to synchronise holmes toolsets", exc_info=True)
     yield
 
 
