@@ -523,6 +523,15 @@ HolmesGPT can consult webpages containing runbooks or other relevant information
 HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
 </details>
 
+<details>
+<summary>
+ArgoCD
+</summary>
+
+Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps contifuration and status, clusters and projects within ArgoCD.
+To enable ArgoCD, set the `ARGOCD_AUTH_TOKEN` environment variable as described in the [argocd documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
+</details>
+
 ## More Use Cases
 
 HolmesGPT was designed for incident response, but it is a general DevOps assistant too. Here are some examples:

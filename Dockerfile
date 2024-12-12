@@ -41,6 +41,8 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
 RUN chmod 777 kube-lineage
 RUN ./kube-lineage --version
 
+RUN curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+
 # Set up poetry
 ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
@@ -89,6 +91,10 @@ RUN apt-get install -y kubectl
 # Set up kube lineage
 COPY --from=builder /app/kube-lineage /usr/local/bin
 RUN kube-lineage --version
+
+COPY --from=builder /app/argocd-linux-amd64 /usr/local/bin/argocd
+RUN chmod 555 /usr/local/bin/argocd
+RUN argocd --help
 
 ARG AWS_DEFAULT_PROFILE
 ARG AWS_DEFAULT_REGION
