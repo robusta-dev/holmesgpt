@@ -4,7 +4,7 @@ from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.core.tools import get_matching_toolsets
 import os
 from pydantic import ValidationError
-from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset, ToolsetTag
+from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset, ToolsetTag, ToolsetStatusEnum
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 import logging
@@ -118,7 +118,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
                 updated_at=updated_at
             ).model_dump(exclude_none=True)
         )
-    config.enabled_toolsets_names = [toolset.name for toolset in toolsets_for_sync_by_name.values() if toolset.enabled]
+    config.enabled_toolsets_names = [toolset.name for toolset in toolsets_for_sync_by_name.values() if toolset.get_status() == ToolsetStatusEnum.ENABLED]
     dal.sync_toolsets(db_toolsets, config.cluster_name)
 
 

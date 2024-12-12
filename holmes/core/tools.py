@@ -14,12 +14,9 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     PrivateAttr,
-    field_validator,
     Field,
     model_validator,
 )
-
-from holmes.plugins.prompts import load_and_render_prompt
 
 
 ToolsetPattern = Union[Literal["*"], List[str]]
@@ -334,7 +331,7 @@ class Toolset(BaseModel):
                         and prereq.expected_output not in result.stdout
                     ):
                         self._status = ToolsetStatusEnum.ERROR
-                        self._error = f"prereq check gave wrong output"
+                        self._error = f"Prerequisites check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.ERROR
@@ -342,7 +339,7 @@ class Toolset(BaseModel):
                         f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
                     )
                     self._error = (
-                        f"prereq check failed with errorcode {e.returncode}: {str(e)}"
+                        f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
                     )
                     return
 
@@ -350,7 +347,7 @@ class Toolset(BaseModel):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
                         self._status = ToolsetStatusEnum.ERROR
-                        self._error = f"prereq check failed because environment variable {env_var} was not set"
+                        self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
                         return
 
             elif isinstance(prereq, StaticPrerequisite):
