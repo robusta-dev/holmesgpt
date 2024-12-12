@@ -17,10 +17,6 @@ import yaml
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-class FallbackOldStructureToolsetsList(BaseModel):
-    toolsets: List[YAMLToolset]
-
-
 class ToolsetsYaml(BaseModel):
     toolsets: Dict[str, YAMLToolset]
 

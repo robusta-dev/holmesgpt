@@ -25,8 +25,6 @@ def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
         icon_url: "example.com"
         description: "test_description"
         docs_url: "https://docs.docker.com/"
-        variables:
-            api_endpoint: "$API_ENDPOINT"
         prerequisites:
             - env:
                 - API_ENDPOINT

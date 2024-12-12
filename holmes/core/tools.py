@@ -80,7 +80,6 @@ class Tool(ABC, BaseModel):
         None  # templated string to show to the user describing this tool invocation (not seen by llm)
     )
     additional_instructions: Optional[str] = None
-    toolset_parent_variables: Dict[str, str] = Field(default_factory=dict, exclude=True)
 
     def get_openai_format(self):
         tool_properties = {}
@@ -121,7 +120,6 @@ class Tool(ABC, BaseModel):
 class YAMLTool(Tool, BaseModel):
     command: Optional[str] = None
     script: Optional[str] = None
-    toolset_parent_variables: Dict[str, str] = Field(default_factory=dict, exclude=True)
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -139,10 +137,7 @@ class YAMLTool(Tool, BaseModel):
         #    if param not in self.parameters:
         #        self.parameters[param] = ToolParameter()
         for param in inferred_params:
-            if (
-                param not in self.parameters
-                and param not in self.toolset_parent_variables.keys()
-            ):
+            if param not in self.parameters: 
                 self.parameters[param] = ToolParameter()
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -156,13 +151,7 @@ class YAMLTool(Tool, BaseModel):
 
     def _build_context(self, params):
         params = sanitize_params(params)
-        # Use variables from parent_toolset.variables
-        if self.toolset_parent_variables:
-            toolset_vars = self.toolset_parent_variables
-        else:
-            toolset_vars = {}
-        # Merge params with toolset variables (params take precedence)
-        context = {**toolset_vars, **params}
+        context = {**params}
         return context
 
     def invoke(self, params) -> str:
@@ -269,7 +258,6 @@ class Toolset(BaseModel):
             ToolsetEnvironmentPrerequisite,
         ]
     ] = []
-    variables: Dict[str, str] = {}
     tools: List[Tool]
     tags: List[ToolsetTag] = Field(default_factory=lambda: [ToolsetTag.CORE],)
 
@@ -289,26 +277,15 @@ class Toolset(BaseModel):
                 setattr(self, field, value)
 
     @model_validator(mode="before")
-    def preprocess_variables_and_tools(cls, values):
-        variables = values.get("variables", {})
-        if not isinstance(variables, dict):
-            raise ValueError("variables must be a dictionary")
-
-        processed_variables = {
-            key: os.path.expandvars(value) for key, value in variables.items()
-        }
-        values["variables"] = processed_variables
-
+    def preprocess_tools(cls, values):
         additional_instructions = values.get("additional_instructions", "")
         tools_data = values.get("tools", [])
         tools = []
         for tool in tools_data:
             if isinstance(tool, dict):
-                tool["toolset_parent_variables"] = processed_variables
                 tool["additional_instructions"] = additional_instructions
             if isinstance(tool, Tool):
                 tool.additional_instructions = additional_instructions
-                tool.toolset_parent_variables = processed_variables
             tools.append(tool)
         values["tools"] = tools
 
@@ -335,16 +312,7 @@ class Toolset(BaseModel):
         return list(env_vars)
 
     def interpolate_command(self, command: str) -> str:
-        command = os.path.expandvars(command)
-
-        template = Template(command)
-        try:
-            interpolated_command = template.render(self.variables)
-        except KeyError as e:
-            missing_var = e.args[0]
-            raise Exception(
-                f"Missing variable '{missing_var}' required for command interpolation."
-            )
+        interpolated_command = os.path.expandvars(command)
 
         return interpolated_command
 
@@ -443,7 +411,6 @@ class ToolsetYamlFromConfig(Toolset):
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
-    variables: Dict[str, str] = {}
 
 
 class ToolsetDBModel(BaseModel):
