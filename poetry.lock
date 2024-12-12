@@ -526,6 +526,62 @@ colorama = {version = "*", markers = "sys_platform == \"win32\""}
 development = ["black", "flake8", "mypy", "pytest", "types-colorama"]
 
 [[package]]
+name = "confluent-kafka"
+version = "2.6.1"
+description = "Confluent's Python client for Apache Kafka"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "confluent_kafka-2.6.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:832f17bc8568bdec1823a46ebe66e0ccbffbb0f5917f8ed6226258186aed9bae"},
+    {file = "confluent_kafka-2.6.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:c41b8461958690aa35ceb5619cf910c664535fb395a8f331998c74760d51e1d1"},
+    {file = "confluent_kafka-2.6.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:8fef7efc866e12db75060d3ec7b74cd6cf5322d8bf72267f1e3204a98ee6b75b"},
+    {file = "confluent_kafka-2.6.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:802af9c60c1c0e068adfc73a10322f9d9d9260f508978ebe853cd6d1e8d6f4ef"},
+    {file = "confluent_kafka-2.6.1-cp310-cp310-win_amd64.whl", hash = "sha256:24cc1833658a93b727337fc31088f4e7d04fdc8e73eae3f946ecae0308737822"},
+    {file = "confluent_kafka-2.6.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:db46641c7a48cc998900c4e85778c4ea838d2b940433948831deae0d883945f3"},
+    {file = "confluent_kafka-2.6.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:44d8d1bb3ffaba84f2e169614651662fb57c3645c50f88effb653d76149ac18e"},
+    {file = "confluent_kafka-2.6.1-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:56473c3e8189b63fceae42569c31e339d0b9a4aac2fb3d38f744400837251857"},
+    {file = "confluent_kafka-2.6.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:15af5ae70c9376aba62462f20dbc846364a41f6ae4071baac36a3adb44ec29bb"},
+    {file = "confluent_kafka-2.6.1-cp311-cp311-win_amd64.whl", hash = "sha256:a6cea569aa1fb7171b59f87edaf000d40fe0f92f9722d107230a6338fbd20f61"},
+    {file = "confluent_kafka-2.6.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:a5062f24f3af27f6edd63cb71a663144de09dd3249647c80c4aec9655a0ea1dd"},
+    {file = "confluent_kafka-2.6.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a21b712b17362fd0602faa87c4363bd604f271ca62076bcf2d83ca91d2bd62c2"},
+    {file = "confluent_kafka-2.6.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:0c2b63f7f764dc504296a8a474a3f09e408a456626cf938635eb31f59cac59fa"},
+    {file = "confluent_kafka-2.6.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:298aa323eb8507862ccfa619367667b41ab76ddf3657e8a45dafe4b270208257"},
+    {file = "confluent_kafka-2.6.1-cp312-cp312-win_amd64.whl", hash = "sha256:b17da915fc35b1bef49d599f685656f65f379094dbbc7aafc5ede1843cc72699"},
+    {file = "confluent_kafka-2.6.1-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:2584812d8834932e194929544d09325dd09039223aced7ab09095ffd4e96a1ca"},
+    {file = "confluent_kafka-2.6.1-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:90853bbf466c57e0295076549b9b3b9cb6ab9447965977f3cde7f0790c39b5d6"},
+    {file = "confluent_kafka-2.6.1-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:8c38bf716dbf99bd0e84ba867417e397c4d544d37a530b28df6cadd227a57f98"},
+    {file = "confluent_kafka-2.6.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:efc94016d3b438f0af2ddd3f5a8fb293616fda296644f341161033b24282b23d"},
+    {file = "confluent_kafka-2.6.1-cp313-cp313-win_amd64.whl", hash = "sha256:150735910da42c44f7fa21ad96e3ae0f52df34066f163d3f544001a64ea776d2"},
+    {file = "confluent_kafka-2.6.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:7670bf37fb46892a070f4b191edfe43d8564aa29446c80ddb32a95d183905086"},
+    {file = "confluent_kafka-2.6.1-cp37-cp37m-manylinux_2_28_aarch64.whl", hash = "sha256:98cd678cc955cc3ab88b10823ef01aab2937f9d5ff0cba85abe5a5de11696159"},
+    {file = "confluent_kafka-2.6.1-cp37-cp37m-manylinux_2_28_x86_64.whl", hash = "sha256:d250199230fdb90eeb48313ed5ca3526ec7a1f30a67c1ae1a98b4d98316172bc"},
+    {file = "confluent_kafka-2.6.1-cp37-cp37m-win_amd64.whl", hash = "sha256:93e02a8fa4152355b95cd1d6fc82b987f318ca591439dace481d818ad2237ad5"},
+    {file = "confluent_kafka-2.6.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:ac80ae38a3f44103191cd30177f2871ba6af26ca7511f496cf25f0962eccc523"},
+    {file = "confluent_kafka-2.6.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:cc22c426e2b87b92a93b4acd6c762a8cea3fae529ca0b1ba80165b358e041604"},
+    {file = "confluent_kafka-2.6.1-cp38-cp38-manylinux_2_28_aarch64.whl", hash = "sha256:dc2ad05ad5283cf9280b64949ed1f83a7201c70ce22f262a8f1939d384e45bed"},
+    {file = "confluent_kafka-2.6.1-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:b5e22e09c7316b25c262e45aaffbf254605ebc1bcf0e8ec1fc77b941065acde9"},
+    {file = "confluent_kafka-2.6.1-cp38-cp38-win_amd64.whl", hash = "sha256:fd2b97770525e1e181fab64f715c21593cc5e3ac858d71300de9a45e8453e31c"},
+    {file = "confluent_kafka-2.6.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:e1f54816890249316b47a5d479041311445c2829cf71967e2abbc2a5581b06e0"},
+    {file = "confluent_kafka-2.6.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:65cb90cf046e649fd68414fb45b3c9b0db28b4f051474db78ebca527190fb246"},
+    {file = "confluent_kafka-2.6.1-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:b615cd8d35c94bed594bfc0905cf9d5e83f8be1ff49902898b29896748015394"},
+    {file = "confluent_kafka-2.6.1-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:e4294ff4e9031a31f2cb807e284aedbf988e49a27bfe90dec35aad9f8e07db9e"},
+    {file = "confluent_kafka-2.6.1-cp39-cp39-win_amd64.whl", hash = "sha256:a6d3f65f6df9bdeeafd3de206159c0d0c529e17c89c839376df39af029ba1260"},
+    {file = "confluent_kafka-2.6.1.tar.gz", hash = "sha256:71fdab0f65ccdb00eff0f14ccde65723ebbd20392723f8c1e87e5d8ab29e50cf"},
+]
+
+[package.extras]
+all = ["avro (>=1.11.1,<2)", "confluent-kafka", "fastapi", "fastavro (<1.8.0)", "fastavro (<2)", "flake8", "jsonschema", "opentelemetry-distro", "opentelemetry-exporter-otlp", "protobuf", "psutil", "pydantic", "pyrsistent", "pyrsistent", "pyrsistent (==0.16.1)", "pytest", "pytest-timeout", "requests", "requests-mock", "six", "sphinx", "sphinx-rtd-theme", "urllib3 (<2.0.0)", "urllib3 (>=2.0.0,<3)", "uvicorn"]
+avro = ["avro (>=1.11.1,<2)", "fastavro (<1.8.0)", "fastavro (<2)", "requests"]
+dev = ["avro (>=1.11.1,<2)", "confluent-kafka", "fastapi", "fastavro (<1.8.0)", "fastavro (<2)", "flake8", "jsonschema", "protobuf", "pydantic", "pyrsistent", "pyrsistent", "pyrsistent (==0.16.1)", "pytest", "pytest-timeout", "requests", "requests-mock", "six", "sphinx", "sphinx-rtd-theme", "urllib3 (<2.0.0)", "urllib3 (>=2.0.0,<3)", "uvicorn"]
+docs = ["avro (>=1.11.1,<2)", "fastavro (<1.8.0)", "fastavro (<2)", "jsonschema", "protobuf", "pyrsistent", "requests", "sphinx", "sphinx-rtd-theme"]
+examples = ["confluent-kafka", "fastapi", "jsonschema", "protobuf", "pydantic", "pyrsistent", "pyrsistent (==0.16.1)", "requests", "six", "uvicorn"]
+json = ["jsonschema", "pyrsistent", "requests"]
+protobuf = ["protobuf", "requests"]
+schemaregistry = ["requests"]
+soaktest = ["opentelemetry-distro", "opentelemetry-exporter-otlp", "psutil"]
+tests = ["avro (>=1.11.1,<2)", "fastavro (<1.8.0)", "fastavro (<2)", "flake8", "jsonschema", "protobuf", "pyrsistent", "pytest", "pytest-timeout", "requests", "requests-mock", "urllib3 (<2.0.0)", "urllib3 (>=2.0.0,<3)"]
+
+[[package]]
 name = "deprecation"
 version = "2.1.0"
 description = "A library to handle automated deprecations"
@@ -560,6 +616,26 @@ files = [
     {file = "distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2"},
     {file = "distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed"},
 ]
+
+[[package]]
+name = "dnspython"
+version = "2.7.0"
+description = "DNS toolkit"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "dnspython-2.7.0-py3-none-any.whl", hash = "sha256:b4c34b7d10b51bcc3a5071e7b8dee77939f1e878477eeecc965e9835f63c6c86"},
+    {file = "dnspython-2.7.0.tar.gz", hash = "sha256:ce9c432eda0dc91cf618a5cedf1a4e142651196bbcd2c80e89ed5a907e5cfaf1"},
+]
+
+[package.extras]
+dev = ["black (>=23.1.0)", "coverage (>=7.0)", "flake8 (>=7)", "hypercorn (>=0.16.0)", "mypy (>=1.8)", "pylint (>=3)", "pytest (>=7.4)", "pytest-cov (>=4.1.0)", "quart-trio (>=0.11.0)", "sphinx (>=7.2.0)", "sphinx-rtd-theme (>=2.0.0)", "twine (>=4.0.0)", "wheel (>=0.42.0)"]
+dnssec = ["cryptography (>=43)"]
+doh = ["h2 (>=4.1.0)", "httpcore (>=1.0.0)", "httpx (>=0.26.0)"]
+doq = ["aioquic (>=1.0.0)"]
+idna = ["idna (>=3.7)"]
+trio = ["trio (>=0.23)"]
+wmi = ["wmi (>=1.5.1)"]
 
 [[package]]
 name = "exceptiongroup"
@@ -3302,4 +3378,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "d56ac524fa9d1bf9067fa44edbadbebbbe7309e04a25b67ef95deb2538781122"
+content-hash = "d4d834719243b68053f608f350bae45150ae8db5a7b753bd622b10292a21fd5b"

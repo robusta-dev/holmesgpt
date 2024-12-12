@@ -39,6 +39,7 @@ playwright = "1.48.0"
 bs4 = "^0.0.2"
 markdownify = "^0.13.1"
 starlette = "^0.40"
+confluent-kafka = "^2.6.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -47,6 +48,7 @@ ruff = "^0.7.3"
 braintrust = "^0.0.168"
 autoevals = "^0.0.103"
 pre-commit = "^4.0.1"
+dnspython = "^2.7.0"
 
 [build-system]
 requires = ["poetry-core"]

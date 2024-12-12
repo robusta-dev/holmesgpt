@@ -1,0 +1,5 @@
+listeners:
+  client:
+    protocol: "PLAINTEXT"
+  controller:
+    protocol: "PLAINTEXT"

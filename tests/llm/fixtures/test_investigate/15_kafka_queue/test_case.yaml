@@ -1,0 +1,37 @@
+expected_output:
+  - This is not an issue
+  - The `Watchdog` alert is designed to always be active. It serves as a health check for the alerting pipeline, ensuring that the Alertmanager is functioning correctly.
+  - This alert should always be firing, and if it stops, it indicates a problem with the alerting system.
+# before_test: |
+#   helm install kafka oci://registry-1.docker.io/bitnamicharts/kafka -f ./helm/values.yaml
+#   docker run -d --name kafka-producer --network <your-kafka-network> bitnami/kafka:3.9.0-debian-12-r1 sleep infinity
+#   kubectl run kafka-producer --restart='Never' --image docker.io/bitnami/kafka:3.9.0-debian-12-r1 --namespace default --command -- sleep infinity
+#   kubectl exec -i --tty=false kafka-producer --namespace default -- bash << EOF
+#     for i in {1..100000}; do echo "Message $i"; done > /tmp/messages.txt
+#     cat /tmp/messages.txt | kafka-console-producer.sh --bootstrap-server kafka.default.svc.cluster.local:9092 --topic test
+#   EOF
+
+#   kubectl run kafka-consumer --restart='Never' --image docker.io/bitnami/kafka:3.9.0-debian-12-r1 --namespace default --command -- sleep infinity
+#   kubectl exec -i kafka-consumer --namespace default -- bash << EOF
+#     nohup bash -c 'kafka-console-consumer.sh --bootstrap-server kafka.default.svc.cluster.local:9092 --group holmes-test-group --topic test | while read message; do echo "Processing: \$message"; sleep 1; done' > /tmp/consumer.log 2>&1 &
+#   EOF
+before_test: |
+  docker compose up -d
+  docker run -d --name kafka-producer --network host apache/kafka:latest sleep infinity
+  docker exec kafka-producer bash -c '
+    for i in {1..100000}; do echo "Message $i"; done > /tmp/messages.txt
+    cat /tmp/messages.txt | /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic test
+  '
+
+  docker run -d --name kafka-consumer --network host apache/kafka:latest sleep infinity
+  docker exec kafka-consumer bash -c '
+    nohup \'/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --group holmes-test-group --topic test | \
+      while read message; do \
+        echo "Processing: \$message"; \
+        sleep 1; \
+      done;\' \
+      > /tmp/consumer.log 2>&1 &
+  '
+
+after_test: |
+  helm remove kafka
