@@ -35,6 +35,7 @@ toolsets:
           - open_pr: true/false, whether to open a pull request after committing.
           - commit_pr: The title of the commit or PR.
           - dry_run: true/false, whether to simulate the changes and print the resulting content without making remote changes.
+          - commit_message: string detailing the message for the commit, Prometheus Alert X was firing on recource Y on X date.
         command: >
           ./remote_git_operations.sh 
           "{{ line }}" 
@@ -44,3 +45,4 @@ toolsets:
           "{{ open_pr }}" 
           "{{ commit_pr }}" 
           "{{ dry_run }}"
+          "{{ commit_message }}"

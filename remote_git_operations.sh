@@ -8,6 +8,7 @@ CODE="$4"        # Code to insert or replace with
 OPEN_PR="$5"     # Whether to open a PR (true/false)
 COMMIT_PR="$6"   # Commit/PR name
 DRY_RUN="$7"   # Commit/PR name
+COMMIT_NAME="$8"   # Commit/PR name
 
 # GitHub repo details
 REPO=$GIT_REPO
@@ -131,7 +132,7 @@ open_pull_request() {
         -H "Content-Type: application/json" \
         -d "{
             \"title\": \"$COMMIT_PR\",
-            \"body\": \"This pull request resolves memory OOMKilled issues by increasing the memory limit.\",
+            \"body\": \"$COMMIT_NAME\",
             \"head\": \"$BRANCH_NAME\",
             \"base\": \"master\"
         }" "https://api.github.com/repos/$REPO/pulls" || log_error "Failed to open a pull request from $BRANCH_NAME to master."
