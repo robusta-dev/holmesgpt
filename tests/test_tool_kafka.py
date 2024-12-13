@@ -16,12 +16,11 @@ from tests.utils.kafka import docker_not_available, wait_for_containers, wait_fo
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 FIXTURE_FOLDER = os.path.join(dir_path, "fixtures", "test_tool_kafka")
-KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
+KAFKA_BOOTSTRAP_SERVER = os.environ.get("KAFKA_BOOTSTRAP_SERVER")
 
-skip_docker, skip_docker_reason = docker_not_available()
 pytestmark = pytest.mark.skipif(
-    skip_docker,
-    reason=skip_docker_reason
+    not os.environ.get("KAFKA_BOOTSTRAP_SERVER"),
+    reason="missing env KAFKA_BOOTSTRAP_SERVER"
 )
 
 @pytest.fixture(scope="module", autouse=True)
