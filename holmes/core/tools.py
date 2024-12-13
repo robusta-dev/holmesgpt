@@ -55,7 +55,7 @@ def get_matching_toolsets(
 class ToolsetStatusEnum(str, Enum):
     ENABLED = "enabled"
     DISABLED = "disabled"
-    ERROR = "error"
+    FAILED = "failed"
 
 class ToolsetTag(str, Enum):
     CORE = "core"
@@ -330,11 +330,11 @@ class Toolset(BaseModel):
                         prereq.expected_output
                         and prereq.expected_output not in result.stdout
                     ):
-                        self._status = ToolsetStatusEnum.ERROR
+                        self._status = ToolsetStatusEnum.FAILED
                         self._error = f"Prerequisites check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
-                    self._status = ToolsetStatusEnum.ERROR
+                    self._status = ToolsetStatusEnum.FAILED
                     logging.debug(
                         f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
                     )
@@ -346,7 +346,7 @@ class Toolset(BaseModel):
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
-                        self._status = ToolsetStatusEnum.ERROR
+                        self._status = ToolsetStatusEnum.FAILED
                         self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
                         return
 
