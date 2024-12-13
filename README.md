@@ -713,6 +713,20 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 
 </details>
 
+<summary>Kafka Integration</summary>
+
+Enable Kafka as a tool for Holmes to fetch kafka metadata like the topics or consumer groups.
+
+```bash
+export KAFKA_BROKERS="localhost:9092" # Required. comma separated list
+export KAFKA_SECURITY_PROTOCOL = "PLAINTEXT" # optional
+export KAFKA_SASL_MECHANISM= "..." # optional
+export KAFKA_USERNAME = "..." # optional
+export KAFKA_PASSWORD = "..." # optional
+export KAFKA_CLIENT_ID = "..." # optional
+```
+
+</details>
 <details>
 
 <summary>Custom Runbooks</summary>

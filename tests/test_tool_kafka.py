@@ -1,11 +1,7 @@
-import logging
-import time
+
 import os
 import subprocess
 import pytest
-import yaml
-import dns.resolver
-import signal
 import random
 import string
 from confluent_kafka.admin import AdminClient, NewTopic
@@ -16,71 +12,41 @@ from holmes.plugins.toolsets.kafka import (
     DescribeTopic,
     FindConsumerGroupsByTopic
 )
-from tests.utils.kafka_proxy import KafkaProxy
+from tests.utils.kafka import docker_not_available, wait_for_containers, wait_for_kafka_ready
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-RESOLV_CONF_OVERRIDE = os.path.join(dir_path, "fixtures", "test_tool_kafka", "resolv.conf")
+FIXTURE_FOLDER = os.path.join(dir_path, "fixtures", "test_tool_kafka")
+KAFKA_BOOTSTRAP_SERVER = "localhost:9092"
 
-# Skip all tests if KAFKA_BOOTSTRAP_SERVER is not set
+skip_docker, skip_docker_reason = docker_not_available()
 pytestmark = pytest.mark.skipif(
-    not os.getenv("KAFKA_BOOTSTRAP_SERVER"),
-    reason="KAFKA_BOOTSTRAP_SERVER environment variable not set"
+    skip_docker,
+    reason=skip_docker_reason
 )
 
 @pytest.fixture(scope="module", autouse=True)
 def admin_client():
     config = {
-        'bootstrap.servers': os.getenv("KAFKA_BOOTSTRAP_SERVER"),
-        'client.id': 'holmes_kafka_tools_test'
+        "bootstrap.servers": KAFKA_BOOTSTRAP_SERVER,
+        "client.id": 'holmes_kafka_tools_test'
     }
     return AdminClient(config)
 
-# @pytest.fixture(scope="module", autouse=True)
-# def configure_network():
-#     # Start port forwards
-#     dns.resolver.override_system_resolver(dns.resolver.Resolver(filename=RESOLV_CONF_OVERRIDE))
-#     port_forward_commands = [
-#         "kubectl port-forward pod/kafka-controller-0 31092:9092",
-#         "kubectl port-forward pod/kafka-controller-1 31093:9092",
-#         "kubectl port-forward pod/kafka-controller-2 31094:9092"
-#     ]
+@pytest.fixture(scope="module", autouse=True)
+def docker_compose(admin_client):
+    try:
+        subprocess.Popen("docker compose up -d".split(), cwd=FIXTURE_FOLDER, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-#     # Store process IDs for cleanup
-#     processes = []
-#     proxy = KafkaProxy({
-#         "kafka-controller-0.kafka-controller-headless.default.svc.cluster.local": 31092,
-#         "kafka-controller-1.kafka-controller-headless.default.svc.cluster.local": 31093,
-#         "kafka-controller-2.kafka-controller-headless.default.svc.cluster.local": 31094,
-#     })
-#     try:
-#         for cmd in port_forward_commands:
-#             process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#             processes.append(process)
+        if not wait_for_containers(FIXTURE_FOLDER):
+            raise Exception("Containers failed to start properly")
 
-#             # Check if process started successfully
-#             time.sleep(1)
-#             if process.poll() is not None:
-#                 raise RuntimeError(f"Failed to start port-forward: {cmd}")
+        if not wait_for_kafka_ready(admin_client):
+            raise Exception("Kafka failed to initialize properly")
 
-#         proxy.start()
+        yield
 
-#         yield
-
-#     finally:
-#         if proxy:
-#             proxy.stop()
-
-#         for process in processes:
-#             if process.poll() is None:
-#                 try:
-#                     os.kill(process.pid, signal.SIGTERM)
-#                     process.wait(timeout=5)
-#                 except (subprocess.TimeoutExpired, ProcessLookupError):
-#                     try:
-#                         os.kill(process.pid, signal.SIGKILL)
-#                     except ProcessLookupError:
-#                         pass
-#     dns.resolver.restore_system_resolver()
+    finally:
+        subprocess.Popen("docker compose down".split(), cwd=FIXTURE_FOLDER, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 @pytest.fixture(scope="module", autouse=True)
 def test_topic(admin_client):

@@ -1,11 +1,11 @@
 
 import logging
+from pydantic import BaseModel
 import yaml
 from typing import Any, Dict, List, Optional
-from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset
-from confluent_kafka.admin import AdminClient, BrokerMetadata, ClusterMetadata, ConfigResource, GroupMember, GroupMetadata, ListConsumerGroupsResult, MemberAssignment, MemberDescription, NewTopic, ConsumerGroupDescription, PartitionMetadata, TopicMetadata
+from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
+from confluent_kafka.admin import AdminClient, BrokerMetadata, ClusterMetadata, ConfigResource, GroupMember, GroupMetadata, ListConsumerGroupsResult, MemberAssignment, MemberDescription, ConsumerGroupDescription, PartitionMetadata, TopicMetadata
 from confluent_kafka import KafkaException
-
 
 def convert_to_dict(obj:Any):
     if isinstance(obj, (ClusterMetadata, BrokerMetadata, TopicMetadata,
@@ -24,36 +24,13 @@ def convert_to_dict(obj:Any):
         return result
     return obj
 
-
-class KafkaAuthConfig:
-    def __init__(
-        self,
-        security_protocol: str = "SASL_SSL",
-        sasl_mechanism: str = "PLAIN",
-        username: str = None,
-        password: str = None,
-        ssl_cafile: str = None
-    ):
-        self.security_protocol = security_protocol
-        self.sasl_mechanism = sasl_mechanism
-        self.username = username
-        self.password = password
-        self.ssl_cafile = ssl_cafile
-
-    def get_config(self) -> Dict:
-        config = {
-            'security.protocol': self.security_protocol,
-            'sasl.mechanism': self.sasl_mechanism,
-        }
-
-        if self.username and self.password:
-            config['sasl.username'] = self.username
-            config['sasl.password'] = self.password
-
-        if self.ssl_cafile:
-            config['ssl.ca.location'] = self.ssl_cafile
-
-        return config
+class KafkaConfig(BaseModel):
+    brokers: List[str]
+    security_protocol: Optional[str] = None
+    sasl_mechanism: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    client_id: Optional[str] = None
 
 class ListKafkaConsumers(Tool):
     def __init__(self, admin_client: AdminClient):
@@ -146,7 +123,7 @@ class DescribeTopic(Tool):
                 ),
                 "fetch_configuration": ToolParameter(
                     description="If true, also fetches the topic configuration. defaults to false",
-                    type="bool",
+                    type="boolean",
                     required=False,
                 )
             },
@@ -237,24 +214,31 @@ class FindConsumerGroupsByTopic(Tool):
 class KafkaToolset(Toolset):
     def __init__(
         self,
-        bootstrap_servers: str,
-        auth_config: Optional[KafkaAuthConfig] = None
+        config: Optional[KafkaConfig] = None
     ):
         try:
-            admin_config = {
-                'bootstrap.servers': bootstrap_servers,
-                'client.id': 'kafka_tools_admin'
-            }
+            if config:
+                admin_config = {
+                    'bootstrap.servers': config.brokers,
+                    'client.id': config.client_id or "holmes-kafka-core-toolset",
+                    'security.protocol': config.security_protocol,
+                    'sasl.mechanisms': config.sasl_mechanism,
+                    'sasl.username': config.username,
+                    'sasl.password': config.password
+                }
 
-            if auth_config:
-                admin_config.update(auth_config.get_config())
+                admin_client = AdminClient(admin_config)
 
-            admin_client = AdminClient(admin_config)
-
-            kafka_prereq = StaticPrerequisite(
-                enabled=True,
-                disabled_reason="Kafka admin client is available"
-            )
+                kafka_prereq = StaticPrerequisite(
+                    enabled=True,
+                    disabled_reason="Kafka admin client is available"
+                )
+            else:
+                admin_client = None
+                kafka_prereq = StaticPrerequisite(
+                    enabled=False,
+                    disabled_reason=f"Kafka client not configured"
+                )
         except Exception as e:
             admin_client = None
             kafka_prereq = StaticPrerequisite(
@@ -264,7 +248,10 @@ class KafkaToolset(Toolset):
 
         super().__init__(
             name="kafka_tools",
+            description="Fetches metadata from Kafka",
             prerequisites=[kafka_prereq],
+            icon_url="https://en.wikipedia.org/wiki/Apache_Kafka#/media/File:Apache_Kafka_logo.svg",
+            tags=[ToolsetTag.CORE],
             tools=[
                 ListKafkaConsumers(admin_client),
                 DescribeConsumerGroup(admin_client),
@@ -273,4 +260,3 @@ class KafkaToolset(Toolset):
                 FindConsumerGroupsByTopic(admin_client),
             ],
         )
-        self.check_prerequisites()

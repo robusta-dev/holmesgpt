@@ -1,7 +1,6 @@
 import yaml
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets import load_builtin_toolsets
-from holmes.core.tools import get_matching_toolsets
 import os
 from pydantic import ValidationError
 from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset, ToolsetTag, ToolsetStatusEnum
@@ -14,12 +13,12 @@ from datetime import datetime
 def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
     """
     Loads toolsets config from /etc/holmes/config/custom_toolset.yaml with ToolsetYamlFromConfig class
-    that doesn't have strict validations. 
+    that doesn't have strict validations.
     Example configuration:
 
     kubernetes/logs:
         enabled: false
-  
+
     test/configurations:
         enabled: true
         icon_url: "example.com"
@@ -55,13 +54,13 @@ def merge_and_override_bultin_toolsets_with_toolsets_config(
     default_toolsets_by_name: dict[str, YAMLToolset],
 ) -> dict[str, YAMLToolset]:
     """
-    Merges and overrides default_toolsets_by_name with custom 
+    Merges and overrides default_toolsets_by_name with custom
     config from /etc/holmes/config/custom_toolset.yaml
     """
     toolsets_with_updated_statuses = {
         toolset.name: toolset for toolset in default_toolsets_by_name.values()
     }
-    
+
     for toolset in toolsets_loaded_from_config:
         if toolset.name in toolsets_with_updated_statuses.keys():
             toolsets_with_updated_statuses[toolset.name].override_with(toolset)
@@ -73,7 +72,7 @@ def merge_and_override_bultin_toolsets_with_toolsets_config(
                 logging.error(
                     f"Toolset '{toolset.name}' is invalid: {error} ", exc_info=True
                 )
-    
+
     return toolsets_with_updated_statuses
 
 
