@@ -1,0 +1,36 @@
+{% if enabled %}
+This integration is enabled by default. 
+
+If you would like to disable this toolset (not recommended), you need to update the `generated_values.yaml` configuration.
+
+```yaml
+holmes:
+  toolsets:
+    {{toolset_name}}:
+        enabled: false
+```
+
+{% else %}
+To enable this integration, update the Helm values for Robusta (`generated_values.yaml`):
+
+```yaml
+holmes:
+{% if env_vars %}
+  additionalEnvVars:
+{% for env in env_vars %}
+    - name: {{ env }}
+      value: <{{ env }}>
+{% endfor %}
+{% endif %}
+  toolsets:
+    {{toolset_name}}:
+      enabled: true
+```
+
+{% endif %}
+
+And deploy the updated configuration using Helm:
+
+```bash
+helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+```

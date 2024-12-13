@@ -233,17 +233,17 @@ lxml = ["lxml"]
 
 [[package]]
 name = "boto3"
-version = "1.35.77"
+version = "1.35.80"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "boto3-1.35.77-py3-none-any.whl", hash = "sha256:a09871805f8e462349a1c33c23eb413668df0bf68424e61d53518e1a7d883b2f"},
-    {file = "boto3-1.35.77.tar.gz", hash = "sha256:cc819cdbccbc2d0dc185f1dcfe74cf3809489c4cae63c2e5d6a557aa0c5ab928"},
+    {file = "boto3-1.35.80-py3-none-any.whl", hash = "sha256:21a3b18c3a7fd20e463708fe3fa035983105dc7f3a1c274e1903e1583ab91159"},
+    {file = "boto3-1.35.80.tar.gz", hash = "sha256:50dae461ab5fbedfb81b690895d48a918fed0d5fdff37be1c4232770c0dc9712"},
 ]
 
 [package.dependencies]
-botocore = ">=1.35.77,<1.36.0"
+botocore = ">=1.35.80,<1.36.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.10.0,<0.11.0"
 
@@ -252,13 +252,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.35.77"
+version = "1.35.80"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "botocore-1.35.77-py3-none-any.whl", hash = "sha256:3faa27d65841499762228902d7e215fa99a4c2fdc76c9113e1c3f339bdf685b8"},
-    {file = "botocore-1.35.77.tar.gz", hash = "sha256:17b778016644e9342ca3ff2f430c1d1db0c6126e9b41a57cff52ac58e7a455e0"},
+    {file = "botocore-1.35.80-py3-none-any.whl", hash = "sha256:36e589dccb62380abd628b08fecfa2f7c89b99f41ec9fc42c467c94008c0be4a"},
+    {file = "botocore-1.35.80.tar.gz", hash = "sha256:b8dfceca58891cb2711bd6455ec4f7159051f3796e0f64adef9bb334f19d8a92"},
 ]
 
 [package.dependencies]
@@ -1363,13 +1363,13 @@ rapidfuzz = ">=3.9.0,<4.0.0"
 
 [[package]]
 name = "litellm"
-version = "1.54.1"
+version = "1.55.0"
 description = "Library to easily interface with LLM API providers"
 optional = false
 python-versions = "!=2.7.*,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,!=3.7.*,>=3.8"
 files = [
-    {file = "litellm-1.54.1-py3-none-any.whl", hash = "sha256:d8e60d4a5e8decb0234a1e8c20351c904aec561fb4025df7df3d0d7ea81ca442"},
-    {file = "litellm-1.54.1.tar.gz", hash = "sha256:b5a8fc99160fab0699b9258457432b3975499218ffcf1b515709808b2ce5a2d7"},
+    {file = "litellm-1.55.0-py3-none-any.whl", hash = "sha256:b257242039cc0753cdf7e7e288f9379d8ccad58015ce95bdc8a8ec337d2fa7eb"},
+    {file = "litellm-1.55.0.tar.gz", hash = "sha256:d33dfabb7aa6f18294c43f20429d7d962b48104a0c2ddce08df7370029ac4780"},
 ]
 
 [package.dependencies]
@@ -1645,13 +1645,13 @@ files = [
 
 [[package]]
 name = "openai"
-version = "1.57.1"
+version = "1.57.3"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "openai-1.57.1-py3-none-any.whl", hash = "sha256:3865686c927e93492d1145938d4a24b634951531c4b2769d43ca5dbd4b25d8fd"},
-    {file = "openai-1.57.1.tar.gz", hash = "sha256:a95f22e04ab3df26e64a15d958342265e802314131275908b3b3e36f8c5d4377"},
+    {file = "openai-1.57.3-py3-none-any.whl", hash = "sha256:c4034a5676eb252ef2e0ed1f46d040ca3bdde24bb61b432f50bb0b38d0cf9ecf"},
+    {file = "openai-1.57.3.tar.gz", hash = "sha256:2c98ca6532b30d8bc5029974d2fcbd793b650009c2b014f47ffd4f9fdfc1f9eb"},
 ]
 
 [package.dependencies]
@@ -2016,13 +2016,13 @@ typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
 
 [[package]]
 name = "pydantic-settings"
-version = "2.6.1"
+version = "2.7.0"
 description = "Settings management using Pydantic"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pydantic_settings-2.6.1-py3-none-any.whl", hash = "sha256:7fb0637c786a558d3103436278a7c4f1cfd29ba8973238a50c5bb9a55387da87"},
-    {file = "pydantic_settings-2.6.1.tar.gz", hash = "sha256:e0f92546d8a9923cb8941689abf85d6601a8c19a23e97a34b2964a2e3f813ca0"},
+    {file = "pydantic_settings-2.7.0-py3-none-any.whl", hash = "sha256:e00c05d5fa6cbbb227c84bd7487c5c1065084119b750df7c8c1a554aed236eb5"},
+    {file = "pydantic_settings-2.7.0.tar.gz", hash = "sha256:ac4bfd4a36831a48dbf8b2d9325425b549a0a6f18cea118436d728eb4f1c4d66"},
 ]
 
 [package.dependencies]

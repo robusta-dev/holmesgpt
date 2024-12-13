@@ -1,15 +1,20 @@
 toolsets:
-- name: "slab"
-  prerequisites:
-  - command: "curl --version"
-  - env:
-    - SLAB_API_KEY
-  tools:
-  - name: "fetch_slab_document"
-    description: "Fetch a document from slab. Use this to fetch runbooks if they are present before starting your investigation."
-    command: |
-      curl -X POST \
-        -H "Authorization: ${SLAB_API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d '{"query":"query { post(id: \"{{ post_id }}\") { id title content } }"}' \
-        https://api.slab.com/v1/graphql
+  slab:
+    description: "Fetches slab pages"
+    docs_url: "https://help.slab.com/en/"
+    icon_url: "https://platform.robusta.dev/demos/slab-mark.svg"
+    tags:
+      - core
+    prerequisites:
+    - command: "curl --version"
+    - env:
+      - SLAB_API_KEY
+    tools:
+      - name: "fetch_slab_document"
+        description: "Fetch a document from slab. Use this to fetch runbooks if they are present before starting your investigation."
+        command: |
+          curl -X POST \
+          -H "Authorization: ${SLAB_API_KEY}" \
+          -H "Content-Type: application/json" \
+          -d '{"query":"query { post(id: \"{{ post_id }}\") { id title content } }"}' \
+          https://api.slab.com/v1/graphql

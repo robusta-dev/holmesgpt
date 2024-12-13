@@ -3,7 +3,7 @@ import re
 import pytest
 from pathlib import Path
 
-from holmes.core.tools import ToolExecutor
+from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
 from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown
 
 THIS_DIR = os.path.dirname(__file__)
@@ -66,7 +66,8 @@ def test_internet_toolset_prerequisites():
     toolset = InternetToolset()
 
     toolset.check_prerequisites()
-    assert toolset.is_enabled(), ("" if toolset.is_enabled() else toolset.get_disabled_reason() + ". Make sure playwright is installed by running `playwright install`.")
+    assert toolset._status == ToolsetStatusEnum.ENABLED, ("" if  toolset._status == ToolsetStatusEnum.ENABLED else toolset.get_error() + ". Make sure playwright is installed by running `playwright install`.")
+
 
 def test_fetch_webpage():
     toolset = InternetToolset()
