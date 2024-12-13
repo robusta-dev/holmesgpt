@@ -1,5 +1,10 @@
 toolsets:
-  - name: "argocd/core"
+  argocd/core:
+    description: "Set of tools to get argocd metadata like list of apps, repositories, projects, etc."
+    docs_url: "https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd/"
+    icon_url: "https://argo-cd.readthedocs.io/en/stable/assets/logo.png"
+    tags:
+      - core
     prerequisites:
       - command: "argocd version"
 
