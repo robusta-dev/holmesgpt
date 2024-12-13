@@ -106,6 +106,9 @@ class OpenSearchToolset(Toolset):
 
         super().__init__(
             name = "opensearch",
+            description="Provide cluster metadata information like health, shards, settings.",
+            docs_url="https://opensearch.org/docs/latest/clients/python-low-level/",
+            icon_url="https://upload.wikimedia.org/wikipedia/commons/9/91/Opensearch_Logo.svg",
             prerequisites = [
                 StaticPrerequisite(enabled=len(clients) > 0, disabled_reason="No opensearch client was configured")
             ],
@@ -115,5 +118,4 @@ class OpenSearchToolset(Toolset):
                 GetClusterHealth(clients),
             ],
         )
-        self.check_prerequisites()
         self._clients = clients
