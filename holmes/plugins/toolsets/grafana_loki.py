@@ -167,6 +167,8 @@ class GrafanaLokiToolset(Toolset):
     def __init__(self, config: GrafanaLokiConfig):
         super().__init__(
             name = "grafana_loki",
+            description = "Fetchs kubernetes pods and node logs from Loki",
+            icon_url = "https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             prerequisites = [
                 EnvironmentVariablePrerequisite(GRAFANA_API_KEY_ENV_NAME),
                 EnvironmentVariablePrerequisite(GRAFANA_URL_ENV_NAME)
