@@ -7,7 +7,7 @@ def load_bool(env_var, default: bool):
     return json.loads(s.lower())
 
 
-ALLOWED_TOOLSETS = os.environ.get('ALLOWED_TOOLSETS', '*')
+ENABLED_BY_DEFAULT_TOOLSETS = os.environ.get('ENABLED_BY_DEFAULT_TOOLSETS', 'kubernetes/core,kubernetes/logs,robusta,internet')
 HOLMES_HOST = os.environ.get('HOLMES_HOST', '0.0.0.0')
 HOLMES_PORT = int(os.environ.get('HOLMES_PORT', 5050))
 ROBUSTA_CONFIG_PATH = os.environ.get('ROBUSTA_CONFIG_PATH', "/etc/robusta/config/active_playbooks.yaml")
