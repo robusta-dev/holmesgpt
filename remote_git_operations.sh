@@ -88,7 +88,7 @@ create_commit() {
         -H "Content-Type: application/json" \
         -d "{
             \"ref\": \"refs/heads/$BRANCH_NAME\",
-            \"sha\": \"$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/git/refs/heads/master" | jq -r '.object.sha')\"
+            \"sha\": \"$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/git/refs/heads/$GIT_BRANCH" | jq -r '.object.sha')\"
         }" "https://api.github.com/repos/$REPO/git/refs" || log_error "Failed to create branch $BRANCH_NAME."
 
     SHA=$(curl -s -H "Authorization: token $TOKEN" \
@@ -126,7 +126,7 @@ create_commit() {
 
 # Function to open a pull request
 open_pull_request() {
-    echo "Opening a pull request from branch $BRANCH_NAME to master..." >&2
+    echo "Opening a pull request from branch $BRANCH_NAME to $GIT_BRANCH..." >&2
     BRANCH_NAME="feature/$(echo "$COMMIT_PR" | tr ' ' '_' | tr -d "'")"
     curl -s -X POST -H "Authorization: token $TOKEN" \
         -H "Content-Type: application/json" \
@@ -134,8 +134,8 @@ open_pull_request() {
             \"title\": \"$COMMIT_PR\",
             \"body\": \"$COMMIT_NAME\",
             \"head\": \"$BRANCH_NAME\",
-            \"base\": \"master\"
-        }" "https://api.github.com/repos/$REPO/pulls" || log_error "Failed to open a pull request from $BRANCH_NAME to master."
+            \"base\": \"$GIT_BRANCH\"
+        }" "https://api.github.com/repos/$REPO/pulls" || log_error "Failed to open a pull request from $BRANCH_NAME to $GIT_BRANCH."
 }
 
 # Main logic

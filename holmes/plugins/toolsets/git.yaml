@@ -1,7 +1,7 @@
 toolsets:
   - name: "git/core"
     prerequisites:
-      - command: "git --version"
+      - command: "git --version && [[ -n \"${GIT_BRANCH}\" ]] || exit 1"
       
     tools:
       - name: "git_read_file_with_line_numbers"
@@ -20,7 +20,7 @@ toolsets:
           Lists all files and directories in the remote Git repository (recursively).
         command: >
           curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
-          "https://api.github.com/repos/${GIT_REPO}/git/trees/master?recursive=1" | 
+          "https://api.github.com/repos/${GIT_REPO}/git/trees/${GIT_BRANCH}?recursive=1" | 
           jq -r '.tree[] | .path'
 
 
