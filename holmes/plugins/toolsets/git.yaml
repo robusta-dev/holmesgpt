@@ -1,7 +1,7 @@
 toolsets:
   - name: "git/core"
-    prerequisites:
-      - command: "git --version && [[ -n \"${GIT_BRANCH}\" ]] || exit 1"
+#    prerequisites:
+#      - command: "{ git --version >/dev/null 2>&1 && [[ -n \"${GIT_BRANCH}\" ]]; } || exit 1"
       
     tools:
       - name: "git_read_file_with_line_numbers"
