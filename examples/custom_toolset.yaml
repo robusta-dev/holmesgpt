@@ -4,8 +4,19 @@
 toolsets:
   # Name of the toolset (for example "mycompany/internal-tools")
   # Used for informational purposes only (e.g. to print the name of the toolset if it can't be loaded)
-  - name: "switch_clusters"
-
+  switch_clusters:
+    # Description of the toolset. Used for displaying in UI
+    description: "Set of tools for switching between kubernetes clusters"
+    # Documentation url. Used for displaying in UI
+    docs_url: "https://kubernetes.io/docs/home/"
+    # Icon's url. Used for displaying in UI
+    icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    # Tags for categorizing toolsets, 'core' will be used for all Holmes features (both cli's commands and chats in UI). The 'cluster' tag is used for UI functionality, while 'cli' is for for command-line specific tools
+    tags:
+      - core
+    # Prerequisites is a list of conditions checked by holmes before using the toolset 
+    prerequisites:
+      - command: "kubectl version --client"
     # List of tools the LLM can use - this is the important part
     tools:
       # Name is a unique identifier for the tool
