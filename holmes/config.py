@@ -1,21 +1,22 @@
 import logging
 import os
+import yaml
 import os.path
 from holmes.core.llm import LLM, DefaultLLM
-from strenum import StrEnum
 from typing import List, Optional
 
-from openai import AzureOpenAI, OpenAI
-from pydantic import FilePath, SecretStr
+
+from pydantic import FilePath, SecretStr, Field
 from pydash.arrays import concat
 from rich.console import Console
 
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import (IssueInvestigator, ToolCallingLLM,
+from holmes.core.tool_calling_llm import (IssueInvestigator, 
+                                          ToolCallingLLM,
                                           ToolExecutor)
-from holmes.core.tools import ToolsetPattern, get_matching_toolsets
+from holmes.core.tools import ToolsetPattern, get_matching_toolsets, ToolsetStatusEnum, ToolsetTag
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import (load_builtin_runbooks,
                                      load_runbooks_from_file)
@@ -27,10 +28,14 @@ from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
-
+from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
+from pydantic import ValidationError
+from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
+from holmes.core.tools import YAMLToolset
+from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
+from holmes.utils.definitions import RobustaConfig
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
-CUSTOM_TOOLSET_LOCATION = "/etc/holmes/config/custom_toolset.yaml"
 
 
 class Config(RobustaBaseConfig):
@@ -39,6 +44,7 @@ class Config(RobustaBaseConfig):
     )
     model: Optional[str] = "gpt-4o"
     max_steps: Optional[int] = 10
+    cluster_name: Optional[str] = None
 
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
@@ -71,7 +77,8 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
-
+    
+    enabled_toolsets_names: List[str] = Field(default_factory=list)
 
     @classmethod
     def load_from_env(cls):
@@ -96,58 +103,119 @@ class Config(RobustaBaseConfig):
             "github_query",
             # TODO
             # custom_runbooks
-            # custom_toolsets
         ]:
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
+            kwargs["cluster_name"] = Config.__get_cluster_name()
         return cls(**kwargs)
+    
+    @staticmethod
+    def __get_cluster_name() -> Optional[str]:
+        config_file_path = ROBUSTA_CONFIG_PATH
+        env_cluster_name = os.environ.get("CLUSTER_NAME")
+        if env_cluster_name:
+            return env_cluster_name
 
-    def create_tool_executor(
+        if not os.path.exists(config_file_path):
+            logging.info(f"No robusta config in {config_file_path}")
+            return None
+
+        logging.info(f"loading config {config_file_path}")
+        with open(config_file_path) as file:
+            yaml_content = yaml.safe_load(file)
+            config = RobustaConfig(**yaml_content)
+            return config.global_config.get("cluster_name")
+
+        return None
+
+    def create_console_tool_executor(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
-        all_toolsets = load_builtin_toolsets(dal=dal)
-        for ts_path in self.custom_toolsets:
-            all_toolsets.extend(load_toolsets_from_file(ts_path))
-
-        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            try:
-                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION))
-            except Exception as error:
-                logging.error(f"An error happened while trying to use custom toolset: {error}")
-
+        """
+        Creates ToolExecutor for the cli 
+        """
+        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
+        
         if allowed_toolsets == "*":
-            matching_toolsets = all_toolsets
+            matching_toolsets = default_toolsets
         else:
             matching_toolsets = get_matching_toolsets(
-                all_toolsets, allowed_toolsets.split(",")
-            )
+                default_toolsets, allowed_toolsets.split(",")
+            )        
+        
+        # Enable all matching toolsets that have CORE or CLI tag
+        for toolset in matching_toolsets:
+            toolset.enabled = True
 
-        enabled_toolsets = [ts for ts in matching_toolsets if ts.is_enabled()]
-        for ts in all_toolsets:
-            if ts not in matching_toolsets:
-                console.print(
-                    f"[yellow]Disabling toolset {ts.name} [/yellow] from {ts.get_path()}"
-                )
-            elif ts not in enabled_toolsets:
-                logging.debug(f"Not loading toolset {ts.name} ({ts.get_disabled_reason()})")
-                # console.print(
-                #     f"[yellow]Not loading toolset {ts.name}[/yellow] ({ts.get_disabled_reason()})"
-                # )
-            else:
-                logging.debug(f"Loaded toolset {ts.name} from {ts.get_path()}")
-                # console.print(f"[green]Loaded toolset {ts.name}[/green] from {ts.get_path()}")
+        matched_default_toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
+        toolsets_loaded_from_config = load_custom_toolsets_config()
 
+        filtered_toolsets_by_name = merge_and_override_bultin_toolsets_with_toolsets_config(
+            toolsets_loaded_from_config,
+            matched_default_toolsets_by_name,
+        )
+        
+        for toolset in filtered_toolsets_by_name.values():
+            if toolset.enabled:
+                toolset.check_prerequisites()
+
+        enabled_toolsets = []
+        for ts in filtered_toolsets_by_name.values():
+            if ts.get_status() == ToolsetStatusEnum.ENABLED:
+                enabled_toolsets.append(ts)
+                logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
+            elif ts.get_status() == ToolsetStatusEnum.DISABLED:
+                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()})")
+            elif ts.get_status() == ToolsetStatusEnum.FAILED:
+                logging.info(f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})")
+        
+        for ts in default_toolsets:
+            if ts.name not in filtered_toolsets_by_name.keys():
+                 logging.debug(f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value")
+        
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
         return ToolExecutor(enabled_toolsets)
 
-    def create_toolcalling_llm(
+    def create_tool_executor(
+        self, console: Console, dal:Optional[SupabaseDal]
+    ) -> ToolExecutor:
+        """
+        Creates ToolExecutor for the server endpoints 
+        """
+
+        all_toolsets = load_builtin_toolsets(dal=dal)
+
+        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            try:
+                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION, silent_fail=True))
+            except Exception as error:
+                logging.error(f"An error happened while trying to use custom toolset: {error}")
+
+        enabled_toolsets = [ts for ts in all_toolsets if ts.name in self.enabled_toolsets_names]
+        enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
+        logging.debug(
+            f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
+        )
+        return ToolExecutor(enabled_toolsets)
+    
+    def create_console_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
+        return ToolCallingLLM(
+            tool_executor,
+            self.max_steps,
+            self._get_llm()
+        )
+
+    def create_toolcalling_llm(
+        self, console: Console,  dal:Optional[SupabaseDal] = None
+    ) -> ToolCallingLLM:
+        tool_executor = self.create_tool_executor(console, dal)
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -155,6 +223,24 @@ class Config(RobustaBaseConfig):
         )
 
     def create_issue_investigator(
+        self,
+        console: Console,
+        dal: Optional[SupabaseDal] = None
+    ) -> IssueInvestigator:
+        all_runbooks = load_builtin_runbooks()
+        for runbook_path in self.custom_runbooks:
+            all_runbooks.extend(load_runbooks_from_file(runbook_path))
+
+        runbook_manager = RunbookManager(all_runbooks)
+        tool_executor = self.create_tool_executor(console, dal)
+        return IssueInvestigator(
+            tool_executor,
+            runbook_manager,
+            self.max_steps,
+            self._get_llm()
+        )
+    
+    def create_console_issue_investigator(
         self,
         console: Console,
         allowed_toolsets: ToolsetPattern,
@@ -165,7 +251,7 @@ class Config(RobustaBaseConfig):
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,

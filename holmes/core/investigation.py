@@ -1,6 +1,6 @@
 
 from rich.console import Console
-from holmes.common.env_vars import ALLOWED_TOOLSETS, HOLMES_POST_PROCESSING_PROMPT
+from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest, InvestigationResult
@@ -24,7 +24,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         raw_data["extra_context"] = context
 
     ai = config.create_issue_investigator(
-        console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal
+        console, dal=dal
     )
     issue = Issue(
         id=context["id"] if context else "",

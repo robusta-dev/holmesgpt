@@ -1,6 +1,8 @@
 import os
 from holmes.core import investigation
 from holmes.utils.cert_utils import add_custom_certificate
+from contextlib import asynccontextmanager
+from holmes.utils.holmes_status import update_holmes_status_in_db
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -23,7 +25,6 @@ from holmes.utils.robusta import load_robusta_api_key
 from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
-    ALLOWED_TOOLSETS,
     HOLMES_POST_PROCESSING_PROMPT,
 )
 from holmes.core.supabase_dal import SupabaseDal
@@ -45,6 +46,7 @@ from holmes.core.models import (
     IssueChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
 
 
 def init_logging():
@@ -67,10 +69,24 @@ def init_logging():
 
 init_logging()
 dal = SupabaseDal()
-app = FastAPI()
-
-console = Console()
 config = Config.load_from_env()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        update_holmes_status_in_db(dal, config)
+    except Exception as error:
+        logging.error("Failed to update holmes status", exc_info=True)
+    try:
+        holmes_sync_toolsets_status(dal, config)
+    except Exception as error:
+        logging.error("Failed to synchronise holmes toolsets", exc_info=True)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+console = Console()
 
 
 @app.post("/api/investigate")
@@ -115,7 +131,7 @@ def workload_health_check(request: WorkloadHealthRequest):
         system_prompt = jinja2.Environment().from_string(system_prompt)
         system_prompt = system_prompt.render(alerts=workload_alerts)
 
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
 
         structured_output = {"type": "json_object"}
         ai_call = ai.prompt_call(
@@ -136,7 +152,7 @@ def workload_health_check(request: WorkloadHealthRequest):
 def issue_conversation(conversation_request: ConversationRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
 
         system_prompt = handle_issue_conversation(conversation_request, ai)
 
@@ -154,7 +170,7 @@ def issue_conversation(conversation_request: ConversationRequest):
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
         messages = build_issue_chat_messages(issue_chat_request, ai)
         llm_call = ai.messages_call(messages=messages)
 
@@ -172,7 +188,7 @@ def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
-        ai = config.create_toolcalling_llm(console, allowed_toolsets=ALLOWED_TOOLSETS, dal=dal)
+        ai = config.create_toolcalling_llm(console, dal=dal)
         messages = build_chat_messages(
             chat_request.ask, chat_request.conversation_history, ai=ai
         )
