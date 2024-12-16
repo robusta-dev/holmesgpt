@@ -7,7 +7,7 @@ from typing import Dict, Optional, List, Tuple
 from uuid import uuid4
 
 import yaml
-from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, Intructions
 from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
@@ -190,6 +190,23 @@ class SupabaseDal:
                         logging.warning(f"Unsupported runbook for subject_type={type} / subject_name={name}: {document_data}")
 
             return ResourceInstructions(instructions=instructions, documents=documents)
+
+        return None
+
+    def get_global_instructions_for_account(self) -> Optional[ResourceInstructions]:
+
+        res = (
+            self.client
+            .table(RUNBOOKS_TABLE)
+            .select("runbook")
+            .eq("account_id", self.account_id)  
+            .eq("subject_type", "Account")
+            .execute()
+        )
+
+        if res.data:
+            instructions = res.data[0].get("runbook").get("instructions")
+            return Intructions(instructions=instructions)
 
         return None
 

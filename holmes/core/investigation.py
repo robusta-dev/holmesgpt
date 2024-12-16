@@ -17,6 +17,8 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
     resource_instructions = dal.get_resource_instructions(
         "alert", investigate_request.context.get("issue_type")
     )
+    global_instructions = dal.get_global_instructions_for_account()
+    print(f"GLOBAL INSTRUCTIONS: {global_instructions}")
     raw_data = investigate_request.model_dump()
     if context:
         raw_data["extra_context"] = context
@@ -38,6 +40,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         console=console,
         post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
         instructions=resource_instructions,
+        global_instructions=global_instructions
     )
 
     return InvestigationResult(

@@ -52,6 +52,10 @@ class ResourceInstructionDocument(BaseModel):
     url: str
 
 
+class Intructions(BaseModel):
+    documents: List[ResourceInstructionDocument] = []
+
+
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
@@ -329,6 +333,7 @@ class IssueInvestigator(ToolCallingLLM):
         prompt: str,
         console: Console,
         instructions: Optional[ResourceInstructions],
+        global_instructions: Optional[Intructions] = None,
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
@@ -344,7 +349,7 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = load_and_render_prompt(prompt, {"issue": issue})
+        system_prompt = load_and_render_prompt(prompt, {"issue": issue, "global_instructions": global_instructions})
 
         if instructions != None and len(instructions.documents) > 0:
             docPrompts = []

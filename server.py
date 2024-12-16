@@ -106,7 +106,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             )
             if stored_instructions:
                 instructions.extend(stored_instructions.instructions)
-
+            
         nl = "\n"
         if instructions:
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
