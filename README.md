@@ -528,7 +528,7 @@ HolmesGPT uses playwright to scrape webpages and requires playwright to be insta
 ArgoCD
 </summary>
 
-Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps contifuration and status, clusters and projects within ArgoCD.
+Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps configuration and status, clusters and projects within ArgoCD.
 To enable ArgoCD, set the `ARGOCD_AUTH_TOKEN` environment variable as described in the [argocd documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
 </details>
 
