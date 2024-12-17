@@ -1,8 +1,5 @@
 import os
-from holmes.core import investigation
 from holmes.utils.cert_utils import add_custom_certificate
-from contextlib import asynccontextmanager
-from holmes.utils.holmes_status import update_holmes_status_in_db
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -10,8 +7,9 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
-
-
+from holmes.core import investigation
+from contextlib import asynccontextmanager
+from holmes.utils.holmes_status import update_holmes_status_in_db
 import jinja2
 import logging
 import uvicorn
