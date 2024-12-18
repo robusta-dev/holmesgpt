@@ -1,8 +1,5 @@
 import os
-from holmes.core import investigation
 from holmes.utils.cert_utils import add_custom_certificate
-from contextlib import asynccontextmanager
-from holmes.utils.holmes_status import update_holmes_status_in_db
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -10,8 +7,9 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
-
-
+from holmes.core import investigation
+from contextlib import asynccontextmanager
+from holmes.utils.holmes_status import update_holmes_status_in_db
 import jinja2
 import logging
 import uvicorn
@@ -128,16 +126,12 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
         global_instructions = dal.get_global_instructions_for_account()
-        print("GLOBAL INSTRUCTIONS")
-        print(global_instructions)
         if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
             request.ask += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
         
-        print(request.ask)
-        system_prompt = load_and_render_prompt(request.prompt_template)
-        system_prompt = jinja2.Environment().from_string(system_prompt)
-        system_prompt = system_prompt.render(alerts=workload_alerts)
-        print(system_prompt)
+        system_prompt = load_and_render_prompt(request.prompt_template, context={'alerts': workload_alerts})
+        
+
         ai = config.create_toolcalling_llm(console, dal=dal)
 
         structured_output = {"type": "json_object"}
