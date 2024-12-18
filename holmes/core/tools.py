@@ -81,6 +81,8 @@ class Tool(ABC, BaseModel):
     def get_openai_format(self, model: Optional[str]):
         tool_properties = {}
         for param_name, param_attributes in self.parameters.items():
+            if param_attributes.type is None:
+                logging.warning(f"param_name {param_name}")
             tool_properties[param_name] = {"type": param_attributes.type}
             if param_attributes.description is not None:
                 tool_properties[param_name][
@@ -92,15 +94,6 @@ class Tool(ABC, BaseModel):
             "function": {
                 "name": self.name,
                 "description": self.description,
-                "parameters": {
-                    "properties": tool_properties,
-                    "required": [
-                        param_name
-                        for param_name, param_attributes in self.parameters.items()
-                        if param_attributes.required
-                    ],
-                    "type": "object",
-                },
             },
         }
  
