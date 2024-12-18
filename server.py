@@ -125,9 +125,7 @@ def workload_health_check(request: WorkloadHealthRequest):
         if instructions:
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
-        system_prompt = load_and_render_prompt(request.prompt_template)
-        system_prompt = jinja2.Environment().from_string(system_prompt)
-        system_prompt = system_prompt.render(alerts=workload_alerts)
+        system_prompt = load_and_render_prompt(request.prompt_template, context={'alerts': workload_alerts})
 
         ai = config.create_toolcalling_llm(console, dal=dal)
 
