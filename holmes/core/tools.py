@@ -78,9 +78,11 @@ class Tool(ABC, BaseModel):
     )
     additional_instructions: Optional[str] = None
 
-    def get_openai_format(self):
+    def get_openai_format(self, model: Optional[str]):
         tool_properties = {}
         for param_name, param_attributes in self.parameters.items():
+            if param_attributes.type is None:
+                logging.warning(f"param_name {param_name}")
             tool_properties[param_name] = {"type": param_attributes.type}
             if param_attributes.description is not None:
                 tool_properties[param_name][
@@ -92,17 +94,23 @@ class Tool(ABC, BaseModel):
             "function": {
                 "name": self.name,
                 "description": self.description,
-                "parameters": {
-                    "properties": tool_properties,
-                    "required": [
-                        param_name
-                        for param_name, param_attributes in self.parameters.items()
-                        if param_attributes.required
-                    ],
-                    "type": "object",
-                },
             },
         }
+        is_gemini = "gemini" in model
+        # if there are no properties gemini removes it
+        is_gemini_with_tool_properties = is_gemini and tool_properties is not None
+
+        if not is_gemini or is_gemini_with_tool_properties:
+            result["function"]["parameters"] = {
+                "properties": tool_properties,
+                "required": [
+                    param_name
+                    for param_name, param_attributes in self.parameters.items()
+                    if param_attributes.required
+                ],
+                "type": "object",
+            }
+
         return result
 
     @abstractmethod
@@ -388,9 +396,8 @@ class ToolExecutor:
         logging.warning(f"could not find tool {name}. skipping")
         return None
 
-    def get_all_tools_openai_format(self):
-        return [tool.get_openai_format() for tool in self.tools_by_name.values()]
-
+    def get_all_tools_openai_format(self, model: Optional[str]):
+        return [tool.get_openai_format(model) for tool in self.tools_by_name.values()]
 
 class ToolsetYamlFromConfig(Toolset):
     name: str
