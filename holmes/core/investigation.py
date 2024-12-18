@@ -18,7 +18,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         "alert", investigate_request.context.get("issue_type")
     )
     global_instructions = dal.get_global_instructions_for_account()
-    print(f"GLOBAL INSTRUCTIONS: {global_instructions}")
+
     raw_data = investigate_request.model_dump()
     if context:
         raw_data["extra_context"] = context

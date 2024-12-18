@@ -370,7 +370,7 @@ class IssueInvestigator(ToolCallingLLM):
             user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
         
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
-        print(user_prompt)
+
         logging.debug(
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )

@@ -173,7 +173,7 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(console, dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
-        print(f"GLOBAL INSTRUCTION: {global_instructions}")
+
         messages = build_issue_chat_messages(issue_chat_request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
@@ -193,7 +193,7 @@ def chat(chat_request: ChatRequest):
 
         ai = config.create_toolcalling_llm(console, dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
-        print(f"GLOBAL INSTRUCTION: {global_instructions}")
+
         messages = build_chat_messages(
             chat_request.ask, chat_request.conversation_history, ai=ai, global_instructions=global_instructions
         )

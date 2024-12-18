@@ -330,8 +330,6 @@ def build_chat_messages(
                 "content": ask,
             },
         ]
-        print("MESSAGES BEFORE SENDING")
-        print(messages)
         return messages
     
     if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
@@ -357,6 +355,4 @@ def build_chat_messages(
         ai, conversation_history_without_tools, number_of_tools
     )
     truncate_tool_messages(conversation_history, tool_size)
-    print("CONVERSATION_HISTORY BEFORE SENDING")
-    print(conversation_history)
     return conversation_history

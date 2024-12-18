@@ -195,8 +195,8 @@ class SupabaseDal:
         return None
 
     def get_global_instructions_for_account(self) -> Optional[Intructions]:
-        print(self.account_id)
-        res = (
+        try:
+            res = (
             self.client
             .table(RUNBOOKS_TABLE)
             .select("runbook")
@@ -205,11 +205,12 @@ class SupabaseDal:
             .execute()
         )
 
-        if res.data:
-            instructions = res.data[0].get("runbook").get("instructions")
-            print(Intructions(instructions=instructions))
-            return Intructions(instructions=instructions)
-
+            if res.data:
+                instructions = res.data[0].get("runbook").get("instructions")
+                return Intructions(instructions=instructions)
+        except Exception:
+            logging.exception("Failed to fetch global instructions", exc_info=True)
+        
         return None
 
     def create_session_token(self) -> str:
