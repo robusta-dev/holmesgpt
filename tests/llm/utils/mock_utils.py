@@ -1,13 +1,12 @@
 
 import json
-import braintrust
 from typing_extensions import Dict
 import yaml
 import logging
 import os
 import re
 from pathlib import Path
-from typing import Generic, List, Optional, TypeVar, Union, cast
+from typing import List, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
@@ -19,16 +18,13 @@ def read_file(file_path:Path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read().strip()
 
-
 TEST_CASE_ID_PATTERN = r'^[\d+]_(?:[a-z]+_)*[a-z]+$'
 CONFIG_FILE_NAME = "test_case.yaml"
 
 class LLMEvaluation(BaseModel):
-    answer_relevancy: float = 0.5
-    faithfulness: float = 0.5
-    contextual_precision: float = 0.5
-    contextual_recall: float = 0
-    contextual_relevancy: float = 0
+    faithfulness: float = 0.3
+    correctness: float = 0.3
+    context: float = 0
 
 class Message(BaseModel):
     message: str
@@ -38,11 +34,13 @@ T = TypeVar('T')
 class HolmesTestCase(BaseModel):
     id: str
     folder: str
-    mocks_passthrough: bool = False # If True, unmocked tools and dal can be invoked by the LLM without error
-    expected_output: str # Whether an output is expected
+    generate_mocks: bool = False # If True, generate mocks
+    expected_output: Union[str, List[str]] # Whether an output is expected
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[str] = [] # Elements helping to evaluate the correctness of the LLM response
     tool_mocks: List[ToolMock] = []
+    before_test: Optional[str] = None
+    after_test: Optional[str] = None
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
     user_prompt: str # The user's question to ask holmes
@@ -78,12 +76,12 @@ class MockHelper():
 
 
     def load_investigate_test_cases(self) -> List[InvestigateTestCase]:
-        return cast(List[InvestigateTestCase], self._load_test_cases())
+        return cast(List[InvestigateTestCase], self.load_test_cases())
 
     def load_ask_holmes_test_cases(self) -> List[AskHolmesTestCase]:
-        return cast(List[AskHolmesTestCase], self._load_test_cases())
+        return cast(List[AskHolmesTestCase], self.load_test_cases())
 
-    def _load_test_cases(self) -> List[HolmesTestCase]:
+    def load_test_cases(self) -> List[HolmesTestCase]:
 
         test_cases:List[HolmesTestCase] = []
         test_cases_ids:List[str] = os.listdir(self._test_cases_folder)
@@ -140,56 +138,6 @@ class MockHelper():
 
         return test_cases
 
-def find_dataset_row_by_test_case(dataset:braintrust.Dataset, test_case:HolmesTestCase):
-    for row in dataset:
-        if row.get("metadata", {}).get("id") == test_case.id:
-            return row
-    return None
-
-
-def upload_dataset(
-    test_cases:Union[List[AskHolmesTestCase], List[InvestigateTestCase]],
-    project_name:str,
-    dataset_name:str):
-
-    dataset = braintrust.init_dataset(project=project_name, name=dataset_name)
-    for test_case in test_cases:
-
-        input = ""
-        if isinstance(test_case, AskHolmesTestCase):
-            input = test_case.user_prompt
-        elif isinstance(test_case, InvestigateTestCase):
-            input = test_case.investigate_request
-        else:
-            raise Exception("Unsupported test case class")
-
-        row = find_dataset_row_by_test_case(dataset, test_case)
-
-        if row:
-            dataset.update(
-                id=test_case.id,
-                input=input,
-                expected=test_case.expected_output,
-                metadata=test_case.model_dump(),
-                tags=[],
-            )
-        else:
-            dataset.insert(
-                id=test_case.id,
-                input=input,
-                expected=test_case.expected_output,
-                metadata=test_case.model_dump(),
-                tags=[],
-            )
-        logging.info("Inserted dataset record with id", id)
-
-    logging.info(dataset.summarize())
-
-def load_investigate_request(test_case_folder:Path) -> InvestigateRequest:
-    investigate_request_path = test_case_folder.joinpath(Path("investigate_request.json"))
-    if investigate_request_path.exists():
-        return TypeAdapter(InvestigateRequest).validate_json(read_file(Path(investigate_request_path)))
-    raise Exception(f"Investigate test case declared in folder {str(test_case_folder)} should have an investigate_request.json file but none is present")
 
 def load_issue_data(test_case_folder:Path) -> Optional[Dict]:
 
@@ -204,3 +152,9 @@ def load_resource_instructions(test_case_folder:Path) -> Optional[ResourceInstru
     if resource_instructions_mock_path.exists():
         return TypeAdapter(ResourceInstructions).validate_json(read_file(Path(resource_instructions_mock_path)))
     return None
+
+def load_investigate_request(test_case_folder:Path) -> InvestigateRequest:
+    investigate_request_path = test_case_folder.joinpath(Path("investigate_request.json"))
+    if investigate_request_path.exists():
+        return TypeAdapter(InvestigateRequest).validate_json(read_file(Path(investigate_request_path)))
+    raise Exception(f"Investigate test case declared in folder {str(test_case_folder)} should have an investigate_request.json file but none is present")

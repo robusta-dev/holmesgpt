@@ -1,11 +1,10 @@
 certificate: "" # base64 encoded
 logLevel: INFO
 
+
 additionalEnvVars: []
 additional_env_vars: []
 imagePullSecrets: []
-
-allowedToolsets: "kubernetes/core,findings,internet"
 
 image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
@@ -19,6 +18,7 @@ customClusterRoleRules: []
 
 enablePostProcessing: false
 postProcessingPrompt: "builtin://generic_post_processing.jinja2"
+openshift: false
 
 tolerations: []
 
@@ -26,7 +26,16 @@ serviceAccount:
   imagePullSecrets: []
   annotations: {}
 
-toolsets: []
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  robusta:
+    enabled: true
+  internet:
+    enabled: true
+
 
 resources:
   requests:

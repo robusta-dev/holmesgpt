@@ -1,0 +1,8 @@
+user_prompt: What is the issue with customer-relations-webapp?
+expected_output:
+  - The Docker image `yourcompany/crw:latest` cannot be pulled
+before_test: |
+  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml
+  sleep 20
+after_test: |
+  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml

@@ -1,19 +1,5 @@
-expected_output: |
-  The node `ip-172-31-40-111.us-east-2.compute.internal` is running at 100% of its pod capacity, which is set to 17 pods. This alert indicates that the node cannot schedule any additional pods.
-
-  # Investigation
-  - The node `ip-172-31-40-111.us-east-2.compute.internal` is currently running 17 pods, which is its maximum capacity.
-  - Several pods are pending, indicating they cannot be scheduled due to the node's capacity limit.
-  - The node is labeled as `t3.medium`, which typically has a lower pod capacity compared to larger instance types.
-  - Some pods on this node do not have CPU or memory requests defined, which can lead to inefficient resource utilization.
-
-  # Conclusions and Possible Root Causes
-  1. *Node Capacity Limit Reached*: The node has reached its maximum pod capacity of 17, preventing new pods from being scheduled.
-  2. *Resource Requests Not Defined*: The absence of CPU and memory requests for some pods may lead to suboptimal scheduling and resource allocation.
-  3. *Instance Type Limitation*: The `t3.medium` instance type may inherently support fewer pods due to its resource constraints.
-
-  # Next Steps
-  1. **Redistribute Pods**: Consider redistributing pods to other nodes with available capacity.
-  2. **Increase Node Capacity**: Add more nodes to the cluster or upgrade existing nodes to a larger instance type to accommodate more pods.
-  3. **Define Resource Requests**: Ensure all pods have defined CPU and memory requests to improve scheduling efficiency.
-  4. **Adjust Kubelet Configuration**: If feasible, increase the `maxPods` setting in the Kubelet configuration for nodes that can handle more pods.
+expected_output:
+  - The node `ip-172-31-40-111.us-east-2.compute.internal` is running at 100% of its pod capacity, which is set to 17 pods
+  - The node cannot schedule any additional pods.
+evaluation:
+  correctness: 0
