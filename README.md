@@ -466,6 +466,24 @@ holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
 
 </details>
 <details>
+<summary>Gemini/Google AI Studio</summary>
+
+To use Gemini, set the `GEMINI_API_KEY` environment variable as follows:
+
+```bash
+export GEMINI_API_KEY="your-gemini-api-key"
+```
+
+Once the environment variable is set, you can run the following command to interact with Gemini:
+
+```bash
+holmes ask "what pods are unhealthy and why?" --model=gemini/<MODEL_NAME>
+```
+
+Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini/gemini-1.5-flash`, etc.
+
+</details>
+<details>
 <summary>Using other OpenAI-compatible models</summary>
 
 You will need an LLM with support for function-calling (tool-calling).
