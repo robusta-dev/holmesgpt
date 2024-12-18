@@ -194,8 +194,8 @@ class SupabaseDal:
 
         return None
 
-    def get_global_instructions_for_account(self) -> Optional[ResourceInstructions]:
-
+    def get_global_instructions_for_account(self) -> Optional[Intructions]:
+        print(self.account_id)
         res = (
             self.client
             .table(RUNBOOKS_TABLE)
@@ -207,6 +207,7 @@ class SupabaseDal:
 
         if res.data:
             instructions = res.data[0].get("runbook").get("instructions")
+            print(Intructions(instructions=instructions))
             return Intructions(instructions=instructions)
 
         return None

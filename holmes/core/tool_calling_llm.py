@@ -54,7 +54,7 @@ class ResourceInstructionDocument(BaseModel):
 
 
 class Intructions(BaseModel):
-    documents: List[ResourceInstructionDocument] = []
+    instructions: List[str] = []
 
 
 class ResourceInstructions(BaseModel):
@@ -349,7 +349,7 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = load_and_render_prompt(prompt, {"issue": issue, "global_instructions": global_instructions})
+        system_prompt = load_and_render_prompt(prompt, {"issue": issue})
 
         if instructions != None and len(instructions.documents) > 0:
             docPrompts = []
@@ -365,8 +365,12 @@ class IssueInvestigator(ToolCallingLLM):
                 user_prompt += f"* {runbook_str}\n"
 
             user_prompt = f'My instructions to check \n"""{user_prompt}"""'
-
+        
+        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+            user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+        
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
+        print(user_prompt)
         logging.debug(
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )

@@ -9,6 +9,7 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, Intructions
 
 DEFAULT_TOOL_SIZE = 10000
 
@@ -134,7 +135,8 @@ def handle_issue_conversation(
     return system_prompt
 
 
-def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCallingLLM):
+def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCallingLLM,
+                              global_instructions: Optional[Intructions] = None):
     """
     This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations
     by truncating tool outputs as necessary before sending to llm.
@@ -177,8 +179,12 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
     tools_for_investigation = issue_chat_request.investigation_result.tools
 
     if not conversation_history or len(conversation_history) == 0:
+        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+            user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+        
         number_of_tools_for_investigation = len(tools_for_investigation)
         if number_of_tools_for_investigation == 0:
+            
             system_prompt = load_and_render_prompt(
                 template_path,
                 {
@@ -249,6 +255,9 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
             },
         ]
 
+    if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+        user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+
     conversation_history.append(
         {
             "role": "user",
@@ -302,12 +311,15 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
 
 
 def build_chat_messages(
-    ask: str, conversation_history: Optional[List[Dict[str, str]]], ai: ToolCallingLLM
+    ask: str, conversation_history: Optional[List[Dict[str, str]]], ai: ToolCallingLLM,
+    global_instructions: Optional[Intructions] = None
 ) -> List[dict]:
-    template_path = "builtin://generic_ask.jinja2"
+    template_path = "builtin://generic_ask_conversation.jinja2"
 
     if not conversation_history or len(conversation_history) == 0:
         system_prompt = load_and_render_prompt(template_path, {})
+        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+            ask += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
         messages = [
             {
                 "role": "system",
@@ -318,8 +330,13 @@ def build_chat_messages(
                 "content": ask,
             },
         ]
+        print("MESSAGES BEFORE SENDING")
+        print(messages)
         return messages
-
+    
+    if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+        ask += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+   
     conversation_history.append(
         {
             "role": "user",
@@ -340,5 +357,6 @@ def build_chat_messages(
         ai, conversation_history_without_tools, number_of_tools
     )
     truncate_tool_messages(conversation_history, tool_size)
-
+    print("CONVERSATION_HISTORY BEFORE SENDING")
+    print(conversation_history)
     return conversation_history

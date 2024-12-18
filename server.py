@@ -127,10 +127,17 @@ def workload_health_check(request: WorkloadHealthRequest):
         if instructions:
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
+        global_instructions = dal.get_global_instructions_for_account()
+        print("GLOBAL INSTRUCTIONS")
+        print(global_instructions)
+        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+            request.ask += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+        
+        print(request.ask)
         system_prompt = load_and_render_prompt(request.prompt_template)
         system_prompt = jinja2.Environment().from_string(system_prompt)
         system_prompt = system_prompt.render(alerts=workload_alerts)
-
+        print(system_prompt)
         ai = config.create_toolcalling_llm(console, dal=dal)
 
         structured_output = {"type": "json_object"}
@@ -171,7 +178,9 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(console, dal=dal)
-        messages = build_issue_chat_messages(issue_chat_request, ai)
+        global_instructions = dal.get_global_instructions_for_account()
+        print(f"GLOBAL INSTRUCTION: {global_instructions}")
+        messages = build_issue_chat_messages(issue_chat_request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -189,8 +198,10 @@ def chat(chat_request: ChatRequest):
         load_robusta_api_key(dal=dal, config=config)
 
         ai = config.create_toolcalling_llm(console, dal=dal)
+        global_instructions = dal.get_global_instructions_for_account()
+        print(f"GLOBAL INSTRUCTION: {global_instructions}")
         messages = build_chat_messages(
-            chat_request.ask, chat_request.conversation_history, ai=ai
+            chat_request.ask, chat_request.conversation_history, ai=ai, global_instructions=global_instructions
         )
 
         llm_call = ai.messages_call(messages=messages)
