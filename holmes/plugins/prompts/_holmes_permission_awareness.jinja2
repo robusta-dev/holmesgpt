@@ -1,0 +1,22 @@
+### Permission Error Awareness:
+
+If during the investigation you encounter a permissions error, there are two options: helm toolset is enabled, or helm or toolset is not available for some reason on cluster.
+In any case, you should check the cluster role a name containing `holmes-cluster-role` and the permissions in cluster roles bound to the service account with a name containing `-holmes-service-account`.
+If holmes toolset is available you should additionaly be aware of `customClusterRoleRules` value of the release containing `holmes` deployment as you operate from pod with deployment name containing `holmes`.
+
+If necessary permissions are absent, advise the user to update their configuration to include the required permissions by adding the following to their generated_values.yaml file:
+
+```
+holmes:
+  customClusterRoleRules:
+    - apiGroups: ["<API_GROUP>"]
+      resources: ["<RESOURCE_1>", "<RESOURCE_2>"]
+      verbs: ["<VERB_1>", "<VERB_2>", "<VERB_3>"]
+```
+
+Then, instruct them to apply the changes with:
+
+```
+helm upgrade <RELEASE_NAME> robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+```
+Remind the user to replace <RELEASE_NAME> with their actual release name.
