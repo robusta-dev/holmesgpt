@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from typing_extensions import Dict
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset
+from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
 
 PARAM_FINDING_ID = "id"
 
@@ -52,7 +52,7 @@ class FetchRobustaFinding(Tool):
         return f"There was an internal error while fetching finding {finding_id}"
 
     def get_parameterized_one_liner(self, params:Dict) -> str:
-        return f"Fetch metadata and history"
+        return "Fetch metadata and history"
 
 
 class FindingsToolset(Toolset):
@@ -72,5 +72,5 @@ class FindingsToolset(Toolset):
             name="robusta",
             prerequisites=[dal_prereq],
             tools=[FetchRobustaFinding(dal)],
-            tags=["core",]
+            tags=[ToolsetTag.CORE]
         )
