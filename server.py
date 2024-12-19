@@ -45,6 +45,7 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
+from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 
 
 def init_logging():
@@ -120,12 +121,16 @@ def workload_health_check(request: WorkloadHealthRequest):
             )
             if stored_instructions:
                 instructions.extend(stored_instructions.instructions)
-
+            
         nl = "\n"
         if instructions:
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
+        global_instructions = dal.get_global_instructions_for_account()
+        request.ask = add_global_instructions_to_user_prompt(request.ask, global_instructions)
+
         system_prompt = load_and_render_prompt(request.prompt_template, context={'alerts': workload_alerts})
+        
 
         ai = config.create_toolcalling_llm(console, dal=dal)
 
@@ -167,7 +172,9 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(console, dal=dal)
-        messages = build_issue_chat_messages(issue_chat_request, ai)
+        global_instructions = dal.get_global_instructions_for_account()
+
+        messages = build_issue_chat_messages(issue_chat_request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -185,8 +192,10 @@ def chat(chat_request: ChatRequest):
         load_robusta_api_key(dal=dal, config=config)
 
         ai = config.create_toolcalling_llm(console, dal=dal)
+        global_instructions = dal.get_global_instructions_for_account()
+
         messages = build_chat_messages(
-            chat_request.ask, chat_request.conversation_history, ai=ai
+            chat_request.ask, chat_request.conversation_history, ai=ai, global_instructions=global_instructions
         )
 
         llm_call = ai.messages_call(messages=messages)
