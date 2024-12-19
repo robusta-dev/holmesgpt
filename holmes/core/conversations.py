@@ -9,7 +9,7 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, Intructions
+from holmes.core.tool_calling_llm import Intructions
 
 DEFAULT_TOOL_SIZE = 10000
 
