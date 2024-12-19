@@ -55,6 +55,9 @@ spec:
             mountPath: /etc/robusta/config
           - name: custom-toolsets-configmap
             mountPath: /etc/holmes/config
+          {{- if .Values.additionalVolumeMounts -}}
+          {{ toYaml .Values.additionalVolumeMounts | nindent 10 }}
+          {{- end }}
         resources:
           requests:
             cpu: {{ .Values.resources.requests.cpu }}
@@ -74,7 +77,9 @@ spec:
           configMap:
             name: custom-toolsets-configmap
             optional: true
-
+        {{- if .Values.additionalVolumes -}}
+        {{ toYaml .Values.additionalVolumes | nindent 8 }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
