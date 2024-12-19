@@ -10,6 +10,7 @@ from holmes.core.models import (
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
 from holmes.core.tool_calling_llm import Intructions
+from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 
 DEFAULT_TOOL_SIZE = 10000
 
@@ -179,9 +180,8 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
     tools_for_investigation = issue_chat_request.investigation_result.tools
 
     if not conversation_history or len(conversation_history) == 0:
-        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
-            user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
-        
+        user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
+
         number_of_tools_for_investigation = len(tools_for_investigation)
         if number_of_tools_for_investigation == 0:
             
@@ -255,8 +255,7 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
             },
         ]
 
-    if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
-        user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+    user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
 
     conversation_history.append(
         {
@@ -318,8 +317,8 @@ def build_chat_messages(
 
     if not conversation_history or len(conversation_history) == 0:
         system_prompt = load_and_render_prompt(template_path, {})
-        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
-            ask += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+        ask = add_global_instructions_to_user_prompt(ask, global_instructions)
+
         messages = [
             {
                 "role": "system",
@@ -332,9 +331,8 @@ def build_chat_messages(
         ]
         return messages
     
-    if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
-        ask += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
-   
+    ask = add_global_instructions_to_user_prompt(ask, global_instructions)
+    
     conversation_history.append(
         {
             "role": "user",

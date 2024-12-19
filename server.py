@@ -45,6 +45,7 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
+from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 
 
 def init_logging():
@@ -126,9 +127,8 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
         global_instructions = dal.get_global_instructions_for_account()
-        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
-            request.ask += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
-        
+        request.ask = add_global_instructions_to_user_prompt(request.ask, global_instructions)
+
         system_prompt = load_and_render_prompt(request.prompt_template, context={'alerts': workload_alerts})
         
 
