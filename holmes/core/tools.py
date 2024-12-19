@@ -94,22 +94,17 @@ class Tool(ABC, BaseModel):
             "function": {
                 "name": self.name,
                 "description": self.description,
+                "parameters": {
+                    "properties": tool_properties,
+                    "required": [param_name for param_name, param_attributes in self.parameters.items() if param_attributes.required],
+                    "type": "object",
+                }
             },
         }
-        is_gemini = "gemini" in model
-        # if there are no properties gemini removes it
-        is_gemini_with_tool_properties = is_gemini and tool_properties is not None
-
-        if not is_gemini or is_gemini_with_tool_properties:
-            result["function"]["parameters"] = {
-                "properties": tool_properties,
-                "required": [
-                    param_name
-                    for param_name, param_attributes in self.parameters.items()
-                    if param_attributes.required
-                ],
-                "type": "object",
-            }
+ 
+        # gemini doesnt have parameters object if it is without params
+        if "gemini" in model and tool_properties is None:
+            result["function"].pop("parameters")
 
         return result
 
