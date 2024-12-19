@@ -94,6 +94,11 @@ class Tool(ABC, BaseModel):
             "function": {
                 "name": self.name,
                 "description": self.description,
+                "parameters": {
+                    "properties": tool_properties,
+                    "required": [param_name for param_name, param_attributes in self.parameters.items() if param_attributes.required],
+                    "type": "object",
+                }
             },
         }
  
