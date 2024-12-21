@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 
 from litellm.types.utils import ModelResponse
 from pydantic.types import SecretStr
-
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from holmes.core.tools import Tool
 from pydantic import BaseModel
 import litellm
@@ -37,7 +37,7 @@ class LLM:
         pass
 
     @abstractmethod
-    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None, stream: Optional[bool] = None) -> ModelResponse:
         pass
 
 
@@ -144,7 +144,7 @@ class DefaultLLM(LLM):
         return litellm.token_counter(model=self.model,
                                         messages=messages)
 
-    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None, stream: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
@@ -154,10 +154,13 @@ class DefaultLLM(LLM):
             base_url=self.base_url,
             temperature=temperature,
             response_format=response_format,
-            drop_params=drop_params
+            drop_params=drop_params,
+            stream=stream
         )
 
         if isinstance(result, ModelResponse):
+            return result
+        elif isinstance(result, CustomStreamWrapper):
             return result
         else:
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
