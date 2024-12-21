@@ -19,7 +19,7 @@ from rich.console import Console
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
-
+from litellm import stream_chunk_builder
 
 class ToolCallResult(BaseModel):
     tool_call_id: str
@@ -27,6 +27,13 @@ class ToolCallResult(BaseModel):
     description: str
     result: str
 
+    def as_dict(self):
+        return {
+                "tool_call_id": self.tool_call_id,
+                "role": "tool",
+                "name": self.tool_name,
+                "content": self.result,
+                }
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
@@ -302,6 +309,91 @@ class ToolCallingLLM:
             if message["role"] == "tool":
                 message["content"] = message["content"][:tool_size]
         return messages
+
+    def call_stream(
+        self,
+        system_prompt: str,
+        user_prompt: Optional[str] = None,
+    ):
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        tools = self.tool_executor.get_all_tools_openai_format()
+        for i in range(self.max_steps):
+            tool_calls: List[ToolCallResult] = []
+            logging.debug(f"running iteration {i}")
+            # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
+            tools = NOT_GIVEN if i == self.max_steps - 1 else tools
+            tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
+
+            total_tokens = self.llm.count_tokens_for_message(messages)
+            max_context_size = self.llm.get_context_window_size()
+            maximum_output_token = self.llm.get_maximum_output_token()
+
+            if (total_tokens + maximum_output_token) > max_context_size:
+                logging.warning("Token limit exceeded. Truncating tool responses.")
+                messages = self.truncate_messages_to_fit_context(
+                    messages, max_context_size, maximum_output_token
+                )
+
+            logging.debug(f"sending messages={messages}\n\ntools={tools}")
+            try:
+                full_response = self.llm.completion(
+                    messages=parse_messages_tags(messages),
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    temperature=0.00000001,
+                    stream=True,
+                    drop_params=True,
+                )
+                #logging.debug(f"got response {full_response.to_json()}")
+            # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
+            except BadRequestError as e:
+                if (
+                    "Unrecognized request arguments supplied: tool_choice, tools"
+                    in str(e)
+                ):
+                    yield json.dumps({"type": "error", "details": {"msg": "The Azure model you chose is not supported. Model version 1106 and higher required."}})
+            except Exception as e:
+                yield json.dumps({"type": "error", "details": {"msg": str(e)}})
+
+            chunks = []
+            peek_chunk = next(full_response)
+            if not peek_chunk.choices[0].delta.tool_calls:
+                yield json.dumps({"type": "ai_answer", "details": {"answer": peek_chunk.choices[0].delta.content or ""}})
+                for chunk in full_response:
+                    yield json.dumps({"type": "ai_answer", "details": {"answer": chunk.choices[0].delta.content or ""}})
+
+                return
+
+            # collect all tool call chunks.
+            chunks.append(peek_chunk)
+            for chunk in full_response:
+                chunks.append(chunk)
+
+            response = stream_chunk_builder(chunks, messages=messages)
+            response = response.choices[0]
+            response_message = response.message
+            messages.append(
+                response_message.model_dump(
+                    exclude_defaults=True, exclude_unset=True, exclude_none=True
+                )
+            )
+
+            tools_to_call = getattr(response_message, "tool_calls", None)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                futures = []
+                for t in tools_to_call:
+                    futures.append(executor.submit(self._invoke_tool, t))
+                    yield json.dumps({"type": "start_tool_calling", "details": {"tool_name": t.function.name}})
+
+                for future in concurrent.futures.as_completed(futures):
+                    tool_call_result: ToolCallResult = future.result()
+                    tool_calls.append(tool_call_result)
+                    messages.append(tool_call_result.as_dict())
+                    yield json.dumps({"type": "tool_calling_result", "details": tool_call_result.as_dict()})               
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
