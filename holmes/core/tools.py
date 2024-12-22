@@ -78,7 +78,7 @@ class Tool(ABC, BaseModel):
     )
     additional_instructions: Optional[str] = None
 
-    def get_openai_format(self, model: Optional[str]):
+    def get_openai_format(self):
         tool_properties = {}
         for param_name, param_attributes in self.parameters.items():
             tool_properties[param_name] = {"type": param_attributes.type}
@@ -105,7 +105,7 @@ class Tool(ABC, BaseModel):
         }
  
         # gemini doesnt have parameters object if it is without params
-        if "gemini" in model and tool_properties is None:
+        if tool_properties is None:
             result["function"].pop("parameters")
 
         return result
@@ -393,8 +393,8 @@ class ToolExecutor:
         logging.warning(f"could not find tool {name}. skipping")
         return None
 
-    def get_all_tools_openai_format(self, model: Optional[str]):
-        return [tool.get_openai_format(model) for tool in self.tools_by_name.values()]
+    def get_all_tools_openai_format(self):
+        return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
 class ToolsetYamlFromConfig(Toolset):
     name: str
