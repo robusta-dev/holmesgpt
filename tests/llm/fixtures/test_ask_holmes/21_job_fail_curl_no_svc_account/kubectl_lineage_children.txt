@@ -1,0 +1,16 @@
+{"toolset_name":"kubernetes/kube-lineage-extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"job","name":"get-data","namespace":"default"}}
+stdout:
+NAME                                            READY   STATUS                                                                                                                                                                                AGE
+Job/get-data                                    -                                                                                                                                                                                             9s
+├── Event/get-data.1810c347c9f961ea             -       FailedCreate: Error creating: pods "get-data-" is forbidden: error looking up service account default/get-data-service-account: serviceaccount "get-data-service-account" not found   9s
+├── Event/get-data.1810c34806cc1b6f             -       SuccessfulCreate: Created pod: get-data-tvdsh                                                                                                                                         8s
+├── Event/get-data.1810c348f4438304             -       BackoffLimitExceeded: Job has reached the specified backoff limit                                                                                                                     4s
+└── Pod/get-data-tvdsh                          0/1     Error                                                                                                                                                                                 8s
+    ├── Event/get-data-tvdsh.1810c348075f5633   -       Scheduled: Successfully assigned default/get-data-tvdsh to grafana-cloud-control-plane                                                                                                8s
+    ├── Event/get-data-tvdsh.1810c34820d38cd0   -       Pulling: Pulling image "curlimages/curl:latest"                                                                                                                                       7s
+    ├── Event/get-data-tvdsh.1810c34854155157   -       Pulled: Successfully pulled image "curlimages/curl:latest" in 859ms (859ms including waiting). Image size: 9560620 bytes.                                                             7s
+    ├── Event/get-data-tvdsh.1810c348568a66fc   -       Created: Created container curl-container                                                                                                                                             7s
+    ├── Event/get-data-tvdsh.1810c3485c907a3a   -       Started: Started container curl-container                                                                                                                                             6s
+    └── Service/kubernetes                      -                                                                                                                                                                                             3d8h
+
+stderr:

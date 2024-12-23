@@ -2,7 +2,7 @@ import re
 import logging
 
 from typing import Any
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetCommandPrerequisite
+from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetCommandPrerequisite, ToolsetTag
 from markdownify import markdownify
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -167,5 +167,5 @@ class InternetToolset(Toolset):
                 ),
             ],
             tools=[FetchWebpage()],
-            tags=["core",]
+            tags=[ToolsetTag.CORE]
         )
