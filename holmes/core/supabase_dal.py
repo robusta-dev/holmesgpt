@@ -7,7 +7,7 @@ from typing import Dict, Optional, List, Tuple
 from uuid import uuid4
 
 import yaml
-from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, Intructions
+from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, Instructions
 from holmes.utils.definitions import RobustaConfig
 from postgrest.types import ReturnMethod
 from supabase import create_client
@@ -194,7 +194,7 @@ class SupabaseDal:
 
         return None
 
-    def get_global_instructions_for_account(self) -> Optional[Intructions]:
+    def get_global_instructions_for_account(self) -> Optional[Instructions]:
         try:
             res = (
             self.client
@@ -207,7 +207,7 @@ class SupabaseDal:
 
             if res.data:
                 instructions = res.data[0].get("runbook").get("instructions")
-                return Intructions(instructions=instructions)
+                return Instructions(instructions=instructions)
         except Exception:
             logging.exception("Failed to fetch global instructions", exc_info=True)
         

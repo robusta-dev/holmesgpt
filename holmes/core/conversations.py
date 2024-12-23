@@ -9,7 +9,7 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from holmes.core.tool_calling_llm import Intructions
+from holmes.core.tool_calling_llm import Instructions
 from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 
 DEFAULT_TOOL_SIZE = 10000
@@ -137,7 +137,7 @@ def handle_issue_conversation(
 
 
 def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCallingLLM,
-                              global_instructions: Optional[Intructions] = None):
+                              global_instructions: Optional[Instructions] = None):
     """
     This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations
     by truncating tool outputs as necessary before sending to llm.
@@ -311,7 +311,7 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCall
 
 def build_chat_messages(
     ask: str, conversation_history: Optional[List[Dict[str, str]]], ai: ToolCallingLLM,
-    global_instructions: Optional[Intructions] = None
+    global_instructions: Optional[Instructions] = None
 ) -> List[dict]:
     template_path = "builtin://generic_ask_conversation.jinja2"
 

@@ -53,7 +53,7 @@ class ResourceInstructionDocument(BaseModel):
     url: str
 
 
-class Intructions(BaseModel):
+class Instructions(BaseModel):
     instructions: List[str] = []
 
 
@@ -333,7 +333,7 @@ class IssueInvestigator(ToolCallingLLM):
         prompt: str,
         console: Console,
         instructions: Optional[ResourceInstructions],
-        global_instructions: Optional[Intructions] = None,
+        global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
