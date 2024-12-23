@@ -121,6 +121,8 @@ class DefaultLLM(LLM):
             model_name = model_name[len('openai/'):]  # Strip the 'openai/' prefix
         elif model_name.startswith('bedrock/'):
             model_name = model_name[len('bedrock/'):]  # Strip the 'bedrock/' prefix
+        elif model_name.startswith('vertex_ai/'):
+            model_name = model_name[len('vertex_ai/'):]  # Strip the 'vertex_ai/' prefix
 
         return model_name
 
