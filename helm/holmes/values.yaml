@@ -43,3 +43,6 @@ resources:
     memory: 1024Mi
   limits:
     memory: 1024Mi
+
+additionalVolumes: []
+additionalVolumeMounts: []
