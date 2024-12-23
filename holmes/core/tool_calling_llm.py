@@ -53,6 +53,10 @@ class ResourceInstructionDocument(BaseModel):
     url: str
 
 
+class Instructions(BaseModel):
+    instructions: List[str] = []
+
+
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
@@ -329,6 +333,7 @@ class IssueInvestigator(ToolCallingLLM):
         prompt: str,
         console: Console,
         instructions: Optional[ResourceInstructions],
+        global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
@@ -360,8 +365,12 @@ class IssueInvestigator(ToolCallingLLM):
                 user_prompt += f"* {runbook_str}\n"
 
             user_prompt = f'My instructions to check \n"""{user_prompt}"""'
-
+        
+        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+            user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+        
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
+
         logging.debug(
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )
