@@ -6,6 +6,5 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   custom_toolset.yaml: |-
-    toolsets:
-    {{ toYaml .Values.toolsets | nindent 4 }}
+    toolsets: {{ toYaml .Values.toolsets | nindent 6 }}
 {{- end }}
