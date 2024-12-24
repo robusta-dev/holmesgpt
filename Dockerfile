@@ -43,6 +43,14 @@ RUN ./kube-lineage --version
 
 RUN curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 
+# Install Helm
+RUN curl https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" \
+    | tee /etc/apt/sources.list.d/helm-stable-debian.list \
+    && apt-get update \
+    && apt-get install -y helm \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set up poetry
 ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
@@ -92,9 +100,15 @@ RUN apt-get install -y kubectl
 COPY --from=builder /app/kube-lineage /usr/local/bin
 RUN kube-lineage --version
 
+# Set up ArgoCD
 COPY --from=builder /app/argocd-linux-amd64 /usr/local/bin/argocd
 RUN chmod 555 /usr/local/bin/argocd
 RUN argocd --help
+
+# Set up Helm
+COPY --from=builder /usr/bin/helm /usr/local/bin/helm
+RUN chmod 555 /usr/local/bin/helm
+RUN helm version
 
 ARG AWS_DEFAULT_PROFILE
 ARG AWS_DEFAULT_REGION
