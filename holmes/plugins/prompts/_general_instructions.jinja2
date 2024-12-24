@@ -33,7 +33,8 @@ Handling Permission Errors
 If during the investigation you encounter a permissions error (e.g., `Error from server (Forbidden):`), **ALWAYS** follow these steps to ensure a thorough resolution:
 1.**Analyze the Error Message**
  - Identify the missing resource, API group, and verbs from the error details.
- - Never stop at reporting the error—proceed with an in-depth investigation.
+ - Never stop at reporting the error
+ — Proceed with an in-depth investigation.
 2.**Locate the Relevant Helm Release**
 Use Helm commands to find the release associated with the Holmes pod:
  - Run `helm list -A | grep holmes` to identify the release name.
