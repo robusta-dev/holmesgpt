@@ -4,18 +4,18 @@ metadata:
   name: {{ .Release.Name }}-holmes
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    {{- include "holmesgpt.labels" . | nindent 4 }}
     app: holmes
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "chart.selectorLabels" . | nindent 6 }}
+      {{- include "holmesgpt.selectorLabels" . | nindent 6 }}
       app: holmes
   template:
     metadata:
       labels:
-        {{- include "chart.labels" . | nindent 8 }}
+        {{- include "holmesgpt.labels" . | nindent 8 }}
         app: holmes
     spec:
       {{- if .Values.customServiceAccountName }}
@@ -90,7 +90,7 @@ metadata:
   name: {{ .Release.Name }}-holmes
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    {{- include "holmesgpt.labels" . | nindent 4 }}
     app: holmes
 spec:
   selector:
