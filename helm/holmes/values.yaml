@@ -1,6 +1,8 @@
 certificate: "" # base64 encoded
 logLevel: INFO
 
+# labels that'll be applied to all resources
+additionalLabels: {}
 
 additionalEnvVars: []
 additional_env_vars: []
