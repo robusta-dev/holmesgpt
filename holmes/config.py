@@ -109,7 +109,13 @@ class Config(RobustaBaseConfig):
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
-        kwargs["cluster_name"] = Config.__get_cluster_name()
+            kwargs["cluster_name"] = Config.__get_cluster_name()
+            try:
+                if os.path.exists(DEFAULT_CONFIG_LOCATION):
+                    logging.info(f"Loading config from file with {len(kwargs)} addional params from env")
+                    return cls.load_from_file(config_file=DEFAULT_CONFIG_LOCATION, **kwargs)
+            except:
+                logging.exception("Failed to load config from secret, falling back to loading config from env vars")
         return cls(**kwargs)
 
     @staticmethod
