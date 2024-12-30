@@ -195,7 +195,7 @@ class Config(RobustaBaseConfig):
         Creates ToolExecutor for the server endpoints
         """
 
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, opensearch_clusters=self.opensearch_clusters)
 
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             try:
