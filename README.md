@@ -777,7 +777,7 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 <summary>OpenSearch Integration</summary>
 
 The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
-The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file:
+The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file (or in cluster to the configuration secret):
 
 ```                                                                                                                           holmesgpt-DoRnpO3K-py3.11 (add_tool_elasticsearch|💩) 15:20
 opensearch_clusters:
@@ -789,6 +789,12 @@ opensearch_clusters:
 
 > The configuration for each opensearch cluster is passed through to the [opensearch-py](https://github.com/opensearch-project/opensearch-py) module. Checkout that module documentation for how to configure connectivity.
 
+To enable OpenSearch integration when running HolmesGPT in a Kubernetes cluster, **add the following configuration** to the `custom-toolsets-configmap`:
+
+```yaml
+  opensearch:
+    enabled: true
+```
 </details>
 
 
