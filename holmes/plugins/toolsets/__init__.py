@@ -14,6 +14,8 @@ from pydantic import BaseModel
 from typing import Optional
 import yaml
 
+from holmes.plugins.toolsets.kafka import KafkaConfig, KafkaToolset
+
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -39,12 +41,13 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLTo
     return file_toolsets
 
 
-def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
+def load_python_toolsets(dal:Optional[SupabaseDal], kafka_config: Optional[KafkaConfig] = None) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    return [InternetToolset(), FindingsToolset(dal)]
+    return [InternetToolset(), FindingsToolset(dal), KafkaToolset(kafka_config)]
 
-
-def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
+# TODO: separate the Config logic from the Config structure so that config can be passed directly to this func
+# It will simplify the Config logic and the code here to avoid passing specific configs to toolsets
+def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, kafka_config: Optional[KafkaConfig] = None) -> List[Toolset]:
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
@@ -53,5 +56,5 @@ def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
         path = os.path.join(THIS_DIR, filename)
         all_toolsets.extend(load_toolsets_from_file(path))
 
-    all_toolsets.extend(load_python_toolsets(dal))
+    all_toolsets.extend(load_python_toolsets(dal, kafka_config))
     return all_toolsets
