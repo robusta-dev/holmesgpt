@@ -55,7 +55,7 @@ def get_matching_toolsets(
 class ToolsetStatusEnum(str, Enum):
     ENABLED = "enabled"
     DISABLED = "disabled"
-    ERROR = "error"
+    FAILED = "failed"
 
 class ToolsetTag(str, Enum):
     CORE = "core"
@@ -103,6 +103,11 @@ class Tool(ABC, BaseModel):
                 },
             },
         }
+ 
+        # gemini doesnt have parameters object if it is without params
+        if tool_properties is None:
+            result["function"].pop("parameters")
+
         return result
 
     @abstractmethod
@@ -330,11 +335,11 @@ class Toolset(BaseModel):
                         prereq.expected_output
                         and prereq.expected_output not in result.stdout
                     ):
-                        self._status = ToolsetStatusEnum.ERROR
+                        self._status = ToolsetStatusEnum.FAILED
                         self._error = f"Prerequisites check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
-                    self._status = ToolsetStatusEnum.ERROR
+                    self._status = ToolsetStatusEnum.FAILED
                     logging.debug(
                         f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
                     )
@@ -346,7 +351,7 @@ class Toolset(BaseModel):
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
-                        self._status = ToolsetStatusEnum.ERROR
+                        self._status = ToolsetStatusEnum.FAILED
                         self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
                         return
 
@@ -390,7 +395,6 @@ class ToolExecutor:
 
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
-
 
 class ToolsetYamlFromConfig(Toolset):
     name: str

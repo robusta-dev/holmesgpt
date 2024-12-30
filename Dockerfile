@@ -26,8 +26,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
 
 # Set the architecture-specific kube lineage URLs
-ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.1/kube-lineage-macos-latest-v2.1
-ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.1/kube-lineage-ubuntu-latest-v2.1
+ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.1/kube-lineage-macos-latest-v2.2.1
+ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.1/kube-lineage-ubuntu-latest-v2.2.1
 # Define a build argument to identify the platform
 ARG TARGETPLATFORM
 # Conditional download based on the platform
@@ -40,6 +40,8 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
     fi
 RUN chmod 777 kube-lineage
 RUN ./kube-lineage --version
+
+RUN curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
 
 # Set up poetry
 ARG PRIVATE_PACKAGE_REGISTRY="none"
@@ -89,6 +91,10 @@ RUN apt-get install -y kubectl
 # Set up kube lineage
 COPY --from=builder /app/kube-lineage /usr/local/bin
 RUN kube-lineage --version
+
+COPY --from=builder /app/argocd-linux-amd64 /usr/local/bin/argocd
+RUN chmod 555 /usr/local/bin/argocd
+RUN argocd --help
 
 ARG AWS_DEFAULT_PROFILE
 ARG AWS_DEFAULT_REGION

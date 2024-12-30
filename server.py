@@ -1,8 +1,5 @@
 import os
-from holmes.core import investigation
 from holmes.utils.cert_utils import add_custom_certificate
-from contextlib import asynccontextmanager
-from holmes.utils.holmes_status import update_holmes_status_in_db
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -10,8 +7,9 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
-
-
+from holmes.core import investigation
+from contextlib import asynccontextmanager
+from holmes.utils.holmes_status import update_holmes_status_in_db
 import jinja2
 import logging
 import uvicorn
@@ -47,6 +45,7 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
+from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 
 
 def init_logging():
@@ -122,14 +121,16 @@ def workload_health_check(request: WorkloadHealthRequest):
             )
             if stored_instructions:
                 instructions.extend(stored_instructions.instructions)
-
+            
         nl = "\n"
         if instructions:
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
-        system_prompt = load_and_render_prompt(request.prompt_template)
-        system_prompt = jinja2.Environment().from_string(system_prompt)
-        system_prompt = system_prompt.render(alerts=workload_alerts)
+        global_instructions = dal.get_global_instructions_for_account()
+        request.ask = add_global_instructions_to_user_prompt(request.ask, global_instructions)
+
+        system_prompt = load_and_render_prompt(request.prompt_template, context={'alerts': workload_alerts})
+        
 
         ai = config.create_toolcalling_llm(console, dal=dal)
 
@@ -171,7 +172,9 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(console, dal=dal)
-        messages = build_issue_chat_messages(issue_chat_request, ai)
+        global_instructions = dal.get_global_instructions_for_account()
+
+        messages = build_issue_chat_messages(issue_chat_request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -189,8 +192,10 @@ def chat(chat_request: ChatRequest):
         load_robusta_api_key(dal=dal, config=config)
 
         ai = config.create_toolcalling_llm(console, dal=dal)
+        global_instructions = dal.get_global_instructions_for_account()
+
         messages = build_chat_messages(
-            chat_request.ask, chat_request.conversation_history, ai=ai
+            chat_request.ask, chat_request.conversation_history, ai=ai, global_instructions=global_instructions
         )
 
         llm_call = ai.messages_call(messages=messages)

@@ -7,7 +7,7 @@ from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 import logging
-from datetime import datetime
+from datetime import datetime 
 
 
 def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
@@ -95,11 +95,21 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
         toolsets_loaded_from_config, default_toolsets_by_name
     )
 
-    db_toolsets = []
-    updated_at = datetime.now().isoformat()
+    # we check every toolset and save to local config toolsets which have passed the checks
+    # before we try to upsert anything to db
     for toolset in toolsets_for_sync_by_name.values():
         if toolset.enabled:
             toolset.check_prerequisites()
+    
+    config.enabled_toolsets_names = [toolset.name for toolset in toolsets_for_sync_by_name.values() if toolset.get_status() == ToolsetStatusEnum.ENABLED]
+
+    if not config.cluster_name:
+        raise Exception("Cluster name is missing in the configuration. Please ensure 'CLUSTER_NAME' is defined in the environment variables, "
+        "or verify that a cluster name is provided in the Robusta configuration file.")
+    
+    db_toolsets = []
+    updated_at = datetime.now().isoformat()
+    for toolset in toolsets_for_sync_by_name.values():
         if not toolset.installation_instructions:
             is_default_toolset = bool(toolset.name in default_toolsets_by_name.keys())
             instructions = render_default_installation_instructions_for_toolset(
@@ -117,7 +127,6 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
                 updated_at=updated_at
             ).model_dump(exclude_none=True)
         )
-    config.enabled_toolsets_names = [toolset.name for toolset in toolsets_for_sync_by_name.values() if toolset.get_status() == ToolsetStatusEnum.ENABLED]
     dal.sync_toolsets(db_toolsets, config.cluster_name)
 
 
