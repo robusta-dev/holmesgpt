@@ -804,9 +804,10 @@ opensearch_clusters:
 
 > The configuration for each opensearch cluster is passed through to the [opensearch-py](https://github.com/opensearch-project/opensearch-py) module. Checkout that module documentation for how to configure connectivity.
 
-To enable OpenSearch integration when running HolmesGPT in a Kubernetes cluster, **add the following configuration** to the `custom-toolsets-configmap`:
+To enable OpenSearch integration when running HolmesGPT in a Kubernetes cluster, **add the following configuration** to the `helm chart`:
 
 ```yaml
+toolsets:
   opensearch:
     enabled: true
 ```
