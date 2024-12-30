@@ -42,7 +42,6 @@ starlette = "^0.40"
 google-api-python-client = "^2.156.0"
 confluent-kafka = "^2.6.1"
 
-
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
 pytest-xdist = "^3.6.1"
