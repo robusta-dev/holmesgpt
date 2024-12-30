@@ -122,5 +122,6 @@ class OpenSearchToolset(Toolset):
                 GetClusterSettings(clients),
                 GetClusterHealth(clients),
             ],
+            tags=["core",]
         )
         self._clients = clients
