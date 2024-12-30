@@ -87,7 +87,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
     4) Run the check_prerequisites method for each toolset
     5) Use sync_toolsets to upsert toolset's status and remove toolsets that are not loaded from configs or folder with default directory
     """
-    default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLUSTER) for tag in toolset.tags)]
+    default_toolsets = [toolset for toolset in load_builtin_toolsets(dal, config.opensearch_clusters) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLUSTER) for tag in toolset.tags)]
     default_toolsets_by_name = {toolset.name: toolset for toolset in default_toolsets}
 
     toolsets_loaded_from_config = load_custom_toolsets_config()
