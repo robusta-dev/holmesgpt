@@ -146,7 +146,7 @@ class Config(RobustaBaseConfig):
         """
         Creates ToolExecutor for the cli 
         """
-        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
+        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal, opensearch_clusters=self.opensearch_clusters) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
         
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
@@ -198,7 +198,7 @@ class Config(RobustaBaseConfig):
         Creates ToolExecutor for the server endpoints 
         """
 
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, opensearch_clusters=self.opensearch_clusters)
 
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             try:
