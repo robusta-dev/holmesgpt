@@ -107,10 +107,9 @@ class OpenSearchToolset(Toolset):
             try:
                 logging.info(f"Setting up OpenSearch client")
                 client = OpenSearchClient(**config)
-                client.health = client.client.cluster.health() 
-                if client.health:
+                if client.client.cluster.health():
                     clients.append(client)
-            except:
+            except Exception:
                 logging.exception("Failed to set up opensearch client")
 
         super().__init__(
