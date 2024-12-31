@@ -645,6 +645,17 @@ You can view an example config file with all available settings [here](config.ex
 
 By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
 
+
+When running **HolmesGPT in a Kubernetes cluster**, you can securely pass configuration settings using a **Kubernetes Secret**. The secret will be mounted into the pod at `~/.holmes/config.yaml`:
+
+```bash
+kubectl create secret generic holmes-config-secret \
+  --namespace=ROBUSTA_NAMESPACE \
+  --from-file=config.yaml=CONFIG_FILE
+```
+
+This approach ensures sensitive configuration data remains secure and manageable within the cluster.
+
 <details>
 <summary>Custom Toolsets</summary>
 
@@ -760,6 +771,39 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 2. **slack-channel**: The Slack channel where you want to receive the findings.
 
 </details>
+
+
+<details>
+<summary>OpenSearch Integration</summary>
+
+The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
+The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file (or in cluster to the configuration secret):
+
+```                                                                                 
+opensearch_clusters:
+  - hosts:
+      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
+    headers:
+      Authorization: "ApiKey <your_API_key>"
+# or
+#  - hosts:
+#      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
+#    http_auth:
+#      username: ELASTIC_USERNAME
+#      password: ELASTIC_PASSWORD
+```
+
+> The configuration for each opensearch cluster is passed through to the [opensearch-py](https://github.com/opensearch-project/opensearch-py) module. Checkout that module documentation for how to configure connectivity.
+
+To enable OpenSearch integration when running HolmesGPT in a Kubernetes cluster, **add the following configuration** to the `helm chart`:
+
+```yaml
+toolsets:
+  opensearch:
+    enabled: true
+```
+</details>
+
 
 <details>
 

@@ -2,7 +2,11 @@ import logging
 import os
 import yaml
 import os.path
+
+from pydantic.main import BaseModel
 from holmes.core.llm import LLM, DefaultLLM
+from strenum import StrEnum
+from typing import Any, Dict, List, Optional
 from typing import List, Optional
 
 
@@ -35,8 +39,7 @@ from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 
-DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
-
+DEFAULT_CONFIG_LOCATION = os.path.expanduser("/Users/avirobusta/git/holmesgpt/config.yaml")
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
@@ -80,6 +83,8 @@ class Config(RobustaBaseConfig):
     
     enabled_toolsets_names: List[str] = Field(default_factory=list)
 
+    opensearch_clusters: Optional[List[Dict]] = None # Passed through to opensearchpy.OpenSearch constructor
+
     @classmethod
     def load_from_env(cls):
         kwargs = {}
@@ -108,6 +113,12 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
             kwargs["cluster_name"] = Config.__get_cluster_name()
+            try:
+                if os.path.exists(DEFAULT_CONFIG_LOCATION):
+                    logging.info(f"Loading config from file with {len(kwargs)} addional params from env")
+                    return cls.load_from_file(config_file=DEFAULT_CONFIG_LOCATION, **kwargs)
+            except:
+                logging.exception("Failed to load config from secret, falling back to loading config from env vars")
         return cls(**kwargs)
     
     @staticmethod
@@ -135,7 +146,7 @@ class Config(RobustaBaseConfig):
         """
         Creates ToolExecutor for the cli 
         """
-        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
+        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal, opensearch_clusters=self.opensearch_clusters) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
         
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
@@ -187,7 +198,7 @@ class Config(RobustaBaseConfig):
         Creates ToolExecutor for the server endpoints 
         """
 
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, opensearch_clusters=self.opensearch_clusters)
 
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             try:
