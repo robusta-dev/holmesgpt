@@ -794,12 +794,18 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
 The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file (or in cluster to the configuration secret):
 
-```                                                                                                                           holmesgpt-DoRnpO3K-py3.11 (add_tool_elasticsearch|💩) 15:20
+```                                                                                 
 opensearch_clusters:
   - hosts:
       - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
     headers:
       Authorization: "ApiKey <your_API_key>"
+# or
+#  - hosts:
+#      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
+#    http_auth:
+#      username: ELASTIC_USERNAME
+#      password: ELASTIC_PASSWORD
 ```
 
 > The configuration for each opensearch cluster is passed through to the [opensearch-py](https://github.com/opensearch-project/opensearch-py) module. Checkout that module documentation for how to configure connectivity.

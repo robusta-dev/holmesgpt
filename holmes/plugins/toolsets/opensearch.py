@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
-from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset
+from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
 from opensearchpy import OpenSearch
 
 class OpenSearchClient:
@@ -104,10 +104,14 @@ class OpenSearchToolset(Toolset):
     def __init__(self, clusters_configs:List[Dict]):
         clients: List[OpenSearchClient] = []
         for config in clusters_configs:
-            logging.info(f"Setting up OpenSearch client: {str(config)}")
-            client = OpenSearchClient(**config)
-            print(client.client.cluster.health())
-            clients.append(client)
+            try:
+                logging.info(f"Setting up OpenSearch client")
+                client = OpenSearchClient(**config)
+                client.health = client.client.cluster.health() 
+                if client.health:
+                    clients.append(client)
+            except:
+                logging.exception("Failed to set up opensearch client")
 
         super().__init__(
             name = "opensearch",
@@ -122,6 +126,6 @@ class OpenSearchToolset(Toolset):
                 GetClusterSettings(clients),
                 GetClusterHealth(clients),
             ],
-            tags=["core",]
+            tags=[ToolsetTag.CORE,]
         )
         self._clients = clients

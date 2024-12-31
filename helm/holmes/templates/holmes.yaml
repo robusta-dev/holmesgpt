@@ -59,8 +59,7 @@ spec:
           - name: custom-toolsets-configmap
             mountPath: /etc/holmes/config
           - name: holmes-config-secret
-            mountPath: /root/.holmes/config.yaml
-            subPath: config.yaml
+            mountPath: /root/.holmes/
           {{- if .Values.additionalVolumeMounts -}}
           {{ toYaml .Values.additionalVolumeMounts | nindent 10 }}
           {{- end }}
