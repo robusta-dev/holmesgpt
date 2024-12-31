@@ -12,7 +12,6 @@ from pydantic import BaseModel
 
 from holmes.core.tools import Toolset, YAMLToolset
 from holmes.plugins.toolsets.opensearch import OpenSearchToolset
-from holmes.utils.pydantic_utils import load_model_from_file
 from typing import Dict
 from pydantic import BaseModel
 from typing import Optional

@@ -39,7 +39,7 @@ from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 
-DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+DEFAULT_CONFIG_LOCATION = os.path.expanduser("/Users/avirobusta/git/holmesgpt/config.yaml")
 
 class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
