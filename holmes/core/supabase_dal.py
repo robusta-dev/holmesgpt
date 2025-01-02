@@ -103,7 +103,7 @@ class SupabaseDal:
                 )
             except json.JSONDecodeError:
                 raise Exception(
-                    f"json.JSONDecodeError encountered The Robusta UI token is not a valid after base64 decoding."
+                    f"json.JSONDecodeError encountered. The Robusta UI token could not be parsed as JSON after being base64 decoded."
                 )
 
         if not os.path.exists(config_file_path):
@@ -140,7 +140,7 @@ class SupabaseDal:
                         )
                     except json.JSONDecodeError:
                         raise Exception(
-                            f"json.JSONDecodeError encountered The Robusta UI token is not a valid after base64 decoding."
+                            f"json.JSONDecodeError encountered. The Robusta UI token could not be parsed as JSON after being base64 decoded."
                         )
         return None
 
