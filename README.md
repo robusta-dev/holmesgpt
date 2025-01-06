@@ -466,6 +466,45 @@ holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
 
 </details>
 <details>
+<summary>Gemini/Google AI Studio</summary>
+
+To use Gemini, set the `GEMINI_API_KEY` environment variable as follows:
+
+```bash
+export GEMINI_API_KEY="your-gemini-api-key"
+```
+
+Once the environment variable is set, you can run the following command to interact with Gemini:
+
+```bash
+holmes ask "what pods are unhealthy and why?" --model=gemini/<MODEL_NAME>
+```
+
+Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini/gemini-1.5-flash`, etc.
+
+</details>
+<details>
+<summary>Vertex AI Gemini</summary>
+
+To use Vertex AI with Gemini models, set the following environment variables:
+
+```bash
+export VERTEXAI_PROJECT="your-project-id"
+export VERTEXAI_LOCATION="us-central1" 
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
+```
+
+Once the environment variables are set, you can run the following command to interact with Vertex AI Gemini models:
+
+```bash
+poetry run python holmes.py ask "what pods are unhealthy and why?" --model "vertex_ai/<MODEL_NAME>"
+```
+
+Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini-2.0-flash-exp`, etc.
+Ensure you have the correct project, location, and credentials for accessing the desired Vertex AI model.
+
+</details>
+<details>
 <summary>Using other OpenAI-compatible models</summary>
 
 You will need an LLM with support for function-calling (tool-calling).
@@ -549,6 +588,15 @@ grafana:
 ```
 
 > You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+</details>
+  
+<details>
+<summary>
+ArgoCD
+</summary>
+
+Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps configuration and status, clusters and projects within ArgoCD.
+To enable ArgoCD, set the `ARGOCD_AUTH_TOKEN` environment variable as described in the [argocd documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
 
 </details>
 

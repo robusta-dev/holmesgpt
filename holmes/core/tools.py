@@ -103,6 +103,11 @@ class Tool(ABC, BaseModel):
                 },
             },
         }
+ 
+        # gemini doesnt have parameters object if it is without params
+        if tool_properties is None:
+            result["function"].pop("parameters")
+
         return result
 
     @abstractmethod
@@ -399,7 +404,6 @@ class ToolExecutor:
 
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
-
 
 class ToolsetYamlFromConfig(Toolset):
     name: str
