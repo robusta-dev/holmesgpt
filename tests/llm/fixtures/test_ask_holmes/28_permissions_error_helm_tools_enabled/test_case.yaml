@@ -1,7 +1,7 @@
 user_prompt: "is there any kind of these resources on cluster kind: MyResource metadata: name: my-resource-instance"
 expected_output: 
-  - Modify the generated_values.yaml file to include the missing permissions 
-  - helm upgrade <RELEASE_NAME> robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+  - To resolve this, update your configuration by adding the necessary permissions
+  - helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=test-cluster
 before_test: kubectl apply -f./custom_resources.yaml
 after_test: kubectl delete -f./custom_resources.yaml
 evaluation:
