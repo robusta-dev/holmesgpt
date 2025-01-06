@@ -1,0 +1,8 @@
+user_prompt: "is there any kind of these resources on cluster kind: MyResource metadata: name: my-resource-instance"
+expected_output: "To resolve this, you need to update the permissions for the robusta-holmes-service-account."
+before_test: kubectl apply -f./custom_resources.yaml
+after_test: kubectl delete -f./custom_resources.yaml
+evaluation:
+  answer_relevancy: .5
+  faithfulness: .5
+  contextual_precision: 0
