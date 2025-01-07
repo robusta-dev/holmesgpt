@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Union
 from pydantic import BaseModel
 import yaml
 import time
-from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset
+from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
 from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_loki_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
 
 class GrafanaLokiConfig(BaseModel):
@@ -178,5 +178,6 @@ class GrafanaLokiToolset(Toolset):
                 GetLokiLogsByNode(config),
                 GetLokiLogsByPod(config),
             ],
+            tags = [ToolsetTag.CORE, ]
         )
         self.check_prerequisites()
