@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get","match_params":{"kind":"replicaset","name":"user-profile-resources-659d4dd659","namespace":"default"}}
+stdout:
+NAME                                DESIRED   CURRENT   READY   AGE   CONTAINERS       IMAGES   SELECTOR                                                  LABELS
+user-profile-resources-659d4dd659   1         1         0       39s   profile-getter   nginx    app=user-profile-resources,pod-template-hash=659d4dd659   app=user-profile-resources,pod-template-hash=659d4dd659
+
+stderr:

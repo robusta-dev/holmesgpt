@@ -1,0 +1,15 @@
+user_prompt: 'What is wrong with << { "type": "pod", "name": "robusta-runner-6958c5bdd8-69gtn" } >> ?'
+expected_output:
+  - The pod was recently killed due to it being out of memory
+  - The pod is currently running and healthy
+retrieval_context:
+  - |
+    Last State:   Terminate
+    Reason:       OOMKilled
+    Exit Code:    137
+  - |
+    Events:
+      Type     Reason     Age                From
+      Message  ----     ------     ----               ----               -------
+      Warning  OOMKilled  1m                 kubelet
+      Container test-container in pod test-pod was killed due to out of memory

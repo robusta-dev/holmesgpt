@@ -12,7 +12,6 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 import socket
 import uuid
 import logging
-import re
 import warnings
 import json
 from enum import Enum
@@ -52,7 +51,7 @@ app.add_typer(generate_app, name="generate")
 
 class Verbosity(Enum):
     NORMAL = 0
-    LOG_QUERIES = 1
+    LOG_QUERIES = 1  # TODO: currently unused
     VERBOSE = 2
     VERY_VERBOSE = 3
 
@@ -66,24 +65,7 @@ def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
     else:
         return Verbosity.VERY_VERBOSE
 
-def init_logging(verbose_flags: List[bool] = None):
-    verbosity = cli_flags_to_verbosity(verbose_flags)
-
-    if verbosity == Verbosity.VERY_VERBOSE:
-        logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
-    else:
-        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
-
-    if verbosity.value >= Verbosity.NORMAL.value:
-        logging.info(f"verbosity is {verbosity}")
-
-    if verbosity.value >= Verbosity.LOG_QUERIES.value:
-        # TODO
-        pass
-
-    if verbosity.value >= Verbosity.VERBOSE.value:
-        logging.getLogger().setLevel(logging.DEBUG)
-
+def suppress_noisy_logs():
     # disable INFO logs from OpenAI
     logging.getLogger("httpx").setLevel(logging.WARNING)
     # disable INFO logs from LiteLLM
@@ -95,8 +77,24 @@ def init_logging(verbose_flags: List[bool] = None):
     logging.getLogger("openai._base_client").setLevel(logging.INFO)
     logging.getLogger("httpcore").setLevel(logging.INFO)
     logging.getLogger("markdown_it").setLevel(logging.INFO)
-    # Suppress UserWarnings from the slack_sdk module
+    # suppress UserWarnings from the slack_sdk module
     warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
+
+def init_logging(verbose_flags: List[bool] = None):
+    verbosity = cli_flags_to_verbosity(verbose_flags)
+
+    if verbosity == Verbosity.VERY_VERBOSE:
+        logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+    elif verbosity == Verbosity.VERBOSE:
+        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+        logging.getLogger().setLevel(logging.DEBUG)
+        suppress_noisy_logs()
+    else:
+        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+        suppress_noisy_logs()
+
+    logging.debug(f"verbosity is {verbosity}")
+
     return Console()
 
 # Common cli options
@@ -139,7 +137,7 @@ opt_verbose: Optional[List[bool]] = typer.Option(
     [],
     "--verbose",
     "-v",
-    help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv or -vvvv",
+    help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv",
 )
 opt_echo_request: bool = typer.Option(
     True,
@@ -272,7 +270,7 @@ def ask(
         slack_channel=slack_channel,
     )
     system_prompt = load_and_render_prompt(system_prompt)
-    ai = config.create_toolcalling_llm(console, allowed_toolsets)
+    ai = config.create_console_toolcalling_llm(console, allowed_toolsets=allowed_toolsets, dal=None)
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
@@ -280,7 +278,7 @@ def ask(
         prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
-    response = ai.call(system_prompt, prompt, post_processing_prompt)
+    response = ai.prompt_call(system_prompt, prompt, post_processing_prompt)
 
     if json_output_file:
         write_json_file(json_output_file, response.model_dump())
@@ -360,7 +358,7 @@ def alertmanager(
         custom_runbooks=custom_runbooks
     )
 
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_console_issue_investigator(console, allowed_toolsets=allowed_toolsets)
 
     source = config.create_alertmanager_source()
 
@@ -395,6 +393,7 @@ def alertmanager(
             post_processing_prompt=post_processing_prompt)
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
+
 
     if json_output_file:
         write_json_file(json_output_file, results)
@@ -488,7 +487,7 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_console_issue_investigator(console, allowed_toolsets=allowed_toolsets)
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()
@@ -584,7 +583,7 @@ def github(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_issue_invcreate_console_issue_investigatorestigator(console, allowed_toolsets)
     source = config.create_github_source()
     try:
         issues = source.fetch_issues()
@@ -663,7 +662,7 @@ def pagerduty(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_console_issue_investigator(console, allowed_toolsets)
     source = config.create_pagerduty_source()
     try:
         issues = source.fetch_issues()
@@ -748,7 +747,7 @@ def opsgenie(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks
     )
-    ai = config.create_issue_investigator(console, allowed_toolsets)
+    ai = config.create_console_issue_investigator(console, allowed_toolsets)
     source = config.create_opsgenie_source()
     try:
         issues = source.fetch_issues()

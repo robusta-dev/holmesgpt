@@ -32,8 +32,6 @@ spec:
         env:
           - name: LOG_LEVEL
             value: {{ .Values.logLevel }}
-          - name: ALLOWED_TOOLSETS
-            value: {{ .Values.allowedToolsets }}
           {{ if .Values.certificate -}}
           - name: CERTIFICATE
             value: {{ .Values.certificate }}
@@ -45,6 +43,9 @@ spec:
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
           {{- end }}
+          {{- if .Values.additional_env_vars -}}
+          {{ toYaml .Values.additional_env_vars | nindent 10 }}
+          {{- end }}
         lifecycle:
           preStop:
             exec:
@@ -54,6 +55,16 @@ spec:
             mountPath: /etc/robusta/config
           - name: custom-toolsets-configmap
             mountPath: /etc/holmes/config
+          {{- if .Values.additionalVolumeMounts -}}
+          {{ toYaml .Values.additionalVolumeMounts | nindent 10 }}
+          {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+            {{ if .Values.resources.limits.cpu }}cpu: {{ .Values.resources.limits.cpu | quote }}{{ end }}
       {{- if .Values.tolerations }}
       tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
       {{- end }}
@@ -66,7 +77,9 @@ spec:
           configMap:
             name: custom-toolsets-configmap
             optional: true
-
+        {{- if .Values.additionalVolumes -}}
+        {{ toYaml .Values.additionalVolumes | nindent 8 }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

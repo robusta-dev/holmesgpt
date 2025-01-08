@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"user-profile-import"}}
+stdout:
+default              user-profile-import                                      0/1     Pending                      0                36s    <none>         <none>               <none>           <none>            <none>
+
+stderr:

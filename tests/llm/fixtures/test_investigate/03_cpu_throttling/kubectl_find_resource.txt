@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"inventory-management-api"}}
+Command `kubectl get -A --show-labels -o wide pod | grep inventory-management-api` failed with return code 1
+stdout:
+
+stderr:

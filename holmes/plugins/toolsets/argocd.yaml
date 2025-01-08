@@ -1,0 +1,43 @@
+toolsets:
+  argocd/core:
+    description: "Set of tools to get argocd metadata like list of apps, repositories, projects, etc."
+    docs_url: "https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd/"
+    icon_url: "https://argo-cd.readthedocs.io/en/stable/assets/logo.png"
+    tags:
+      - core
+    prerequisites:
+      - command: "argocd version"
+      - env:
+        - ARGOCD_AUTH_TOKEN
+    tools:
+      - name: "argocd_app_get"
+        description: "Retrieve information about an existing application, such as its status and configuration"
+        command: "argocd app get {{ app_name }} --show-operation -o yaml"
+
+      - name: "argocd_app_diff"
+        description: "Display the differences between the current state of an application and the desired state specified in its Git repository"
+        command: "argocd app diff {{ app_name }}"
+
+      - name: "argocd_app_list"
+        description: "List the applications in Argocd"
+        command: "argocd app list"
+
+      - name: "argocd_app_history"
+        description: "List the deployment history of an application in ArgoCD"
+        command: "argocd app history {{app_name}} --app-namespace {{namespace}}"
+
+      - name: "argocd_repo_list"
+        description: "List all the Git repositories that ArgoCD is currently managing"
+        command: "argocd repo list"
+
+      - name: "argocd_proj_list"
+        description: "List all available projects"
+        command: "argocd proj list"
+
+      - name: "argocd_proj_get"
+        description: "Retrieves information about an existing project, such as its applications and policies"
+        command: "argocd proj get {{ project_name }}"
+
+      - name: "argocd_cluster_list"
+        description: "List all known clusters"
+        command: "argocd cluster list"

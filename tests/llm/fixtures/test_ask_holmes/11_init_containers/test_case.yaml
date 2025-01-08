@@ -1,0 +1,9 @@
+user_prompt: "What is the issue with logging-agent?"
+expected_output:
+  - The command `wge` is not found
+  - The answer should suggets `wge` may be a typo for `wget`.
+# before_test: |
+#   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/init_crashloop_backoff/create_init_crashloop_backoff.yaml
+#   sleep 40
+# after_test: |
+#   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/init_crashloop_backoff/create_init_crashloop_backoff.yaml

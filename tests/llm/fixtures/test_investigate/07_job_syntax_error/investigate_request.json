@@ -1,0 +1,22 @@
+{
+  "source": "prometheus",
+  "title": "KubeJobFailed",
+  "description": "",
+  "subject": {
+    "name": "product-data-scraper",
+    "namespace": "default",
+    "kind": "job",
+    "node": null,
+    "container": null,
+    "cluster": null
+  },
+  "context": {
+    "issue_type": "KubeJobFailed",
+    "robusta_issue_id": "4a25f1ef-2206-43d2-9601-1eb4254b5904",
+    "source": "prometheus"
+  },
+  "source_instance_id": "ApiRequest",
+  "include_tool_calls": true,
+  "include_tool_call_results": true,
+  "prompt_template": "builtin://generic_investigation.jinja2"
+}

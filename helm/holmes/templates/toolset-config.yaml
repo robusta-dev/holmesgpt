@@ -1,4 +1,4 @@
-{{- if gt (len .Values.toolsets) 0 }}
+{{- if .Values.toolsets | not | empty }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,6 +6,5 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   custom_toolset.yaml: |-
-    toolsets:
-    {{ toYaml .Values.toolsets | nindent 4 }}
+    toolsets: {{ toYaml .Values.toolsets | nindent 6 }}
 {{- end }}

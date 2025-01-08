@@ -1,0 +1,8 @@
+user_prompt: "What is the issue with analytics-exporter-fast?"
+expected_output:
+  - The result mentions analytics-exporter-fast is getting OOMKILLED
+before_test: |
+  kubectl apply -f ./fast_oom_deployment.yaml
+  sleep 5
+after_test: |
+  kubectl delete -f ./fast_oom_deployment.yaml

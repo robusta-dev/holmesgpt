@@ -5,7 +5,16 @@ name: Build and test HolmesGPT
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
+  check:
+    name: Pre-commit checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+      - uses: pre-commit/action@v3.0.1
+
   build:
+    needs: check
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
@@ -28,9 +37,9 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
           poetry config virtualenvs.create false
           poetry install --no-root
-          poetry run python -m playwright install --with-deps chromium
+          poetry run python -m playwright install --with-deps firefox
 
-          sudo apt-get install -y binutils pandoc
+          sudo apt-get install -y binutils
           pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --collect-data litellm
           ls dist
 
@@ -39,7 +48,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          poetry run pytest
+          poetry run pytest -m "not llm"
 
       - name: Test the binary
         shell: bash

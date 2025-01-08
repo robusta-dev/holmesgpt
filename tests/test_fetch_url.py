@@ -3,12 +3,27 @@ import re
 import pytest
 from pathlib import Path
 
+from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
+from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown
+
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
 
-from holmes.plugins.toolsets.internet import html_to_markdown
 
-def read_file(file_path):
+TEST_URL = "https://www.example.com"
+EXPECTED_TEST_RESULT = """
+Example Domain
+
+Example Domain
+==============
+
+This domain is for use in illustrative examples in documents. You may use this
+ domain in literature without prior coordination or asking for permission.
+
+More information...
+""".strip()
+
+def read_file(file_path:Path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read().strip()
 
@@ -45,3 +60,19 @@ def load_all_fixtures():
 def test_html_to_markdown(input, expected_output):
     actual_output = html_to_markdown(input)
     assert actual_output.strip() == expected_output.strip()
+
+
+def test_internet_toolset_prerequisites():
+    toolset = InternetToolset()
+
+    toolset.check_prerequisites()
+    assert toolset._status == ToolsetStatusEnum.ENABLED, ("" if  toolset._status == ToolsetStatusEnum.ENABLED else toolset.get_error() + ". Make sure playwright is installed by running `playwright install`.")
+
+
+def test_fetch_webpage():
+    toolset = InternetToolset()
+    tool_executor = ToolExecutor(toolsets=[toolset])
+    fetch_webpage_tool = tool_executor.get_tool_by_name('fetch_webpage')
+    assert fetch_webpage_tool
+    actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
+    assert actual_output.strip() == EXPECTED_TEST_RESULT
