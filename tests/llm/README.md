@@ -55,7 +55,7 @@ Here are the possible fields in the `test_case.yaml` yaml file:
 Run the following:
 
 ```sh
-UPLOAD_DATASET=1 RUN_LIVE=1 pytest ./tests/llm/test_ask_holmes.py -k 999_my_test_case
+UPLOAD_DATASET=1 RUN_LIVE=1 poetry run pytest ./tests/llm/test_ask_holmes.py -k 999_my_test_case
 ```
 
 The test may pass or not based on whether the evaluation scores are high enough. If the test fail,
