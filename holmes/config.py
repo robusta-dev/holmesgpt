@@ -13,7 +13,7 @@ from rich.console import Console
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import (IssueInvestigator, 
+from holmes.core.tool_calling_llm import (IssueInvestigator,
                                           ToolCallingLLM,
                                           ToolExecutor)
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets, ToolsetStatusEnum, ToolsetTag
@@ -27,6 +27,7 @@ from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
+from holmes.plugins.toolsets.grafana_loki import GrafanaConfig
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
@@ -77,7 +78,9 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
-    
+
+    grafana: GrafanaConfig = GrafanaConfig()
+
     enabled_toolsets_names: List[str] = Field(default_factory=list)
 
     @classmethod
@@ -109,7 +112,7 @@ class Config(RobustaBaseConfig):
                 kwargs[field_name] = val
             kwargs["cluster_name"] = Config.__get_cluster_name()
         return cls(**kwargs)
-    
+
     @staticmethod
     def __get_cluster_name() -> Optional[str]:
         config_file_path = ROBUSTA_CONFIG_PATH
@@ -133,17 +136,17 @@ class Config(RobustaBaseConfig):
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
-        Creates ToolExecutor for the cli 
+        Creates ToolExecutor for the cli
         """
-        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
-        
+        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal, grafana_config=self.grafana) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
+
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
         else:
             matching_toolsets = get_matching_toolsets(
                 default_toolsets, allowed_toolsets.split(",")
-            )        
-        
+            )
+
         # Enable all matching toolsets that have CORE or CLI tag
         for toolset in matching_toolsets:
             toolset.enabled = True
@@ -155,7 +158,7 @@ class Config(RobustaBaseConfig):
             toolsets_loaded_from_config,
             matched_default_toolsets_by_name,
         )
-        
+
         for toolset in filtered_toolsets_by_name.values():
             if toolset.enabled:
                 toolset.check_prerequisites()
@@ -169,11 +172,11 @@ class Config(RobustaBaseConfig):
                 logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()})")
             elif ts.get_status() == ToolsetStatusEnum.FAILED:
                 logging.info(f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})")
-        
+
         for ts in default_toolsets:
             if ts.name not in filtered_toolsets_by_name.keys():
                  logging.debug(f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value")
-        
+
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
@@ -184,10 +187,10 @@ class Config(RobustaBaseConfig):
         self, console: Console, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
-        Creates ToolExecutor for the server endpoints 
+        Creates ToolExecutor for the server endpoints
         """
 
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, grafana_config=self.grafana)
 
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             try:
@@ -201,7 +204,7 @@ class Config(RobustaBaseConfig):
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
         return ToolExecutor(enabled_toolsets)
-    
+
     def create_console_toolcalling_llm(
         self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
@@ -239,7 +242,7 @@ class Config(RobustaBaseConfig):
             self.max_steps,
             self._get_llm()
         )
-    
+
     def create_console_issue_investigator(
         self,
         console: Console,
