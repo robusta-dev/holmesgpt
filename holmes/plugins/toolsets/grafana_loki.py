@@ -4,7 +4,8 @@ from pydantic import BaseModel
 import yaml
 import time
 from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
-from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_loki_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
+from holmes.plugins.toolsets.grafana.tempo_api import query_tempo_traces_by_duration, query_tempo_trace_by_id
+from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_grafana_datasources, query_loki_logs_by_node, query_loki_logs_by_pod, execute_loki_query
 
 class GrafanaLokiConfig(BaseModel):
     pod_name_search_key: str = "pod"
@@ -30,11 +31,107 @@ class ListLokiDatasources(Tool):
         )
 
     def invoke(self, params: Dict) -> str:
-        datasources= list_loki_datasources()
+        datasources= list_grafana_datasources("loki")
         return yaml.dump(datasources)
 
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return "Fetched Grafana Loki datasources"
+
+class ListAllDatasources(Tool):
+
+    def __init__(self):
+        super().__init__(
+            name = "list_all_datasources",
+            description = "Fetches All the data sources in Grafana",
+            parameters = {},
+        )
+
+    def invoke(self, params: Dict) -> str:
+        datasources= list_grafana_datasources()
+        return yaml.dump(datasources)
+
+    def get_parameterized_one_liner(self, params:Dict) -> str:
+        return "Fetched Grafana Tempo datasources"
+
+class GetTempoTracesByMinDuration(Tool):
+
+    def __init__(self):
+        super().__init__(
+            name="fetch_tempo_traces_by_min_duration",
+            description="""Fetches Tempo traces that exceed a specified minimum duration in a given time range""",
+            parameters={
+                "tempo_datasource_id": ToolParameter(
+                    description="The ID of the Tempo datasource to use. Call the tool list_grafana_datasources.",
+                    type="string",
+                    required=True,
+                ),
+                "min_duration": ToolParameter(
+                    description="The minimum duration of traces to fetch, e.g., '5s' for 5 seconds.",
+                    type="string",
+                    required=True,
+                ),
+                "start_timestamp": ToolParameter(
+                    description="The beginning time boundary for the trace search period. Epoch in seconds. Traces with timestamps before this value will be excluded from the results.",
+                    type="string",
+                    required=False,
+                ),
+                "end_timestamp": ToolParameter(
+                    description="The ending time boundary for the trace search period. Epoch in seconds. Traces with timestamps after this value will be excluded from the results. Defaults to NOW().",
+                    type="string",
+                    required=False,
+                ),
+                "limit": ToolParameter(
+                    description="Maximum number of traces to return.",
+                    type="string",
+                    required=False,
+                ),
+            },
+        )
+
+    def invoke(self, params: Dict) -> str:
+        start, end = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
+        traces = query_tempo_traces_by_duration(
+            tempo_datasource_id=get_param_or_raise(params, "tempo_datasource_id"),
+            min_duration=get_param_or_raise(params, "min_duration"),
+            start=start,
+            end=end,
+            limit=int(params.get("limit", 50)),  # Default to 50 if limit is not provided
+        )
+        return yaml.dump(traces)
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Fetched Tempo traces with min_duration={params.get('min_duration')} ({str(params)})"
+
+class GetTempoTraceById(Tool):
+
+    def __init__(self):
+        super().__init__(
+            name="fetch_tempo_trace_by_id",
+            description="""Fetches a Tempo trace using its trace ID""",
+            parameters={
+                "tempo_datasource_id": ToolParameter(
+                    description="The ID of the Tempo datasource to use. Call the tool list_grafana_datasources.",
+                    type="string",
+                    required=True,
+                ),
+                "trace_id": ToolParameter(
+                    description="The unique trace ID to fetch.",
+                    type="string",
+                    required=True,
+                ),
+            },
+        )
+
+    def invoke(self, params: Dict) -> str:
+        trace_data = query_tempo_trace_by_id(
+            tempo_datasource_id=get_param_or_raise(params, "tempo_datasource_id"),
+            trace_id=get_param_or_raise(params, "trace_id"),
+        )
+        return yaml.dump(trace_data)
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Fetched Tempo trace with trace_id={params.get('trace_id')} ({str(params)})"
+
 
 ONE_HOUR = 3600
 
@@ -103,6 +200,53 @@ class GetLokiLogsByNode(Tool):
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
 
+class GetLokiLogsByQuery(Tool):
+    def __init__(self):
+        super().__init__(
+            name = "fetch_loki_logs_by_node",
+            description = """Fetches the Loki logs for a query""",
+            parameters = {
+                "loki_datasource_id": ToolParameter(
+                    description="The id of the loki datasource to use. Call the tool list_loki_datasources",
+                    type="string",
+                    required=True,
+                ),
+                "query": ToolParameter(
+                    description="The query to run, must be in loki query format.",
+                    type="string",
+                    required=True,
+                ),
+                "start_timestamp": ToolParameter(
+                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
+                    type="string",
+                    required=False,
+                ),
+                "end_timestamp": ToolParameter(
+                    description="The ending time boundary for the log search period. Epoch in seconds. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    type="string",
+                    required=False,
+                ),
+                "limit": ToolParameter(
+                    description="Maximum number of logs to return.",
+                    type="string",
+                    required=True,
+                )
+            },
+        )
+
+    def invoke(self, params: Dict) -> str:
+        (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
+        logs = execute_loki_query(
+            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
+            query=get_param_or_raise(params, "query"),
+            start=start,
+            end=end,
+            limit=int(get_param_or_raise(params, "limit"))
+        )
+        return yaml.dump(logs)
+
+    def get_parameterized_one_liner(self, params:Dict) -> str:
+        return f"Fetched Loki logs ({str(params)})"
 
 class GetLokiLogsByPod(Tool):
 
@@ -177,6 +321,10 @@ class GrafanaLokiToolset(Toolset):
                 ListLokiDatasources(),
                 GetLokiLogsByNode(config),
                 GetLokiLogsByPod(config),
+                ListAllDatasources(),
+                GetTempoTracesByMinDuration(),
+                GetTempoTraceById(),
+                GetLokiLogsByQuery()
             ],
             tags = [ToolsetTag.CORE, ]
         )

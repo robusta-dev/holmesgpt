@@ -2,7 +2,8 @@
 import logging
 import os
 import requests
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+import backoff
 
 def headers(api_key:str):
     return {
@@ -46,23 +47,31 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
             })
     return parsed_logs
 
+@backoff.on_exception(
+    backoff.expo,  # Exponential backoff
+    requests.exceptions.RequestException,  # Retry on request exceptions
+    max_tries=5,  # Maximum retries
+    giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response.status_code < 500,
+)
 def execute_loki_query(
-    loki_datasource_id:str,
+    loki_datasource_id: str,
     query: str,
     start: int,
     end: int,
-    limit: int) -> List[Dict]:
+    limit: int
+) -> List[Dict]:
     """
-    Execute a Loki query through Grafana
+    Execute a Loki query through Grafana with retry and backoff.
 
     Args:
-        query: Loki query string
-        start: Start of the time window to fetch the logs for. Epoch timestamp in seconds
-        end: End of the time window to fetch the logs for. Epoch timestamp in seconds
-        limit: Maximum number of log lines to return
+        loki_datasource_id: The ID of the Loki datasource.
+        query: Loki query string.
+        start: Start of the time window to fetch the logs for (Epoch timestamp in seconds).
+        end: End of the time window to fetch the logs for (Epoch timestamp in seconds).
+        limit: Maximum number of log lines to return.
 
     Returns:
-        List of log entries
+        List of log entries.
     """
 
     params = {
@@ -73,46 +82,75 @@ def execute_loki_query(
     }
 
     try:
-        (grafana_url, api_key) = get_connection_info()
+        grafana_url, api_key = get_connection_info()
         url = f'{grafana_url}/api/datasources/proxy/{loki_datasource_id}/loki/api/v1/query_range'
+        
+        logging.info(f"Sending request to Loki API: {url}")
+        logging.debug(f"Request Params: {params}")
+
         response = requests.get(
             url,
-            headers=headers(api_key=api_key),
-            params=params
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            params=params,
+            timeout=10  # Adding a timeout to prevent hanging
         )
+
         response.raise_for_status()
 
         result = response.json()
         if 'data' in result and 'result' in result['data']:
             return parse_loki_response(result['data']['result'])
+
+        logging.warning("No results found in Loki query response.")
         return []
 
     except requests.exceptions.RequestException as e:
+        logging.error(f"Error querying Loki API: {e}")
         raise Exception(f"Failed to query Loki logs: {str(e)}")
 
-def list_loki_datasources() -> List[Dict]:
+
+@backoff.on_exception(
+    backoff.expo,  # Exponential backoff
+    requests.exceptions.RequestException,  # Retry on request exceptions
+    max_tries=5,  # Maximum retries
+    giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response.status_code < 500,
+)
+def list_grafana_datasources(source_name: Optional[str] = None) -> List[Dict]:
     """
-    List all configured Loki datasources from a Grafana instance
+    List all configured datasources from a Grafana instance with retry and backoff.
+
+    Args:
+        source_name: Optional. Filter for datasources matching this type.
 
     Returns:
-        List of Loki datasource configurations
+        List of datasource configurations.
     """
     try:
-        (grafana_url, api_key) = get_connection_info()
-        response = requests.get(
-            f'{grafana_url}/api/datasources',
-            headers=headers(api_key=api_key)
-        )
+        grafana_url, api_key = get_connection_info()
+        url = f'{grafana_url}/api/datasources'
+        headers_ = headers(api_key=api_key)
+        
+        logging.info(f"Fetching datasources from: {url}")
+        response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
         response.raise_for_status()
+
         datasources = response.json()
+        if not source_name:
+            return datasources
 
-        loki_datasources = []
-        for ds in datasources:
+        relevant_datasources = [
+            ds for ds in datasources
+            if ds['type'].lower() == source_name.lower()
+        ]
+
+        for ds in relevant_datasources:
             logging.info(f"Found datasource: {ds['name']} (type: {ds['type']}, id: {ds['id']})")
-            if ds['type'].lower() == 'loki':
-                loki_datasources.append(ds)
 
-        return loki_datasources
+        return relevant_datasources
     except requests.exceptions.RequestException as e:
         raise Exception(f"Failed to list datasources: {str(e)}")
 
