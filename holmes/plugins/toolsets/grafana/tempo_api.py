@@ -195,8 +195,8 @@ def process_trace_json(trace_json):
         app_info = {
             "app_name": span_data["app_name"],
             "service_name": span_data["service_name"],
-            "elapsed_time_ms": span_data["elapsed_time_ms"],
-            "exclusive_time_ms": span_data["exclusive_time_ms"],
+            #"elapsed_time_ms": span_data["elapsed_time_ms"], # this confuses the llm
+            "elapsed_service_time_ms": span_data["exclusive_time_ms"],
             "start_time": span_data["start_time"],
             "end_time": span_data["end_time"],
             "loki_labels": span_data["loki_labels"]

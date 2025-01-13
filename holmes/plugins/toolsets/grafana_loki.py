@@ -1,7 +1,9 @@
 
 from typing import Any, Dict, Optional, Union
 from pydantic import BaseModel
+import logging
 import yaml
+import uuid
 import time
 from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
 from holmes.plugins.toolsets.grafana.tempo_api import query_tempo_traces_by_duration, query_tempo_trace_by_id
@@ -20,6 +22,15 @@ def get_param_or_raise(dict:Dict, param:str) -> Any:
     if not value:
         raise Exception(f'Missing param "{param}"')
     return value
+
+def get_datasource_id(dict:Dict, param:str):
+    datasource_id=get_param_or_raise(dict, param)
+    try:
+        if uuid.UUID(datasource_id, version=4):
+            return f"uid/{datasource_id}"
+    except ValueError:
+        return datasource_id
+
 
 class ListLokiDatasources(Tool):
 
@@ -58,7 +69,7 @@ class GetTempoTracesByMinDuration(Tool):
     def __init__(self):
         super().__init__(
             name="fetch_tempo_traces_by_min_duration",
-            description="""Fetches Tempo traces that exceed a specified minimum duration in a given time range""",
+            description="""Lists Tempo traces ids that exceed a specified minimum duration in a given time range""",
             parameters={
                 "tempo_datasource_id": ToolParameter(
                     description="The ID of the Tempo datasource to use. Call the tool list_grafana_datasources.",
@@ -91,7 +102,7 @@ class GetTempoTracesByMinDuration(Tool):
     def invoke(self, params: Dict) -> str:
         start, end = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         traces = query_tempo_traces_by_duration(
-            tempo_datasource_id=get_param_or_raise(params, "tempo_datasource_id"),
+            tempo_datasource_id=get_datasource_id(params, "tempo_datasource_id"),
             min_duration=get_param_or_raise(params, "min_duration"),
             start=start,
             end=end,
@@ -107,7 +118,7 @@ class GetTempoTraceById(Tool):
     def __init__(self):
         super().__init__(
             name="fetch_tempo_trace_by_id",
-            description="""Fetches a Tempo trace using its trace ID""",
+            description="""Retrieves detailed information about a Tempo trace using its trace ID. Use this to investigate a trace.""",
             parameters={
                 "tempo_datasource_id": ToolParameter(
                     description="The ID of the Tempo datasource to use. Call the tool list_grafana_datasources.",
@@ -123,8 +134,9 @@ class GetTempoTraceById(Tool):
         )
 
     def invoke(self, params: Dict) -> str:
+
         trace_data = query_tempo_trace_by_id(
-            tempo_datasource_id=get_param_or_raise(params, "tempo_datasource_id"),
+            tempo_datasource_id=get_datasource_id(params, "tempo_datasource_id"),
             trace_id=get_param_or_raise(params, "trace_id"),
         )
         return yaml.dump(trace_data)
@@ -188,7 +200,7 @@ class GetLokiLogsByNode(Tool):
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_node(
-            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
+            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             node_name=get_param_or_raise(params, "node_name"),
             node_name_search_key=self._config.node_name_search_key,
             start=start,
@@ -200,19 +212,24 @@ class GetLokiLogsByNode(Tool):
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
 
-class GetLokiLogsByQuery(Tool):
+class GetLokiLogsByLabel(Tool):
     def __init__(self):
         super().__init__(
-            name = "fetch_loki_logs_by_node",
-            description = """Fetches the Loki logs for a query""",
+            name = "fetch_loki_logs_by_label",
+            description = """Fetches the Loki logs for a label and value from a Tempo trace""",
             parameters = {
                 "loki_datasource_id": ToolParameter(
                     description="The id of the loki datasource to use. Call the tool list_loki_datasources",
                     type="string",
                     required=True,
                 ),
-                "query": ToolParameter(
-                    description="The query to run, must be in loki query format.",
+                "label": ToolParameter(
+                    description="The label for the query.",
+                    type="string",
+                    required=True,
+                ),
+                "value": ToolParameter(
+                    description="The value of the label.",
                     type="string",
                     required=True,
                 ),
@@ -236,9 +253,13 @@ class GetLokiLogsByQuery(Tool):
 
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
+        label=get_param_or_raise(params, "label")
+        value=get_param_or_raise(params, "value")
+        query = f'{{{label}="{value}"}}'
+        logging.warning(f"query {query}")
         logs = execute_loki_query(
-            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
-            query=get_param_or_raise(params, "query"),
+            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
+            query=query,
             start=start,
             end=end,
             limit=int(get_param_or_raise(params, "limit"))
@@ -293,7 +314,7 @@ class GetLokiLogsByPod(Tool):
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_pod(
-            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
+            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             pod_regex=get_param_or_raise(params, "pod_regex"),
             namespace=get_param_or_raise(params, "namespace"),
             namespace_search_key=self._config.namespace_search_key,
@@ -324,7 +345,7 @@ class GrafanaLokiToolset(Toolset):
                 ListAllDatasources(),
                 GetTempoTracesByMinDuration(),
                 GetTempoTraceById(),
-                GetLokiLogsByQuery()
+                GetLokiLogsByLabel()
             ],
             tags = [ToolsetTag.CORE, ]
         )
