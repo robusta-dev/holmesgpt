@@ -39,7 +39,6 @@ class MyCustomLLM(LLM):
 
 
 def ask_holmes():
-    console = Console()
 
     prompt = "what issues do I have in my cluster"
 

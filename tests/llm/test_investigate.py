@@ -33,7 +33,7 @@ class MockConfig(Config):
         self._test_case = test_case
 
     def create_tool_executor(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
+        self, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
 
         mock = MockToolsets(generate_mocks=self._test_case.generate_mocks, test_case_folder=self._test_case.folder)

@@ -14,6 +14,7 @@ from typing import Dict
 from pydantic import BaseModel
 from typing import Optional
 import yaml
+from holmes.core.perf_timing import PerfTiming
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -46,6 +47,7 @@ def load_python_toolsets(dal:Optional[SupabaseDal], grafana_config:GrafanaConfig
 
 
 def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:GrafanaConfig = GrafanaConfig()) -> List[Toolset]:
+    t = PerfTiming("load_builtin_toolsets")
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
@@ -53,6 +55,11 @@ def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:Grafa
             continue
         path = os.path.join(THIS_DIR, filename)
         all_toolsets.extend(load_toolsets_from_file(path))
+        t.measure(f"load_toolsets_from_file:{filename}")
+    t.measure("all:load_toolsets_from_file")
+    python_toolsets = load_python_toolsets(dal, grafana_config)
 
-    all_toolsets.extend(load_python_toolsets(dal, grafana_config))
+    t.measure("load_python_toolsets")
+    all_toolsets.extend(python_toolsets)
+    t.end()
     return all_toolsets

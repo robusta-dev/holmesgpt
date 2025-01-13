@@ -8,7 +8,6 @@ from typing import List, Optional
 
 from pydantic import FilePath, SecretStr, Field
 from pydash.arrays import concat
-from rich.console import Console
 
 
 from holmes.core.runbooks import RunbookManager
@@ -35,6 +34,7 @@ from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge
 from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
+from holmes.core.perf_timing import PerfTiming
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 
@@ -133,20 +133,18 @@ class Config(RobustaBaseConfig):
         return None
 
     def create_console_tool_executor(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
+        self, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
         Creates ToolExecutor for the cli
         """
         default_toolsets = [toolset for toolset in load_builtin_toolsets(dal, grafana_config=self.grafana) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
-
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
         else:
             matching_toolsets = get_matching_toolsets(
                 default_toolsets, allowed_toolsets.split(",")
             )
-
         # Enable all matching toolsets that have CORE or CLI tag
         for toolset in matching_toolsets:
             toolset.enabled = True
@@ -184,17 +182,20 @@ class Config(RobustaBaseConfig):
         return ToolExecutor(enabled_toolsets)
 
     def create_tool_executor(
-        self, console: Console, dal:Optional[SupabaseDal]
+        self, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
+        t = PerfTiming("create_tool_executor")
         """
         Creates ToolExecutor for the server endpoints
         """
 
         all_toolsets = load_builtin_toolsets(dal=dal, grafana_config=self.grafana)
+        t.measure("load_builtin_toolsets")
 
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             try:
                 all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION, silent_fail=True))
+                t.measure(f"load_toolsets_from_file {CUSTOM_TOOLSET_LOCATION}")
             except Exception as error:
                 logging.error(f"An error happened while trying to use custom toolset: {error}")
 
@@ -203,12 +204,16 @@ class Config(RobustaBaseConfig):
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
-        return ToolExecutor(enabled_toolsets)
+        t.measure("merge toolsets")
+        tool_executor = ToolExecutor(enabled_toolsets)
+        t.measure("instantiate ToolExecutor")
+        t.end()
+        return tool_executor
 
     def create_console_toolcalling_llm(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
+        self, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -216,9 +221,12 @@ class Config(RobustaBaseConfig):
         )
 
     def create_toolcalling_llm(
-        self, console: Console,  dal:Optional[SupabaseDal] = None
+        self, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_tool_executor(console, dal)
+        t = PerfTiming("create_toolcalling_llm")
+        tool_executor = self.create_tool_executor(dal)
+        t.measure("create_tool_executor")
+        t.end()
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -227,25 +235,31 @@ class Config(RobustaBaseConfig):
 
     def create_issue_investigator(
         self,
-        console: Console,
         dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
+        t = PerfTiming("create_issue_investigator")
         all_runbooks = load_builtin_runbooks()
+        t.measure("load_builtin_runbooks")
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
+        t.measure("custom_runbooks -> load_runbooks_from_file")
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_tool_executor(console, dal)
-        return IssueInvestigator(
+        t.measure("RunbookManager()")
+        tool_executor = self.create_tool_executor(dal)
+        t.measure("create_tool_executor")
+        issue_investigator = IssueInvestigator(
             tool_executor,
             runbook_manager,
             self.max_steps,
             self._get_llm()
         )
+        t.measure("IssueInvestigator()")
+        t.end()
+        return issue_investigator
 
     def create_console_issue_investigator(
         self,
-        console: Console,
         allowed_toolsets: ToolsetPattern,
         dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
@@ -254,7 +268,7 @@ class Config(RobustaBaseConfig):
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,

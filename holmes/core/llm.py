@@ -10,7 +10,16 @@ from holmes.core.tools import Tool
 from pydantic import BaseModel
 import litellm
 import os
+import sys
+import json
+import sys
+from types import ModuleType, FunctionType
+from gc import get_referents
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
+
+from types import ModuleType, FunctionType
+from gc import get_referents
+from holmes.core.perf_timing import PerfTiming, log_function_timing
 
 
 def environ_get_safe_int(env_var, default="0"):
@@ -21,6 +30,10 @@ def environ_get_safe_int(env_var, default="0"):
 
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
+
+cache = dict()
+cache_hit = 0
+cache_miss = 0
 
 class LLM:
 
@@ -40,6 +53,32 @@ class LLM:
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         pass
 
+def hash_messages(messages:Any) -> int:
+    return hash(json.dumps(messages, sort_keys=True))
+
+
+# Custom objects know their class.
+# Function objects seem to know way too much, including modules.
+# Exclude modules as well.
+BLACKLIST = type, ModuleType, FunctionType
+
+
+def getsize(obj):
+    """sum size of object & members."""
+    if isinstance(obj, BLACKLIST):
+        raise TypeError('getsize() does not take argument of type: '+ str(type(obj)))
+    seen_ids = set()
+    size = 0
+    objects = [obj]
+    while objects:
+        need_referents = []
+        for obj in objects:
+            if not isinstance(obj, BLACKLIST) and id(obj) not in seen_ids:
+                seen_ids.add(id(obj))
+                size += sys.getsizeof(obj)
+                need_referents.append(obj)
+        objects = get_referents(*need_referents)
+    return size
 
 class DefaultLLM(LLM):
 
@@ -100,12 +139,12 @@ class DefaultLLM(LLM):
                             "https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces"
                 )
         else:
-            # 
+            #
             api_key_env_var = f"{provider.upper()}_API_KEY"
             if api_key:
                 os.environ[api_key_env_var] = api_key
             model_requirements = litellm.validate_environment(model=model)
-        
+
         if not model_requirements["keys_in_environment"]:
             raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
 
@@ -146,7 +185,24 @@ class DefaultLLM(LLM):
         return litellm.token_counter(model=self.model,
                                         messages=messages)
 
+    @log_function_timing
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+        # hash_val = hash_messages(messages)
+        # global cache
+        # global cache_hit
+        # global cache_miss
+        # cache_value = None
+        # if hash_val in cache:
+        #     cache_hit = cache_hit + 1
+        #     cache_value = cache.get(hash_val)
+        # else:
+        #     cache_miss = cache_miss + 1
+
+        # print(f"(*)(*) cache hit rate = {round(cache_hit/(cache_hit+cache_miss)*100)}%. cvache size = {round(getsize(cache)/1024)}MB")
+
+        # if cache_value:
+        #     return cache_value
+        t = PerfTiming("llm.completion")
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
@@ -158,7 +214,8 @@ class DefaultLLM(LLM):
             response_format=response_format,
             drop_params=drop_params
         )
-
+        t.end()
+        # cache[hash_val] = result
         if isinstance(result, ModelResponse):
             return result
         else:

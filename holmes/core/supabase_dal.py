@@ -60,6 +60,7 @@ class SupabaseDal:
             return
         logging.info(f"Initializing robusta store for account {self.account_id}")
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
+
         self.client = create_client(self.url, self.api_key, options)
         self.user_id = self.sign_in()
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
@@ -244,7 +245,7 @@ class SupabaseDal:
             self.client
             .table(RUNBOOKS_TABLE)
             .select("runbook")
-            .eq("account_id", self.account_id)  
+            .eq("account_id", self.account_id)
             .eq("subject_type", "Account")
             .execute()
         )
@@ -254,7 +255,7 @@ class SupabaseDal:
                 return Instructions(instructions=instructions)
         except Exception:
             logging.exception("Failed to fetch global instructions", exc_info=True)
-        
+
         return None
 
     def create_session_token(self) -> str:
@@ -344,18 +345,18 @@ class SupabaseDal:
                 .execute()
             )
         except Exception as error:
-            logging.error(f"Error happened during upserting holmes status: {error}", 
+            logging.error(f"Error happened during upserting holmes status: {error}",
                           exc_info=True)
 
         return None
-    
+
     def sync_toolsets(self, toolsets: list[dict], cluster_name: str) -> None:
         if not toolsets:
             logging.warning("No toolsets were provided for synchronization.")
             return
-        
+
         provided_toolset_names = [toolset['toolset_name'] for toolset in toolsets]
-   
+
         try:
             self.client.table(HOLMES_TOOLSET).upsert(
                 toolsets,
@@ -364,8 +365,8 @@ class SupabaseDal:
 
             logging.info("Toolsets upserted successfully.")
 
-            
-            self.client.table(HOLMES_TOOLSET).delete().eq("account_id", 
+
+            self.client.table(HOLMES_TOOLSET).delete().eq("account_id",
                                                                        self.account_id).eq(
                                                                            'cluster_id', cluster_name).not_.in_(
                 'toolset_name', provided_toolset_names

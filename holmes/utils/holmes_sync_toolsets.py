@@ -8,18 +8,18 @@ from holmes.core.tools import ToolsetYamlFromConfig, ToolsetDBModel, YAMLToolset
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 import logging
-from datetime import datetime 
+from datetime import datetime
 
 
 def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
     """
     Loads toolsets config from /etc/holmes/config/custom_toolset.yaml with ToolsetYamlFromConfig class
-    that doesn't have strict validations. 
+    that doesn't have strict validations.
     Example configuration:
 
     kubernetes/logs:
         enabled: false
-  
+
     test/configurations:
         enabled: true
         icon_url: "example.com"
@@ -55,13 +55,13 @@ def merge_and_override_bultin_toolsets_with_toolsets_config(
     default_toolsets_by_name: dict[str, YAMLToolset],
 ) -> dict[str, YAMLToolset]:
     """
-    Merges and overrides default_toolsets_by_name with custom 
+    Merges and overrides default_toolsets_by_name with custom
     config from /etc/holmes/config/custom_toolset.yaml
     """
     toolsets_with_updated_statuses = {
         toolset.name: toolset for toolset in default_toolsets_by_name.values()
     }
-    
+
     for toolset in toolsets_loaded_from_config:
         if toolset.name in toolsets_with_updated_statuses.keys():
             toolsets_with_updated_statuses[toolset.name].override_with(toolset)
@@ -73,7 +73,7 @@ def merge_and_override_bultin_toolsets_with_toolsets_config(
                 logging.error(
                     f"Toolset '{toolset.name}' is invalid: {error} ", exc_info=True
                 )
-    
+
     return toolsets_with_updated_statuses
 
 
@@ -99,15 +99,14 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
     # we check every toolset and save to local config toolsets which have passed the checks
     # before we try to upsert anything to db
     for toolset in toolsets_for_sync_by_name.values():
-        if toolset.enabled:
-            toolset.check_prerequisites()
-    
+        toolset.check_prerequisites()
+
     config.enabled_toolsets_names = [toolset.name for toolset in toolsets_for_sync_by_name.values() if toolset.get_status() == ToolsetStatusEnum.ENABLED]
 
     if not config.cluster_name:
         raise Exception("Cluster name is missing in the configuration. Please ensure 'CLUSTER_NAME' is defined in the environment variables, "
         "or verify that a cluster name is provided in the Robusta configuration file.")
-    
+
     db_toolsets = []
     updated_at = datetime.now().isoformat()
     for toolset in toolsets_for_sync_by_name.values():

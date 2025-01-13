@@ -1,4 +1,5 @@
 
+from typing import Optional
 from rich.console import Console
 from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
@@ -6,26 +7,33 @@ from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.robusta import load_robusta_api_key
+from holmes.core.perf_timing import PerfTiming
 
 
-def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config, console:Console):
+def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config, console:Optional[Console] = None):
+    t = PerfTiming("investigate_issues")
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(
         investigate_request.context.get("robusta_issue_id")
     )
+    t.measure("get_issue_data")
 
     resource_instructions = dal.get_resource_instructions(
         "alert", investigate_request.context.get("issue_type")
     )
+    t.measure("dal.get_resource_instructions")
     global_instructions = dal.get_global_instructions_for_account()
+    t.measure("dal.get_global_instructions_for_account")
 
     raw_data = investigate_request.model_dump()
+    t.measure("investigate_request.model_dump")
     if context:
         raw_data["extra_context"] = context
 
     ai = config.create_issue_investigator(
-        console, dal=dal
+        dal=dal
     )
+    t.measure("config.create_issue_investigator")
     issue = Issue(
         id=context["id"] if context else "",
         name=investigate_request.title,
@@ -42,7 +50,8 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         instructions=resource_instructions,
         global_instructions=global_instructions
     )
-
+    t.measure("ai.investigate")
+    t.end()
     return InvestigationResult(
         analysis=investigation.result,
         tool_calls=investigation.tool_calls or [],

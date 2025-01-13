@@ -180,4 +180,3 @@ class GrafanaLokiToolset(Toolset):
             ],
             tags = [ToolsetTag.CORE, ]
         )
-        self.check_prerequisites()

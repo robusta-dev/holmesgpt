@@ -20,6 +20,7 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 
+from holmes.core.perf_timing import PerfTiming
 
 class ToolCallResult(BaseModel):
     tool_call_id: str
@@ -102,11 +103,14 @@ class ToolCallingLLM:
         response_format: dict = None,
         user_prompt: Optional[str] = None,
     ) -> LLMResult:
-
+        perf_timing = PerfTiming("tool_calling_llm.call")
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
+        perf_timing.measure("tool_executor.get_all_tools_openai_format")
+        if len(tools) < 1:
+            tools = NOT_GIVEN
         for i in range(self.max_steps):
-            logging.debug(f"running iteration {i}")
+            logging.info(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
             tools = NOT_GIVEN if i == self.max_steps - 1 else tools
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
@@ -114,12 +118,13 @@ class ToolCallingLLM:
             total_tokens = self.llm.count_tokens_for_message(messages)
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
-
+            perf_timing.measure("llm count tokens")
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -131,6 +136,7 @@ class ToolCallingLLM:
                     response_format=response_format,
                     drop_params=True,
                 )
+                perf_timing.measure("llm.completion")
                 logging.debug(f"got response {full_response.to_json()}")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
@@ -165,6 +171,8 @@ class ToolCallingLLM:
                         user_prompt=post_process_prompt,
                     )
 
+                    perf_timing.measure("_post_processing_call")
+                    perf_timing.end()
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -172,7 +180,7 @@ class ToolCallingLLM:
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
                     )
-
+                perf_timing.end()
                 return LLMResult(
                     result=response_message.content,
                     tool_calls=tool_calls,
@@ -196,10 +204,14 @@ class ToolCallingLLM:
                             "content": tool_call_result.result,
                         }
                     )
+                    perf_timing.measure(f"tool_call({tool_call_result.tool_name}/{tool_call_result.tool_call_id})")
+
+            perf_timing.measure(f"iteration {i}")
 
     def _invoke_tool(
         self, tool_to_call: ChatCompletionMessageToolCall
     ) -> ToolCallResult:
+        t = PerfTiming("tool_calling_llm.invoke_tool")
         tool_name = tool_to_call.function.name
         tool_params = None
         try:
@@ -208,14 +220,16 @@ class ToolCallingLLM:
             logging.warning(
                 f"Failed to parse arguments for tool: {tool_name}. args: {tool_to_call.function.arguments}"
             )
-
+        t.measure("json.loads")
         tool_call_id = tool_to_call.id
         tool = self.tool_executor.get_tool_by_name(tool_name)
 
+        t.measure("tool_executor.get_tool_by_name")
         if (not tool) or (tool_params is None):
             logging.warning(
                 f"Skipping tool execution for {tool_name}: args: {tool_to_call.function.arguments}"
             )
+            t.end()
             return ToolCallResult(
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,
@@ -224,7 +238,8 @@ class ToolCallingLLM:
             )
 
         tool_response = tool.invoke(tool_params)
-
+        t.measure("tool.invoke")
+        t.end()
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -331,26 +346,27 @@ class IssueInvestigator(ToolCallingLLM):
         self,
         issue: Issue,
         prompt: str,
-        console: Console,
         instructions: Optional[ResourceInstructions],
+        console: Optional[Console] = None,
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
+        t = PerfTiming("tool_Calling_llm.investigate")
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
-
+        t.measure("runbook_manager.get_instructions_for_issue")
         if instructions != None and instructions.instructions:
             runbooks.extend(instructions.instructions)
 
-        if runbooks:
+        if console and runbooks:
             console.print(
                 f"[bold]Analyzing with {len(runbooks)} runbooks: {runbooks}[/bold]"
             )
-        else:
+        elif console:
             console.print(
-                f"[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
+                "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
         system_prompt = load_and_render_prompt(prompt, {"issue": issue})
-
+        t.measure("load_and_render_prompt")
         if instructions != None and len(instructions.documents) > 0:
             docPrompts = []
             for document in instructions.documents:
@@ -359,16 +375,17 @@ class IssueInvestigator(ToolCallingLLM):
                 )
             runbooks.extend(docPrompts)
 
+        t.measure("extend runbooks")
         user_prompt = ""
         if runbooks:
             for runbook_str in runbooks:
                 user_prompt += f"* {runbook_str}\n"
 
             user_prompt = f'My instructions to check \n"""{user_prompt}"""'
-        
+
         if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
             user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
-        
+
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
 
         logging.debug(
@@ -376,6 +393,9 @@ class IssueInvestigator(ToolCallingLLM):
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
 
+        t.measure("built prompts")
         res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt)
+        t.measure("prompt_call")
         res.instructions = runbooks
+        t.end()
         return res

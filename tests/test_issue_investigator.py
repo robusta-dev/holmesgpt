@@ -29,9 +29,7 @@ def _test_investigate_issue_using_fetch_webpage():
     )
     console = Console()
     config = Config.load_from_env()
-    ai = config.create_issue_investigator(
-        console, allowed_toolsets='*'
-    )
+    ai = config.create_issue_investigator()
 
     issue = Issue(
         id="",
@@ -70,11 +68,8 @@ def _test_investigate_issue_without_fetch_webpage():
         instructions=[],
         documents=[]
     )
-    console = Console()
     config = Config.load_from_env()
-    ai = config.create_issue_investigator(
-        console, allowed_toolsets='*'
-    )
+    ai = config.create_issue_investigator()
 
     issue = Issue(
         id="",
@@ -87,7 +82,6 @@ def _test_investigate_issue_without_fetch_webpage():
     investigation = ai.investigate(
         issue=issue,
         prompt=investigate_request.prompt_template,
-        console=console,
         post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
         instructions=resource_instructions,
     )
