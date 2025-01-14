@@ -16,6 +16,7 @@ import logging
 import uvicorn
 import colorlog
 import time
+import sys
 
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
@@ -144,14 +145,40 @@ def log_memory_diff(base_snapshot):
     top_stats = snapshot.compare_to(base_snapshot, 'lineno')
 
     print(f"(*)(*)(*)(*) {id}")
-    for stat in top_stats[:10]:
-        print(f"(*)(*)(*)(*) ({id}) {stat}")
+    cnt = 0
+    i = 0
+    while cnt < 10:
+        stat = top_stats[i]
+        i = i+1
+        stat_str = str(stat)
+        if not stat_str.startswith("/usr/local/lib/python3.11/tracemalloc.py"):
+            print(f"(*)(*)(*)(*) ({id}) {stat}")
+            cnt = cnt + 1
+    # for stat in top_stats[:10]:
+    #     print(f"(*)(*)(*)(*) ({id}) {stat}")
     print(f"(*)(*)(*)(*) {id} END")
     print(f"(*)(*)(*) MEM={psutil.Process().memory_info().rss / 1024 ** 2}MB")
+
+# class LeakyObject:
+#     def __init__(self):
+#         # Create a larger object (1KB of data)
+#         self.data = b'x' * 1024
+# memory_leak = []
+
+# def leaky_function():
+#     # Create a 1-byte object and store it in our global list
+#     memory_leak.append(LeakyObject())
+
+#     # Calculate current memory usage
+#     memory_usage = sys.getsizeof(memory_leak) + sum(sys.getsizeof(item) for item in memory_leak)
+
+#     # Print status
+#     logging.info(f"Leak count: {len(memory_leak)}. Approximate memory usage: {memory_usage} bytes")
 
 base_workload_health_check_snapshot = None
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
+    logging.info(request)
     global base_workload_health_check_snapshot
 
     if not base_workload_health_check_snapshot:
@@ -159,6 +186,10 @@ def workload_health_check(request: WorkloadHealthRequest):
 
     load_robusta_api_key(dal=dal, config=config)
     try:
+        # leaky_function()
+        # return {
+        #     "hello": "world"
+        # }
         resource = request.resource
         workload_alerts: list[str] = []
         if request.alert_history:
@@ -222,6 +253,7 @@ def issue_conversation_deprecated(conversation_request: ConversationRequest):
 
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
+    print(f"** ** ** ** ** {issue_chat_request}")
     try:
         load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(dal=dal)

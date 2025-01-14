@@ -13,6 +13,7 @@ import os
 import sys
 import json
 import sys
+import copy
 from types import ModuleType, FunctionType
 from gc import get_referents
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
@@ -187,24 +188,24 @@ class DefaultLLM(LLM):
 
     @log_function_timing
     def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
-        # hash_val = hash_messages(messages)
-        # global cache
-        # global cache_hit
-        # global cache_miss
-        # cache_value = None
-        # if hash_val in cache:
-        #     cache_hit = cache_hit + 1
-        #     cache_value = cache.get(hash_val)
-        # else:
-        #     cache_miss = cache_miss + 1
+        hash_val = hash_messages(len(messages))
+        global cache
+        global cache_hit
+        global cache_miss
+        cache_value = None
+        if hash_val in cache:
+            cache_hit = cache_hit + 1
+            cache_value = cache.get(hash_val)
+        else:
+            cache_miss = cache_miss + 1
 
-        # print(f"(*)(*) cache hit rate = {round(cache_hit/(cache_hit+cache_miss)*100)}%. cvache size = {round(getsize(cache)/1024)}MB")
+        print(f"(*)(*) cache hit rate = {round(cache_hit/(cache_hit+cache_miss)*100)}%: hit={cache_hit}, miss={cache_miss}, total={cache_hit+cache_miss}). cache size = {round(getsize(cache)/(1024**2))}MB")
 
-        # if cache_value:
-        #     return cache_value
+        if cache_value:
+            return copy.deepcopy(cache_value)
         t = PerfTiming("llm.completion")
         result = litellm.completion(
-            model=self.model,
+            model="gpt-4o-mini",
             api_key=self.api_key,
             messages=messages,
             tools=tools,
@@ -215,7 +216,7 @@ class DefaultLLM(LLM):
             drop_params=drop_params
         )
         t.end()
-        # cache[hash_val] = result
+        cache[hash_val] = result
         if isinstance(result, ModelResponse):
             return result
         else:
