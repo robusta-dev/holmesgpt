@@ -80,7 +80,7 @@ class ReadIndex(Tool):
         super().__init__(
             name="opensearch_read_index",
             description=(
-                "Fetch documents from an OpenSearch index. Optionally filter by time range and specify a larger limit."
+                "Fetch documents (or \"Logs\") from an OpenSearch index. Optionally filter by time range and specify a larger limit."
             ),
             parameters={
                 "host": ToolParameter(
