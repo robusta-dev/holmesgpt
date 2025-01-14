@@ -100,12 +100,12 @@ class DefaultLLM(LLM):
                             "https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces"
                 )
         else:
-            # 
+            #
             api_key_env_var = f"{provider.upper()}_API_KEY"
             if api_key:
                 os.environ[api_key_env_var] = api_key
             model_requirements = litellm.validate_environment(model=model)
-        
+
         if not model_requirements["keys_in_environment"]:
             raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
 
