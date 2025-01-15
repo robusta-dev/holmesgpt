@@ -7,9 +7,10 @@ class OpenSearchClient:
     def __init__(self, **kwargs):
         
         # Handle http_auth explicitly
-        http_auth = kwargs.pop("http_auth")
-        if isinstance(http_auth, dict):
-            kwargs["http_auth"] = (http_auth.get("username"), http_auth.get("password"))
+        if "http_auth" in kwargs:
+            http_auth = kwargs.pop("http_auth")
+            if isinstance(http_auth, dict):
+                kwargs["http_auth"] = (http_auth.get("username"), http_auth.get("password"))
         # Initialize OpenSearch client
         self.client = OpenSearch(**kwargs)
 

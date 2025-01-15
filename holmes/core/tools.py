@@ -5,7 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union, Any
 from enum import Enum
 from datetime import datetime
 
@@ -412,6 +412,7 @@ class ToolsetYamlFromConfig(Toolset):
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
+    config: Optional[Any] = None
 
 
 class ToolsetDBModel(BaseModel):

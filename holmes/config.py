@@ -34,7 +34,7 @@ from holmes.plugins.toolsets import (load_builtin_toolsets,
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
-from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
+from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config, extract_config_from_custom_toolsets_config
 from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
@@ -113,13 +113,15 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
             kwargs["cluster_name"] = Config.__get_cluster_name()
-            try:
-                if os.path.exists(DEFAULT_CONFIG_LOCATION):
-                    logging.info(f"Loading config from file with {len(kwargs)} addional params from env")
-                    return cls.load_from_file(config_file=DEFAULT_CONFIG_LOCATION, **kwargs)
-            except:
-                logging.exception("Failed to load config from secret, falling back to loading config from env vars")
-        return cls(**kwargs)
+        configs = extract_config_from_custom_toolsets_config()
+        combined = {}
+        for item in configs:
+            if isinstance(item, dict):
+                for key, value in item.items():
+                    combined[key] = value
+        combined.update(kwargs)
+        logging.warning(combined)
+        return cls(**combined)
     
     @staticmethod
     def __get_cluster_name() -> Optional[str]:
