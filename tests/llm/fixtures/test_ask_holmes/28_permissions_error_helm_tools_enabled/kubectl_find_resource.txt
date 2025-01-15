@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"MyResource","keyword":"my-resource-instance"}}
+Command `kubectl get -A --show-labels -o wide MyResource | grep my-resource-instance` failed with return code 1
+stdout:
+
+stderr:
+Error from server (Forbidden): myresources.example.com is forbidden: User "system:serviceaccount:default:robusta-holmes-service-account" cannot list resource "myresources" in API group "example.com" at the cluster scope

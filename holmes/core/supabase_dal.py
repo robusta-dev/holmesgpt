@@ -1,4 +1,5 @@
 import base64
+import binascii
 import json
 import logging
 import os
@@ -7,7 +8,11 @@ from typing import Dict, Optional, List, Tuple
 from uuid import uuid4
 
 import yaml
-from holmes.core.tool_calling_llm import ResourceInstructionDocument, ResourceInstructions, Instructions
+from holmes.core.tool_calling_llm import (
+    ResourceInstructionDocument,
+    ResourceInstructions,
+    Instructions,
+)
 from holmes.utils.definitions import RobustaConfig
 from postgrest.types import ReturnMethod
 from supabase import create_client
@@ -17,8 +22,14 @@ from cachetools import TTLCache
 from postgrest._sync.request_builder import SyncQueryRequestBuilder
 from postgrest.exceptions import APIError as PGAPIError
 
-from holmes.common.env_vars import (ROBUSTA_CONFIG_PATH, ROBUSTA_ACCOUNT_ID, STORE_URL, STORE_API_KEY, STORE_EMAIL,
-                                    STORE_PASSWORD)
+from holmes.common.env_vars import (
+    ROBUSTA_CONFIG_PATH,
+    ROBUSTA_ACCOUNT_ID,
+    STORE_URL,
+    STORE_API_KEY,
+    STORE_EMAIL,
+    STORE_PASSWORD,
+)
 
 from datetime import datetime, timedelta
 
@@ -83,7 +94,17 @@ class SupabaseDal:
         env_ui_token = os.environ.get("ROBUSTA_UI_TOKEN")
         if env_ui_token:
             # token provided as env var
-            return RobustaToken(**json.loads(base64.b64decode(env_ui_token)))
+            try:
+                decoded = base64.b64decode(env_ui_token)
+                return RobustaToken(**json.loads(decoded))
+            except binascii.Error:
+                raise Exception(
+                    f"binascii.Error encountered. The Robusta UI token is not a valid base64."
+                )
+            except json.JSONDecodeError:
+                raise Exception(
+                    f"json.JSONDecodeError encountered. The Robusta UI token could not be parsed as JSON after being base64 decoded."
+                )
 
         if not os.path.exists(config_file_path):
             logging.info(f"No robusta config in {config_file_path}")
@@ -96,8 +117,31 @@ class SupabaseDal:
             for conf in config.sinks_config:
                 if "robusta_sink" in conf.keys():
                     token = conf["robusta_sink"].get("token")
-                    return RobustaToken(**json.loads(base64.b64decode(token)))
-
+                    if not token:
+                        raise Exception(
+                            f"No token provided in robusta_sink. "
+                            f"Please set a valid Robusta UI token. "
+                            f"See https://docs.robusta.dev/master/configuration/sinks/RobustaUI.html#configuring-the-robusta-ui-sink for instructions."
+                        )
+                    if "{{" in token:
+                        raise ValueError(
+                            f"The token appears to be a templating placeholder (e.g. `{{ env.UI_SINK_TOKEN }}`). "
+                            f"Ensure your Helm chart or environment variables are set correctly. "
+                            f"If you store the token in a secret, you must also pass "
+                            f"the environment variable ROBUSTA_UI_TOKEN to Holmes. "
+                            f"See https://docs.robusta.dev/master/configuration/ai-analysis.html#configuring-holmesgpt-access-to-saas-data for instructions."
+                        )
+                    try:
+                        decoded = base64.b64decode(token)
+                        return RobustaToken(**json.loads(decoded))
+                    except binascii.Error:
+                        raise Exception(
+                            f"binascii.Error encountered. The Robusta UI token is not a valid base64."
+                        )
+                    except json.JSONDecodeError:
+                        raise Exception(
+                            f"json.JSONDecodeError encountered. The Robusta UI token could not be parsed as JSON after being base64 decoded."
+                        )
         return None
 
     def __init_config(self) -> bool:

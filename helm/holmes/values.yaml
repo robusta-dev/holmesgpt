@@ -20,6 +20,8 @@ enablePostProcessing: false
 postProcessingPrompt: "builtin://generic_post_processing.jinja2"
 openshift: false
 
+affinity: {}
+
 tolerations: []
 
 serviceAccount:

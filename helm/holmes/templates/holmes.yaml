@@ -24,6 +24,9 @@ spec:
       imagePullSecrets:
       {{- toYaml .Values.imagePullSecrets | nindent 6 }}
       {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
       containers:
       - name: holmes
         image: "{{ .Values.registry }}/{{ .Values.image }}"

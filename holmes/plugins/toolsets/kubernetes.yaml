@@ -125,7 +125,12 @@ toolsets:
               }
               print namespace, name, sum_memory(requests) " Mi";
             }' | sort -k3 -nr
-
+      
+      - name: "kubernetes_jq_query"
+        description: > 
+          Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
+        command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
+    
 
     # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic
     # http GET capabilities which are more powerful than we want to expose
