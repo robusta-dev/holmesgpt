@@ -1,29 +1,10 @@
 
 import logging
-import os
 import requests
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 import backoff
 
-def headers(api_key:str):
-    return {
-        'Authorization': f'Bearer {api_key}',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-    }
-
-GRAFANA_URL_ENV_NAME = "GRAFANA_URL"
-GRAFANA_API_KEY_ENV_NAME = "GRAFANA_API_KEY"
-
-def get_connection_info() -> Tuple[str, str]:
-
-    grafana_url = os.environ.get(GRAFANA_URL_ENV_NAME)
-    if not grafana_url:
-        raise Exception(f'Missing env var {GRAFANA_URL_ENV_NAME}')
-    api_key = os.environ.get(GRAFANA_API_KEY_ENV_NAME)
-    if not api_key:
-        raise Exception(f'Missing env var {GRAFANA_API_KEY_ENV_NAME}')
-    return (grafana_url, api_key)
+from holmes.plugins.toolsets.grafana.common import headers
 
 def parse_loki_response(results: List[Dict]) -> List[Dict]:
     """
@@ -54,6 +35,8 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response.status_code < 500,
 )
 def execute_loki_query(
+    grafana_url:str,
+    api_key: str,
     loki_datasource_id: str,
     query: str,
     start: int,
@@ -82,7 +65,6 @@ def execute_loki_query(
     }
 
     try:
-        (grafana_url, api_key) = get_connection_info()
         url = f'{grafana_url}/api/datasources/proxy/{loki_datasource_id}/loki/api/v1/query_range'
         response = requests.get(
             url,
@@ -106,7 +88,7 @@ def execute_loki_query(
     max_tries=5,  # Maximum retries
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response.status_code < 500,
 )
-def list_grafana_datasources(source_name: Optional[str] = None) -> List[Dict]:
+def list_grafana_datasources(grafana_url:str, api_key: str, source_name: Optional[str] = None) -> List[Dict]:
     """
     List all configured datasources from a Grafana instance with retry and backoff.
 
@@ -117,10 +99,9 @@ def list_grafana_datasources(source_name: Optional[str] = None) -> List[Dict]:
         List of datasource configurations.
     """
     try:
-        grafana_url, api_key = get_connection_info()
         url = f'{grafana_url}/api/datasources'
         headers_ = headers(api_key=api_key)
-        
+
         logging.info(f"Fetching datasources from: {url}")
         response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
         response.raise_for_status()
@@ -142,6 +123,8 @@ def list_grafana_datasources(source_name: Optional[str] = None) -> List[Dict]:
         raise Exception(f"Failed to list datasources: {str(e)}")
 
 def query_loki_logs_by_node(
+    grafana_url:str,
+    api_key: str,
     loki_datasource_id:str,
     node_name: str,
     start: int,
@@ -164,6 +147,8 @@ def query_loki_logs_by_node(
     query = f'{{{node_name_search_key}="{node_name}"}}'
 
     return execute_loki_query(
+        grafana_url=grafana_url,
+        api_key=api_key,
         loki_datasource_id=loki_datasource_id,
         query=query,
         start=start,
@@ -171,6 +156,8 @@ def query_loki_logs_by_node(
         limit=limit)
 
 def query_loki_logs_by_pod(
+    grafana_url:str,
+    api_key: str,
     loki_datasource_id:str,
     namespace: str,
     pod_regex: str,
@@ -195,6 +182,8 @@ def query_loki_logs_by_pod(
 
     query = f'{{{namespace_search_key}="{namespace}", {pod_name_search_key}=~"{pod_regex}"}}'
     return execute_loki_query(
+        grafana_url=grafana_url,
+        api_key=api_key,
         loki_datasource_id=loki_datasource_id,
         query=query,
         start=start,

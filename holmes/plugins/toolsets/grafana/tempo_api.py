@@ -1,35 +1,15 @@
-import logging
-import os
+
 import requests
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import backoff
 
-# Constants for environment variables
-GRAFANA_URL_ENV_NAME = "GRAFANA_URL"
-GRAFANA_API_KEY_ENV_NAME = "GRAFANA_API_KEY"
-
-def headers(api_key: str):
-    return {
-        'Authorization': f'Bearer {api_key}',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-    }
-
-def get_connection_info() -> Tuple[str, str]:
-    """
-    Retrieves Grafana connection details from environment variables.
-    """
-    grafana_url = os.environ.get(GRAFANA_URL_ENV_NAME)
-    if not grafana_url:
-        raise Exception(f'Missing env var {GRAFANA_URL_ENV_NAME}')
-    api_key = os.environ.get(GRAFANA_API_KEY_ENV_NAME)
-    if not api_key:
-        raise Exception(f'Missing env var {GRAFANA_API_KEY_ENV_NAME}')
-    return grafana_url, api_key
-
-
-
-def execute_tempo_query_with_retry(tempo_datasource_id: str, query_params: dict, retries: int = 3, timeout: int = 5):
+def execute_tempo_query_with_retry(
+    grafana_url:str,
+    api_key: str,
+    tempo_datasource_id: str,
+    query_params: dict,
+    retries: int = 3,
+    timeout: int = 5):
     """
     Execute a Tempo API query through Grafana with retries and timeout.
 
@@ -42,7 +22,6 @@ def execute_tempo_query_with_retry(tempo_datasource_id: str, query_params: dict,
     Returns:
         List of trace results.
     """
-    grafana_url, api_key = get_connection_info()
     url = f'{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/search'
 
     @backoff.on_exception(
@@ -72,6 +51,8 @@ def execute_tempo_query_with_retry(tempo_datasource_id: str, query_params: dict,
 
 
 def query_tempo_traces_by_duration(
+    grafana_url:str,
+    api_key: str,
     tempo_datasource_id: str,
     min_duration: str,
     start: int,
@@ -93,14 +74,16 @@ def query_tempo_traces_by_duration(
     """
     query_params = {
         "minDuration": min_duration,
-        "start": str(start), 
+        "start": str(start),
         "end": str(end),
         "limit": str(limit),
     }
-    return execute_tempo_query_with_retry(tempo_datasource_id, query_params)
+    return execute_tempo_query_with_retry(grafana_url, api_key, tempo_datasource_id, query_params)
 
 
 def query_tempo_trace_by_id(
+    grafana_url:str,
+    api_key: str,
     tempo_datasource_id: str,
     trace_id: str,
     retries: int = 3,
@@ -118,7 +101,6 @@ def query_tempo_trace_by_id(
     Returns:
         Trace details.
     """
-    grafana_url, api_key = get_connection_info()
     url = f'{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/traces/{trace_id}'
 
     @backoff.on_exception(
@@ -211,4 +193,3 @@ def process_trace_json(trace_json):
         result["total_elapsed_time_ms"] = root_span["elapsed_time_ms"]
 
     return result
-

@@ -5,23 +5,20 @@ from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
-from holmes.plugins.toolsets.grafana_loki import GrafanaConfig, GrafanaLokiToolset
-from holmes.plugins.toolsets.grafana_tempo import GrafanaTempoToolset
+from holmes.plugins.toolsets.grafana.common import GrafanaConfig
+from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
+from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 from pydantic import BaseModel
 
 from holmes.core.tools import Toolset, YAMLToolset
 from typing import Dict
-from pydantic import BaseModel
-from typing import Optional
 import yaml
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
-
 class ToolsetsYaml(BaseModel):
     toolsets: Dict[str, YAMLToolset]
-
 
 def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLToolset]:
     file_toolsets = []
@@ -33,20 +30,22 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLTo
                 toolset = YAMLToolset(**config, name=name)
                 toolset.set_path(path)
                 file_toolsets.append(YAMLToolset(**config, name=name))
-            except Exception as e:
+            except Exception:
                 if not silent_fail:
                     logging.error(f"Error happened while loading {name} toolset from {path}",
                                   exc_info=True)
 
     return file_toolsets
 
-
-def load_python_toolsets(dal:Optional[SupabaseDal], grafana_config:GrafanaConfig) -> List[Toolset]:
+def load_python_toolsets(dal:Optional[SupabaseDal], grafana_config:Optional[GrafanaConfig]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    return [InternetToolset(), FindingsToolset(dal), GrafanaLokiToolset(grafana_config.loki), GrafanaTempoToolset()]
+    if not grafana_config:
+        # passing an empty config simplifies the downstream code
+        grafana_config = GrafanaConfig()
 
+    return [InternetToolset(), FindingsToolset(dal), GrafanaLokiToolset(grafana_config), GrafanaTempoToolset(grafana_config)]
 
-def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:GrafanaConfig = GrafanaConfig()) -> List[Toolset]:
+def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:Optional[GrafanaConfig] = GrafanaConfig()) -> List[Toolset]:
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):

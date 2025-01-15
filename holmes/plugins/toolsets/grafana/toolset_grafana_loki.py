@@ -1,70 +1,33 @@
 
-from typing import Any, Dict, Optional, Union
-from pydantic import BaseModel
+from typing import Dict
 import yaml
-import uuid
-import time
-from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
-from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_grafana_datasources, query_loki_logs_by_node, query_loki_logs_by_pod, execute_loki_query
-
-class GrafanaLokiConfig(BaseModel):
-    pod_name_search_key: str = "pod"
-    namespace_search_key: str = "namespace"
-    node_name_search_key: str = "node"
-
-class GrafanaConfig(BaseModel):
-    loki: GrafanaLokiConfig = GrafanaLokiConfig()
-
-def get_param_or_raise(dict:Dict, param:str) -> Any:
-    value = dict.get(param)
-    if not value:
-        raise Exception(f'Missing param "{param}"')
-    return value
-
-def get_datasource_id(dict:Dict, param:str):
-    datasource_id=get_param_or_raise(dict, param)
-    try:
-        if uuid.UUID(datasource_id, version=4):
-            return f"uid/{datasource_id}"
-    except ValueError:
-        return datasource_id
+from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
+from holmes.plugins.toolsets.grafana.loki_api import list_grafana_datasources, query_loki_logs_by_node, query_loki_logs_by_pod, execute_loki_query
+from holmes.plugins.toolsets.grafana.common import GrafanaConfig, get_grafana_toolset_prerequisite
+from holmes.plugins.toolsets.grafana.common import get_datasource_id, get_param_or_raise, process_timestamps
 
 
 class ListLokiDatasources(Tool):
 
-    def __init__(self):
+    def __init__(self, config:GrafanaConfig):
         super().__init__(
             name = "list_loki_datasources",
             description = "Fetches the Loki data sources in Grafana",
             parameters = {},
         )
+        self._config = config
 
     def invoke(self, params: Dict) -> str:
-        datasources= list_grafana_datasources("loki")
+        datasources= list_grafana_datasources(grafana_url=self._config.url, api_key=self._config.api_key, source_name="loki")
         return yaml.dump(datasources)
 
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return "Fetched Grafana Loki datasources"
 
-ONE_HOUR = 3600
-
-def process_timestamps(start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]):
-    if start_timestamp and isinstance(start_timestamp, str):
-        start_timestamp = int(start_timestamp)
-    if end_timestamp and isinstance(end_timestamp, str):
-        end_timestamp = int(end_timestamp)
-
-    if not end_timestamp:
-        end_timestamp = int(time.time())
-    if not start_timestamp:
-        start_timestamp = end_timestamp - ONE_HOUR
-    if start_timestamp < 0:
-        start_timestamp = end_timestamp + start_timestamp
-    return (start_timestamp, end_timestamp)
 
 class GetLokiLogsByNode(Tool):
 
-    def __init__(self, config: GrafanaLokiConfig = GrafanaLokiConfig()):
+    def __init__(self, config: GrafanaConfig):
         super().__init__(
             name = "fetch_loki_logs_by_node",
             description = """Fetches the Loki logs for a given node""",
@@ -101,9 +64,11 @@ class GetLokiLogsByNode(Tool):
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_node(
+            grafana_url=self._config.url,
+            api_key=self._config.api_key,
             loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             node_name=get_param_or_raise(params, "node_name"),
-            node_name_search_key=self._config.node_name_search_key,
+            node_name_search_key=self._config.loki.node_name_search_key,
             start=start,
             end=end,
             limit=int(get_param_or_raise(params, "limit"))
@@ -114,7 +79,7 @@ class GetLokiLogsByNode(Tool):
         return f"Fetched Loki logs ({str(params)})"
 
 class GetLokiLogsByLabel(Tool):
-    def __init__(self):
+    def __init__(self, config: GrafanaConfig):
         super().__init__(
             name = "fetch_loki_logs_by_label",
             description = """Fetches the Loki logs for a label and value from a Tempo trace""",
@@ -151,6 +116,7 @@ class GetLokiLogsByLabel(Tool):
                 )
             },
         )
+        self._config = config
 
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
@@ -158,6 +124,8 @@ class GetLokiLogsByLabel(Tool):
         value=get_param_or_raise(params, "value")
         query = f'{{{label}="{value}"}}'
         logs = execute_loki_query(
+            grafana_url=self._config.url,
+            api_key=self._config.api_key,
             loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             query=query,
             start=start,
@@ -171,7 +139,7 @@ class GetLokiLogsByLabel(Tool):
 
 class GetLokiLogsByPod(Tool):
 
-    def __init__(self, config: GrafanaLokiConfig = GrafanaLokiConfig()):
+    def __init__(self, config: GrafanaConfig):
         super().__init__(
             name = "fetch_loki_logs_by_pod",
             description = "Fetches the Loki logs for a given pod",
@@ -214,11 +182,13 @@ class GetLokiLogsByPod(Tool):
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_pod(
+            grafana_url=self._config.url,
+            api_key=self._config.api_key,
             loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             pod_regex=get_param_or_raise(params, "pod_regex"),
             namespace=get_param_or_raise(params, "namespace"),
-            namespace_search_key=self._config.namespace_search_key,
-            pod_name_search_key=self._config.pod_name_search_key,
+            namespace_search_key=self._config.loki.namespace_search_key,
+            pod_name_search_key=self._config.loki.pod_name_search_key,
             start=start,
             end=end,
             limit=int(get_param_or_raise(params, "limit"))
@@ -229,20 +199,20 @@ class GetLokiLogsByPod(Tool):
         return f"Fetched Loki logs({str(params)})"
 
 class GrafanaLokiToolset(Toolset):
-    def __init__(self, config: GrafanaLokiConfig):
+    def __init__(self, config: GrafanaConfig):
         super().__init__(
             name = "grafana_loki",
             description = "Fetchs kubernetes pods and node logs from Loki",
             icon_url = "https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             prerequisites = [
-                EnvironmentVariablePrerequisite(GRAFANA_API_KEY_ENV_NAME),
-                EnvironmentVariablePrerequisite(GRAFANA_URL_ENV_NAME)
+                get_grafana_toolset_prerequisite(config),
+                StaticPrerequisite(enabled=config.loki.enabled, disabled_reason="Loki toolset explicitly disabled by config")
             ],
             tools = [
-                ListLokiDatasources(),
+                ListLokiDatasources(config),
                 GetLokiLogsByNode(config),
                 GetLokiLogsByPod(config),
-                GetLokiLogsByLabel()
+                GetLokiLogsByLabel(config)
             ],
             tags = [ToolsetTag.CORE, ]
         )
