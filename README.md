@@ -19,7 +19,7 @@ To this 👇
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
-- **Secure:** *Read-only* access to your data - respects RBAC permissions 
+- **Secure:** *Read-only* access to your data - respects RBAC permissions
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
@@ -491,7 +491,7 @@ To use Vertex AI with Gemini models, set the following environment variables:
 
 ```bash
 export VERTEXAI_PROJECT="your-project-id"
-export VERTEXAI_LOCATION="us-central1" 
+export VERTEXAI_LOCATION="us-central1"
 export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
 ```
 
@@ -582,15 +582,46 @@ This is done by appending the following to your Holmes configuration file:
 
 ```yaml
 grafana:
+  url: https://my-org.grafana.net #
+  api_key: glsa_bsm6ZS_sdfs25f
   loki:
+    enabled: True
     pod_name_search_key: "pod"
     namespace_search_key: "namespace"
     node_name_search_key: "node"
 ```
 
 > You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+
+The Loki toolset is configured the using the same Grafana settings as the Grafana Tempo toolset.
+By default, Loki toolset is enabled when Grafana is configured.
+
+Grafana Loki can be disabled by setting the `enabled` flag to `False` in the example config shown above.
 </details>
-  
+
+<summary>
+Using Grafana Tempo
+</summary>
+
+HolmesGPT can fetch trace information from Grafana Tempo to debug performance related issues.
+
+Tempo is configured the using the same Grafana settings as the Grafana Loki toolset.
+By default, Tempo toolset is enabled when Grafana is configured.
+
+Grafana Tempo can be disabled by setting the `enabled` flag to `False` in the tempo config shown below:
+
+```yaml
+grafana:
+  url: https://my-org.grafana.net #
+  api_key: glsa_bsm6ZS_sdfs25f
+  tempo:
+    enabled: True
+```
+
+> You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+</details>
+
+
 <details>
 <summary>
 ArgoCD
