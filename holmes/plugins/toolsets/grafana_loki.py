@@ -2,9 +2,10 @@
 from typing import Any, Dict, Optional, Union
 from pydantic import BaseModel
 import yaml
+import uuid
 import time
 from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
-from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_loki_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
+from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_grafana_datasources, query_loki_logs_by_node, query_loki_logs_by_pod, execute_loki_query
 
 class GrafanaLokiConfig(BaseModel):
     pod_name_search_key: str = "pod"
@@ -20,6 +21,15 @@ def get_param_or_raise(dict:Dict, param:str) -> Any:
         raise Exception(f'Missing param "{param}"')
     return value
 
+def get_datasource_id(dict:Dict, param:str):
+    datasource_id=get_param_or_raise(dict, param)
+    try:
+        if uuid.UUID(datasource_id, version=4):
+            return f"uid/{datasource_id}"
+    except ValueError:
+        return datasource_id
+
+
 class ListLokiDatasources(Tool):
 
     def __init__(self):
@@ -30,7 +40,7 @@ class ListLokiDatasources(Tool):
         )
 
     def invoke(self, params: Dict) -> str:
-        datasources= list_loki_datasources()
+        datasources= list_grafana_datasources("loki")
         return yaml.dump(datasources)
 
     def get_parameterized_one_liner(self, params:Dict) -> str:
@@ -91,7 +101,7 @@ class GetLokiLogsByNode(Tool):
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_node(
-            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
+            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             node_name=get_param_or_raise(params, "node_name"),
             node_name_search_key=self._config.node_name_search_key,
             start=start,
@@ -103,6 +113,61 @@ class GetLokiLogsByNode(Tool):
     def get_parameterized_one_liner(self, params:Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
 
+class GetLokiLogsByLabel(Tool):
+    def __init__(self):
+        super().__init__(
+            name = "fetch_loki_logs_by_label",
+            description = """Fetches the Loki logs for a label and value from a Tempo trace""",
+            parameters = {
+                "loki_datasource_id": ToolParameter(
+                    description="The id of the loki datasource to use. Call the tool list_loki_datasources",
+                    type="string",
+                    required=True,
+                ),
+                "label": ToolParameter(
+                    description="The label for the query.",
+                    type="string",
+                    required=True,
+                ),
+                "value": ToolParameter(
+                    description="The value of the label.",
+                    type="string",
+                    required=True,
+                ),
+                "start_timestamp": ToolParameter(
+                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
+                    type="string",
+                    required=False,
+                ),
+                "end_timestamp": ToolParameter(
+                    description="The ending time boundary for the log search period. Epoch in seconds. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    type="string",
+                    required=False,
+                ),
+                "limit": ToolParameter(
+                    description="Maximum number of logs to return.",
+                    type="string",
+                    required=True,
+                )
+            },
+        )
+
+    def invoke(self, params: Dict) -> str:
+        (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
+        label=get_param_or_raise(params, "label")
+        value=get_param_or_raise(params, "value")
+        query = f'{{{label}="{value}"}}'
+        logs = execute_loki_query(
+            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
+            query=query,
+            start=start,
+            end=end,
+            limit=int(get_param_or_raise(params, "limit"))
+        )
+        return yaml.dump(logs)
+
+    def get_parameterized_one_liner(self, params:Dict) -> str:
+        return f"Fetched Loki logs ({str(params)})"
 
 class GetLokiLogsByPod(Tool):
 
@@ -149,7 +214,7 @@ class GetLokiLogsByPod(Tool):
     def invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(params.get("start_timestamp"), params.get("end_timestamp"))
         logs = query_loki_logs_by_pod(
-            loki_datasource_id=get_param_or_raise(params, "loki_datasource_id"),
+            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             pod_regex=get_param_or_raise(params, "pod_regex"),
             namespace=get_param_or_raise(params, "namespace"),
             namespace_search_key=self._config.namespace_search_key,
@@ -177,6 +242,7 @@ class GrafanaLokiToolset(Toolset):
                 ListLokiDatasources(),
                 GetLokiLogsByNode(config),
                 GetLokiLogsByPod(config),
+                GetLokiLogsByLabel()
             ],
             tags = [ToolsetTag.CORE, ]
         )

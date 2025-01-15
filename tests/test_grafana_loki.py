@@ -2,19 +2,19 @@ import os
 import time
 
 import pytest
-from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_URL_ENV_NAME, list_loki_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
+from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_URL_ENV_NAME, list_grafana_datasources, query_loki_logs_by_node, query_loki_logs_by_pod
 from holmes.plugins.toolsets.grafana_loki import GetLokiLogsByNode, GetLokiLogsByPod, ListLokiDatasources
 
 @pytest.mark.skipif(not os.environ.get(GRAFANA_URL_ENV_NAME), reason=f"{GRAFANA_URL_ENV_NAME} must be set to run Grafana tests")
 def test_grafana_list_loki_datasources():
-    datasources = list_loki_datasources()
+    datasources = list_grafana_datasources("loki")
     assert len(datasources) > 0
     for datasource in datasources:
         assert datasource.get("type") == "loki", f"unexpected datasource is not of type loky: {datasource}"
 
 @pytest.mark.skipif(not os.environ.get(GRAFANA_URL_ENV_NAME), reason=f"{GRAFANA_URL_ENV_NAME} must be set to run Grafana tests")
 def test_grafana_query_loki_logs_by_node():
-    datasources = list_loki_datasources()
+    datasources = list_grafana_datasources("loki")
     assert len(datasources) > 0
 
     tool = GetLokiLogsByNode()
@@ -29,7 +29,7 @@ def test_grafana_query_loki_logs_by_node():
 
 @pytest.mark.skipif(not os.environ.get(GRAFANA_URL_ENV_NAME), reason=f"{GRAFANA_URL_ENV_NAME} must be set to run Grafana tests")
 def test_grafana_query_loki_logs_by_pod():
-    datasources = list_loki_datasources()
+    datasources = list_grafana_datasources("loki")
     assert len(datasources) > 0
 
     tool = GetLokiLogsByPod()
