@@ -49,6 +49,20 @@ def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
                     logging.error(f"Toolset '{name}' is invalid: {e}")
     return loaded_toolsets
 
+def extract_config_from_custom_toolsets_config():
+    configs = []
+    if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+        with open(CUSTOM_TOOLSET_LOCATION) as file:
+            parsed_yaml = yaml.safe_load(file)
+            toolsets = parsed_yaml.get("toolsets", {})
+            for name, config in toolsets.items():
+                try:
+                    validated_config = ToolsetYamlFromConfig(**config, name=name)
+                    if validated_config.config:
+                        configs.append(validated_config.config)
+                except ValidationError as e:
+                    logging.error(f"Toolset '{name}' is invalid: {e}")
+    return configs
 
 def merge_and_override_bultin_toolsets_with_toolsets_config(
     toolsets_loaded_from_config: list[ToolsetYamlFromConfig],
