@@ -82,34 +82,21 @@ def execute_loki_query(
     }
 
     try:
-        grafana_url, api_key = get_connection_info()
+        (grafana_url, api_key) = get_connection_info()
         url = f'{grafana_url}/api/datasources/proxy/{loki_datasource_id}/loki/api/v1/query_range'
-        
-        logging.info(f"Sending request to Loki API: {url}")
-        logging.debug(f"Request Params: {params}")
-
         response = requests.get(
             url,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-            },
-            params=params,
-            timeout=10  # Adding a timeout to prevent hanging
+            headers=headers(api_key=api_key),
+            params=params
         )
-
         response.raise_for_status()
 
         result = response.json()
         if 'data' in result and 'result' in result['data']:
             return parse_loki_response(result['data']['result'])
-
-        logging.warning("No results found in Loki query response.")
         return []
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error querying Loki API: {e}")
         raise Exception(f"Failed to query Loki logs: {str(e)}")
 
 

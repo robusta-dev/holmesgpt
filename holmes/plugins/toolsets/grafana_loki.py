@@ -1,12 +1,10 @@
 
 from typing import Any, Dict, Optional, Union
 from pydantic import BaseModel
-import logging
 import yaml
 import uuid
 import time
 from holmes.core.tools import EnvironmentVariablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
-from holmes.plugins.toolsets.grafana.tempo_api import query_tempo_traces_by_duration, query_tempo_trace_by_id
 from holmes.plugins.toolsets.grafana.loki_api import GRAFANA_API_KEY_ENV_NAME, GRAFANA_URL_ENV_NAME, list_grafana_datasources, query_loki_logs_by_node, query_loki_logs_by_pod, execute_loki_query
 
 class GrafanaLokiConfig(BaseModel):
@@ -159,7 +157,6 @@ class GetLokiLogsByLabel(Tool):
         label=get_param_or_raise(params, "label")
         value=get_param_or_raise(params, "value")
         query = f'{{{label}="{value}"}}'
-        logging.warning(f"query {query}")
         logs = execute_loki_query(
             loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             query=query,
