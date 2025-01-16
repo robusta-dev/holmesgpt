@@ -12,17 +12,12 @@ GRAFANA_API_KEY_ENV_NAME = "GRAFANA_API_KEY"
 ONE_HOUR_IN_SECONDS = 3600
 
 class GrafanaLokiConfig(BaseModel):
-    enabled: bool = True # ability to disable Loki toolset even if Tempo toolset is enabled
     pod_name_search_key: str = "pod"
     namespace_search_key: str = "namespace"
     node_name_search_key: str = "node"
 
-class GrafanaTempoConfig(BaseModel):
-    enabled: bool = True # ability to disable Tempo toolset even if Loki toolset is enabled
-
 class GrafanaConfig(BaseModel):
     loki: GrafanaLokiConfig = GrafanaLokiConfig()
-    tempo: GrafanaTempoConfig = GrafanaTempoConfig()
     api_key: str = os.environ.get(GRAFANA_API_KEY_ENV_NAME, "")
     url: str = os.environ.get(GRAFANA_URL_ENV_NAME, "")
 

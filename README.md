@@ -585,7 +585,6 @@ grafana:
   url: https://my-org.grafana.net #
   api_key: glsa_bsm6ZS_sdfs25f
   loki:
-    enabled: True
     pod_name_search_key: "pod"
     namespace_search_key: "namespace"
     node_name_search_key: "node"
@@ -594,9 +593,6 @@ grafana:
 > You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
 
 The Loki toolset is configured the using the same Grafana settings as the Grafana Tempo toolset.
-By default, Loki toolset is enabled when Grafana is configured.
-
-Grafana Loki can be disabled by setting the `enabled` flag to `False` in the example config shown above.
 </details>
 
 <summary>
@@ -606,19 +602,9 @@ Using Grafana Tempo
 HolmesGPT can fetch trace information from Grafana Tempo to debug performance related issues.
 
 Tempo is configured the using the same Grafana settings as the Grafana Loki toolset.
-By default, Tempo toolset is enabled when Grafana is configured.
 
-Grafana Tempo can be disabled by setting the `enabled` flag to `False` in the tempo config shown below:
-
-```yaml
 grafana:
   url: https://my-org.grafana.net #
-  api_key: glsa_bsm6ZS_sdfs25f
-  tempo:
-    enabled: True
-```
-
-> You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
 </details>
 
 

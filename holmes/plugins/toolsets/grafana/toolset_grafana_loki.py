@@ -201,12 +201,11 @@ class GetLokiLogsByPod(Tool):
 class GrafanaLokiToolset(Toolset):
     def __init__(self, config: GrafanaConfig):
         super().__init__(
-            name = "grafana_loki",
+            name = "grafana/loki",
             description = "Fetchs kubernetes pods and node logs from Loki",
             icon_url = "https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             prerequisites = [
-                get_grafana_toolset_prerequisite(config),
-                StaticPrerequisite(enabled=config.loki.enabled, disabled_reason="Loki toolset explicitly disabled by config")
+                get_grafana_toolset_prerequisite(config)
             ],
             tools = [
                 ListLokiDatasources(config),

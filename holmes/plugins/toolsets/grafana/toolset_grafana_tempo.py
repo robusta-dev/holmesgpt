@@ -112,12 +112,11 @@ class GetTempoTraceById(Tool):
 class GrafanaTempoToolset(Toolset):
     def __init__(self, config:GrafanaConfig):
         super().__init__(
-            name = "grafana_Tempo",
+            name = "grafana/tempo",
             description = "Fetchs kubernetes traces from Tempo",
             icon_url = "https://grafana.com/static/assets/img/blog/tempo.png",
             prerequisites = [
-                get_grafana_toolset_prerequisite(config),
-                StaticPrerequisite(enabled=config.tempo.enabled, disabled_reason="Tempo toolset explicitly disabled by config")
+                get_grafana_toolset_prerequisite(config)
             ],
             tools = [
                 ListAllDatasources(config),
