@@ -9,6 +9,7 @@ from holmes.plugins.toolsets.internet import InternetToolset
 from pydantic import BaseModel
 
 from holmes.core.tools import Toolset, YAMLToolset
+from holmes.plugins.toolsets.newrelic import NewRelicToolset
 from typing import Dict
 from pydantic import BaseModel
 from typing import Optional
@@ -41,7 +42,7 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLTo
 
 def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    return [InternetToolset(), FindingsToolset(dal)]
+    return [InternetToolset(), FindingsToolset(dal), NewRelicToolset()]
 
 
 def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
