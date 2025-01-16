@@ -1,0 +1,6 @@
+{"toolset_name":"helm/core","tool_name":"helm_list"}
+
+stdout:
+{"customClusterRoleRules":[], "clusterName": "test-cluster"}
+
+stderr:
