@@ -1,4 +1,5 @@
 import os
+import traceback
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -84,6 +85,14 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def exception_handler(error, endpoint_name):
+    logging.exception(f"Error during request to /api/{endpoint_name} endpoint:")
+    error_message = str(error)
+    stack_trace = traceback.format_exc()
+    raise HTTPException(status_code=500, detail={"message": error_message, 
+                                                     "traceback": stack_trace})
+
+
 app = FastAPI(lifespan=lifespan)
 console = Console()
 
@@ -101,6 +110,8 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as error:
+        exception_handler(error, "investigate")
 
 
 @app.post("/api/workload_health_check")
@@ -146,6 +157,8 @@ def workload_health_check(request: WorkloadHealthRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as error:
+        exception_handler(error, "workload_health_check")
 
 
 # older api that does not support conversation history
@@ -184,6 +197,8 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as error:
+        exception_handler(error, "issue_chat")
 
 
 @app.post("/api/chat")
@@ -206,7 +221,9 @@ def chat(chat_request: ChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
-
+    except Exception as error:
+        exception_handler(error, "chat")
+    
 
 @app.get("/api/model")
 def get_model():
