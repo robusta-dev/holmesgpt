@@ -22,6 +22,8 @@ def environ_get_safe_int(env_var, default="0"):
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 
+litellm.enable_json_schema_validation = False
+
 class LLM:
 
     @abstractmethod
@@ -37,7 +39,7 @@ class LLM:
         pass
 
     @abstractmethod
-    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None, model_override:Optional[str] = None) -> ModelResponse:
         pass
 
 
@@ -100,12 +102,12 @@ class DefaultLLM(LLM):
                             "https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces"
                 )
         else:
-            # 
+            #
             api_key_env_var = f"{provider.upper()}_API_KEY"
             if api_key:
                 os.environ[api_key_env_var] = api_key
             model_requirements = litellm.validate_environment(model=model)
-        
+
         if not model_requirements["keys_in_environment"]:
             raise Exception(f"model {model} requires the following environment variables: {model_requirements['missing_keys']}")
 
@@ -146,9 +148,12 @@ class DefaultLLM(LLM):
         return litellm.token_counter(model=self.model,
                                         messages=messages)
 
-    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = None, tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None, model_override:Optional[str] = None) -> ModelResponse:
+        model = self.model
+        if model_override:
+            model = model_override
         result = litellm.completion(
-            model=self.model,
+            model=model,
             api_key=self.api_key,
             messages=messages,
             tools=tools,

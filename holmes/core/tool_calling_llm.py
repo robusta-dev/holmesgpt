@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Type, Union, Any
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
 from typing import List, Optional
@@ -30,6 +30,7 @@ class ToolCallResult(BaseModel):
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
+    sections: Optional[Dict[str, str]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
     instructions: List[str] = []
@@ -56,11 +57,47 @@ class ResourceInstructionDocument(BaseModel):
 class Instructions(BaseModel):
     instructions: List[str] = []
 
-
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
 
+class ExpectedOutputFormat(BaseModel):
+    alert_explanation: Union[str, None]
+    investigation: Union[str, None]
+    conclusions_and_possible_root_causes: Union[str, None]
+    next_steps: Union[str, None]
+
+schema = {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "Alert Explanation",
+    "Investigation",
+    "Conclusions and Possible Root causes",
+    "Next Steps"
+  ],
+  "properties": {
+    "Alert Explanation": {
+      "type": ["string", "null"],
+      "description": "1-2 sentences explaining the alert itself - note don't say \"The alert indicates a warning event related to a Kubernetes pod doing blah\" rather just say \"The pod XYZ did blah\" because that is what the user actually cares about"
+    },
+    "Investigation": {
+      "type": ["string", "null"],
+      "description": "what you checked and found"
+    },
+    "Conclusions and Possible Root causes": {
+      "type": ["string", "null"],
+      "description": "what conclusions can you reach based on the data you found? what are possible root causes (if you have enough conviction to say) or what uncertainty remains"
+    },
+    "Next Steps": {
+      "type": ["string", "null"],
+      "description": "what you would do next to troubleshoot this issue, any commands that could be run to fix it, or other ways to solve it (prefer giving precise bash commands when possible)"
+    }
+  },
+  "additionalProperties": False
+}
+
+response_format = { "type": "json_schema", "json_schema": schema , "strict": False }
 
 class ToolCallingLLM:
 
@@ -76,7 +113,7 @@ class ToolCallingLLM:
         system_prompt: str,
         user_prompt: str,
         post_process_prompt: Optional[str] = None,
-        response_format: Optional[dict] = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
     ) -> LLMResult:
         messages = [
             {"role": "system", "content": system_prompt},
@@ -90,7 +127,7 @@ class ToolCallingLLM:
         self,
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
-        response_format: Optional[dict] = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
     ) -> LLMResult:
 
         return self.call(messages, post_process_prompt, response_format)
@@ -99,7 +136,7 @@ class ToolCallingLLM:
         self,
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
-        response_format: dict = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
     ) -> LLMResult:
 
@@ -152,13 +189,24 @@ class ToolCallingLLM:
             )
 
             tools_to_call = getattr(response_message, "tool_calls", None)
+            text_response = response_message.content
+            sections:Optional[Dict[str, str]] = None
+            if isinstance(text_response, str):
+                try:
+                    parsed_json = json.loads(text_response)
+                    text_response = parsed_json
+                except json.JSONDecodeError:
+                    pass
+            if not isinstance(text_response, str):
+                sections = text_response
+                text_response = stringify_sections(sections)
 
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 # this only works for calls where user prompt is explicitly passed through
                 if post_process_prompt and user_prompt:
                     logging.info(f"Running post processing on investigation.")
-                    raw_response = response_message.content
+                    raw_response = text_response
                     post_processed_response = self._post_processing_call(
                         prompt=user_prompt,
                         investigation=raw_response,
@@ -167,6 +215,7 @@ class ToolCallingLLM:
 
                     return LLMResult(
                         result=post_processed_response,
+                        sections=sections,
                         unprocessed_result=raw_response,
                         tool_calls=tool_calls,
                         prompt=json.dumps(messages, indent=2),
@@ -174,7 +223,8 @@ class ToolCallingLLM:
                     )
 
                 return LLMResult(
-                    result=response_message.content,
+                    result=text_response,
+                    sections=sections,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
@@ -268,7 +318,7 @@ class ToolCallingLLM:
             full_response = self.llm.completion(messages=messages, temperature=0)
             logging.debug(f"Post processing response {full_response}")
             return full_response.choices[0].message.content
-        except Exception as error:
+        except Exception:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
 
@@ -365,10 +415,10 @@ class IssueInvestigator(ToolCallingLLM):
                 user_prompt += f"* {runbook_str}\n"
 
             user_prompt = f'My instructions to check \n"""{user_prompt}"""'
-        
+
         if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
             user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
-        
+
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
 
         logging.debug(
@@ -376,6 +426,93 @@ class IssueInvestigator(ToolCallingLLM):
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
 
-        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt)
+        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=ExpectedOutputFormat)
+        print(res)
+        print("******")
         res.instructions = runbooks
+        generate_structured_output(res, llm=self.llm)
         return res
+
+## ## ## ## ## ## START CUSTOM STRUCTURED RESPONSE
+
+class StructuredSection(BaseModel):
+    title: str
+    content: Union[str, None]
+    contains_meaningful_information: bool
+
+class StructuredResponse(BaseModel):
+    sections: List[StructuredSection]
+
+# class StructuredLLMResult(LLMResult):
+#     sections: List[StructuredSection]
+
+
+EXPECTED_SECTIONS = [
+    "investigation steps",
+    "conclusions and possible root causes",
+    "related logs",
+    "alert explanation",
+    "next steps"
+]
+
+PROMPT = f"""
+Your job as a LLM is to take the unstructured output from another LLM
+and structure it into sections. Keep the original wording and do not
+add any information that is not already there.
+
+Return a JSON with the section title, its content and . Each section content should
+be markdown formatted text. If you consider a section as empty, set
+its corresponding value to null.
+
+For example:
+
+[{{
+  "title": "investigation steps",
+  "text": "The pod `kafka-consumer` is in a `Failed` state with the container terminated for an unknown reason and an exit code of 255.",
+  "contains_meaningful_information": true
+}}, {{
+  "title": "conclusions and possible root causes",
+  "text": "...",
+  "contains_meaningful_information": true
+}}, {{
+  "title": "next steps",
+  "text": null,
+  "contains_meaningful_information": false
+}}, ...]
+
+The section titles are [{", ".join(EXPECTED_SECTIONS)}]
+"""
+
+def stringify_sections(sections: Any) -> str:
+    if isinstance(sections, dict):
+        content = ''
+        for section_title, section_content in sections.items():
+            content = content + f'\n# {" ".join(section_title.split("_")).title()}\n{section_content}'
+        return content
+    return f"{sections}"
+
+def generate_structured_output(llm_result:LLMResult, llm:LLM) -> LLMResult:
+    if not llm_result.result:
+        return LLMResult(
+            **llm_result.model_dump()
+        )
+
+    messages = [
+        {"role": "system", "content": PROMPT},
+        {"role": "user", "content": llm_result.result},
+    ]
+
+    r = llm.completion(
+        model_override="gpt-4o-mini",
+        messages=messages,
+        temperature=0.00000001,
+        response_format=StructuredResponse,
+        drop_params=True,
+    )
+    # r_json = r.to_json()
+    # result = StructuredLLMResult.model_validate_json(r.choices[0].message.content)
+    print(r)
+    llm_result.sections = {}
+    return llm_result
+
+## ## ## ## ## ## END CUSTOM STRUCTURED RESPONSE
