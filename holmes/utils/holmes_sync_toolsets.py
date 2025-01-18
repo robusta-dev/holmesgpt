@@ -102,7 +102,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config) -> None:
         if toolset.enabled:
             toolset.check_prerequisites()
     
-    config.enabled_toolsets_names = [toolset.name for toolset in toolsets_for_sync_by_name.values() if toolset.get_status() == ToolsetStatusEnum.ENABLED]
+    config.enabled_toolsets_names = []
 
     if not config.cluster_name:
         raise Exception("Cluster name is missing in the configuration. Please ensure 'CLUSTER_NAME' is defined in the environment variables, "
