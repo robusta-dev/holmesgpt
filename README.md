@@ -708,16 +708,6 @@ You can view an example config file with all available settings [here](config.ex
 By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
 
 
-When running **HolmesGPT in a Kubernetes cluster**, you can securely pass configuration settings using a **Kubernetes Secret**. The secret will be mounted into the pod at `~/.holmes/config.yaml`:
-
-```bash
-kubectl create secret generic holmes-config-secret \
-  --namespace=ROBUSTA_NAMESPACE \
-  --from-file=config.yaml=CONFIG_FILE
-```
-
-This approach ensures sensitive configuration data remains secure and manageable within the cluster.
-
 <details>
 <summary>Custom Toolsets</summary>
 
