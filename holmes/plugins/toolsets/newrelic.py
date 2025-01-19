@@ -89,9 +89,9 @@ class GetTraces(Tool):
         trace_id = params.get("trace_id")
 
         if trace_id:
-            query_string = f"SELECT * FROM Span WHERE trace.id = '{trace_id}' and duration.ms > {duration * 1000}"
+            query_string = f"SELECT * FROM Span WHERE trace.id = '{trace_id}' and duration.ms > {duration * 1000} and span.kind != 'internal'"
         else:
-            query_string = f"SELECT * FROM Span WHERE duration.ms > {duration * 1000}"
+            query_string = f"SELECT * FROM Span WHERE duration.ms > {duration * 1000} and span.kind != 'internal'"
 
         query = {
             "query": f"""
