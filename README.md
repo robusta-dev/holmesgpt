@@ -19,6 +19,7 @@ To this 👇
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
+- **Secure:** *Read-only* access to your data - respects RBAC permissions 
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
