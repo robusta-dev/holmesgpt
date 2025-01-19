@@ -40,7 +40,6 @@ import re
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("/Users/avirobusta/git/holmesgpt/config.yaml")
 
 def get_env_replacement(value: str) -> Optional[str]:
-    logging.warning(f"value {value}")
     env_values = re.findall(r"{{[ ]*env\.(.*)[ ]*}}", value)
     if env_values:
         env_var_value = os.environ.get(env_values[0].strip(), None)
@@ -66,7 +65,8 @@ def replace_env_vars_values(values: Dict) -> Dict:
             env_var_value = replace_env_vars_values(value)
             if env_var_value:
                 values[key] = env_var_value
-
+        elif isinstance(value, list):
+            values[key] = [replace_env_vars_values(iter) for iter in value]
     return values
 
 class Config(RobustaBaseConfig):
