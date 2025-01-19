@@ -41,7 +41,7 @@ Includes free use of the Robusta AI model.
 ![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/2e90cc7b-4b0a-4386-ab4f-0d36692b549c)
 
 
-[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme) (Kubernetes cluster required) or contact us about on-premise options.
+[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
 </details>
 
 <details>
@@ -177,6 +177,19 @@ See an example implementation [here](examples/custom_llm.py).
 </details>
 
 Like what you see? Discover [more use cases](#more-use-cases) or get started by [installing HolmesGPT](#installation).
+
+## Easy In-Cluster Installation (No API Key Required)
+
+Install Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package:
+
+- Fully integrated with **OpenAI GPT-4o** (included)
+- Simple installation using `helm`
+- Built-in integrations with **Prometheus alerts** and **Slack**
+- Visualize Kubernetes issues on a timeline, and analyze them with Holmes in a single click
+
+**Note:** Requires a Kubernetes cluster.
+
+[Create a free Robusta UI account »](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=easy_install_in_cluster_section)
 
 ## Installation
 
