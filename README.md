@@ -178,11 +178,11 @@ See an example implementation [here](examples/custom_llm.py).
 
 Like what you see? Discover [more use cases](#more-use-cases) or get started by [installing HolmesGPT](#installation).
 
-## Easy In-Cluster Installation (No API Key Required)
+## In-Cluster Installation (Recommended)
 
 Install Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package:
 
-- Fully integrated with **OpenAI GPT-4o** (included)
+- Fully integrated with **OpenAI GPT-4o**
 - Simple installation using `helm`
 - Built-in integrations with **Prometheus alerts** and **Slack**
 - Visualize Kubernetes issues on a timeline, and analyze them with Holmes in a single click
@@ -191,7 +191,7 @@ Install Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified 
 
 [Create a free Robusta UI account »](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=easy_install_in_cluster_section)
 
-## Installation
+## More Installation methods
 
 **Prerequisite:** <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
 
