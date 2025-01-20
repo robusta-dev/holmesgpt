@@ -14,9 +14,11 @@ import jinja2
 import logging
 import uvicorn
 import colorlog
+import uuid
+import time
 
 from litellm.exceptions import AuthenticationError
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from rich.console import Console
 from holmes.utils.robusta import load_robusta_api_key
 
@@ -24,6 +26,7 @@ from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
     HOLMES_POST_PROCESSING_PROMPT,
+    LOG_PERFORMANCE,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
@@ -75,18 +78,33 @@ config = Config.load_from_env()
 async def lifespan(app: FastAPI):
     try:
         update_holmes_status_in_db(dal, config)
-    except Exception as error:
+    except Exception:
         logging.error("Failed to update holmes status", exc_info=True)
     try:
         holmes_sync_toolsets_status(dal, config)
-    except Exception as error:
+    except Exception:
         logging.error("Failed to synchronise holmes toolsets", exc_info=True)
     yield
 
 
 app = FastAPI(lifespan=lifespan)
-console = Console()
 
+
+if LOG_PERFORMANCE:
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start_time = time.time()
+        response = None
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            process_time = int((time.time() - start_time) * 1000)
+
+            status_code = 'unknown'
+            if response:
+                status_code = response.status_code
+            logging.info(f"Request completed {request.method} {request.url.path} status={status_code} latency={process_time}ms")
 
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
@@ -94,8 +112,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
         result = investigation.investigate_issues(
             investigate_request=investigate_request,
             dal=dal,
-            config=config,
-            console=console
+            config=config
         )
         return result
 
@@ -121,7 +138,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             )
             if stored_instructions:
                 instructions.extend(stored_instructions.instructions)
-            
+
         nl = "\n"
         if instructions:
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
@@ -130,9 +147,9 @@ def workload_health_check(request: WorkloadHealthRequest):
         request.ask = add_global_instructions_to_user_prompt(request.ask, global_instructions)
 
         system_prompt = load_and_render_prompt(request.prompt_template, context={'alerts': workload_alerts})
-        
 
-        ai = config.create_toolcalling_llm(console, dal=dal)
+
+        ai = config.create_toolcalling_llm(dal=dal)
 
         structured_output = {"type": "json_object"}
         ai_call = ai.prompt_call(
@@ -150,10 +167,10 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 # older api that does not support conversation history
 @app.post("/api/conversation")
-def issue_conversation(conversation_request: ConversationRequest):
+def issue_conversation_deprecated(conversation_request: ConversationRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal)
 
         system_prompt = handle_issue_conversation(conversation_request, ai)
 
@@ -171,7 +188,7 @@ def issue_conversation(conversation_request: ConversationRequest):
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(console, dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(issue_chat_request, ai, global_instructions)
@@ -191,7 +208,7 @@ def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
-        ai = config.create_toolcalling_llm(console, dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_chat_messages(
@@ -214,4 +231,7 @@ def get_model():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT)
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["access"]["fmt"] = "%(asctime)s %(levelname)-8s %(message)s"
+    log_config["formatters"]["default"]["fmt"] = "%(asctime)s %(levelname)-8s %(message)s"
+    uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT, log_config=log_config)
