@@ -38,13 +38,8 @@ def load_custom_toolsets_config() -> list[ToolsetYamlFromConfig]:
     loaded_toolsets = []
     if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
         with open(CUSTOM_TOOLSET_LOCATION) as file:
-            print(file.read())
-        with open(CUSTOM_TOOLSET_LOCATION) as file:
-            print(f"CUSTOM_TOOLSET_LOCATION={CUSTOM_TOOLSET_LOCATION}")
             parsed_yaml = yaml.safe_load(file)
-            print(f"parsed_yaml={parsed_yaml}")
             toolsets = parsed_yaml.get("toolsets", {})
-            print(f"parsed_yaml.toolsets={toolsets}")
             for name, config in toolsets.items():
                 try:
                     validated_config = ToolsetYamlFromConfig(**config, name=name)
