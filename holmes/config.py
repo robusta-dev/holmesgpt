@@ -40,15 +40,18 @@ import re
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("/Users/avirobusta/git/holmesgpt/config.yaml")
 
 def get_env_replacement(value: str) -> Optional[str]:
-    env_values = re.findall(r"{{[ ]*env\.(.*)[ ]*}}", value)
-    if env_values:
-        env_var_value = os.environ.get(env_values[0].strip(), None)
-        if not env_var_value:
-            msg = f"ENV var replacement {env_values[0]} does not exist for param: {value}"
-            logging.error(msg)
-            raise Exception(msg)
-        return env_var_value
-    return None
+    env_values = re.findall(r"{{\s*env\.([^\s]*)\s*}}", value)
+    if not env_values:
+        return None
+    env_var_key = env_values[0].strip()
+    if env_var_key not in os.environ:
+        msg = f"ENV var replacement {env_var_key} does not exist for param: {value}"
+        logging.error(msg)
+        raise Exception(msg)
+    
+    return os.environ.get(env_var_key)
+
+
 
 
 def replace_env_vars_values(values: Dict) -> Dict:
@@ -62,9 +65,7 @@ def replace_env_vars_values(values: Dict) -> Dict:
             if env_var_value:
                 values[key] = SecretStr(env_var_value)
         elif isinstance(value, dict):
-            env_var_value = replace_env_vars_values(value)
-            if env_var_value:
-                values[key] = env_var_value
+            replace_env_vars_values(value)
         elif isinstance(value, list):
             values[key] = [replace_env_vars_values(iter) for iter in value]
     return values
