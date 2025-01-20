@@ -39,7 +39,7 @@ from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 import re
 
-DEFAULT_CONFIG_LOCATION = os.path.expanduser("/Users/avirobusta/git/holmesgpt/config.yaml")
+DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 
 def get_env_replacement(value: str) -> Optional[str]:
     env_values = re.findall(r"{{\s*env\.([^\s]*)\s*}}", value)
