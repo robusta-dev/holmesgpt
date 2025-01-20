@@ -146,7 +146,7 @@ class DefaultLLM(LLM):
         return litellm.token_counter(model=self.model,
                                         messages=messages)
 
-   def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = None, tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = None, tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
