@@ -124,3 +124,9 @@ class ChatResponse(BaseModel):
     analysis: str
     conversation_history: list[dict]
     tool_calls: Optional[List[ToolCallResult]] = []
+
+
+class WorkloadHealthChatRequest(ChatRequestBaseModel):
+    ask: str
+    workload_health_result: InvestigationResult
+    resource: dict

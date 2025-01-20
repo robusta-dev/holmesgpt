@@ -6,6 +6,7 @@ from holmes.core.models import (
     ConversationInvestigationResult,
     ToolCallConversationResult,
     IssueChatRequest,
+    WorkloadHealthChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
@@ -353,4 +354,146 @@ def build_chat_messages(
         ai, conversation_history_without_tools, number_of_tools
     )
     truncate_tool_messages(conversation_history, tool_size)
+    return conversation_history
+
+
+def build_workload_health_chat_messages(workload_health_chat_request: WorkloadHealthChatRequest, 
+                                        ai: ToolCallingLLM,
+                                        global_instructions: Optional[Instructions] = None
+                                        ):
+    
+    template_path = "builtin://kubernetes_workload_ask.jinja2"
+
+    conversation_history = workload_health_chat_request.conversation_history
+    user_prompt = workload_health_chat_request.ask
+    workload_analysis = workload_health_chat_request.workload_health_result.analysis
+    tools_for_workload = workload_health_chat_request.workload_health_result.tool_calls
+    resource = workload_health_chat_request.resource
+
+    if not conversation_history or len(conversation_history) == 0:
+        user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
+
+        number_of_tools_for_workload = len(tools_for_workload)
+        if number_of_tools_for_workload == 0:
+            system_prompt = load_and_render_prompt(
+                template_path,
+                {
+                    "workload_analysis": workload_analysis,
+                    "tools_called_for_workload": tools_for_workload,
+                    "resource": resource,
+                },
+            )
+            messages = [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ]
+            return messages
+
+        template_context_without_tools = {
+            "workload_analysis": workload_analysis,
+            "tools_called_for_workload": None,
+            "resource": resource,
+        }
+        system_prompt_without_tools = load_and_render_prompt(
+            template_path, template_context_without_tools
+        )
+        messages_without_tools = [
+            {
+                "role": "system",
+                "content": system_prompt_without_tools,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ]
+        tool_size = calculate_tool_size(
+            ai, messages_without_tools, number_of_tools_for_workload
+        )
+
+        truncated_workload_result_tool_calls = [
+            ToolCallConversationResult(
+                name=tool.name,
+                description=tool.description,
+                output=tool.output[:tool_size],
+            )
+            for tool in tools_for_workload
+        ]
+
+        truncated_template_context = {
+            "workload_analysis": workload_analysis,
+            "tools_called_for_workload": truncated_workload_result_tool_calls,
+            "resource": resource,
+        }
+        system_prompt_with_truncated_tools = load_and_render_prompt(
+            template_path, truncated_template_context
+        )
+        return [
+            {
+                "role": "system",
+                "content": system_prompt_with_truncated_tools,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ]
+
+    user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
+
+    conversation_history.append(
+        {
+            "role": "user",
+            "content": user_prompt,
+        }
+    )
+    number_of_tools = len(tools_for_workload) + len(
+        [message for message in conversation_history if message.get("role") == "tool"]
+    )
+
+    if number_of_tools == 0:
+        return conversation_history
+
+    conversation_history_without_tools = [
+        message for message in conversation_history if message.get("role") != "tool"
+    ]
+    template_context_without_tools = {
+        "workload_analysis": workload_analysis,
+        "tools_called_for_workload": None,
+        "resource": resource,
+    }
+    system_prompt_without_tools = load_and_render_prompt(
+        template_path, template_context_without_tools
+    )
+    conversation_history_without_tools[0]["content"] = system_prompt_without_tools
+
+    tool_size = calculate_tool_size(
+        ai, conversation_history_without_tools, number_of_tools
+    )
+
+    truncated_workload_result_tool_calls = [
+        ToolCallConversationResult(
+            name=tool.name, description=tool.description, output=tool.output[:tool_size]
+        )
+        for tool in tools_for_workload
+    ]
+
+    template_context = {
+        "workload_analysis": workload_analysis,
+        "tools_called_for_workload": truncated_workload_result_tool_calls,
+        "resource": resource,
+    }
+    system_prompt_with_truncated_tools = load_and_render_prompt(
+        template_path, template_context
+    )
+    conversation_history[0]["content"] = system_prompt_with_truncated_tools
+
+    truncate_tool_messages(conversation_history, tool_size)
+
     return conversation_history
