@@ -22,8 +22,6 @@ def environ_get_safe_int(env_var, default="0"):
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 
-litellm.enable_json_schema_validation = False
-
 class LLM:
 
     @abstractmethod

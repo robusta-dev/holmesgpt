@@ -30,7 +30,7 @@ schema = {
   "additionalProperties": False
 }
 
-ExpectedInvestigationOutputFormat = { "type": "json_schema", "json_schema": { "name": "InvestigationResult", "schema": schema, "strict": True} }
+ExpectedInvestigationOutputFormat = { "type": "json_schema", "json_schema": { "name": "InvestigationResult", "schema": schema, "strict": False} }
 
 def combine_sections(sections: Any) -> str:
     if isinstance(sections, dict):

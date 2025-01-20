@@ -119,7 +119,7 @@ class ToolCallingLLM:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
-                )combine_sections
+                )
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -238,7 +238,7 @@ class ToolCallingLLM:
 
         tool_response = tool.invoke(tool_params)
 
-        return ToolCallResult(combine_sections
+        return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
             description=tool.get_parameterized_one_liner(tool_params),
