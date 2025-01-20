@@ -37,7 +37,7 @@ class LLM:
         pass
 
     @abstractmethod
-    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None, model_override:Optional[str] = None) -> ModelResponse:
+    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = [], tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         pass
 
 
@@ -146,12 +146,9 @@ class DefaultLLM(LLM):
         return litellm.token_counter(model=self.model,
                                         messages=messages)
 
-    def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = None, tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None, model_override:Optional[str] = None) -> ModelResponse:
-        model = self.model
-        if model_override:
-            model = model_override
+   def completion(self, messages: List[Dict[str, Any]], tools: Optional[List[Tool]] = None, tool_choice: Optional[Union[str, dict]] = None, response_format: Optional[Union[dict, Type[BaseModel]]] = None, temperature:Optional[float] = None, drop_params: Optional[bool] = None) -> ModelResponse:
         result = litellm.completion(
-            model=model,
+            model=self.model,
             api_key=self.api_key,
             messages=messages,
             tools=tools,
