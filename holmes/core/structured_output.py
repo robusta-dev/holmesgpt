@@ -23,8 +23,6 @@ EXPECTED_SECTIONS = [
 
 def generate_structured_output(llm_result:LLMResult) -> StructuredResponse:
 
-    print("")
-
     return StructuredResponse(
         **llm_result.model_dump(),
         sections=[],

@@ -8,6 +8,7 @@ from holmes.plugins.prompts import load_and_render_prompt
 from typing import List, Optional
 from holmes.core.llm import LLM
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.core.investigation_output_format import ExpectedInvestigationOutputFormat, combine_sections
 from openai import BadRequestError
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -60,44 +61,6 @@ class Instructions(BaseModel):
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
-
-class ExpectedOutputFormat(BaseModel):
-    alert_explanation: Union[str, None]
-    investigation: Union[str, None]
-    conclusions_and_possible_root_causes: Union[str, None]
-    next_steps: Union[str, None]
-
-schema = {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "required": [
-    "Alert Explanation",
-    "Investigation",
-    "Conclusions and Possible Root causes",
-    "Next Steps"
-  ],
-  "properties": {
-    "Alert Explanation": {
-      "type": ["string", "null"],
-      "description": "1-2 sentences explaining the alert itself - note don't say \"The alert indicates a warning event related to a Kubernetes pod doing blah\" rather just say \"The pod XYZ did blah\" because that is what the user actually cares about"
-    },
-    "Investigation": {
-      "type": ["string", "null"],
-      "description": "what you checked and found"
-    },
-    "Conclusions and Possible Root causes": {
-      "type": ["string", "null"],
-      "description": "what conclusions can you reach based on the data you found? what are possible root causes (if you have enough conviction to say) or what uncertainty remains"
-    },
-    "Next Steps": {
-      "type": ["string", "null"],
-      "description": "what you would do next to troubleshoot this issue, any commands that could be run to fix it, or other ways to solve it (prefer giving precise bash commands when possible)"
-    }
-  },
-  "additionalProperties": False
-}
-
-response_format = { "type": "json_schema", "json_schema": schema , "strict": False }
 
 class ToolCallingLLM:
 
@@ -156,7 +119,7 @@ class ToolCallingLLM:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
-                )
+                )combine_sections
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -199,7 +162,7 @@ class ToolCallingLLM:
                     pass
             if not isinstance(text_response, str):
                 sections = text_response
-                text_response = stringify_sections(sections)
+                text_response = combine_sections(sections)
 
             if not tools_to_call:
                 # For chatty models post process and summarize the result
@@ -275,7 +238,7 @@ class ToolCallingLLM:
 
         tool_response = tool.invoke(tool_params)
 
-        return ToolCallResult(
+        return ToolCallResult(combine_sections
             tool_call_id=tool_call_id,
             tool_name=tool_name,
             description=tool.get_parameterized_one_liner(tool_params),
@@ -426,93 +389,6 @@ class IssueInvestigator(ToolCallingLLM):
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
 
-        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=ExpectedOutputFormat)
-        print(res)
-        print("******")
+        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=ExpectedInvestigationOutputFormat)
         res.instructions = runbooks
-        generate_structured_output(res, llm=self.llm)
         return res
-
-## ## ## ## ## ## START CUSTOM STRUCTURED RESPONSE
-
-class StructuredSection(BaseModel):
-    title: str
-    content: Union[str, None]
-    contains_meaningful_information: bool
-
-class StructuredResponse(BaseModel):
-    sections: List[StructuredSection]
-
-# class StructuredLLMResult(LLMResult):
-#     sections: List[StructuredSection]
-
-
-EXPECTED_SECTIONS = [
-    "investigation steps",
-    "conclusions and possible root causes",
-    "related logs",
-    "alert explanation",
-    "next steps"
-]
-
-PROMPT = f"""
-Your job as a LLM is to take the unstructured output from another LLM
-and structure it into sections. Keep the original wording and do not
-add any information that is not already there.
-
-Return a JSON with the section title, its content and . Each section content should
-be markdown formatted text. If you consider a section as empty, set
-its corresponding value to null.
-
-For example:
-
-[{{
-  "title": "investigation steps",
-  "text": "The pod `kafka-consumer` is in a `Failed` state with the container terminated for an unknown reason and an exit code of 255.",
-  "contains_meaningful_information": true
-}}, {{
-  "title": "conclusions and possible root causes",
-  "text": "...",
-  "contains_meaningful_information": true
-}}, {{
-  "title": "next steps",
-  "text": null,
-  "contains_meaningful_information": false
-}}, ...]
-
-The section titles are [{", ".join(EXPECTED_SECTIONS)}]
-"""
-
-def stringify_sections(sections: Any) -> str:
-    if isinstance(sections, dict):
-        content = ''
-        for section_title, section_content in sections.items():
-            content = content + f'\n# {" ".join(section_title.split("_")).title()}\n{section_content}'
-        return content
-    return f"{sections}"
-
-def generate_structured_output(llm_result:LLMResult, llm:LLM) -> LLMResult:
-    if not llm_result.result:
-        return LLMResult(
-            **llm_result.model_dump()
-        )
-
-    messages = [
-        {"role": "system", "content": PROMPT},
-        {"role": "user", "content": llm_result.result},
-    ]
-
-    r = llm.completion(
-        model_override="gpt-4o-mini",
-        messages=messages,
-        temperature=0.00000001,
-        response_format=StructuredResponse,
-        drop_params=True,
-    )
-    # r_json = r.to_json()
-    # result = StructuredLLMResult.model_validate_json(r.choices[0].message.content)
-    print(r)
-    llm_result.sections = {}
-    return llm_result
-
-## ## ## ## ## ## END CUSTOM STRUCTURED RESPONSE

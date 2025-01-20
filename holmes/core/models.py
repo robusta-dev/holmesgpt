@@ -6,6 +6,7 @@ from enum import Enum
 
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
+    sections: Optional[Dict[str, str]] = None
     tool_calls: List[ToolCallResult] = []
     instructions: List[str] = []
 

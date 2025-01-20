@@ -33,7 +33,7 @@ class MockConfig(Config):
         self._test_case = test_case
 
     def create_tool_executor(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
+        self, console: Console, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
 
         mock = MockToolsets(generate_mocks=self._test_case.generate_mocks, test_case_folder=self._test_case.folder)
@@ -126,6 +126,13 @@ def test_investigate(experiment_name, test_case):
     )
     print(f"** OUTPUT **\n{output}")
     print(f"** SCORES **\n{scores}")
+
+    assert result.sections
+    assert len(result.sections) >= 4
+    assert result.sections.get("Alert Explanation")
+    assert result.sections.get("Investigation")
+    assert result.sections.get("Conclusions and Possible Root causes")
+    assert result.sections.get("Next Steps")
 
     if scores.get("faithfulness"):
         assert scores.get("faithfulness") >= test_case.evaluation.faithfulness

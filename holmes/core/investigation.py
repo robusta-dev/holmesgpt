@@ -8,7 +8,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.robusta import load_robusta_api_key
 
 
-def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config, console:Console):
+def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config, console:Console) -> InvestigationResult:
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(
         investigate_request.context.get("robusta_issue_id")
@@ -42,9 +42,9 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         instructions=resource_instructions,
         global_instructions=global_instructions
     )
-
     return InvestigationResult(
         analysis=investigation.result,
+        sections=investigation.sections,
         tool_calls=investigation.tool_calls or [],
         instructions=investigation.instructions,
     )
