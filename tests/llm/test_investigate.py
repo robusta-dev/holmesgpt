@@ -4,13 +4,12 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from rich.console import Console
 
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import ToolExecutor, ToolsetPattern
+from holmes.core.tools import ToolExecutor
 from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness, evaluate_factuality, evaluate_previous_logs_mention
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
@@ -33,7 +32,7 @@ class MockConfig(Config):
         self._test_case = test_case
 
     def create_tool_executor(
-        self, console: Console, dal:Optional[SupabaseDal]
+        self, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
 
         mock = MockToolsets(generate_mocks=self._test_case.generate_mocks, test_case_folder=self._test_case.folder)
@@ -98,8 +97,7 @@ def test_investigate(experiment_name, test_case):
     result = investigate_issues(
         investigate_request=test_case.investigate_request,
         config=config,
-        dal=mock_dal,
-        console=Console()
+        dal=mock_dal
     )
     assert result
 

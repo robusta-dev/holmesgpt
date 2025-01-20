@@ -8,12 +8,11 @@ from typing import List, Optional
 
 from pydantic import FilePath, SecretStr, Field
 from pydash.arrays import concat
-from rich.console import Console
 
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import (IssueInvestigator, 
+from holmes.core.tool_calling_llm import (IssueInvestigator,
                                           ToolCallingLLM,
                                           ToolExecutor)
 from holmes.core.tools import ToolsetPattern, get_matching_toolsets, ToolsetStatusEnum, ToolsetTag
@@ -29,9 +28,7 @@ from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
-from pydantic import ValidationError
 from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
-from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 
@@ -77,7 +74,7 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
-    
+
     enabled_toolsets_names: List[str] = Field(default_factory=list)
 
     @classmethod
@@ -109,7 +106,7 @@ class Config(RobustaBaseConfig):
                 kwargs[field_name] = val
             kwargs["cluster_name"] = Config.__get_cluster_name()
         return cls(**kwargs)
-    
+
     @staticmethod
     def __get_cluster_name() -> Optional[str]:
         config_file_path = ROBUSTA_CONFIG_PATH
@@ -130,20 +127,20 @@ class Config(RobustaBaseConfig):
         return None
 
     def create_console_tool_executor(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
+        self, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
-        Creates ToolExecutor for the cli 
+        Creates ToolExecutor for the cli
         """
         default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
-        
+
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
         else:
             matching_toolsets = get_matching_toolsets(
                 default_toolsets, allowed_toolsets.split(",")
-            )        
-        
+            )
+
         # Enable all matching toolsets that have CORE or CLI tag
         for toolset in matching_toolsets:
             toolset.enabled = True
@@ -155,7 +152,7 @@ class Config(RobustaBaseConfig):
             toolsets_loaded_from_config,
             matched_default_toolsets_by_name,
         )
-        
+
         for toolset in filtered_toolsets_by_name.values():
             if toolset.enabled:
                 toolset.check_prerequisites()
@@ -169,11 +166,11 @@ class Config(RobustaBaseConfig):
                 logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()})")
             elif ts.get_status() == ToolsetStatusEnum.FAILED:
                 logging.info(f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})")
-        
+
         for ts in default_toolsets:
             if ts.name not in filtered_toolsets_by_name.keys():
                  logging.debug(f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value")
-        
+
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
@@ -181,10 +178,10 @@ class Config(RobustaBaseConfig):
         return ToolExecutor(enabled_toolsets)
 
     def create_tool_executor(
-        self, console: Console, dal:Optional[SupabaseDal]
+        self, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
-        Creates ToolExecutor for the server endpoints 
+        Creates ToolExecutor for the server endpoints
         """
 
         all_toolsets = load_builtin_toolsets(dal=dal)
@@ -201,11 +198,11 @@ class Config(RobustaBaseConfig):
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
         return ToolExecutor(enabled_toolsets)
-    
+
     def create_console_toolcalling_llm(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
+        self, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -213,9 +210,9 @@ class Config(RobustaBaseConfig):
         )
 
     def create_toolcalling_llm(
-        self, console: Console,  dal:Optional[SupabaseDal] = None
+        self, dal:Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_tool_executor(console, dal)
+        tool_executor = self.create_tool_executor(dal)
         return ToolCallingLLM(
             tool_executor,
             self.max_steps,
@@ -224,7 +221,6 @@ class Config(RobustaBaseConfig):
 
     def create_issue_investigator(
         self,
-        console: Console,
         dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
@@ -232,17 +228,16 @@ class Config(RobustaBaseConfig):
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_tool_executor(console, dal)
+        tool_executor = self.create_tool_executor(dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,
             self.max_steps,
             self._get_llm()
         )
-    
+
     def create_console_issue_investigator(
         self,
-        console: Console,
         allowed_toolsets: ToolsetPattern,
         dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
@@ -251,7 +246,7 @@ class Config(RobustaBaseConfig):
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
         return IssueInvestigator(
             tool_executor,
             runbook_manager,

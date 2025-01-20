@@ -1,4 +1,5 @@
 
+from typing import Optional
 from rich.console import Console
 from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
@@ -7,8 +8,7 @@ from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.robusta import load_robusta_api_key
 
-
-def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config, console:Console) -> InvestigationResult:
+def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config):
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(
         investigate_request.context.get("robusta_issue_id")
@@ -23,9 +23,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
     if context:
         raw_data["extra_context"] = context
 
-    ai = config.create_issue_investigator(
-        console, dal=dal
-    )
+    ai = config.create_issue_investigator(dal=dal)
     issue = Issue(
         id=context["id"] if context else "",
         name=investigate_request.title,
@@ -37,7 +35,6 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
     investigation = ai.investigate(
         issue,
         prompt=investigate_request.prompt_template,
-        console=console,
         post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
         instructions=resource_instructions,
         global_instructions=global_instructions
