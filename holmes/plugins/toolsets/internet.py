@@ -1,76 +1,101 @@
 import re
+import os
 import logging
 
-from typing import Any
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetCommandPrerequisite
+from typing import Any, Optional, Tuple
+
+from requests import RequestException, Timeout
+from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag
 from markdownify import markdownify
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
+import requests
+
 # TODO: change and make it holmes
-USER_AGENT_STR = (
-    "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0"
-)
-PAGE_LOAD_TIMEOUT_SECONDS = 60000
+INTERNET_TOOLSET_USER_AGENT = os.environ.get("INTERNET_TOOLSET_USER_AGENT", "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0")
+INTERNET_TOOLSET_TIMEOUT_SECONDS = int(os.environ.get("INTERNET_TOOLSET_TIMEOUT_SECONDS", "60"))
 
+SELECTORS_TO_REMOVE = [
+    'script', 'style', 'meta', 'link', 'noscript',
+    'header', 'footer', 'nav',
+    'iframe', 'svg', 'img',
+    'button',
+    'menu', 'sidebar', 'aside',
+    '.header'
+    '.footer'
+    '.navigation',
+    '.nav',
+    '.menu',
+    '.sidebar',
+    '.ad',
+    '.advertisement',
+    '.social',
+    '.popup',
+    '.modal',
+    '.banner',
+    '.cookie-notice',
+    '.social-share',
+    '.related-articles',
+    '.recommended',
+    '#header'
+    '#footer'
+    '#navigation',
+    '#nav',
+    '#menu',
+    '#sidebar',
+    '#ad',
+    '#advertisement',
+    '#social',
+    '#popup',
+    '#modal',
+    '#banner',
+    '#cookie-notice',
+    '#social-share',
+    '#related-articles',
+    '#recommended'
+]
 
-def scrape_with_playwright(url):
+def scrape(url) -> Tuple[Optional[str], Optional[str]]:
+    response = None
+    content = None
+    mime_type = None
+    try:
+        response = requests.get(
+            url,
+            headers={
+                'User-Agent': INTERNET_TOOLSET_USER_AGENT
+            },
+            timeout=INTERNET_TOOLSET_TIMEOUT_SECONDS
+        )
+        response.raise_for_status()
+    except Timeout:
+        logging.error(
+            f"Failed to load {url}. Timeout after {INTERNET_TOOLSET_TIMEOUT_SECONDS} seconds",
+            exc_info=True
+        )
+    except RequestException as e:
+        logging.error(f"Failed to load {url}: {str(e)}", exc_info=True)
+        return None, None
 
-    with sync_playwright() as p:
+    if response:
+        content = response.text
         try:
-            browser = p.firefox.launch()
-        except Exception as e:
-            logging.error(str(e))
-            return None, None
+            content_type = response.headers['content-type']
+            if content_type:
+                mime_type = content_type.split(";")[0]
+        except Exception:
+            logging.info(f"Failed to parse content type from headers {response.headers}")
 
-        try:
-            context = browser.new_context(ignore_https_errors=False)
-            page = context.new_page()
+    return (content, mime_type)
 
-            page.set_extra_http_headers({"User-Agent": USER_AGENT_STR})
-
-            response = None
-            try:
-                response = page.goto(
-                    url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT_SECONDS
-                )
-                context.cookies()  # Reading cookies allows to load some pages checking that cookies are enabled
-            except PlaywrightTimeoutError:
-                logging.error(
-                    f"Failed to load {url}. Timeout after {PAGE_LOAD_TIMEOUT_SECONDS} seconds"
-                )
-            except PlaywrightError as e:
-                logging.error(f"Failed to load {url}: {str(e)}")
-                return None, None
-
-            try:
-                content = page.content()
-                mime_type = None
-                if response:
-                    content_type = response.header_value("content-type")
-                    if content_type:
-                        mime_type = content_type.split(";")[0]
-            except PlaywrightError as e:
-                logging.error(f"Error retrieving page content: {str(e)}")
-                content = None
-                mime_type = None
-        finally:
-            browser.close()
-
-    return content, mime_type
-
-
-def cleanup(soup):
+def cleanup(soup:BeautifulSoup):
     """Remove all elements that are irrelevant to the textual representation of a web page.
     This includes images, extra data, even links as there is no intention to navigate from that page.
     """
-    for svg in soup.find_all("svg"):
-        svg.decompose()
 
-    if soup.img:
-        soup.img.decompose()
+    for selector in SELECTORS_TO_REMOVE:
+        for element in soup.select(selector):
+            element.decompose()
 
     for tag in soup.find_all("a"):
         tag.unwrap()
@@ -83,7 +108,8 @@ def cleanup(soup):
     return soup
 
 
-def html_to_markdown(page_source):
+
+def html_to_markdown(page_source:str):
 
     soup = BeautifulSoup(page_source, "html.parser")
     soup = cleanup(soup)
@@ -122,7 +148,7 @@ class FetchWebpage(Tool):
     def __init__(self):
         super().__init__(
             name="fetch_webpage",
-            description="Fetch a webpage with w3m. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
+            description="Fetch a webpage. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
             parameters={
                 "url": ToolParameter(
                     description="The URL to fetch",
@@ -135,7 +161,7 @@ class FetchWebpage(Tool):
     def invoke(self, params: Any) -> str:
 
         url: str = params["url"]
-        content, mime_type = scrape_with_playwright(url)
+        content, mime_type = scrape(url)
 
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
@@ -160,12 +186,7 @@ class InternetToolset(Toolset):
             name="internet",
             description="Fetch webpages",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
-            prerequisites=[
-                # Take a sucessful screenshot ensures playwright is correctly installed
-                ToolsetCommandPrerequisite(
-                    command="python -m playwright screenshot --browser firefox https://www.google.com playwright.png"
-                ),
-            ],
+            prerequisites=[],
             tools=[FetchWebpage()],
-            tags=["core",]
+            tags=[ToolsetTag.CORE,]
         )

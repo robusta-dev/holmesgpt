@@ -19,7 +19,7 @@ To this 👇
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
-- **Secure:** *Read-only* access to your data - respects RBAC permissions 
+- **Secure:** *Read-only* access to your data - respects RBAC permissions
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
@@ -491,7 +491,7 @@ To use Vertex AI with Gemini models, set the following environment variables:
 
 ```bash
 export VERTEXAI_PROJECT="your-project-id"
-export VERTEXAI_LOCATION="us-central1" 
+export VERTEXAI_LOCATION="us-central1"
 export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
 ```
 
@@ -560,7 +560,8 @@ Fetching runbooks through URLs
 </summary>
 
 HolmesGPT can consult webpages containing runbooks or other relevant information.
-HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
+This is done through a HTTP GET and the resulting HTML is then cleaned and parsed into markdown.
+Any Javascript that is on the webpage is ignored.
 </details>
 
 <details>
