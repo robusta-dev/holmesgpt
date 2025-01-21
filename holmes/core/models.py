@@ -21,6 +21,7 @@ class InvestigateRequest(BaseModel):
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://generic_investigation.jinja2"
+    sections: Optional[Dict[str, str]] = None
     # TODO in the future
     # response_handler: ...
 

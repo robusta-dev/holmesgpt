@@ -36,6 +36,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         issue,
         prompt=investigate_request.prompt_template,
         post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
+        sections=investigate_request.sections,
         instructions=resource_instructions,
         global_instructions=global_instructions
     )

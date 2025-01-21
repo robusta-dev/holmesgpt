@@ -2,14 +2,14 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import List, Optional, Dict, Type, Union, Any
+from typing import List, Optional, Dict, Type, Union
+from holmes.core.investigation_structured_output import DEFAULT_SECTIONS, get_output_format_for_investigation, combine_sections
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
 from typing import List, Optional
 from holmes.core.llm import LLM
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.investigation_output_format import ExpectedInvestigationOutputFormat, combine_sections
 from openai import BadRequestError
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -360,10 +360,14 @@ class IssueInvestigator(ToolCallingLLM):
         console: Optional[Console] = None,
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
+        sections: Optional[Dict[str, str]] = None
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
-        if instructions != None and instructions.instructions:
+        if not sections or len(sections) == 0:
+            sections = DEFAULT_SECTIONS
+
+        if instructions is not None and instructions.instructions:
             runbooks.extend(instructions.instructions)
 
         if console and runbooks:
@@ -374,7 +378,7 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = load_and_render_prompt(prompt, {"issue": issue})
+        system_prompt = load_and_render_prompt(prompt, {"issue": issue, "sections": sections})
 
         if instructions != None and len(instructions.documents) > 0:
             docPrompts = []
@@ -401,6 +405,6 @@ class IssueInvestigator(ToolCallingLLM):
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
 
-        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=ExpectedInvestigationOutputFormat)
+        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=get_output_format_for_investigation(sections))
         res.instructions = runbooks
         return res
