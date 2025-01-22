@@ -189,35 +189,35 @@ class Config(RobustaBaseConfig):
         for toolset in matching_toolsets:
             toolset.enabled = True
 
-        matched_default_toolsets_by_name = {
+        toolsets_by_name = {
             toolset.name: toolset for toolset in matching_toolsets
         }
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
         if toolsets_loaded_from_config:
-            matched_default_toolsets_by_name = (
+            toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
                     toolsets_loaded_from_config,
-                    matched_default_toolsets_by_name,
+                    toolsets_by_name,
                 )
             )
 
         if self.toolsets:
             loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
             if loaded_toolsets_from_env:
-                matched_default_toolsets_by_name = (
+                toolsets_by_name = (
                     self.merge_and_override_bultin_toolsets_with_toolsets_config(
                         loaded_toolsets_from_env,
-                        matched_default_toolsets_by_name,
+                        toolsets_by_name,
                     )
                 )
 
-        for toolset in matched_default_toolsets_by_name.values():
+        for toolset in toolsets_by_name.values():
             if toolset.enabled:
                 toolset.check_prerequisites()
 
         enabled_toolsets = []
-        for ts in matched_default_toolsets_by_name.values():
+        for ts in toolsets_by_name.values():
             if ts.get_status() == ToolsetStatusEnum.ENABLED:
                 enabled_toolsets.append(ts)
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
@@ -229,7 +229,7 @@ class Config(RobustaBaseConfig):
                 )
 
         for ts in default_toolsets:
-            if ts.name not in matched_default_toolsets_by_name.keys():
+            if ts.name not in toolsets_by_name.keys():
                 logging.debug(
                     f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value"
                 )
@@ -245,9 +245,7 @@ class Config(RobustaBaseConfig):
         Creates ToolExecutor for the server endpoints
         """
 
-        all_toolsets = load_builtin_toolsets(
-            dal=dal, opensearch_clusters=self.opensearch_clusters
-        )
+        all_toolsets = load_builtin_toolsets(dal=dal)
 
         toolsets_by_name: dict[str, Toolset] = {
             toolset.name: toolset for toolset in all_toolsets
@@ -255,14 +253,24 @@ class Config(RobustaBaseConfig):
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
         if toolsets_loaded_from_config:
-            merged_toolsets_by_name: Dict[str, Toolset] = (
+            toolsets_by_name: Dict[str, Toolset] = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
                     toolsets_loaded_from_config,
                     toolsets_by_name,
                 )
             )
 
-        toolsets: list[Toolset] = list(merged_toolsets_by_name.values())
+        if self.toolsets:
+            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
+            if loaded_toolsets_from_env:
+                toolsets_by_name = (
+                    self.merge_and_override_bultin_toolsets_with_toolsets_config(
+                        loaded_toolsets_from_env,
+                        toolsets_by_name,
+                    )
+                )
+
+        toolsets: list[Toolset] = list(toolsets_by_name.values())
 
         for toolset in toolsets:
             if toolset.enabled:
@@ -441,7 +449,9 @@ class Config(RobustaBaseConfig):
                 )
                 validated_config.set_path(path)
                 if validated_config.config:
-                    validated_config.config = replace_env_vars_values(validated_config.config) 
+                    validated_config.config = replace_env_vars_values(
+                        validated_config.config
+                    )
                 loaded_toolsets.append(validated_config)
             except ValidationError as e:
                 logging.error(f"Toolset '{name}' is invalid: {e}")
