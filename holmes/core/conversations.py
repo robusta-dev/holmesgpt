@@ -137,7 +137,8 @@ def handle_issue_conversation(
     return system_prompt
 
 
-def build_issue_chat_messages(issue_chat_request: IssueChatRequest, ai: ToolCallingLLM,
+def build_issue_chat_messages(issue_chat_request: IssueChatRequest, 
+                              ai: ToolCallingLLM,
                               global_instructions: Optional[Instructions] = None):
     """
     This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations
@@ -362,12 +363,12 @@ def build_workload_health_chat_messages(workload_health_chat_request: WorkloadHe
                                         global_instructions: Optional[Instructions] = None
                                         ):
     
-    template_path = "builtin://kubernetes_workload_ask.jinja2"
+    template_path = "builtin://kubernetes_workload_chat.jinja2"
 
     conversation_history = workload_health_chat_request.conversation_history
     user_prompt = workload_health_chat_request.ask
     workload_analysis = workload_health_chat_request.workload_health_result.analysis
-    tools_for_workload = workload_health_chat_request.workload_health_result.tool_calls
+    tools_for_workload = workload_health_chat_request.workload_health_result.tools
     resource = workload_health_chat_request.resource
 
     if not conversation_history or len(conversation_history) == 0:
