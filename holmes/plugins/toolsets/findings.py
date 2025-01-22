@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from typing_extensions import Dict
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset
+from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
 
 PARAM_FINDING_ID = "id"
 
@@ -72,5 +72,6 @@ class FindingsToolset(Toolset):
             name="robusta",
             prerequisites=[dal_prereq],
             tools=[FetchRobustaFinding(dal)],
-            tags=["core",]
+            tags=[ToolsetTag.CORE,],
+            is_default=True
         )
