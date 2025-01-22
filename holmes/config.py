@@ -26,6 +26,7 @@ from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.plugins.toolsets import (load_builtin_toolsets,
                                      load_toolsets_from_file)
+from holmes.plugins.toolsets.kafka import KafkaConfig
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
@@ -72,6 +73,13 @@ class Config(RobustaBaseConfig):
     opsgenie_team_integration_key: Optional[SecretStr] = None
     opsgenie_query: Optional[str] = None
 
+    kafka_brokers: Optional[str] = None # comma separated values
+    kafka_security_protocol: Optional[str] = None
+    kafka_sasl_mechanism: Optional[str] = None
+    kafka_username: Optional[str] = None
+    kafka_password: Optional[str] = None
+    kafka_client_id: Optional[str] = None
+
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
@@ -98,6 +106,12 @@ class Config(RobustaBaseConfig):
             "github_repository",
             "github_pat",
             "github_query",
+            "kafka_brokers",
+            "kafka_security_protocol",
+            "kafka_sasl_mechanism",
+            "kafka_username",
+            "kafka_password",
+            "kafka_client_id"
             # TODO
             # custom_runbooks
         ]:
@@ -126,13 +140,24 @@ class Config(RobustaBaseConfig):
 
         return None
 
+    def get_kafka_config(self) -> Optional[KafkaConfig]:
+        if self.kafka_brokers:
+            return KafkaConfig(
+                brokers = self.kafka_brokers.split(","),
+                security_protocol = self.kafka_security_protocol,
+                sasl_mechanism = self.kafka_sasl_mechanism,
+                username = self.kafka_username,
+                password = self.kafka_password,
+                client_id = self.kafka_client_id
+            )
+
     def create_console_tool_executor(
         self, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
         Creates ToolExecutor for the cli
         """
-        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
+        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal=dal, kafka_config=self.get_kafka_config()) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
 
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
@@ -184,7 +209,7 @@ class Config(RobustaBaseConfig):
         Creates ToolExecutor for the server endpoints
         """
 
-        all_toolsets = load_builtin_toolsets(dal=dal)
+        all_toolsets = load_builtin_toolsets(dal=dal, kafka_config=self.get_kafka_config())
 
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             try:
