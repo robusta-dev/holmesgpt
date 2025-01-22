@@ -182,7 +182,7 @@ Like what you see? Discover [more use cases](#more-use-cases) or get started by 
 
 Install Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package:
 
-- Fully integrated with **OpenAI GPT-4o**
+- Analysis based on **GPT-4o** (no API key needed)
 - Simple installation using `helm`
 - Built-in integrations with **Prometheus alerts** and **Slack**
 - Visualize Kubernetes issues on a timeline, and analyze them with Holmes in a single click
