@@ -68,7 +68,10 @@ D. OUTPUT mentions both "logs" and "previous logs" but presents both as having t
 
 
 def evaluate_correctness(expected_elements:List[str], output:Optional[str]):
-    prompt_prefix = """
+
+    expected_elements_str = "\n- ".join(expected_elements)
+
+    prompt_prefix = f"""
     You are evaluating the correctness of a response by a LLM. You must return a score between 0 and 1 that represents the correctness of the response/OUTPUT from the LLM.
     The correctness is defined by the amount of EXPECTED ELEMENTS present in the output. Correctness is 1 if all elements are presents and 0 if none are presents.
     The correctness score should be proportional to the number of EXPECTED ELEMENTS present in the OUTPUT.
@@ -76,7 +79,7 @@ def evaluate_correctness(expected_elements:List[str], output:Optional[str]):
     EXPECTED ELEMENTS
     =================
 
-    - {{"\n- ".join(expected_elements)}}
+    - {expected_elements_str}
 
     OUTPUT
     ======

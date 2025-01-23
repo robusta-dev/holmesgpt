@@ -138,3 +138,5 @@ def test_investigate(experiment_name, test_case):
     if scores.get("correctness"):
         assert scores.get("correctness") >= test_case.evaluation.correctness
     assert scores.get("context", 0) >= test_case.evaluation.context
+
+    assert False

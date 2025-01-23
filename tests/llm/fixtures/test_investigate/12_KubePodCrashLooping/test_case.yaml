@@ -1,3 +1,2 @@
 expected_output:
   - The DEPLOY_ENV environment variable is missing
-generate_mocks: True
