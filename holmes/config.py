@@ -455,6 +455,8 @@ class Config(RobustaBaseConfig):
                 loaded_toolsets.append(validated_config)
             except ValidationError as e:
                 logging.error(f"Toolset '{name}' is invalid: {e}")
+            except Exception:
+                logging.exception("Failed to load toolset: %s", name)
 
         return loaded_toolsets
 
