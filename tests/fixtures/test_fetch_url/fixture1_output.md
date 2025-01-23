@@ -7,7 +7,7 @@ Sub title 2
 -----------
 
  Lorem ipsum dolor sit amet,
- consectetur adipiscing elit. Maecenas sit amet
+ [consectetur](/foobar) adipiscing elit. Maecenas sit amet
  magna nec urna mollis vehicula. Quisque maximus, lacus sed
  consectetur scelerisque, felis velit pulvinar lectus, sed pretium
  orci arcu eu sapien. In hac habitasse platea dictumst. Mauris dictum

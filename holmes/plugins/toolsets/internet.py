@@ -97,9 +97,6 @@ def cleanup(soup:BeautifulSoup):
         for element in soup.select(selector):
             element.decompose()
 
-    for tag in soup.find_all("a"):
-        tag.unwrap()
-
     for tag in soup.find_all(True):
         for attr in list(tag.attrs):
             if attr != "href":

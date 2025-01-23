@@ -1,25 +1,25 @@
 KubePodCrashLooping
- \#
-=======================
+ [\#](#kubepodcrashlooping)
+===============================================
 
 Meaning
- \#
------------
+ [\#](#meaning)
+-----------------------
 
 Pod is in CrashLoop which means the app dies or is unresponsive and
 kubernetes tries to restart it automatically.
 
 Impact
- \#
-----------
+ [\#](#impact)
+---------------------
 
 Service degradation or unavailability.
 Inability to do rolling upgrades.
 Certain apps will not perform required tasks such as data migrations.
 
 Diagnosis
- \#
--------------
+ [\#](#diagnosis)
+---------------------------
 
 * Check template via `kubectl -n $NAMESPACE get pod $POD`.
 * Check pod events via `kubectl -n $NAMESPACE describe pod $POD`.
@@ -45,10 +45,10 @@ low, not enough CPU which is required on start
 (for example WORKDIR from Docerkfile is not used in OpenShift)
 
 Mitigation
- \#
---------------
+ [\#](#mitigation)
+-----------------------------
 
 Talk with developers or read documentation about the app, ensure to define
 sane default values to start the app.
 
-See Debugging Pods
+See [Debugging Pods](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application/#debugging-pods)
