@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name":"db-certs-authenticator-757f89d977-dwhl8","namespace":"default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"name":"db-certs-authenticator-757f89d977-dwhl8","namespace":"default"}}
 stdout:
  * Serving Flask app "app" (lazy loading)
  * Environment: production
