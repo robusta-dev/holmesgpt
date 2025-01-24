@@ -1,3 +1,4 @@
+from functools import lru_cache
 import logging
 import os
 import yaml
@@ -240,6 +241,7 @@ class Config(RobustaBaseConfig):
         )
         return ToolExecutor(enabled_toolsets)
 
+    lru_cache()
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """
         Creates ToolExecutor for the server endpoints
