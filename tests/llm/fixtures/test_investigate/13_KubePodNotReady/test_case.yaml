@@ -1,2 +1,4 @@
 expected_output:
   - This must mention insufficient GPU resources
+evaluation:
+  correctness: 1

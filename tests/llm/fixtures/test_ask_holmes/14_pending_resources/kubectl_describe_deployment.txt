@@ -2,7 +2,7 @@
 stdout:
 Name:                   user-profile-resources
 Namespace:              default
-CreationTimestamp:      Tue, 26 Nov 2024 12:38:00 +0100
+CreationTimestamp:      Fri, 24 Jan 2025 12:41:58 +0100
 Labels:                 <none>
 Annotations:            deployment.kubernetes.io/revision: 1
 Selector:               app=user-profile-resources
@@ -38,8 +38,8 @@ Conditions:
 OldReplicaSets:  <none>
 NewReplicaSet:   user-profile-resources-659d4dd659 (1/1 replicas created)
 Events:
-  Type    Reason             Age   From                   Message
-  ----    ------             ----  ----                   -------
-  Normal  ScalingReplicaSet  37s   deployment-controller  Scaled up replica set user-profile-resources-659d4dd659 to 1
+  Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  4m58s  deployment-controller  Scaled up replica set user-profile-resources-659d4dd659 to 1
 
 stderr:

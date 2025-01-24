@@ -1,12 +1,12 @@
 from holmes.core.tool_calling_llm import ToolCallResult
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, model_validator
 from enum import Enum
 
 
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
-    sections: Optional[Dict[str, str]] = None
+    sections: Optional[Dict[str, Union[str, None]]] = None
     tool_calls: List[ToolCallResult] = []
     instructions: List[str] = []
 

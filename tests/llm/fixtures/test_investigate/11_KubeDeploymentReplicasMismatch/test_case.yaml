@@ -3,3 +3,5 @@ expected_output:
   - The `payment-processing-worker` deployment is configured with 1 desired replica, but currently has 0 available replicas.
   - "The deployment's condition indicates `Available: False` due to `MinimumReplicasUnavailable` and `Progressing: False` due to `ProgressDeadlineExceeded`"
   - The pod `robusta-kube-state-metrics-8667fd9775-kbsp7` is running and has restarted 15 times over the past 10 days, but this is unrelated to the `payment-processing-worker` deployment.
+evaluation:
+  correctness: 1

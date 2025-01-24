@@ -7,9 +7,7 @@ from holmes.core.investigation_structured_output import DEFAULT_SECTIONS, get_ou
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
-from typing import List, Optional
 from holmes.core.llm import LLM
-from holmes.plugins.prompts import load_and_render_prompt
 from openai import BadRequestError
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -32,7 +30,7 @@ class ToolCallResult(BaseModel):
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
-    sections: Optional[Dict[str, str]] = None
+    sections: Optional[Dict[str, Union[str, None]]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
     instructions: List[str] = []

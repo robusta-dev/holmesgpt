@@ -3,4 +3,4 @@ expected_output:
   - It is triggered by HTTP requests to the `/checkout` endpoint in the `customer-orders` application which are taking longer than 3 seconds to complete
   - logs indicate that the database call `sp_CheckUserNotifications` is taking between 5 to 10 seconds to complete
 evaluation:
-  correctness: 0
+  correctness: 1

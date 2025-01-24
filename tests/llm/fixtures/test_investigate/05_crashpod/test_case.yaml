@@ -2,4 +2,4 @@ expected_output:
   - The pod `db-certs-authenticator-7ffd769f48-vndgd` in the `default` namespace is experiencing a `CrashLoopBackOff`
   - Mention the runbook `KubePodCrashLooping`
 evaluation:
-  correctness: 0
+  correctness: 1

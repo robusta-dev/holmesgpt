@@ -1,4 +1,4 @@
-{"toolset_name":"findings","tool_name":"fetch_finding_by_id","match_params":{"id":"5fedd1a3-83b7-45dc-9649-708323bd50f5"}}
+{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"5fedd1a3-83b7-45dc-9649-708323bd50f5"}}
 {
   "id": "5fedd1a3-83b7-45dc-9649-708323bd50f5",
   "description": "HTTP Requests to the '/checkout' endpoint in customer-orders-app are taking longer than 3 seconds",

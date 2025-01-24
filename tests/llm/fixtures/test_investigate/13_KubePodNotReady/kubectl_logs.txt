@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"name": "user-profile-import", "namespace": "default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"pod_name": "user-profile-import", "namespace": "default"}}
 stdout:
 
 stderr:

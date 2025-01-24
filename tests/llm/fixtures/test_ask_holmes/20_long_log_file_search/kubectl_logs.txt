@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"name":"network-connector","namespace":"default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"pod_name":"network-connector","namespace":"default"}}
 stdout:
 Log entry 1
 Log entry 2

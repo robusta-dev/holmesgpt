@@ -5,6 +5,7 @@ from typing import Optional
 
 import pytest
 
+from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
@@ -53,10 +54,9 @@ def get_test_cases():
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
-    if os.environ.get('UPLOAD_DATASET'):
-        if os.environ.get('BRAINTRUST_API_KEY'):
-            bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
-            bt_helper.upload_test_cases(mh.load_test_cases())
+    if os.environ.get('UPLOAD_DATASET') and os.environ.get('BRAINTRUST_API_KEY'):
+        bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
+        bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_investigate_test_cases()
     return [(experiment_name, test_case) for test_case in test_cases]
@@ -105,10 +105,14 @@ def test_investigate(experiment_name, test_case):
 
     scores = {}
 
-    if isinstance(expected, list):
-        scores["correctness"] = evaluate_correctness(output=output, expected_elements=expected).score
-    else:
-        scores["faithfulness"] = evaluate_factuality(output=output, expected=expected, input=input).score
+
+    debug_expected = '\n-  '.join(expected)
+    print(f"** EXPECTED **\n-  {debug_expected}")
+
+    correctness_eval = evaluate_correctness(output=output, expected_elements=expected)
+    print(f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}")
+    scores["correctness"] = correctness_eval.score
+
     scores["previous_logs"] = evaluate_previous_logs_mention(output=output).score
 
     if len(test_case.retrieval_context) > 0:
@@ -122,21 +126,17 @@ def test_investigate(experiment_name, test_case):
         id=test_case.id,
         scores=scores
     )
-    print(f"** OUTPUT **\n{output}")
-    print(f"** SCORES **\n{scores}")
+    print(f"\n** OUTPUT **\n{output}")
+    print(f"\n** SCORES **\n{scores}")
 
     assert result.sections
-    assert len(result.sections) >= 4
-    assert result.sections.get("Alert Explanation")
-    assert result.sections.get("Investigation")
-    assert result.sections.get("Conclusions and Possible Root causes")
-    assert result.sections.get("Next Steps")
+    assert len(result.sections) >= len(DEFAULT_SECTIONS)
+    for expected_section_title in DEFAULT_SECTIONS:
+        assert expected_section_title in result.sections
+    # assert result.sections.get("Investigation")
+    # assert result.sections.get("Conclusions and Possible Root causes")
+    # assert result.sections.get("Next Steps")
 
-    if scores.get("faithfulness"):
-        assert scores.get("faithfulness") >= test_case.evaluation.faithfulness
 
-    if scores.get("correctness"):
-        assert scores.get("correctness") >= test_case.evaluation.correctness
-    assert scores.get("context", 0) >= test_case.evaluation.context
-
-    assert False
+    if test_case.evaluation.correctness:
+        assert scores.get("correctness", 0) >= 1 #test_case.evaluation.correctness

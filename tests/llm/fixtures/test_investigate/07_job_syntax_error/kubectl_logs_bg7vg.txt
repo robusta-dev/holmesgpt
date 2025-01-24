@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"name":"product-data-scraper-bg7vg","namespace":"default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"pod_name":"product-data-scraper-bg7vg","namespace":"default"}}
 stdout:
 /bin/sh: syntax error: unexpected "fi"
 

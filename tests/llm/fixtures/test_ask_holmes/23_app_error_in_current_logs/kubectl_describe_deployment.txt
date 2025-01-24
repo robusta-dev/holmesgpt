@@ -2,7 +2,7 @@
 stdout:
 Name:                   meme-deployment
 Namespace:              default
-CreationTimestamp:      Tue, 26 Nov 2024 12:35:40 +0100
+CreationTimestamp:      Fri, 24 Jan 2025 12:50:37 +0100
 Labels:                 app=meme-app
 Annotations:            deployment.kubernetes.io/revision: 1
 Selector:               app=meme-app
@@ -34,6 +34,6 @@ NewReplicaSet:   meme-deployment-74db7bc95c (2/2 replicas created)
 Events:
   Type    Reason             Age   From                   Message
   ----    ------             ----  ----                   -------
-  Normal  ScalingReplicaSet  73s   deployment-controller  Scaled up replica set meme-deployment-74db7bc95c to 2
+  Normal  ScalingReplicaSet  95s   deployment-controller  Scaled up replica set meme-deployment-74db7bc95c to 2
 
 stderr:

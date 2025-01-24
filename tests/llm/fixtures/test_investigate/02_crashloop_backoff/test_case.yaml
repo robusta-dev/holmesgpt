@@ -8,4 +8,5 @@ retrieval_context:
   - The pod has restarted 4 times and is currently in a Waiting state with the reason CrashLoopBackOff.
   - "The error message indicates: exec: 'wge': executable file not found in $PATH."
 evaluation:
-  correctness: 0
+  correctness: 1
+generate_mocks: True

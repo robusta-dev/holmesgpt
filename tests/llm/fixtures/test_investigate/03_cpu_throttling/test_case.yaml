@@ -7,4 +7,4 @@ retrieval_context:
   - The container is running a command to stress the CPU with 100 threads
   - The pod is in a Running state with no restarts
 evaluation:
-  correctness: 0
+  correctness: 1

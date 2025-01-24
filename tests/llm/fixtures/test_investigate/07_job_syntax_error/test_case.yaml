@@ -3,4 +3,4 @@ expected_output:
   - The job's pods (`product-data-scraper-2fqrh`, `product-data-scraper-5fdj6`, etc.) were created successfully but encountered errors during execution.
   - "The logs from one of the pods, `product-data-scraper-2fqrh`, show a syntax error: `/bin/sh: syntax error: unexpected 'fi'`"
 evaluation:
-  correctness: 0
+  correctness: 1

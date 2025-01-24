@@ -7,5 +7,5 @@ retrieval_context:
   - "Pod my-cluster-kafka was evicted"
   - "The node was low on resource: ephemeral-storage. Threshold quantity: 2126213140, available: 1884540Ki. Container kafka was using 3264Ki, request is 0, has larger consumption of ephemeral-storage."
 evaluation:
-  answer_relevancy: 0
-  faithfulness: 0
+  correctness: 1
+generate_mocks: True

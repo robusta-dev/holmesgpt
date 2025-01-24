@@ -1,4 +1,4 @@
-{"toolset_name":"findings","tool_name":"fetch_finding_by_id","match_params":{"id":"1eb606c4-46af-430e-a116-a92c201ee1d0"}}
+{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"1eb606c4-46af-430e-a116-a92c201ee1d0"}}
 {
   "category": null,
   "cluster": "test_cluster",
