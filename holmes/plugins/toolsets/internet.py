@@ -1,8 +1,9 @@
 import re
 import logging
-
-from typing import Any
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetCommandPrerequisite, ToolsetTag
+import os
+import json
+from typing import Any, Dict
+from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetCommandPrerequisite, ToolsetTag, CallablePrerequisite
 from markdownify import markdownify
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -16,7 +17,7 @@ USER_AGENT_STR = (
 PAGE_LOAD_TIMEOUT_SECONDS = 60000
 
 
-def scrape_with_playwright(url):
+def scrape_with_playwright(url, additional_headers):
 
     with sync_playwright() as p:
         try:
@@ -28,8 +29,9 @@ def scrape_with_playwright(url):
         try:
             context = browser.new_context(ignore_https_errors=False)
             page = context.new_page()
+            additional_headers["User-Agent"] = USER_AGENT_STR
 
-            page.set_extra_http_headers({"User-Agent": USER_AGENT_STR})
+            page.set_extra_http_headers(additional_headers)
 
             response = None
             try:
@@ -119,7 +121,9 @@ def looks_like_html(content):
 
 
 class FetchWebpage(Tool):
-    def __init__(self):
+    toolset: "InternetToolset"
+    
+    def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_webpage",
             description="Fetch a webpage with w3m. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
@@ -128,15 +132,24 @@ class FetchWebpage(Tool):
                     description="The URL to fetch",
                     type="string",
                     required=True,
+                ),
+                "is_runbook": ToolParameter(
+                    description="Is true if the url is a runbook",
+                    type="boolean",
+                    required=True,
                 )
             },
+            toolset=toolset,
         )
 
     def invoke(self, params: Any) -> str:
 
         url: str = params["url"]
-        content, mime_type = scrape_with_playwright(url)
-
+        is_runbook: bool = params["is_runbook"]
+        logging.warning("running fetch_webpage auth")
+        additional_headers = self.toolset.runbook_headers if is_runbook else {}
+        content, mime_type = scrape_with_playwright(url, additional_headers)
+        logging.warning(f"content {content}")
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
             return ""
@@ -147,26 +160,53 @@ class FetchWebpage(Tool):
         ):
             content = html_to_markdown(content)
 
+        if 'api.notion.com' in url:
+            return self.parse_notion_content(content)
         return content
 
+    def parse_notion_content(self, content: Any) -> str:
+        soup = BeautifulSoup(content, 'html.parser')
+        # Extract the JSON string from the <pre> tag
+        json_string = soup.find('pre').text
+        # Parse the JSON string into a Python dictionary
+        data = json.loads(json_string)
+        texts = []
+        for result in data['results']:
+            if 'paragraph' in result and 'rich_text' in result['paragraph']:
+                texts.extend([text['plain_text'] for text in result['paragraph']['rich_text']])
+
+        # Join and print the result
+        return ''.join(texts)
+        
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
         return f"fetched webpage {url}"
 
 
 class InternetToolset(Toolset):
+    runbook_headers: Dict[str, str] = {}
+
     def __init__(self):
         super().__init__(
             name="internet",
             description="Fetch webpages",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
             prerequisites=[
+                CallablePrerequisite(callable=self.prerequisites_callable),
                 # Take a sucessful screenshot ensures playwright is correctly installed
                 ToolsetCommandPrerequisite(
                     command="python -m playwright screenshot --browser firefox https://www.google.com playwright.png"
                 ),
             ],
-            tools=[FetchWebpage()],
+            tools=[FetchWebpage(self)],
             tags=[ToolsetTag.CORE,],
             is_default=True
         )
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+        if not config:
+            return False
+
+        self.runbook_headers: Dict[str, str] = config.get("runbook_headers", {})
+        logging.warning(f"self.runbook_headers {self.runbook_headers}")
+        return True
