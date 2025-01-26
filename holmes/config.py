@@ -114,9 +114,9 @@ class Config(RobustaBaseConfig):
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
-    enabled_toolsets_names: List[str] = Field(default_factory=list)
-
     toolsets: Optional[dict[str, dict[str, Any]]] = None
+
+    _server_tool_executor: Optional[ToolExecutor] = None
 
     @classmethod
     def load_from_env(cls):
@@ -241,12 +241,14 @@ class Config(RobustaBaseConfig):
         )
         return ToolExecutor(enabled_toolsets)
 
-    lru_cache()
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """
         Creates ToolExecutor for the server endpoints
         """
-
+        if self._server_tool_executor:
+            return self._server_tool_executor
+        
+        logging.info("Creating server tool executor")
         all_toolsets = load_builtin_toolsets(dal=dal)
 
         toolsets_by_name: dict[str, Toolset] = {
@@ -278,13 +280,13 @@ class Config(RobustaBaseConfig):
             if toolset.enabled:
                 toolset.check_prerequisites()
 
-        tool_executor = ToolExecutor(toolsets)
+        self._server_tool_executor = ToolExecutor(toolsets)
 
         logging.debug(
-            f"Starting AI session with tools: {[tn for tn in tool_executor.tools_by_name.keys()]}"
+            f"Starting AI session with tools: {[tn for tn in self._server_tool_executor.tools_by_name.keys()]}"
         )
 
-        return tool_executor
+        return self._server_tool_executor
 
     def create_console_toolcalling_llm(
         self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal] = None
