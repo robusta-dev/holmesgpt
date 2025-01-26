@@ -7,24 +7,32 @@ from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.robusta import load_robusta_api_key
+import logging
 
 
 def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config):
     load_robusta_api_key(dal=dal, config=config)
+    logging.info("loaded robusta api key")
     context = dal.get_issue_data(
         investigate_request.context.get("robusta_issue_id")
     )
+    logging.info("got issue data")
 
     resource_instructions = dal.get_resource_instructions(
         "alert", investigate_request.context.get("issue_type")
     )
+    logging.info("got resource instructions")
+
     global_instructions = dal.get_global_instructions_for_account()
+    logging.info("got global instructions")
 
     raw_data = investigate_request.model_dump()
     if context:
         raw_data["extra_context"] = context
 
     ai = config.create_issue_investigator(dal=dal)
+    logging.info("created issue investigator")
+
     issue = Issue(
         id=context["id"] if context else "",
         name=investigate_request.title,
@@ -32,6 +40,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         source_instance_id=investigate_request.source_instance_id,
         raw=raw_data,
     )
+    logging.info("created issue")
 
     investigation = ai.investigate(
         issue,
@@ -40,6 +49,7 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         instructions=resource_instructions,
         global_instructions=global_instructions
     )
+    logging.info("done with investigation")
 
     return InvestigationResult(
         analysis=investigation.result,

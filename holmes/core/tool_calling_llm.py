@@ -105,7 +105,9 @@ class ToolCallingLLM:
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []
+        logging.info("tool_calling_llm.call")
         tools = self.tool_executor.get_all_tools_openai_format()
+        logging.info("got all tools openai format")
         perf_timing.measure("get_all_tools_openai_format")
         for i in range(self.max_steps):
             perf_timing.measure(f"start iteration {i}")
@@ -115,8 +117,11 @@ class ToolCallingLLM:
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
 
             total_tokens = self.llm.count_tokens_for_message(messages)
+            logging.info("done counting tokens")
             max_context_size = self.llm.get_context_window_size()
+            logging.info("done getting context window size")
             maximum_output_token = self.llm.get_maximum_output_token()
+            logging.info("done getting max output token size")
             perf_timing.measure("count tokens")
 
             if (total_tokens + maximum_output_token) > max_context_size:
@@ -126,6 +131,7 @@ class ToolCallingLLM:
                 )
                 perf_timing.measure("truncate_messages_to_fit_context")
 
+            logging.info("done with truncation")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -137,6 +143,7 @@ class ToolCallingLLM:
                     response_format=response_format,
                     drop_params=True,
                 )
+                logging.info("done with AI call")
                 logging.debug(f"got response {full_response.to_json()}")
 
                 perf_timing.measure("llm.completion")
@@ -348,7 +355,9 @@ class IssueInvestigator(ToolCallingLLM):
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
     ) -> LLMResult:
+        logging.info(f"Investigating issue {issue.id}")
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
+        logging.info(f"got runbooks for issue")
 
         if instructions != None and instructions.instructions:
             runbooks.extend(instructions.instructions)
@@ -387,6 +396,7 @@ class IssueInvestigator(ToolCallingLLM):
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
+        logging.info(f"about to call ai")
 
         res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt)
         res.instructions = runbooks

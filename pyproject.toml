@@ -40,6 +40,7 @@ bs4 = "^0.0.2"
 markdownify = "^0.13.1"
 starlette = "^0.40"
 google-api-python-client = "^2.156.0"
+pyinstrument = "^5.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"

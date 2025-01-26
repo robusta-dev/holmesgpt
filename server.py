@@ -106,9 +106,53 @@ if LOG_PERFORMANCE:
                 status_code = response.status_code
             logging.info(f"Request completed {request.method} {request.url.path} status={status_code} latency={process_time}ms")
 
+from fastapi import Request
+from pyinstrument import Profiler
+from pyinstrument.renderers.html import HTMLRenderer
+from pyinstrument.renderers.speedscope import SpeedscopeRenderer
+from typing import Callable
+@app.middleware("http")
+async def profile_request(request: Request, call_next: Callable):
+    """Profile the current request
+
+    Taken from https://pyinstrument.readthedocs.io/en/latest/guide.html#profile-a-web-request-in-fastapi
+    with small improvements.
+
+    """
+    # we map a profile type to a file extension, as well as a pyinstrument profile renderer
+    profile_type_to_ext = {"html": "html", "speedscope": "speedscope.json"}
+    profile_type_to_renderer = {
+        "html": HTMLRenderer,
+        "speedscope": SpeedscopeRenderer,
+    }
+
+    # if the `profile=true` HTTP query argument is passed, we profile the request
+    if request.query_params.get("profile", True):
+
+        # The default profile format is speedscope
+        profile_type = request.query_params.get("profile_format", "speedscope")
+
+        # we profile the request along with all additional middlewares, by interrupting
+        # the program every 1ms1 and records the entire stack at that point
+        with Profiler(interval=0.001, async_mode="enabled") as profiler:
+            response = await call_next(request)
+
+        # we dump the profiling into a file
+        extension = profile_type_to_ext[profile_type]
+        renderer = profile_type_to_renderer[profile_type]()
+        with open(f"profile.{extension}", "w") as out:
+            out.write(profiler.output(renderer=renderer))
+        return response
+
+    # Proceed without profiling
+    return await call_next(request)
+
+
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
+        logging.info("investigate request received")
+
         result = investigation.investigate_issues(
             investigate_request=investigate_request,
             dal=dal,
@@ -118,7 +162,6 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
-
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
@@ -206,16 +249,22 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
+        logging.info("chat request received")
         load_robusta_api_key(dal=dal, config=config)
-
+        logging.info("loaded robusta api key")
         ai = config.create_toolcalling_llm(dal=dal)
+        logging.info("created tool calling llm")
         global_instructions = dal.get_global_instructions_for_account()
+        logging.info("got global instructions for account")
 
         messages = build_chat_messages(
             chat_request.ask, chat_request.conversation_history, ai=ai, global_instructions=global_instructions
         )
+        logging.info("built chat messages")
 
         llm_call = ai.messages_call(messages=messages)
+        logging.info("built did ai call")
+
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
