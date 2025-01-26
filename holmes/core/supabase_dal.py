@@ -56,9 +56,9 @@ class SupabaseDal:
     def __init__(self):
         self.enabled = self.__init_config()
         if not self.enabled:
-            logging.info("Robusta store initialization parameters not provided. skipping")
+            logging.info("Not connecting to Robusta platform - robusta token not provided - using ROBUSTA_AI will not be possible")
             return
-        logging.info(f"Initializing robusta store for account {self.account_id}")
+        logging.info(f"Initializing Robusta platform connection for account {self.account_id}")
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
         self.client = create_client(self.url, self.api_key, options)
         self.user_id = self.sign_in()
@@ -119,13 +119,13 @@ class SupabaseDal:
                     token = conf["robusta_sink"].get("token")
                     if not token:
                         raise Exception(
-                            f"No token provided in robusta_sink. "
+                            f"No robusta token provided to Holmes. "
                             f"Please set a valid Robusta UI token. "
-                            f"See https://docs.robusta.dev/master/configuration/sinks/RobustaUI.html#configuring-the-robusta-ui-sink for instructions."
+                            f"See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
                         )
                     if "{{" in token:
                         raise ValueError(
-                            f"The token appears to be a templating placeholder (e.g. `{{ env.UI_SINK_TOKEN }}`). "
+                            f"The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{{ env.UI_SINK_TOKEN }}`). "
                             f"Ensure your Helm chart or environment variables are set correctly. "
                             f"If you store the token in a secret, you must also pass "
                             f"the environment variable ROBUSTA_UI_TOKEN to Holmes. "
@@ -136,11 +136,11 @@ class SupabaseDal:
                         return RobustaToken(**json.loads(decoded))
                     except binascii.Error:
                         raise Exception(
-                            f"binascii.Error encountered. The Robusta UI token is not a valid base64."
+                            f"binascii.Error encountered. The robusta token provided to Holmes is not a valid base64."
                         )
                     except json.JSONDecodeError:
                         raise Exception(
-                            f"json.JSONDecodeError encountered. The Robusta UI token could not be parsed as JSON after being base64 decoded."
+                            f"json.JSONDecodeError encountered. The Robusta token provided to Holmes could not be parsed as JSON after being base64 decoded."
                         )
         return None
 
@@ -270,6 +270,9 @@ class SupabaseDal:
         return token
 
     def get_ai_credentials(self) -> Tuple[str, str]:
+        if not self.enabled:
+            raise Exception("You're trying to use ROBUSTA_AI, but Cannot get credentials for ROBUSTA_AI. Store not initialized.")
+        
         with self.lock:
             session_token = self.token_cache.get("session_token")
             if not session_token:
@@ -330,6 +333,10 @@ class SupabaseDal:
             return []
 
     def upsert_holmes_status(self, holmes_status_data: dict) -> None:
+        if not self.enabled:
+            logging.info("Robusta store not initialized. Skipping upserting holmes status.")
+            return
+        
         updated_at = datetime.now().isoformat()
         try:
             res = (
@@ -352,6 +359,10 @@ class SupabaseDal:
     def sync_toolsets(self, toolsets: list[dict], cluster_name: str) -> None:
         if not toolsets:
             logging.warning("No toolsets were provided for synchronization.")
+            return
+        
+        if not self.enabled:
+            logging.info("Robusta store not initialized. Skipping sync holmes toolsets.")
             return
         
         provided_toolset_names = [toolset['toolset_name'] for toolset in toolsets]
