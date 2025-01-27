@@ -90,9 +90,9 @@ def test_investigate(experiment_name, test_case):
     metadata = get_machine_state_tags()
     metadata["model"] = config.model or "Unknown"
 
-    bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
+    # bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
 
-    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    # eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     result = investigate_issues(
         investigate_request=test_case.investigate_request,
@@ -118,14 +118,14 @@ def test_investigate(experiment_name, test_case):
     if len(test_case.retrieval_context) > 0:
             scores["context"] = evaluate_context_usage(input=input, output=output, context_items=test_case.retrieval_context).score
 
-    bt_helper.end_evaluation(
-        eval=eval,
-        input=input,
-        output=output or "",
-        expected=str(expected),
-        id=test_case.id,
-        scores=scores
-    )
+    # bt_helper.end_evaluation(
+    #     eval=eval,
+    #     input=input,
+    #     output=output or "",
+    #     expected=str(expected),
+    #     id=test_case.id,
+    #     scores=scores
+    # )
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
 
@@ -133,10 +133,12 @@ def test_investigate(experiment_name, test_case):
     assert len(result.sections) >= len(DEFAULT_SECTIONS)
     for expected_section_title in DEFAULT_SECTIONS:
         assert expected_section_title in result.sections
-    # assert result.sections.get("Investigation")
-    # assert result.sections.get("Conclusions and Possible Root causes")
-    # assert result.sections.get("Next Steps")
 
+    if test_case.expected_sections:
+        for expected_section_title, expected_section_array_content in test_case.expected_sections.items():
+            assert expected_section_title in result.sections, f"Expected to see section [{expected_section_title}] in result but that section is missing"
+            for expected_content in expected_section_array_content:
+                assert expected_content in result.sections.get(expected_section_title, ""), f"Expected to see content [{expected_content}] in section [{expected_section_title}] but could not find such content"
 
     if test_case.evaluation.correctness:
-        assert scores.get("correctness", 0) >= 1 #test_case.evaluation.correctness
+        assert scores.get("correctness", 0) >= test_case.evaluation.correctness

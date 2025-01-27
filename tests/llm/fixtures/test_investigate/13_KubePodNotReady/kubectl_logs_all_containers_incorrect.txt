@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs_all_containers","match_params":{"pod_name":"user-profile-import","namespace":"default"}}
+Command `kubectl logs user-profile-import -n default --all-containers` failed with return code 1
+stdout:
+
+stderr:
+error: error from server (NotFound): pods "user-profile-import" not found in namespace "default"

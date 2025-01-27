@@ -6,4 +6,3 @@ retrieval_context:
   - "image: robustadev/robusta-runner:0.18.0"
 evaluation:
   correctness: 1
-generate_mocks: True

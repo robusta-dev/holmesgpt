@@ -15,6 +15,5 @@ before_test: |
 after_test: |
   kubectl delete -f ./helm/sock-shop.yaml || true
   kubectl delete -f ./helm/trigger-carts-issue.yaml
-generate_mocks: True
 evaluation:
   correctness: 1

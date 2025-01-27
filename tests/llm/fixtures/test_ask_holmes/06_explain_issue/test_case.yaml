@@ -8,4 +8,3 @@ retrieval_context:
   - "The node was low on resource: ephemeral-storage. Threshold quantity: 2126213140, available: 1884540Ki. Container kafka was using 3264Ki, request is 0, has larger consumption of ephemeral-storage."
 evaluation:
   correctness: 1
-generate_mocks: True

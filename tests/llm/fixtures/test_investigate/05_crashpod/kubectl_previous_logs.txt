@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"db-certs-authenticator-7ffd769f48-vndgd","namespace":"default"}}
-Command `kubectl logs db-certs-authenticator-7ffd769f48-vndgd -n default --previous` failed with return code 1
-stdout:
-
-stderr:
-error: error from server (NotFound): pods "db-certs-authenticator-7ffd769f48-vndgd" not found in namespace "default"

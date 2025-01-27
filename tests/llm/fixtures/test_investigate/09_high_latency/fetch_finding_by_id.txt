@@ -1,6 +1,6 @@
-{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"5fedd1a3-83b7-45dc-9649-708323bd50f5"}}
+{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"3baf467c-d6ef-4aac-8e8b-6ddb34a07bb1"}}
 {
-  "id": "5fedd1a3-83b7-45dc-9649-708323bd50f5",
+  "id": "3baf467c-d6ef-4aac-8e8b-6ddb34a07bb1",
   "description": "HTTP Requests to the '/checkout' endpoint in customer-orders-app are taking longer than 3 seconds",
   "source": "customer-orders",
   "priority": "DEBUG",
@@ -10,7 +10,7 @@
   "subject_node": null,
   "service_key": "",
   "cluster": "test_cluster",
-  "creation_date": "2024-11-18 14:03:55.635001",
+  "creation_date": "2025-01-27 09:11:23.635001",
   "title": "HighLatencyForCustomerCheckout",
   "aggregation_key": "HighLatencyForCustomerCheckout",
   "finding_type": "issue",

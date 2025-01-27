@@ -5,7 +5,7 @@ DEFAULT_SECTIONS = {
     "Investigation": "what you checked and found",
     "Conclusions and Possible Root causes": "what conclusions can you reach based on the data you found? what are possible root causes (if you have enough conviction to say) or what uncertainty remains",
     "Next Steps": "what you would do next to troubleshoot this issue, any commands that could be run to fix it, or other ways to solve it (prefer giving precise bash commands when possible)",
-    "Related logs": "Truncate and share the most relevant logs, especially if these explain the root cause. For example: \nLogs from pod robusta-holmes:\n```\n<logs>```\n",
+    "Related logs": "Truncate and share the most relevant logs, especially if these explain the root cause. For example: \nLogs from pod robusta-holmes:\n```\n<logs>```\n. Always embed the surroundding +/- 5 log lines to any relevant logs. ",
     "App or Infra?": "Explain whether the issue is more likely an infrastructure or an application level issue and why you think that.",
     "External links": "Provide links to external sources. Where to look when investigating this issue. For example provide links to relevant runbooks, etc. Add a short sentence describing each link."
 }
