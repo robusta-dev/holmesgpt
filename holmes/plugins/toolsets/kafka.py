@@ -218,6 +218,8 @@ class FindConsumerGroupsByTopic(Tool):
         return f"Found consumer groups for topic: {params['topic_name']}"
 
 class KafkaToolset(Toolset):
+    admin_client: Optional[Any] = None
+
     def __init__(
         self,
     ):
@@ -240,12 +242,12 @@ class KafkaToolset(Toolset):
         try:
             if config:
                 admin_config = {
-                    'bootstrap.servers': config.brokers,
-                    'client.id': config.client_id or "holmes-kafka-core-toolset",
-                    'security.protocol': config.security_protocol,
-                    'sasl.mechanisms': config.sasl_mechanism,
-                    'sasl.username': config.username,
-                    'sasl.password': config.password
+                    'bootstrap.servers': [config.get("broker", None)],
+                    'client.id': config.get("client_id", "holmes-kafka-core-toolset"),
+                    'security.protocol': config.get("security_protocol", None),
+                    'sasl.mechanisms': config.get("sasl_mechanism", None),
+                    'sasl.username': config.get("username", None),
+                    'sasl.password': config.get("password", None)
                 }
                 self.admin_client = AdminClient(admin_config)
                 logging.info("Kafka admin client is available")

@@ -146,10 +146,8 @@ class FetchWebpage(Tool):
 
         url: str = params["url"]
         is_runbook: bool = params["is_runbook"]
-        logging.warning("running fetch_webpage auth")
         additional_headers = self.toolset.runbook_headers if is_runbook else {}
         content, mime_type = scrape_with_playwright(url, additional_headers)
-        logging.warning(f"content {content}")
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
             return ""
@@ -208,5 +206,4 @@ class InternetToolset(Toolset):
             return False
 
         self.runbook_headers: Dict[str, str] = config.get("runbook_headers", {})
-        logging.warning(f"self.runbook_headers {self.runbook_headers}")
         return True
