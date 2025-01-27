@@ -6,7 +6,7 @@ from typing import List, Optional
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
 from holmes.plugins.toolsets.internet import InternetToolset
-
+from holmes.plugins.toolsets.kafka import KafkaToolset
 from holmes.core.tools import Toolset, YAMLToolset
 from holmes.plugins.toolsets.opensearch import OpenSearchToolset
 from typing import Dict
@@ -36,7 +36,7 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False, is_default: bo
 
 def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal)]
+    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal), KafkaToolset()]
 
     opensearch = OpenSearchToolset()
     toolsets.append(opensearch)
