@@ -3,7 +3,7 @@
   "title": "KubePodNotReady",
   "description": "",
   "subject": {
-    "name": "user-profile-import",
+    "name": "user-profile-resources-659d4dd659-cq4kq",
     "namespace": "default",
     "kind": "pod",
     "node": null,

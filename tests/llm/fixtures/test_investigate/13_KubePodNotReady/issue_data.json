@@ -9,12 +9,12 @@
     "labels": {
       "alertname": "KubePodNotReady",
       "namespace": "default",
-      "pod": "user-profile-import",
+      "pod": "user-profile-resources-659d4dd659-cq4kq",
       "prometheus": "default/robusta-kube-prometheus-st-prometheus",
       "severity": "warning"
     },
     "annotations": {
-      "description": "Pod default/user-profile-import has been in a non-ready state for longer than 15 minutes.",
+      "description": "Pod default/user-profile-resources-659d4dd659-cq4kq has been in a non-ready state for longer than 15 minutes.",
       "runbook_url": "https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready",
       "summary": "Pod has been in a non-ready state for more than 15 minutes."
     },
@@ -29,5 +29,5 @@
   },
   "presentation_status": null,
   "presentation_key_metadata": "*Severity*: warning\n*Start Time*: 2024-11-29 08:40:27 UTC\n*Duration*: 37 minutes",
-  "presentation_all_metadata": "*Labels:*\n• *alertname*: KubePodNotReady\n• *namespace*: default\n• *pod*: user-profile-import\n• *prometheus*: default/robusta-kube-prometheus-st-prometheus\n• *severity*: warning\n*Annotations:*\n• *description*: Pod default/user-profile-import has been in a non-ready state for longer than 15 minutes.\n• *runbook_url*: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready\n• *summary*: Pod has been in a non-ready state for more than 15 minutes.\n"
+  "presentation_all_metadata": "*Labels:*\n• *alertname*: KubePodNotReady\n• *namespace*: default\n• *pod*: user-profile-resources-659d4dd659-cq4kq\n• *prometheus*: default/robusta-kube-prometheus-st-prometheus\n• *severity*: warning\n*Annotations:*\n• *description*: Pod default/user-profile-resources-659d4dd659-cq4kq has been in a non-ready state for longer than 15 minutes.\n• *runbook_url*: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready\n• *summary*: Pod has been in a non-ready state for more than 15 minutes.\n"
 }

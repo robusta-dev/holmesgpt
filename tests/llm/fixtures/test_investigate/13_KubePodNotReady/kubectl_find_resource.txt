@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"user-profile-import"}}
-Command `kubectl get -A --show-labels -o wide pod | grep user-profile-import` failed with return code 1
-stdout:
-
-stderr:

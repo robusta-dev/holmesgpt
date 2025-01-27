@@ -1,11 +1,13 @@
 {"toolset_name":"internet","tool_name":"fetch_webpage","match_params":{"url":"https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready"}}
+
+
 KubePodNotReady
- \#
-===================
+ [\#](#kubepodnotready)
+=======================================
 
 Meaning
- \#
------------
+ [\#](#meaning)
+-----------------------
 
 Pod has been in a non\-ready state for more than 15 minutes.
 
@@ -14,18 +16,18 @@ State Pending means pod can not be created for specific namespace and node.
 
 Full context
 Pod failed to reach ready state, depending on the readiness/liveness probes.
-See pod\-lifecycle
+See [pod\-lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
 
 Impact
- \#
-----------
+ [\#](#impact)
+---------------------
 
 Service degradation or unavailability.
 Pod not attached to service, thus not getting any traffic.
 
 Diagnosis
- \#
--------------
+ [\#](#diagnosis)
+---------------------------
 
 * Check template via `kubectl -n $NAMESPACE get pod $POD`.
 * Check pod events via `kubectl -n $NAMESPACE describe pod $POD`.
@@ -52,8 +54,11 @@ low, not enough CPU which is required on start
 (for example WORKDIR from Docerkfile is not used in OpenShift)
 
 Mitigation
- \#
---------------
+ [\#](#mitigation)
+-----------------------------
 
 Talk with developers or read documentation about the app, ensure to define
 sane default values to start the app.
+
+See [Debugging Pods](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application/#debugging-pods)
+

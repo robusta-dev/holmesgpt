@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"user-profile-import","namespace":"default"}}
-Command `kubectl describe pod user-profile-import -n default` failed with return code 1
-stdout:
-
-stderr:
-Error from server (NotFound): pods "user-profile-import" not found
