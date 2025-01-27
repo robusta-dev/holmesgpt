@@ -145,7 +145,7 @@ class Config(RobustaBaseConfig):
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
-            kwargs["cluster_name"] = Config.__get_cluster_name()
+        kwargs["cluster_name"] = Config.__get_cluster_name()
         return cls(**kwargs)
 
     @staticmethod
