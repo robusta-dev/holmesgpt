@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import yaml
 from typing import Any, Dict, List, Optional
 from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag, CallablePrerequisite
-from confluent_kafka.admin import AdminClient, BrokerMetadata, ClusterMetadata, ConfigResource, GroupMember, GroupMetadata, ListConsumerGroupsResult, MemberAssignment, MemberDescription, ConsumerGroupDescription, PartitionMetadata, TopicMetadata
+from confluent_kafka.admin import AdminClient, BrokerMetadata, ClusterMetadata, ConfigResource, GroupMember, GroupMetadata, ListConsumerGroupsResult, MemberAssignment, MemberDescription, ConsumerGroupDescription, PartitionMetadata, TopicMetadata, _TopicPartition as TopicPartition
 from confluent_kafka import KafkaException
 
 def convert_to_dict(obj:Any):
@@ -22,6 +22,8 @@ def convert_to_dict(obj:Any):
                 else:
                     result[key] = convert_to_dict(value)
         return result
+    if isinstance(obj, TopicPartition):
+        return str(obj)
     return obj
 
 class KafkaConfig(BaseModel):
@@ -47,7 +49,7 @@ class ListKafkaConsumers(Tool):
             futures = self.toolset.admin_client.list_consumer_groups()
             groups:ListConsumerGroupsResult = futures.result()
             return yaml.dump(groups)
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to list consumer groups: {str(e)}"
             logging.error(error_msg)
             raise e
@@ -83,7 +85,7 @@ class DescribeConsumerGroup(Tool):
                 return yaml.dump(convert_to_dict(group_metadata))
             else:
                 return "Group not found"
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to describe consumer group {group_id}: {str(e)}"
             logging.error(error_msg)
             return error_msg
@@ -106,7 +108,7 @@ class ListTopics(Tool):
         try:
             topics = self.toolset.admin_client.list_topics()
             return yaml.dump(convert_to_dict(topics))
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to list topics: {str(e)}"
             logging.error(error_msg)
             return error_msg
@@ -152,7 +154,7 @@ class DescribeTopic(Tool):
                 result["configuration"] = convert_to_dict(config)
 
             return yaml.dump(result)
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to describe topic {topic_name}: {str(e)}"
             logging.error(error_msg)
             return error_msg
@@ -209,7 +211,7 @@ class FindConsumerGroupsByTopic(Tool):
             if len(consumer_groups) == 0:
                 return f"No consumer group were found for topic {topic_name}"
             return yaml.dump(consumer_groups)
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to find consumer groups for topic {topic_name}: {str(e)}"
             logging.error(error_msg)
             return error_msg
@@ -242,7 +244,7 @@ class KafkaToolset(Toolset):
         try:
             if config:
                 admin_config = {
-                    'bootstrap.servers': [config.get("broker", None)],
+                    'bootstrap.servers': config.get("broker", None),
                     'client.id': config.get("client_id", "holmes-kafka-core-toolset"),
                     'security.protocol': config.get("security_protocol", None),
                     'sasl.mechanisms': config.get("sasl_mechanism", None),
