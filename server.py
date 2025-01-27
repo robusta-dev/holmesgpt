@@ -177,7 +177,7 @@ def workload_health_conversation(workload_health_chat_request: WorkloadHealthCha
 
         messages = build_workload_health_chat_messages(workload_health_chat_request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
-        logging.error(llm_call.result)
+
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
