@@ -19,7 +19,7 @@ To this 👇
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
-- **Secure:** *Read-only* access to your data - respects RBAC permissions 
+- **Secure:** *Read-only* access to your data - respects RBAC permissions
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
@@ -41,7 +41,7 @@ Includes free use of the Robusta AI model.
 ![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/2e90cc7b-4b0a-4386-ab4f-0d36692b549c)
 
 
-[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme) (Kubernetes cluster required) or contact us about on-premise options.
+[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
 </details>
 
 <details>
@@ -178,7 +178,20 @@ See an example implementation [here](examples/custom_llm.py).
 
 Like what you see? Discover [more use cases](#more-use-cases) or get started by [installing HolmesGPT](#installation).
 
-## Installation
+## In-Cluster Installation (Recommended)
+
+Install Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package:
+
+- Analysis based on **GPT-4o** (no API key needed)
+- Simple installation using `helm`
+- Built-in integrations with **Prometheus alerts** and **Slack**
+- Visualize Kubernetes issues on a timeline, and analyze them with Holmes in a single click
+
+**Note:** Requires a Kubernetes cluster.
+
+[Create a free Robusta UI account »](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=easy_install_in_cluster_section)
+
+## More Installation methods
 
 **Prerequisite:** <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
 
@@ -491,7 +504,7 @@ To use Vertex AI with Gemini models, set the following environment variables:
 
 ```bash
 export VERTEXAI_PROJECT="your-project-id"
-export VERTEXAI_LOCATION="us-central1" 
+export VERTEXAI_LOCATION="us-central1"
 export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
 ```
 
@@ -560,7 +573,8 @@ Fetching runbooks through URLs
 </summary>
 
 HolmesGPT can consult webpages containing runbooks or other relevant information.
-HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
+This is done through a HTTP GET and the resulting HTML is then cleaned and parsed into markdown.
+Any Javascript that is on the webpage is ignored.
 </details>
 
 <details>

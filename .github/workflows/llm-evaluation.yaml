@@ -26,7 +26,6 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
           poetry config virtualenvs.create false
           poetry install --no-root
-          poetry run python -m playwright install --with-deps firefox
 
       - name: Run tests
         shell: bash

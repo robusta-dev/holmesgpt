@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="KubeContainerWaiting #  Meaning #  Container in pod is in Waiting state for too long.
+Impact #  Service degradation or unavailability.
+Diagnosis #   Check pod events via kubectl -n $NAMESPACE describe pod $POD. Check pod logs via kubectl -n $NAMESPACE logs $POD -c $CONTAINER Check for missing files such as configmaps/secrets/volumes Check for pod requests, especially special ones such as GPU. Check for node taints and capabilities.">
+<meta name="theme-color" content="#FFFFFF"><meta property="og:title" content="Kube Container Waiting" />
+<meta property="og:description" content="KubeContainerWaiting #  Meaning #  Container in pod is in Waiting state for too long.
+Impact #  Service degradation or unavailability.
+Diagnosis #   Check pod events via kubectl -n $NAMESPACE describe pod $POD. Check pod logs via kubectl -n $NAMESPACE logs $POD -c $CONTAINER Check for missing files such as configmaps/secrets/volumes Check for pod requests, especially special ones such as GPU. Check for node taints and capabilities." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubecontainerwaiting/" /><meta property="article:section" content="runbooks" />
+
+
+
+<title>Kube Container Waiting | kube-prometheus runbooks</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="/book.min.075e66da82f619e274b9c5dfc25e99a977e9a49494ffda671e046410f99b9455.css" integrity="sha256-B15m2oL2GeJ0ucXfwl6ZqXfppJSU/9pnHgRkEPmblFU=" crossorigin="anonymous">
+  <script defer src="/flexsearch.min.js"></script>
+  <script defer src="/en.search.min.93738c580ea8b4d2c3417d7e8d3f8e63c69bd2f54ab055f9aae2a4de5b20fbb3.js" integrity="sha256-k3OMWA6otNLDQX1&#43;jT&#43;OY8ab0vVKsFX5quKk3lsg&#43;7M=" crossorigin="anonymous"></script>
+<!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+</head>
+<body dir="ltr">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    <aside class="book-menu">
+      <div class="book-menu-content">
+
+  <nav>
+<h2 class="book-brand">
+  <a href="/"><span>kube-prometheus runbooks</span>
+  </a>
+</h2>
+
+
+<div class="book-search">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <ul>
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-77747a9d3152fa2d9804f647f1c86ce5" class="toggle"  />
+    <label for="section-77747a9d3152fa2d9804f647f1c86ce5" class="flex justify-between">
+      <a role="button" class="">general</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/general/infoinhibitor/" class="">Info Inhibitor</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/general/nodenetworkinterfaceflapping/" class="">Node Network Interface Flapping</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/general/watchdog/" class="">Watchdog</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/general/targetdown/" class="">Target Down</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-8a9628b913ed2d2ebcb204a774d910f4" class="toggle"  />
+    <label for="section-8a9628b913ed2d2ebcb204a774d910f4" class="flex justify-between">
+      <a role="button" class="">alertmanager</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerclustercrashlooping/" class="">Alertmanager Cluster Crashlooping</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerclusterdown/" class="">Alertmanager Cluster Down</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerclusterfailedtosendalerts/" class="">Alertmanager Cluster Failed To Send Alerts</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerconfiginconsistent/" class="">Alertmanager ConfigInconsistent</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerfailedreload/" class="">Alertmanager Failed Reload</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerfailedtosendalerts/" class="">Alertmanager Failed To Send Alerts</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagermembersinconsistent/" class="">Alertmanager Members Inconsistent</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-a3239edffad56d0bac2aa416aa6229aa" class="toggle"  />
+    <label for="section-a3239edffad56d0bac2aa416aa6229aa" class="flex justify-between">
+      <a role="button" class="">etcd</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/etcd/etcdbackendquotalowspace/" class="">Etcd Backend Quota Low Space</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/etcd/etcdgrpcrequestsslow/" class="">Etcd Grpcrequests Slow</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/etcd/etcdhighfsyncdurations/" class="">Etcd High Fsync Durations</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/etcd/etcdhighnumberoffailedgrpcrequests/" class="">Etcd High Number of Failed Grpcrequests</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/etcd/etcdinsufficientmembers/" class="">Etcd Insufficient Members</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/etcd/etcdmembersdown/" class="">Etcd Members Down</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/etcd/etcdnoleader/" class="">Etcd No Leader</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-5985c1df24eaf5f98ff50cd2aba6514b" class="toggle"  />
+    <label for="section-5985c1df24eaf5f98ff50cd2aba6514b" class="flex justify-between">
+      <a role="button" class="">kube-state-metrics</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kube-state-metrics/kubestatemetricswatcherrors/" class="">Kube State Metric sWatch Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kube-state-metrics/kubestatemetricslisterrors/" class="">Kube State Metrics List Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kube-state-metrics/kubestatemetricsshardingmismatch/" class="">Kube State Metrics Sharding Mismatch</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kube-state-metrics/kubestatemetricsshardsmissing/" class="">Kube State Metrics Shards Missing</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-96dded8b3c9feb1c3fa3dff530c60250" class="toggle" checked />
+    <label for="section-96dded8b3c9feb1c3fa3dff530c60250" class="flex justify-between">
+      <a role="button" class="">kubernetes</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/cputhrottlinghigh/" class="">CPU Throttling High</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeaggregatedapidown/" class="">Kube Aggregated API Down</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeaggregatedapierrors/" class="">Kube Aggregated API Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeapidown/" class="">Kube API Down</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeapierrorbudgetburn/" class="">Kube API Error Budget Burn</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeapiterminatedrequests/" class="">Kube API Terminated Requests</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeclientcertificateexpiration/" class="">Kube Client Certificate Expiration</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeclienterrors/" class="">Kube Client Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubecontainerwaiting/" class=" active">Kube Container Waiting</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubecontrollermanagerdown/" class="">Kube Controller Manager Down</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubecpuovercommit/" class="">Kube CPU Overcommit</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubecpuquotaovercommit/" class="">Kube CPU Quota Overcommit</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedaemonsetmisscheduled/" class="">Kube DaemonSet MisScheduled</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedaemonsetnotscheduled/" class="">Kube DaemonSet Not Scheduled</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedaemonsetrolloutstuck/" class="">Kube DaemonSet Rollout Stuck</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedeploymentgenerationmismatch/" class="">Kube Deployment Generation Mismatch</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubedeploymentreplicasmismatch/" class="">Kube Deployment Replicas Mismatch</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubehpareplicasmismatch/" class="">Kube HPA  Replicas Mismatch</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubehpamaxedout/" class="">Kube HPA Maxed Out</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubejobcompletion/" class="">Kube Job Completion</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubejobfailed/" class="">Kube Job Failed</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubememoryovercommit/" class="">Kube Memory Overcommit</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubememoryquotaovercommit/" class="">Kube Memory Quota Overcommit</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubenodenotready/" class="">Kube Node Not Ready</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubenodereadinessflapping/" class="">Kube Node Readiness Flapping</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubenodeunreachable/" class="">Kube Node Unreachable</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumeerrors/" class="">Kube Persistent Volume Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumefillingup/" class="">Kube Persistent Volume Filling Up</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodcrashlooping/" class="">Kube Pod Crash Looping</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodnotready/" class="">Kube Pod Not Ready</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubequotaalmostfull/" class="">Kube Quota Almost Full</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubequotaexceeded/" class="">Kube Quota Exceeded</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubequotafullyused/" class="">Kube Quota Fully Used</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeschedulerdown/" class="">Kube Scheduler Down</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubestatefulsetgenerationmismatch/" class="">Kube StatefulSet Generation Mismatch</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubestatefulsetreplicasmismatch/" class="">Kube StatefulSet Replicas Mismatch</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubestatefulsetupdatenotrolledout/" class="">Kube StatefulSet Update Not RolledOut</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeversionmismatch/" class="">Kube Version Mismatch</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeletclientcertificateexpiration/" class="">Kubelet Client Certificate Expiration</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeletclientcertificaterenewalerrors/" class="">Kubelet Client Certificate Renewal Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeletdown/" class="">Kubelet Down</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeletplegdurationhigh/" class="">Kubelet Pod Lifecycle Event Generator Duration High</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeletpodstartuplatencyhigh/" class="">Kubelet Pod Start Up Latency High</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeletservercertificateexpiration/" class="">Kubelet Server Certificate Expiration</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeletservercertificaterenewalerrors/" class="">Kubelet Server Certificate Renewal Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubelettoomanypods/" class="">Kubelet Too Many Pods</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubeproxydown/" class="">KubeProxy Down</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-c29e8d824e17b7d901bc170a7d0435b2" class="toggle"  />
+    <label for="section-c29e8d824e17b7d901bc170a7d0435b2" class="flex justify-between">
+      <a role="button" class="">node</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodeclocknotsynchronising/" class="">Node Clock Not Synchronising</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodeclockskewdetected/" class="">Node Clock Skew Detected</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodefiledescriptorlimit/" class="">Node File Descriptor Limit</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodefilesystemalmostoutoffiles/" class="">Node Filesystem Almost Out Of Files</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodefilesystemalmostoutofspace/" class="">Node Filesystem Almost Out Of Space</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodefilesystemfilesfillingup/" class="">Node Filesystem Files Filling Up</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodefilesystemspacefillingup/" class="">Node Filesystem Space Filling Up</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodehighnumberconntrackentriesused/" class="">Node High Number Conntrack Entries Used</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodenetworkreceiveerrs/" class="">Node Network Receive Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodenetworktransmiterrs/" class="">Node Network Transmit Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/noderaiddegraded/" class="">Node RAID Degraded</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/noderaiddiskfailure/" class="">Node RAID Disk Failure</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/node/nodetextfilecollectorscrapeerror/" class="">Node Text File Collector Scrape Error</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-67010990d531fdafbd578205491897d5" class="toggle"  />
+    <label for="section-67010990d531fdafbd578205491897d5" class="flex justify-between">
+      <a role="button" class="">prometheus</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusbadconfig/" class="">Prometheus Bad Config</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusduplicatetimestamps/" class="">Prometheus Duplicate Timestamps</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheuserrorsendingalertstoanyalertmanager/" class="">Prometheus Error Sending Alerts To Any Alertmanager</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheuserrorsendingalertstosomealertmanagers/" class="">Prometheus Error Sending Alerts To Some Alertmanagers</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheuslabellimithit/" class="">Prometheus Label LimitHit</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusmissingruleevaluations/" class="">Prometheus Missing Rule Evaluations</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusnotconnectedtoalertmanagers/" class="">Prometheus Not Connected To Alertmanagers</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusnotingestingsamples/" class="">Prometheus Not Ingesting Samples</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusnotificationqueuerunningfull/" class="">Prometheus Notification Queue Running Full</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusoutofordertimestamps/" class="">Prometheus Out Of Order Timestamps</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusremotestoragefailures/" class="">Prometheus Remote Storage Failures</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusremotewritebehind/" class="">Prometheus Remote Write Behind</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusrulefailures/" class="">Prometheus Rule Failures</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheustargetlimithit/" class="">Prometheus Target Limit Hit</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheustargetsyncfailure/" class="">Prometheus Target Sync Failure</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheustsdbcompactionsfailing/" class="">Prometheus TSDB Compactions Failing</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheustsdbreloadsfailing/" class="">Prometheus TSDB Reloads Failing</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusremotewritedesiredshards/" class="">PrometheusRemoteWriteDesiredShards</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+
+        <li class="book-section-flat" >
+
+
+
+
+
+    <input type="checkbox" id="section-10a9331d031c9e488862183af9bf7d32" class="toggle"  />
+    <label for="section-10a9331d031c9e488862183af9bf7d32" class="flex justify-between">
+      <a role="button" class="">prometheus-operator</a>
+    </label>
+
+
+
+  <ul>
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/configreloadersidecarerrors/" class="">Config Reloader Sidecar Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/prometheusoperatorlisterrors/" class="">Prometheus Operator List Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/prometheusoperatornodelookuperrors/" class="">Prometheus Operator Node Lookup Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/prometheusoperatornotready/" class="">Prometheus Operator NotReady</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/prometheusoperatorreconcileerrors/" class="">Prometheus Operator Reconcile Errors</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/prometheusoperatorrejectedresources/" class="">Prometheus Operator Rejected Resources</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/prometheusoperatorsyncfailed/" class="">Prometheus Operator Sync Failed</a>
+
+
+        </li>
+
+
+
+        <li>
+
+
+
+
+
+    <a href="https://runbooks.prometheus-operator.dev/runbooks/prometheus-operator/prometheusoperatorwatcherrors/" class="">Prometheus Operator Watch Errors</a>
+
+
+        </li>
+
+
+  </ul>
+
+        </li>
+
+
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+<ul>
+
+  <li>
+    <a href="/docs/add-runbook/" >
+        Add Runbook
+      </a>
+  </li>
+
+</ul>
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var a=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(b){localStorage.setItem("menu.scrollTop",a.scrollTop)}),a.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+      </div>
+    </aside>
+
+    <div class="book-page">
+      <header class="book-header">
+
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/svg/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <strong>Kube Container Waiting</strong>
+
+  <label for="toc-control">
+
+    <img src="/svg/toc.svg" class="book-icon" alt="Table of Contents" />
+
+  </label>
+</div>
+
+
+
+  <aside class="hidden clearfix">
+
+
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#meaning">Meaning</a></li>
+    <li><a href="#impact">Impact</a></li>
+    <li><a href="#diagnosis">Diagnosis</a></li>
+    <li><a href="#mitigation">Mitigation</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+
+
+      </header>
+
+
+
+  <article class="markdown"><h1 id="kubecontainerwaiting">
+  KubeContainerWaiting
+  <a class="anchor" href="#kubecontainerwaiting">#</a>
+</h1>
+<h2 id="meaning">
+  Meaning
+  <a class="anchor" href="#meaning">#</a>
+</h2>
+<p>Container in pod is in Waiting state for too long.</p>
+<h2 id="impact">
+  Impact
+  <a class="anchor" href="#impact">#</a>
+</h2>
+<p>Service degradation or unavailability.</p>
+<h2 id="diagnosis">
+  Diagnosis
+  <a class="anchor" href="#diagnosis">#</a>
+</h2>
+<ul>
+<li>Check pod events via <code>kubectl -n $NAMESPACE describe pod $POD</code>.</li>
+<li>Check pod logs via <code>kubectl -n $NAMESPACE logs $POD -c $CONTAINER</code></li>
+<li>Check for missing files such as configmaps/secrets/volumes</li>
+<li>Check for pod requests, especially special ones such as GPU.</li>
+<li>Check for node taints and capabilities.</li>
+</ul>
+<h2 id="mitigation">
+  Mitigation
+  <a class="anchor" href="#mitigation">#</a>
+</h2>
+<p>See <a href="https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application/#my-pod-stays-waiting">Container waiting</a></p>
+</article>
+
+
+
+      <footer class="book-footer">
+
+  <div class="flex flex-wrap justify-between">
+
+
+
+
+
+  <div>
+    <a class="flex align-center" href="https://github.com/prometheus-operator/runbooks/edit/main/content/runbooks/kubernetes/KubeContainerWaiting.md" target="_blank" rel="noopener">
+      <img src="/svg/edit.svg" class="book-icon" alt="Edit" />
+      <span>Edit this page</span>
+    </a>
+  </div>
+
+</div>
+
+
+
+  <script>(function(){function a(c){const a=window.getSelection(),b=document.createRange();b.selectNodeContents(c),a.removeAllRanges(),a.addRange(b)}document.querySelectorAll("pre code").forEach(b=>{b.addEventListener("click",function(c){a(b.parentElement),navigator.clipboard&&navigator.clipboard.writeText(b.parentElement.textContent)})})})()</script>
+
+
+
+
+      </footer>
+
+
+
+  <div class="book-comments">
+
+</div>
+
+
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+
+    <aside class="book-toc">
+      <div class="book-toc-content">
+
+
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#meaning">Meaning</a></li>
+    <li><a href="#impact">Impact</a></li>
+    <li><a href="#diagnosis">Diagnosis</a></li>
+    <li><a href="#mitigation">Mitigation</a></li>
+  </ul>
+</nav>
+
+
+
+      </div>
+    </aside>
+
+  </main>
+
+
+</body>
+</html>
