@@ -58,8 +58,6 @@ def test_ask_holmes(experiment_name, test_case):
 
     eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
-
-
     try:
         before_test(test_case)
     except Exception as e:
