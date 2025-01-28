@@ -31,10 +31,8 @@ from holmes.plugins.sources.jira import JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-from holmes.plugins.toolsets import (load_builtin_toolsets,
-                                     load_toolsets_from_file)
-from holmes.plugins.toolsets.grafana.common import GrafanaConfig
-from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
+
+from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
@@ -117,8 +115,6 @@ class Config(RobustaBaseConfig):
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
-    grafana: GrafanaConfig = GrafanaConfig()
-
     toolsets: Optional[dict[str, dict[str, Any]]] = None
 
     _server_tool_executor: Optional[ToolExecutor] = None
@@ -178,7 +174,11 @@ class Config(RobustaBaseConfig):
         """
         Creates ToolExecutor for the cli
         """
-        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal, grafana_config=self.grafana) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
+        default_toolsets = [
+            toolset
+            for toolset in load_builtin_toolsets(dal)
+            if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
+        ]
 
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
@@ -191,9 +191,7 @@ class Config(RobustaBaseConfig):
         for toolset in matching_toolsets:
             toolset.enabled = True
 
-        toolsets_by_name = {
-            toolset.name: toolset for toolset in matching_toolsets
-        }
+        toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
         if toolsets_loaded_from_config:
@@ -249,9 +247,9 @@ class Config(RobustaBaseConfig):
 
         if self._server_tool_executor:
             return self._server_tool_executor
-        
+
         logging.info("Creating server tool executor")
-        all_toolsets = load_builtin_toolsets(dal=dal, grafana_config=self.grafana)
+        all_toolsets = load_builtin_toolsets(dal=dal)
 
         toolsets_by_name: dict[str, Toolset] = {
             toolset.name: toolset for toolset in all_toolsets

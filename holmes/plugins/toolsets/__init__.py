@@ -18,7 +18,10 @@ import yaml
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
-def load_toolsets_from_file(path: str, silent_fail: bool = False, is_default: bool = False) -> List[YAMLToolset]:
+
+def load_toolsets_from_file(
+    path: str, silent_fail: bool = False, is_default: bool = False
+) -> List[YAMLToolset]:
     file_toolsets = []
     with open(path) as file:
         parsed_yaml = yaml.safe_load(file)
@@ -30,27 +33,28 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False, is_default: bo
                 file_toolsets.append(YAMLToolset(**config, name=name))
             except Exception:
                 if not silent_fail:
-                    logging.error(f"Error happened while loading {name} toolset from {path}",
-                                  exc_info=True)
+                    logging.error(
+                        f"Error happened while loading {name} toolset from {path}",
+                        exc_info=True,
+                    )
 
     return file_toolsets
 
-def load_python_toolsets(dal:Optional[SupabaseDal], grafana_config:Optional[GrafanaConfig]) -> List[Toolset]:
+
+def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal)]
-
-    opensearch = OpenSearchToolset()
-    toolsets.append(opensearch)
-
-    if not grafana_config:
-        # passing an empty config simplifies the downstream code
-        grafana_config = GrafanaConfig()
-        toolsets.append( GrafanaLokiToolset(grafana_config))
-        toolsets.append( GrafanaTempoToolset(grafana_config))
+    toolsets: list[Toolset] = [
+        InternetToolset(),
+        FindingsToolset(dal),
+        OpenSearchToolset(),
+        GrafanaLokiToolset(),
+        GrafanaTempoToolset(),
+    ]
 
     return toolsets
 
-def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:Optional[GrafanaConfig] = GrafanaConfig()) -> List[Toolset]:
+
+def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
@@ -60,5 +64,5 @@ def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:Optio
         toolsets_from_file = load_toolsets_from_file(path, is_default=True)
         all_toolsets.extend(toolsets_from_file)
 
-    all_toolsets.extend(load_python_toolsets(dal, grafana_config))
+    all_toolsets.extend(load_python_toolsets(dal))
     return all_toolsets
