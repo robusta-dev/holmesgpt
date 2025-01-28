@@ -14,16 +14,19 @@ from opensearchpy import OpenSearch
 
 class OpenSearchClient:
     def __init__(self, **kwargs):
-        
         # Handle http_auth explicitly
         if "http_auth" in kwargs:
             http_auth = kwargs.pop("http_auth")
             if isinstance(http_auth, dict):
-                kwargs["http_auth"] = (http_auth.get("username"), http_auth.get("password"))
+                kwargs["http_auth"] = (
+                    http_auth.get("username"),
+                    http_auth.get("password"),
+                )
         # Initialize OpenSearch client
         self.client = OpenSearch(**kwargs)
 
-def get_client(clients:List[OpenSearchClient], host:Optional[str]):
+
+def get_client(clients: List[OpenSearchClient], host: Optional[str]):
     if len(clients) == 1:
         return clients[0]
 
@@ -46,7 +49,6 @@ class BaseOpenSearchTool(Tool):
 
 
 class ListShards(BaseOpenSearchTool):
-
     def __init__(self, toolset: "OpenSearchToolset"):
         super().__init__(
             name="opensearch_list_shards",
@@ -71,7 +73,6 @@ class ListShards(BaseOpenSearchTool):
 
 
 class GetClusterSettings(BaseOpenSearchTool):
-
     def __init__(self, toolset: "OpenSearchToolset"):
         super().__init__(
             name="opensearch_get_cluster_settings",
@@ -98,7 +99,6 @@ class GetClusterSettings(BaseOpenSearchTool):
 
 
 class GetClusterHealth(BaseOpenSearchTool):
-
     def __init__(self, toolset: "OpenSearchToolset"):
         super().__init__(
             name="opensearch_get_cluster_health",
@@ -127,7 +127,6 @@ class OpenSearchToolset(Toolset):
     clients: List[OpenSearchClient] = []
 
     def __init__(self):
-
         super().__init__(
             name="opensearch",
             enabled=False,
@@ -153,7 +152,7 @@ class OpenSearchToolset(Toolset):
         clusters_configs: list[dict[str, Any]] = config.get("opensearch_clusters", [])
         for cluster in clusters_configs:
             try:
-                logging.info(f"Setting up OpenSearch client")
+                logging.info("Setting up OpenSearch client")
                 client = OpenSearchClient(**cluster)
                 if client.client.cluster.health(params={"timeout": 5}):
                     self.clients.append(client)

@@ -84,9 +84,9 @@ class Tool(ABC, BaseModel):
         for param_name, param_attributes in self.parameters.items():
             tool_properties[param_name] = {"type": param_attributes.type}
             if param_attributes.description is not None:
-                tool_properties[param_name][
-                    "description"
-                ] = param_attributes.description
+                tool_properties[param_name]["description"] = (
+                    param_attributes.description
+                )
 
         result = {
             "type": "function",
@@ -347,7 +347,7 @@ class Toolset(BaseModel):
                         and prereq.expected_output not in result.stdout
                     ):
                         self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"Prerequisites check gave wrong output"
+                        self._error = "Prerequisites check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED

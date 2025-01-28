@@ -1,7 +1,6 @@
 from typing import Dict, Optional, Union
 import uuid
 import time
-import os
 from pydantic import BaseModel
 
 
@@ -59,7 +58,7 @@ def get_datasource_id(dict: Dict, param: str) -> str:
     try:
         if uuid.UUID(datasource_id, version=4):
             return f"uid/{datasource_id}"
-    except:
+    except Exception:
         pass
-    
+
     return datasource_id

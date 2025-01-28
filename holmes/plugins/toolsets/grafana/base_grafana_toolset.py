@@ -21,7 +21,7 @@ class BaseGrafanaToolset(Toolset):
             tags=[
                 ToolsetTag.CORE,
             ],
-            enabled=False
+            enabled=False,
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
@@ -31,7 +31,9 @@ class BaseGrafanaToolset(Toolset):
 
         try:
             self._grafana_config = GrafanaConfig(**config)
-            is_healthy = get_health(self._grafana_config.url, self._grafana_config.api_key)
+            is_healthy = get_health(
+                self._grafana_config.url, self._grafana_config.api_key
+            )
             return is_healthy
 
         except Exception:

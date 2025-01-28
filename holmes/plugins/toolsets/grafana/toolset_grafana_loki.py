@@ -18,7 +18,6 @@ from holmes.plugins.toolsets.grafana.loki_api import (
 
 
 class ListLokiDatasources(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="list_loki_datasources",
@@ -40,7 +39,6 @@ class ListLokiDatasources(Tool):
 
 
 class GetLokiLogsByNode(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_loki_logs_by_node",
@@ -158,7 +156,6 @@ class GetLokiLogsByLabel(Tool):
 
 
 class GetLokiLogsByPod(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_loki_logs_by_pod",

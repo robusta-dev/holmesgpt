@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import os
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -55,6 +56,7 @@ class Verbosity(Enum):
     VERBOSE = 2
     VERY_VERBOSE = 3
 
+
 def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
     if verbose_flags is None or len(verbose_flags) == 0:
         return Verbosity.NORMAL
@@ -64,6 +66,7 @@ def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
         return Verbosity.VERBOSE
     else:
         return Verbosity.VERY_VERBOSE
+
 
 def suppress_noisy_logs():
     # disable INFO logs from OpenAI
@@ -80,22 +83,36 @@ def suppress_noisy_logs():
     # suppress UserWarnings from the slack_sdk module
     warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
 
+
 def init_logging(verbose_flags: List[bool] = None):
     verbosity = cli_flags_to_verbosity(verbose_flags)
 
     if verbosity == Verbosity.VERY_VERBOSE:
-        logging.basicConfig(level=logging.DEBUG, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(message)s",
+            handlers=[RichHandler(show_level=False, show_time=False)],
+        )
     elif verbosity == Verbosity.VERBOSE:
-        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(message)s",
+            handlers=[RichHandler(show_level=False, show_time=False)],
+        )
         logging.getLogger().setLevel(logging.DEBUG)
         suppress_noisy_logs()
     else:
-        logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(show_level=False, show_time=False)])
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(message)s",
+            handlers=[RichHandler(show_level=False, show_time=False)],
+        )
         suppress_noisy_logs()
 
     logging.debug(f"verbosity is {verbosity}")
 
     return Console()
+
 
 # Common cli options
 # The defaults for options that are also in the config file MUST be None or else the cli defaults will override settings in the config file
@@ -103,10 +120,7 @@ opt_api_key: Optional[str] = typer.Option(
     None,
     help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_API_KEY)",
 )
-opt_model: Optional[str] = typer.Option(
-    None,
-    help="Model to use for the LLM"
-)
+opt_model: Optional[str] = typer.Option(None, help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
     None,
     "--config",
@@ -182,7 +196,8 @@ opt_documents: Optional[str] = typer.Option(
 # Common help texts
 system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
 
-def parse_documents(documents:Optional[str]) -> List[ResourceInstructionDocument]:
+
+def parse_documents(documents: Optional[str]) -> List[ResourceInstructionDocument]:
     resource_documents = []
 
     if documents is not None:
@@ -192,6 +207,7 @@ def parse_documents(documents:Optional[str]) -> List[ResourceInstructionDocument
             resource_documents.append(resource_document)
 
     return resource_documents
+
 
 def handle_result(
     result: LLMResult,
@@ -205,11 +221,14 @@ def handle_result(
     if destination == DestinationType.CLI:
         if show_tool_output and result.tool_calls:
             for tool_call in result.tool_calls:
-                console.print(f"[bold magenta]Used Tool:[/bold magenta]", end="")
+                console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
                 # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
-                console.print(f"{tool_call.description}. Output=\n{tool_call.result}", markup=False)
+                console.print(
+                    f"{tool_call.description}. Output=\n{tool_call.result}",
+                    markup=False,
+                )
 
-        console.print(f"[bold green]AI:[/bold green]", end=" ")
+        console.print("[bold green]AI:[/bold green]", end=" ")
         console.print(Markdown(result.result))
         if add_separator:
             console.print(Rule())
@@ -236,7 +255,6 @@ def ask(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
-
     # advanced options for this command
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_ask.jinja2", help=system_prompt_help
@@ -254,7 +272,7 @@ def ask(
     ),
     json_output_file: Optional[str] = opt_json_output_file,
     echo_request: bool = opt_echo_request,
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
 ):
     """
     Ask any question and answer using available tools
@@ -270,7 +288,9 @@ def ask(
         slack_channel=slack_channel,
     )
     system_prompt = load_and_render_prompt(system_prompt)
-    ai = config.create_console_toolcalling_llm(allowed_toolsets=allowed_toolsets, dal=None)
+    ai = config.create_console_toolcalling_llm(
+        allowed_toolsets=allowed_toolsets, dal=None
+    )
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
@@ -290,7 +310,9 @@ def ask(
         raw={"prompt": prompt},
         source_instance_id=socket.gethostname(),
     )
-    handle_result(response, console, destination, config, issue, show_tool_output, False)
+    handle_result(
+        response, console, destination, config, issue, show_tool_output, False
+    )
 
 
 @investigate_app.command()
@@ -302,7 +324,7 @@ def alertmanager(
     ),
     alertmanager_label: Optional[List[str]] = typer.Option(
         [],
-        help="For filtering alerts with a specific label. Must be of format key=value. If --alertmanager-label is passed multiple times, alerts must match ALL labels"
+        help="For filtering alerts with a specific label. Must be of format key=value. If --alertmanager-label is passed multiple times, alerts must match ALL labels",
     ),
     alertmanager_username: Optional[str] = typer.Option(
         None, help="Username to use for basic auth"
@@ -314,9 +336,7 @@ def alertmanager(
         None, help="Load alertmanager alerts from a file (used by the test framework)"
     ),
     alertmanager_limit: Optional[int] = typer.Option(
-        None,
-        "-n",
-        help="Limit the number of alerts to process"
+        None, "-n", help="Limit the number of alerts to process"
     ),
     # common options
     api_key: Optional[str] = opt_api_key,
@@ -335,7 +355,7 @@ def alertmanager(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
 ):
     """
     Investigate a Prometheus/Alertmanager alert
@@ -355,21 +375,25 @@ def alertmanager(
         slack_token=slack_token,
         slack_channel=slack_channel,
         custom_toolsets=custom_toolsets,
-        custom_runbooks=custom_runbooks
+        custom_runbooks=custom_runbooks,
     )
 
-    ai = config.create_console_issue_investigator(console, allowed_toolsets=allowed_toolsets)
+    ai = config.create_console_issue_investigator(
+        console, allowed_toolsets=allowed_toolsets
+    )
 
     source = config.create_alertmanager_source()
 
     try:
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from alertmanager", exc_info=e)
+        logging.error("Failed to fetch issues from alertmanager", exc_info=e)
         return
 
     if alertmanager_limit is not None:
-        console.print(f"[bold yellow]Limiting to {alertmanager_limit}/{len(issues)} issues.[/bold yellow]")
+        console.print(
+            f"[bold yellow]Limiting to {alertmanager_limit}/{len(issues)} issues.[/bold yellow]"
+        )
         issues = issues[:alertmanager_limit]
 
     if alertmanager_alertname is not None:
@@ -390,10 +414,10 @@ def alertmanager(
             prompt=system_prompt,
             console=console,
             instructions=None,
-            post_processing_prompt=post_processing_prompt)
+            post_processing_prompt=post_processing_prompt,
+        )
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
         handle_result(result, console, destination, config, issue, False, True)
-
 
     if json_output_file:
         write_json_file(json_output_file, results)
@@ -409,7 +433,8 @@ def generate_alertmanager_tests(
         None, help="Password to use for basic auth"
     ),
     output: Optional[Path] = typer.Option(
-        None, help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)"
+        None,
+        help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)",
     ),
     config_file: Optional[str] = opt_config_file,
     verbose: Optional[List[bool]] = opt_verbose,
@@ -437,12 +462,12 @@ def jira(
     jira_url: Optional[str] = typer.Option(
         None,
         help="Jira url - e.g. https://your-company.atlassian.net",
-        envvar="JIRA_URL"
+        envvar="JIRA_URL",
     ),
     jira_username: Optional[str] = typer.Option(
         None,
         help="The email address with which you log into Jira",
-        envvar="JIRA_USERNAME"
+        envvar="JIRA_USERNAME",
     ),
     jira_api_key: str = typer.Option(
         None,
@@ -452,9 +477,7 @@ def jira(
         None,
         help="Investigate tickets matching a JQL query (e.g. 'project=DEFAULT_PROJECT')",
     ),
-    update: Optional[bool] = typer.Option(
-        False, help="Update Jira with AI results"
-    ),
+    update: Optional[bool] = typer.Option(False, help="Update Jira with AI results"),
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
@@ -469,7 +492,7 @@ def jira(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
 ):
     """
     Investigate a Jira ticket
@@ -485,14 +508,16 @@ def jira(
         jira_api_key=jira_api_key,
         jira_query=jira_query,
         custom_toolsets=custom_toolsets,
-        custom_runbooks=custom_runbooks
+        custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(console, allowed_toolsets=allowed_toolsets)
+    ai = config.create_console_issue_investigator(
+        console, allowed_toolsets=allowed_toolsets
+    )
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from Jira", exc_info=e)
+        logging.error("Failed to fetch issues from Jira", exc_info=e)
         return
 
     console.print(
@@ -509,7 +534,8 @@ def jira(
             prompt=system_prompt,
             console=console,
             instructions=None,
-            post_processing_prompt=post_processing_prompt)
+            post_processing_prompt=post_processing_prompt,
+        )
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
@@ -532,10 +558,12 @@ def jira(
 @investigate_app.command()
 def github(
     github_url: str = typer.Option(
-        "https://api.github.com", help="The GitHub api base url (e.g: https://api.github.com)"
+        "https://api.github.com",
+        help="The GitHub api base url (e.g: https://api.github.com)",
     ),
     github_owner: Optional[str] = typer.Option(
-        None, help="The GitHub repository Owner, eg: if the repository url is https://github.com/robusta-dev/holmesgpt, the owner is robusta-dev"
+        None,
+        help="The GitHub repository Owner, eg: if the repository url is https://github.com/robusta-dev/holmesgpt, the owner is robusta-dev",
     ),
     github_pat: str = typer.Option(
         None,
@@ -544,9 +572,7 @@ def github(
         None,
         help="The GitHub repository name, eg: if the repository url is https://github.com/robusta-dev/holmesgpt, the repository name is holmesgpt",
     ),
-    update: Optional[bool] = typer.Option(
-        False, help="Update GitHub with AI results"
-    ),
+    update: Optional[bool] = typer.Option(False, help="Update GitHub with AI results"),
     github_query: Optional[str] = typer.Option(
         "is:issue is:open",
         help="Investigate tickets matching a GitHub query (e.g. 'is:issue is:open')",
@@ -564,7 +590,7 @@ def github(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
 ):
     """
     Investigate a GitHub issue
@@ -581,33 +607,37 @@ def github(
         github_repository=github_repository,
         github_query=github_query,
         custom_toolsets=custom_toolsets,
-        custom_runbooks=custom_runbooks
+        custom_runbooks=custom_runbooks,
     )
-    ai = config.create_issue_invcreate_console_issue_investigatorestigator(console, allowed_toolsets)
+    ai = config.create_issue_invcreate_console_issue_investigatorestigator(
+        console, allowed_toolsets
+    )
     source = config.create_github_source()
     try:
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from GitHub", exc_info=e)
+        logging.error("Failed to fetch issues from GitHub", exc_info=e)
         return
 
     console.print(
         f"[bold yellow]Analyzing {len(issues)} GitHub Issues.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
     for i, issue in enumerate(issues):
-        console.print(f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
+        console.print(
+            f"[bold yellow]Analyzing GitHub issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
+        )
 
         result = ai.investigate(
             issue=issue,
             prompt=system_prompt,
             console=console,
             instructions=None,
-            post_processing_prompt=post_processing_prompt)
+            post_processing_prompt=post_processing_prompt,
+        )
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
-        console.print(Markdown(result.result.replace(
-            "\n", "\n\n")), style="bold green")
+        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
         console.print(Rule())
         if update:
             source.write_back_result(issue.id, result)
@@ -617,16 +647,20 @@ def github(
                 f"[bold]Not updating issue {issue.url}. Use the --update option to do so.[/bold]"
             )
 
+
 @investigate_app.command()
 def pagerduty(
     pagerduty_api_key: str = typer.Option(
-        None, help="The PagerDuty API key.  This can be found in the PagerDuty UI under Integrations > API Access Keys."
+        None,
+        help="The PagerDuty API key.  This can be found in the PagerDuty UI under Integrations > API Access Keys.",
     ),
     pagerduty_user_email: Optional[str] = typer.Option(
-        None, help="When --update is set, which user will be listed as the user who updated the ticket. (Must be the email of a valid user in your PagerDuty account.)"
+        None,
+        help="When --update is set, which user will be listed as the user who updated the ticket. (Must be the email of a valid user in your PagerDuty account.)",
     ),
     pagerduty_incident_key: Optional[str] = typer.Option(
-        None, help="If provided, only analyze a single PagerDuty incident matching this key"
+        None,
+        help="If provided, only analyze a single PagerDuty incident matching this key",
     ),
     update: Optional[bool] = typer.Option(
         False, help="Update PagerDuty with AI results"
@@ -645,7 +679,7 @@ def pagerduty(
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
-    post_processing_prompt: Optional[str] = opt_post_processing_prompt
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
 ):
     """
     Investigate a PagerDuty incident
@@ -660,14 +694,14 @@ def pagerduty(
         pagerduty_user_email=pagerduty_user_email,
         pagerduty_incident_key=pagerduty_incident_key,
         custom_toolsets=custom_toolsets,
-        custom_runbooks=custom_runbooks
+        custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator(console, allowed_toolsets)
     source = config.create_pagerduty_source()
     try:
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from PagerDuty", exc_info=e)
+        logging.error("Failed to fetch issues from PagerDuty", exc_info=e)
         return
 
     console.print(
@@ -676,19 +710,21 @@ def pagerduty(
 
     results = []
     for i, issue in enumerate(issues):
-        console.print(f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
+        console.print(
+            f"[bold yellow]Analyzing PagerDuty incident {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
+        )
 
         result = ai.investigate(
             issue=issue,
             prompt=system_prompt,
             console=console,
             instructions=None,
-            post_processing_prompt=post_processing_prompt)
+            post_processing_prompt=post_processing_prompt,
+        )
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
-        console.print(Markdown(result.result.replace(
-            "\n", "\n\n")), style="bold green")
+        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
         console.print(Rule())
         if update:
             source.write_back_result(issue.id, result)
@@ -702,16 +738,16 @@ def pagerduty(
     if json_output_file:
         write_json_file(json_output_file, results)
 
+
 @investigate_app.command()
 def opsgenie(
-    opsgenie_api_key: str = typer.Option(
-        None, help="The OpsGenie API key"
-    ),
+    opsgenie_api_key: str = typer.Option(None, help="The OpsGenie API key"),
     opsgenie_team_integration_key: str = typer.Option(
         None, help=OPSGENIE_TEAM_INTEGRATION_KEY_HELP
     ),
     opsgenie_query: Optional[str] = typer.Option(
-        None, help="E.g. 'message: Foo' (see https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/)"
+        None,
+        help="E.g. 'message: Foo' (see https://support.atlassian.com/opsgenie/docs/search-queries-for-alerts/)",
     ),
     update: Optional[bool] = typer.Option(
         False, help="Update OpsGenie with AI results"
@@ -730,7 +766,7 @@ def opsgenie(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
-    documents: Optional[str] = opt_documents
+    documents: Optional[str] = opt_documents,
 ):
     """
     Investigate an OpsGenie alert
@@ -745,32 +781,34 @@ def opsgenie(
         opsgenie_team_integration_key=opsgenie_team_integration_key,
         opsgenie_query=opsgenie_query,
         custom_toolsets=custom_toolsets,
-        custom_runbooks=custom_runbooks
+        custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator(console, allowed_toolsets)
     source = config.create_opsgenie_source()
     try:
         issues = source.fetch_issues()
     except Exception as e:
-        logging.error(f"Failed to fetch issues from OpsGenie", exc_info=e)
+        logging.error("Failed to fetch issues from OpsGenie", exc_info=e)
         return
 
     console.print(
         f"[bold yellow]Analyzing {len(issues)} OpsGenie alerts.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
     )
     for i, issue in enumerate(issues):
-        console.print(f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]")
+        console.print(
+            f"[bold yellow]Analyzing OpsGenie alert {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
+        )
         result = ai.investigate(
             issue=issue,
             prompt=system_prompt,
             console=console,
             instructions=None,
-            post_processing_prompt=post_processing_prompt)
+            post_processing_prompt=post_processing_prompt,
+        )
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
-        console.print(Markdown(result.result.replace(
-            "\n", "\n\n")), style="bold green")
+        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
         console.print(Rule())
         if update:
             source.write_back_result(issue.id, result)

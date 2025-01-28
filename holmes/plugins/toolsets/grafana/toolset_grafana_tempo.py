@@ -11,7 +11,6 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
 )
 from holmes.plugins.toolsets.grafana.grafana_api import list_grafana_datasources
 from holmes.plugins.toolsets.grafana.common import (
-    GrafanaConfig,
     get_datasource_id,
     get_param_or_raise,
     process_timestamps,
@@ -19,7 +18,6 @@ from holmes.plugins.toolsets.grafana.common import (
 
 
 class ListAllDatasources(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="list_all_datasources",
@@ -40,7 +38,6 @@ class ListAllDatasources(Tool):
 
 
 class GetTempoTracesByMinDuration(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_tempo_traces_by_min_duration",
@@ -97,7 +94,6 @@ class GetTempoTracesByMinDuration(Tool):
 
 
 class GetTempoTraceById(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_tempo_trace_by_id",
@@ -131,7 +127,6 @@ class GetTempoTraceById(Tool):
 
 
 class GrafanaTempoToolset(BaseGrafanaToolset):
-
     def __init__(self):
         super().__init__(
             name="grafana/tempo",
