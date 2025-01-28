@@ -1,7 +1,7 @@
 
 
 from typing import Dict, List, Optional
-from holmes.core.tools import Tool, Toolset
+from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum
 from holmes.plugins.toolsets import load_builtin_toolsets
 from pydantic import BaseModel
 import logging
@@ -159,6 +159,7 @@ class MockToolsets:
                 description=toolset.description
             )
             mocked_toolset.tools = mocked_tools
+            mocked_toolset._status = ToolsetStatusEnum.ENABLED
             mocked_toolsets.append(mocked_toolset)
 
         self.mocked_toolsets = mocked_toolsets

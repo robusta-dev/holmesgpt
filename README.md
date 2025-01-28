@@ -294,32 +294,79 @@ docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v 
 <details>
 <summary>Run HolmesGPT in your cluster (Helm)</summary>
 
-Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the below instructions.
+Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the instructions below.
 
-By using the ``Robusta`` integration you’ll benefit from an end-to-end integration that integrates with ``Prometheus alerts`` and ``Slack``. Using the below instructions you’ll have to build many of those components yourself.
+By using the `Robusta` integration, you’ll benefit from a fully integrated setup that works seamlessly with `Prometheus alerts` and `Slack`. Using the instructions below requires you to build and configure many of these components yourself.
 
-In this mode, all the parameters should be passed to the HolmesGPT deployment, using environment variables.
+### Environment Variable Configuration
 
-We recommend pulling sensitive variables from Kubernetes ``secrets``.
+In this mode, all parameters should be passed to the HolmesGPT deployment using environment variables. To securely manage sensitive data, we recommend pulling sensitive variables from Kubernetes `secrets`.
 
-First, you'll need to create your ``holmes-values.yaml`` file, for example:
+#### Example Configuration
+Create a `holmes-values.yaml` file with your desired environment variables:
 
-    additionalEnvVars:
-    - name: MODEL
-      value: gpt-4o
-    - name: OPENAI_API_KEY
-      value: <your open ai key>
+```yaml
+additionalEnvVars:
+  - name: MODEL
+    value: gpt-4o
+  - name: OPENAI_API_KEY
+    value: <your open ai key>
+```
 
+Install Holmes with Helm:
 
-Then, install with ``helm``;
+```bash
+helm repo add robusta https://robusta-charts.storage.googleapis.com && helm repo update
+helm install holmes robusta/holmes -f holmes-values.yaml
+```
 
-    helm repo add robusta https://robusta-charts.storage.googleapis.com && helm repo update
-    helm install holmes robusta/holmes -f holmes-values.yaml
+For all LLMs, you must provide the `MODEL` environment variable, which specifies the model you are using. Some LLMs may require additional variables.
 
+### Using `{{ env.VARIABLE_NAME }}` for Secrets
 
-For all LLMs you need to provide the ``MODEL`` environment variable, which specifies which model you are using.
+For enhanced security and flexibility, you can substitute values directly with environment variables using the `{{ env.VARIABLE_NAME }}` syntax. This is especially useful for passing sensitive information like API keys or credentials.
 
-Some LLMs requires additional variables:
+Example configuration for OpenSearch integration:
+
+```yaml
+toolsets:
+  opensearch:
+    enabled: true
+    config:
+      # OpenSearch configuration
+      opensearch_clusters:
+        - hosts:
+            - host: "{{ env.OPENSEARCH_URL }}"
+              port: 9200
+          headers:
+            Authorization: "Basic {{ env.OPENSEARCH_BEARER_TOKEN }}"
+          # Additional parameters
+          use_ssl: true
+          ssl_assert_hostname: false
+          verify_certs: false
+          ssl_show_warn: false
+```
+
+In this example:
+- `{{ env.OPENSEARCH_URL }}` will be replaced by the `OPENSEARCH_URL` environment variable.
+- `{{ env.OPENSEARCH_BEARER_TOKEN }}` will pull the value of the `OPENSEARCH_BEARER_TOKEN` environment variable.
+
+This approach allows sensitive variables to be managed securely, such as by using Kubernetes secrets.
+
+### Custom Toolset Configurations
+
+You can also add custom configurations for other toolsets. For example:
+
+```yaml
+toolsets:
+  tool_name_here:
+    enabled: true
+    config:
+      # Custom configuration for your tool
+      custom_param: "{{ env.CUSTOM_PARAM }}"
+```
+
+This structure enables you to add or modify toolset configurations easily, while leveraging environment variables for flexibility and security.
 
 <details>
 <summary>OpenAI</summary>
@@ -660,6 +707,7 @@ You can view an example config file with all available settings [here](config.ex
 
 By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
 
+
 <details>
 <summary>Custom Toolsets</summary>
 
@@ -775,6 +823,53 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 2. **slack-channel**: The Slack channel where you want to receive the findings.
 
 </details>
+
+
+<details>
+<summary>OpenSearch Integration</summary>
+
+The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
+The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file (or in cluster to the configuration secret):
+
+```                                                                                 
+opensearch_clusters:
+  - hosts:
+      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
+    headers:
+      Authorization: "ApiKey <your_API_key>"
+# or
+#  - hosts:
+#      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
+#    http_auth:
+#      username: ELASTIC_USERNAME
+#      password: ELASTIC_PASSWORD
+```
+
+The configuration for each OpenSearch cluster is passed directly to the [opensearch-py](https://github.com/opensearch-project/opensearch-py) module. Refer to the module's documentation for detailed guidance on configuring connectivity.
+
+To enable OpenSearch integration when running HolmesGPT in a Kubernetes cluster, **include the following configuration** in the `Helm chart`:
+
+```yaml
+toolsets:
+  opensearch:
+    enabled: true
+    config:
+      # OpenSearch configuration
+      opensearch_clusters:
+        - hosts:
+            - host: "{{ env.OPENSEARCH_URL }}"
+              port: 9200
+          headers:
+            Authorization: "Basic {{ env.OPENSEARCH_BEARER_TOKEN }}"
+          # Additional parameters
+          use_ssl: true
+          ssl_assert_hostname: false
+          verify_certs: false
+          ssl_show_warn: false
+```
+
+</details>
+
 
 <details>
 

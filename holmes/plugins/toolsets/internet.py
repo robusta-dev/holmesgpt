@@ -185,5 +185,6 @@ class InternetToolset(Toolset):
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
             prerequisites=[],
             tools=[FetchWebpage()],
-            tags=[ToolsetTag.CORE,]
+            tags=[ToolsetTag.CORE,],
+            is_default=True
         )
