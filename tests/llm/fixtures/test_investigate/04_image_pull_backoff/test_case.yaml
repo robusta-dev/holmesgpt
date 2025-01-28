@@ -4,4 +4,4 @@ expected_output:
 retrieval_context:
   - The pod is in a `Pending` state with the container `crw-main-container` waiting due to `ErrImagePull`
 evaluation:
-  correctness: 0
+  correctness: 1

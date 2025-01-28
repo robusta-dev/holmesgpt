@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"customer-orders"}}
-stdout:
-default       customer-orders-c88c44547-sxg6h                          2/2     Running   0             128m    172.31.5.200    ip-172-31-8-128.us-east-2.compute.internal    <none>           <none>            app=customer-orders,pod-template-hash=c88c44547
-
-stderr:

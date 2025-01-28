@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"inventory-management-api","namespace":"default"}}
-Command `kubectl describe pod inventory-management-api -n default` failed with return code 1
-stdout:
-
-stderr:
-Error from server (NotFound): pods "inventory-management-api" not found

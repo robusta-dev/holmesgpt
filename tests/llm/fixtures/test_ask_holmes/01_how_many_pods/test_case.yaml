@@ -8,5 +8,4 @@ retrieval_context:
   - One of the pod is in running state but has a container in the process of starting or restarting
   - 6 pods are not running as indicated by the STATUS column
 evaluation:
-  answer_relevancy: 0
-  faithfulness: 0
+  correctness: 0

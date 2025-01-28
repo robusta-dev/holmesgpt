@@ -3,20 +3,21 @@
   "title": "KubeDeploymentReplicasMismatch",
   "description": "",
   "subject": {
-    "name": "robusta-kube-state-metrics-8667fd9775-kbsp7",
+    "name": "user-profile-resources",
     "namespace": "default",
-    "kind": "pod",
+    "kind": "deployment",
     "node": null,
-    "container": "kube-state-metrics",
+    "container": null,
     "cluster": null
   },
   "context": {
     "issue_type": "KubeDeploymentReplicasMismatch",
-    "robusta_issue_id": "KubeDeploymentReplicasMismatch-412453fa9d1e6ca0-2024-11-29 08:39:57.669000+00:00",
+    "robusta_issue_id": "0cb3f2c2-c266-482e-a48e-71cd62cbf903",
     "source": "prometheus"
   },
   "source_instance_id": "ApiRequest",
   "include_tool_calls": true,
   "include_tool_call_results": true,
-  "prompt_template": "builtin://generic_investigation.jinja2"
+  "prompt_template": "builtin://generic_investigation.jinja2",
+  "sections": null
 }

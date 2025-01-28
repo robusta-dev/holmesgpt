@@ -1,41 +1,36 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"db-certs-authenticator-757f89d977-dwhl8","namespace":"default"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"db-certs-authenticator-757f89d977-4qfst","namespace":"default"}}
 stdout:
-Name:             db-certs-authenticator-757f89d977-dwhl8
+Name:             db-certs-authenticator-757f89d977-4qfst
 Namespace:        default
 Priority:         0
 Service Account:  default
-Node:             kind-control-plane/172.18.0.2
-Start Time:       Tue, 26 Nov 2024 12:36:43 +0100
+Node:             grafana-cloud-control-plane/172.18.0.3
+Start Time:       Fri, 24 Jan 2025 13:24:17 +0100
 Labels:           app=flask
                   pod-template-hash=757f89d977
 Annotations:      <none>
 Status:           Running
-IP:               10.244.0.187
+IP:               10.244.0.56
 IPs:
-  IP:           10.244.0.187
+  IP:           10.244.0.56
 Controlled By:  ReplicaSet/db-certs-authenticator-757f89d977
 Containers:
   flask:
-    Container ID:   containerd://5e3dd5e20dea9d224bea6eb777082faea1ed86d8e10441ac0adaf6cd97e343f8
+    Container ID:   containerd://cf6dcfc78bb7ceb002d74e9fd57d199ee8bd3f96f7ff5ac1cf050f6606de7c21
     Image:          us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest
     Image ID:       us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app@sha256:2829937cca7723f59949d75911af8d65c4aa92292e7c85a2787e108dfdc14cb4
     Port:           5000/TCP
     Host Port:      0/TCP
     State:          Running
-      Started:      Tue, 26 Nov 2024 12:37:49 +0100
-    Last State:     Terminated
-      Reason:       Error
-      Exit Code:    1
-      Started:      Tue, 26 Nov 2024 12:36:45 +0100
-      Finished:     Tue, 26 Nov 2024 12:37:47 +0100
+      Started:      Fri, 24 Jan 2025 13:24:35 +0100
     Ready:          True
-    Restart Count:  1
+    Restart Count:  0
     Environment:    <none>
     Mounts:
       /certs from writable-certs (rw)
       /certs/certificate.pem from cert-volume (rw,path="certificate.pem")
       /certs/key.pem from key-volume (rw,path="key.pem")
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-xnrdl (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-d879h (ro)
 Conditions:
   Type                        Status
   PodReadyToStartContainers   True 
@@ -56,7 +51,7 @@ Volumes:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
     Medium:     
     SizeLimit:  <unset>
-  kube-api-access-xnrdl:
+  kube-api-access-d879h:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
     ConfigMapName:           kube-root-ca.crt
@@ -67,13 +62,12 @@ Node-Selectors:              <none>
 Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:
-  Type    Reason     Age                 From               Message
-  ----    ------     ----                ----               -------
-  Normal  Scheduled  2m6s                default-scheduler  Successfully assigned default/db-certs-authenticator-757f89d977-dwhl8 to kind-control-plane
-  Normal  Pulled     2m5s                kubelet            Successfully pulled image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest" in 906ms (906ms including waiting). Image size: 57542453 bytes.
-  Normal  Pulling    61s (x2 over 2m6s)  kubelet            Pulling image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest"
-  Normal  Created    61s (x2 over 2m5s)  kubelet            Created container flask
-  Normal  Pulled     61s                 kubelet            Successfully pulled image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest" in 887ms (887ms including waiting). Image size: 57542453 bytes.
-  Normal  Started    60s (x2 over 2m4s)  kubelet            Started container flask
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  69s   default-scheduler  Successfully assigned default/db-certs-authenticator-757f89d977-4qfst to grafana-cloud-control-plane
+  Normal  Pulling    69s   kubelet            Pulling image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest"
+  Normal  Pulled     52s   kubelet            Successfully pulled image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest" in 16.67s (16.67s including waiting). Image size: 57542453 bytes.
+  Normal  Created    52s   kubelet            Created container flask
+  Normal  Started    52s   kubelet            Started container flask
 
 stderr:
