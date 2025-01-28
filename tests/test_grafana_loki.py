@@ -12,7 +12,7 @@ from holmes.plugins.toolsets.grafana.toolset_grafana_loki import (
 )
 
 GRAFANA_API_KEY = os.environ.get("GRAFANA_API_KEY", "")
-GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000")
+GRAFANA_URL = os.environ.get("GRAFANA_URL", "")
 
 
 @pytest.mark.skipif(
