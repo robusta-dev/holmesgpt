@@ -5,11 +5,11 @@ from pydantic import BaseModel
 import pytest
 from pathlib import Path
 
-from holmes.core.tools import ToolExecutor
+from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
 from holmes.plugins.toolsets.internet import InternetToolset, html_to_markdown
 
 THIS_DIR = os.path.dirname(__file__)
-FIXTURES_DIR = os.path.join(THIS_DIR, 'fixtures', 'test_fetch_url')
+FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures", "test_fetch_url")
 
 
 TEST_URL = "https://www.example.com"
@@ -25,12 +25,14 @@ This domain is for use in illustrative examples in documents. You may use this
 [More information...](https://www.iana.org/domains/example)
 """.strip()
 
-def read_file(file_path:Path):
-    with open(file_path, 'r', encoding='utf-8') as file:
+
+def read_file(file_path: Path):
+    with open(file_path, "r", encoding="utf-8") as file:
         return file.read().strip()
 
-def parse_fixture_id(file_name:str) -> str:
-    match = re.match(r'fixture(\d+)', file_name)
+
+def parse_fixture_id(file_name: str) -> str:
+    match = re.match(r"fixture(\d+)", file_name)
     if match:
         # Extract the number
         return match.group(1)
@@ -49,12 +51,12 @@ def load_all_fixtures() -> List[Fixture]:
     to feed the test
     """
     fixtures_dir = Path(FIXTURES_DIR)
-    input_files = sorted([f for f in fixtures_dir.glob('fixture*.html')])
+    input_files = sorted([f for f in fixtures_dir.glob("fixture*.html")])
     test_cases = []
 
     for input_file in input_files:
         number = parse_fixture_id(input_file.stem)
-        output_file = fixtures_dir / f'fixture{number}_output.md'
+        output_file = fixtures_dir / f"fixture{number}_output.md"
 
         if output_file.exists():
             input_content = read_file(input_file)
@@ -78,8 +80,9 @@ def test_html_to_markdown(fixture:Fixture):
 
 def test_fetch_webpage():
     toolset = InternetToolset()
+    toolset._status = ToolsetStatusEnum.ENABLED
     tool_executor = ToolExecutor(toolsets=[toolset])
-    fetch_webpage_tool = tool_executor.get_tool_by_name('fetch_webpage')
+    fetch_webpage_tool = tool_executor.get_tool_by_name("fetch_webpage")
     assert fetch_webpage_tool
     actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
     print(actual_output)

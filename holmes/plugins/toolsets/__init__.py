@@ -9,25 +9,23 @@ from holmes.plugins.toolsets.grafana.common import GrafanaConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet import InternetToolset
-from pydantic import BaseModel
 
 from holmes.core.tools import Toolset, YAMLToolset
+from holmes.plugins.toolsets.opensearch import OpenSearchToolset
 from typing import Dict
+from typing import Optional
 import yaml
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
-class ToolsetsYaml(BaseModel):
-    toolsets: Dict[str, YAMLToolset]
-
-def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLToolset]:
+def load_toolsets_from_file(path: str, silent_fail: bool = False, is_default: bool = False) -> List[YAMLToolset]:
     file_toolsets = []
     with open(path) as file:
         parsed_yaml = yaml.safe_load(file)
         toolsets = parsed_yaml.get("toolsets", {})
         for name, config in toolsets.items():
             try:
-                toolset = YAMLToolset(**config, name=name)
+                toolset = YAMLToolset(**config, name=name, is_default=is_default)
                 toolset.set_path(path)
                 file_toolsets.append(YAMLToolset(**config, name=name))
             except Exception:
@@ -39,11 +37,18 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLTo
 
 def load_python_toolsets(dal:Optional[SupabaseDal], grafana_config:Optional[GrafanaConfig]) -> List[Toolset]:
     logging.debug("loading python toolsets")
+    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal)]
+
+    opensearch = OpenSearchToolset()
+    toolsets.append(opensearch)
+
     if not grafana_config:
         # passing an empty config simplifies the downstream code
         grafana_config = GrafanaConfig()
+        toolsets.append( GrafanaLokiToolset(grafana_config))
+        toolsets.append( GrafanaTempoToolset(grafana_config))
 
-    return [InternetToolset(), FindingsToolset(dal), GrafanaLokiToolset(grafana_config), GrafanaTempoToolset(grafana_config)]
+    return toolsets
 
 def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:Optional[GrafanaConfig] = GrafanaConfig()) -> List[Toolset]:
     all_toolsets = []
@@ -52,7 +57,8 @@ def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, grafana_config:Optio
         if not filename.endswith(".yaml"):
             continue
         path = os.path.join(THIS_DIR, filename)
-        all_toolsets.extend(load_toolsets_from_file(path))
+        toolsets_from_file = load_toolsets_from_file(path, is_default=True)
+        all_toolsets.extend(toolsets_from_file)
 
     all_toolsets.extend(load_python_toolsets(dal, grafana_config))
     return all_toolsets

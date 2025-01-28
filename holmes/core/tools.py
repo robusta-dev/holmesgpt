@@ -5,7 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from typing import Dict, List, Literal, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Union, Any
 from enum import Enum
 from datetime import datetime
 
@@ -244,6 +244,10 @@ class EnvironmentVariablePrerequisite(StaticPrerequisite):
             disabled_reason = ""
         super().__init__(enabled=enabled, disabled_reason=disabled_reason)
 
+class CallablePrerequisite(BaseModel):
+    callable: Callable[[dict[str, Any]], bool]
+
+
 class ToolsetCommandPrerequisite(BaseModel):
     command: str  # must complete successfully (error code 0) for prereq to be satisfied
     expected_output: str = None  # optional
@@ -255,6 +259,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
     enabled: bool = False
     name: str
     description: str
@@ -267,14 +272,17 @@ class Toolset(BaseModel):
             StaticPrerequisite,
             ToolsetCommandPrerequisite,
             ToolsetEnvironmentPrerequisite,
+            CallablePrerequisite
         ]
     ] = []
     tools: List[Tool]
     tags: List[ToolsetTag] = Field(default_factory=lambda: [ToolsetTag.CORE],)
+    config: Optional[Any] = None
+    is_default: bool = False
 
-    _path: PrivateAttr = None
-    _status: PrivateAttr = ToolsetStatusEnum.DISABLED
-    _error: PrivateAttr = None
+    _path: Optional[str] =  PrivateAttr(None)
+    _status: ToolsetStatusEnum =  PrivateAttr(ToolsetStatusEnum.DISABLED)
+    _error: Optional[str]  = PrivateAttr(None)
 
     def override_with(self, override: "ToolsetYamlFromConfig") -> None:
         """
@@ -302,7 +310,7 @@ class Toolset(BaseModel):
 
         return values
 
-    def set_path(self, path):
+    def set_path(self, path: Optional[str]):
         self._path = path
 
     def get_path(self):
@@ -368,6 +376,12 @@ class Toolset(BaseModel):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.DISABLED
                     return
+                
+            elif isinstance(prereq, CallablePrerequisite):
+                res = prereq.callable(self.config)
+                if not res:
+                    self._status = ToolsetStatusEnum.DISABLED
+                    return
 
         self._status = ToolsetStatusEnum.ENABLED
 
@@ -378,12 +392,22 @@ class YAMLToolset(Toolset):
 
 class ToolExecutor:
     def __init__(self, toolsets: List[Toolset]):
-        toolsets_by_name = {}
-        for ts in toolsets:
+        self.toolsets = toolsets
+
+        self.enabled_toolsets: list[Toolset] = list(
+            filter(
+                lambda toolset: toolset.get_status() == ToolsetStatusEnum.ENABLED,
+                toolsets,
+            )
+        )
+
+        toolsets_by_name: dict[str, Toolset] = {}
+        for ts in self.enabled_toolsets:
             if ts.name in toolsets_by_name:
                 logging.warning(f"Overriding toolset '{ts.name}'!")
             toolsets_by_name[ts.name] = ts
-        self.tools_by_name = {}
+
+        self.tools_by_name: dict[str, Tool] = {}
         for ts in toolsets_by_name.values():
             for tool in ts.tools:
                 if tool.name in self.tools_by_name:
@@ -421,6 +445,7 @@ class ToolsetYamlFromConfig(Toolset):
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
+    config: Optional[Any] = None
 
 
 class ToolsetDBModel(BaseModel):
