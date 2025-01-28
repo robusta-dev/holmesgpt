@@ -1,3 +1,4 @@
+from telnetlib import DET
 from abc import ABC, abstractmethod
 import logging
 import os
@@ -17,6 +18,8 @@ from pydantic import (
     Field,
     model_validator,
 )
+
+from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 
 
 ToolsetPattern = Union[Literal["*"], List[str]]
@@ -69,6 +72,7 @@ class ToolParameter(BaseModel):
     required: bool = True
 
 
+
 class Tool(ABC, BaseModel):
     name: str
     description: str
@@ -79,36 +83,11 @@ class Tool(ABC, BaseModel):
     additional_instructions: Optional[str] = None
 
     def get_openai_format(self):
-        tool_properties = {}
-        for param_name, param_attributes in self.parameters.items():
-            tool_properties[param_name] = {"type": param_attributes.type}
-            if param_attributes.description is not None:
-                tool_properties[param_name][
-                    "description"
-                ] = param_attributes.description
-
-        result = {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": {
-                    "properties": tool_properties,
-                    "required": [
-                        param_name
-                        for param_name, param_attributes in self.parameters.items()
-                        if param_attributes.required
-                    ],
-                    "type": "object",
-                },
-            },
-        }
- 
-        # gemini doesnt have parameters object if it is without params
-        if tool_properties is None:
-            result["function"].pop("parameters")
-
-        return result
+        return format_tool_to_open_ai_standard(
+            tool_name= self.name,
+            tool_description= self.description,
+            tool_parameters=self.parameters
+        )
 
     @abstractmethod
     def invoke(self, params: Dict) -> str:
@@ -139,7 +118,7 @@ class YAMLTool(Tool, BaseModel):
         #    if param not in self.parameters:
         #        self.parameters[param] = ToolParameter()
         for param in inferred_params:
-            if param not in self.parameters: 
+            if param not in self.parameters:
                 self.parameters[param] = ToolParameter()
 
     def get_parameterized_one_liner(self, params) -> str:
