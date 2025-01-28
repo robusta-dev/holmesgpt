@@ -12,7 +12,7 @@
   },
   "context": {
     "issue_type": "HighLatencyForCustomerCheckout",
-    "robusta_issue_id": "5fedd1a3-83b7-45dc-9649-708323bd50f5",
+    "robusta_issue_id": "3baf467c-d6ef-4aac-8e8b-6ddb34a07bb1",
     "source": "prometheus"
   },
   "source_instance_id": "ApiRequest",

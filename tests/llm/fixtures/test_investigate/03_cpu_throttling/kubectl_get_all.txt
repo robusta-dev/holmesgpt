@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_all","match_params":{"kind":"pod"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_cluster","match_params":{"kind":"pod"}}
 stdout:
 NAMESPACE     NAME                                                     READY   STATUS    RESTARTS      AGE     IP              NODE                                          NOMINATED NODE   READINESS GATES   LABELS
 default       alertmanager-robusta-kube-prometheus-st-alertmanager-0   2/2     Running   0             7d2h    172.31.3.106    ip-172-31-8-128.us-east-2.compute.internal    <none>           <none>            alertmanager=robusta-kube-prometheus-st-alertmanager,app.kubernetes.io/instance=robusta-kube-prometheus-st-alertmanager,app.kubernetes.io/managed-by=prometheus-operator,app.kubernetes.io/name=alertmanager,app.kubernetes.io/version=0.26.0,apps.kubernetes.io/pod-index=0,controller-revision-hash=alertmanager-robusta-kube-prometheus-st-alertmanager-57cd7fb46f,statefulset.kubernetes.io/pod-name=alertmanager-robusta-kube-prometheus-st-alertmanager-0
