@@ -17,5 +17,4 @@ retrieval_context:
     Normal  Created    4m28s  kubelet        	Created container nginxreplica
     Normal  Started    4m28s  kubelet        	Started container nginxreplica
 evaluation:
-  answer_relevancy: 0
-  faithfulness: 0
+  correctness: 1

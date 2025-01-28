@@ -1,6 +1,6 @@
 user_prompt: "Why did the sock-shop front-end stop working?"
 expected_output:
-  - The sock-shop front-end stopped working due to an internal server error related to MongoDB.
+  - The sock-shop front-end stopped working due to an internal server error related to the database
   - The MongoDB client driver may require an upgrade
 retrieval_context:
   - "The sock-shop front-end crashed"
@@ -16,4 +16,4 @@ after_test: |
   kubectl delete -f ./helm/sock-shop.yaml || true
   kubectl delete -f ./helm/trigger-carts-issue.yaml
 evaluation:
-  faithfulness: 0
+  correctness: 1

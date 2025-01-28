@@ -1,26 +1,8 @@
 {"toolset_name":"kubernetes/extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"job","name":"product-data-scraper","namespace":"default"}}
 NAME                                                        READY   STATUS                                                                                                               AGE
 Job/product-data-scraper                                    -                                                                                                                            21m
-├── Event/product-data-scraper.180905c0dd171cd7             -       SuccessfulCreate: Created pod: product-data-scraper-5fdj6                                                            21m
-├── Event/product-data-scraper.180905c3856b374f             -       SuccessfulCreate: Created pod: product-data-scraper-bg7vg                                                            21m
-├── Event/product-data-scraper.180905c8693f3398             -       SuccessfulCreate: Created pod: product-data-scraper-n8bhx                                                            21m
-├── Event/product-data-scraper.180905d1bb080b33             -       SuccessfulCreate: Created pod: product-data-scraper-vr29r                                                            20m
-├── Event/product-data-scraper.180905e4954bde82             -       SuccessfulCreate: Created pod: product-data-scraper-2fqrh                                                            19m
-├── Event/product-data-scraper.180905e5868ff48d             -       BackoffLimitExceeded: Job has reached the specified backoff limit                                                    19m
-├── Pod/product-data-scraper-2fqrh                          0/1     Error                                                                                                                19m
-│   ├── Event/product-data-scraper-2fqrh.180905e49616dcad   -       Scheduled: Successfully assigned default/product-data-scraper-2fqrh to ip-172-31-21-139.us-east-2.compute.internal   19m
-│   ├── Event/product-data-scraper-2fqrh.180905e4b3684858   -       Pulling: Pulling image \"bash\"                                                                                        19m
-│   ├── Event/product-data-scraper-2fqrh.180905e4ee7548d7   -       Pulled: Successfully pulled image \"bash\" in 990ms (990ms including waiting). Image size: 6335174 bytes.              19m
-│   ├── Event/product-data-scraper-2fqrh.180905e4f03c1a59   -       Created: Created container run-forever                                                                               19m
-│   ├── Event/product-data-scraper-2fqrh.180905e4f543acde   -       Started: Started container run-forever                                                                               19m
-│   └── Service/kubernetes                                  -                                                                                                                            6d22h
-├── Pod/product-data-scraper-5fdj6                          0/1     Error                                                                                                                21m
-│   ├── Event/product-data-scraper-5fdj6.180905c0ddf7c940   -       Scheduled: Successfully assigned default/product-data-scraper-5fdj6 to ip-172-31-40-111.us-east-2.compute.internal   21m
-│   ├── Event/product-data-scraper-5fdj6.180905c0fc1d7dd1   -       Pulling: Pulling image \"bash\"                                                                                        21m
-│   ├── Event/product-data-scraper-5fdj6.180905c131ad5155   -       Pulled: Successfully pulled image \"bash\" in 898ms (898ms including waiting). Image size: 6335174 bytes.              21m
-│   ├── Event/product-data-scraper-5fdj6.180905c13369495d   -       Created: Created container run-forever                                                                               21m
-│   ├── Event/product-data-scraper-5fdj6.180905c13b29868f   -       Started: Started container run-forever                                                                               21m
-│   └── Service/kubernetes                                  -                                                                                                                            6d22h
+├── Event/product-data-scraper.180905c3856b374f             -       SuccessfulCreate: Created pod: product-data-scraper-bg7vg                                                            21m                                                           19m
+├── Event/product-data-scraper.180905e5868ff48d             -       BackoffLimitExceeded: Job has reached the specified backoff limit                                                    19m                               -                                                                                                                            6d22h
 ├── Pod/product-data-scraper-bg7vg                          0/1     Error                                                                                                                21m
 │   ├── Event/product-data-scraper-bg7vg.180905c386455311   -       Scheduled: Successfully assigned default/product-data-scraper-bg7vg to ip-172-31-40-111.us-east-2.compute.internal   21m
 │   ├── Event/product-data-scraper-bg7vg.180905c3a5239cc3   -       Pulling: Pulling image \"bash\"                                                                                        21m
@@ -28,17 +10,3 @@ Job/product-data-scraper                                    -                   
 │   ├── Event/product-data-scraper-bg7vg.180905c3b9556b37   -       Created: Created container run-forever                                                                               21m
 │   ├── Event/product-data-scraper-bg7vg.180905c3c16b1328   -       Started: Started container run-forever                                                                               21m
 │   └── Service/kubernetes                                  -                                                                                                                            6d22h
-├── Pod/product-data-scraper-n8bhx                          0/1     Error                                                                                                                21m
-│   ├── Event/product-data-scraper-n8bhx.180905c86a4979e8   -       Scheduled: Successfully assigned default/product-data-scraper-n8bhx to ip-172-31-40-111.us-east-2.compute.internal   21m
-│   ├── Event/product-data-scraper-n8bhx.180905c888c31ae6   -       Pulling: Pulling image \"bash\"                                                                                        21m
-│   ├── Event/product-data-scraper-n8bhx.180905c89696fe5a   -       Pulled: Successfully pulled image \"bash\" in 231ms (231ms including waiting). Image size: 6335174 bytes.              21m
-│   ├── Event/product-data-scraper-n8bhx.180905c898214f1d   -       Created: Created container run-forever                                                                               21m
-│   ├── Event/product-data-scraper-n8bhx.180905c89c4b407a   -       Started: Started container run-forever                                                                               21m
-│   └── Service/kubernetes                                  -                                                                                                                            6d22h
-└── Pod/product-data-scraper-vr29r                          0/1     Error                                                                                                                20m
-    ├── Event/product-data-scraper-vr29r.180905d1bb7f81de   -       Scheduled: Successfully assigned default/product-data-scraper-vr29r to ip-172-31-40-111.us-east-2.compute.internal   20m
-    ├── Event/product-data-scraper-vr29r.180905d1dbadf7e0   -       Pulling: Pulling image \"bash\"                                                                                        20m
-    ├── Event/product-data-scraper-vr29r.180905d1e7f2d101   -       Pulled: Successfully pulled image \"bash\" in 205ms (205ms including waiting). Image size: 6335174 bytes.              20m
-    ├── Event/product-data-scraper-vr29r.180905d1ea398b00   -       Created: Created container run-forever                                                                               20m
-    ├── Event/product-data-scraper-vr29r.180905d1f4d38ea8   -       Started: Started container run-forever                                                                               20m
-    └── Service/kubernetes                                  -                                                                                                                            6d22h

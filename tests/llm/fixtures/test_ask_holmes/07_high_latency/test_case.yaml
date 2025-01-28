@@ -4,3 +4,5 @@ expected_output:
   - Database operations are taking between 5 to 10 seconds to complete
 before_test: kubectl apply -f ./helm/manifest.yaml
 after_test: kubectl delete -f ./helm/manifest.yaml
+evaluation:
+  correctness: 1

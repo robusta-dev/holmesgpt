@@ -2,18 +2,18 @@
   "source": "prometheus",
   "source_instance_id": "some-instance",
   "title": "CrashLoopBackoff.",
-  "description": "Crashing pod inventory-management-api in namespace default",
+  "description": "Crashing pod logging-agent in namespace default",
   "subject": {
-    "name": "inventory-management-api",
+    "name": "logging-agent",
     "subject_type": "pod",
     "namespace": "default",
     "node": "ip-172-31-21-139.us-east-2.compute.internal",
-    "container": "inventory-management-api",
+    "container": "downloader",
     "labels": {},
     "annotations": {}
   },
   "context": {
-    "robusta_issue_id": "cb37003b-9c88-440b-9f6b-7af1239d8da0"
+    "robusta_issue_id": "dd1c3198-183a-46a9-824a-eb849b79abb7"
   },
   "include_tool_calls": true,
   "include_tool_call_results": true

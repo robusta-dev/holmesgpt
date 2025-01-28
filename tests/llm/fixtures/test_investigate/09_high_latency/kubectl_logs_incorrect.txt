@@ -1,2 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name":"customer-orders","namespace":"default"}}
-error: error from server (NotFound): pods "customer-orders" not found in namespace "default"
