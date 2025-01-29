@@ -5,6 +5,9 @@ from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
+from holmes.plugins.toolsets.grafana.common import GrafanaConfig
+from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
+from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
@@ -16,7 +19,9 @@ import yaml
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-def load_toolsets_from_file(path: str, silent_fail: bool = False, is_default: bool = False) -> List[YAMLToolset]:
+def load_toolsets_from_file(
+    path: str, silent_fail: bool = False, is_default: bool = False
+) -> List[YAMLToolset]:
     file_toolsets = []
     with open(path) as file:
         parsed_yaml = yaml.safe_load(file)
@@ -26,25 +31,31 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False, is_default: bo
                 toolset = YAMLToolset(**config, name=name, is_default=is_default)
                 toolset.set_path(path)
                 file_toolsets.append(YAMLToolset(**config, name=name))
-            except Exception as e:
+            except Exception:
                 if not silent_fail:
-                    logging.error(f"Error happened while loading {name} toolset from {path}",
-                                  exc_info=True)
+                    logging.error(
+                        f"Error happened while loading {name} toolset from {path}",
+                        exc_info=True,
+                    )
 
     return file_toolsets
 
 
-def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
+def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal)]
+    toolsets: list[Toolset] = [
+        InternetToolset(),
+        FindingsToolset(dal),
+        OpenSearchToolset(),
+        GrafanaLokiToolset(),
+        GrafanaTempoToolset(),
+    ]
 
-    opensearch = OpenSearchToolset()
-    toolsets.append(opensearch)
     return toolsets
 
 
-def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
-    all_toolsets: list[Toolset] = []
+def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
+    all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
         if not filename.endswith(".yaml"):
