@@ -6,6 +6,9 @@ from typing import List, Optional
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
 from holmes.plugins.toolsets.internet import InternetToolset
+from holmes.plugins.toolsets.grafana.common import GrafanaConfig
+from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
+from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
 from holmes.core.tools import Toolset, YAMLToolset
 from holmes.plugins.toolsets.opensearch import OpenSearchToolset
@@ -36,7 +39,7 @@ def load_toolsets_from_file(path: str, silent_fail: bool = False, is_default: bo
 
 def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal), KafkaToolset()]
+    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal), KafkaToolset(),GrafanaLokiToolset(), GrafanaTempoToolset(),]
 
     opensearch = OpenSearchToolset()
     toolsets.append(opensearch)
@@ -44,7 +47,7 @@ def load_python_toolsets(dal:Optional[SupabaseDal]) -> List[Toolset]:
 
 
 def load_builtin_toolsets(dal:Optional[SupabaseDal] = None) -> List[Toolset]:
-    all_toolsets: list[Toolset] = []
+    all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
         if not filename.endswith(".yaml"):
