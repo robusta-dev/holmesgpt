@@ -7,8 +7,7 @@ InputSectionsDataType = Dict[str, str]
 
 OutputSectionsDataType = Optional[Dict[str, Union[str, None]]]
 
-class SectionsData(RootModel):
-    root: OutputSectionsDataType
+SectionsData = RootModel[OutputSectionsDataType]
 
 DEFAULT_SECTIONS:InputSectionsDataType = {
     "Alert Explanation": "1-2 sentences explaining the alert itself - note don't say \"The alert indicates a warning event related to a Kubernetes pod doing blah\" rather just say \"The pod XYZ did blah\" because that is what the user actually cares about",
