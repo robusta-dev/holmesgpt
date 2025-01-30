@@ -33,7 +33,7 @@ services:
         datasources:
         - name: Loki
           type: loki
-          access: proxy 
+          access: proxy
           orgId: 1
           url: http://loki:3100
           basicAuth: false

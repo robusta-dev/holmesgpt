@@ -4,6 +4,7 @@ from jinja2 import Environment, FileSystemLoader
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
+
 def load_prompt(prompt: str) -> str:
     """
     prompt is either in the format 'builtin://' or 'file://' or a regular string
@@ -12,13 +13,14 @@ def load_prompt(prompt: str) -> str:
     regular strings are returned as is (as literal strings)
     """
     if prompt.startswith("builtin://"):
-        path = os.path.join(THIS_DIR, prompt[len("builtin://"):])
+        path = os.path.join(THIS_DIR, prompt[len("builtin://") :])
     elif prompt.startswith("file://"):
-        path = prompt[len("file://"):]
+        path = prompt[len("file://") :]
     else:
         return prompt
-    
+
     return open(path).read()
+
 
 def load_and_render_prompt(prompt: str, context: dict = None) -> str:
     """

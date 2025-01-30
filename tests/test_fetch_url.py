@@ -39,6 +39,7 @@ def parse_fixture_id(file_name: str) -> str:
     else:
         raise Exception(f"Could not find fixture id in filename {file_name}")
 
+
 class Fixture(BaseModel):
     id: str
     input: str
@@ -61,10 +62,13 @@ def load_all_fixtures() -> List[Fixture]:
         if output_file.exists():
             input_content = read_file(input_file)
             output_content = read_file(output_file)
-            test_cases.append(Fixture(id=number, input=input_content, expected_output=output_content))
+            test_cases.append(
+                Fixture(id=number, input=input_content, expected_output=output_content)
+            )
 
     assert len(test_cases) > 0
     return test_cases
+
 
 def idfn(val):
     if isinstance(val, Fixture):
@@ -72,11 +76,13 @@ def idfn(val):
     else:
         return str(val)
 
-@pytest.mark.parametrize("fixture", load_all_fixtures(),ids=idfn)
-def test_html_to_markdown(fixture:Fixture):
+
+@pytest.mark.parametrize("fixture", load_all_fixtures(), ids=idfn)
+def test_html_to_markdown(fixture: Fixture):
     actual_output = html_to_markdown(fixture.input)
     print(actual_output)
     assert actual_output.strip() == fixture.expected_output.strip()
+
 
 def test_fetch_webpage():
     toolset = InternetToolset()

@@ -95,7 +95,7 @@ INFO:     10.244.0.8:52554 - "GET /metrics HTTP/1.1" 200 OK
             <p>Promotions: True</p>
         </body>
     </html>
-    
+
     <html>
         <head>
             <title>Checkout Status</title>
@@ -105,7 +105,7 @@ INFO:     10.244.0.8:52554 - "GET /metrics HTTP/1.1" 200 OK
             <p>Promotions: True</p>
         </body>
     </html>
-    
+
     <html>
         <head>
             <title>Checkout Status</title>
@@ -115,7 +115,7 @@ INFO:     10.244.0.8:52554 - "GET /metrics HTTP/1.1" 200 OK
             <p>Promotions: True</p>
         </body>
     </html>
-    
+
     <html>
         <head>
             <title>Checkout Status</title>
@@ -125,7 +125,7 @@ INFO:     10.244.0.8:52554 - "GET /metrics HTTP/1.1" 200 OK
             <p>Promotions: True</p>
         </body>
     </html>
-    
+
     <html>
         <head>
             <title>Checkout Status</title>

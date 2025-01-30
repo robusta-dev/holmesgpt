@@ -47,11 +47,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-r6cdm (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   kube-api-access-r6cdm:
     Type:                    Projected (a volume that contains injected data from multiple sources)

@@ -15,7 +15,7 @@ Please make sure to read and observe our [Code of Conduct](https://github.com/ro
 
 ## Reporting bugs
 
-We encourage those interested to contribute code and also appreciate when issues are reported. 
+We encourage those interested to contribute code and also appreciate when issues are reported.
 
 - Create a new issue and label is as `bug`
 - Clearly state how to reproduce the bug:
@@ -23,7 +23,7 @@ We encourage those interested to contribute code and also appreciate when issues
   - Which steps are required to reproduce
     - As LLMs answers may differ between runs - Does it always reproduce, or occasionally?
 
-  
+
 ## Contributing Code
 
 - Fork the repository and clone it locally.

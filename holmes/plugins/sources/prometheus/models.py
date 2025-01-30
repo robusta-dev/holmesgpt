@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 from pydantic import BaseModel, computed_field
-import humanize
 
 
 # these models are used by AlertManager's push API (when alertmanager pushes alerts to us by webhook)

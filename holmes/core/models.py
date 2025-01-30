@@ -93,10 +93,16 @@ class ChatRequestBaseModel(BaseModel):
     @model_validator(mode="before")
     def check_first_item_role(cls, values):
         conversation_history = values.get("conversation_history")
-        if conversation_history and isinstance(conversation_history, list) and len(conversation_history)>0:
+        if (
+            conversation_history
+            and isinstance(conversation_history, list)
+            and len(conversation_history) > 0
+        ):
             first_item = conversation_history[0]
             if not first_item.get("role") == "system":
-                raise ValueError("The first item in conversation_history must contain 'role': 'system'")
+                raise ValueError(
+                    "The first item in conversation_history must contain 'role': 'system'"
+                )
         return values
 
 

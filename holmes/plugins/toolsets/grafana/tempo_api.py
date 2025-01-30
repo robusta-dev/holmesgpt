@@ -1,15 +1,16 @@
-
 import requests
 from typing import Dict, List
 import backoff
 
+
 def execute_tempo_query_with_retry(
-    grafana_url:str,
+    grafana_url: str,
     api_key: str,
     tempo_datasource_id: str,
     query_params: dict,
     retries: int = 3,
-    timeout: int = 5):
+    timeout: int = 5,
+):
     """
     Execute a Tempo API query through Grafana with retries and timeout.
 
@@ -22,21 +23,22 @@ def execute_tempo_query_with_retry(
     Returns:
         List of trace results.
     """
-    url = f'{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/search'
+    url = f"{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/search"
 
     @backoff.on_exception(
         backoff.expo,  # Exponential backoff
         requests.exceptions.RequestException,  # Retry on request exceptions
         max_tries=retries,  # Maximum retries
-        giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response.status_code < 500,
+        giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
+        and e.response.status_code < 500,
     )
     def make_request():
         response = requests.post(
             url,
             headers={
-                'Authorization': f'Bearer {api_key}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
+                "Authorization": f"Bearer {api_key}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
             },
             json=query_params,
             timeout=timeout,  # Set timeout for the request
@@ -51,7 +53,7 @@ def execute_tempo_query_with_retry(
 
 
 def query_tempo_traces_by_duration(
-    grafana_url:str,
+    grafana_url: str,
     api_key: str,
     tempo_datasource_id: str,
     min_duration: str,
@@ -78,11 +80,13 @@ def query_tempo_traces_by_duration(
         "end": str(end),
         "limit": str(limit),
     }
-    return execute_tempo_query_with_retry(grafana_url, api_key, tempo_datasource_id, query_params)
+    return execute_tempo_query_with_retry(
+        grafana_url, api_key, tempo_datasource_id, query_params
+    )
 
 
 def query_tempo_trace_by_id(
-    grafana_url:str,
+    grafana_url: str,
     api_key: str,
     tempo_datasource_id: str,
     trace_id: str,
@@ -101,20 +105,21 @@ def query_tempo_trace_by_id(
     Returns:
         Trace details.
     """
-    url = f'{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/traces/{trace_id}'
+    url = f"{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/traces/{trace_id}"
 
     @backoff.on_exception(
         backoff.expo,  # Exponential backoff
         requests.exceptions.RequestException,  # Retry on request exceptions
         max_tries=retries,  # Maximum retries
-        giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response.status_code < 500,
+        giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
+        and e.response.status_code < 500,
     )
     def make_request():
         response = requests.get(
             url,
             headers={
-                'Authorization': f'Bearer {api_key}',
-                'Accept': 'application/json',
+                "Authorization": f"Bearer {api_key}",
+                "Accept": "application/json",
             },
             timeout=timeout,  # Set timeout for the request
         )
@@ -124,13 +129,13 @@ def query_tempo_trace_by_id(
     try:
         return make_request()
     except requests.exceptions.RequestException as e:
-        raise Exception(f"Failed to retrieve trace by ID after retries: {e} \n for URL: {url}")
+        raise Exception(
+            f"Failed to retrieve trace by ID after retries: {e} \n for URL: {url}"
+        )
+
 
 def process_trace_json(trace_json):
-    result = {
-        "total_elapsed_time_ms": 0,
-        "applications": []
-    }
+    result = {"total_elapsed_time_ms": 0, "applications": []}
 
     # First pass: Collect basic details about spans
     spans_info = {}
@@ -162,7 +167,7 @@ def process_trace_json(trace_json):
                     "exclusive_time_ms": elapsed_time_ns / 1_000_000,
                     "start_time": start_time,
                     "end_time": end_time,
-                    "loki_labels": {"app": app_name}
+                    "loki_labels": {"app": app_name},
                 }
 
     # Second pass: Subtract child span times from parent spans
@@ -177,18 +182,20 @@ def process_trace_json(trace_json):
         app_info = {
             "app_name": span_data["app_name"],
             "service_name": span_data["service_name"],
-            #"elapsed_time_ms": span_data["elapsed_time_ms"], # this confuses the llm
+            # "elapsed_time_ms": span_data["elapsed_time_ms"], # this confuses the llm
             "elapsed_service_time_ms": span_data["exclusive_time_ms"],
             "start_time": span_data["start_time"],
             "end_time": span_data["end_time"],
-            "loki_labels": span_data["loki_labels"]
+            "loki_labels": span_data["loki_labels"],
         }
 
         if app_info["app_name"]:
             result["applications"].append(app_info)
 
     # Set the total elapsed time to the root span's time (if available)
-    root_span = max(spans_info.values(), key=lambda x: x["elapsed_time_ms"], default=None)
+    root_span = max(
+        spans_info.values(), key=lambda x: x["elapsed_time_ms"], default=None
+    )
     if root_span:
         result["total_elapsed_time_ms"] = root_span["elapsed_time_ms"]
 

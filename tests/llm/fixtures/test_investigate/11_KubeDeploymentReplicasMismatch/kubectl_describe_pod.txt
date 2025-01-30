@@ -9,7 +9,7 @@ Labels:           app=user-profile-resources
                   pod-template-hash=659d4dd659
 Annotations:      <none>
 Status:           Pending
-IP:               
+IP:
 IPs:              <none>
 Controlled By:    ReplicaSet/user-profile-resources-659d4dd659
 Containers:
@@ -30,7 +30,7 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-7hdk7 (ro)
 Conditions:
   Type           Status
-  PodScheduled   False 
+  PodScheduled   False
 Volumes:
   kube-api-access-7hdk7:
     Type:                    Projected (a volume that contains injected data from multiple sources)

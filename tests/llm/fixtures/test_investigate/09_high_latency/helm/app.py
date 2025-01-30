@@ -1,12 +1,14 @@
+# ruff: noqa: F821
 import logging
 import time
+from random import randint
+from time import sleep
+
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI()
-from random import randint
-from time import sleep
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,24 +20,19 @@ STORED_PROCEDURE = "sp_CheckUserNotifications"
 # Add Prometheus middleware
 Instrumentator().instrument(app).expose(app)
 
+
 def check_promotional_notifications():
-    logger.info("Connecting to promotions database to see if we should try to upsell user")
+    logger.info(
+        "Connecting to promotions database to see if we should try to upsell user"
+    )
     try:
         logger.info("Successfully connected to database")
         start_time = time.time()
         logger.info(f"Fetching data using stored procedure: {STORED_PROCEDURE}")
 
-        sleep(randint(5,10))
+        sleep(randint(5, 10))
 
-        result = [
-            (
-                True,
-                {
-                    "type": "notification",
-                    "discount": f"${randint(6,50)}"
-                }
-            )
-        ]
+        result = [(True, {"type": "notification", "discount": f"${randint(6,50)}"})]
         end_time = time.time()
         logger.info(f"Database call completed in {end_time - start_time:.2f} seconds.")
         for row in result:
@@ -45,6 +42,7 @@ def check_promotional_notifications():
     except Exception as e:
         logger.error(f"Error checking for promotions: {e}")
         return False
+
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
@@ -64,6 +62,7 @@ def read_root():
         </body>
     </html>
     """
+
 
 if __name__ == "__main__":
     # Start Prometheus metrics server

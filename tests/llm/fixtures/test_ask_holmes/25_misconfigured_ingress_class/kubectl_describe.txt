@@ -3,13 +3,13 @@ stdout:
 Name:             my-http-ingress
 Labels:           <none>
 Namespace:        default
-Address:          
+Address:
 Ingress Class:    example-ingress-class
 Default backend:  <default>
 Rules:
   Host             Path  Backends
   ----             ----  --------
-  app.example.com  
+  app.example.com
                    /   my-http-service:80 (10.244.0.194:8080)
 Annotations:       <none>
 Events:            <none>
@@ -35,11 +35,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-68j26 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   kube-api-access-68j26:
     Type:                    Projected (a volume that contains injected data from multiple sources)

@@ -1,9 +1,8 @@
 import logging
+from typing import List
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.interfaces import SourcePlugin
 from holmes.core.issue import Issue
-from typing import List, Pattern
-from holmes.core.tool_calling_llm import LLMResult
 import requests
 
 
@@ -16,25 +15,26 @@ class GitHubSource(SourcePlugin):
         self.query = query
 
     def fetch_issues(self) -> List[Issue]:
-        logging.info(f"Fetching All issues from {self.url} for repository {self.owner}/{self.repository}")
+        logging.info(
+            f"Fetching All issues from {self.url} for repository {self.owner}/{self.repository}"
+        )
         try:
             data = []
             url = f"{self.url}/search/issues"
             headers = {
                 "Authorization": f"token {self.pat}",
                 "Accept": "application/vnd.github.v3+json",
-                "X-GitHub-Api-Version": "2022-11-28"
+                "X-GitHub-Api-Version": "2022-11-28",
             }
-            params = {
-                "per_page": "100"
-            }
+            params = {"per_page": "100"}
             default_q = f"repo:{self.owner}/{self.repository}"
             params["q"] = f"{default_q} {self.query}"
             while url:
-                response = requests.get(
-                    url=url, headers=headers, params=params)
+                response = requests.get(url=url, headers=headers, params=params)
                 if response.status_code != 200:
-                    raise Exception(f"Failed to get issues:{response.status_code} {response.text}")
+                    raise Exception(
+                        f"Failed to get issues:{response.status_code} {response.text}"
+                    )
                 logging.info(f"Got {response}")
                 response.raise_for_status()
                 data.extend(response.json().get("items", []))
@@ -45,7 +45,7 @@ class GitHubSource(SourcePlugin):
                         url = link.split(";")[0].strip()[1:-1]
             return [self.convert_to_issue(issue) for issue in data]
         except requests.RequestException as e:
-            raise ConnectionError(f"Failed to fetch data from GitHub.") from e
+            raise ConnectionError("Failed to fetch data from GitHub.") from e
 
     def convert_to_issue(self, github_issue):
         return Issue(
@@ -62,12 +62,14 @@ class GitHubSource(SourcePlugin):
         headers = {
             "Authorization": f"token {self.pat}",
             "Accept": "application/vnd.github.v3+json",
-            "X-GitHub-Api-Version": "2022-11-28"
+            "X-GitHub-Api-Version": "2022-11-28",
         }
         response = requests.post(
             url=url,
-            json={"body": f"Automatic AI Investigation by Robusta:\n\n{result_data.result}\n"},
-            headers=headers
+            json={
+                "body": f"Automatic AI Investigation by Robusta:\n\n{result_data.result}\n"
+            },
+            headers=headers,
         )
 
         response.raise_for_status()

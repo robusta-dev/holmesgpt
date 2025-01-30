@@ -17,9 +17,9 @@ IPs:
 Controlled By:  ReplicaSet/customer-relations-webapp-7c67c65579
 Containers:
   crw-main-container:
-    Container ID:   
+    Container ID:
     Image:          yourcompany/crw:latest
-    Image ID:       
+    Image ID:
     Port:           <none>
     Host Port:      <none>
     State:          Waiting
@@ -31,11 +31,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-c6ztg (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   kube-api-access-c6ztg:
     Type:                    Projected (a volume that contains injected data from multiple sources)

@@ -13,7 +13,14 @@ from holmes.plugins.toolsets.grafana.grafana_api import get_health
 class BaseGrafanaToolset(Toolset):
     config_class: ClassVar[Type[GrafanaConfig]] = GrafanaConfig
 
-    def __init__(self, name: str, description: str, icon_url: str, tools: list[Tool], doc_url: str):
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        icon_url: str,
+        tools: list[Tool],
+        doc_url: str,
+    ):
         super().__init__(
             name=name,
             description=description,
@@ -47,4 +54,3 @@ class BaseGrafanaToolset(Toolset):
     def get_example_config(self):
         example_config = GrafanaConfig(api_key="YOUR API KEY", url="YOUR GRAFANA URL")
         return example_config.model_dump()
-        

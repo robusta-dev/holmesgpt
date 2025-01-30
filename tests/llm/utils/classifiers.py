@@ -5,8 +5,11 @@ import os
 classifier_model = os.environ.get("CLASSIFIER_MODEL", "gpt-4o")
 
 
-def evaluate_app_or_infra(app_or_infra:Union[Literal["infra"], Literal["app"]], output:Optional[str], input:Optional[str]):
-
+def evaluate_app_or_infra(
+    app_or_infra: Union[Literal["infra"], Literal["app"]],
+    output: Optional[str],
+    input: Optional[str],
+):
     expected = None
     if app_or_infra == "app":
         expected = "The output should mention the issue is likely to be an application issue (as opposed to an infrastructure issue)"
@@ -31,12 +34,14 @@ Make a choice of "1" if the OUTPUT is as EXPECTED, "0" otherwise.
         prompt_template=prompt_prefix,
         choice_scores={"A": 0, "B": 0.33, "C": 0.67, "D": 1},
         use_cot=True,
-        model=classifier_model
+        model=classifier_model,
     )
     return classifier(input=None, output=output, expected=expected)
 
 
-def evaluate_context_usage(context_items:List[str], output:Optional[str], input:Optional[str]):
+def evaluate_context_usage(
+    context_items: List[str], output: Optional[str], input: Optional[str]
+):
     context = "\n- ".join(context_items)
     prompt_prefix = """
 # CONTEXT
@@ -66,12 +71,12 @@ D. All items present in the CONTEXT are mentioned in the ANSWER
         prompt_template=prompt_prefix,
         choice_scores={"A": 0, "B": 0.33, "C": 0.67, "D": 1},
         use_cot=True,
-        model=classifier_model
+        model=classifier_model,
     )
     return classifier(input=input, output=output, expected=context)
 
 
-def evaluate_previous_logs_mention(output:Optional[str]):
+def evaluate_previous_logs_mention(output: Optional[str]):
     prompt_prefix = """
 
 OUTPUT
@@ -93,13 +98,12 @@ D. OUTPUT mentions both "logs" and "previous logs" but presents both as having t
         prompt_template=prompt_prefix,
         choice_scores={"A": 1, "B": 1, "C": 0, "D": 1},
         use_cot=True,
-        model=classifier_model
+        model=classifier_model,
     )
     return classifier(input=None, output=output, expected=None)
 
 
-def evaluate_correctness(expected_elements:List[str], output:Optional[str]):
-
+def evaluate_correctness(expected_elements: List[str], output: Optional[str]):
     expected_elements_str = "\n- ".join(expected_elements)
 
     prompt_prefix = """
@@ -131,11 +135,13 @@ Possible choices:
         prompt_template=prompt_prefix,
         choice_scores={"A": 1, "B": 0},
         use_cot=True,
-        model=classifier_model
+        model=classifier_model,
     )
     return classifier(input=input, output=output, expected=expected_elements_str)
 
 
-def evaluate_factuality(input:Optional[str], output:Optional[str], expected:Optional[str]):
+def evaluate_factuality(
+    input: Optional[str], output: Optional[str], expected: Optional[str]
+):
     eval_factuality = Factuality()
     return eval_factuality(input=input, output=output, expected=expected)

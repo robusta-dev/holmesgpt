@@ -11,7 +11,7 @@ toolsets:
     docs_url: "https://kubernetes.io/docs/home/"
     # Icon URL. Used for display in the UI
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
-    # Tags for categorizing toolsets, 'core' will be used for all Holmes features (both cli's commands and chats in UI). 
+    # Tags for categorizing toolsets, 'core' will be used for all Holmes features (both cli's commands and chats in UI).
     # The 'cluster' tag is used for UI functionality, while 'cli' is for for command-line specific tools
     tags:
       - core
@@ -24,7 +24,7 @@ toolsets:
       - name: "switch_cluster"
         # The LLM looks at this description when deciding what tools are relevant for each task
         description: "Used to switch between multiple kubernetes contexts(clusters)"
-        
+
         # A templated bash command using Jinja2 templates
         # The LLM can only control parameters that you expose as template variables like {{ this_variable }}
         command: "kubectl config use-context {{ cluster_name }}"

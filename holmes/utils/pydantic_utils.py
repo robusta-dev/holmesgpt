@@ -2,7 +2,6 @@ import sys
 from typing import Any, Dict, List, Tuple, Type, Union, Annotated
 
 import typer
-import yaml
 from benedict import benedict
 from pydantic import BaseModel, ValidationError, BeforeValidator, ConfigDict
 
@@ -10,8 +9,10 @@ from holmes.plugins.prompts import load_prompt
 
 PromptField = Annotated[str, BeforeValidator(lambda v: load_prompt(v))]
 
+
 class RobustaBaseConfig(BaseModel):
-    model_config = ConfigDict(extra='forbid', validate_default=True)
+    model_config = ConfigDict(extra="forbid", validate_default=True)
+
 
 def loc_to_dot_sep(loc: Tuple[Union[str, int], ...]) -> str:
     path = ""
@@ -34,9 +35,7 @@ def convert_errors(e: ValidationError) -> List[Dict[str, Any]]:
     return new_errors
 
 
-def load_model_from_file(
-    model: Type[BaseModel], file_path: str, yaml_path: str = None
-):
+def load_model_from_file(model: Type[BaseModel], file_path: str, yaml_path: str = None):
     try:
         contents = benedict(file_path, format="yaml")
         if yaml_path is not None:

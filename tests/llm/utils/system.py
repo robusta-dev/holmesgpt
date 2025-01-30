@@ -8,8 +8,7 @@ from pathlib import Path
 
 
 def get_active_branch_name():
-
-    head_dir = Path(".",".git","HEAD")
+    head_dir = Path(".", ".git", "HEAD")
     with head_dir.open("r") as f:
         content = f.read().splitlines()
 
@@ -19,6 +18,7 @@ def get_active_branch_name():
 
     return "Unknown"
 
+
 def get_machine_state_tags() -> Dict[str, str]:
     return {
         "username": pwd.getpwuid(os.getuid()).pw_name,
@@ -26,6 +26,7 @@ def get_machine_state_tags() -> Dict[str, str]:
         "platform": platform.platform(),
         "hostname": socket.gethostname(),
     }
+
 
 def readable_timestamp():
     return datetime.now().strftime("%Y%m%d_%H%M%S")

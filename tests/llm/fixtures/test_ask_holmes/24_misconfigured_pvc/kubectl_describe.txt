@@ -9,7 +9,7 @@ Labels:           app=redis
                   pod-template-hash=747ffc844f
 Annotations:      <none>
 Status:           Pending
-IP:               
+IP:
 IPs:              <none>
 Controlled By:    ReplicaSet/redis-747ffc844f
 Containers:
@@ -38,7 +38,7 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-pnp44 (ro)
 Conditions:
   Type           Status
-  PodScheduled   False 
+  PodScheduled   False
 Volumes:
   redis-storage:
     Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)

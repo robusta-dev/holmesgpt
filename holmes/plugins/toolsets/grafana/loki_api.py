@@ -1,6 +1,5 @@
-import logging
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List
 import backoff
 
 from holmes.plugins.toolsets.grafana.common import headers

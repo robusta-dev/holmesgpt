@@ -12,11 +12,11 @@ toolsets:
     - name: "helm_list"
       description: "Use to get all the current helm releases"
       command: "helm list"
-    
+
     - name: "helm_values"
       description: "Use to gather Helm values or any released helm chart"
       command: "helm get values -a {{ release_name }} -n {{ namespace }} -o json"
-  
+
     - name: "helm_status"
       description: "Check the status of a Helm release"
       command: "helm status {{ release_name }} -n {{ namespace }}"

@@ -2,12 +2,12 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import List, Literal, Optional, Pattern
+from typing import List, Optional, Pattern
 
 import humanize
 import requests
 import rich
-from pydantic import BaseModel, ValidationError, parse_obj_as, validator
+from pydantic import parse_obj_as
 from pydantic.json import pydantic_encoder
 from requests.auth import HTTPBasicAuth
 import rich.segment
@@ -46,9 +46,13 @@ class AlertManagerSource(SourcePlugin):
             # we don't mention --alertmanager-file to avoid confusing users - most users wont care about it
             raise ValueError("--alertmanager-url must be specified")
         if self.url is not None and self.filepath is not None:
-            logging.warning(f"Ignoring --alertmanager-url because --alertmanager-file is specified")
+            logging.warning(
+                "Ignoring --alertmanager-url because --alertmanager-file is specified"
+            )
         if self.label_filter and self.filepath is not None:
-            logging.warning(f"Ignoring --label-filter because --alertmanager-file is specified")
+            logging.warning(
+                "Ignoring --label-filter because --alertmanager-file is specified"
+            )
         if self.url and not (
             self.url.startswith("http://") or self.url.startswith("https://")
         ):
@@ -126,7 +130,9 @@ class AlertManagerSource(SourcePlugin):
         """
         alerts = self.__fetch_issues_from_api()
         for alert in alerts:
-            alert_json = json.dumps([alert.model_dump()], default=pydantic_encoder)  # Wrap in a list
+            alert_json = json.dumps(
+                [alert.model_dump()], default=pydantic_encoder
+            )  # Wrap in a list
             curl_command = (
                 f"curl -X POST -H 'Content-Type: application/json' "
                 f"-d '{alert_json}' {self.url}/api/v2/alerts"

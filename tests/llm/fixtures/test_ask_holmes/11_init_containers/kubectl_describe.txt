@@ -40,9 +40,9 @@ Init Containers:
       /work-dir from workdir (rw)
 Containers:
   exporter:
-    Container ID:   
+    Container ID:
     Image:          nginx
-    Image ID:       
+    Image ID:
     Port:           80/TCP
     Host Port:      0/TCP
     State:          Waiting
@@ -55,15 +55,15 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-k7gpf (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 False 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 False
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   workdir:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   kube-api-access-k7gpf:
     Type:                    Projected (a volume that contains injected data from multiple sources)

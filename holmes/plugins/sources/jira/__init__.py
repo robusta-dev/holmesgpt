@@ -1,15 +1,12 @@
 import logging
-from typing import List, Literal, Optional, Pattern
+from typing import List
 
-import humanize
 import requests
-from pydantic import BaseModel, SecretStr, ValidationError, parse_obj_as, validator
 from requests.auth import HTTPBasicAuth
 
 from holmes.core.issue import Issue
-from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM, ToolCallResult
+from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.interfaces import SourcePlugin
-from holmes.plugins.utils import dict_to_markdown
 
 
 class JiraSource(SourcePlugin):
@@ -25,9 +22,7 @@ class JiraSource(SourcePlugin):
             response = requests.get(
                 f"{self.url}/rest/api/2/search",
                 params={"jql": self.jql_query},
-                auth=HTTPBasicAuth(
-                    self.username, self.api_key
-                ),
+                auth=HTTPBasicAuth(self.username, self.api_key),
                 headers={"Accept": "application/json"},
             )
             if response.status_code != 200:
@@ -39,7 +34,7 @@ class JiraSource(SourcePlugin):
             data = response.json()
             return [self.convert_to_issue(issue) for issue in data.get("issues", [])]
         except requests.RequestException as e:
-            raise ConnectionError(f"Failed to fetch data from Jira.") from e
+            raise ConnectionError("Failed to fetch data from Jira.") from e
 
     def convert_to_issue(self, jira_issue):
         return Issue(
@@ -63,9 +58,7 @@ class JiraSource(SourcePlugin):
         response = requests.post(
             comment_url,
             json=comment_data,
-            auth=HTTPBasicAuth(
-                self.username, self.api_key
-            ),
+            auth=HTTPBasicAuth(self.username, self.api_key),
             headers={"Accept": "application/json"},
         )
         response.raise_for_status()

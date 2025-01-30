@@ -2,14 +2,17 @@ import logging
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.interfaces import SourcePlugin
 from holmes.core.issue import Issue
-from typing import List, Pattern, Optional
+from typing import List, Optional
 import requests
 import markdown
 
 OPSGENIE_TEAM_INTEGRATION_KEY_HELP = "OpsGenie Team Integration key for writing back results. (NOT a normal API Key.) Get it from Teams > YourTeamName > Integrations > Add Integration > API Key. Don't forget to turn on the integration!"
 
+
 class OpsGenieSource(SourcePlugin):
-    def __init__(self, api_key: str, query: str, team_integration_key: Optional[str] = None):
+    def __init__(
+        self, api_key: str, query: str, team_integration_key: Optional[str] = None
+    ):
         self.api_key = api_key
         self.query = query
         self.team_integration_key = team_integration_key
@@ -21,25 +24,24 @@ class OpsGenieSource(SourcePlugin):
             url = "https://api.opsgenie.com/v2/alerts"
             headers = {
                 "Authorization": f"GenieKey {self.api_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
-            params = {
-                "query": self.query,
-                "limit": 100
-            }
+            params = {"query": self.query, "limit": 100}
             while url:
                 # TODO: also fetch notes and description
                 response = requests.get(url, headers=headers, params=params)
                 logging.debug(f"Got {response.json()}")
                 if response.status_code != 200:
-                    raise Exception(f"Failed to get alerts: {response.status_code} {response.text}")
+                    raise Exception(
+                        f"Failed to get alerts: {response.status_code} {response.text}"
+                    )
                 response.raise_for_status()
                 data.extend(response.json().get("data", []))
                 next_url = response.json().get("paging", {}).get("next", None)
                 url = next_url if next_url else None
             return [self.convert_to_issue(alert) for alert in data]
         except requests.RequestException as e:
-            raise ConnectionError(f"Failed to fetch data from OpsGenie.") from e
+            raise ConnectionError("Failed to fetch data from OpsGenie.") from e
 
     def convert_to_issue(self, opsgenie_alert):
         return Issue(
@@ -50,11 +52,13 @@ class OpsGenieSource(SourcePlugin):
             url=opsgenie_alert["tinyId"],
             raw=opsgenie_alert,
         )
-    
+
     def write_back_result(self, issue_id: str, result_data: LLMResult) -> None:
         if self.team_integration_key is None:
-            raise Exception(f"Please set '--opsgenie-team-integration-key' to write back results. This is an {OPSGENIE_TEAM_INTEGRATION_KEY_HELP}")
-        
+            raise Exception(
+                f"Please set '--opsgenie-team-integration-key' to write back results. This is an {OPSGENIE_TEAM_INTEGRATION_KEY_HELP}"
+            )
+
         # TODO: update description to make this more visible (right now we add a comment)
         html_output = markdown.markdown(result_data.result)
         logging.debug(f"HTML output: {html_output}")
@@ -62,12 +66,12 @@ class OpsGenieSource(SourcePlugin):
         url = f"https://api.opsgenie.com/v2/alerts/{issue_id}/notes?identifierType=id"
         headers = {
             "Authorization": f"GenieKey {self.team_integration_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         response = requests.post(
             url=url,
             json={"note": f"Automatic AI Investigation by Robusta:\n\n{html_output}\n"},
-            headers=headers
+            headers=headers,
         )
         logging.debug(f"Response: {response.json()}")
         response.raise_for_status()
@@ -82,4 +86,6 @@ class OpsGenieSource(SourcePlugin):
         response.raise_for_status()
         json_response = response.json()
         if not json_response["data"]["success"]:
-            raise Exception(f"Failed to write back result to OpsGenie: {json_response['data']['status']}")
+            raise Exception(
+                f"Failed to write back result to OpsGenie: {json_response['data']['status']}"
+            )

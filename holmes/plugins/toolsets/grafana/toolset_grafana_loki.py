@@ -25,7 +25,6 @@ class GrafanaLokiConfig(GrafanaConfig):
 
 
 class ListLokiDatasources(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="list_loki_datasources",
@@ -47,7 +46,6 @@ class ListLokiDatasources(Tool):
 
 
 class GetLokiLogsByNode(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_loki_logs_by_node",
@@ -165,7 +163,6 @@ class GetLokiLogsByLabel(Tool):
 
 
 class GetLokiLogsByPod(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_loki_logs_by_pod",
@@ -245,6 +242,7 @@ class GrafanaLokiToolset(BaseGrafanaToolset):
         )
 
     def get_example_config(self):
-        example_config = GrafanaLokiConfig(api_key="YOUR API KEY", url="YOUR GRAFANA URL")
+        example_config = GrafanaLokiConfig(
+            api_key="YOUR API KEY", url="YOUR GRAFANA URL"
+        )
         return example_config.model_dump()
-        

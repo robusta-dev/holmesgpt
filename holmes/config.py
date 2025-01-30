@@ -1,4 +1,3 @@
-from functools import lru_cache
 import logging
 import os
 import yaml
@@ -6,10 +5,9 @@ import os.path
 
 from holmes.core.llm import LLM, DefaultLLM
 from typing import Any, Dict, List, Optional
-from typing import List, Optional
 
 
-from pydantic import FilePath, SecretStr, Field
+from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
 
 
@@ -496,7 +494,7 @@ class Config(RobustaBaseConfig):
     @classmethod
     def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
         if config_file is not None:
-            logging.debug(f"Loading config from file %s", config_file)
+            logging.debug("Loading config from file %s", config_file)
             config_from_file = load_model_from_file(cls, config_file)
         elif os.path.exists(DEFAULT_CONFIG_LOCATION):
             logging.debug(

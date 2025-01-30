@@ -44,4 +44,3 @@ toolsets:
     - name: "docker_diff"
       description: "Inspect changes to files or directories on a container's filesystem"
       command: "docker diff {{ container_id }}"
-
