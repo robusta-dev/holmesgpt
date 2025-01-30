@@ -1,0 +1,1180 @@
+{"toolset_name":"prometheus","tool_name":"list_available_metrics","match_params":{}}
+Metric | Type | Labels
+----------------------------------------------------------------------------------------------------
+aggregator_discovery_aggregation_count_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+aggregator_unavailable_apiservice | gauge | endpoint, instance, job, name, namespace, service
+alertmanager_alerts | gauge | container, endpoint, instance, job, namespace, pod, service, state
+alertmanager_alerts_invalid_total | counter | container, endpoint, instance, job, namespace, pod, service, version
+alertmanager_alerts_received_total | counter | container, endpoint, instance, job, namespace, pod, service, status, version
+alertmanager_build_info | gauge | branch, container, endpoint, goarch, goos, goversion, instance, job, namespace, pod, revision, service, tags, version
+alertmanager_cluster_enabled | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_config_hash | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_config_last_reload_success_timestamp_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_config_last_reload_successful | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_dispatcher_aggregation_groups | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_dispatcher_alert_processing_duration_seconds | summary | none
+alertmanager_http_concurrency_limit_exceeded_total | counter | container, endpoint, instance, job, method, namespace, pod, service
+alertmanager_http_request_duration_seconds | histogram | none
+alertmanager_http_requests_in_flight | gauge | container, endpoint, instance, job, method, namespace, pod, service
+alertmanager_http_response_size_bytes | histogram | none
+alertmanager_integrations | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_marked_alerts | gauge | container, endpoint, instance, job, namespace, pod, service, state
+alertmanager_nflog_gc_duration_seconds | summary | none
+alertmanager_nflog_gossip_messages_propagated_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_nflog_maintenance_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_nflog_maintenance_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_nflog_queries_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_nflog_query_duration_seconds | histogram | none
+alertmanager_nflog_query_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_nflog_snapshot_duration_seconds | summary | none
+alertmanager_nflog_snapshot_size_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_notification_latency_seconds | histogram | none
+alertmanager_notification_requests_failed_total | counter | container, endpoint, instance, integration, job, namespace, pod, service
+alertmanager_notification_requests_total | counter | container, endpoint, instance, integration, job, namespace, pod, service
+alertmanager_notifications_failed_total | counter | container, endpoint, instance, integration, job, namespace, pod, reason, service
+alertmanager_notifications_total | counter | container, endpoint, instance, integration, job, namespace, pod, service
+alertmanager_receivers | gauge | container, endpoint, instance, job, namespace, pod, service
+alertmanager_silences | gauge | container, endpoint, instance, job, namespace, pod, service, state
+alertmanager_silences_gc_duration_seconds | summary | none
+alertmanager_silences_gossip_messages_propagated_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_silences_maintenance_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_silences_maintenance_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_silences_queries_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_silences_query_duration_seconds | histogram | none
+alertmanager_silences_query_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+alertmanager_silences_snapshot_duration_seconds | summary | none
+alertmanager_silences_snapshot_size_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+apiextensions_apiserver_validation_ratcheting_seconds | histogram | none
+apiextensions_openapi_v2_regeneration_count | counter | crd, endpoint, instance, job, namespace, reason, service
+apiextensions_openapi_v3_regeneration_count | counter | crd, endpoint, group, instance, job, namespace, reason, service, version
+apiserver_admission_controller_admission_duration_seconds | histogram | none
+apiserver_admission_step_admission_duration_seconds | histogram | none
+apiserver_admission_step_admission_duration_seconds_summary | summary | endpoint, instance, job, namespace, operation, quantile, rejected, service, type
+apiserver_admission_webhook_admission_duration_seconds | histogram | none
+apiserver_admission_webhook_request_total | counter | code, endpoint, instance, job, name, namespace, operation, rejected, service, type
+apiserver_audit_event_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_audit_requests_rejected_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_authorization_decisions_total | counter | decision, endpoint, instance, job, name, namespace, service, type
+apiserver_cache_list_fetched_objects_total | counter | endpoint, index, instance, job, namespace, resource_prefix, service
+apiserver_cache_list_returned_objects_total | counter | endpoint, instance, job, namespace, resource_prefix, service
+apiserver_cache_list_total | counter | endpoint, index, instance, job, namespace, resource_prefix, service
+apiserver_cel_compilation_duration_seconds | histogram | none
+apiserver_cel_evaluation_duration_seconds | histogram | none
+apiserver_client_certificate_expiration_seconds | histogram | none
+apiserver_clusterip_repair_reconcile_errors_total | counter | endpoint, instance, job, namespace, service
+apiserver_current_inflight_requests | gauge | endpoint, instance, job, namespace, request_kind, service
+apiserver_current_inqueue_requests | gauge | endpoint, instance, job, namespace, request_kind, service
+apiserver_delegated_authn_request_duration_seconds | histogram | none
+apiserver_delegated_authn_request_total | counter | code, endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_delegated_authz_request_duration_seconds | histogram | none
+apiserver_delegated_authz_request_total | counter | code, endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_envelope_encryption_dek_cache_fill_percent | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_flowcontrol_current_executing_requests | gauge | endpoint, flow_schema, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_current_executing_seats | gauge | endpoint, flow_schema, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_current_inqueue_requests | gauge | endpoint, flow_schema, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_current_inqueue_seats | gauge | endpoint, flow_schema, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_current_limit_seats | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_current_r | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_demand_seats | histogram | none
+apiserver_flowcontrol_demand_seats_average | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_demand_seats_high_watermark | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_demand_seats_smoothed | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_demand_seats_stdev | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_dispatch_r | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_dispatched_requests_total | counter | endpoint, flow_schema, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_latest_s | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_lower_limit_seats | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_next_discounted_s_bounds | gauge | bound, endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_next_s_bounds | gauge | bound, endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_nominal_limit_seats | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_priority_level_request_utilization | histogram | none
+apiserver_flowcontrol_priority_level_seat_utilization | histogram | none
+apiserver_flowcontrol_read_vs_write_current_requests | histogram | none
+apiserver_flowcontrol_request_concurrency_in_use | gauge | endpoint, flow_schema, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_request_execution_seconds | histogram | none
+apiserver_flowcontrol_request_queue_length_after_enqueue | histogram | none
+apiserver_flowcontrol_request_wait_duration_seconds | histogram | none
+apiserver_flowcontrol_seat_fair_frac | gauge | endpoint, instance, job, namespace, service
+apiserver_flowcontrol_target_seats | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_upper_limit_seats | gauge | endpoint, instance, job, namespace, priority_level, service
+apiserver_flowcontrol_watch_count_samples | histogram | none
+apiserver_flowcontrol_work_estimated_seats | histogram | none
+apiserver_init_events_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_kube_aggregator_x509_insecure_sha1_total | counter | endpoint, instance, job, namespace, service
+apiserver_kube_aggregator_x509_missing_san_total | counter | endpoint, instance, job, namespace, service
+apiserver_longrunning_requests | gauge | component, endpoint, group, instance, job, namespace, resource, scope, service, subresource, verb, version
+apiserver_nodeport_repair_reconcile_errors_total | counter | endpoint, instance, job, namespace, service
+apiserver_request_body_size_bytes | histogram | none
+apiserver_request_duration_seconds | histogram | none
+apiserver_request_filter_duration_seconds | histogram | none
+apiserver_request_sli_duration_seconds | histogram | none
+apiserver_request_timestamp_comparison_time | histogram | none
+apiserver_request_total | counter | code, component, endpoint, group, instance, job, namespace, resource, scope, service, subresource, verb, version
+apiserver_response_sizes | histogram | none
+apiserver_selfrequest_total | counter | endpoint, instance, job, namespace, resource, service, subresource, verb
+apiserver_storage_data_key_generation_duration_seconds | histogram | none
+apiserver_storage_data_key_generation_failures_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_storage_envelope_transformation_cache_misses_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_storage_events_received_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_storage_list_evaluated_objects_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_storage_list_fetched_objects_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_storage_list_returned_objects_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_storage_list_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_storage_objects | gauge | endpoint, instance, job, namespace, resource, service
+apiserver_storage_size_bytes | gauge | endpoint, instance, job, namespace, service, storage_cluster_id
+apiserver_tls_handshake_errors_total | counter | endpoint, instance, job, namespace, service
+apiserver_watch_cache_consistent_read_total | counter | endpoint, fallback, instance, job, namespace, resource, service, success
+apiserver_watch_cache_events_dispatched_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_watch_cache_events_received_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_watch_cache_initializations_total | counter | endpoint, instance, job, namespace, resource, service
+apiserver_watch_cache_read_wait_seconds | histogram | none
+apiserver_watch_cache_resource_version | gauge | endpoint, instance, job, namespace, resource, service
+apiserver_watch_events_sizes | histogram | none
+apiserver_watch_events_total | counter | endpoint, group, instance, job, kind, namespace, service, version
+apiserver_webhooks_x509_insecure_sha1_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+apiserver_webhooks_x509_missing_san_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+authenticated_user_requests | counter | endpoint, instance, job, namespace, service, username
+authentication_attempts | counter | endpoint, instance, job, namespace, result, service
+authentication_duration_seconds | histogram | none
+authentication_token_cache_active_fetch_count | gauge | endpoint, instance, job, metrics_path, namespace, node, service, status
+authentication_token_cache_fetch_total | counter | endpoint, instance, job, metrics_path, namespace, node, service, status
+authentication_token_cache_request_duration_seconds | histogram | none
+authentication_token_cache_request_total | counter | endpoint, instance, job, metrics_path, namespace, node, service, status
+authorization_attempts_total | counter | endpoint, instance, job, namespace, result, service
+authorization_duration_seconds | histogram | none
+cadvisor_version_info | gauge | endpoint, instance, job, kernelVersion, metrics_path, namespace, node, osVersion, service
+cardinality_enforcement_unexpected_categorizations_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+container_blkio_device_usage_total | counter | container, device, endpoint, id, image, instance, job, major, metrics_path, minor, name, namespace, node, operation, pod, service
+container_cpu_cfs_periods_total | counter | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_cpu_cfs_throttled_periods_total | counter | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_cpu_cfs_throttled_seconds_total | counter | none
+container_cpu_load_average_10s | gauge | none
+container_cpu_system_seconds_total | counter | none
+container_cpu_usage_seconds_total | counter | container, cpu, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_cpu_user_seconds_total | counter | none
+container_file_descriptors | gauge | none
+container_fs_inodes_free | gauge | none
+container_fs_inodes_total | gauge | none
+container_fs_io_current | gauge | none
+container_fs_io_time_seconds_total | counter | none
+container_fs_io_time_weighted_seconds_total | counter | none
+container_fs_limit_bytes | gauge | none
+container_fs_read_seconds_total | counter | none
+container_fs_reads_bytes_total | counter | container, device, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_fs_reads_merged_total | counter | none
+container_fs_reads_total | counter | container, device, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_fs_sector_reads_total | counter | none
+container_fs_sector_writes_total | counter | none
+container_fs_usage_bytes | gauge | none
+container_fs_write_seconds_total | counter | none
+container_fs_writes_bytes_total | counter | container, device, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_fs_writes_merged_total | counter | none
+container_fs_writes_total | counter | container, device, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_last_seen | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_memory_cache | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_memory_failcnt | counter | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_memory_failures_total | counter | container, endpoint, failure_type, id, image, instance, job, metrics_path, name, namespace, node, pod, scope, service
+container_memory_kernel_usage | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_memory_mapped_file | gauge | none
+container_memory_max_usage_bytes | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_memory_rss | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_memory_swap | gauge | none
+container_memory_usage_bytes | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_memory_working_set_bytes | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_network_receive_bytes_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_network_receive_errors_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_network_receive_packets_dropped_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_network_receive_packets_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_network_transmit_bytes_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_network_transmit_errors_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_network_transmit_packets_dropped_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_network_transmit_packets_total | counter | endpoint, id, image, instance, interface, job, metrics_path, name, namespace, node, pod, service
+container_oom_events_total | counter | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_processes | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_scrape_error | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+container_sockets | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_spec_cpu_period | gauge | none
+container_spec_cpu_quota | gauge | none
+container_spec_cpu_shares | gauge | none
+container_spec_memory_limit_bytes | gauge | none
+container_spec_memory_reservation_limit_bytes | gauge | none
+container_spec_memory_swap_limit_bytes | gauge | none
+container_start_time_seconds | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_tasks_state | gauge | none
+container_threads | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service
+container_threads_max | gauge | none
+container_ulimits_soft | gauge | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service, ulimit
+coredns_build_info | gauge | container, endpoint, goversion, instance, job, namespace, pod, revision, service, version
+coredns_cache_entries | gauge | container, endpoint, instance, job, namespace, pod, server, service, type, zones
+coredns_cache_hits_total | counter | container, endpoint, instance, job, namespace, pod, server, service, type, zones
+coredns_cache_misses_total | counter | container, endpoint, instance, job, namespace, pod, server, service, zones
+coredns_cache_requests_total | counter | container, endpoint, instance, job, namespace, pod, server, service, zones
+coredns_dns_request_duration_seconds | histogram | none
+coredns_dns_request_size_bytes | histogram | none
+coredns_dns_requests_total | counter | container, endpoint, family, instance, job, namespace, pod, proto, server, service, type, zone
+coredns_dns_response_size_bytes | histogram | none
+coredns_dns_responses_total | counter | container, endpoint, instance, job, namespace, plugin, pod, rcode, server, service, zone
+coredns_forward_healthcheck_broken_total | counter | container, endpoint, instance, job, namespace, pod, service
+coredns_forward_max_concurrent_rejects_total | counter | container, endpoint, instance, job, namespace, pod, service
+coredns_health_request_duration_seconds | histogram | none
+coredns_health_request_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+coredns_hosts_reload_timestamp_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+coredns_kubernetes_dns_programming_duration_seconds | histogram | none
+coredns_kubernetes_rest_client_rate_limiter_duration_seconds | histogram | none
+coredns_kubernetes_rest_client_request_duration_seconds | histogram | none
+coredns_kubernetes_rest_client_requests_total | counter | code, container, endpoint, host, instance, job, method, namespace, pod, service
+coredns_local_localhost_requests_total | counter | container, endpoint, instance, job, namespace, pod, service
+coredns_panics_total | counter | container, endpoint, instance, job, namespace, pod, service
+coredns_plugin_enabled | gauge | container, endpoint, instance, job, name, namespace, pod, server, service, zone
+coredns_proxy_conn_cache_hits_total | counter | container, endpoint, instance, job, namespace, pod, proto, proxy_name, service, to
+coredns_proxy_conn_cache_misses_total | counter | container, endpoint, instance, job, namespace, pod, proto, proxy_name, service, to
+coredns_proxy_healthcheck_failures_total | counter | container, endpoint, instance, job, namespace, pod, proxy_name, service, to
+coredns_proxy_request_duration_seconds | histogram | none
+coredns_reload_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+disabled_metrics_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+discovery_errors | counter | none
+discovery_process_time | summary | none
+etcd_bookmark_counts | gauge | endpoint, instance, job, namespace, resource, service
+etcd_lease_object_counts | histogram | none
+etcd_request_duration_seconds | histogram | none
+etcd_requests_total | counter | endpoint, instance, job, namespace, operation, service, type
+field_validation_request_duration_seconds | histogram | none
+force_cleaned_failed_volume_operation_errors_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+force_cleaned_failed_volume_operations_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cgo_go_to_c_calls_calls_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_gc_mark_assist_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_gc_mark_dedicated_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_gc_mark_idle_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_gc_pause_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_gc_total_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_idle_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_scavenge_assist_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_scavenge_background_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_scavenge_total_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_total_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_cpu_classes_user_cpu_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_cycles_automatic_gc_cycles_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_cycles_forced_gc_cycles_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_cycles_total_gc_cycles_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_duration_seconds | summary | container, endpoint, instance, job, metrics_path, namespace, node, pod, quantile, service
+go_gc_gogc_percent | gauge | endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_gc_gomemlimit_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_gc_heap_allocs_by_size_bytes | histogram | none
+go_gc_heap_allocs_bytes_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_heap_allocs_objects_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_heap_frees_by_size_bytes | histogram | none
+go_gc_heap_frees_bytes_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_heap_frees_objects_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_heap_goal_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_heap_live_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_heap_objects_objects | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_heap_tiny_allocs_objects_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_limiter_last_enabled_gc_cycle | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_pauses_seconds | histogram | none
+go_gc_scan_globals_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_scan_heap_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_scan_stack_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_scan_total_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_gc_stack_starting_size_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_execerrdot_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_gocachehash_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_gocachetest_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_gocacheverify_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_gotypesalias_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_http2client_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_http2server_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_httplaxcontentlength_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_httpmuxgo121_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_installgoroot_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_jstmpllitinterp_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_multipartmaxheaders_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_multipartmaxparts_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_multipathtcp_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_netedns0_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_panicnil_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_randautoseed_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_tarinsecurepath_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_tls10server_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_tlsmaxrsasize_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_tlsrsakex_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_tlsunsafeekm_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_x509sha1_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_x509usefallbackroots_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_x509usepolicies_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_godebug_non_default_behavior_zipinsecurepath_events_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_goroutines | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_info | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, version
+go_memory_classes_heap_free_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_heap_objects_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_heap_released_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_heap_stacks_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_heap_unused_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_metadata_mcache_free_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_metadata_mcache_inuse_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_metadata_mspan_free_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_metadata_mspan_inuse_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_metadata_other_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_os_stacks_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_other_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_profiling_buckets_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memory_classes_total_bytes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_memstats_alloc_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_alloc_bytes_total | counter | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_buck_hash_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_frees_total | counter | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_gc_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_heap_alloc_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_heap_idle_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_heap_inuse_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_heap_objects | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_heap_released_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_heap_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_last_gc_time_seconds | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_lookups_total | counter | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_mallocs_total | counter | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_mcache_inuse_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_mcache_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_mspan_inuse_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_mspan_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_next_gc_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_other_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_stack_inuse_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_stack_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_memstats_sys_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_sched_gomaxprocs_threads | gauge | endpoint, instance, job, metrics_path, namespace, node, pod, service
+go_sched_goroutines_goroutines | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+go_sched_latencies_seconds | histogram | none
+go_sched_pauses_stopping_gc_seconds | histogram | none
+go_sched_pauses_stopping_other_seconds | histogram | none
+go_sched_pauses_total_gc_seconds | histogram | none
+go_sched_pauses_total_other_seconds | histogram | none
+go_sync_mutex_wait_total_seconds_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+go_threads | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+grpc_client_handled_total | counter | endpoint, grpc_code, grpc_method, grpc_service, grpc_type, instance, job, namespace, service
+grpc_client_msg_received_total | counter | endpoint, grpc_method, grpc_service, grpc_type, instance, job, namespace, service
+grpc_client_msg_sent_total | counter | endpoint, grpc_method, grpc_service, grpc_type, instance, job, namespace, service
+grpc_client_started_total | counter | endpoint, grpc_method, grpc_service, grpc_type, instance, job, namespace, service
+hidden_metrics_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+http_request_duration_highr_seconds | histogram | none
+http_request_duration_highr_seconds_created | gauge | container, endpoint, instance, job, namespace, pod, service
+http_request_duration_seconds | histogram | none
+http_request_duration_seconds_created | gauge | container, endpoint, handler, instance, job, method, namespace, pod, service
+http_request_size_bytes | summary | none
+http_request_size_bytes_created | gauge | container, endpoint, handler, instance, job, namespace, pod, service
+http_requests_created | gauge | container, endpoint, handler, instance, job, method, namespace, pod, service, status
+http_requests_total | counter | container, endpoint, handler, instance, job, method, namespace, pod, service, status
+http_response_size_bytes | summary | none
+http_response_size_bytes_created | gauge | container, endpoint, handler, instance, job, namespace, pod, service
+jobs_updated | gauge | endpoint, instance, job, namespace, pod, service, target
+kube_apiserver_nodeport_allocator_allocated_ports | gauge | endpoint, instance, job, namespace, service
+kube_apiserver_nodeport_allocator_available_ports | gauge | endpoint, instance, job, namespace, service
+kube_apiserver_pod_logs_backend_tls_failure_total | counter | endpoint, instance, job, namespace, service
+kube_apiserver_pod_logs_insecure_backend_total | counter | endpoint, instance, job, namespace, service, usage
+kube_configmap_annotations | gauge | none
+kube_configmap_created | gauge | configmap, container, endpoint, instance, job, namespace, pod, service
+kube_configmap_info | gauge | configmap, container, endpoint, instance, job, namespace, pod, service
+kube_configmap_labels | gauge | none
+kube_configmap_metadata_resource_version | gauge | configmap, container, endpoint, instance, job, namespace, pod, service
+kube_daemonset_annotations | gauge | none
+kube_daemonset_created | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_labels | gauge | none
+kube_daemonset_metadata_generation | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_current_number_scheduled | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_desired_number_scheduled | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_number_available | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_number_misscheduled | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_number_ready | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_number_unavailable | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_observed_generation | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_daemonset_status_updated_number_scheduled | gauge | container, daemonset, endpoint, instance, job, namespace, pod, service
+kube_deployment_annotations | gauge | none
+kube_deployment_created | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_labels | gauge | none
+kube_deployment_metadata_generation | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_spec_paused | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_spec_replicas | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_spec_strategy_rollingupdate_max_surge | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_spec_strategy_rollingupdate_max_unavailable | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_status_condition | gauge | condition, container, deployment, endpoint, instance, job, namespace, pod, service, status
+kube_deployment_status_observed_generation | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_status_replicas | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_status_replicas_available | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_status_replicas_ready | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_status_replicas_unavailable | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_deployment_status_replicas_updated | gauge | container, deployment, endpoint, instance, job, namespace, pod, service
+kube_endpoint_address | gauge | container, endpoint, instance, ip, job, namespace, pod, ready, service
+kube_endpoint_address_available | gauge | container, endpoint, instance, job, namespace, pod, service
+kube_endpoint_address_not_ready | gauge | container, endpoint, instance, job, namespace, pod, service
+kube_endpoint_annotations | gauge | none
+kube_endpoint_created | gauge | container, endpoint, instance, job, namespace, pod, service
+kube_endpoint_info | gauge | container, endpoint, instance, job, namespace, pod, service
+kube_endpoint_labels | gauge | none
+kube_endpoint_ports | gauge | container, endpoint, instance, job, namespace, pod, port_name, port_number, port_protocol, service
+kube_job_annotations | gauge | none
+kube_job_complete | gauge | condition, container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_created | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_failed | gauge | condition, container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_info | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_labels | gauge | none
+kube_job_owner | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_spec_active_deadline_seconds | gauge | none
+kube_job_spec_completions | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_spec_parallelism | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_status_active | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_status_completion_time | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_status_failed | gauge | container, endpoint, instance, job, job_name, namespace, pod, reason, service
+kube_job_status_start_time | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_job_status_succeeded | gauge | container, endpoint, instance, job, job_name, namespace, pod, service
+kube_lease_owner | gauge | container, endpoint, instance, job, lease, lease_holder, namespace, owner_kind, owner_name, pod, service
+kube_lease_renew_time | gauge | container, endpoint, instance, job, lease, namespace, pod, service
+kube_mutatingwebhookconfiguration_created | gauge | container, endpoint, instance, job, mutatingwebhookconfiguration, pod, service
+kube_mutatingwebhookconfiguration_info | gauge | container, endpoint, instance, job, mutatingwebhookconfiguration, pod, service
+kube_mutatingwebhookconfiguration_metadata_resource_version | gauge | container, endpoint, instance, job, mutatingwebhookconfiguration, pod, service
+kube_mutatingwebhookconfiguration_webhook_clientconfig_service | gauge | container, endpoint, instance, job, mutatingwebhookconfiguration, pod, service, service_name, service_namespace, webhook_name
+kube_namespace_annotations | gauge | none
+kube_namespace_created | gauge | container, endpoint, instance, job, namespace, pod, service
+kube_namespace_labels | gauge | none
+kube_namespace_status_condition | gauge | none
+kube_namespace_status_phase | gauge | container, endpoint, instance, job, namespace, phase, pod, service
+kube_networkpolicy_annotations | gauge | none
+kube_networkpolicy_created | gauge | container, endpoint, instance, job, namespace, networkpolicy, pod, service
+kube_networkpolicy_labels | gauge | none
+kube_networkpolicy_spec_egress_rules | gauge | container, endpoint, instance, job, namespace, networkpolicy, pod, service
+kube_networkpolicy_spec_ingress_rules | gauge | container, endpoint, instance, job, namespace, networkpolicy, pod, service
+kube_node_annotations | gauge | none
+kube_node_created | gauge | container, endpoint, instance, job, namespace, node, pod, service
+kube_node_deletion_timestamp | gauge | none
+kube_node_info | gauge | container, container_runtime_version, endpoint, instance, internal_ip, job, kernel_version, kubelet_version, kubeproxy_version, namespace, node, os_image, pod, pod_cidr, provider_id, service, system_uuid
+kube_node_labels | gauge | none
+kube_node_role | gauge | container, endpoint, instance, job, namespace, node, pod, role, service
+kube_node_spec_taint | gauge | none
+kube_node_spec_unschedulable | gauge | container, endpoint, instance, job, namespace, node, pod, service
+kube_node_status_allocatable | gauge | container, endpoint, instance, job, namespace, node, pod, resource, service, unit
+kube_node_status_capacity | gauge | container, endpoint, instance, job, namespace, node, pod, resource, service, unit
+kube_node_status_condition | gauge | condition, container, endpoint, instance, job, namespace, node, pod, service, status
+kube_persistentvolume_annotations | gauge | none
+kube_persistentvolume_capacity_bytes | gauge | container, endpoint, instance, job, namespace, persistentvolume, pod, service
+kube_persistentvolume_claim_ref | gauge | claim_namespace, container, endpoint, instance, job, name, namespace, persistentvolume, pod, service
+kube_persistentvolume_created | gauge | container, endpoint, instance, job, namespace, persistentvolume, pod, service
+kube_persistentvolume_deletion_timestamp | gauge | none
+kube_persistentvolume_info | gauge | container, endpoint, host_path, host_path_type, instance, job, namespace, persistentvolume, pod, service, storageclass
+kube_persistentvolume_labels | gauge | none
+kube_persistentvolume_status_phase | gauge | container, endpoint, instance, job, namespace, persistentvolume, phase, pod, service
+kube_persistentvolumeclaim_access_mode | gauge | access_mode, container, endpoint, instance, job, namespace, persistentvolumeclaim, pod, service
+kube_persistentvolumeclaim_annotations | gauge | none
+kube_persistentvolumeclaim_created | gauge | container, endpoint, instance, job, namespace, persistentvolumeclaim, pod, service
+kube_persistentvolumeclaim_deletion_timestamp | gauge | none
+kube_persistentvolumeclaim_info | gauge | container, endpoint, instance, job, namespace, persistentvolumeclaim, pod, service, storageclass, volumemode, volumename
+kube_persistentvolumeclaim_labels | gauge | none
+kube_persistentvolumeclaim_resource_requests_storage_bytes | gauge | container, endpoint, instance, job, namespace, persistentvolumeclaim, pod, service
+kube_persistentvolumeclaim_status_condition | gauge | none
+kube_persistentvolumeclaim_status_phase | gauge | container, endpoint, instance, job, namespace, persistentvolumeclaim, phase, pod, service
+kube_pod_annotations | gauge | none
+kube_pod_completion_time | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_info | gauge | container, container_id, endpoint, image, image_id, image_spec, instance, job, namespace, pod, service, uid
+kube_pod_container_resource_limits | gauge | container, endpoint, instance, job, namespace, node, pod, resource, service, uid, unit
+kube_pod_container_resource_requests | gauge | container, endpoint, instance, job, namespace, node, pod, resource, service, uid, unit
+kube_pod_container_state_started | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_status_last_terminated_exitcode | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_status_last_terminated_reason | gauge | container, endpoint, instance, job, namespace, pod, reason, service, uid
+kube_pod_container_status_ready | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_status_restarts_total | counter | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_status_running | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_status_terminated | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_status_terminated_reason | gauge | container, endpoint, instance, job, namespace, pod, reason, service, uid
+kube_pod_container_status_waiting | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_container_status_waiting_reason | gauge | container, endpoint, instance, job, namespace, pod, reason, service, uid
+kube_pod_created | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_deletion_timestamp | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_info | gauge | container, created_by_kind, created_by_name, endpoint, host_ip, host_network, instance, job, namespace, node, pod, pod_ip, priority_class, service, uid
+kube_pod_init_container_info | gauge | container, container_id, endpoint, image, image_id, image_spec, instance, job, namespace, pod, service, uid
+kube_pod_init_container_resource_limits | gauge | none
+kube_pod_init_container_resource_requests | gauge | none
+kube_pod_init_container_status_last_terminated_reason | gauge | container, endpoint, instance, job, namespace, pod, reason, service, uid
+kube_pod_init_container_status_ready | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_init_container_status_restarts_total | counter | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_init_container_status_running | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_init_container_status_terminated | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_init_container_status_terminated_reason | gauge | container, endpoint, instance, job, namespace, pod, reason, service, uid
+kube_pod_init_container_status_waiting | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_init_container_status_waiting_reason | gauge | container, endpoint, instance, job, namespace, pod, reason, service, uid
+kube_pod_ips | gauge | container, endpoint, instance, ip, ip_family, job, namespace, pod, service, uid
+kube_pod_labels | gauge | none
+kube_pod_overhead_cpu_cores | gauge | none
+kube_pod_overhead_memory_bytes | gauge | none
+kube_pod_owner | gauge | container, endpoint, instance, job, namespace, owner_is_controller, owner_kind, owner_name, pod, service, uid
+kube_pod_restart_policy | gauge | container, endpoint, instance, job, namespace, pod, service, type, uid
+kube_pod_runtimeclass_name_info | gauge | none
+kube_pod_service_account | gauge | container, endpoint, instance, job, namespace, pod, service, service_account, uid
+kube_pod_spec_volumes_persistentvolumeclaims_info | gauge | container, endpoint, instance, job, namespace, persistentvolumeclaim, pod, service, uid, volume
+kube_pod_spec_volumes_persistentvolumeclaims_readonly | gauge | container, endpoint, instance, job, namespace, persistentvolumeclaim, pod, service, uid, volume
+kube_pod_start_time | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_status_container_ready_time | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_status_initialized_time | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_status_phase | gauge | container, endpoint, instance, job, namespace, phase, pod, service, uid
+kube_pod_status_qos_class | gauge | container, endpoint, instance, job, namespace, pod, qos_class, service, uid
+kube_pod_status_ready | gauge | condition, container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_status_ready_time | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_status_reason | gauge | container, endpoint, instance, job, namespace, pod, reason, service, uid
+kube_pod_status_scheduled | gauge | condition, container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_status_scheduled_time | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_status_unschedulable | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_pod_tolerations | gauge | container, effect, endpoint, instance, job, key, namespace, operator, pod, service, toleration_seconds, uid, value
+kube_poddisruptionbudget_annotations | gauge | none
+kube_poddisruptionbudget_created | gauge | container, endpoint, instance, job, namespace, pod, poddisruptionbudget, service
+kube_poddisruptionbudget_labels | gauge | none
+kube_poddisruptionbudget_status_current_healthy | gauge | container, endpoint, instance, job, namespace, pod, poddisruptionbudget, service
+kube_poddisruptionbudget_status_desired_healthy | gauge | container, endpoint, instance, job, namespace, pod, poddisruptionbudget, service
+kube_poddisruptionbudget_status_expected_pods | gauge | container, endpoint, instance, job, namespace, pod, poddisruptionbudget, service
+kube_poddisruptionbudget_status_observed_generation | gauge | container, endpoint, instance, job, namespace, pod, poddisruptionbudget, service
+kube_poddisruptionbudget_status_pod_disruptions_allowed | gauge | container, endpoint, instance, job, namespace, pod, poddisruptionbudget, service
+kube_replicaset_annotations | gauge | none
+kube_replicaset_created | gauge | container, endpoint, instance, job, namespace, pod, replicaset, service
+kube_replicaset_labels | gauge | none
+kube_replicaset_metadata_generation | gauge | container, endpoint, instance, job, namespace, pod, replicaset, service
+kube_replicaset_owner | gauge | container, endpoint, instance, job, namespace, owner_is_controller, owner_kind, owner_name, pod, replicaset, service
+kube_replicaset_spec_replicas | gauge | container, endpoint, instance, job, namespace, pod, replicaset, service
+kube_replicaset_status_fully_labeled_replicas | gauge | container, endpoint, instance, job, namespace, pod, replicaset, service
+kube_replicaset_status_observed_generation | gauge | container, endpoint, instance, job, namespace, pod, replicaset, service
+kube_replicaset_status_ready_replicas | gauge | container, endpoint, instance, job, namespace, pod, replicaset, service
+kube_replicaset_status_replicas | gauge | container, endpoint, instance, job, namespace, pod, replicaset, service
+kube_secret_annotations | gauge | none
+kube_secret_created | gauge | container, endpoint, instance, job, namespace, pod, secret, service
+kube_secret_info | gauge | container, endpoint, instance, job, namespace, pod, secret, service
+kube_secret_labels | gauge | none
+kube_secret_metadata_resource_version | gauge | container, endpoint, instance, job, namespace, pod, secret, service
+kube_secret_type | gauge | container, endpoint, instance, job, namespace, pod, secret, service, type
+kube_service_annotations | gauge | none
+kube_service_created | gauge | container, endpoint, instance, job, namespace, pod, service, uid
+kube_service_info | gauge | cluster_ip, container, endpoint, instance, job, namespace, pod, service, uid
+kube_service_labels | gauge | none
+kube_service_spec_external_ip | gauge | none
+kube_service_spec_type | gauge | container, endpoint, instance, job, namespace, pod, service, type, uid
+kube_service_status_load_balancer_ingress | gauge | none
+kube_statefulset_annotations | gauge | none
+kube_statefulset_created | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_labels | gauge | none
+kube_statefulset_metadata_generation | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_ordinals_start | gauge | none
+kube_statefulset_persistentvolumeclaim_retention_policy | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset, when_deleted, when_scaled
+kube_statefulset_replicas | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_status_current_revision | gauge | container, endpoint, instance, job, namespace, pod, revision, service, statefulset
+kube_statefulset_status_observed_generation | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_status_replicas | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_status_replicas_available | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_status_replicas_current | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_status_replicas_ready | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_status_replicas_updated | gauge | container, endpoint, instance, job, namespace, pod, service, statefulset
+kube_statefulset_status_update_revision | gauge | container, endpoint, instance, job, namespace, pod, revision, service, statefulset
+kube_storageclass_annotations | gauge | none
+kube_storageclass_created | gauge | container, endpoint, instance, job, namespace, pod, service, storageclass
+kube_storageclass_info | gauge | container, endpoint, instance, job, namespace, pod, provisioner, reclaim_policy, service, storageclass, volume_binding_mode
+kube_storageclass_labels | gauge | none
+kube_validatingwebhookconfiguration_created | gauge | container, endpoint, instance, job, pod, service, validatingwebhookconfiguration
+kube_validatingwebhookconfiguration_info | gauge | container, endpoint, instance, job, pod, service, validatingwebhookconfiguration
+kube_validatingwebhookconfiguration_metadata_resource_version | gauge | container, endpoint, instance, job, pod, service, validatingwebhookconfiguration
+kube_validatingwebhookconfiguration_webhook_clientconfig_service | gauge | container, endpoint, instance, job, pod, service, service_name, service_namespace, validatingwebhookconfiguration, webhook_name
+kubelet_active_pods | gauge | endpoint, instance, job, metrics_path, namespace, node, service, static
+kubelet_certificate_manager_client_expiration_renew_errors | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_certificate_manager_client_ttl_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_cgroup_manager_duration_seconds | histogram | none
+kubelet_cgroup_version | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_container_log_filesystem_used_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, uid
+kubelet_containers_per_pod_count | histogram | none
+kubelet_cpu_manager_pinning_errors_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_cpu_manager_pinning_requests_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_desired_pods | gauge | endpoint, instance, job, metrics_path, namespace, node, service, static
+kubelet_evented_pleg_connection_error_count | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_evented_pleg_connection_latency_seconds | histogram | none
+kubelet_evented_pleg_connection_success_count | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_first_network_pod_start_sli_duration_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_graceful_shutdown_end_time_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_graceful_shutdown_start_time_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_http_inflight_requests | gauge | endpoint, instance, job, long_running, method, metrics_path, namespace, node, path, server_type, service
+kubelet_http_requests_duration_seconds | histogram | none
+kubelet_http_requests_total | counter | endpoint, instance, job, long_running, method, metrics_path, namespace, node, path, server_type, service
+kubelet_image_pull_duration_seconds | histogram | none
+kubelet_lifecycle_handler_http_fallbacks_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_managed_ephemeral_containers | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_memory_manager_pinning_errors_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_memory_manager_pinning_requests_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_mirror_pods | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_node_name | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_node_startup_duration_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_node_startup_post_registration_duration_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_node_startup_pre_kubelet_duration_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_node_startup_pre_registration_duration_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_node_startup_registration_duration_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_orphan_pod_cleaned_volumes | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_orphan_pod_cleaned_volumes_errors | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_orphaned_runtime_pods_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_pleg_discard_events | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_pleg_last_seen_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_pleg_relist_duration_seconds | histogram | none
+kubelet_pleg_relist_interval_seconds | histogram | none
+kubelet_pod_start_duration_seconds | histogram | none
+kubelet_pod_start_sli_duration_seconds | histogram | none
+kubelet_pod_start_total_duration_seconds | histogram | none
+kubelet_pod_status_sync_duration_seconds | histogram | none
+kubelet_pod_worker_duration_seconds | histogram | none
+kubelet_pod_worker_start_duration_seconds | histogram | none
+kubelet_restarted_pods_total | counter | endpoint, instance, job, metrics_path, namespace, node, service, static
+kubelet_run_podsandbox_duration_seconds | histogram | none
+kubelet_running_containers | gauge | container_state, endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_running_pods | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_runtime_operations_duration_seconds | histogram | none
+kubelet_runtime_operations_errors_total | counter | endpoint, instance, job, metrics_path, namespace, node, operation_type, service
+kubelet_runtime_operations_total | counter | endpoint, instance, job, metrics_path, namespace, node, operation_type, service
+kubelet_sleep_action_terminated_early_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_started_containers_errors_total | counter | code, container_type, endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_started_containers_total | counter | container_type, endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_started_pods_errors_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_started_pods_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_topology_manager_admission_duration_ms | histogram | none
+kubelet_topology_manager_admission_errors_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_topology_manager_admission_requests_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+kubelet_volume_metric_collection_duration_seconds | histogram | none
+kubelet_working_pods | gauge | config, endpoint, instance, job, lifecycle, metrics_path, namespace, node, service, static
+kubernetes_build_info | gauge | build_date, compiler, endpoint, git_commit, git_tree_state, git_version, go_version, instance, job, major, metrics_path, minor, namespace, node, platform, service
+kubernetes_feature_enabled | gauge | endpoint, instance, job, metrics_path, name, namespace, node, service, stage
+kubewatch_events_total | counter | endpoint, eventType, instance, job, namespace, pod, resourceType, service
+machine_cpu_cores | gauge | boot_id, endpoint, instance, job, machine_id, metrics_path, namespace, node, service, system_uuid
+machine_cpu_physical_cores | gauge | boot_id, endpoint, instance, job, machine_id, metrics_path, namespace, node, service, system_uuid
+machine_cpu_sockets | gauge | boot_id, endpoint, instance, job, machine_id, metrics_path, namespace, node, service, system_uuid
+machine_memory_bytes | gauge | boot_id, endpoint, instance, job, machine_id, metrics_path, namespace, node, service, system_uuid
+machine_nvm_avg_power_budget_watts | gauge | boot_id, endpoint, instance, job, machine_id, metrics_path, namespace, node, service, system_uuid
+machine_nvm_capacity | gauge | boot_id, endpoint, instance, job, machine_id, metrics_path, mode, namespace, node, service, system_uuid
+machine_scrape_error | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+machine_swap_bytes | gauge | boot_id, endpoint, instance, job, machine_id, metrics_path, namespace, node, service, system_uuid
+net_conntrack_dialer_conn_attempted_total | counter | container, dialer_name, endpoint, instance, job, namespace, pod, service
+net_conntrack_dialer_conn_closed_total | counter | container, dialer_name, endpoint, instance, job, namespace, pod, service
+net_conntrack_dialer_conn_established_total | counter | container, dialer_name, endpoint, instance, job, namespace, pod, service
+net_conntrack_dialer_conn_failed_total | counter | container, dialer_name, endpoint, instance, job, namespace, pod, reason, service
+net_conntrack_listener_conn_accepted_total | counter | container, endpoint, instance, job, listener_name, namespace, pod, service
+net_conntrack_listener_conn_closed_total | counter | container, endpoint, instance, job, listener_name, namespace, pod, service
+node_arp_entries | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_authorizer_graph_actions_duration_seconds | histogram | none
+node_boot_time_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_context_switches_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_cooling_device_cur_state | gauge | container, endpoint, instance, job, name, namespace, pod, service, type
+node_cooling_device_max_state | gauge | container, endpoint, instance, job, name, namespace, pod, service, type
+node_cpu_frequency_max_hertz | gauge | container, cpu, endpoint, instance, job, namespace, pod, service
+node_cpu_frequency_min_hertz | gauge | container, cpu, endpoint, instance, job, namespace, pod, service
+node_cpu_guest_seconds_total | counter | container, cpu, endpoint, instance, job, mode, namespace, pod, service
+node_cpu_scaling_frequency_hertz | gauge | container, cpu, endpoint, instance, job, namespace, pod, service
+node_cpu_scaling_frequency_max_hertz | gauge | container, cpu, endpoint, instance, job, namespace, pod, service
+node_cpu_scaling_frequency_min_hertz | gauge | container, cpu, endpoint, instance, job, namespace, pod, service
+node_cpu_scaling_governor | gauge | container, cpu, endpoint, governor, instance, job, namespace, pod, service
+node_cpu_seconds_total | counter | container, cpu, endpoint, instance, job, mode, namespace, pod, service
+node_disk_discard_time_seconds_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_discarded_sectors_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_discards_completed_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_discards_merged_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_flush_requests_time_seconds_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_flush_requests_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_info | gauge | container, device, endpoint, instance, job, major, minor, namespace, pod, service
+node_disk_io_now | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_io_time_seconds_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_io_time_weighted_seconds_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_read_bytes_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_read_time_seconds_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_reads_completed_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_reads_merged_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_write_time_seconds_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_writes_completed_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_writes_merged_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_disk_written_bytes_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_dmi_info | gauge | bios_date, bios_release, bios_vendor, bios_version, board_name, board_vendor, chassis_asset_tag, chassis_vendor, chassis_version, container, endpoint, instance, job, namespace, pod, product_family, product_name, product_sku, product_uuid, product_version, service, system_vendor
+node_entropy_available_bits | gauge | container, endpoint, instance, job, namespace, pod, service
+node_entropy_pool_size_bits | gauge | container, endpoint, instance, job, namespace, pod, service
+node_exporter_build_info | gauge | branch, container, endpoint, goarch, goos, goversion, instance, job, namespace, pod, revision, service, tags, version
+node_filefd_allocated | gauge | container, endpoint, instance, job, namespace, pod, service
+node_filefd_maximum | gauge | container, endpoint, instance, job, namespace, pod, service
+node_filesystem_avail_bytes | gauge | container, device, endpoint, fstype, instance, job, mountpoint, namespace, pod, service
+node_filesystem_device_error | gauge | container, device, endpoint, fstype, instance, job, mountpoint, namespace, pod, service
+node_filesystem_files | gauge | container, device, endpoint, fstype, instance, job, mountpoint, namespace, pod, service
+node_filesystem_files_free | gauge | container, device, endpoint, fstype, instance, job, mountpoint, namespace, pod, service
+node_filesystem_free_bytes | gauge | container, device, endpoint, fstype, instance, job, mountpoint, namespace, pod, service
+node_filesystem_readonly | gauge | container, device, endpoint, fstype, instance, job, mountpoint, namespace, pod, service
+node_filesystem_size_bytes | gauge | container, device, endpoint, fstype, instance, job, mountpoint, namespace, pod, service
+node_forks_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_hwmon_chip_names | gauge | chip, chip_name, container, endpoint, instance, job, namespace, pod, service
+node_hwmon_sensor_label | gauge | chip, container, endpoint, instance, job, label, namespace, pod, sensor, service
+node_hwmon_temp_alarm | gauge | chip, container, endpoint, instance, job, namespace, pod, sensor, service
+node_hwmon_temp_celsius | gauge | chip, container, endpoint, instance, job, namespace, pod, sensor, service
+node_hwmon_temp_crit_celsius | gauge | chip, container, endpoint, instance, job, namespace, pod, sensor, service
+node_hwmon_temp_max_celsius | gauge | chip, container, endpoint, instance, job, namespace, pod, sensor, service
+node_hwmon_temp_min_celsius | gauge | chip, container, endpoint, instance, job, namespace, pod, sensor, service
+node_intr_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_load1 | gauge | container, endpoint, instance, job, namespace, pod, service
+node_load15 | gauge | container, endpoint, instance, job, namespace, pod, service
+node_load5 | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Active_anon_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Active_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Active_file_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_AnonHugePages_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_AnonPages_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Bounce_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Buffers_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Cached_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_CommitLimit_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Committed_AS_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_DirectMap1G_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_DirectMap2M_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_DirectMap4k_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Dirty_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_FileHugePages_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_FilePmdMapped_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_HardwareCorrupted_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_HugePages_Free | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_HugePages_Rsvd | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_HugePages_Surp | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_HugePages_Total | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Hugepagesize_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Hugetlb_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Inactive_anon_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Inactive_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Inactive_file_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_KReclaimable_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_KernelStack_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Mapped_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_MemAvailable_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_MemFree_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_MemTotal_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Mlocked_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_NFS_Unstable_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_PageTables_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Percpu_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_SReclaimable_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_SUnreclaim_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_SecPageTables_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_ShmemHugePages_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_ShmemPmdMapped_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Shmem_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Slab_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_SwapCached_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_SwapFree_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_SwapTotal_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Unevictable_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_VmallocChunk_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_VmallocTotal_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_VmallocUsed_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_WritebackTmp_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Writeback_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Zswap_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_memory_Zswapped_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Icmp6_InErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Icmp6_InMsgs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Icmp6_OutMsgs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Icmp_InErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Icmp_InMsgs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Icmp_OutMsgs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Ip6_InOctets | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Ip6_OutOctets | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_IpExt_InOctets | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_IpExt_OutOctets | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Ip_Forwarding | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_TcpExt_ListenDrops | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_TcpExt_ListenOverflows | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_TcpExt_SyncookiesFailed | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_TcpExt_SyncookiesRecv | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_TcpExt_SyncookiesSent | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_TcpExt_TCPSynRetrans | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_TcpExt_TCPTimeouts | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_ActiveOpens | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_CurrEstab | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_InErrs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_InSegs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_OutRsts | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_OutSegs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_PassiveOpens | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Tcp_RetransSegs | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp6_InDatagrams | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp6_InErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp6_NoPorts | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp6_OutDatagrams | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp6_RcvbufErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp6_SndbufErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_UdpLite6_InErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_UdpLite_InErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp_InDatagrams | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp_InErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp_NoPorts | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp_OutDatagrams | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp_RcvbufErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_netstat_Udp_SndbufErrors | unknown | container, endpoint, instance, job, namespace, pod, service
+node_network_address_assign_type | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_carrier | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_carrier_changes_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_carrier_down_changes_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_carrier_up_changes_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_device_id | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_dormant | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_flags | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_iface_id | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_iface_link | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_iface_link_mode | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_info | gauge | address, adminstate, broadcast, container, device, duplex, endpoint, instance, job, namespace, operstate, pod, service
+node_network_mtu_bytes | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_name_assign_type | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_net_dev_group | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_protocol_type | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_bytes_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_compressed_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_drop_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_errs_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_fifo_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_frame_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_multicast_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_nohandler_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_receive_packets_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_speed_bytes | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_bytes_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_carrier_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_colls_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_compressed_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_drop_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_errs_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_fifo_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_packets_total | counter | container, device, endpoint, instance, job, namespace, pod, service
+node_network_transmit_queue_length | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_network_up | gauge | container, device, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_entries | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_entries_limit | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_drop | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_early_drop | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_found | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_ignore | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_insert | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_insert_failed | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_invalid | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nf_conntrack_stat_search_restart | gauge | container, endpoint, instance, job, namespace, pod, service
+node_nvme_info | gauge | container, device, endpoint, firmware_revision, instance, job, model, namespace, pod, serial, service, state
+node_os_info | gauge | container, endpoint, id, instance, job, name, namespace, pod, pretty_name, service, version, version_codename, version_id
+node_os_version | gauge | container, endpoint, id, instance, job, name, namespace, pod, service
+node_pressure_cpu_waiting_seconds_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_pressure_io_stalled_seconds_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_pressure_io_waiting_seconds_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_pressure_memory_stalled_seconds_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_pressure_memory_waiting_seconds_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_procs_blocked | gauge | container, endpoint, instance, job, namespace, pod, service
+node_procs_running | gauge | container, endpoint, instance, job, namespace, pod, service
+node_schedstat_running_seconds_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_schedstat_timeslices_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_schedstat_waiting_seconds_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_scrape_collector_duration_seconds | gauge | collector, container, endpoint, instance, job, namespace, pod, service
+node_scrape_collector_success | gauge | collector, container, endpoint, instance, job, namespace, pod, service
+node_selinux_enabled | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_FRAG6_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_FRAG6_memory | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_FRAG_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_FRAG_memory | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_RAW6_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_RAW_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_TCP6_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_TCP_alloc | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_TCP_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_TCP_mem | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_TCP_mem_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_TCP_orphan | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_TCP_tw | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_UDP6_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_UDPLITE6_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_UDPLITE_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_UDP_inuse | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_UDP_mem | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_UDP_mem_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+node_sockstat_sockets_used | gauge | container, endpoint, instance, job, namespace, pod, service
+node_softnet_backlog_len | gauge | container, cpu, endpoint, instance, job, namespace, pod, service
+node_softnet_cpu_collision_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_softnet_dropped_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_softnet_flow_limit_count_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_softnet_processed_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_softnet_received_rps_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_softnet_times_squeezed_total | counter | container, cpu, endpoint, instance, job, namespace, pod, service
+node_textfile_scrape_error | gauge | container, endpoint, instance, job, namespace, pod, service
+node_thermal_zone_temp | gauge | container, endpoint, instance, job, namespace, pod, service, type, zone
+node_time_clocksource_available_info | gauge | clocksource, container, device, endpoint, instance, job, namespace, pod, service
+node_time_clocksource_current_info | gauge | clocksource, container, device, endpoint, instance, job, namespace, pod, service
+node_time_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_time_zone_offset_seconds | gauge | container, endpoint, instance, job, namespace, pod, service, time_zone
+node_timex_estimated_error_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_frequency_adjustment_ratio | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_loop_time_constant | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_maxerror_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_offset_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_calibration_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_error_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_frequency_hertz | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_jitter_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_jitter_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_shift_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_stability_exceeded_total | counter | container, endpoint, instance, job, namespace, pod, service
+node_timex_pps_stability_hertz | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_status | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_sync_status | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_tai_offset_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_timex_tick_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+node_udp_queues | gauge | container, endpoint, instance, ip, job, namespace, pod, queue, service
+node_uname_info | gauge | container, domainname, endpoint, instance, job, machine, namespace, nodename, pod, release, service, sysname, version
+node_vmstat_oom_kill | unknown | container, endpoint, instance, job, namespace, pod, service
+node_vmstat_pgfault | unknown | container, endpoint, instance, job, namespace, pod, service
+node_vmstat_pgmajfault | unknown | container, endpoint, instance, job, namespace, pod, service
+node_vmstat_pgpgin | unknown | container, endpoint, instance, job, namespace, pod, service
+node_vmstat_pgpgout | unknown | container, endpoint, instance, job, namespace, pod, service
+node_vmstat_pswpin | unknown | container, endpoint, instance, job, namespace, pod, service
+node_vmstat_pswpout | unknown | container, endpoint, instance, job, namespace, pod, service
+nodes_updated | gauge | endpoint, instance, job, namespace, pod, service, target
+playbooks_errors | counter | none
+playbooks_process_time | summary | none
+pod_security_evaluations_total | counter | decision, endpoint, instance, job, mode, namespace, policy_level, policy_version, request_operation, resource, service
+pod_security_exemptions_total | counter | endpoint, instance, job, namespace, request_operation, resource, service
+prober_probe_duration_seconds | histogram | none
+prober_probe_total | counter | container, endpoint, instance, job, metrics_path, namespace, node, pod, pod_uid, probe_type, result, service
+process_cpu_seconds | counter | none
+process_cpu_seconds_total | counter | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, target
+process_max_fds | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, target
+process_network_receive_bytes_total | counter | endpoint, instance, job, namespace, pod, service
+process_network_transmit_bytes_total | counter | endpoint, instance, job, namespace, pod, service
+process_open_fds | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, target
+process_resident_memory_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, target
+process_start_time_seconds | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, target
+process_virtual_memory_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service, target
+process_virtual_memory_max_bytes | gauge | container, endpoint, instance, job, metrics_path, namespace, node, pod, service
+prometheus_api_remote_read_queries | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_build_info | gauge | branch, container, endpoint, goarch, goos, goversion, instance, job, namespace, pod, revision, service, tags, version
+prometheus_config_last_reload_success_timestamp_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_config_last_reload_successful | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_engine_queries | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_engine_queries_concurrent_max | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_engine_query_duration_seconds | summary | container, endpoint, instance, job, namespace, pod, quantile, service, slice
+prometheus_engine_query_log_enabled | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_engine_query_log_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_engine_query_samples_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_http_request_duration_seconds | histogram | none
+prometheus_http_requests_total | counter | code, container, endpoint, handler, instance, job, namespace, pod, service
+prometheus_http_response_size_bytes | histogram | none
+prometheus_notifications_alertmanagers_discovered | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_notifications_dropped_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_notifications_errors_total | counter | alertmanager, container, endpoint, instance, job, namespace, pod, service
+prometheus_notifications_latency_seconds | summary | alertmanager, container, endpoint, instance, job, namespace, pod, quantile, service
+prometheus_notifications_queue_capacity | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_notifications_queue_length | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_notifications_sent_total | counter | alertmanager, container, endpoint, instance, job, namespace, pod, service
+prometheus_operator_build_info | gauge | branch, container, endpoint, goarch, goos, goversion, instance, job, namespace, pod, revision, service, tags, version
+prometheus_operator_kubernetes_client_http_request_duration_seconds | summary | none
+prometheus_operator_kubernetes_client_http_requests_total | counter | container, endpoint, instance, job, namespace, pod, service, status_code
+prometheus_operator_kubernetes_client_rate_limiter_duration_seconds | summary | none
+prometheus_operator_list_operations_failed_total | counter | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_operator_list_operations_total | counter | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_operator_managed_resources | gauge | container, controller, endpoint, instance, job, namespace, pod, resource, service, state
+prometheus_operator_node_address_lookup_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_operator_node_syncs_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_operator_node_syncs_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_operator_ready | gauge | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_operator_reconcile_duration_seconds | histogram | none
+prometheus_operator_reconcile_errors_total | counter | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_operator_reconcile_operations_total | counter | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_operator_reconcile_sts_delete_create_total | counter | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_operator_spec_replicas | gauge | container, controller, endpoint, instance, job, name, namespace, pod, service
+prometheus_operator_spec_shards | gauge | container, controller, endpoint, instance, job, name, namespace, pod, service
+prometheus_operator_syncs | gauge | container, controller, endpoint, instance, job, namespace, pod, service, status
+prometheus_operator_triggered_total | counter | action, container, controller, endpoint, instance, job, namespace, pod, service, triggered_by
+prometheus_operator_watch_operations_failed_total | counter | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_operator_watch_operations_total | counter | container, controller, endpoint, instance, job, namespace, pod, service
+prometheus_ready | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_remote_storage_exemplars_in_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_remote_storage_highest_timestamp_in_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_remote_storage_histograms_in_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_remote_storage_samples_in_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_remote_storage_string_interner_zero_reference_releases_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_rule_evaluation_duration_seconds | summary | container, endpoint, instance, job, namespace, pod, quantile, service
+prometheus_rule_evaluation_failures_total | counter | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_evaluations_total | counter | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_group_duration_seconds | summary | container, endpoint, instance, job, namespace, pod, quantile, service
+prometheus_rule_group_interval_seconds | gauge | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_group_iterations_missed_total | counter | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_group_iterations_total | counter | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_group_last_duration_seconds | gauge | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_group_last_evaluation_samples | gauge | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_group_last_evaluation_timestamp_seconds | gauge | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_rule_group_rules | gauge | container, endpoint, instance, job, namespace, pod, rule_group, service
+prometheus_sd_azure_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_consul_rpc_duration_seconds | summary | call, container, endpoint, exported_endpoint, instance, job, namespace, pod, quantile, service
+prometheus_sd_consul_rpc_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_discovered_targets | gauge | config, container, endpoint, instance, job, name, namespace, pod, service
+prometheus_sd_dns_lookup_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_dns_lookups_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_failed_configs | gauge | container, endpoint, instance, job, name, namespace, pod, service
+prometheus_sd_file_read_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_file_scan_duration_seconds | summary | container, endpoint, instance, job, namespace, pod, quantile, service
+prometheus_sd_file_watcher_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_http_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_kubernetes_events_total | counter | container, endpoint, event, instance, job, namespace, pod, role, service
+prometheus_sd_kubernetes_http_request_duration_seconds | summary | none
+prometheus_sd_kubernetes_http_request_total | counter | container, endpoint, instance, job, namespace, pod, service, status_code
+prometheus_sd_kubernetes_workqueue_depth | gauge | container, endpoint, instance, job, namespace, pod, queue_name, service
+prometheus_sd_kubernetes_workqueue_items_total | counter | container, endpoint, instance, job, namespace, pod, queue_name, service
+prometheus_sd_kubernetes_workqueue_latency_seconds | summary | none
+prometheus_sd_kubernetes_workqueue_longest_running_processor_seconds | gauge | container, endpoint, instance, job, namespace, pod, queue_name, service
+prometheus_sd_kubernetes_workqueue_unfinished_work_seconds | gauge | container, endpoint, instance, job, namespace, pod, queue_name, service
+prometheus_sd_kubernetes_workqueue_work_duration_seconds | summary | none
+prometheus_sd_kuma_fetch_duration_seconds | summary | container, endpoint, instance, job, namespace, pod, quantile, service
+prometheus_sd_kuma_fetch_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_kuma_fetch_skipped_updates_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_linode_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_nomad_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_sd_received_updates_total | counter | container, endpoint, instance, job, name, namespace, pod, service
+prometheus_sd_updates_total | counter | container, endpoint, instance, job, name, namespace, pod, service
+prometheus_target_interval_length_seconds | summary | container, endpoint, instance, interval, job, namespace, pod, quantile, service
+prometheus_target_metadata_cache_bytes | gauge | container, endpoint, instance, job, namespace, pod, scrape_job, service
+prometheus_target_metadata_cache_entries | gauge | container, endpoint, instance, job, namespace, pod, scrape_job, service
+prometheus_target_scrape_pool_exceeded_label_limits_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrape_pool_exceeded_target_limit_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrape_pool_reloads_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrape_pool_reloads_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrape_pool_sync_total | counter | container, endpoint, instance, job, namespace, pod, scrape_job, service
+prometheus_target_scrape_pool_target_limit | gauge | container, endpoint, instance, job, namespace, pod, scrape_job, service
+prometheus_target_scrape_pool_targets | gauge | container, endpoint, instance, job, namespace, pod, scrape_job, service
+prometheus_target_scrape_pools_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrape_pools_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_cache_flush_forced_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_exceeded_body_size_limit_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_exceeded_native_histogram_bucket_limit_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_exceeded_sample_limit_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_exemplar_out_of_order_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_sample_duplicate_timestamp_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_sample_out_of_bounds_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_scrapes_sample_out_of_order_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_target_sync_failed_total | counter | container, endpoint, instance, job, namespace, pod, scrape_job, service
+prometheus_target_sync_length_seconds | summary | container, endpoint, instance, job, namespace, pod, quantile, scrape_job, service
+prometheus_template_text_expansion_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_template_text_expansions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_treecache_watcher_goroutines | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_treecache_zookeeper_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_blocks_loaded | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_checkpoint_creations_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_checkpoint_creations_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_checkpoint_deletions_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_checkpoint_deletions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_clean_start | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_compaction_chunk_range_seconds | histogram | none
+prometheus_tsdb_compaction_chunk_samples | histogram | none
+prometheus_tsdb_compaction_chunk_size_bytes | histogram | none
+prometheus_tsdb_compaction_duration_seconds | histogram | none
+prometheus_tsdb_compaction_populating_block | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_compactions_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_compactions_skipped_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_compactions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_compactions_triggered_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_data_replay_duration_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_exemplar_exemplars_appended_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_exemplar_exemplars_in_storage | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_exemplar_last_exemplars_timestamp_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_exemplar_max_exemplars | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_exemplar_out_of_order_exemplars_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_exemplar_series_with_exemplars_in_storage | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_active_appenders | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_chunks | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_chunks_created_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_chunks_removed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_chunks_storage_size_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_gc_duration_seconds | summary | none
+prometheus_tsdb_head_max_time | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_max_time_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_min_time | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_min_time_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_out_of_order_samples_appended_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_samples_appended_total | counter | container, endpoint, instance, job, namespace, pod, service, type
+prometheus_tsdb_head_series | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_series_created_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_series_not_found_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_series_removed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_truncations_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_head_truncations_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_isolation_high_watermark | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_isolation_low_watermark | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_lowest_timestamp | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_lowest_timestamp_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_mmap_chunk_corruptions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_mmap_chunks_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_out_of_bound_samples_total | counter | container, endpoint, instance, job, namespace, pod, service, type
+prometheus_tsdb_out_of_order_samples_total | counter | container, endpoint, instance, job, namespace, pod, service, type
+prometheus_tsdb_reloads_failures_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_reloads_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_retention_limit_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_size_retentions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_snapshot_replay_error_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_storage_blocks_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_symbol_table_size_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_time_retentions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_tombstone_cleanup_seconds | histogram | none
+prometheus_tsdb_too_old_samples_total | counter | container, endpoint, instance, job, namespace, pod, service, type
+prometheus_tsdb_vertical_compactions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_completed_pages_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_corruptions_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_fsync_duration_seconds | summary | container, endpoint, instance, job, namespace, pod, quantile, service
+prometheus_tsdb_wal_page_flushes_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_segment_current | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_storage_size_bytes | gauge | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_truncate_duration_seconds | summary | none
+prometheus_tsdb_wal_truncations_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_truncations_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_tsdb_wal_writes_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_web_federation_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+prometheus_web_federation_warnings_total | counter | container, endpoint, instance, job, namespace, pod, service
+promhttp_metric_handler_errors_total | counter | cause, container, endpoint, instance, job, namespace, pod, service
+promhttp_metric_handler_requests_in_flight | gauge | container, endpoint, instance, job, namespace, pod, service
+promhttp_metric_handler_requests_total | counter | code, container, endpoint, instance, job, namespace, pod, service
+python_gc_collections | counter | none
+python_gc_collections_total | counter | container, endpoint, generation, instance, job, namespace, pod, service, target
+python_gc_objects_collected | counter | none
+python_gc_objects_collected_total | counter | container, endpoint, generation, instance, job, namespace, pod, service, target
+python_gc_objects_uncollectable | counter | none
+python_gc_objects_uncollectable_total | counter | container, endpoint, generation, instance, job, namespace, pod, service, target
+python_info | gauge | container, endpoint, implementation, instance, job, major, minor, namespace, patchlevel, pod, service, target, version
+queue_event | counter | none
+queue_process_time | summary | none
+queue_size | gauge | endpoint, instance, job, namespace, pod, queue_name, service, target
+reconstruct_volume_operations_errors_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+reconstruct_volume_operations_total | counter | endpoint, instance, job, metrics_path, namespace, node, service
+registered_metrics_total | counter | deprecated_version, endpoint, instance, job, metrics_path, namespace, node, service, stability_level
+reloader_config_apply_operations_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+reloader_config_apply_operations_total | counter | container, endpoint, instance, job, namespace, pod, service
+reloader_info | gauge | container, endpoint, instance, job, method, namespace, pod, service
+reloader_last_reload_success_timestamp_seconds | gauge | container, endpoint, instance, job, namespace, pod, service
+reloader_last_reload_successful | gauge | container, endpoint, instance, job, namespace, pod, service
+reloader_reloads_failed_total | counter | container, endpoint, instance, job, namespace, pod, service
+reloader_reloads_total | counter | container, endpoint, instance, job, namespace, pod, service
+reloader_watch_errors_total | counter | container, endpoint, instance, job, namespace, pod, service
+reloader_watch_events_total | counter | container, endpoint, instance, job, namespace, pod, service
+reloader_watches | gauge | container, endpoint, instance, job, namespace, pod, service
+rest_client_exec_plugin_certificate_rotation_age | histogram | none
+rest_client_exec_plugin_ttl_seconds | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+rest_client_rate_limiter_duration_seconds | histogram | none
+rest_client_request_duration_seconds | histogram | none
+rest_client_request_size_bytes | histogram | none
+rest_client_requests_total | counter | code, endpoint, host, instance, job, method, metrics_path, namespace, node, service
+rest_client_response_size_bytes | histogram | none
+rest_client_transport_cache_entries | gauge | endpoint, instance, job, metrics_path, namespace, node, service
+rest_client_transport_create_calls_total | counter | endpoint, instance, job, namespace, result, service
+serviceaccount_invalid_legacy_auto_token_uses_total | counter | endpoint, instance, job, namespace, service
+serviceaccount_legacy_auto_token_uses_total | counter | endpoint, instance, job, namespace, service
+serviceaccount_legacy_manual_token_uses_total | counter | endpoint, instance, job, namespace, service
+serviceaccount_legacy_tokens_total | counter | endpoint, instance, job, namespace, service
+serviceaccount_stale_tokens_total | counter | endpoint, instance, job, namespace, service
+serviceaccount_valid_tokens_total | counter | endpoint, instance, job, namespace, service
+services_updated | gauge | endpoint, instance, job, namespace, pod, service, target
+storage_operation_duration_seconds | histogram | none
+volume_manager_total_volumes | gauge | endpoint, instance, job, metrics_path, namespace, node, plugin_name, service, state
+volume_operation_total_seconds | histogram | none
+watch_cache_capacity | gauge | endpoint, instance, job, namespace, resource, service
+watch_cache_capacity_decrease_total | counter | endpoint, instance, job, namespace, resource, service
+watch_cache_capacity_increase_total | counter | endpoint, instance, job, namespace, resource, service
+workqueue_adds_total | counter | endpoint, instance, job, metrics_path, name, namespace, node, service
+workqueue_depth | gauge | endpoint, instance, job, metrics_path, name, namespace, node, service
+workqueue_longest_running_processor_seconds | gauge | endpoint, instance, job, metrics_path, name, namespace, node, service
+workqueue_queue_duration_seconds | histogram | none
+workqueue_retries_total | counter | endpoint, instance, job, metrics_path, name, namespace, node, service
+workqueue_unfinished_work_seconds | gauge | endpoint, instance, job, metrics_path, name, namespace, node, service
+workqueue_work_duration_seconds | histogram | none

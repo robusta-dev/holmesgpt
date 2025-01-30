@@ -89,7 +89,7 @@ class MockToolWrapper(Tool):
             if not mock.match_params: # wildcard
                 return mock
 
-            match = all(key in params and params[key] == val for key, val in mock.match_params.items())
+            match = all(key in params and params[key] == mock_val or mock_val == "*" for key, mock_val in mock.match_params.items())
             if match:
                 return mock
 
