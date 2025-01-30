@@ -26,22 +26,34 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
 
 # Set the architecture-specific kube lineage URLs
-ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.1/kube-lineage-macos-latest-v2.2.1
-ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.1/kube-lineage-ubuntu-latest-v2.2.1
+ARG KUBE_LINEAGE_ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.1/kube-lineage-macos-latest-v2.2.1
+ARG KUBE_LINEAGE_AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.1/kube-lineage-ubuntu-latest-v2.2.1
 # Define a build argument to identify the platform
 ARG TARGETPLATFORM
 # Conditional download based on the platform
 RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-    curl -L -o kube-lineage $ARM_URL; \
+    curl -L -o kube-lineage $KUBE_LINEAGE_ARM_URL; \
     elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-    curl -L -o kube-lineage $AMD_URL; \
+    curl -L -o kube-lineage $KUBE_LINEAGE_AMD_URL; \
     else \
     echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
     fi
 RUN chmod 777 kube-lineage
 RUN ./kube-lineage --version
 
-RUN curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+# Set the architecture-specific argocd URLs
+ARG ARGOCD_ARM_URL=https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-arm64
+ARG ARGOCD_AMD_URL=https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+# Conditional download based on the platform
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+    curl -L -o argocd $ARGOCD_ARM_URL; \
+    elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+    curl -L -o argocd $ARGOCD_AMD_URL; \
+    else \
+    echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
+    fi
+RUN chmod 777 argocd
+RUN ./argocd --help
 
 # Install Helm
 RUN curl https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg \
@@ -100,8 +112,7 @@ COPY --from=builder /app/kube-lineage /usr/local/bin
 RUN kube-lineage --version
 
 # Set up ArgoCD
-COPY --from=builder /app/argocd-linux-amd64 /usr/local/bin/argocd
-RUN chmod 555 /usr/local/bin/argocd
+COPY --from=builder /app/argocd /usr/local/bin/argocd
 RUN argocd --help
 
 # Set up Helm
