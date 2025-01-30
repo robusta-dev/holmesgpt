@@ -13,11 +13,12 @@ from holmes.plugins.toolsets.grafana.grafana_api import get_health
 class BaseGrafanaToolset(Toolset):
     config_class: ClassVar[Type[GrafanaConfig]] = GrafanaConfig
 
-    def __init__(self, name: str, description: str, icon_url: str, tools: list[Tool]):
+    def __init__(self, name: str, description: str, icon_url: str, tools: list[Tool], doc_url: str):
         super().__init__(
             name=name,
             description=description,
             icon_url=icon_url,
+            docs_url=doc_url,
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=tools,
             tags=[

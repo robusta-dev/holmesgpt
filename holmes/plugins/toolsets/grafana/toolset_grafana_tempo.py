@@ -137,6 +137,7 @@ class GrafanaTempoToolset(BaseGrafanaToolset):
             name="grafana/tempo",
             description="Fetchs kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
+            doc_url="https://grafana.com/oss/tempo/",
             tools=[
                 ListAllDatasources(self),
                 GetTempoTracesByMinDuration(self),
