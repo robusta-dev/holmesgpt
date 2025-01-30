@@ -1,4 +1,7 @@
 from datetime import datetime
+from typing import Any
+
+import yaml
 
 
 from holmes.config import Config
@@ -47,19 +50,17 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
 
 def render_default_installation_instructions_for_toolset(toolset: Toolset) -> str:
     env_vars = toolset.get_environment_variables()
-    context = {
+    context: dict[str, Any] = {
         "env_vars": env_vars if env_vars else [],
         "toolset_name": toolset.name,
         "enabled": toolset.enabled,
-        "default_toolset": toolset.is_default,
+        "example_config": yaml.dump(toolset.get_example_config()),
     }
-    if toolset.is_default:
-        installation_instructions = load_and_render_prompt(
-            "file://holmes/utils/default_toolset_installation_guide.jinja2", context
-        )
-        return installation_instructions
 
-    installation_instructions = load_and_render_prompt(
-        "file://holmes/utils/installation_guide.jinja2", context
+    template = (
+        "file://holmes/utils/default_toolset_installation_guide.jinja2"
+        if toolset.is_default
+        else "file://holmes/utils/installation_guide.jinja2"
     )
+    installation_instructions = load_and_render_prompt(template, context)
     return installation_instructions
