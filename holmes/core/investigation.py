@@ -1,7 +1,4 @@
 
-import json
-from typing import Optional
-from rich.console import Console
 from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
 from holmes.core.investigation_structured_output import process_response_into_sections

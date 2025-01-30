@@ -48,7 +48,6 @@ def combine_sections(sections: Dict) -> str:
     content = ''
     for section_title, section_content in sections.items():
         if section_content:
-            # content = content + f'\n# {" ".join(section_title.split("_")).title()}\n{section_content}'
             content = content + f'\n# {section_title}\n{section_content}\n'
     return content
 
@@ -59,12 +58,13 @@ def process_response_into_sections(response: Any) -> Tuple[str, OutputSectionsDa
         response = json.dumps(response)
 
     if not isinstance(response, str):
-        # if it's not a string, we make it so
+        # if it's not a string, we make it so as it'll be parsed later
         response = str(response)
 
 
     try:
         parsed_json = json.loads(response)
+        # TODO: force dict values into a string would make this more resilient as SectionsData only accept none/str as values
         sections = SectionsData(root=parsed_json).root
         if sections:
             combined = combine_sections(sections)

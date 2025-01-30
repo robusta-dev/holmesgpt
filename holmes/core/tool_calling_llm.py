@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import Any, List, Optional, Dict, Type, Union
+from typing import List, Optional, Dict, Type, Union
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS, InputSectionsDataType, get_output_format_for_investigation
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
