@@ -1,4 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name": "user-profile-import", "namespace": "default"}}
-stdout:
-
-stderr:

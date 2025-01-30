@@ -1,5 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"deployment","keyword":"front-end"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"front-end"}}
 stdout:
-sock-shop            front-end                             1/1     1            1           24m    front-end                                             weaveworksdemos/front-end:0.3.12                                                                           name=front-end                                                                 <none>
+sock-shop            front-end-6bc5876d74-kn2zt                                   0/1     Running   3 (52s ago)      17m     10.244.0.36   grafana-cloud-control-plane   <none>           <none>            name=front-end,pod-template-hash=6bc5876d74
 
 stderr:

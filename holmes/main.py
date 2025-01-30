@@ -270,7 +270,7 @@ def ask(
         slack_channel=slack_channel,
     )
     system_prompt = load_and_render_prompt(system_prompt)
-    ai = config.create_console_toolcalling_llm(console, allowed_toolsets=allowed_toolsets, dal=None)
+    ai = config.create_console_toolcalling_llm(allowed_toolsets=allowed_toolsets, dal=None)
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
