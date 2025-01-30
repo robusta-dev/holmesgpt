@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -10,6 +10,30 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from opensearchpy import OpenSearch
+
+
+class OpenSearchHttpAuth(BaseModel):
+    username: str
+    password: str
+
+
+class OpenSearchHost(BaseModel):
+    host: str
+    port: int = 9200
+
+
+class OpenSearchCluster(BaseModel):
+    hosts: list[OpenSearchHost]
+    headers: Optional[dict[str, Any]] = None
+    use_ssl: bool = True
+    ssl_assert_hostname: bool = False
+    verify_certs: bool = False
+    ssl_show_warn: bool = False
+    http_auth: Optional[OpenSearchHttpAuth] = None
+
+
+class OpenSearchConfig(BaseModel):
+    opensearch_clusters: list[OpenSearchCluster]
 
 
 class OpenSearchClient:
@@ -132,7 +156,7 @@ class OpenSearchToolset(Toolset):
             enabled=False,
             description="Provide cluster metadata information like health, shards, settings.",
             docs_url="https://opensearch.org/docs/latest/clients/python-low-level/",
-            icon_url="https://upload.wikimedia.org/wikipedia/commons/9/91/Opensearch_Logo.svg",
+            icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 ListShards(self),
@@ -142,21 +166,40 @@ class OpenSearchToolset(Toolset):
             tags=[
                 ToolsetTag.CORE,
             ],
-            is_default=False,
+            is_default=True,
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
         if not config:
             return False
 
-        clusters_configs: list[dict[str, Any]] = config.get("opensearch_clusters", [])
-        for cluster in clusters_configs:
-            try:
-                logging.info("Setting up OpenSearch client")
-                client = OpenSearchClient(**cluster)
-                if client.client.cluster.health(params={"timeout": 5}):
-                    self.clients.append(client)
-            except Exception:
-                logging.exception("Failed to set up opensearch client")
+        try:
+            os_config = OpenSearchConfig(**config)
 
-        return len(self.clients) > 0
+            for cluster in os_config.opensearch_clusters:
+                try:
+                    logging.info("Setting up OpenSearch client")
+                    cluster_kwargs = cluster.model_dump()
+                    client = OpenSearchClient(**cluster_kwargs)
+                    if client.client.cluster.health(params={"timeout": 5}):
+                        self.clients.append(client)
+                except Exception:
+                    logging.exception("Failed to set up opensearch client")
+
+            return len(self.clients) > 0
+        except Exception:
+            logging.exception("Failed to set up grafana toolset")
+            return False
+
+    def get_example_config(self) -> Dict[str, Any]:
+        example_config = OpenSearchConfig(
+            opensearch_clusters=[
+                OpenSearchCluster(
+                    hosts=[OpenSearchHost(host="YOUR OPENSEACH HOST")],
+                    headers={"Authorization": "{{ env.OPENSEARCH_BEARER_TOKEN }}"},
+                    use_ssl=True,
+                    ssl_assert_hostname=False,
+                )
+            ]
+        )
+        return example_config.model_dump()

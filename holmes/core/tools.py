@@ -377,6 +377,9 @@ class Toolset(BaseModel):
 
         self._status = ToolsetStatusEnum.ENABLED
 
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
+
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]

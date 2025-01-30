@@ -3,20 +3,10 @@ import uuid
 import time
 from pydantic import BaseModel
 
-
-GRAFANA_URL_ENV_NAME = "GRAFANA_URL"
-GRAFANA_API_KEY_ENV_NAME = "GRAFANA_API_KEY"
 ONE_HOUR_IN_SECONDS = 3600
 
 
-class GrafanaLokiConfig(BaseModel):
-    pod_name_search_key: str = "pod"
-    namespace_search_key: str = "namespace"
-    node_name_search_key: str = "node"
-
-
 class GrafanaConfig(BaseModel):
-    loki: GrafanaLokiConfig = GrafanaLokiConfig()
     api_key: str
     url: str
 

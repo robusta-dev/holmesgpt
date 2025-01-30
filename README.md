@@ -631,31 +631,31 @@ Using Grafana Loki
 
 HolmesGPT can consult logs from [Loki](https://grafana.com/oss/loki/) by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
 
-There are 2 parts to configuring access to Grafana Loki: Access/Authentication and search terms.
-
-For access and authentication, add the following environment variables:
-
-* `GRAFANA_URL` - e.g. https://my-org.grafana.net
-* `GRAFANA_API_KEY` - e.g. glsa_bsm6ZS_sdfs25f
-
-For search terms, you can optionally tweak the search terms used by the toolset.
-This is done by appending the following to your Holmes configuration file:
+To configure loki toolset:
 
 ```yaml
-grafana:
-  url: https://my-org.grafana.net #
-  api_key: glsa_bsm6ZS_sdfs25f
-  loki:
-    pod_name_search_key: "pod"
-    namespace_search_key: "namespace"
-    node_name_search_key: "node"
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      api_key: "{{ env.GRAFANA_API_KEY }}"
+      url: "http://loki-url"
+```
+
+For search terms, you can optionally tweak the search terms used by the toolset.
+This is done by appending the following to your Holmes grafana/loki configuration:
+
+```yaml
+pod_name_search_key: "pod"
+namespace_search_key: "namespace"
+node_name_search_key: "node"
 ```
 
 > You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
 
-The Loki toolset is configured the using the same Grafana settings as the Grafana Tempo toolset.
 </details>
 
+<details>
 <summary>
 Using Grafana Tempo
 </summary>
@@ -664,8 +664,6 @@ HolmesGPT can fetch trace information from Grafana Tempo to debug performance re
 
 Tempo is configured the using the same Grafana settings as the Grafana Loki toolset.
 
-grafana:
-  url: https://my-org.grafana.net #
 </details>
 
 
@@ -875,7 +873,7 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 <summary>OpenSearch Integration</summary>
 
 The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
-The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file (or in cluster to the configuration secret):
+The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file:
 
 ```
 opensearch_clusters:
