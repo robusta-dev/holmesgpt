@@ -34,6 +34,7 @@ from holmes.core.conversations import (
     build_chat_messages,
     build_issue_chat_messages,
     handle_issue_conversation,
+    build_workload_health_chat_messages,
 )
 from holmes.core.issue import Issue
 from holmes.core.models import (
@@ -45,6 +46,7 @@ from holmes.core.models import (
     ChatRequest,
     ChatResponse,
     IssueChatRequest,
+    WorkloadHealthChatRequest,
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
@@ -106,6 +108,7 @@ if LOG_PERFORMANCE:
                 status_code = response.status_code
             logging.info(f"Request completed {request.method} {request.url.path} status={status_code} latency={process_time}ms")
 
+
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
@@ -163,6 +166,25 @@ def workload_health_check(request: WorkloadHealthRequest):
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
 
+
+@app.post("/api/workload_health_chat")
+def workload_health_conversation(workload_health_chat_request: WorkloadHealthChatRequest):
+    try:
+        load_robusta_api_key(dal=dal, config=config)
+        ai = config.create_toolcalling_llm(dal=dal)
+        global_instructions = dal.get_global_instructions_for_account()
+
+        messages = build_workload_health_chat_messages(workload_health_chat_request, ai, global_instructions)
+        llm_call = ai.messages_call(messages=messages)
+
+        return ChatResponse(
+            analysis=llm_call.result,
+            tool_calls=llm_call.tool_calls,
+            conversation_history=llm_call.messages,
+        )
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+    
 
 # older api that does not support conversation history
 @app.post("/api/conversation")
