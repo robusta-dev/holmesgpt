@@ -1,8 +1,7 @@
 
-from typing import Optional
-from rich.console import Console
 from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
+from holmes.core.investigation_structured_output import process_response_into_sections
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
@@ -36,13 +35,15 @@ def investigate_issues(investigate_request: InvestigateRequest, dal: SupabaseDal
         issue,
         prompt=investigate_request.prompt_template,
         post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
-        sections=investigate_request.sections,
         instructions=resource_instructions,
         global_instructions=global_instructions
     )
+
+    (text_response, sections) = process_response_into_sections(investigation.result)
+
     return InvestigationResult(
-        analysis=investigation.result,
-        sections=investigation.sections,
+        analysis=text_response,
+        sections=sections,
         tool_calls=investigation.tool_calls or [],
         instructions=investigation.instructions,
     )
