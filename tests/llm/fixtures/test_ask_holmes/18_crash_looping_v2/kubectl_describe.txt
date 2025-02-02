@@ -33,11 +33,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-d879h (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   cert-volume:
     Type:      ConfigMap (a volume populated by a ConfigMap)
@@ -49,7 +49,7 @@ Volumes:
     Optional:  false
   writable-certs:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   kube-api-access-d879h:
     Type:                    Projected (a volume that contains injected data from multiple sources)

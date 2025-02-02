@@ -22,7 +22,7 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: '3.11'
-    
+
     - name: Install dependencies
       if: matrix.os != 'windows-latest'
       run: |
@@ -43,7 +43,7 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: |
         sudo apt-get install -y binutils
-    
+
     - name: Update package version (Linux)
       if: matrix.os == 'ubuntu-20.04'
       run: sed -i 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
@@ -67,7 +67,7 @@ jobs:
       # regarding the tiktoken part of the command, see https://github.com/openai/tiktoken/issues/80
       # regarding the litellm part of the command, see https://github.com/pyinstaller/pyinstaller/issues/8620#issuecomment-2186540504
       run: |
-        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --hiddenimport litellm.litellm_core_utils.tokenizers --collect-data litellm 
+        pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --hiddenimport litellm.litellm_core_utils.tokenizers --collect-data litellm
         ls dist
 
     - name: Zip the application (Unix)
@@ -91,7 +91,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event.release.upload_url }} 
+        upload_url: ${{ github.event.release.upload_url }}
         asset_path: ./holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
         asset_name: holmes-${{ matrix.os }}-${{ github.ref_name }}.zip
         asset_content_type: application/octet-stream
@@ -105,7 +105,7 @@ jobs:
   check-latest:
     needs: build
     runs-on: ubuntu-20.04
-    outputs: 
+    outputs:
       IS_LATEST: ${{ steps.check-latest.outputs.release == github.ref_name }}
     steps:
       - id: check-latest

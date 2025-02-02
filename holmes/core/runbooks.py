@@ -13,10 +13,14 @@ class RunbookManager:
         for runbook in self.runbooks:
             if runbook.match.issue_id and not runbook.match.issue_id.match(issue.id):
                 continue
-            if runbook.match.issue_name and not runbook.match.issue_name.match(issue.name):
+            if runbook.match.issue_name and not runbook.match.issue_name.match(
+                issue.name
+            ):
                 continue
-            if runbook.match.source and not runbook.match.source.match(issue.source_type):
+            if runbook.match.source and not runbook.match.source.match(
+                issue.source_type
+            ):
                 continue
             instructions.append(runbook.instructions)
-        
+
         return instructions

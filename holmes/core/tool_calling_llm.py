@@ -3,7 +3,11 @@ import json
 import logging
 import textwrap
 from typing import List, Optional, Dict, Type, Union
-from holmes.core.investigation_structured_output import DEFAULT_SECTIONS, InputSectionsDataType, get_output_format_for_investigation
+from holmes.core.investigation_structured_output import (
+    DEFAULT_SECTIONS,
+    InputSectionsDataType,
+    get_output_format_for_investigation,
+)
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
@@ -26,6 +30,7 @@ class ToolCallResult(BaseModel):
     tool_name: str
     description: str
     result: str
+
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
@@ -54,12 +59,13 @@ class ResourceInstructionDocument(BaseModel):
 class Instructions(BaseModel):
     instructions: List[str] = []
 
+
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
 
-class ToolCallingLLM:
 
+class ToolCallingLLM:
     llm: LLM
 
     def __init__(self, tool_executor: ToolExecutor, max_steps: int, llm: LLM):
@@ -88,7 +94,6 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
     ) -> LLMResult:
-
         return self.call(messages, post_process_prompt, response_format)
 
     def call(
@@ -121,7 +126,6 @@ class ToolCallingLLM:
                 )
                 perf_timing.measure("truncate_messages_to_fit_context")
 
-
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
                 full_response = self.llm.completion(
@@ -137,9 +141,8 @@ class ToolCallingLLM:
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                if (
-                    "Unrecognized request arguments supplied: tool_choice, tools"
-                    in str(e)
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
@@ -342,7 +345,7 @@ class IssueInvestigator(ToolCallingLLM):
         console: Optional[Console] = None,
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
-        sections: Optional[InputSectionsDataType] = None
+        sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
@@ -360,9 +363,11 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = load_and_render_prompt(prompt, {"issue": issue, "sections": sections})
+        system_prompt = load_and_render_prompt(
+            prompt, {"issue": issue, "sections": sections}
+        )
 
-        if instructions != None and len(instructions.documents) > 0:
+        if instructions is not None and len(instructions.documents) > 0:
             docPrompts = []
             for document in instructions.documents:
                 docPrompts.append(
@@ -377,7 +382,11 @@ class IssueInvestigator(ToolCallingLLM):
 
             user_prompt = f'My instructions to check \n"""{user_prompt}"""'
 
-        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+        if (
+            global_instructions
+            and global_instructions.instructions
+            and len(global_instructions.instructions[0]) > 0
+        ):
             user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
 
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
@@ -387,6 +396,11 @@ class IssueInvestigator(ToolCallingLLM):
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
 
-        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=get_output_format_for_investigation(sections))
+        res = self.prompt_call(
+            system_prompt,
+            user_prompt,
+            post_processing_prompt,
+            response_format=get_output_format_for_investigation(sections),
+        )
         res.instructions = runbooks
         return res

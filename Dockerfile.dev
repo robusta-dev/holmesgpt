@@ -59,7 +59,7 @@ ARG PRIVATE_PACKAGE_REGISTRY="none"
 RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     pip config set global.index-url "${PRIVATE_PACKAGE_REGISTRY}"; \
     fi \
-    && pip install poetry    
+    && pip install poetry
 ARG POETRY_REQUESTS_TIMEOUT
 RUN poetry config virtualenvs.create false
 COPY pyproject.toml poetry.lock /app/
