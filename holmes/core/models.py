@@ -1,3 +1,4 @@
+from holmes.core.investigation_structured_output import InputSectionsDataType
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, model_validator
@@ -21,7 +22,7 @@ class InvestigateRequest(BaseModel):
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://generic_investigation.jinja2"
-    sections: Optional[Dict[str, str]] = None
+    sections: Optional[InputSectionsDataType] = None
     # TODO in the future
     # response_handler: ...
 
@@ -132,3 +133,14 @@ class ChatResponse(BaseModel):
     analysis: str
     conversation_history: list[dict]
     tool_calls: Optional[List[ToolCallResult]] = []
+
+
+class WorkloadHealthInvestigationResult(BaseModel):
+    analysis: Optional[str] = None
+    tools: Optional[List[ToolCallConversationResult]] = []
+
+
+class WorkloadHealthChatRequest(ChatRequestBaseModel):
+    ask: str
+    workload_health_result: WorkloadHealthInvestigationResult
+    resource: dict
