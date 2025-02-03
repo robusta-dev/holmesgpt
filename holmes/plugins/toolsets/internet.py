@@ -172,7 +172,7 @@ class FetchWebpage(Tool):
         additional_headers = self.toolset.runbook_headers if is_runbook else {}
         additional_headers["User-Agent"] = INTERNET_TOOLSET_USER_AGENT
 
-        is_notion = "Notion-Version" in additional_headers
+        is_notion = "Notion-Version" in additional_headers and "notion" in url
         if is_notion:
             url = self.convert_notion_url(url)
             
