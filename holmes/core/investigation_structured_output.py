@@ -44,7 +44,7 @@ def get_output_format_for_investigation(
         "json_schema": {
             "name": "InvestigationResult",
             "schema": schema,
-            "strict": False,
+            "strict": True,
         },
     }
 
