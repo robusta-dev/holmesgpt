@@ -70,13 +70,14 @@ def process_response_into_sections(response: Any) -> Tuple[str, OutputSectionsDa
 
     if response.startswith("```json\n") and response.endswith("\n```"):
         try:
-            parsed = json.loads(response[8:-3]) # if this parses as json, set the response as that.
+            parsed = json.loads(
+                response[8:-3]
+            )  # if this parses as json, set the response as that.
             if isinstance(parsed, dict):
                 logging.warning("LLM did not return structured data")
                 response = response[8:-3]
         except Exception:
             pass
-
 
     try:
         parsed_json = json.loads(response)
