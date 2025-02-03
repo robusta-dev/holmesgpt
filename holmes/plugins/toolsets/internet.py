@@ -115,15 +115,31 @@ def html_to_markdown(page_source:str):
 
     try:
         md = markdownify(page_source)
-    except Exception as e:
-        logging.error(f"Error converting HTML to markdown: {e}")
-        return page_source
+    except OSError as e:
+            logging.error(
+                f"There was an error in converting the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}"
+            )
+            return page_source
 
-    return re.sub(r"\n\s*\n", "\n\n", md)
+    md = re.sub(r"</div>", "      ", md)
+    md = re.sub(r"<div>", "     ", md)
 
-def looks_like_html(content: str) -> bool:
-    """Determine if the content is HTML."""
-    return any(re.search(pattern, content, re.IGNORECASE) for pattern in [r"<!DOCTYPE\s+html", r"<html", r"<head", r"<body"])
+    md = re.sub(r"\n\s*\n", "\n\n", md)
+
+    return md
+
+
+def looks_like_html(content):
+    """
+    Check if the content looks like HTML.
+    """
+    if isinstance(content, str):
+        # Check for common HTML tags
+        html_patterns = [r"<!DOCTYPE\s+html", r"<html", r"<head", r"<body"]
+        return any(
+            re.search(pattern, content, re.IGNORECASE) for pattern in html_patterns
+        )
+    return False
 
 class FetchWebpage(Tool):
     toolset: "InternetToolset"

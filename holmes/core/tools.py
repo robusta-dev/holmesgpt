@@ -368,12 +368,6 @@ class Toolset(BaseModel):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.DISABLED
                     return
-                
-            elif isinstance(prereq, CallablePrerequisite):
-                res = prereq.callable(self.config)
-                if not res:
-                    self._status = ToolsetStatusEnum.DISABLED
-                    return
 
             elif isinstance(prereq, CallablePrerequisite):
                 res = prereq.callable(self.config)
