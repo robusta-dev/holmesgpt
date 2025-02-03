@@ -56,16 +56,17 @@ SELECTORS_TO_REMOVE = [
     '#related-articles',
     '#recommended'
 ]
-
+def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
     response = None
     content = None
     mime_type = None
+    if not headers:
+        headers = {}
+    headers['User-Agent'] = INTERNET_TOOLSET_USER_AGENT
     try:
         response = requests.get(
             url,
-            headers={
-                'User-Agent': INTERNET_TOOLSET_USER_AGENT
-            },
+            headers=headers,
             timeout=INTERNET_TOOLSET_TIMEOUT_SECONDS
         )
         response.raise_for_status()
@@ -77,7 +78,6 @@ SELECTORS_TO_REMOVE = [
     except RequestException as e:
         logging.error(f"Failed to load {url}: {str(e)}", exc_info=True)
         return None, None
-def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
 
     if response:
         content = response.text
@@ -150,7 +150,6 @@ class FetchWebpage(Tool):
 
     def invoke(self, params: Any) -> str:
         url: str = params["url"]
-        content, mime_type = scrape(url)
         is_runbook: bool = params.get("is_runbook", False)
 
         # Get headers from the toolset configuration

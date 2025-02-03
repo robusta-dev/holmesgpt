@@ -51,8 +51,9 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchToolset(),
         GrafanaLokiToolset(),
         GrafanaTempoToolset(),
+        KafkaToolset(),
+        NewRelicToolset()
     ]
-    toolsets: list[Toolset] = [InternetToolset(), FindingsToolset(dal), KafkaToolset(), GrafanaLokiToolset(), GrafanaTempoToolset(), NewRelicToolset()]
 
     return toolsets
 
