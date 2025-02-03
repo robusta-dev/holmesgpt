@@ -7,7 +7,7 @@ from typing import Any, Dict, Tuple, Optional
 from typing import Any, Optional, Tuple
 
 from requests import RequestException, Timeout
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag
+from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag, CallablePrerequisite
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 
@@ -196,16 +196,12 @@ class InternetToolset(Toolset):
             name="internet",
             description="Fetch webpages with optional authentication",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
-            prerequisites=[],
-            tools=[FetchWebpage()],
+            tools=[FetchWebpage(self)],
             tags=[ToolsetTag.CORE,],
-            is_default=True
             prerequisites=[
                 CallablePrerequisite(callable=self.prerequisites_callable),
             ],
-            tools=[FetchWebpage(self)],
-            tags=[ToolsetTag.CORE],
-            is_default=True
+            is_default=True,
         )
 
     def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
