@@ -19,7 +19,7 @@ To this 👇
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
-- **Secure:** *Read-only* access to your data - respects RBAC permissions 
+- **Secure:** *Read-only* access to your data - respects RBAC permissions
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
@@ -551,7 +551,7 @@ To use Vertex AI with Gemini models, set the following environment variables:
 
 ```bash
 export VERTEXAI_PROJECT="your-project-id"
-export VERTEXAI_LOCATION="us-central1" 
+export VERTEXAI_LOCATION="us-central1"
 export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
 ```
 
@@ -598,9 +598,9 @@ If your llm provider url uses a certificate from a custom CA, in order to trust 
 <summary>Confluence</summary>
 HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
 
-* CONFLUENCE_BASE_URL - e.g. https://robusta-dev-test.atlassian.net
-* CONFLUENCE_USER - e.g. user@company.com
-* CONFLUENCE_API_KEY - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+* `CONFLUENCE_BASE_URL` - e.g. https://robusta-dev-test.atlassian.net
+* `CONFLUENCE_USER` - e.g. user@company.com
+* `CONFLUENCE_API_KEY` - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
 </details>
 
 <details>
@@ -620,8 +620,52 @@ Fetching runbooks through URLs
 </summary>
 
 HolmesGPT can consult webpages containing runbooks or other relevant information.
-HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
+This is done through a HTTP GET and the resulting HTML is then cleaned and parsed into markdown.
+Any Javascript that is on the webpage is ignored.
 </details>
+
+<details>
+<summary>
+Using Grafana Loki
+</summary>
+
+HolmesGPT can consult logs from [Loki](https://grafana.com/oss/loki/) by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
+
+To configure loki toolset:
+
+```yaml
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      api_key: "{{ env.GRAFANA_API_KEY }}"
+      url: "http://loki-url"
+```
+
+For search terms, you can optionally tweak the search terms used by the toolset.
+This is done by appending the following to your Holmes grafana/loki configuration:
+
+```yaml
+pod_name_search_key: "pod"
+namespace_search_key: "namespace"
+node_name_search_key: "node"
+```
+
+> You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+
+</details>
+
+<details>
+<summary>
+Using Grafana Tempo
+</summary>
+
+HolmesGPT can fetch trace information from Grafana Tempo to debug performance related issues.
+
+Tempo is configured the using the same Grafana settings as the Grafana Loki toolset.
+
+</details>
+
 
 <details>
 <summary>
@@ -630,6 +674,7 @@ ArgoCD
 
 Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps configuration and status, clusters and projects within ArgoCD.
 To enable ArgoCD, set the `ARGOCD_AUTH_TOKEN` environment variable as described in the [argocd documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
+
 </details>
 
 ## More Use Cases
@@ -828,7 +873,7 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 <summary>OpenSearch Integration</summary>
 
 The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
-The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file (or in cluster to the configuration secret):
+The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file:
 
 ```                                                                                 
 opensearch_clusters:

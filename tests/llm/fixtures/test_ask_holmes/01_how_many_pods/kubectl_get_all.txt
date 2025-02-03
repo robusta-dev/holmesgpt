@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core", "tool_name": "kubectl_get_all", "params": {"kind":"pod"}}
+{"toolset_name":"kubernetes/core", "tool_name": "kubectl_get_by_kind_in_cluster", "params": {"kind":"pod"}}
 NAME                                                     READY   STATUS                       RESTARTS          AGE   IP              NODE                                          NOMINATED NODE   READINESS GATES
 alertmanager-robusta-kube-prometheus-st-alertmanager-0   2/2     Running                      0                 28h   172.31.5.200    ip-172-31-8-128.us-east-2.compute.internal    <none>           <none>
 analytics-exporter-fast-8cf8c9446-6rqwc                  0/1     CrashLoopBackOff             295 (82s ago)     24h   172.31.15.122   ip-172-31-8-128.us-east-2.compute.internal    <none>           <none>

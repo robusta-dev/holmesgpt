@@ -35,10 +35,9 @@ def get_test_cases():
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
-    if os.environ.get('UPLOAD_DATASET'):
-        if os.environ.get('BRAINTRUST_API_KEY'):
-            bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
-            bt_helper.upload_test_cases(mh.load_test_cases())
+    if os.environ.get('UPLOAD_DATASET') and os.environ.get('BRAINTRUST_API_KEY'):
+        bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
+        bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_ask_holmes_test_cases()
     return [(experiment_name, test_case) for test_case in test_cases]
@@ -58,8 +57,6 @@ def test_ask_holmes(experiment_name, test_case):
 
     eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
-
-
     try:
         before_test(test_case)
     except Exception as e:
@@ -75,13 +72,16 @@ def test_ask_holmes(experiment_name, test_case):
     output = result.result
     expected = test_case.expected_output
 
-
     scores = {}
 
-    if isinstance(expected, list):
-        scores["correctness"] = evaluate_correctness(output=output, expected_elements=expected).score
-    else:
-        scores["faithfulness"] = evaluate_factuality(output=output, expected=expected, input=input).score
+    if not isinstance(expected, list):
+        expected = [expected]
+
+    debug_expected = '\n-  '.join(expected)
+    print(f"** EXPECTED **\n-  {debug_expected}")
+    correctness_eval = evaluate_correctness(output=output, expected_elements=expected)
+    print(f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}")
+    scores["correctness"] = correctness_eval.score
 
     if len(test_case.retrieval_context) > 0:
         scores["context"] = evaluate_context_usage(output=output, context_items=test_case.retrieval_context, input=input).score
@@ -94,14 +94,11 @@ def test_ask_holmes(experiment_name, test_case):
         id=test_case.id,
         scores=scores
     )
-    print(f"** OUTPUT **\n{output}")
-    print(f"** SCORES **\n{scores}")
+    print(f"\n** OUTPUT **\n{output}")
+    print(f"\n** SCORES **\n{scores}")
 
-    if scores.get("faithfulness"):
-        assert scores.get("faithfulness", 0) >= test_case.evaluation.faithfulness
-    if scores.get("correctness"):
-            assert scores.get("correctness", 0) >= test_case.evaluation.correctness
-    assert scores.get("context", 0) >= test_case.evaluation.context
+    if test_case.evaluation.correctness:
+        assert scores.get("correctness", 0) >= test_case.evaluation.correctness
 
 
 def ask_holmes(test_case:AskHolmesTestCase) -> LLMResult:

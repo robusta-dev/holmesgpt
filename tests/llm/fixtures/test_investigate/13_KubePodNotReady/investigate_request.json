@@ -3,7 +3,7 @@
   "title": "KubePodNotReady",
   "description": "",
   "subject": {
-    "name": "user-profile-import",
+    "name": "user-profile-resources-659d4dd659-cq4kq",
     "namespace": "default",
     "kind": "pod",
     "node": null,
@@ -12,7 +12,7 @@
   },
   "context": {
     "issue_type": "KubePodNotReady",
-    "robusta_issue_id": "KubePodNotReady-02d9413092785cdd-2024-11-29 08:40:27.669000+00:00",
+    "robusta_issue_id": "4cf4508e-faa6-43d7-aa8a-576b818083a7",
     "source": "prometheus"
   },
   "source_instance_id": "ApiRequest",

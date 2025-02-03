@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get","match_params":{"kind": "deployment", "name": "payment-processing-worker", "namespace": "default"}}
-stdout:
-NAME                        READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS                     IMAGES   SELECTOR                        LABELS
-payment-processing-worker   0/1     1            0           28m   payment-processing-container   bash     app=payment-processing-worker   <none>
-
-stderr:

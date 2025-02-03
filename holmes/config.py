@@ -31,7 +31,8 @@ from holmes.plugins.sources.jira import JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
+
+from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
@@ -145,7 +146,7 @@ class Config(RobustaBaseConfig):
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
-            kwargs["cluster_name"] = Config.__get_cluster_name()
+        kwargs["cluster_name"] = Config.__get_cluster_name()
         return cls(**kwargs)
 
     @staticmethod
@@ -190,9 +191,7 @@ class Config(RobustaBaseConfig):
         for toolset in matching_toolsets:
             toolset.enabled = True
 
-        toolsets_by_name = {
-            toolset.name: toolset for toolset in matching_toolsets
-        }
+        toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
         if toolsets_loaded_from_config:
@@ -245,9 +244,10 @@ class Config(RobustaBaseConfig):
         """
         Creates ToolExecutor for the server endpoints
         """
+
         if self._server_tool_executor:
             return self._server_tool_executor
-        
+
         logging.info("Creating server tool executor")
         all_toolsets = load_builtin_toolsets(dal=dal)
 

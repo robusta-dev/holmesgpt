@@ -2,13 +2,12 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Type, Union
+from holmes.core.investigation_structured_output import DEFAULT_SECTIONS, InputSectionsDataType, get_output_format_for_investigation
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
-from typing import List, Optional
 from holmes.core.llm import LLM
-from holmes.plugins.prompts import load_and_render_prompt
 from openai import BadRequestError
 from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -28,13 +27,11 @@ class ToolCallResult(BaseModel):
     description: str
     result: str
 
-
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
     instructions: List[str] = []
-
     # TODO: clean up these two
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
@@ -57,11 +54,9 @@ class ResourceInstructionDocument(BaseModel):
 class Instructions(BaseModel):
     instructions: List[str] = []
 
-
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
-
 
 class ToolCallingLLM:
 
@@ -77,7 +72,7 @@ class ToolCallingLLM:
         system_prompt: str,
         user_prompt: str,
         post_process_prompt: Optional[str] = None,
-        response_format: Optional[dict] = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
     ) -> LLMResult:
         messages = [
             {"role": "system", "content": system_prompt},
@@ -91,7 +86,7 @@ class ToolCallingLLM:
         self,
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
-        response_format: Optional[dict] = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
     ) -> LLMResult:
 
         return self.call(messages, post_process_prompt, response_format)
@@ -100,7 +95,7 @@ class ToolCallingLLM:
         self,
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
-        response_format: dict = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
@@ -160,13 +155,14 @@ class ToolCallingLLM:
             )
 
             tools_to_call = getattr(response_message, "tool_calls", None)
+            text_response = response_message.content
 
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 # this only works for calls where user prompt is explicitly passed through
                 if post_process_prompt and user_prompt:
-                    logging.info(f"Running post processing on investigation.")
-                    raw_response = response_message.content
+                    logging.info("Running post processing on investigation.")
+                    raw_response = text_response
                     post_processed_response = self._post_processing_call(
                         prompt=user_prompt,
                         investigation=raw_response,
@@ -184,7 +180,7 @@ class ToolCallingLLM:
 
                 perf_timing.end()
                 return LLMResult(
-                    result=response_message.content,
+                    result=text_response,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
@@ -220,7 +216,6 @@ class ToolCallingLLM:
             logging.warning(
                 f"Failed to parse arguments for tool: {tool_name}. args: {tool_to_call.function.arguments}"
             )
-
         tool_call_id = tool_to_call.id
         tool = self.tool_executor.get_tool_by_name(tool_name)
 
@@ -280,7 +275,7 @@ class ToolCallingLLM:
             full_response = self.llm.completion(messages=messages, temperature=0)
             logging.debug(f"Post processing response {full_response}")
             return full_response.choices[0].message.content
-        except Exception as error:
+        except Exception:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
 
@@ -347,10 +342,14 @@ class IssueInvestigator(ToolCallingLLM):
         console: Optional[Console] = None,
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
+        sections: Optional[InputSectionsDataType] = None
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
-        if instructions != None and instructions.instructions:
+        if not sections or len(sections) == 0:
+            sections = DEFAULT_SECTIONS
+
+        if instructions is not None and instructions.instructions:
             runbooks.extend(instructions.instructions)
 
         if console and runbooks:
@@ -361,7 +360,7 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = load_and_render_prompt(prompt, {"issue": issue})
+        system_prompt = load_and_render_prompt(prompt, {"issue": issue, "sections": sections})
 
         if instructions != None and len(instructions.documents) > 0:
             docPrompts = []
@@ -388,6 +387,6 @@ class IssueInvestigator(ToolCallingLLM):
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
 
-        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt)
+        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=get_output_format_for_investigation(sections))
         res.instructions = runbooks
         return res

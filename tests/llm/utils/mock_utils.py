@@ -49,6 +49,7 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     investigate_request: InvestigateRequest
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
+    expected_sections: Optional[Dict[str, List[str]]] = None
 
 pydantic_tool_mock = TypeAdapter(MockMetadata)
 

@@ -4,75 +4,111 @@ import logging
 import json
 from typing import Any, Dict, Tuple, Optional
 
-import requests
+from typing import Any, Optional, Tuple
+
+from requests import RequestException, Timeout
+from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 
-from holmes.core.tools import (
-    Tool,
-    ToolParameter,
-    Toolset,
-    ToolsetCommandPrerequisite,
-    ToolsetTag,
-    CallablePrerequisite,
-)
+import requests
 
-# Constants
-INTERNET_TOOLSET_USER_AGENT = os.environ.get(
-    "INTERNET_TOOLSET_USER_AGENT",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0"
-)
+# TODO: change and make it holmes
+INTERNET_TOOLSET_USER_AGENT = os.environ.get("INTERNET_TOOLSET_USER_AGENT", "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0")
 INTERNET_TOOLSET_TIMEOUT_SECONDS = int(os.environ.get("INTERNET_TOOLSET_TIMEOUT_SECONDS", "60"))
 
-# Selectors to remove from HTML
 SELECTORS_TO_REMOVE = [
     'script', 'style', 'meta', 'link', 'noscript',
-    'header', 'footer', 'nav', 'iframe', 'svg', 'img', 'button',
-    'menu', 'sidebar', 'aside', '.header', '.footer', '.navigation',
-    '.nav', '.menu', '.sidebar', '.ad', '.advertisement', '.social',
-    '.popup', '.modal', '.banner', '.cookie-notice', '.social-share',
-    '.related-articles', '.recommended', '#header', '#footer',
-    '#navigation', '#nav', '#menu', '#sidebar', '#ad', '#advertisement',
-    '#social', '#popup', '#modal', '#banner', '#cookie-notice',
-    '#social-share', '#related-articles', '#recommended'
+    'header', 'footer', 'nav',
+    'iframe', 'svg', 'img',
+    'button',
+    'menu', 'sidebar', 'aside',
+    '.header'
+    '.footer'
+    '.navigation',
+    '.nav',
+    '.menu',
+    '.sidebar',
+    '.ad',
+    '.advertisement',
+    '.social',
+    '.popup',
+    '.modal',
+    '.banner',
+    '.cookie-notice',
+    '.social-share',
+    '.related-articles',
+    '.recommended',
+    '#header'
+    '#footer'
+    '#navigation',
+    '#nav',
+    '#menu',
+    '#sidebar',
+    '#ad',
+    '#advertisement',
+    '#social',
+    '#popup',
+    '#modal',
+    '#banner',
+    '#cookie-notice',
+    '#social-share',
+    '#related-articles',
+    '#recommended'
 ]
 
-def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
-    """Fetch a webpage with custom headers, logging redirections."""
-    session = requests.Session()
-    session.headers.update(headers)
-
-
+    response = None
+    content = None
+    mime_type = None
     try:
-        response = session.get(url, timeout=INTERNET_TOOLSET_TIMEOUT_SECONDS, allow_redirects=True)
+        response = requests.get(
+            url,
+            headers={
+                'User-Agent': INTERNET_TOOLSET_USER_AGENT
+            },
+            timeout=INTERNET_TOOLSET_TIMEOUT_SECONDS
+        )
         response.raise_for_status()
-
-        # Log redirection info
-        if response.history:
-            for resp in response.history:
-                logging.info(f"Redirected from {resp.url} → {response.url}")
-
-        content_type = response.headers.get('Content-Type', '').split(";")[0]
-        logging.error(f"Final URL: {response.url}, Content Type: {content_type}")
-        return response.text, content_type
-
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to load {url}: {e}")
+    except Timeout:
+        logging.error(
+            f"Failed to load {url}. Timeout after {INTERNET_TOOLSET_TIMEOUT_SECONDS} seconds",
+            exc_info=True
+        )
+    except RequestException as e:
+        logging.error(f"Failed to load {url}: {str(e)}", exc_info=True)
         return None, None
+def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
 
-def cleanup(soup: BeautifulSoup):
-    """Remove unnecessary elements from the HTML page."""
+    if response:
+        content = response.text
+        try:
+            content_type = response.headers['content-type']
+            if content_type:
+                mime_type = content_type.split(";")[0]
+        except Exception:
+            logging.info(f"Failed to parse content type from headers {response.headers}")
+
+    return (content, mime_type)
+
+def cleanup(soup:BeautifulSoup):
+    """Remove all elements that are irrelevant to the textual representation of a web page.
+    This includes images, extra data, even links as there is no intention to navigate from that page.
+    """
+
     for selector in SELECTORS_TO_REMOVE:
         for element in soup.select(selector):
             element.decompose()
+
     for tag in soup.find_all(True):
         for attr in list(tag.attrs):
             if attr != "href":
                 tag.attrs.pop(attr, None)
     return soup
 
-def html_to_markdown(page_source: str):
-    """Convert HTML content to Markdown."""
+
+
+def html_to_markdown(page_source:str):
+
     soup = BeautifulSoup(page_source, "html.parser")
     soup = cleanup(soup)
     page_source = str(soup)
@@ -95,7 +131,7 @@ class FetchWebpage(Tool):
     def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_webpage",
-            description="Fetch a webpage with HTTP requests and optional authentication.",
+            description="Fetch a webpage. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
             parameters={
                 "url": ToolParameter(description="The URL to fetch", type="string", required=True),
                 "is_runbook": ToolParameter(description="Is this a runbook URL?", type="boolean", required=False)
@@ -114,6 +150,7 @@ class FetchWebpage(Tool):
 
     def invoke(self, params: Any) -> str:
         url: str = params["url"]
+        content, mime_type = scrape(url)
         is_runbook: bool = params.get("is_runbook", False)
 
         # Get headers from the toolset configuration
@@ -160,6 +197,10 @@ class InternetToolset(Toolset):
             name="internet",
             description="Fetch webpages with optional authentication",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
+            prerequisites=[],
+            tools=[FetchWebpage()],
+            tags=[ToolsetTag.CORE,],
+            is_default=True
             prerequisites=[
                 CallablePrerequisite(callable=self.prerequisites_callable),
             ],
