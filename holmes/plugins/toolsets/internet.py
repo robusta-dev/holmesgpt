@@ -116,10 +116,10 @@ def html_to_markdown(page_source:str):
     try:
         md = markdownify(page_source)
     except OSError as e:
-            logging.error(
-                f"There was an error in converting the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}"
-            )
-            return page_source
+        logging.error(
+            f"There was an error in converting the HTML to markdown. Falling back to returning the raw HTML. Error: {str(e)}"
+        )
+        return page_source
 
     md = re.sub(r"</div>", "      ", md)
     md = re.sub(r"<div>", "     ", md)
