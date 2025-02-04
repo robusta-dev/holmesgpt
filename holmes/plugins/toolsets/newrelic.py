@@ -1,12 +1,23 @@
-import os
 import requests
 import json
 import logging
-from typing import Any
-from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
+from typing import Any, Optional
+from holmes.core.tools import (
+    CallablePrerequisite,
+    Tool,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
+)
+from pydantic import BaseModel
 
-class GetLogs(Tool):
-    def __init__(self, api_key: str, account_id: int):
+
+class BaseNewRelicTool(Tool):
+    toolset: "NewRelicToolset"
+
+
+class GetLogs(BaseNewRelicTool):
+    def __init__(self, toolset: "NewRelicToolset"):
         super().__init__(
             name="newrelic_get_logs",
             description="Retrieve logs from New Relic",
@@ -22,9 +33,8 @@ class GetLogs(Tool):
                     required=True,
                 ),
             },
+            toolset=toolset,
         )
-        self._api_key = api_key
-        self._account_id = account_id
 
     def invoke(self, params: Any) -> str:
         app = params.get("app")
@@ -34,7 +44,7 @@ class GetLogs(Tool):
             "query": f"""
             {{
                 actor {{
-                    account(id: {self._account_id}) {{
+                    account(id: {self.toolset.nr_account_id}) {{
                         nrql(query: \"SELECT * FROM Log WHERE app = '{app}' SINCE {since}\") {{
                             results
                         }}
@@ -47,7 +57,7 @@ class GetLogs(Tool):
         url = "https://api.newrelic.com/graphql"
         headers = {
             "Content-Type": "application/json",
-            "Api-Key": self._api_key,
+            "Api-Key": self.toolset.nr_api_key,
         }
 
         response = requests.post(url, headers=headers, json=query)
@@ -62,9 +72,8 @@ class GetLogs(Tool):
         return f"newrelic GetLogs(app='{params.get('app')}', since='{params.get('since')}')"
 
 
-
-class GetTraces(Tool):
-    def __init__(self, api_key: str, account_id: int):
+class GetTraces(BaseNewRelicTool):
+    def __init__(self, toolset: "NewRelicToolset"):
         super().__init__(
             name="newrelic_get_traces",
             description="Retrieve traces from New Relic",
@@ -80,9 +89,8 @@ class GetTraces(Tool):
                     required=False,
                 ),
             },
+            toolset=toolset,
         )
-        self._api_key = api_key
-        self._account_id = account_id
 
     def invoke(self, params: Any) -> str:
         duration = params.get("duration")
@@ -97,7 +105,7 @@ class GetTraces(Tool):
             "query": f"""
             {{
                 actor {{
-                    account(id: {self._account_id}) {{
+                    account(id: {self.toolset.nr_account_id}) {{
                         nrql(query: \"{query_string}\") {{
                             results
                         }}
@@ -110,7 +118,7 @@ class GetTraces(Tool):
         url = "https://api.newrelic.com/graphql"
         headers = {
             "Content-Type": "application/json",
-            "Api-Key": self._api_key,
+            "Api-Key": self.toolset.nr_api_key,
         }
 
         response = requests.post(url, headers=headers, json=query)
@@ -127,27 +135,38 @@ class GetTraces(Tool):
         return f"newrelic GetTraces(duration={params.get('duration')})"
 
 
+class NewrelicConfig(BaseModel):
+    nr_api_key: Optional[str] = None
+    nr_account_id: Optional[str] = None
+
 
 class NewRelicToolset(Toolset):
-    def __init__(self):
-        api_key = os.environ.get("NEW_RELIC_API_KEY")
-        account_id = os.environ.get("NEW_RELIC_ACCOUNT_ID")
-        tools = [
-            GetLogs(api_key, account_id),
-            GetTraces(api_key, account_id),
-        ]
+    nr_api_key: Optional[str] = None
+    nr_account_id: Optional[str] = None
 
+    def __init__(self):
         super().__init__(
             name="newrelic",
             description="Toolset for interacting with New Relic to fetch logs and traces",
             docs_url="https://docs.newrelic.com/docs/apis/nerdgraph-api/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/4/4d/New_Relic_logo.svg",
-            prerequisites=[
-                StaticPrerequisite(
-                    enabled=bool(api_key and account_id),
-                    disabled_reason="API key or account ID is not configured",
-                )
+            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            tools=[
+                GetLogs(self),
+                GetTraces(self),
             ],
-            tools=tools,
             tags=[ToolsetTag.CORE],
         )
+
+    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+        if not config:
+            return False
+
+        try:
+            nr_config = NewrelicConfig(**config)
+            self.nr_account_id = nr_config.nr_account_id
+            self.nr_api_key = nr_config.nr_api_key
+            return self.nr_account_id and self.nr_api_key
+        except Exception:
+            logging.exception("Failed to set up new relic toolset")
+            return False
