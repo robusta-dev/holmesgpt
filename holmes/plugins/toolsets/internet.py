@@ -163,6 +163,7 @@ def looks_like_html(content):
 
 class FetchNotion(Tool):
     toolset: "InternetToolset"
+
     def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_notion_webpage",
@@ -226,6 +227,7 @@ class FetchNotion(Tool):
 
 class FetchWebpage(Tool):
     toolset: "InternetToolset"
+
     def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_webpage",
