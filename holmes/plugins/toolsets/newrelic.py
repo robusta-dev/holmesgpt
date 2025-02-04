@@ -11,8 +11,10 @@ from holmes.core.tools import (
 )
 from pydantic import BaseModel
 
+
 class BaseNewRelicTool(Tool):
     toolset: "NewRelicToolset"
+
 
 class GetLogs(BaseNewRelicTool):
     def __init__(self, toolset: "NewRelicToolset"):
@@ -68,6 +70,7 @@ class GetLogs(BaseNewRelicTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         return f"newrelic GetLogs(app='{params.get('app')}', since='{params.get('since')}')"
+
 
 class GetTraces(BaseNewRelicTool):
     def __init__(self, toolset: "NewRelicToolset"):
@@ -131,9 +134,11 @@ class GetTraces(BaseNewRelicTool):
             return f"newrelic GetTraces(trace_id='{params.get('trace_id')}')"
         return f"newrelic GetTraces(duration={params.get('duration')})"
 
+
 class NewrelicConfig(BaseModel):
     nr_api_key: Optional[str] = None
     nr_account_id: Optional[str] = None
+
 
 class NewRelicToolset(Toolset):
     nr_api_key: Optional[str] = None
