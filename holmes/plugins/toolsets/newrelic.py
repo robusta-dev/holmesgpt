@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any
 from holmes.core.tools import CallablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
-from pydantic import BaseModel
+from pydantic import BaseModel, Optional
 
 class BaseNewRelicTool(Tool):
     toolset: "NewRelicToolset"
@@ -130,12 +130,12 @@ class GetTraces(BaseNewRelicTool):
 
 
 class NewrelicConfig(BaseModel):
-    api_key: str
-    account_id: str
+    api_key: Optional[str] = None
+    account_id: Optional[str] = None
 
 class NewRelicToolset(Toolset):
-    api_key: str
-    account_id: str
+    api_key: Optional[str] = None
+    account_id: Optional[str] = None
 
     def __init__(self):
         super().__init__(
@@ -159,7 +159,7 @@ class NewRelicToolset(Toolset):
             nr_config = NewrelicConfig(**config)
             self.account_id = nr_config.account_id
             self.api_key = nr_config.api_key
-            return True
+            return self.account_id and self.api_key
         except Exception:
             logging.exception("Failed to set up new relic toolset")
             return False
