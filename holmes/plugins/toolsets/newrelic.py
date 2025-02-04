@@ -69,8 +69,6 @@ class GetLogs(BaseNewRelicTool):
     def get_parameterized_one_liner(self, params) -> str:
         return f"newrelic GetLogs(app='{params.get('app')}', since='{params.get('since')}')"
 
-
-
 class GetTraces(BaseNewRelicTool):
     def __init__(self, toolset: "NewRelicToolset"):
         super().__init__(
@@ -132,7 +130,6 @@ class GetTraces(BaseNewRelicTool):
         if "trace_id" in params and params["trace_id"]:
             return f"newrelic GetTraces(trace_id='{params.get('trace_id')}')"
         return f"newrelic GetTraces(duration={params.get('duration')})"
-
 
 class NewrelicConfig(BaseModel):
     nr_api_key: Optional[str] = None
