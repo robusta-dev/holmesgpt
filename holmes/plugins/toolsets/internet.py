@@ -5,7 +5,13 @@ import json
 from typing import Any, Optional, Tuple, Dict
 
 from requests import RequestException, Timeout
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag, CallablePrerequisite
+from holmes.core.tools import (
+    Tool,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
+    CallablePrerequisite,
+)
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 
@@ -157,7 +163,6 @@ def looks_like_html(content):
 
 class FetchNotion(Tool):
     toolset: "InternetToolset"
-    
     def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_notion_webpage",
@@ -168,7 +173,11 @@ class FetchNotion(Tool):
                     type="string",
                     required=True,
                 ),
-                "is_runbook": ToolParameter(description="True if the url is a runbook", type="boolean", required=True)
+                "is_runbook": ToolParameter(
+                    description="True if the url is a runbook",
+                    type="boolean",
+                    required=True,
+                ),
             },
             toolset=toolset,
         )
@@ -176,7 +185,7 @@ class FetchNotion(Tool):
     def convert_notion_url(self, url):
         if "api.notion.com" in url:
             return url
-        match = re.search(r'-(\w{32})$', url)
+        match = re.search(r"-(\w{32})$", url)
         if match:
             notion_id = match.group(1)
             return f"https://api.notion.com/v1/blocks/{notion_id}/children"
@@ -189,7 +198,6 @@ class FetchNotion(Tool):
         # Get headers from the toolset configuration
         additional_headers = self.toolset.runbook_headers if is_runbook else {}
         url = self.convert_notion_url(url)
-            
         content, _ = scrape(url, additional_headers)
 
         if not content:
@@ -201,12 +209,14 @@ class FetchNotion(Tool):
     def parse_notion_content(self, content: Any) -> str:
         data = json.loads(content)
         texts = []
-        for result in data['results']:
-            if 'paragraph' in result and 'rich_text' in result['paragraph']:
-                texts.extend([text['plain_text'] for text in result['paragraph']['rich_text']])
+        for result in data["results"]:
+            if "paragraph" in result and "rich_text" in result["paragraph"]:
+                texts.extend(
+                    [text["plain_text"] for text in result["paragraph"]["rich_text"]]
+                )
 
         # Join and print the result
-        return ''.join(texts)
+        return "".join(texts)
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
@@ -216,7 +226,6 @@ class FetchNotion(Tool):
 
 class FetchWebpage(Tool):
     toolset: "InternetToolset"
-    
     def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_webpage",
@@ -227,7 +236,11 @@ class FetchWebpage(Tool):
                     type="string",
                     required=True,
                 ),
-                "is_runbook": ToolParameter(description="True if the url is a runbook", type="boolean", required=True)
+                "is_runbook": ToolParameter(
+                    description="True if the url is a runbook",
+                    type="boolean",
+                    required=True,
+                ),
             },
             toolset=toolset,
         )
@@ -237,7 +250,6 @@ class FetchWebpage(Tool):
         is_runbook: bool = params.get("is_runbook", False)
 
         additional_headers = self.toolset.runbook_headers if is_runbook else {}
-            
         content, mime_type = scrape(url, additional_headers)
 
         if not content:
@@ -255,12 +267,14 @@ class FetchWebpage(Tool):
     def parse_notion_content(self, content: Any) -> str:
         data = json.loads(content)
         texts = []
-        for result in data['results']:
-            if 'paragraph' in result and 'rich_text' in result['paragraph']:
-                texts.extend([text['plain_text'] for text in result['paragraph']['rich_text']])
+        for result in data["results"]:
+            if "paragraph" in result and "rich_text" in result["paragraph"]:
+                texts.extend(
+                    [text["plain_text"] for text in result["paragraph"]["rich_text"]]
+                )
 
         # Join and print the result
-        return ''.join(texts)
+        return "".join(texts)
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
@@ -279,7 +293,10 @@ class InternetToolset(Toolset):
             prerequisites=[
                 CallablePrerequisite(callable=self.prerequisites_callable),
             ],
-            tools=[FetchWebpage(self), FetchNotion(self),],
+            tools=[
+                FetchWebpage(self),
+                FetchNotion(self),
+            ],
             tags=[
                 ToolsetTag.CORE,
             ],
