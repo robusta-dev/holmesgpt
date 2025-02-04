@@ -168,7 +168,7 @@ class FetchNotion(Tool):
                     type="string",
                     required=True,
                 ),
-                "is_runbook": ToolParameter(description="Is this a runbook URL?", type="boolean", required=False)
+                "is_runbook": ToolParameter(description="True if the url is a runbook", type="boolean", required=True)
             },
             toolset=toolset,
         )
@@ -210,7 +210,8 @@ class FetchNotion(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
-        return f"fetched notion webpage {url}"
+        is_runbook: bool = params["is_runbook"]
+        return f"fetched notion webpage {url} {is_runbook}"
 
 
 class FetchWebpage(Tool):
@@ -226,7 +227,7 @@ class FetchWebpage(Tool):
                     type="string",
                     required=True,
                 ),
-                "is_runbook": ToolParameter(description="Is this a runbook URL?", type="boolean", required=False)
+                "is_runbook": ToolParameter(description="True if the url is a runbook", type="boolean", required=True)
             },
             toolset=toolset,
         )
@@ -264,7 +265,8 @@ class FetchWebpage(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
-        return f"fetched webpage {url}"
+        is_runbook: bool = params["is_runbook"]
+        return f"fetched webpage {url} {is_runbook}"
 
 
 class InternetToolset(Toolset):
