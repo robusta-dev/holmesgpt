@@ -1,11 +1,11 @@
 import re
 import os
 import logging
-
-from typing import Any, Optional, Tuple
+import json
+from typing import Any, Optional, Tuple, Dict
 
 from requests import RequestException, Timeout
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag
+from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag, CallablePrerequisite
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 
@@ -67,14 +67,17 @@ SELECTORS_TO_REMOVE = [
 ]
 
 
-def scrape(url) -> Tuple[Optional[str], Optional[str]]:
+def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
     response = None
     content = None
     mime_type = None
+    if not headers:
+        headers = {}
+    headers["User-Agent"] = INTERNET_TOOLSET_USER_AGENT
     try:
         response = requests.get(
             url,
-            headers={"User-Agent": INTERNET_TOOLSET_USER_AGENT},
+            headers=headers,
             timeout=INTERNET_TOOLSET_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -152,23 +155,90 @@ def looks_like_html(content):
     return False
 
 
-class FetchWebpage(Tool):
-    def __init__(self):
+class FetchNotion(Tool):
+    toolset: "InternetToolset"
+    
+    def __init__(self, toolset: "InternetToolset"):
         super().__init__(
-            name="fetch_webpage",
-            description="Fetch a webpage. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
+            name="fetch_notion_webpage",
+            description="Fetch a Notion webpage with HTTP requests and authentication.",
             parameters={
                 "url": ToolParameter(
                     description="The URL to fetch",
                     type="string",
                     required=True,
-                )
+                ),
+                "is_runbook": ToolParameter(description="Is this a runbook URL?", type="boolean", required=False)
             },
+            toolset=toolset,
+        )
+
+    def convert_notion_url(self, url):
+        if "api.notion.com" in url:
+            return url
+        match = re.search(r'-(\w{32})$', url)
+        if match:
+            notion_id = match.group(1)
+            return f"https://api.notion.com/v1/blocks/{notion_id}/children"
+        return url  # Return original URL if no match is found
+
+    def invoke(self, params: Any) -> str:
+        url: str = params["url"]
+        is_runbook: bool = params.get("is_runbook", False)
+
+        # Get headers from the toolset configuration
+        additional_headers = self.toolset.runbook_headers if is_runbook else {}
+        url = self.convert_notion_url(url)
+            
+        content, _ = scrape(url, additional_headers)
+
+        if not content:
+            logging.error(f"Failed to retrieve content from {url}")
+            return ""
+
+        return self.parse_notion_content(content)
+
+    def parse_notion_content(self, content: Any) -> str:
+        data = json.loads(content)
+        texts = []
+        for result in data['results']:
+            if 'paragraph' in result and 'rich_text' in result['paragraph']:
+                texts.extend([text['plain_text'] for text in result['paragraph']['rich_text']])
+
+        # Join and print the result
+        return ''.join(texts)
+
+    def get_parameterized_one_liner(self, params) -> str:
+        url: str = params["url"]
+        return f"fetched notion webpage {url}"
+
+
+class FetchWebpage(Tool):
+    toolset: "InternetToolset"
+    
+    def __init__(self, toolset: "InternetToolset"):
+        super().__init__(
+            name="fetch_webpage",
+            description="Fetch a webpage with HTTP requests and optional authentication.",
+            parameters={
+                "url": ToolParameter(
+                    description="The URL to fetch",
+                    type="string",
+                    required=True,
+                ),
+                "is_runbook": ToolParameter(description="Is this a runbook URL?", type="boolean", required=False)
+            },
+            toolset=toolset,
         )
 
     def invoke(self, params: Any) -> str:
         url: str = params["url"]
-        content, mime_type = scrape(url)
+        is_runbook: bool = params.get("is_runbook", False)
+
+        # Get headers from the toolset configuration
+        additional_headers = self.toolset.runbook_headers if is_runbook else {}
+            
+        content, mime_type = scrape(url, additional_headers)
 
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
@@ -182,21 +252,41 @@ class FetchWebpage(Tool):
 
         return content
 
+    def parse_notion_content(self, content: Any) -> str:
+        data = json.loads(content)
+        texts = []
+        for result in data['results']:
+            if 'paragraph' in result and 'rich_text' in result['paragraph']:
+                texts.extend([text['plain_text'] for text in result['paragraph']['rich_text']])
+
+        # Join and print the result
+        return ''.join(texts)
+
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
         return f"fetched webpage {url}"
 
 
 class InternetToolset(Toolset):
+    runbook_headers: Dict[str, str] = {}
+
     def __init__(self):
         super().__init__(
             name="internet",
             description="Fetch webpages",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
-            prerequisites=[],
-            tools=[FetchWebpage()],
+            prerequisites=[
+                CallablePrerequisite(callable=self.prerequisites_callable),
+            ],
+            tools=[FetchWebpage(self), FetchNotion(self),],
             tags=[
                 ToolsetTag.CORE,
             ],
             is_default=True,
         )
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+        if not config:
+            return True
+        self.runbook_headers = config.get("runbook_headers", {})
+        return True
