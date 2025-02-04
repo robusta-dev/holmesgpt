@@ -2,7 +2,7 @@ import re
 import os
 import logging
 import json
-from typing import Any, Optional, Tuple, Dict
+from typing import Any, Optional, Tuple, Dict, List
 
 from requests import RequestException, Timeout
 from holmes.core.tools import (
@@ -284,7 +284,36 @@ class FetchWebpage(Tool):
         return f"fetched webpage {url} {is_runbook}"
 
 
-class InternetToolset(Toolset):
+class InternetBaseToolset(Toolset):
+    runbook_headers: Dict[str, str] = {}
+
+    def __init__(self,
+        name: str,
+        description: str,
+        icon_url: str,
+        tools: list[Tool],
+        is_default: str,
+        tags: List[ToolsetTag]
+        ):
+        super().__init__(
+            name=name,
+            description=description,
+            icon_url=icon_url,
+            prerequisites=[
+                CallablePrerequisite(callable=self.prerequisites_callable),
+            ],
+            tools=tools,
+            tags=tags,
+            is_default=is_default,
+        )
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+        if not config:
+            return True
+        self.runbook_headers = config.get("runbook_headers", {})
+        return True
+
+class InternetToolset(InternetBaseToolset):
     runbook_headers: Dict[str, str] = {}
 
     def __init__(self):
@@ -297,16 +326,9 @@ class InternetToolset(Toolset):
             ],
             tools=[
                 FetchWebpage(self),
-                FetchNotion(self),
             ],
             tags=[
                 ToolsetTag.CORE,
             ],
             is_default=True,
         )
-
-    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
-        if not config:
-            return True
-        self.runbook_headers = config.get("runbook_headers", {})
-        return True
