@@ -229,7 +229,7 @@ class KafkaToolset(Toolset):
             name="kafka_tools",
             description="Fetches metadata from Kafka",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            icon_url="https://en.wikipedia.org/wiki/Apache_Kafka#/media/File:Apache_Kafka_logo.svg",
+            icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-cR1JrBgJxB_SPVKUIRwtiHnR8qBvLeHXjQ&s",
             tags=[ToolsetTag.CORE],
             tools=[
                 ListKafkaConsumers(self),

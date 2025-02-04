@@ -321,9 +321,6 @@ class InternetToolset(InternetBaseToolset):
             name="internet",
             description="Fetch webpages",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
-            prerequisites=[
-                CallablePrerequisite(callable=self.prerequisites_callable),
-            ],
             tools=[
                 FetchWebpage(self),
             ],

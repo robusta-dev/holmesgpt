@@ -149,7 +149,7 @@ class NewRelicToolset(Toolset):
             name="newrelic",
             description="Toolset for interacting with New Relic to fetch logs and traces",
             docs_url="https://docs.newrelic.com/docs/apis/nerdgraph-api/",
-            icon_url="https://upload.wikimedia.org/wikipedia/commons/4/4d/New_Relic_logo.svg",
+            icon_url="https://companieslogo.com/img/orig/NEWR-de5fcb2e.png?t=1720244493",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 GetLogs(self),

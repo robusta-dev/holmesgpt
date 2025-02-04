@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
     CallablePrerequisite,
 )
-from holmes.plugins.toolsets.internet.internet import InternetBaseToolset, 
+from holmes.plugins.toolsets.internet.internet import InternetBaseToolset
 
 
 
@@ -85,9 +85,6 @@ class NotionToolset(InternetBaseToolset):
             name="notion",
             description="Fetch notion webpages",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Notion-logo.svg/2048px-Notion-logo.svg.png",
-            prerequisites=[
-                CallablePrerequisite(callable=self.prerequisites_callable),
-            ],
             tools=[
                 FetchNotion(self),
             ],

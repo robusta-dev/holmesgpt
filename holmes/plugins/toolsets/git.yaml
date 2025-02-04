@@ -2,7 +2,7 @@ toolsets:
   git/core:
     description: "Runs git commands to read repos and create prs"
     docs_url: ""
-    icon_url: ""
+    icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg"
     tags:
       - core
       
