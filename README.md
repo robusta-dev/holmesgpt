@@ -914,6 +914,41 @@ toolsets:
 
 </details>
 
+<details>
+<summary>New Relic Integration</summary>
+
+The New Relic toolset (`newrelic`) allows Holmes to pull traces and logs from New Relic for analysis.
+
+### Configuration
+
+To enable New Relic integration, configure Holmes by adding the following settings to the configuration file:
+
+```
+nr_api_key: KEY_HERE
+nr_account_id: ACCOUNT_ID_HERE
+```
+
+These parameters should be replaced with your actual New Relic API key and account ID.
+
+### Kubernetes Deployment
+
+To enable New Relic integration when running HolmesGPT in a Kubernetes cluster, **include the following configuration** in the `Helm chart`:
+
+```yaml
+toolsets:
+  newrelic:
+    enabled: true
+    config:
+      nr_api_key: KEY_HERE
+      nr_account_id: ACCOUNT_ID_HERE
+```
+
+Ensure that the API key has the necessary permissions to access traces and logs from New Relic.
+
+For more details on New Relic's API and authentication methods, refer to [New Relic API documentation](https://docs.newrelic.com/docs/apis).
+
+</details>
+
 
 <details>
 
