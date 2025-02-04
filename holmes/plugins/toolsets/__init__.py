@@ -7,6 +7,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
+from holmes.plugins.toolsets.newrelic import NewRelicToolset
 from holmes.plugins.toolsets.internet import InternetToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
@@ -46,6 +47,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchToolset(),
         GrafanaLokiToolset(),
         GrafanaTempoToolset(),
+        NewRelicToolset()
     ]
 
     return toolsets
