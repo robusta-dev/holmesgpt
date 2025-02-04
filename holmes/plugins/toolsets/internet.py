@@ -220,7 +220,7 @@ class FetchWebpage(Tool):
     def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_webpage",
-            description="Fetch a webpage with HTTP requests and optional authentication.",
+            description="Fetch a webpage. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
             parameters={
                 "url": ToolParameter(
                     description="The URL to fetch",
@@ -236,7 +236,6 @@ class FetchWebpage(Tool):
         url: str = params["url"]
         is_runbook: bool = params.get("is_runbook", False)
 
-        # Get headers from the toolset configuration
         additional_headers = self.toolset.runbook_headers if is_runbook else {}
             
         content, mime_type = scrape(url, additional_headers)
