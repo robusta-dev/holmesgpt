@@ -1,9 +1,14 @@
-import os
 import requests
 import json
 import logging
 from typing import Any, Optional
-from holmes.core.tools import CallablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
+from holmes.core.tools import (
+    CallablePrerequisite,
+    Tool,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
+)
 from pydantic import BaseModel
 
 class BaseNewRelicTool(Tool):
@@ -26,7 +31,7 @@ class GetLogs(BaseNewRelicTool):
                     required=True,
                 ),
             },
-            toolset = toolset
+            toolset=toolset,
         )
 
     def invoke(self, params: Any) -> str:
@@ -83,7 +88,7 @@ class GetTraces(BaseNewRelicTool):
                     required=False,
                 ),
             },
-            toolset=toolset
+            toolset=toolset,
         )
 
     def invoke(self, params: Any) -> str:
