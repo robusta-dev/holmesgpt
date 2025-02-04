@@ -2,9 +2,9 @@ import os
 import requests
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 from holmes.core.tools import CallablePrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
-from pydantic import BaseModel, Optional
+from pydantic import BaseModel
 
 class BaseNewRelicTool(Tool):
     toolset: "NewRelicToolset"
@@ -37,7 +37,7 @@ class GetLogs(BaseNewRelicTool):
             "query": f"""
             {{
                 actor {{
-                    account(id: {self.toolset.account_id}) {{
+                    account(id: {self.toolset.nr_account_id}) {{
                         nrql(query: \"SELECT * FROM Log WHERE app = '{app}' SINCE {since}\") {{
                             results
                         }}
@@ -50,7 +50,7 @@ class GetLogs(BaseNewRelicTool):
         url = "https://api.newrelic.com/graphql"
         headers = {
             "Content-Type": "application/json",
-            "Api-Key": self.toolset.api_key,
+            "Api-Key": self.toolset.nr_api_key,
         }
 
         response = requests.post(url, headers=headers, json=query)
@@ -99,7 +99,7 @@ class GetTraces(BaseNewRelicTool):
             "query": f"""
             {{
                 actor {{
-                    account(id: {self.toolset.account_id}) {{
+                    account(id: {self.toolset.nr_account_id}) {{
                         nrql(query: \"{query_string}\") {{
                             results
                         }}
@@ -112,7 +112,7 @@ class GetTraces(BaseNewRelicTool):
         url = "https://api.newrelic.com/graphql"
         headers = {
             "Content-Type": "application/json",
-            "Api-Key": self.toolset.api_key,
+            "Api-Key": self.toolset.nr_api_key,
         }
 
         response = requests.post(url, headers=headers, json=query)
@@ -130,12 +130,12 @@ class GetTraces(BaseNewRelicTool):
 
 
 class NewrelicConfig(BaseModel):
-    api_key: Optional[str] = None
-    account_id: Optional[str] = None
+    nr_api_key: Optional[str] = None
+    nr_account_id: Optional[str] = None
 
 class NewRelicToolset(Toolset):
-    api_key: Optional[str] = None
-    account_id: Optional[str] = None
+    nr_api_key: Optional[str] = None
+    nr_account_id: Optional[str] = None
 
     def __init__(self):
         super().__init__(
@@ -157,9 +157,9 @@ class NewRelicToolset(Toolset):
 
         try:
             nr_config = NewrelicConfig(**config)
-            self.account_id = nr_config.account_id
-            self.api_key = nr_config.api_key
-            return self.account_id and self.api_key
+            self.nr_account_id = nr_config.nr_account_id
+            self.nr_api_key = nr_config.nr_api_key
+            return self.nr_account_id and self.nr_api_key
         except Exception:
             logging.exception("Failed to set up new relic toolset")
             return False
