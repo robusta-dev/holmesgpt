@@ -161,7 +161,11 @@ class ToolCallingLLM:
             response = full_response.choices[0]
 
             response_message = response.message
-            if response_message and response_format and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
+            if (
+                response_message
+                and response_format
+                and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT
+            ):
                 incorrect_tool_call = is_response_an_incorrect_tool_call(
                     sections, response
                 )

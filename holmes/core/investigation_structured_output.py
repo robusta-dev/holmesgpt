@@ -24,6 +24,7 @@ DEFAULT_SECTIONS: InputSectionsDataType = {
     "External links": "Provide links to external sources and a short sentence describing each link. For example provide links to relevant runbooks, etc. This section is a markdown formatted string.",
 }
 
+
 def get_output_format_for_investigation(
     sections: InputSectionsDataType,
 ) -> Dict[str, Any]:
