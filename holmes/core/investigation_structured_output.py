@@ -7,7 +7,9 @@ import os
 from litellm import Choices
 
 
-DISABLE_SYNTHETIC_STRUCTURED_OUTPUT = os.environ.get("DISABLE_SYNTHETIC_STRUCTURED_OUTPUT", False)
+DISABLE_SYNTHETIC_STRUCTURED_OUTPUT = os.environ.get(
+    "DISABLE_SYNTHETIC_STRUCTURED_OUTPUT", False
+)
 
 
 InputSectionsDataType = Dict[str, str]
@@ -21,6 +23,7 @@ DEFAULT_SECTIONS: InputSectionsDataType = {
     "App or Infra?": "Explain whether the issue is more likely an infrastructure or an application level issue and why you think that.",
     "External links": "Provide links to external sources and a short sentence describing each link. For example provide links to relevant runbooks, etc. This section is a markdown formatted string.",
 }
+
 
 def get_output_format_for_investigation(
     sections: InputSectionsDataType,
@@ -50,6 +53,7 @@ def get_output_format_for_investigation(
 
     return output_format
 
+
 def combine_sections(sections: Dict) -> str:
     content = ""
     for section_title, section_content in sections.items():
@@ -58,7 +62,9 @@ def combine_sections(sections: Dict) -> str:
     return content
 
 
-def parse_markdown_into_sections_from_equal_sign(markdown_content:str) -> Optional[Dict[str, Optional[str]]]:
+def parse_markdown_into_sections_from_equal_sign(
+    markdown_content: str,
+) -> Optional[Dict[str, Optional[str]]]:
     """Splits a markdown in different sections where the key is a top level title underlined with `====` and the value is the content
     ```
     Header Title
@@ -70,10 +76,10 @@ def parse_markdown_into_sections_from_equal_sign(markdown_content:str) -> Option
       "Header Title": "Content here"
     }
     """
-    matches = re.split(r'(?:^|\n)([^\n]+)\n=+\n', markdown_content.strip())
+    matches = re.split(r"(?:^|\n)([^\n]+)\n=+\n", markdown_content.strip())
 
     # Remove any empty first element if the text starts with a header
-    if matches[0] == '':
+    if matches[0] == "":
         matches = matches[1:]
 
     sections = {}
@@ -89,7 +95,10 @@ def parse_markdown_into_sections_from_equal_sign(markdown_content:str) -> Option
     else:
         return None
 
-def parse_markdown_into_sections_from_hash_sign(markdown_content:str) -> Optional[Dict[str, Optional[str]]]:
+
+def parse_markdown_into_sections_from_hash_sign(
+    markdown_content: str,
+) -> Optional[Dict[str, Optional[str]]]:
     """Splits a markdown in different sections where the key is a top level title underlined with `====` and the value is the content
     ```
     # Header Title
@@ -101,7 +110,7 @@ def parse_markdown_into_sections_from_hash_sign(markdown_content:str) -> Optiona
     }
     """
     # Split the text into sections based on headers (# Section)
-    matches = re.split(r'\n(?=# )', markdown_content.strip())
+    matches = re.split(r"\n(?=# )", markdown_content.strip())
 
     if not matches[0].startswith("#"):
         matches = matches[1:]
@@ -112,17 +121,17 @@ def parse_markdown_into_sections_from_hash_sign(markdown_content:str) -> Optiona
         if match.strip():
             # Split each section into title and content
             # Use maxsplit=1 to only split on the first occurrence
-            parts = match.strip().split('\n', 1)
+            parts = match.strip().split("\n", 1)
 
             if len(parts) > 1:
                 # Remove the # from the title and use it as key
-                title = parts[0].replace('#', '').strip()
+                title = parts[0].replace("#", "").strip()
                 # Use the rest as content
                 content = parts[1].strip()
                 sections[title] = content
             else:
                 # Handle case where section has no content
-                title = parts[0].replace('#', '').strip()
+                title = parts[0].replace("#", "").strip()
                 sections[title] = ""
 
     if len(sections) > 0:
@@ -130,7 +139,10 @@ def parse_markdown_into_sections_from_hash_sign(markdown_content:str) -> Optiona
     else:
         return None
 
-def parse_json_sections(response: Any) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
+
+def parse_json_sections(
+    response: Any,
+) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
     if isinstance(response, dict):
         # No matter if the result is already structured, we want to go through the code below to validate the JSON
         response = json.dumps(response)
@@ -147,7 +159,9 @@ def parse_json_sections(response: Any) -> Tuple[str, Optional[Dict[str, Optional
                 response[8:-3]
             )  # if this parses as json, set the response as that.
             if isinstance(parsed, dict):
-                logging.warning("The LLM did not return structured data but embedded the data into a markdown code block. This indicates the prompt is not optimised for that AI model.")
+                logging.warning(
+                    "The LLM did not return structured data but embedded the data into a markdown code block. This indicates the prompt is not optimised for that AI model."
+                )
                 response = response[8:-3]
         except Exception:
             pass
@@ -159,9 +173,11 @@ def parse_json_sections(response: Any) -> Tuple[str, Optional[Dict[str, Optional
         sections = {}
         for key, value in parsed_json.items():
             if isinstance(value, list) and len(value) == 0:
-                value = None # For links, LLM returns '[]' which is unsightly when converted to markdown
+                value = None  # For links, LLM returns '[]' which is unsightly when converted to markdown
             if value is not None:
-                sections[key] = str(value) # force to strings. We only expect markdown and don't want to give anything but a string to the UI
+                sections[key] = str(
+                    value
+                )  # force to strings. We only expect markdown and don't want to give anything but a string to the UI
             else:
                 sections[key] = value
         if sections:
@@ -172,7 +188,10 @@ def parse_json_sections(response: Any) -> Tuple[str, Optional[Dict[str, Optional
 
     return (response, None)
 
-def process_response_into_sections(response: Any) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
+
+def process_response_into_sections(
+    response: Any,
+) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
     (response, sections) = parse_json_sections(response)
 
     if not sections and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
@@ -182,7 +201,10 @@ def process_response_into_sections(response: Any) -> Tuple[str, Optional[Dict[st
 
     return (response, sections)
 
-def is_response_an_incorrect_tool_call(sections:Optional[InputSectionsDataType], choice:Choices) -> bool:
+
+def is_response_an_incorrect_tool_call(
+    sections: Optional[InputSectionsDataType], choice: Choices
+) -> bool:
     """Cf. https://github.com/BerriAI/litellm/issues/8241
     This code detects when LiteLLM is incapable of handling both tool calls and structured output.
     In that case the intention is to retry the LLM calls without structured output.
@@ -190,7 +212,12 @@ def is_response_an_incorrect_tool_call(sections:Optional[InputSectionsDataType],
     """
     try:
         message = choice.get("message")
-        if sections and choice.get("finish_reason") == "stop" and message and message.get("role") == "assistant":
+        if (
+            sections
+            and choice.get("finish_reason") == "stop"
+            and message
+            and message.get("role") == "assistant"
+        ):
             content = message.get("content")
             if not isinstance(content, dict):
                 content = json.loads(content)

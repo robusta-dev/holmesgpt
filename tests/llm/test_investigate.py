@@ -138,9 +138,13 @@ def test_investigate(experiment_name, test_case):
     print(f"\n** SCORES **\n{scores}")
 
     assert result.sections, "Missing sections"
-    assert len(result.sections) >= len(DEFAULT_SECTIONS), f"Received {len(result.sections)} sections but expected {len(DEFAULT_SECTIONS)}. Received: {result.sections.keys()}"
+    assert (
+        len(result.sections) >= len(DEFAULT_SECTIONS)
+    ), f"Received {len(result.sections)} sections but expected {len(DEFAULT_SECTIONS)}. Received: {result.sections.keys()}"
     for expected_section_title in DEFAULT_SECTIONS:
-        assert expected_section_title in result.sections, f"Expected title {expected_section_title} in sections"
+        assert (
+            expected_section_title in result.sections
+        ), f"Expected title {expected_section_title} in sections"
 
     if test_case.expected_sections:
         for (

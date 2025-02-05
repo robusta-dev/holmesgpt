@@ -26,11 +26,13 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 
+
 class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
     description: str
     result: str
+
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
@@ -45,6 +47,7 @@ class LLMResult(BaseModel):
         return "AI used info from issue and " + ",".join(
             [f"`{tool_call.description}`" for tool_call in self.tool_calls]
         )
+
 
 class ResourceInstructionDocument(BaseModel):
     """Represents context necessary for an investigation in the form of a URL
@@ -63,6 +66,7 @@ class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
 
+
 class ToolCallingLLM:
     llm: LLM
 
@@ -77,14 +81,18 @@ class ToolCallingLLM:
         user_prompt: str,
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
-        sections: Optional[InputSectionsDataType] = None
+        sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         return self.call(
-            messages, post_process_prompt, response_format, user_prompt=user_prompt, sections=sections,
+            messages,
+            post_process_prompt,
+            response_format,
+            user_prompt=user_prompt,
+            sections=sections,
         )
 
     def messages_call(
@@ -101,7 +109,7 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
-        sections: Optional[InputSectionsDataType] = None
+        sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []
@@ -154,13 +162,16 @@ class ToolCallingLLM:
 
             response_message = response.message
             if i == 0 and response_message and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
-                incorrect_tool_call = is_response_an_incorrect_tool_call(sections, response)
+                incorrect_tool_call = is_response_an_incorrect_tool_call(
+                    sections, response
+                )
                 if incorrect_tool_call:
-                    logging.warning("Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set DISABLE_SYNTHETIC_STRUCTURED_OUTPUT to `1` or `True`.")
+                    logging.warning(
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set DISABLE_SYNTHETIC_STRUCTURED_OUTPUT to `1` or `True`."
+                    )
                     # disable structured output and retry without it
                     response_format = None
                     continue
-
 
             messages.append(
                 response_message.model_dump(
@@ -411,7 +422,7 @@ class IssueInvestigator(ToolCallingLLM):
             user_prompt,
             post_processing_prompt,
             response_format=get_output_format_for_investigation(sections),
-            sections=sections
+            sections=sections,
         )
         res.instructions = runbooks
         return res

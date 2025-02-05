@@ -6,7 +6,7 @@ from holmes.core.investigation_structured_output import (
     get_output_format_for_investigation,
     parse_json_sections,
     is_response_an_incorrect_tool_call,
-    process_response_into_sections
+    process_response_into_sections,
 )
 from holmes.plugins.prompts import load_and_render_prompt
 
@@ -96,11 +96,11 @@ def test_parse_json_sections_invalid_json(invalid_json):
                 "finish_reason": "stop",
                 "index": 0,
                 "message": {
-                    "content": "{\"timezone\":\"America/New_York\"}",
+                    "content": '{"timezone":"America/New_York"}',
                     "role": "assistant",
                     "tool_calls": None,
-                    "function_call": None
-                }
+                    "function_call": None,
+                },
             },
             True,
         ),
@@ -109,11 +109,11 @@ def test_parse_json_sections_invalid_json(invalid_json):
                 "finish_reason": "stop",
                 "index": 0,
                 "message": {
-                    "content": "{\"Alert Explanation\":\"foobar\"}",
+                    "content": '{"Alert Explanation":"foobar"}',
                     "role": "assistant",
                     "tool_calls": None,
-                    "function_call": None
-                }
+                    "function_call": None,
+                },
             },
             False,
         ),
@@ -122,11 +122,11 @@ def test_parse_json_sections_invalid_json(invalid_json):
                 "finish_reason": "stop",
                 "index": 0,
                 "message": {
-                    "content": {"Alert Explanation":"foobar"},
+                    "content": {"Alert Explanation": "foobar"},
                     "role": "assistant",
                     "tool_calls": None,
-                    "function_call": None
-                }
+                    "function_call": None,
+                },
             },
             False,
         ),
@@ -135,32 +135,34 @@ def test_parse_json_sections_invalid_json(invalid_json):
                 "finish_reason": "tool_call",
                 "index": 0,
                 "message": {
-                    "content": {"Alert Explanation":"foobar"},
+                    "content": {"Alert Explanation": "foobar"},
                     "role": "assistant",
                     "tool_calls": None,
-                    "function_call": None
-                }
+                    "function_call": None,
+                },
             },
             False,
         ),
-    ]
+    ],
 )
 def test_is_response_an_incorrect_tool_call(response, expected_output):
-    assert is_response_an_incorrect_tool_call(DEFAULT_SECTIONS, response) == expected_output, f"Expected the following content to be incorrect={expected_output}. {response}"
+    assert (
+        is_response_an_incorrect_tool_call(DEFAULT_SECTIONS, response)
+        == expected_output
+    ), f"Expected the following content to be incorrect={expected_output}. {response}"
 
 
 TEST_SECTIONS = {
     "Next Steps": "To resolve the issue, correct the command in the init container. Replace 'wge' with 'wget' in the pod's configuration. Apply the changes using:\n```bash\nkubectl apply -f <pod-configuration-file>.yaml\n```",
-    "Key Findings": "- The pod `logging-agent` in the `default` namespace is in a `CrashLoopBackOff` state.\n- The init container `downloader` is failing due to a command error: `exec: \"wge\": executable file not found in $PATH`.\n- The pod has restarted 860 times.",
-    "Related logs": "Logs from pod `logging-agent`:\n```\nError: failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: exec: \"wge\": executable file not found in $PATH: unknown\n```",
+    "Key Findings": '- The pod `logging-agent` in the `default` namespace is in a `CrashLoopBackOff` state.\n- The init container `downloader` is failing due to a command error: `exec: "wge": executable file not found in $PATH`.\n- The pod has restarted 860 times.',
+    "Related logs": 'Logs from pod `logging-agent`:\n```\nError: failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: exec: "wge": executable file not found in $PATH: unknown\n```',
     "App or Infra?": "This is an application-level issue because the error is due to a misconfigured command in the init container.",
     "Alert Explanation": "The pod `logging-agent` has been in a non-ready state for more than 15 minutes due to a `CrashLoopBackOff` caused by a command error in the init container.",
-    "Conclusions and Possible Root causes": "The possible root cause is a typo in the init container's command, where 'wge' should be 'wget'. This prevents the container from starting, leading to the `CrashLoopBackOff` state."
+    "Conclusions and Possible Root causes": "The possible root cause is a typo in the init container's command, where 'wge' should be 'wget'. This prevents the container from starting, leading to the `CrashLoopBackOff` state.",
 }
 
 
 def test_parse_markdown_into_sections_hash():
-
     markdown = ""
     for title, content in TEST_SECTIONS.items():
         markdown = markdown + f"\n# {title}\n{content}\n"
@@ -175,7 +177,6 @@ def test_parse_markdown_into_sections_hash():
 
 
 def test_parse_markdown_into_sections_equal():
-
     markdown = ""
     for title, content in TEST_SECTIONS.items():
         markdown = markdown + f"\n{title}\n==========\n{content}\n"
