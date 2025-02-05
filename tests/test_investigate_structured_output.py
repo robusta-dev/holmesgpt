@@ -1,9 +1,12 @@
 from typing import Any, Optional
 import pytest
+import json
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     get_output_format_for_investigation,
-    process_response_into_sections,
+    parse_json_sections,
+    is_response_an_incorrect_tool_call,
+    process_response_into_sections
 )
 from holmes.plugins.prompts import load_and_render_prompt
 
@@ -67,10 +70,10 @@ def test_get_output_format_for_investigation():
         ({}, "{}", None),
     ],
 )
-def test_process_response_into_sections(
+def test_parse_json_sections(
     input_response: Any, expected_text: str, expected_sections: Optional[dict]
 ):
-    (text, sections) = process_response_into_sections(input_response)
+    (text, sections) = parse_json_sections(input_response)
     print(f"* ACTUAL\n{text}")
     print(f"* EXPECTED\n{expected_text}")
     assert text == expected_text
@@ -80,6 +83,108 @@ def test_process_response_into_sections(
 @pytest.mark.parametrize(
     "invalid_json", ['{"key": value}', '{key: "value"}', "not json at all"]
 )
-def test_process_response_invalid_json(invalid_json):
-    result = process_response_into_sections(invalid_json)
+def test_parse_json_sections_invalid_json(invalid_json):
+    result = parse_json_sections(invalid_json)
     assert result == (invalid_json, None)
+
+
+@pytest.mark.parametrize(
+    "response, expected_output",
+    [
+        (
+            {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                    "content": "{\"timezone\":\"America/New_York\"}",
+                    "role": "assistant",
+                    "tool_calls": None,
+                    "function_call": None
+                }
+            },
+            True,
+        ),
+        (
+            {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                    "content": "{\"Alert Explanation\":\"foobar\"}",
+                    "role": "assistant",
+                    "tool_calls": None,
+                    "function_call": None
+                }
+            },
+            False,
+        ),
+        (
+            {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                    "content": {"Alert Explanation":"foobar"},
+                    "role": "assistant",
+                    "tool_calls": None,
+                    "function_call": None
+                }
+            },
+            False,
+        ),
+        (
+            {
+                "finish_reason": "tool_call",
+                "index": 0,
+                "message": {
+                    "content": {"Alert Explanation":"foobar"},
+                    "role": "assistant",
+                    "tool_calls": None,
+                    "function_call": None
+                }
+            },
+            False,
+        ),
+    ]
+)
+def test_is_response_an_incorrect_tool_call(response, expected_output):
+    assert is_response_an_incorrect_tool_call(DEFAULT_SECTIONS, response) == expected_output, f"Expected the following content to be incorrect={expected_output}. {response}"
+
+
+TEST_SECTIONS = {
+    "Next Steps": "To resolve the issue, correct the command in the init container. Replace 'wge' with 'wget' in the pod's configuration. Apply the changes using:\n```bash\nkubectl apply -f <pod-configuration-file>.yaml\n```",
+    "Key Findings": "- The pod `logging-agent` in the `default` namespace is in a `CrashLoopBackOff` state.\n- The init container `downloader` is failing due to a command error: `exec: \"wge\": executable file not found in $PATH`.\n- The pod has restarted 860 times.",
+    "Related logs": "Logs from pod `logging-agent`:\n```\nError: failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: exec: \"wge\": executable file not found in $PATH: unknown\n```",
+    "App or Infra?": "This is an application-level issue because the error is due to a misconfigured command in the init container.",
+    "Alert Explanation": "The pod `logging-agent` has been in a non-ready state for more than 15 minutes due to a `CrashLoopBackOff` caused by a command error in the init container.",
+    "Conclusions and Possible Root causes": "The possible root cause is a typo in the init container's command, where 'wge' should be 'wget'. This prevents the container from starting, leading to the `CrashLoopBackOff` state."
+}
+
+
+def test_parse_markdown_into_sections_hash():
+
+    markdown = ""
+    for title, content in TEST_SECTIONS.items():
+        markdown = markdown + f"\n# {title}\n{content}\n"
+    (text, sections) = process_response_into_sections(markdown)
+    print(markdown)
+    print(json.dumps(sections, indent=2))
+    assert text == markdown
+    assert sections, "None sections returned"
+    for title, content in TEST_SECTIONS.items():
+        assert title in sections
+        assert sections.get(title) == content
+
+
+def test_parse_markdown_into_sections_equal():
+
+    markdown = ""
+    for title, content in TEST_SECTIONS.items():
+        markdown = markdown + f"\n{title}\n==========\n{content}\n"
+
+    (text, sections) = process_response_into_sections(markdown)
+    print(markdown)
+    print(json.dumps(sections, indent=2))
+    assert text == markdown
+    assert sections, "None sections returned"
+    for title, content in TEST_SECTIONS.items():
+        assert title in sections
+        assert sections.get(title) == content

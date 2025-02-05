@@ -37,7 +37,7 @@ def investigate_issues(
         post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
         instructions=resource_instructions,
         global_instructions=global_instructions,
-        sections=investigate_request.sections,
+        sections=investigate_request.sections
     )
 
     (text_response, sections) = process_response_into_sections(investigation.result)

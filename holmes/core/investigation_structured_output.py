@@ -1,14 +1,16 @@
 import logging
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 import json
+import re
+import os
 
-from pydantic import RootModel
+from litellm import Choices
+
+
+DISABLE_SYNTHETIC_STRUCTURED_OUTPUT = os.environ.get("DISABLE_SYNTHETIC_STRUCTURED_OUTPUT", False)
+
 
 InputSectionsDataType = Dict[str, str]
-
-OutputSectionsDataType = Optional[Dict[str, Union[str, None]]]
-
-SectionsData = RootModel[OutputSectionsDataType]
 
 DEFAULT_SECTIONS: InputSectionsDataType = {
     "Alert Explanation": '1-2 sentences explaining the alert itself - note don\'t say "The alert indicates a warning event related to a Kubernetes pod doing blah" rather just say "The pod XYZ did blah" because that is what the user actually cares about',
@@ -17,9 +19,8 @@ DEFAULT_SECTIONS: InputSectionsDataType = {
     "Next Steps": "What you would do next to troubleshoot this issue, any commands that could be run to fix it, or other ways to solve it (prefer giving precise bash commands when possible)",
     "Related logs": "Truncate and share the most relevant logs, especially if these explain the root cause. For example: \nLogs from pod robusta-holmes:\n```\n<logs>```\n. Always embed the surroundding +/- 5 log lines to any relevant logs. ",
     "App or Infra?": "Explain whether the issue is more likely an infrastructure or an application level issue and why you think that.",
-    "External links": "Provide links to external sources. Where to look when investigating this issue. For example provide links to relevant runbooks, etc. Add a short sentence describing each link.",
+    "External links": "Provide links to external sources and a short sentence describing each link. For example provide links to relevant runbooks, etc. This section is a markdown formatted string.",
 }
-
 
 def get_output_format_for_investigation(
     sections: InputSectionsDataType,
@@ -38,18 +39,16 @@ def get_output_format_for_investigation(
         "properties": properties,
         "additionalProperties": False,
     }
-
     output_format = {
         "type": "json_schema",
         "json_schema": {
             "name": "InvestigationResult",
             "schema": schema,
-            "strict": True,
+            "strict": False,
         },
     }
 
     return output_format
-
 
 def combine_sections(sections: Dict) -> str:
     content = ""
@@ -59,7 +58,79 @@ def combine_sections(sections: Dict) -> str:
     return content
 
 
-def process_response_into_sections(response: Any) -> Tuple[str, OutputSectionsDataType]:
+def parse_markdown_into_sections_from_equal_sign(markdown_content:str) -> Optional[Dict[str, Optional[str]]]:
+    """Splits a markdown in different sections where the key is a top level title underlined with `====` and the value is the content
+    ```
+    Header Title
+    ===========
+    Content here
+    ```
+    =>
+    {
+      "Header Title": "Content here"
+    }
+    """
+    matches = re.split(r'(?:^|\n)([^\n]+)\n=+\n', markdown_content.strip())
+
+    # Remove any empty first element if the text starts with a header
+    if matches[0] == '':
+        matches = matches[1:]
+
+    sections = {}
+
+    for i in range(0, len(matches), 2):
+        if i + 1 < len(matches):
+            header = matches[i]
+            content = matches[i + 1].strip()
+            sections[header] = content
+
+    if len(sections) > 0:
+        return sections
+    else:
+        return None
+
+def parse_markdown_into_sections_from_hash_sign(markdown_content:str) -> Optional[Dict[str, Optional[str]]]:
+    """Splits a markdown in different sections where the key is a top level title underlined with `====` and the value is the content
+    ```
+    # Header Title
+    Content here
+    ```
+    =>
+    {
+      "Header Title": "Content here"
+    }
+    """
+    # Split the text into sections based on headers (# Section)
+    matches = re.split(r'\n(?=# )', markdown_content.strip())
+
+    if not matches[0].startswith("#"):
+        matches = matches[1:]
+    # Create a dictionary to store the sections
+    sections = {}
+
+    for match in matches:
+        if match.strip():
+            # Split each section into title and content
+            # Use maxsplit=1 to only split on the first occurrence
+            parts = match.strip().split('\n', 1)
+
+            if len(parts) > 1:
+                # Remove the # from the title and use it as key
+                title = parts[0].replace('#', '').strip()
+                # Use the rest as content
+                content = parts[1].strip()
+                sections[title] = content
+            else:
+                # Handle case where section has no content
+                title = parts[0].replace('#', '').strip()
+                sections[title] = ""
+
+    if len(sections) > 0:
+        return sections
+    else:
+        return None
+
+def parse_json_sections(response: Any) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
     if isinstance(response, dict):
         # No matter if the result is already structured, we want to go through the code below to validate the JSON
         response = json.dumps(response)
@@ -68,21 +139,31 @@ def process_response_into_sections(response: Any) -> Tuple[str, OutputSectionsDa
         # if it's not a string, we make it so as it'll be parsed later
         response = str(response)
 
+    # In some cases, the LLM will not return a structured json but instead embed the JSON into a markdown code block
+    # This is not ideal and actually should not happen
     if response.startswith("```json\n") and response.endswith("\n```"):
         try:
             parsed = json.loads(
                 response[8:-3]
             )  # if this parses as json, set the response as that.
             if isinstance(parsed, dict):
-                logging.warning("LLM did not return structured data")
+                logging.warning("The LLM did not return structured data but embedded the data into a markdown code block. This indicates the prompt is not optimised for that AI model.")
                 response = response[8:-3]
         except Exception:
             pass
 
     try:
         parsed_json = json.loads(response)
-        # TODO: force dict values into a string would make this more resilient as SectionsData only accept none/str as values
-        sections = SectionsData(root=parsed_json).root
+        if not isinstance(parsed_json, dict):
+            return (response, None)
+        sections = {}
+        for key, value in parsed_json.items():
+            if isinstance(value, list) and len(value) == 0:
+                value = None # For links, LLM returns '[]' which is unsightly when converted to markdown
+            if value is not None:
+                sections[key] = str(value) # force to strings. We only expect markdown and don't want to give anything but a string to the UI
+            else:
+                sections[key] = value
         if sections:
             combined = combine_sections(sections)
             return (combined, sections)
@@ -90,3 +171,36 @@ def process_response_into_sections(response: Any) -> Tuple[str, OutputSectionsDa
         pass
 
     return (response, None)
+
+def process_response_into_sections(response: Any) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
+    (response, sections) = parse_json_sections(response)
+
+    if not sections and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
+        sections = parse_markdown_into_sections_from_hash_sign(response)
+    if not sections and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
+        sections = parse_markdown_into_sections_from_equal_sign(response)
+
+    return (response, sections)
+
+def is_response_an_incorrect_tool_call(sections:Optional[InputSectionsDataType], choice:Choices) -> bool:
+    """Cf. https://github.com/BerriAI/litellm/issues/8241
+    This code detects when LiteLLM is incapable of handling both tool calls and structured output.
+    In that case the intention is to retry the LLM calls without structured output.
+    Post processing will detect that and try to generate a structured output from a monolithic markdown.
+    """
+    try:
+        message = choice.get("message")
+        if sections and choice.get("finish_reason") == "stop" and message and message.get("role") == "assistant":
+            content = message.get("content")
+            if not isinstance(content, dict):
+                content = json.loads(content)
+            if not isinstance(content, dict):
+                return False
+            for section_title in sections:
+                if section_title in content:
+                    return False
+            return True
+
+    except Exception:
+        pass
+    return False
