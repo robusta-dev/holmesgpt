@@ -24,7 +24,6 @@ DEFAULT_SECTIONS: InputSectionsDataType = {
     "External links": "Provide links to external sources and a short sentence describing each link. For example provide links to relevant runbooks, etc. This section is a markdown formatted string.",
 }
 
-
 def get_output_format_for_investigation(
     sections: InputSectionsDataType,
 ) -> Dict[str, Any]:
@@ -206,7 +205,7 @@ def is_response_an_incorrect_tool_call(
     sections: Optional[InputSectionsDataType], choice: Choices
 ) -> bool:
     """Cf. https://github.com/BerriAI/litellm/issues/8241
-    This code detects when LiteLLM is incapable of handling both tool calls and structured output.
+    This code detects when LiteLLM is incapable of handling both tool calls and structured output. This only happens when the LLM is returning a single tool call.
     In that case the intention is to retry the LLM calls without structured output.
     Post processing will detect that and try to generate a structured output from a monolithic markdown.
     """

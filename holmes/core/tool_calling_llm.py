@@ -115,11 +115,12 @@ class ToolCallingLLM:
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
-        for i in range(self.max_steps):
+        max_steps = self.max_steps
+        for i in range(max_steps):
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
-            tools = NOT_GIVEN if i == self.max_steps - 1 else tools
+            tools = NOT_GIVEN if i == max_steps - 1 else tools
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
 
             total_tokens = self.llm.count_tokens_for_message(messages)
@@ -135,7 +136,6 @@ class ToolCallingLLM:
                 perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
-
             try:
                 full_response = self.llm.completion(
                     messages=parse_messages_tags(messages),
@@ -161,7 +161,7 @@ class ToolCallingLLM:
             response = full_response.choices[0]
 
             response_message = response.message
-            if i == 0 and response_message and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
+            if response_message and response_format and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
                 incorrect_tool_call = is_response_an_incorrect_tool_call(
                     sections, response
                 )
@@ -169,8 +169,9 @@ class ToolCallingLLM:
                     logging.warning(
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set DISABLE_SYNTHETIC_STRUCTURED_OUTPUT to `1` or `True`."
                     )
-                    # disable structured output and retry without it
+                    # disable structured output and retry an eval without it
                     response_format = None
+                    max_steps = max_steps + 1
                     continue
 
             messages.append(
