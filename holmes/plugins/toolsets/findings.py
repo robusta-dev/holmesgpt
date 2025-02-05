@@ -55,6 +55,53 @@ class FetchRobustaFinding(Tool):
         return f"Fetch metadata and history"
 
 
+class FetchRobustaAlerts(Tool):
+
+    _dal: Optional[SupabaseDal]
+
+    def __init__(self, dal: Optional[SupabaseDal]):
+        super().__init__(
+            name="fetch_alerts",
+            description="Fetches alerts firing in the enviornment from robusta",
+            parameters={
+                "alert_name": ToolParameter(
+                    description="The alert name to fetch, if not specified it pulls all alerts",
+                    type="string",
+                    required=False,
+                )
+            },
+        )
+        self._dal = dal
+
+    def _fetch_alert(self, alert_id: Optional[str] = None) -> Optional[Dict]:
+        if self._dal and self._dal.enabled:
+            return self._dal.get_firing_alerts(alert_id)
+        else:
+            error = f"Failed to find a alerts named {alert_id}: Holmes' data access layer is not enabled."
+            logging.error(error)
+            return {"error": error}
+
+    def invoke(self, params: Dict) -> str:
+        alert_name = params.get("alert_name", None)
+        try:
+            finding = self._fetch_alert(alert_name)
+            if finding:
+                return yaml.dump(finding)
+            else:
+                return f"Could not find an alert with name ={alert_name}"
+        except Exception as e:
+            logging.error(e)
+            logging.error(
+                f"There was an internal error while fetching alerts {alert_name}. {str(e)}"
+            )
+
+        return f"There was an internal error while fetching alerts {alert_name}"
+
+    def get_parameterized_one_liner(self, params:Dict) -> str:
+        return f"Fetch alert information"
+
+
+
 class FindingsToolset(Toolset):
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
@@ -71,7 +118,7 @@ class FindingsToolset(Toolset):
             description="Fetches alerts metadata and change history",
             name="robusta",
             prerequisites=[dal_prereq],
-            tools=[FetchRobustaFinding(dal)],
+            tools=[FetchRobustaFinding(dal), FetchRobustaAlerts(dal)],
             tags=[ToolsetTag.CORE,],
             is_default=True
         )
