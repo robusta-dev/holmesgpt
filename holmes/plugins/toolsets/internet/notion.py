@@ -9,7 +9,10 @@ from holmes.core.tools import (
     ToolsetTag,
     CallablePrerequisite,
 )
-from holmes.plugins.toolsets.internet.internet import InternetBaseToolset
+from holmes.plugins.toolsets.internet.internet import (
+    InternetBaseToolset, 
+    scrape,
+)
 
 
 
