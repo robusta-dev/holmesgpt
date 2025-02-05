@@ -65,14 +65,41 @@ class FetchNotion(Tool):
     def parse_notion_content(self, content: Any) -> str:
         data = json.loads(content)
         texts = []
-        for result in data["results"]:
-            if "paragraph" in result and "rich_text" in result["paragraph"]:
-                texts.extend(
-                    [text["plain_text"] for text in result["paragraph"]["rich_text"]]
-                )
 
-        # Join and print the result
-        return "".join(texts)
+        for result in data.get("results", []):
+            # Handle paragraph blocks
+            if result.get("type") == "paragraph":
+                rich_texts = result["paragraph"].get("rich_text", [])
+                formatted_text = self.format_rich_text(rich_texts)
+                if formatted_text:
+                    texts.append(formatted_text)
+
+            # Handle bulleted list items
+            elif result.get("type") == "bulleted_list_item":
+                rich_texts = result["bulleted_list_item"].get("rich_text", [])
+                formatted_text = self.format_rich_text(rich_texts)
+                if formatted_text:
+                    texts.append(f"- {formatted_text}")
+
+        # Join and return the formatted text
+        return "\n\n".join(texts)
+
+    def format_rich_text(self, rich_texts: list) -> str:
+        """Helper function to apply formatting (bold, code, etc.)"""
+        formatted_text = []
+        for text in rich_texts:
+            plain_text = text["text"]["content"]
+            annotations = text.get("annotations", {})
+
+            # Apply formatting
+            if annotations.get("bold"):
+                plain_text = f"**{plain_text}**"
+            if annotations.get("code"):
+                plain_text = f"`{plain_text}`"
+
+            formatted_text.append(plain_text)
+
+        return "".join(formatted_text)
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
