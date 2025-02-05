@@ -26,6 +26,14 @@ toolsets:
           "https://api.github.com/repos/${GIT_REPO}/git/trees/${GIT_BRANCH}?recursive=1" | 
           jq -r '.tree[] | .path'
 
+      - name: "git_list_open_prs"
+        description: |
+          Lists all open pull requests (PRs) in the remote Git repository.
+          Before creating a new PR, we always check if there is an open PR first.
+        command: >
+          curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
+          "https://api.github.com/repos/${GIT_REPO}/pulls?state=open" | 
+          jq -r '.[] | "\(.number): \(.title) - https://github.com/'"${GIT_REPO}"'/pull/\(.number)"'
 
       - name: "git_execute_changes"
         description: |
