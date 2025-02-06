@@ -382,11 +382,18 @@ class IssueInvestigator(ToolCallingLLM):
             # If no sections are passed, we will not ask the LLM for structured output
             sections = DEFAULT_SECTIONS
             request_structured_output_from_llm = False
+            logging.info(
+                "No section received from the client. Default sections will be used. request_structured_output_from_llm is now set to False"
+            )
         elif self.llm.model and self.llm.model.startswith("bedrock"):
             # Structured output does not work well with Bedrock Anthropic Sonnet 3.5 through litellm
+            logging.info(
+                f"Model {self.llm.model} recognised as bedrock. request_structured_output_from_llm is now set to False"
+            )
             request_structured_output_from_llm = False
-        elif REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
-            request_structured_output_from_llm = True
+        elif not REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
+            logging.debug("request_structured_output_from_llm is now set to False")
+            request_structured_output_from_llm = False
 
         if request_structured_output_from_llm:
             response_format = get_output_format_for_investigation(sections)
