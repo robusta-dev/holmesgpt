@@ -139,6 +139,19 @@ def parse_markdown_into_sections_from_hash_sign(
     else:
         return None
 
+def extract_within(content:str, from_idx:int, to_idx:int) -> str:
+    try:
+        parsed = json.loads(
+            content[from_idx:to_idx]
+        )  # if this parses as json, set the response as that.
+        if isinstance(parsed, dict):
+            logging.warning(
+                "The LLM did not return structured data but embedded the data into a markdown code block. This indicates the prompt is not optimised for that AI model."
+            )
+            content = content[from_idx:to_idx]
+    except Exception:
+        pass
+    return content
 
 def parse_json_sections(
     response: Any,
@@ -154,15 +167,11 @@ def parse_json_sections(
     # In some cases, the LLM will not return a structured json but instead embed the JSON into a markdown code block
     # This is not ideal and actually should not happen
     if response.startswith("```json\n") and response.endswith("\n```"):
+        response = extract_within(response, 8, -3)
+
+    if response.startswith("\"{") and response.endswith("}\""):
         try:
-            parsed = json.loads(
-                response[8:-3]
-            )  # if this parses as json, set the response as that.
-            if isinstance(parsed, dict):
-                logging.warning(
-                    "The LLM did not return structured data but embedded the data into a markdown code block. This indicates the prompt is not optimised for that AI model."
-                )
-                response = response[8:-3]
+            response = json.loads(response)
         except Exception:
             pass
 
@@ -174,7 +183,9 @@ def parse_json_sections(
         for key, value in parsed_json.items():
             if isinstance(value, list) and len(value) == 0:
                 value = None  # For links, LLM returns '[]' which is unsightly when converted to markdown
-            if value is not None:
+            if isinstance(value, list):
+                sections[key] = '\n\n'.join(f'{str(item)}' for item in value)
+            elif value is not None:
                 sections[key] = str(
                     value
                 )  # force to strings. We only expect markdown and don't want to give anything but a string to the UI

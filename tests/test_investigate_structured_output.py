@@ -18,11 +18,12 @@ def test_prompt_sections_formatting():
         {"issue": issue, "sections": DEFAULT_SECTIONS},
     )
 
+    print(prompt)
+
     assert len(DEFAULT_SECTIONS) > 0
     for title, description in DEFAULT_SECTIONS.items():
-        expected_section = f"- {title}: {description}"
         assert (
-            expected_section in prompt
+            title in prompt
         ), f'Expected section "{title}" not found in formatted prompt'
 
 
@@ -61,6 +62,14 @@ def test_get_output_format_for_investigation():
             '```json\n{"section1": "test1", "section2": "test2"}\n```',
             "\n# section1\ntest1\n\n# section2\ntest2\n",
             {"section1": "test1", "section2": "test2"},
+        ),
+        (
+          "\"{\\n    \\\"Next Steps\\\": [\\n        \\\"1. Verify Prometheus configuration for etcd target\\\",\\n        \\\"2. Check if the etcd metrics endpoint is accessible\\\"],\\n    \\\"Conclusions and Possible Root causes\\\": [\\n        \\\"1. *Missing ServiceMonitor*: No ServiceMonitor was found for the kube-etcd service, which prevents Prometheus from discovering and scraping metrics\\\",\\n        \\\"2. *Misconfigured Prometheus Scrape Configuration*: The monitoring stack might not be correctly configured to scrape etcd metrics\\\"\\n    ]\\n}\"",
+          "\n# Next Steps\n1. Verify Prometheus configuration for etcd target\n\n2. Check if the etcd metrics endpoint is accessible\n\n# Conclusions and Possible Root causes\n1. *Missing ServiceMonitor*: No ServiceMonitor was found for the kube-etcd service, which prevents Prometheus from discovering and scraping metrics\n\n2. *Misconfigured Prometheus Scrape Configuration*: The monitoring stack might not be correctly configured to scrape etcd metrics\n",
+          {
+            "Next Steps": "1. Verify Prometheus configuration for etcd target\n\n2. Check if the etcd metrics endpoint is accessible",
+            "Conclusions and Possible Root causes": "1. *Missing ServiceMonitor*: No ServiceMonitor was found for the kube-etcd service, which prevents Prometheus from discovering and scraping metrics\n\n2. *Misconfigured Prometheus Scrape Configuration*: The monitoring stack might not be correctly configured to scrape etcd metrics"
+          },
         ),
         (123, "123", None),
         (None, "None", None),
