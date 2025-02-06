@@ -16,7 +16,7 @@ InputSectionsDataType = Dict[str, str]
 
 DEFAULT_SECTIONS: InputSectionsDataType = {
     "Alert Explanation": '1-2 sentences explaining the alert itself - note don\'t say "The alert indicates a warning event related to a Kubernetes pod doing blah" rather just say "The pod XYZ did blah" because that is what the user actually cares about',
-    "Investigation": "What you checked and found",
+    "Key Findings": "What you checked and found",
     "Conclusions and Possible Root causes": "What conclusions can you reach based on the data you found? what are possible root causes (if you have enough conviction to say) or what uncertainty remains. Don't say root cause but 'possible root causes'. Be clear to distinguish between what you know for certain and what is a possible explanation",
     "Next Steps": "What you would do next to troubleshoot this issue, any commands that could be run to fix it, or other ways to solve it (prefer giving precise bash commands when possible)",
     "Related logs": "Truncate and share the most relevant logs, especially if these explain the root cause. For example: \nLogs from pod robusta-holmes:\n```\n<logs>```\n. Always embed the surroundding +/- 5 log lines to any relevant logs. ",
