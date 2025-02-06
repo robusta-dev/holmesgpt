@@ -6,10 +6,13 @@ import os
 
 from litellm import Choices
 
+REQUEST_STRUCTURED_OUTPUT_FROM_LLM = os.environ.get(
+    "REQUEST_STRUCTURED_OUTPUT_FROM_LLM", "true"
+).lower() in ["true", "1"]
 
-DISABLE_SYNTHETIC_STRUCTURED_OUTPUT = os.environ.get(
-    "DISABLE_SYNTHETIC_STRUCTURED_OUTPUT", False
-)
+PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS = os.environ.get(
+    "PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS", "true"
+).lower() in ["true", "1"]
 
 
 InputSectionsDataType = Dict[str, str]
@@ -155,9 +158,10 @@ def extract_within(content: str, from_idx: int, to_idx: int) -> str:
     return content
 
 
-def parse_json_sections(
-    response: Any,
-) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
+def pre_format_sections(response: Any) -> Any:
+    """Pre-cleaning of the response for some known, specific use cases
+    prior to it being parsed for sections
+    """
     if isinstance(response, dict):
         # No matter if the result is already structured, we want to go through the code below to validate the JSON
         response = json.dumps(response)
@@ -172,10 +176,19 @@ def parse_json_sections(
         response = extract_within(response, 8, -3)
 
     if response.startswith('"{') and response.endswith('}"'):
+        # Some Anthripic model embed the actual JSON dict inside a JSON string
+        # In that case it gets parsed once to get rid of the first level of marshalling
         try:
             response = json.loads(response)
         except Exception:
             pass
+    return response
+
+
+def parse_json_sections(
+    response: Any,
+) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
+    response = pre_format_sections(response)
 
     try:
         parsed_json = json.loads(response)
@@ -185,6 +198,7 @@ def parse_json_sections(
         for key, value in parsed_json.items():
             if isinstance(value, list) and len(value) == 0:
                 value = None  # For links, LLM returns '[]' which is unsightly when converted to markdown
+
             if isinstance(value, list):
                 sections[key] = "\n\n".join(f"{str(item)}" for item in value)
             elif value is not None:
@@ -205,11 +219,14 @@ def parse_json_sections(
 def process_response_into_sections(
     response: Any,
 ) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
-    (response, sections) = parse_json_sections(response)
+    sections = None
 
-    if not sections and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
+    if REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
+        (response, sections) = parse_json_sections(response)
+
+    if not sections and PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS:
         sections = parse_markdown_into_sections_from_hash_sign(response)
-    if not sections and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT:
+    if not sections and PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS:
         sections = parse_markdown_into_sections_from_equal_sign(response)
 
     return (response, sections)

@@ -11,7 +11,7 @@ from holmes.core.investigation_structured_output import (
 from holmes.plugins.prompts import load_and_render_prompt
 
 
-def test_prompt_sections_formatting():
+def test_prompt_sections_formatting_structured_output():
     issue = {"source_type": "prometheus"}
     prompt = load_and_render_prompt(
         "builtin://generic_investigation.jinja2",
@@ -19,11 +19,29 @@ def test_prompt_sections_formatting():
     )
 
     print(prompt)
-
     assert len(DEFAULT_SECTIONS) > 0
     for title, description in DEFAULT_SECTIONS.items():
         assert (
-            title in prompt
+            f"# {title}" in prompt
+        ), f'Expected section "{title}" was not found in formatted prompt'
+        assert (
+            f"{description}" in prompt
+        ), f'Expected description for "{title}" was not found in formatted prompt'
+
+
+def test_prompt_sections_formatting_unstructured_output():
+    issue = {"source_type": "prometheus"}
+    prompt = load_and_render_prompt(
+        "builtin://generic_investigation.jinja2",
+        {"issue": issue, "sections": DEFAULT_SECTIONS, "structured_output": True},
+    )
+
+    print(prompt)
+    assert len(DEFAULT_SECTIONS) > 0
+    for title, description in DEFAULT_SECTIONS.items():
+        flattened_description = description.replace("\n", "\\n")
+        assert (
+            f'"{title}": "{flattened_description}"' in prompt
         ), f'Expected section "{title}" not found in formatted prompt'
 
 

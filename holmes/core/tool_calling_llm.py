@@ -3,12 +3,13 @@ import json
 import logging
 import textwrap
 from typing import List, Optional, Dict, Type, Union
+
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
+    REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
-    DISABLE_SYNTHETIC_STRUCTURED_OUTPUT,
 )
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
@@ -161,11 +162,7 @@ class ToolCallingLLM:
             response = full_response.choices[0]
 
             response_message = response.message
-            if (
-                response_message
-                and response_format
-                and not DISABLE_SYNTHETIC_STRUCTURED_OUTPUT
-            ):
+            if response_message and response_format:
                 incorrect_tool_call = is_response_an_incorrect_tool_call(
                     sections, response
                 )
@@ -173,7 +170,7 @@ class ToolCallingLLM:
                     logging.warning(
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set DISABLE_SYNTHETIC_STRUCTURED_OUTPUT to `1` or `True`."
                     )
-                    # disable structured output and retry an eval without it
+                    # disable structured output going forward and and retry
                     response_format = None
                     max_steps = max_steps + 1
                     continue
@@ -375,8 +372,24 @@ class IssueInvestigator(ToolCallingLLM):
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
+        request_structured_output_from_llm = True
+        response_format = None
+
+        # This section is about setting vars to request the LLM to return structured output.
+        # It does not mean that Holmes will not return structured sections for investigation as it is
+        # capable of splitting the markdown into sections
         if not sections or len(sections) == 0:
+            # If no sections are passed, we will not ask the LLM for structured output
             sections = DEFAULT_SECTIONS
+            request_structured_output_from_llm = False
+        elif self.llm.model and self.llm.model.startswith("bedrock"):
+            # Structured output does not work well with Bedrock Anthropic Sonnet 3.5 through litellm
+            request_structured_output_from_llm = False
+        elif REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
+            request_structured_output_from_llm = True
+
+        if request_structured_output_from_llm:
+            response_format = get_output_format_for_investigation(sections)
 
         if instructions is not None and instructions.instructions:
             runbooks.extend(instructions.instructions)
@@ -390,7 +403,12 @@ class IssueInvestigator(ToolCallingLLM):
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
         system_prompt = load_and_render_prompt(
-            prompt, {"issue": issue, "sections": sections}
+            prompt,
+            {
+                "issue": issue,
+                "sections": sections,
+                "structured_output": request_structured_output_from_llm,
+            },
         )
 
         if instructions is not None and len(instructions.documents) > 0:
@@ -426,7 +444,7 @@ class IssueInvestigator(ToolCallingLLM):
             system_prompt,
             user_prompt,
             post_processing_prompt,
-            response_format=get_output_format_for_investigation(sections),
+            response_format=response_format,
             sections=sections,
         )
         res.instructions = runbooks

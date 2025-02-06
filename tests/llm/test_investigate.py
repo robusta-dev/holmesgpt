@@ -101,8 +101,10 @@ def test_investigate(experiment_name, test_case):
 
     # eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
+    investigate_request = test_case.investigate_request
+    investigate_request.sections = DEFAULT_SECTIONS
     result = investigate_issues(
-        investigate_request=test_case.investigate_request, config=config, dal=mock_dal
+        investigate_request=investigate_request, config=config, dal=mock_dal
     )
     assert result, "No result returned by investigate_issues()"
 

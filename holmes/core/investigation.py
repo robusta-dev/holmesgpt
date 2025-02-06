@@ -23,6 +23,7 @@ def investigate_issues(
         raw_data["extra_context"] = context
 
     ai = config.create_issue_investigator(dal=dal)
+
     issue = Issue(
         id=context["id"] if context else "",
         name=investigate_request.title,
