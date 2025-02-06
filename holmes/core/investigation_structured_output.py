@@ -139,7 +139,8 @@ def parse_markdown_into_sections_from_hash_sign(
     else:
         return None
 
-def extract_within(content:str, from_idx:int, to_idx:int) -> str:
+
+def extract_within(content: str, from_idx: int, to_idx: int) -> str:
     try:
         parsed = json.loads(
             content[from_idx:to_idx]
@@ -152,6 +153,7 @@ def extract_within(content:str, from_idx:int, to_idx:int) -> str:
     except Exception:
         pass
     return content
+
 
 def parse_json_sections(
     response: Any,
@@ -169,7 +171,7 @@ def parse_json_sections(
     if response.startswith("```json\n") and response.endswith("\n```"):
         response = extract_within(response, 8, -3)
 
-    if response.startswith("\"{") and response.endswith("}\""):
+    if response.startswith('"{') and response.endswith('}"'):
         try:
             response = json.loads(response)
         except Exception:
@@ -184,7 +186,7 @@ def parse_json_sections(
             if isinstance(value, list) and len(value) == 0:
                 value = None  # For links, LLM returns '[]' which is unsightly when converted to markdown
             if isinstance(value, list):
-                sections[key] = '\n\n'.join(f'{str(item)}' for item in value)
+                sections[key] = "\n\n".join(f"{str(item)}" for item in value)
             elif value is not None:
                 sections[key] = str(
                     value
