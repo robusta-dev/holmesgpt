@@ -168,7 +168,7 @@ class ToolCallingLLM:
                 )
                 if incorrect_tool_call:
                     logging.warning(
-                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set DISABLE_SYNTHETIC_STRUCTURED_OUTPUT to `1` or `True`."
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
                     response_format = None
