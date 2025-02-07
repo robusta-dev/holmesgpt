@@ -3,11 +3,11 @@ from pydantic import BaseModel
 import yaml
 from typing import Any, Dict, List, Optional
 from holmes.core.tools import (
-    StaticPrerequisite,
     Tool,
     ToolParameter,
     Toolset,
     ToolsetTag,
+    CallablePrerequisite,
 )
 from confluent_kafka.admin import (
     AdminClient,
@@ -22,8 +22,8 @@ from confluent_kafka.admin import (
     ConsumerGroupDescription,
     PartitionMetadata,
     TopicMetadata,
+    _TopicPartition as TopicPartition,
 )
-from confluent_kafka import KafkaException
 
 
 def convert_to_dict(obj: Any):
@@ -51,6 +51,8 @@ def convert_to_dict(obj: Any):
                 else:
                     result[key] = convert_to_dict(value)
         return result
+    if isinstance(obj, TopicPartition):
+        return str(obj)
     return obj
 
 
@@ -64,20 +66,22 @@ class KafkaConfig(BaseModel):
 
 
 class ListKafkaConsumers(Tool):
-    def __init__(self, admin_client: AdminClient):
+    toolset: "KafkaToolset"
+
+    def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="list_kafka_consumers",
             description="Lists all Kafka consumer groups in the cluster",
             parameters={},
+            toolset=toolset,
         )
-        self._admin_client = admin_client
 
     def invoke(self, params: Dict) -> str:
         try:
-            futures = self._admin_client.list_consumer_groups()
+            futures = self.toolset.admin_client.list_consumer_groups()
             groups: ListConsumerGroupsResult = futures.result()
             return yaml.dump(groups)
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to list consumer groups: {str(e)}"
             logging.error(error_msg)
             raise e
@@ -87,7 +91,9 @@ class ListKafkaConsumers(Tool):
 
 
 class DescribeConsumerGroup(Tool):
-    def __init__(self, admin_client: AdminClient):
+    toolset: "KafkaToolset"
+
+    def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="describe_consumer_group",
             description="Describes a specific Kafka consumer group",
@@ -98,14 +104,14 @@ class DescribeConsumerGroup(Tool):
                     required=True,
                 )
             },
+            toolset=toolset,
         )
-        self._admin_client = admin_client
 
     def invoke(self, params: Dict) -> str:
         print(params)
         group_id = params["group_id"]
         try:
-            futures = self._admin_client.describe_consumer_groups([group_id])
+            futures = self.toolset.admin_client.describe_consumer_groups([group_id])
             print(futures)
             print(futures.get(group_id))
             if futures.get(group_id):
@@ -113,7 +119,7 @@ class DescribeConsumerGroup(Tool):
                 return yaml.dump(convert_to_dict(group_metadata))
             else:
                 return "Group not found"
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to describe consumer group {group_id}: {str(e)}"
             logging.error(error_msg)
             return error_msg
@@ -123,19 +129,21 @@ class DescribeConsumerGroup(Tool):
 
 
 class ListTopics(Tool):
-    def __init__(self, admin_client: AdminClient):
+    toolset: "KafkaToolset"
+
+    def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="list_topics",
             description="Lists all Kafka topics in the cluster",
             parameters={},
+            toolset=toolset,
         )
-        self._admin_client = admin_client
 
     def invoke(self, params: Dict) -> str:
         try:
-            topics = self._admin_client.list_topics()
+            topics = self.toolset.admin_client.list_topics()
             return yaml.dump(convert_to_dict(topics))
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to list topics: {str(e)}"
             logging.error(error_msg)
             return error_msg
@@ -145,7 +153,9 @@ class ListTopics(Tool):
 
 
 class DescribeTopic(Tool):
-    def __init__(self, admin_client: AdminClient):
+    toolset: "KafkaToolset"
+
+    def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="describe_topic",
             description="Describes details of a specific Kafka topic",
@@ -161,8 +171,8 @@ class DescribeTopic(Tool):
                     required=False,
                 ),
             },
+            toolset=toolset,
         )
-        self._admin_client = admin_client
 
     def invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
@@ -170,10 +180,12 @@ class DescribeTopic(Tool):
             config_future = None
             if str(params.get("fetch_configuration", False)).lower() == "true":
                 resource = ConfigResource("topic", topic_name)
-                configs = self._admin_client.describe_configs([resource])
+                configs = self.toolset.admin_client.describe_configs([resource])
                 config_future = next(iter(configs.values()))
 
-            metadata = self._admin_client.list_topics(topic_name).topics[topic_name]
+            metadata = self.toolset.admin_client.list_topics(topic_name).topics[
+                topic_name
+            ]
             result = convert_to_dict(metadata)
 
             if config_future:
@@ -181,7 +193,7 @@ class DescribeTopic(Tool):
                 result["configuration"] = convert_to_dict(config)
 
             return yaml.dump(result)
-        except KafkaException as e:
+        except Exception as e:
             error_msg = f"Failed to describe topic {topic_name}: {str(e)}"
             logging.error(error_msg)
             return error_msg
@@ -203,7 +215,9 @@ def group_has_topic(
 
 
 class FindConsumerGroupsByTopic(Tool):
-    def __init__(self, admin_client: AdminClient):
+    toolset: "KafkaToolset"
+
+    def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="find_consumer_groups_by_topic",
             description="Finds all consumer groups consuming from a specific topic",
@@ -214,13 +228,13 @@ class FindConsumerGroupsByTopic(Tool):
                     required=True,
                 )
             },
+            toolset=toolset,
         )
-        self._admin_client = admin_client
 
     def invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
         try:
-            groups_future = self._admin_client.list_consumer_groups()
+            groups_future = self.toolset.admin_client.list_consumer_groups()
             groups: ListConsumerGroupsResult = groups_future.result()
 
             consumer_groups = []
@@ -235,8 +249,10 @@ class FindConsumerGroupsByTopic(Tool):
                 ]
 
             if len(group_ids_to_evaluate) > 0:
-                consumer_groups_futures = self._admin_client.describe_consumer_groups(
-                    group_ids_to_evaluate
+                consumer_groups_futures = (
+                    self.toolset.admin_client.describe_consumer_groups(
+                        group_ids_to_evaluate
+                    )
                 )
 
                 for (
@@ -254,7 +270,7 @@ class FindConsumerGroupsByTopic(Tool):
             if len(consumer_groups) == 0:
                 return f"No consumer group were found for topic {topic_name}"
             return yaml.dump(consumer_groups)
-        except KafkaException as e:
+        except Exception as e:
             error_msg = (
                 f"Failed to find consumer groups for topic {topic_name}: {str(e)}"
             )
@@ -266,46 +282,47 @@ class FindConsumerGroupsByTopic(Tool):
 
 
 class KafkaToolset(Toolset):
-    def __init__(self, config: Optional[KafkaConfig] = None):
-        try:
-            if config:
-                admin_config = {
-                    "bootstrap.servers": config.brokers,
-                    "client.id": config.client_id or "holmes-kafka-core-toolset",
-                    "security.protocol": config.security_protocol,
-                    "sasl.mechanisms": config.sasl_mechanism,
-                    "sasl.username": config.username,
-                    "sasl.password": config.password,
-                }
+    admin_client: Optional[Any] = None
 
-                admin_client = AdminClient(admin_config)
-
-                kafka_prereq = StaticPrerequisite(
-                    enabled=True, disabled_reason="Kafka admin client is available"
-                )
-            else:
-                admin_client = None
-                kafka_prereq = StaticPrerequisite(
-                    enabled=False, disabled_reason="Kafka client not configured"
-                )
-        except Exception as e:
-            admin_client = None
-            kafka_prereq = StaticPrerequisite(
-                enabled=False,
-                disabled_reason=f"Failed to initialize Kafka admin client: {str(e)}",
-            )
-
+    def __init__(
+        self,
+    ):
         super().__init__(
             name="kafka_tools",
             description="Fetches metadata from Kafka",
-            prerequisites=[kafka_prereq],
-            icon_url="https://en.wikipedia.org/wiki/Apache_Kafka#/media/File:Apache_Kafka_logo.svg",
+            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-cR1JrBgJxB_SPVKUIRwtiHnR8qBvLeHXjQ&s",
             tags=[ToolsetTag.CORE],
             tools=[
-                ListKafkaConsumers(admin_client),
-                DescribeConsumerGroup(admin_client),
-                ListTopics(admin_client),
-                DescribeTopic(admin_client),
-                FindConsumerGroupsByTopic(admin_client),
+                ListKafkaConsumers(self),
+                DescribeConsumerGroup(self),
+                ListTopics(self),
+                DescribeTopic(self),
+                FindConsumerGroupsByTopic(self),
             ],
         )
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+        try:
+            if config:
+                admin_config = {
+                    "bootstrap.servers": config.get("kafka_broker", None),
+                    "client.id": config.get(
+                        "kafka_client_id", "holmes-kafka-core-toolset"
+                    ),
+                    "security.protocol": config.get("kafka_security_protocol", None),
+                    "sasl.mechanisms": config.get("kafka_sasl_mechanism", None),
+                    "sasl.username": config.get("kafka_username", None),
+                    "sasl.password": config.get("kafka_password", None),
+                }
+                self.admin_client = AdminClient(admin_config)
+                logging.info("Kafka admin client is available")
+                return True
+            else:
+                self.admin_client = None
+                logging.info("Kafka client not configured")
+                return False
+        except Exception as e:
+            self.admin_client = None
+            logging.info(f"Failed to initialize Kafka admin client: {str(e)}")
+            return False
