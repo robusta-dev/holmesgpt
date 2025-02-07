@@ -1,5 +1,5 @@
 <div align="center">
-  <h1 align="center">Solve cloud alerts faster with an AI assistant</h1>
+  <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <h2 align="center">HolmesGPT - AI Agent for On-Call Engineers 🔥</h2>
   <p align="center">
     <a href="#ways-to-use-holmesgpt"><strong>Examples</strong></a> |
@@ -9,17 +9,25 @@
   </p>
 </div>
 
-Improve developer experience and reduce mean-time-to-respond (MTTR) by transforming alerts from this 👇
+Respond to alerts faster, by using AI to automatically:
+
+* Fetch logs, traces, and metrics
+* Decide if the problem is likely **application problem or infrastructure problem** (who should investigate first?)
+* Find upstream root-causes
+
+Using HolmesGPT, you can transform your existing alerts from this 👇
 
 ![Screenshot 2024-10-31 at 12 01 12 2](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
 
 To this 👇
 
-![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/9e2c7a23-b942-4720-8a98-488323e092ca)
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/238d385c-70b5-4f41-a3cd-b7785f49d74c" alt="Prometheus alert with AI investigation" width="500px" />
+</div>
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
-- **Secure:** *Read-only* access to your data - respects RBAC permissions 
+- **Secure:** *Read-only* access to data - respects RBAC permissions
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
@@ -41,7 +49,7 @@ Includes free use of the Robusta AI model.
 ![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/2e90cc7b-4b0a-4386-ab4f-0d36692b549c)
 
 
-[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme) (Kubernetes cluster required) or contact us about on-premise options.
+[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
 </details>
 
 <details>
@@ -178,7 +186,20 @@ See an example implementation [here](examples/custom_llm.py).
 
 Like what you see? Discover [more use cases](#more-use-cases) or get started by [installing HolmesGPT](#installation).
 
-## Installation
+## In-Cluster Installation (Recommended)
+
+Install Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package:
+
+- Analysis based on **GPT-4o** (no API key needed)
+- Simple installation using `helm`
+- Built-in integrations with **Prometheus alerts** and **Slack**
+- Visualize Kubernetes issues on a timeline, and analyze them with Holmes in a single click
+
+**Note:** Requires a Kubernetes cluster.
+
+[Create a free Robusta UI account »](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=easy_install_in_cluster_section)
+
+## More Installation methods
 
 **Prerequisite:** <a href="#getting-an-api-key"> Get an API key for a supported LLM.</a>
 
@@ -281,32 +302,79 @@ docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v 
 <details>
 <summary>Run HolmesGPT in your cluster (Helm)</summary>
 
-Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the below instructions.
+Most users should install Holmes using the instructions in the [Robusta docs ↗](https://docs.robusta.dev/master/configuration/ai-analysis.html) and NOT the instructions below.
 
-By using the ``Robusta`` integration you’ll benefit from an end-to-end integration that integrates with ``Prometheus alerts`` and ``Slack``. Using the below instructions you’ll have to build many of those components yourself.
+By using the `Robusta` integration, you’ll benefit from a fully integrated setup that works seamlessly with `Prometheus alerts` and `Slack`. Using the instructions below requires you to build and configure many of these components yourself.
 
-In this mode, all the parameters should be passed to the HolmesGPT deployment, using environment variables.
+### Environment Variable Configuration
 
-We recommend pulling sensitive variables from Kubernetes ``secrets``.
+In this mode, all parameters should be passed to the HolmesGPT deployment using environment variables. To securely manage sensitive data, we recommend pulling sensitive variables from Kubernetes `secrets`.
 
-First, you'll need to create your ``holmes-values.yaml`` file, for example:
+#### Example Configuration
+Create a `holmes-values.yaml` file with your desired environment variables:
 
-    additionalEnvVars:
-    - name: MODEL
-      value: gpt-4o
-    - name: OPENAI_API_KEY
-      value: <your open ai key>
+```yaml
+additionalEnvVars:
+  - name: MODEL
+    value: gpt-4o
+  - name: OPENAI_API_KEY
+    value: <your open ai key>
+```
 
+Install Holmes with Helm:
 
-Then, install with ``helm``;
+```bash
+helm repo add robusta https://robusta-charts.storage.googleapis.com && helm repo update
+helm install holmes robusta/holmes -f holmes-values.yaml
+```
 
-    helm repo add robusta https://robusta-charts.storage.googleapis.com && helm repo update
-    helm install holmes robusta/holmes -f holmes-values.yaml
+For all LLMs, you must provide the `MODEL` environment variable, which specifies the model you are using. Some LLMs may require additional variables.
 
+### Using `{{ env.VARIABLE_NAME }}` for Secrets
 
-For all LLMs you need to provide the ``MODEL`` environment variable, which specifies which model you are using.
+For enhanced security and flexibility, you can substitute values directly with environment variables using the `{{ env.VARIABLE_NAME }}` syntax. This is especially useful for passing sensitive information like API keys or credentials.
 
-Some LLMs requires additional variables:
+Example configuration for OpenSearch integration:
+
+```yaml
+toolsets:
+  opensearch:
+    enabled: true
+    config:
+      # OpenSearch configuration
+      opensearch_clusters:
+        - hosts:
+            - host: "{{ env.OPENSEARCH_URL }}"
+              port: 9200
+          headers:
+            Authorization: "Basic {{ env.OPENSEARCH_BEARER_TOKEN }}"
+          # Additional parameters
+          use_ssl: true
+          ssl_assert_hostname: false
+          verify_certs: false
+          ssl_show_warn: false
+```
+
+In this example:
+- `{{ env.OPENSEARCH_URL }}` will be replaced by the `OPENSEARCH_URL` environment variable.
+- `{{ env.OPENSEARCH_BEARER_TOKEN }}` will pull the value of the `OPENSEARCH_BEARER_TOKEN` environment variable.
+
+This approach allows sensitive variables to be managed securely, such as by using Kubernetes secrets.
+
+### Custom Toolset Configurations
+
+You can also add custom configurations for other toolsets. For example:
+
+```yaml
+toolsets:
+  tool_name_here:
+    enabled: true
+    config:
+      # Custom configuration for your tool
+      custom_param: "{{ env.CUSTOM_PARAM }}"
+```
+
+This structure enables you to add or modify toolset configurations easily, while leveraging environment variables for flexibility and security.
 
 <details>
 <summary>OpenAI</summary>
@@ -491,7 +559,7 @@ To use Vertex AI with Gemini models, set the following environment variables:
 
 ```bash
 export VERTEXAI_PROJECT="your-project-id"
-export VERTEXAI_LOCATION="us-central1" 
+export VERTEXAI_LOCATION="us-central1"
 export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
 ```
 
@@ -538,9 +606,9 @@ If your llm provider url uses a certificate from a custom CA, in order to trust 
 <summary>Confluence</summary>
 HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
 
-* CONFLUENCE_BASE_URL - e.g. https://robusta-dev-test.atlassian.net
-* CONFLUENCE_USER - e.g. user@company.com
-* CONFLUENCE_API_KEY - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+* `CONFLUENCE_BASE_URL` - e.g. https://robusta-dev-test.atlassian.net
+* `CONFLUENCE_USER` - e.g. user@company.com
+* `CONFLUENCE_API_KEY` - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
 </details>
 
 <details>
@@ -560,8 +628,52 @@ Fetching runbooks through URLs
 </summary>
 
 HolmesGPT can consult webpages containing runbooks or other relevant information.
-HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
+This is done through a HTTP GET and the resulting HTML is then cleaned and parsed into markdown.
+Any Javascript that is on the webpage is ignored.
 </details>
+
+<details>
+<summary>
+Using Grafana Loki
+</summary>
+
+HolmesGPT can consult logs from [Loki](https://grafana.com/oss/loki/) by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
+
+To configure loki toolset:
+
+```yaml
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      api_key: "{{ env.GRAFANA_API_KEY }}"
+      url: "http://loki-url"
+```
+
+For search terms, you can optionally tweak the search terms used by the toolset.
+This is done by appending the following to your Holmes grafana/loki configuration:
+
+```yaml
+pod_name_search_key: "pod"
+namespace_search_key: "namespace"
+node_name_search_key: "node"
+```
+
+> You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+
+</details>
+
+<details>
+<summary>
+Using Grafana Tempo
+</summary>
+
+HolmesGPT can fetch trace information from Grafana Tempo to debug performance related issues.
+
+Tempo is configured the using the same Grafana settings as the Grafana Loki toolset.
+
+</details>
+
 
 <details>
 <summary>
@@ -570,6 +682,7 @@ ArgoCD
 
 Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps configuration and status, clusters and projects within ArgoCD.
 To enable ArgoCD, set the `ARGOCD_AUTH_TOKEN` environment variable as described in the [argocd documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
+
 </details>
 
 ## More Use Cases
@@ -645,6 +758,7 @@ You can customize HolmesGPT's behaviour with command line flags, or you can save
 You can view an example config file with all available settings [here](config.example.yaml).
 
 By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
+
 
 <details>
 <summary>Custom Toolsets</summary>
@@ -762,6 +876,52 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 
 </details>
 
+
+<details>
+<summary>OpenSearch Integration</summary>
+
+The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
+The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file:
+
+```
+opensearch_clusters:
+  - hosts:
+      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
+    headers:
+      Authorization: "ApiKey <your_API_key>"
+# or
+#  - hosts:
+#      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
+#    http_auth:
+#      username: ELASTIC_USERNAME
+#      password: ELASTIC_PASSWORD
+```
+
+The configuration for each OpenSearch cluster is passed directly to the [opensearch-py](https://github.com/opensearch-project/opensearch-py) module. Refer to the module's documentation for detailed guidance on configuring connectivity.
+
+To enable OpenSearch integration when running HolmesGPT in a Kubernetes cluster, **include the following configuration** in the `Helm chart`:
+
+```yaml
+toolsets:
+  opensearch:
+    enabled: true
+    config:
+      # OpenSearch configuration
+      opensearch_clusters:
+        - hosts:
+            - host: "{{ env.OPENSEARCH_URL }}"
+              port: 9200
+          headers:
+            Authorization: "Basic {{ env.OPENSEARCH_BEARER_TOKEN }}"
+          # Additional parameters
+          use_ssl: true
+          ssl_assert_hostname: false
+          verify_certs: false
+          ssl_show_warn: false
+```
+
+</details>
+
 <summary>Kafka Integration</summary>
 
 Enable Kafka as a tool for Holmes to fetch kafka metadata like the topics or consumer groups.
@@ -776,6 +936,8 @@ export KAFKA_CLIENT_ID = "..." # optional
 ```
 
 </details>
+
+
 <details>
 
 <summary>Custom Runbooks</summary>

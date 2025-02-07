@@ -1,23 +1,35 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"deployment","name":"front-end","namespace":"sock-shop"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"front-end-6bc5876d74-kn2zt","namespace":"sock-shop"}}
 stdout:
-Name:                   front-end
-Namespace:              sock-shop
-CreationTimestamp:      Tue, 26 Nov 2024 14:29:26 +0100
-Labels:                 <none>
-Annotations:            deployment.kubernetes.io/revision: 1
-Selector:               name=front-end
-Replicas:               1 desired | 1 updated | 1 total | 1 available | 0 unavailable
-StrategyType:           RollingUpdate
-MinReadySeconds:        0
-RollingUpdateStrategy:  25% max unavailable, 25% max surge
-Pod Template:
-  Labels:       name=front-end
-  Annotations:  admission.datadoghq.com/dotnet-lib.version: v2.53.2-musl
-  Containers:
-   front-end:
-    Image:      weaveworksdemos/front-end:0.3.12
-    Port:       8079/TCP
-    Host Port:  0/TCP
+Name:             front-end-6bc5876d74-kn2zt
+Namespace:        sock-shop
+Priority:         0
+Service Account:  default
+Node:             grafana-cloud-control-plane/172.18.0.3
+Start Time:       Fri, 24 Jan 2025 10:31:12 +0100
+Labels:           name=front-end
+                  pod-template-hash=6bc5876d74
+Annotations:      admission.datadoghq.com/dotnet-lib.version: v2.53.2-musl
+Status:           Running
+IP:               10.244.0.36
+IPs:
+  IP:           10.244.0.36
+Controlled By:  ReplicaSet/front-end-6bc5876d74
+Containers:
+  front-end:
+    Container ID:   containerd://48e49bc2e4024cea764638a41a517f71215adb0a53d35699cae3869f97f0220d
+    Image:          weaveworksdemos/front-end:0.3.12
+    Image ID:       docker.io/weaveworksdemos/front-end@sha256:26a2d9b6b291dee2dca32fca3f5bff6c2fa07bb5954359afcbc8001cc70eac71
+    Port:           8079/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Fri, 24 Jan 2025 10:48:16 +0100
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Fri, 24 Jan 2025 10:45:21 +0100
+      Finished:     Fri, 24 Jan 2025 10:47:46 +0100
+    Ready:          False
+    Restart Count:  3
     Limits:
       cpu:     300m
       memory:  1000Mi
@@ -28,20 +40,35 @@ Pod Template:
     Readiness:  http-get http://:8079/ delay=30s timeout=1s period=3s #success=1 #failure=3
     Environment:
       SESSION_REDIS:  true
-    Mounts:           <none>
-  Volumes:            <none>
-  Node-Selectors:     beta.kubernetes.io/os=linux
-  Tolerations:        <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-7fvz6 (ro)
 Conditions:
-  Type           Status  Reason
-  ----           ------  ------
-  Progressing    True    NewReplicaSetAvailable
-  Available      True    MinimumReplicasAvailable
-OldReplicaSets:  <none>
-NewReplicaSet:   front-end-6bc5876d74 (1/1 replicas created)
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  kube-api-access-7fvz6:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              beta.kubernetes.io/os=linux
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:
-  Type    Reason             Age   From                   Message
-  ----    ------             ----  ----                   -------
-  Normal  ScalingReplicaSet  24m   deployment-controller  Scaled up replica set front-end-6bc5876d74 to 1
+  Type     Reason     Age                  From               Message
+  ----     ------     ----                 ----               -------
+  Normal   Scheduled  17m                  default-scheduler  Successfully assigned sock-shop/front-end-6bc5876d74-kn2zt to grafana-cloud-control-plane
+  Normal   Pulling    17m                  kubelet            Pulling image "weaveworksdemos/front-end:0.3.12"
+  Normal   Pulled     16m                  kubelet            Successfully pulled image "weaveworksdemos/front-end:0.3.12" in 4.985s (46.468s including waiting). Image size: 54818999 bytes.
+  Warning  BackOff    36s (x6 over 3m35s)  kubelet            Back-off restarting failed container front-end in pod front-end-6bc5876d74-kn2zt_sock-shop(3a5904ee-86de-437e-ad28-e3be84151da5)
+  Normal   Created    24s (x4 over 16m)    kubelet            Created container front-end
+  Normal   Started    24s (x4 over 16m)    kubelet            Started container front-end
+  Normal   Pulled     24s (x3 over 4m42s)  kubelet            Container image "weaveworksdemos/front-end:0.3.12" already present on machine
 
 stderr:

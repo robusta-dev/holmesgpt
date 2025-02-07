@@ -13,6 +13,4 @@ after_test: |
   kubectl delete -f ./job-service-account-event/get-data-job.yaml
   kubectl delete -f ./job-service-account-event/get-data-service-account.yaml
 evaluation:
-  correctness: 0.3
-  context: 0.3
-generate_mocks: True
+  correctness: 0

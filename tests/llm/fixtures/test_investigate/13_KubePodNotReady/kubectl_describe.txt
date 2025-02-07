@@ -1,41 +1,50 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind": "pod", "name": "user-profile-import", "namespace": "default"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"user-profile-resources-659d4dd659-cq4kq","namespace":"default"}}
 stdout:
-Name:             user-profile-import
+Name:             user-profile-resources-659d4dd659-cq4kq
 Namespace:        default
 Priority:         0
 Service Account:  default
 Node:             <none>
-Labels:           <none>
+Labels:           app=user-profile-resources
+                  pod-template-hash=659d4dd659
 Annotations:      <none>
 Status:           Pending
 IP:
 IPs:              <none>
+Controlled By:    ReplicaSet/user-profile-resources-659d4dd659
 Containers:
-  nginx:
-    Image:        nginx
-    Port:         <none>
-    Host Port:    <none>
-    Environment:  <none>
+  profile-getter:
+    Image:      nginx
+    Port:       <none>
+    Host Port:  <none>
+    Limits:
+      cpu:             3
+      memory:          5Gi
+      nvidia.com/gpu:  5
+    Requests:
+      cpu:             3
+      memory:          5Gi
+      nvidia.com/gpu:  5
+    Environment:       <none>
     Mounts:
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-47fsg (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-7hdk7 (ro)
 Conditions:
   Type           Status
   PodScheduled   False
 Volumes:
-  kube-api-access-47fsg:
+  kube-api-access-7hdk7:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
     ConfigMapName:           kube-root-ca.crt
     ConfigMapOptional:       <nil>
     DownwardAPI:             true
-QoS Class:                   BestEffort
-Node-Selectors:              label=someLabel
+QoS Class:                   Guaranteed
+Node-Selectors:              <none>
 Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:
-  Type     Reason            Age                From               Message
-  ----     ------            ----               ----               -------
-  Warning  FailedScheduling  48m                default-scheduler  0/1 nodes are available: 1 node(s) didn't match Pod's node affinity/selector. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.
-  Warning  FailedScheduling  33m (x3 over 43m)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match Pod's node affinity/selector. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.
+  Type     Reason            Age                   From               Message
+  ----     ------            ----                  ----               -------
+  Warning  FailedScheduling  16m (x70 over 5h43m)  default-scheduler  0/1 nodes are available: 1 Insufficient nvidia.com/gpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.
 
 stderr:

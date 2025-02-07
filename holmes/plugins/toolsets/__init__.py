@@ -5,56 +5,64 @@ from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.findings import FindingsToolset
+from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
+from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet import InternetToolset
-from pydantic import BaseModel
 
 from holmes.core.tools import Toolset, YAMLToolset
-from typing import Dict
-from pydantic import BaseModel
-from typing import Optional
+from holmes.plugins.toolsets.opensearch import OpenSearchToolset
 import yaml
 
-from holmes.plugins.toolsets.kafka import KafkaConfig, KafkaToolset
+from holmes.plugins.toolsets.kafka import KafkaToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-class ToolsetsYaml(BaseModel):
-    toolsets: Dict[str, YAMLToolset]
-
-
-def load_toolsets_from_file(path: str, silent_fail: bool = False) -> List[YAMLToolset]:
+def load_toolsets_from_file(
+    path: str, silent_fail: bool = False, is_default: bool = False
+) -> List[YAMLToolset]:
     file_toolsets = []
     with open(path) as file:
         parsed_yaml = yaml.safe_load(file)
         toolsets = parsed_yaml.get("toolsets", {})
         for name, config in toolsets.items():
             try:
-                toolset = YAMLToolset(**config, name=name)
+                toolset = YAMLToolset(**config, name=name, is_default=is_default)
                 toolset.set_path(path)
                 file_toolsets.append(YAMLToolset(**config, name=name))
-            except Exception as e:
+            except Exception:
                 if not silent_fail:
-                    logging.error(f"Error happened while loading {name} toolset from {path}",
-                                  exc_info=True)
+                    logging.error(
+                        f"Error happened while loading {name} toolset from {path}",
+                        exc_info=True,
+                    )
 
     return file_toolsets
 
 
-def load_python_toolsets(dal:Optional[SupabaseDal], kafka_config: Optional[KafkaConfig] = None) -> List[Toolset]:
+def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
-    return [InternetToolset(), FindingsToolset(dal), KafkaToolset(kafka_config)]
+    toolsets: list[Toolset] = [
+        InternetToolset(),
+        FindingsToolset(dal),
+        OpenSearchToolset(),
+        GrafanaLokiToolset(),
+        GrafanaTempoToolset(),
+		KafkaToolset(),
+    ]
 
-# TODO: separate the Config logic from the Config structure so that config can be passed directly to this func
-# It will simplify the Config logic and the code here to avoid passing specific configs to toolsets
-def load_builtin_toolsets(dal:Optional[SupabaseDal] = None, kafka_config: Optional[KafkaConfig] = None) -> List[Toolset]:
+    return toolsets
+
+
+def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
     for filename in os.listdir(THIS_DIR):
         if not filename.endswith(".yaml"):
             continue
         path = os.path.join(THIS_DIR, filename)
-        all_toolsets.extend(load_toolsets_from_file(path))
+        toolsets_from_file = load_toolsets_from_file(path, is_default=True)
+        all_toolsets.extend(toolsets_from_file)
 
-    all_toolsets.extend(load_python_toolsets(dal, kafka_config))
+    all_toolsets.extend(load_python_toolsets(dal=dal))
     return all_toolsets

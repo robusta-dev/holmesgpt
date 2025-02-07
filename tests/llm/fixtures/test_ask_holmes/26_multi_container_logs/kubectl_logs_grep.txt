@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs_grep","match_params":{"pod_name":"customer-orders-67889fd856-k94k7","namespace":"default","extended_regexp_pattern":"render time"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs_grep","match_params":{"pod_name":"customer-orders-67889fd856-k94k7","namespace":"default","search_term":"render time"}}
 stdout:
 
 stderr:
