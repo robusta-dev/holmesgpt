@@ -4,7 +4,6 @@ import json
 import re
 import os
 
-from litellm import Choices
 
 REQUEST_STRUCTURED_OUTPUT_FROM_LLM = os.environ.get(
     "REQUEST_STRUCTURED_OUTPUT_FROM_LLM", "true"

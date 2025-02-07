@@ -133,20 +133,20 @@ def test_parse_json_sections_invalid_json(invalid_json):
             True,
         ),
         (
-                # Bedrock over litellm
-                {
-                    "finish_reason": "tool_calls",
-                    "index": 0,
-                    "message": {
-                        "content": "{\"kind\": \"pod\", \"name\": \"oomkill-deployment-696dbdbf67-d47z6\", \"namespace\": \"default\"}",
-                        "role": "assistant",
-                        "tool_calls": None,
-                        "function_call": None,
-                        "refusal": None
-                    }
+            # Bedrock over litellm
+            {
+                "finish_reason": "tool_calls",
+                "index": 0,
+                "message": {
+                    "content": '{"kind": "pod", "name": "oomkill-deployment-696dbdbf67-d47z6", "namespace": "default"}',
+                    "role": "assistant",
+                    "tool_calls": None,
+                    "function_call": None,
+                    "refusal": None,
                 },
-                True,
-            ),
+            },
+            True,
+        ),
         (
             {
                 "finish_reason": "stop",
