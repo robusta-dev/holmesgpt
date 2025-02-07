@@ -121,8 +121,6 @@ def parse_markdown_into_sections_from_hash_sign(
 
     for match in matches:
         if match.strip():
-            # Split each section into title and content
-            # Use maxsplit=1 to only split on the first occurrence
             parts = match.strip().split("\n", 1)
 
             if len(parts) > 1:
