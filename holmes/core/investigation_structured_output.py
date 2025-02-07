@@ -176,7 +176,7 @@ def pre_format_sections(response: Any) -> Any:
         response = extract_within(response, 8, -3)
 
     if response.startswith('"{') and response.endswith('}"'):
-        # Some Anthripic model embed the actual JSON dict inside a JSON string
+        # Some Anthropic models embed the actual JSON dict inside a JSON string
         # In that case it gets parsed once to get rid of the first level of marshalling
         try:
             response = json.loads(response)
@@ -192,6 +192,7 @@ def parse_json_sections(
 
     try:
         parsed_json = json.loads(response)
+
         if not isinstance(parsed_json, dict):
             return (response, None)
         sections = {}
@@ -233,22 +234,32 @@ def process_response_into_sections(
 
 
 def is_response_an_incorrect_tool_call(
-    sections: Optional[InputSectionsDataType], choice: Choices
+    sections: Optional[InputSectionsDataType], choice: dict
 ) -> bool:
     """Cf. https://github.com/BerriAI/litellm/issues/8241
     This code detects when LiteLLM is incapable of handling both tool calls and structured output. This only happens when the LLM is returning a single tool call.
     In that case the intention is to retry the LLM calls without structured output.
-    Post processing will detect that and try to generate a structured output from a monolithic markdown.
+    Post processing may still try to generate a structured output from a monolithic markdown.
     """
     try:
-        message = choice.get("message")
+        message = choice.get("message", {})
+        finish_reason = choice.get("finish_reason")
+        content = message.get("content")
+        tool_calls = message.get("tool_calls")
+        role = message.get("role")
         if (
             sections
-            and choice.get("finish_reason") == "stop"
-            and message
-            and message.get("role") == "assistant"
+            and content
+            and (
+                # azure
+                finish_reason == "stop"
+                or
+                # bedrock
+                finish_reason == "tool_calls"
+            )
+            and role == "assistant"
+            and not tool_calls
         ):
-            content = message.get("content")
             if not isinstance(content, dict):
                 content = json.loads(content)
             if not isinstance(content, dict):

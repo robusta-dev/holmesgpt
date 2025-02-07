@@ -163,9 +163,12 @@ class ToolCallingLLM:
 
             response_message = response.message
             if response_message and response_format:
+                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                dict_response = json.loads(full_response.to_json())
                 incorrect_tool_call = is_response_an_incorrect_tool_call(
-                    sections, response
+                    sections, dict_response.get("choices", [{}])[0]
                 )
+
                 if incorrect_tool_call:
                     logging.warning(
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
@@ -383,20 +386,20 @@ class IssueInvestigator(ToolCallingLLM):
             sections = DEFAULT_SECTIONS
             request_structured_output_from_llm = False
             logging.info(
-                "No section received from the client. Default sections will be used. request_structured_output_from_llm is now set to False"
+                "No section received from the client. Default sections will be used."
             )
         elif self.llm.model and self.llm.model.startswith("bedrock"):
             # Structured output does not work well with Bedrock Anthropic Sonnet 3.5 through litellm
-            logging.info(
-                f"Model {self.llm.model} recognised as bedrock. request_structured_output_from_llm is now set to False"
-            )
             request_structured_output_from_llm = False
-        elif not REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
-            logging.debug("request_structured_output_from_llm is now set to False")
+
+        if not REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
             request_structured_output_from_llm = False
 
         if request_structured_output_from_llm:
             response_format = get_output_format_for_investigation(sections)
+            logging.info("Structured output is enabled for this request")
+        else:
+            logging.info("Structured output is disabled for this request")
 
         if instructions is not None and instructions.instructions:
             runbooks.extend(instructions.instructions)
