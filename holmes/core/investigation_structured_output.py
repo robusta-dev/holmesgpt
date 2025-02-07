@@ -134,7 +134,7 @@ def parse_markdown_into_sections_from_hash_sign(
             else:
                 # Handle case where section has no content
                 title = parts[0].replace("#", "").strip()
-                sections[title] = ""
+                sections[title] = None
 
     if len(sections) > 0:
         return sections
