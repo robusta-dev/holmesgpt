@@ -931,7 +931,7 @@ toolsets:
   kafka:
     enabled: true
     config:
-      kafka_broker: "localhost:9092"
+      kafka_broker: "localhost:9092" # Comma separated values
       kafka_client_id: holmes-kafka-core-toolset
       kafka_security_protocol: ...
       kafka_sasl_mechanism: ...

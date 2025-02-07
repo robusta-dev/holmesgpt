@@ -110,13 +110,6 @@ class Config(RobustaBaseConfig):
     opsgenie_team_integration_key: Optional[SecretStr] = None
     opsgenie_query: Optional[str] = None
 
-    kafka_brokers: Optional[str] = None  # comma separated values
-    kafka_security_protocol: Optional[str] = None
-    kafka_sasl_mechanism: Optional[str] = None
-    kafka_username: Optional[str] = None
-    kafka_password: Optional[str] = None
-    kafka_client_id: Optional[str] = None
-
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
 
@@ -145,12 +138,6 @@ class Config(RobustaBaseConfig):
             "github_repository",
             "github_pat",
             "github_query",
-            "kafka_brokers",
-            "kafka_security_protocol",
-            "kafka_sasl_mechanism",
-            "kafka_username",
-            "kafka_password",
-            "kafka_client_id",
             # TODO
             # custom_runbooks
         ]:
