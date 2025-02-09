@@ -54,8 +54,11 @@ def render_default_installation_instructions_for_toolset(toolset: Toolset) -> st
         "env_vars": env_vars if env_vars else [],
         "toolset_name": toolset.name,
         "enabled": toolset.enabled,
-        "example_config": yaml.dump(toolset.get_example_config()),
     }
+
+    example_config = toolset.get_example_config()
+    if example_config:
+        context["example_config"] = yaml.dump(example_config)
 
     template = (
         "file://holmes/utils/default_toolset_installation_guide.jinja2"
