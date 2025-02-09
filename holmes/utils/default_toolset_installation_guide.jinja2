@@ -19,9 +19,9 @@ To enable this integration, update the Helm values for Robusta (`generated_value
 
 ```yaml
 holmes:
-{%+ if env_vars %}
+{% if env_vars %}
   additionalEnvVars:
-{%+ for env in env_vars %}
+{% for env in env_vars %}
     - name: {{ env }}
       value: <{{ env }}>
 {% endfor %}
@@ -29,7 +29,7 @@ holmes:
   toolsets:
     {{toolset_name}}:
       enabled: true
-      {%+ if example_config %}
+      { if example_config %}
       config:
         {{ example_config | indent(8) }}
       {% endif %}
