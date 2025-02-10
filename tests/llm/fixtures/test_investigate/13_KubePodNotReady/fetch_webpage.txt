@@ -61,4 +61,3 @@ Talk with developers or read documentation about the app, ensure to define
 sane default values to start the app.
 
 See [Debugging Pods](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application/#debugging-pods)
-

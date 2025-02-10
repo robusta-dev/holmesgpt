@@ -53,13 +53,16 @@ class RobustaToken(BaseModel):
 
 
 class SupabaseDal:
-
     def __init__(self):
         self.enabled = self.__init_config()
         if not self.enabled:
-            logging.info("Not connecting to Robusta platform - robusta token not provided - using ROBUSTA_AI will not be possible")
+            logging.info(
+                "Not connecting to Robusta platform - robusta token not provided - using ROBUSTA_AI will not be possible"
+            )
             return
-        logging.info(f"Initializing Robusta platform connection for account {self.account_id}")
+        logging.info(
+            f"Initializing Robusta platform connection for account {self.account_id}"
+        )
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
         self.client = create_client(self.url, self.api_key, options)
         self.user_id = self.sign_in()
@@ -70,6 +73,7 @@ class SupabaseDal:
 
     def patch_postgrest_execute(self):
         logging.info("Patching postgres execute")
+
         # This is somewhat hacky.
         def execute_with_retry(_self):
             try:
@@ -78,7 +82,9 @@ class SupabaseDal:
                 message = exc.message or ""
                 if exc.code == "PGRST301" or "expired" in message.lower():
                     # JWT expired. Sign in again and retry the query
-                    logging.error("JWT token expired/invalid, signing in to Supabase again")
+                    logging.error(
+                        "JWT token expired/invalid, signing in to Supabase again"
+                    )
                     self.sign_in()
                     # update the session to the new one, after re-sign in
                     _self.session = self.client.postgrest.session
@@ -100,11 +106,11 @@ class SupabaseDal:
                 return RobustaToken(**json.loads(decoded))
             except binascii.Error:
                 raise Exception(
-                    f"binascii.Error encountered. The Robusta UI token is not a valid base64."
+                    "binascii.Error encountered. The Robusta UI token is not a valid base64."
                 )
             except json.JSONDecodeError:
                 raise Exception(
-                    f"json.JSONDecodeError encountered. The Robusta UI token could not be parsed as JSON after being base64 decoded."
+                    "json.JSONDecodeError encountered. The Robusta UI token could not be parsed as JSON after being base64 decoded."
                 )
 
         if not os.path.exists(config_file_path):
@@ -120,28 +126,28 @@ class SupabaseDal:
                     token = conf["robusta_sink"].get("token")
                     if not token:
                         raise Exception(
-                            f"No robusta token provided to Holmes. "
-                            f"Please set a valid Robusta UI token. "
-                            f"See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
+                            "No robusta token provided to Holmes. "
+                            "Please set a valid Robusta UI token. "
+                            "See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
                         )
                     if "{{" in token:
                         raise ValueError(
-                            f"The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{{ env.UI_SINK_TOKEN }}`). "
-                            f"Ensure your Helm chart or environment variables are set correctly. "
-                            f"If you store the token in a secret, you must also pass "
-                            f"the environment variable ROBUSTA_UI_TOKEN to Holmes. "
-                            f"See https://docs.robusta.dev/master/configuration/ai-analysis.html#configuring-holmesgpt-access-to-saas-data for instructions."
+                            "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`). "
+                            "Ensure your Helm chart or environment variables are set correctly. "
+                            "If you store the token in a secret, you must also pass "
+                            "the environment variable ROBUSTA_UI_TOKEN to Holmes. "
+                            "See https://docs.robusta.dev/master/configuration/ai-analysis.html#configuring-holmesgpt-access-to-saas-data for instructions."
                         )
                     try:
                         decoded = base64.b64decode(token)
                         return RobustaToken(**json.loads(decoded))
                     except binascii.Error:
                         raise Exception(
-                            f"binascii.Error encountered. The robusta token provided to Holmes is not a valid base64."
+                            "binascii.Error encountered. The robusta token provided to Holmes is not a valid base64."
                         )
                     except json.JSONDecodeError:
                         raise Exception(
-                            f"json.JSONDecodeError encountered. The Robusta token provided to Holmes could not be parsed as JSON after being base64 decoded."
+                            "json.JSONDecodeError encountered. The Robusta token provided to Holmes could not be parsed as JSON after being base64 decoded."
                         )
         return None
 
@@ -167,8 +173,12 @@ class SupabaseDal:
 
     def sign_in(self) -> str:
         logging.info("Supabase DAL login")
-        res = self.client.auth.sign_in_with_password({"email": self.email, "password": self.password})
-        self.client.auth.set_session(res.session.access_token, res.session.refresh_token)
+        res = self.client.auth.sign_in_with_password(
+            {"email": self.email, "password": self.password}
+        )
+        self.client.auth.set_session(
+            res.session.access_token, res.session.refresh_token
+        )
         self.client.postgrest.auth(res.session.access_token)
         return res.user.id
 
@@ -182,11 +192,10 @@ class SupabaseDal:
         issue_data = None
         try:
             issue_response = (
-                self.client
-                    .table(ISSUES_TABLE)
-                    .select("*")
-                    .filter("id", "eq", issue_id)
-                    .execute()
+                self.client.table(ISSUES_TABLE)
+                .select("*")
+                .filter("id", "eq", issue_id)
+                .execute()
             )
             if len(issue_response.data):
                 issue_data = issue_response.data[0]
@@ -197,14 +206,17 @@ class SupabaseDal:
         if not issue_data:
             return None
         evidence = (
-            self.client
-            .table(EVIDENCE_TABLE)
+            self.client.table(EVIDENCE_TABLE)
             .select("*")
             .filter("issue_id", "eq", issue_id)
             .execute()
         )
         enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
-        data = [enrich for enrich in evidence.data if enrich.get("enrichment_type") not in enrichment_blacklist]
+        data = [
+            enrich
+            for enrich in evidence.data
+            if enrich.get("enrichment_type") not in enrichment_blacklist
+        ]
 
         issue_data["evidence"] = data
         return issue_data
@@ -224,13 +236,14 @@ class SupabaseDal:
             logging.exception("Supabase error while retrieving issue data")
             return None
 
-    def get_resource_instructions(self, type: str, name: Optional[str]) -> Optional[ResourceInstructions]:
+    def get_resource_instructions(
+        self, type: str, name: Optional[str]
+    ) -> Optional[ResourceInstructions]:
         if not self.enabled or not name:
             return None
 
         res = (
-            self.client
-            .table(RUNBOOKS_TABLE)
+            self.client.table(RUNBOOKS_TABLE)
             .select("runbook")
             .eq("account_id", self.account_id)
             .eq("subject_type", type)
@@ -248,7 +261,9 @@ class SupabaseDal:
                     if url:
                         documents.append(ResourceInstructionDocument(url=url))
                     else:
-                        logging.warning(f"Unsupported runbook for subject_type={type} / subject_name={name}: {document_data}")
+                        logging.warning(
+                            f"Unsupported runbook for subject_type={type} / subject_name={name}: {document_data}"
+                        )
 
             return ResourceInstructions(instructions=instructions, documents=documents)
 
@@ -257,20 +272,19 @@ class SupabaseDal:
     def get_global_instructions_for_account(self) -> Optional[Instructions]:
         try:
             res = (
-            self.client
-            .table(RUNBOOKS_TABLE)
-            .select("runbook")
-            .eq("account_id", self.account_id)  
-            .eq("subject_type", "Account")
-            .execute()
-        )
+                self.client.table(RUNBOOKS_TABLE)
+                .select("runbook")
+                .eq("account_id", self.account_id)
+                .eq("subject_type", "Account")
+                .execute()
+            )
 
             if res.data:
                 instructions = res.data[0].get("runbook").get("instructions")
                 return Instructions(instructions=instructions)
         except Exception:
             logging.exception("Failed to fetch global instructions", exc_info=True)
-        
+
         return None
 
     def create_session_token(self) -> str:
@@ -281,14 +295,17 @@ class SupabaseDal:
                 "user_id": self.user_id,
                 "token": token,
                 "type": "HOLMES",
-            }, returning=ReturnMethod.minimal  # must use this, because the user cannot read this table
+            },
+            returning=ReturnMethod.minimal,  # must use this, because the user cannot read this table
         ).execute()
         return token
 
     def get_ai_credentials(self) -> Tuple[str, str]:
         if not self.enabled:
-            raise Exception("You're trying to use ROBUSTA_AI, but Cannot get credentials for ROBUSTA_AI. Store not initialized.")
-        
+            raise Exception(
+                "You're trying to use ROBUSTA_AI, but Cannot get credentials for ROBUSTA_AI. Store not initialized."
+            )
+
         with self.lock:
             session_token = self.token_cache.get("session_token")
             if not session_token:
@@ -312,8 +329,7 @@ class SupabaseDal:
         logging.debug(f"getting issues for workload {svc_key}")
         try:
             res = (
-                self.client
-                .table(ISSUES_TABLE)
+                self.client.table(ISSUES_TABLE)
                 .select("id, creation_date, aggregation_key")
                 .eq("account_id", self.account_id)
                 .eq("cluster", cluster)
@@ -333,73 +349,81 @@ class SupabaseDal:
             unique_issues: list[str] = list(issue_dict.values())
 
             res = (
-                self.client
-                .table(EVIDENCE_TABLE)
+                self.client.table(EVIDENCE_TABLE)
                 .select("data, enrichment_type")
                 .in_("issue_id", unique_issues)
                 .execute()
             )
 
             enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
-            data = [evidence.get("data") for evidence in res.data if evidence.get("enrichment_type") not in enrichment_blacklist]
+            data = [
+                evidence.get("data")
+                for evidence in res.data
+                if evidence.get("enrichment_type") not in enrichment_blacklist
+            ]
             return data
 
-        except:
+        except Exception:
             logging.exception("failed to fetch workload issues data", exc_info=True)
             return []
 
     def upsert_holmes_status(self, holmes_status_data: dict) -> None:
         if not self.enabled:
-            logging.info("Robusta store not initialized. Skipping upserting holmes status.")
+            logging.info(
+                "Robusta store not initialized. Skipping upserting holmes status."
+            )
             return
-        
+
         updated_at = datetime.now().isoformat()
         try:
-            res = (
-                self.client
-                .table(HOLMES_STATUS_TABLE)
-                .upsert({
-                    "account_id": self.account_id,
-                    "updated_at": updated_at,
-                    **holmes_status_data,
-                },
-                on_conflict='account_id, cluster_id')
+            (
+                self.client.table(HOLMES_STATUS_TABLE)
+                .upsert(
+                    {
+                        "account_id": self.account_id,
+                        "updated_at": updated_at,
+                        **holmes_status_data,
+                    },
+                    on_conflict="account_id, cluster_id",
+                )
                 .execute()
             )
         except Exception as error:
-            logging.error(f"Error happened during upserting holmes status: {error}", 
-                          exc_info=True)
+            logging.error(
+                f"Error happened during upserting holmes status: {error}", exc_info=True
+            )
 
         return None
-    
+
     def sync_toolsets(self, toolsets: list[dict], cluster_name: str) -> None:
         if not toolsets:
             logging.warning("No toolsets were provided for synchronization.")
             return
-        
+
         if not self.enabled:
-            logging.info("Robusta store not initialized. Skipping sync holmes toolsets.")
+            logging.info(
+                "Robusta store not initialized. Skipping sync holmes toolsets."
+            )
             return
-        
-        provided_toolset_names = [toolset['toolset_name'] for toolset in toolsets]
-   
+
+        provided_toolset_names = [toolset["toolset_name"] for toolset in toolsets]
+
         try:
             self.client.table(HOLMES_TOOLSET).upsert(
-                toolsets,
-                on_conflict='account_id, cluster_id, toolset_name'
+                toolsets, on_conflict="account_id, cluster_id, toolset_name"
             ).execute()
 
             logging.info("Toolsets upserted successfully.")
 
-            
-            self.client.table(HOLMES_TOOLSET).delete().eq("account_id", 
-                                                                       self.account_id).eq(
-                                                                           'cluster_id', cluster_name).not_.in_(
-                'toolset_name', provided_toolset_names
+            self.client.table(HOLMES_TOOLSET).delete().eq(
+                "account_id", self.account_id
+            ).eq("cluster_id", cluster_name).not_.in_(
+                "toolset_name", provided_toolset_names
             ).execute()
 
             logging.info("Toolsets synchronized successfully.")
 
         except Exception as e:
-            logging.exception(f"An error occurred during toolset synchronization: {e}",
-                              exc_info=True)
+            logging.exception(
+                f"An error occurred during toolset synchronization: {e}", exc_info=True
+            )

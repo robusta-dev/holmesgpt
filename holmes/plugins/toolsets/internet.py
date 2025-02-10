@@ -14,48 +14,62 @@ from bs4 import BeautifulSoup
 import requests
 
 # TODO: change and make it holmes
-INTERNET_TOOLSET_USER_AGENT = os.environ.get("INTERNET_TOOLSET_USER_AGENT", "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0")
-INTERNET_TOOLSET_TIMEOUT_SECONDS = int(os.environ.get("INTERNET_TOOLSET_TIMEOUT_SECONDS", "60"))
+INTERNET_TOOLSET_USER_AGENT = os.environ.get(
+    "INTERNET_TOOLSET_USER_AGENT",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:128.0; holmesgpt;) Gecko/20100101 Firefox/128.0",
+)
+INTERNET_TOOLSET_TIMEOUT_SECONDS = int(
+    os.environ.get("INTERNET_TOOLSET_TIMEOUT_SECONDS", "60")
+)
 
 SELECTORS_TO_REMOVE = [
-    'script', 'style', 'meta', 'link', 'noscript',
-    'header', 'footer', 'nav',
-    'iframe', 'svg', 'img',
-    'button',
-    'menu', 'sidebar', 'aside',
-    '.header'
-    '.footer'
-    '.navigation',
-    '.nav',
-    '.menu',
-    '.sidebar',
-    '.ad',
-    '.advertisement',
-    '.social',
-    '.popup',
-    '.modal',
-    '.banner',
-    '.cookie-notice',
-    '.social-share',
-    '.related-articles',
-    '.recommended',
-    '#header'
-    '#footer'
-    '#navigation',
-    '#nav',
-    '#menu',
-    '#sidebar',
-    '#ad',
-    '#advertisement',
-    '#social',
-    '#popup',
-    '#modal',
-    '#banner',
-    '#cookie-notice',
-    '#social-share',
-    '#related-articles',
-    '#recommended'
+    "script",
+    "style",
+    "meta",
+    "link",
+    "noscript",
+    "header",
+    "footer",
+    "nav",
+    "iframe",
+    "svg",
+    "img",
+    "button",
+    "menu",
+    "sidebar",
+    "aside",
+    ".header" ".footer" ".navigation",
+    ".nav",
+    ".menu",
+    ".sidebar",
+    ".ad",
+    ".advertisement",
+    ".social",
+    ".popup",
+    ".modal",
+    ".banner",
+    ".cookie-notice",
+    ".social-share",
+    ".related-articles",
+    ".recommended",
+    "#header" "#footer" "#navigation",
+    "#nav",
+    "#menu",
+    "#sidebar",
+    "#ad",
+    "#advertisement",
+    "#social",
+    "#popup",
+    "#modal",
+    "#banner",
+    "#cookie-notice",
+    "#social-share",
+    "#related-articles",
+    "#recommended",
 ]
+
+
+def scrape(url) -> Tuple[Optional[str], Optional[str]]:
 def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
     response = None
     content = None
@@ -73,7 +87,7 @@ def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[s
     except Timeout:
         logging.error(
             f"Failed to load {url}. Timeout after {INTERNET_TOOLSET_TIMEOUT_SECONDS} seconds",
-            exc_info=True
+            exc_info=True,
         )
     except RequestException as e:
         logging.error(f"Failed to load {url}: {str(e)}", exc_info=True)
@@ -82,15 +96,18 @@ def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[s
     if response:
         content = response.text
         try:
-            content_type = response.headers['content-type']
+            content_type = response.headers["content-type"]
             if content_type:
                 mime_type = content_type.split(";")[0]
         except Exception:
-            logging.info(f"Failed to parse content type from headers {response.headers}")
+            logging.info(
+                f"Failed to parse content type from headers {response.headers}"
+            )
 
     return (content, mime_type)
 
-def cleanup(soup:BeautifulSoup):
+
+def cleanup(soup: BeautifulSoup):
     """Remove all elements that are irrelevant to the textual representation of a web page.
     This includes images, extra data, even links as there is no intention to navigate from that page.
     """
@@ -106,9 +123,7 @@ def cleanup(soup:BeautifulSoup):
     return soup
 
 
-
-def html_to_markdown(page_source:str):
-
+def html_to_markdown(page_source: str):
     soup = BeautifulSoup(page_source, "html.parser")
     soup = cleanup(soup)
     page_source = str(soup)

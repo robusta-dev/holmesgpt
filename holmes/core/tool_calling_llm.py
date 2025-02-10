@@ -3,7 +3,14 @@ import json
 import logging
 import textwrap
 from typing import List, Optional, Dict, Type, Union
-from holmes.core.investigation_structured_output import DEFAULT_SECTIONS, InputSectionsDataType, get_output_format_for_investigation
+
+from holmes.core.investigation_structured_output import (
+    DEFAULT_SECTIONS,
+    REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
+    InputSectionsDataType,
+    get_output_format_for_investigation,
+    is_response_an_incorrect_tool_call,
+)
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
@@ -26,6 +33,7 @@ class ToolCallResult(BaseModel):
     tool_name: str
     description: str
     result: str
+
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
@@ -54,12 +62,13 @@ class ResourceInstructionDocument(BaseModel):
 class Instructions(BaseModel):
     instructions: List[str] = []
 
+
 class ResourceInstructions(BaseModel):
     instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
 
-class ToolCallingLLM:
 
+class ToolCallingLLM:
     llm: LLM
 
     def __init__(self, tool_executor: ToolExecutor, max_steps: int, llm: LLM):
@@ -73,13 +82,18 @@ class ToolCallingLLM:
         user_prompt: str,
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         return self.call(
-            messages, post_process_prompt, response_format, user_prompt=user_prompt
+            messages,
+            post_process_prompt,
+            response_format,
+            user_prompt=user_prompt,
+            sections=sections,
         )
 
     def messages_call(
@@ -88,7 +102,6 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
     ) -> LLMResult:
-
         return self.call(messages, post_process_prompt, response_format)
 
     def call(
@@ -97,16 +110,18 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
+        sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
-        for i in range(self.max_steps):
+        max_steps = self.max_steps
+        for i in range(max_steps):
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
-            tools = NOT_GIVEN if i == self.max_steps - 1 else tools
+            tools = NOT_GIVEN if i == max_steps - 1 else tools
             tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
 
             total_tokens = self.llm.count_tokens_for_message(messages)
@@ -120,7 +135,6 @@ class ToolCallingLLM:
                     messages, max_context_size, maximum_output_token
                 )
                 perf_timing.measure("truncate_messages_to_fit_context")
-
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -137,9 +151,8 @@ class ToolCallingLLM:
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                if (
-                    "Unrecognized request arguments supplied: tool_choice, tools"
-                    in str(e)
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
@@ -147,7 +160,24 @@ class ToolCallingLLM:
                 else:
                     raise
             response = full_response.choices[0]
+
             response_message = response.message
+            if response_message and response_format:
+                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                dict_response = json.loads(full_response.to_json())
+                incorrect_tool_call = is_response_an_incorrect_tool_call(
+                    sections, dict_response.get("choices", [{}])[0]
+                )
+
+                if incorrect_tool_call:
+                    logging.warning(
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                    )
+                    # disable structured output going forward and and retry
+                    response_format = None
+                    max_steps = max_steps + 1
+                    continue
+
             messages.append(
                 response_message.model_dump(
                     exclude_defaults=True, exclude_unset=True, exclude_none=True
@@ -156,7 +186,6 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
-
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 # this only works for calls where user prompt is explicitly passed through
@@ -342,12 +371,35 @@ class IssueInvestigator(ToolCallingLLM):
         console: Optional[Console] = None,
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
-        sections: Optional[InputSectionsDataType] = None
+        sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
+        request_structured_output_from_llm = True
+        response_format = None
+
+        # This section is about setting vars to request the LLM to return structured output.
+        # It does not mean that Holmes will not return structured sections for investigation as it is
+        # capable of splitting the markdown into sections
         if not sections or len(sections) == 0:
+            # If no sections are passed, we will not ask the LLM for structured output
             sections = DEFAULT_SECTIONS
+            request_structured_output_from_llm = False
+            logging.info(
+                "No section received from the client. Default sections will be used."
+            )
+        elif self.llm.model and self.llm.model.startswith("bedrock"):
+            # Structured output does not work well with Bedrock Anthropic Sonnet 3.5 through litellm
+            request_structured_output_from_llm = False
+
+        if not REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
+            request_structured_output_from_llm = False
+
+        if request_structured_output_from_llm:
+            response_format = get_output_format_for_investigation(sections)
+            logging.info("Structured output is enabled for this request")
+        else:
+            logging.info("Structured output is disabled for this request")
 
         if instructions is not None and instructions.instructions:
             runbooks.extend(instructions.instructions)
@@ -360,9 +412,16 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
-        system_prompt = load_and_render_prompt(prompt, {"issue": issue, "sections": sections})
+        system_prompt = load_and_render_prompt(
+            prompt,
+            {
+                "issue": issue,
+                "sections": sections,
+                "structured_output": request_structured_output_from_llm,
+            },
+        )
 
-        if instructions != None and len(instructions.documents) > 0:
+        if instructions is not None and len(instructions.documents) > 0:
             docPrompts = []
             for document in instructions.documents:
                 docPrompts.append(
@@ -377,7 +436,11 @@ class IssueInvestigator(ToolCallingLLM):
 
             user_prompt = f'My instructions to check \n"""{user_prompt}"""'
 
-        if global_instructions and global_instructions.instructions and len(global_instructions.instructions[0]) > 0:
+        if (
+            global_instructions
+            and global_instructions.instructions
+            and len(global_instructions.instructions[0]) > 0
+        ):
             user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
 
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
@@ -387,6 +450,12 @@ class IssueInvestigator(ToolCallingLLM):
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
 
-        res = self.prompt_call(system_prompt, user_prompt, post_processing_prompt, response_format=get_output_format_for_investigation(sections))
+        res = self.prompt_call(
+            system_prompt,
+            user_prompt,
+            post_processing_prompt,
+            response_format=response_format,
+            sections=sections,
+        )
         res.instructions = runbooks
         return res

@@ -77,7 +77,7 @@ jobs:
     # Note: this ignores the "Set as latest release" checkbox in the GitHub UI
     # it isn't possible to check whether that was set or not
     # so if you do not want to override the "latest" tag, you should mark the release as a prerelease or a draft
-    # for prereleases and drafts we don't tag latest 
+    # for prereleases and drafts we don't tag latest
     - name: Tag and push Docker image as latest if applicable
       if: ${{ github.event.release.prerelease == false && github.event.release.draft == false }}
       run: |

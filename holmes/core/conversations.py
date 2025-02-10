@@ -138,9 +138,11 @@ def handle_issue_conversation(
     return system_prompt
 
 
-def build_issue_chat_messages(issue_chat_request: IssueChatRequest, 
-                              ai: ToolCallingLLM,
-                              global_instructions: Optional[Instructions] = None):
+def build_issue_chat_messages(
+    issue_chat_request: IssueChatRequest,
+    ai: ToolCallingLLM,
+    global_instructions: Optional[Instructions] = None,
+):
     """
     This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations
     by truncating tool outputs as necessary before sending to llm.
@@ -153,7 +155,7 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest,
        - Creates a new system prompt using generic_ask_for_issue_conversation.jinja2 template
        - Includes investigation analysis, tools (if any), and issue type information
        - If there are tools, calculates appropriate tool size and truncates tool outputs
-    
+
     2. For existing conversations:
        - Preserves the conversation history
        - Updates the first message (system prompt) with recalculated content
@@ -196,11 +198,12 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest,
     tools_for_investigation = issue_chat_request.investigation_result.tools
 
     if not conversation_history or len(conversation_history) == 0:
-        user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
+        user_prompt = add_global_instructions_to_user_prompt(
+            user_prompt, global_instructions
+        )
 
         number_of_tools_for_investigation = len(tools_for_investigation)
         if number_of_tools_for_investigation == 0:
-            
             system_prompt = load_and_render_prompt(
                 template_path,
                 {
@@ -271,7 +274,9 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest,
             },
         ]
 
-    user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
+    user_prompt = add_global_instructions_to_user_prompt(
+        user_prompt, global_instructions
+    )
 
     conversation_history.append(
         {
@@ -326,8 +331,10 @@ def build_issue_chat_messages(issue_chat_request: IssueChatRequest,
 
 
 def build_chat_messages(
-    ask: str, conversation_history: Optional[List[Dict[str, str]]], ai: ToolCallingLLM,
-    global_instructions: Optional[Instructions] = None
+    ask: str,
+    conversation_history: Optional[List[Dict[str, str]]],
+    ai: ToolCallingLLM,
+    global_instructions: Optional[Instructions] = None,
 ) -> List[dict]:
     """
     This function generates a list of messages for general chat conversation and ensures that the message sequence adheres to the model's context window limitations
@@ -341,7 +348,7 @@ def build_chat_messages(
        - Creates a new system prompt using generic_ask_conversation.jinja2 template
        - Uses an empty template context (no specific analysis or tools required)
        - Adds global instructions to the user prompt if provided
-    
+
     2. For existing conversations:
        - Preserves the conversation history as is
        - No need to update system prompt as it doesn't contain tool-specific content
@@ -393,9 +400,9 @@ def build_chat_messages(
             },
         ]
         return messages
-    
+
     ask = add_global_instructions_to_user_prompt(ask, global_instructions)
-    
+
     conversation_history.append(
         {
             "role": "user",
@@ -419,10 +426,11 @@ def build_chat_messages(
     return conversation_history
 
 
-def build_workload_health_chat_messages(workload_health_chat_request: WorkloadHealthChatRequest, 
-                                        ai: ToolCallingLLM,
-                                        global_instructions: Optional[Instructions] = None
-                                        ):
+def build_workload_health_chat_messages(
+    workload_health_chat_request: WorkloadHealthChatRequest,
+    ai: ToolCallingLLM,
+    global_instructions: Optional[Instructions] = None,
+):
     """
     This function generates a list of messages for workload health conversation and ensures that the message sequence adheres to the model's context window limitations
     by truncating tool outputs as necessary before sending to llm.
@@ -435,7 +443,7 @@ def build_workload_health_chat_messages(workload_health_chat_request: WorkloadHe
        - Creates a new system prompt using kubernetes_workload_chat.jinja2 template
        - Includes workload analysis, tools (if any), and resource information
        - If there are tools, calculates appropriate tool size and truncates tool outputs
-    
+
     2. For existing conversations:
        - Preserves the conversation history
        - Updates the first message (system prompt) with recalculated content
@@ -470,7 +478,7 @@ def build_workload_health_chat_messages(workload_health_chat_request: WorkloadHe
     },
     ]
     """
-    
+
     template_path = "builtin://kubernetes_workload_chat.jinja2"
 
     conversation_history = workload_health_chat_request.conversation_history
@@ -480,7 +488,9 @@ def build_workload_health_chat_messages(workload_health_chat_request: WorkloadHe
     resource = workload_health_chat_request.resource
 
     if not conversation_history or len(conversation_history) == 0:
-        user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
+        user_prompt = add_global_instructions_to_user_prompt(
+            user_prompt, global_instructions
+        )
 
         number_of_tools_for_workload = len(tools_for_workload)
         if number_of_tools_for_workload == 0:
@@ -554,7 +564,9 @@ def build_workload_health_chat_messages(workload_health_chat_request: WorkloadHe
             },
         ]
 
-    user_prompt = add_global_instructions_to_user_prompt(user_prompt, global_instructions)
+    user_prompt = add_global_instructions_to_user_prompt(
+        user_prompt, global_instructions
+    )
 
     conversation_history.append(
         {

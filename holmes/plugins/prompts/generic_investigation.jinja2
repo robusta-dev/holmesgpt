@@ -32,9 +32,4 @@ Style Guide:
 * But only quote relevant numbers or metrics that are available. Do not guess.
 * Remove unnecessary words
 
-Give your answer in a JSON format with the following sections. You can set a null value to a section if it's not relevant to the investigation. The content of each section should be formatted with markdown:
-
-{% for title, description in sections.items() %}
-- {{ title }}: {{ description }}
-{% endfor %}
-- <DO NOT list tools used and DO NOT add a `# Tools` section>
+{% include 'investigation_output_format.jinja2' %}

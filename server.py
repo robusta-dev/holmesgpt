@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import os
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -10,16 +11,13 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 from holmes.core import investigation
 from contextlib import asynccontextmanager
 from holmes.utils.holmes_status import update_holmes_status_in_db
-import jinja2
 import logging
 import uvicorn
 import colorlog
-import uuid
 import time
 
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
-from rich.console import Console
 from holmes.utils.robusta import load_robusta_api_key
 
 from holmes.common.env_vars import (
@@ -36,7 +34,6 @@ from holmes.core.conversations import (
     handle_issue_conversation,
     build_workload_health_chat_messages,
 )
-from holmes.core.issue import Issue
 from holmes.core.models import (
     InvestigationResult,
     ConversationRequest,
@@ -93,6 +90,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 if LOG_PERFORMANCE:
+
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
         start_time = time.time()
@@ -103,24 +101,27 @@ if LOG_PERFORMANCE:
         finally:
             process_time = int((time.time() - start_time) * 1000)
 
-            status_code = 'unknown'
+            status_code = "unknown"
             if response:
                 status_code = response.status_code
-            logging.info(f"Request completed {request.method} {request.url.path} status={status_code} latency={process_time}ms")
+            logging.info(
+                f"Request completed {request.method} {request.url.path} status={status_code} latency={process_time}ms"
+            )
 
 
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
         result = investigation.investigate_issues(
-            investigate_request=investigate_request,
-            dal=dal,
-            config=config
+            investigate_request=investigate_request, dal=dal, config=config
         )
         return result
 
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/investigate: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/workload_health_check")
@@ -147,9 +148,13 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask = f"{request.ask}\n My instructions for the investigation '''{nl.join(instructions)}'''"
 
         global_instructions = dal.get_global_instructions_for_account()
-        request.ask = add_global_instructions_to_user_prompt(request.ask, global_instructions)
+        request.ask = add_global_instructions_to_user_prompt(
+            request.ask, global_instructions
+        )
 
-        system_prompt = load_and_render_prompt(request.prompt_template, context={'alerts': workload_alerts})
+        system_prompt = load_and_render_prompt(
+            request.prompt_template, context={"alerts": workload_alerts}
+        )
 
         ai = config.create_toolcalling_llm(dal=dal)
 
@@ -165,16 +170,23 @@ def workload_health_check(request: WorkloadHealthRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.exception(f"Error in /api/workload_health_check: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/workload_health_chat")
-def workload_health_conversation(workload_health_chat_request: WorkloadHealthChatRequest):
+def workload_health_conversation(
+    workload_health_chat_request: WorkloadHealthChatRequest,
+):
     try:
         load_robusta_api_key(dal=dal, config=config)
         ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(workload_health_chat_request, ai, global_instructions)
+        messages = build_workload_health_chat_messages(
+            workload_health_chat_request, ai, global_instructions
+        )
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -184,7 +196,10 @@ def workload_health_conversation(workload_health_chat_request: WorkloadHealthCha
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
-    
+    except Exception as e:
+        logging.error(f"Error in /api/workload_health_chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # older api that does not support conversation history
 @app.post("/api/conversation")
@@ -212,7 +227,9 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_issue_chat_messages(issue_chat_request, ai, global_instructions)
+        messages = build_issue_chat_messages(
+            issue_chat_request, ai, global_instructions
+        )
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -222,6 +239,9 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/issue_chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/chat")
@@ -233,7 +253,10 @@ def chat(chat_request: ChatRequest):
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_chat_messages(
-            chat_request.ask, chat_request.conversation_history, ai=ai, global_instructions=global_instructions
+            chat_request.ask,
+            chat_request.conversation_history,
+            ai=ai,
+            global_instructions=global_instructions,
         )
 
         llm_call = ai.messages_call(messages=messages)
@@ -244,6 +267,9 @@ def chat(chat_request: ChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/model")
@@ -253,6 +279,10 @@ def get_model():
 
 if __name__ == "__main__":
     log_config = uvicorn.config.LOGGING_CONFIG
-    log_config["formatters"]["access"]["fmt"] = "%(asctime)s %(levelname)-8s %(message)s"
-    log_config["formatters"]["default"]["fmt"] = "%(asctime)s %(levelname)-8s %(message)s"
+    log_config["formatters"]["access"]["fmt"] = (
+        "%(asctime)s %(levelname)-8s %(message)s"
+    )
+    log_config["formatters"]["default"]["fmt"] = (
+        "%(asctime)s %(levelname)-8s %(message)s"
+    )
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT, log_config=log_config)

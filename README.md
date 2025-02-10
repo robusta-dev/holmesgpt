@@ -1,5 +1,5 @@
 <div align="center">
-  <h1 align="center">Solve cloud alerts faster with an AI assistant</h1>
+  <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <h2 align="center">HolmesGPT - AI Agent for On-Call Engineers 🔥</h2>
   <p align="center">
     <a href="#ways-to-use-holmesgpt"><strong>Examples</strong></a> |
@@ -9,17 +9,25 @@
   </p>
 </div>
 
-Improve developer experience and reduce mean-time-to-respond (MTTR) by transforming alerts from this 👇
+Respond to alerts faster, by using AI to automatically:
+
+* Fetch logs, traces, and metrics
+* Decide if the problem is likely **application problem or infrastructure problem** (who should investigate first?)
+* Find upstream root-causes
+
+Using HolmesGPT, you can transform your existing alerts from this 👇
 
 ![Screenshot 2024-10-31 at 12 01 12 2](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
 
 To this 👇
 
-![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/9e2c7a23-b942-4720-8a98-488323e092ca)
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/238d385c-70b5-4f41-a3cd-b7785f49d74c" alt="Prometheus alert with AI investigation" width="500px" />
+</div>
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
-- **Secure:** *Read-only* access to your data - respects RBAC permissions
+- **Secure:** *Read-only* access to data - respects RBAC permissions
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
@@ -875,7 +883,7 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
 The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file:
 
-```                                                                                 
+```
 opensearch_clusters:
   - hosts:
       - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443

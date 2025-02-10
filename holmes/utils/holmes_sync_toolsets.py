@@ -42,7 +42,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
                 account_id=dal.account_id,
                 status=toolset.get_status(),
                 error=toolset.get_error(),
-                updated_at=updated_at
+                updated_at=updated_at,
             ).model_dump(exclude_none=True)
         )
     dal.sync_toolsets(db_toolsets, config.cluster_name)
