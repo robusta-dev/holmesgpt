@@ -117,7 +117,9 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
-        for i in range(max_steps):
+        i = 0
+        while i < max_steps:
+            i += 1
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
