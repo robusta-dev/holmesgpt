@@ -2,16 +2,12 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 import json
 import re
-import os
+
+from holmes.common.env_vars import load_bool
 
 
-REQUEST_STRUCTURED_OUTPUT_FROM_LLM = os.environ.get(
-    "REQUEST_STRUCTURED_OUTPUT_FROM_LLM", "true"
-).lower() in ["true", "1"]
-
-PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS = os.environ.get(
-    "PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS", "true"
-).lower() in ["true", "1"]
+REQUEST_STRUCTURED_OUTPUT_FROM_LLM = load_bool("REQUEST_STRUCTURED_OUTPUT_FROM_LLM", True)
+PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS = load_bool("PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS", True)
 
 
 InputSectionsDataType = Dict[str, str]
