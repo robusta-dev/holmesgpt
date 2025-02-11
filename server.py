@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-if dal.enabled and ENABLE_TELEMETRY and SENTRY_DSN:
+if ENABLE_TELEMETRY and SENTRY_DSN:
     logging.info("Initializing sentry")
     sentry_sdk.init(
         dsn=SENTRY_DSN,

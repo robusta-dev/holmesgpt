@@ -28,5 +28,5 @@ ROBUSTA_API_ENDPOINT = os.environ.get("ROBUSTA_API_ENDPOINT", "https://api.robus
 LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
 
 
-ENABLE_TELEMETRY = load_bool("ENABLE_TELEMETRY", True)
+ENABLE_TELEMETRY = load_bool("ENABLE_TELEMETRY", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
