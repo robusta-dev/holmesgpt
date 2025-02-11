@@ -185,13 +185,19 @@ class Config(RobustaBaseConfig):
                 default_toolsets, allowed_toolsets.split(",")
             )
 
-        # Enable all matching toolsets that have CORE or CLI tag
-        for toolset in matching_toolsets:
-            toolset.enabled = True
+        # Load custom toolsets config from file and environment
+        toolsets_loaded_from_config = self.load_custom_toolsets_config()
+        loaded_toolsets_from_env = None
+        if self.toolsets:
+            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
+
+        # Enable all matching toolsets if no custom configs are provided!
+        if not toolsets_loaded_from_config and not loaded_toolsets_from_env:
+            for toolset in matching_toolsets:
+                toolset.enabled = True
 
         toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
-        toolsets_loaded_from_config = self.load_custom_toolsets_config()
         if toolsets_loaded_from_config:
             toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -200,16 +206,14 @@ class Config(RobustaBaseConfig):
                 )
             )
 
-        if self.toolsets:
-            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
-            if loaded_toolsets_from_env:
-                toolsets_by_name = (
-                    self.merge_and_override_bultin_toolsets_with_toolsets_config(
-                        loaded_toolsets_from_env,
-                        toolsets_by_name,
-                    )
+        if loaded_toolsets_from_env:
+            toolsets_by_name = (
+                self.merge_and_override_bultin_toolsets_with_toolsets_config(
+                    loaded_toolsets_from_env,
+                    toolsets_by_name,
                 )
-
+            )
+        
         for toolset in toolsets_by_name.values():
             if toolset.enabled:
                 toolset.check_prerequisites()
@@ -429,6 +433,32 @@ class Config(RobustaBaseConfig):
                 description: "Perform a curl request to example.com using variables"
                 command: "curl -X GET '{{api_endpoint}}?query={{ query_param }}' "
         """
+        loaded_toolsets = []
+        for custom_path in self.custom_toolsets:
+            if os.path.isfile(custom_path):
+                try:
+                    with open(custom_path) as file:
+                        parsed_yaml = yaml.safe_load(file)
+                except (yaml.YAMLError, Exception) as err:
+                    logging.error(f"Error parsing YAML from {custom_path}: {err}")
+                    continue  
+                
+                if not parsed_yaml:
+                    logging.error(f"No content found in custom toolset file: {custom_path}")
+                    continue
+
+                toolsets = parsed_yaml.get("toolsets", {})
+                if not toolsets:
+                    logging.error(f"No 'toolsets' key found in: {custom_path}")
+                    continue  
+
+                loaded_toolsets.extend(self.load_toolsets_config(toolsets, custom_path))
+        
+        # if toolsets are loaded from custom_toolsets, return them without checking the default location
+        if loaded_toolsets:
+            print("loaded_toolsets", loaded_toolsets)
+            return loaded_toolsets
+        
         if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             return []
 
@@ -508,6 +538,7 @@ class Config(RobustaBaseConfig):
             config_from_file = None
 
         cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
+
         if config_from_file is None:
             return cls(**cli_options)
 
