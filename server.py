@@ -122,11 +122,6 @@ if LOG_PERFORMANCE:
             )
 
 
-@app.get("/sentry-debug")
-async def trigger_error():
-    division_by_zero = 1 / 0  # noqa
-
-
 @app.post("/api/investigate")
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
