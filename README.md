@@ -55,7 +55,7 @@ Includes free use of the Robusta AI model.
 <details>
 <summary>Add root-cause-analysis to Prometheus alerts in Slack</summary>
 
-Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/master/configuration/sinks/slack.html#connecting-slack).
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
@@ -818,6 +818,8 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 2. **slack-channel**: The Slack channel where you want to receive the findings.
 
 </details>
+
+
 
 <details>
 
