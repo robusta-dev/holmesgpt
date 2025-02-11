@@ -193,6 +193,7 @@ class InternetToolset(Toolset):
             name="internet",
             description="Fetch webpages",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html",
             prerequisites=[],
             tools=[FetchWebpage()],
             tags=[
