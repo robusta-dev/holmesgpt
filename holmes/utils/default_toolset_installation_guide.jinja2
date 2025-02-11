@@ -29,7 +29,7 @@ holmes:
   toolsets:
     {{toolset_name}}:
       enabled: true
-      { if example_config %}
+      {% if example_config %}
       config:
         {{ example_config | indent(8) }}
       {% endif %}
