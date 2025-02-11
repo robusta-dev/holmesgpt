@@ -237,7 +237,9 @@ class ToolCallingLLM:
         try:
             tool_response = tool.invoke(tool_params)
         except Exception as e:
-            logging.error(f"Tool call to {tool_name} failed with an Exception", exc_info=True)
+            logging.error(
+                f"Tool call to {tool_name} failed with an Exception", exc_info=True
+            )
             tool_response = f"Tool call failed: {e}"
 
         return ToolCallResult(
