@@ -55,7 +55,7 @@ Includes free use of the Robusta AI model.
 <details>
 <summary>Add root-cause-analysis to Prometheus alerts in Slack</summary>
 
-Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/master/configuration/sinks/slack.html#connecting-slack).
+Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/master/configuration/ai-analysis.html).
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
@@ -619,9 +619,9 @@ Builtin toolsets
 </summary>
 
 HolmesGPT has a number of toolsets that give it access to many datasources. This enhances HolmesGPT's ability to get to the root cause of issues.
-These toolsets are documented on [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html).
 
-This documentation also defines [how to create custom toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html).
+These toolsets are documented on [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html),
+although this documentation applies to running Holmes in clusters and not with the CLI.
 </details>
 
 
@@ -680,7 +680,9 @@ That said, we provide several extension points for teaching HolmesGPT to investi
 The more data you give HolmesGPT, the better it will perform. Give it access to more data by adding custom tools.
 
 New tools are loaded using `-t` from [custom toolset files](./examples/custom_toolset.yaml) or by adding them to the `~/.holmes/config.yaml` with the setting `custom_toolsets: ["/path/to/toolset.yaml"]`.
-There is also detailed documentation in [Robusta's online docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html).
+
+There is additional documentation in [Robusta's online docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html) that you can get inspiration from.
+However this documentation is mostly relevant to running Robusta in-cluster.
 </details>
 
 <details>
