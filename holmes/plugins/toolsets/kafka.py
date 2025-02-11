@@ -1,17 +1,46 @@
-
 import logging
 from pydantic import BaseModel
 import yaml
 from typing import Any, Dict, List, Optional
-from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag, CallablePrerequisite
-from confluent_kafka.admin import AdminClient, BrokerMetadata, ClusterMetadata, ConfigResource, GroupMember, GroupMetadata, ListConsumerGroupsResult, MemberAssignment, MemberDescription, ConsumerGroupDescription, PartitionMetadata, TopicMetadata, _TopicPartition as TopicPartition
-from confluent_kafka import KafkaException
+from holmes.core.tools import (
+    Tool,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
+    CallablePrerequisite,
+)
+from confluent_kafka.admin import (
+    AdminClient,
+    BrokerMetadata,
+    ClusterMetadata,
+    ConfigResource,
+    GroupMember,
+    GroupMetadata,
+    ListConsumerGroupsResult,
+    MemberAssignment,
+    MemberDescription,
+    ConsumerGroupDescription,
+    PartitionMetadata,
+    TopicMetadata,
+    _TopicPartition as TopicPartition,
+)
 
-def convert_to_dict(obj:Any):
-    if isinstance(obj, (ClusterMetadata, BrokerMetadata, TopicMetadata,
-                        PartitionMetadata, GroupMember, GroupMetadata,
-                        ConsumerGroupDescription, MemberDescription,
-                        MemberAssignment)):
+
+def convert_to_dict(obj: Any):
+    if isinstance(
+        obj,
+        (
+            ClusterMetadata,
+            BrokerMetadata,
+            TopicMetadata,
+            PartitionMetadata,
+            GroupMember,
+            GroupMetadata,
+            ConsumerGroupDescription,
+            MemberDescription,
+            MemberAssignment,
+        ),
+    ):
         result = {}
         for key, value in vars(obj).items():
             if value is not None and value != -1 and value != []:
@@ -26,6 +55,7 @@ def convert_to_dict(obj:Any):
         return str(obj)
     return obj
 
+
 class KafkaConfig(BaseModel):
     brokers: List[str]
     security_protocol: Optional[str] = None
@@ -34,20 +64,22 @@ class KafkaConfig(BaseModel):
     password: Optional[str] = None
     client_id: Optional[str] = None
 
+
 class ListKafkaConsumers(Tool):
     toolset: "KafkaToolset"
+
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="list_kafka_consumers",
             description="Lists all Kafka consumer groups in the cluster",
             parameters={},
-            toolset=toolset
+            toolset=toolset,
         )
 
     def invoke(self, params: Dict) -> str:
         try:
             futures = self.toolset.admin_client.list_consumer_groups()
-            groups:ListConsumerGroupsResult = futures.result()
+            groups: ListConsumerGroupsResult = futures.result()
             return yaml.dump(groups)
         except Exception as e:
             error_msg = f"Failed to list consumer groups: {str(e)}"
@@ -57,8 +89,10 @@ class ListKafkaConsumers(Tool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return "Listed all Kafka consumer groups in the cluster"
 
+
 class DescribeConsumerGroup(Tool):
     toolset: "KafkaToolset"
+
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="describe_consumer_group",
@@ -70,7 +104,7 @@ class DescribeConsumerGroup(Tool):
                     required=True,
                 )
             },
-            toolset=toolset
+            toolset=toolset,
         )
 
     def invoke(self, params: Dict) -> str:
@@ -93,6 +127,7 @@ class DescribeConsumerGroup(Tool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Described consumer group: {params['group_id']}"
 
+
 class ListTopics(Tool):
     toolset: "KafkaToolset"
 
@@ -101,7 +136,7 @@ class ListTopics(Tool):
             name="list_topics",
             description="Lists all Kafka topics in the cluster",
             parameters={},
-            toolset=toolset
+            toolset=toolset,
         )
 
     def invoke(self, params: Dict) -> str:
@@ -116,8 +151,10 @@ class ListTopics(Tool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return "Listed all Kafka topics in the cluster"
 
+
 class DescribeTopic(Tool):
     toolset: "KafkaToolset"
+
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="describe_topic",
@@ -132,9 +169,9 @@ class DescribeTopic(Tool):
                     description="If true, also fetches the topic configuration. defaults to false",
                     type="boolean",
                     required=False,
-                )
+                ),
             },
-            toolset=toolset
+            toolset=toolset,
         )
 
     def invoke(self, params: Dict) -> str:
@@ -142,11 +179,13 @@ class DescribeTopic(Tool):
         try:
             config_future = None
             if str(params.get("fetch_configuration", False)).lower() == "true":
-                resource = ConfigResource('topic', topic_name)
+                resource = ConfigResource("topic", topic_name)
                 configs = self.toolset.admin_client.describe_configs([resource])
                 config_future = next(iter(configs.values()))
 
-            metadata = self.toolset.admin_client.list_topics(topic_name).topics[topic_name]
+            metadata = self.toolset.admin_client.list_topics(topic_name).topics[
+                topic_name
+            ]
             result = convert_to_dict(metadata)
 
             if config_future:
@@ -162,7 +201,10 @@ class DescribeTopic(Tool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Described topic: {params['topic_name']}"
 
-def group_has_topic(consumer_group_description:ConsumerGroupDescription, topic_name:str):
+
+def group_has_topic(
+    consumer_group_description: ConsumerGroupDescription, topic_name: str
+):
     print(convert_to_dict(consumer_group_description))
     for member in consumer_group_description.members:
         if len(member.assignment.topic_partitions) > 0:
@@ -171,8 +213,10 @@ def group_has_topic(consumer_group_description:ConsumerGroupDescription, topic_n
                 return True
     return False
 
+
 class FindConsumerGroupsByTopic(Tool):
     toolset: "KafkaToolset"
+
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="find_consumer_groups_by_topic",
@@ -184,40 +228,58 @@ class FindConsumerGroupsByTopic(Tool):
                     required=True,
                 )
             },
-            toolset=toolset
+            toolset=toolset,
         )
 
     def invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
         try:
             groups_future = self.toolset.admin_client.list_consumer_groups()
-            groups:ListConsumerGroupsResult = groups_future.result()
+            groups: ListConsumerGroupsResult = groups_future.result()
 
             consumer_groups = []
             group_ids_to_evaluate = []
             if groups.valid:
-                group_ids_to_evaluate = group_ids_to_evaluate + [group.group_id for group in groups.valid]
+                group_ids_to_evaluate = group_ids_to_evaluate + [
+                    group.group_id for group in groups.valid
+                ]
             if groups.errors:
-                group_ids_to_evaluate = group_ids_to_evaluate + [group.group_id for group in groups.errors]
+                group_ids_to_evaluate = group_ids_to_evaluate + [
+                    group.group_id for group in groups.errors
+                ]
 
             if len(group_ids_to_evaluate) > 0:
-                consumer_groups_futures = self.toolset.admin_client.describe_consumer_groups(group_ids_to_evaluate)
+                consumer_groups_futures = (
+                    self.toolset.admin_client.describe_consumer_groups(
+                        group_ids_to_evaluate
+                    )
+                )
 
-                for group_id, consumer_group_description_future in consumer_groups_futures.items():
-                    consumer_group_description = consumer_group_description_future.result()
+                for (
+                    group_id,
+                    consumer_group_description_future,
+                ) in consumer_groups_futures.items():
+                    consumer_group_description = (
+                        consumer_group_description_future.result()
+                    )
                     if group_has_topic(consumer_group_description, topic_name):
-                        consumer_groups.append(convert_to_dict(consumer_group_description))
+                        consumer_groups.append(
+                            convert_to_dict(consumer_group_description)
+                        )
 
             if len(consumer_groups) == 0:
                 return f"No consumer group were found for topic {topic_name}"
             return yaml.dump(consumer_groups)
         except Exception as e:
-            error_msg = f"Failed to find consumer groups for topic {topic_name}: {str(e)}"
+            error_msg = (
+                f"Failed to find consumer groups for topic {topic_name}: {str(e)}"
+            )
             logging.error(error_msg)
             return error_msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Found consumer groups for topic: {params['topic_name']}"
+
 
 class KafkaToolset(Toolset):
     admin_client: Optional[Any] = None
@@ -239,24 +301,26 @@ class KafkaToolset(Toolset):
                 FindConsumerGroupsByTopic(self),
             ],
         )
-    
+
     def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
         try:
             if config:
                 admin_config = {
-                    'bootstrap.servers': config.get("broker", None),
-                    'client.id': config.get("client_id", "holmes-kafka-core-toolset"),
-                    'security.protocol': config.get("security_protocol", None),
-                    'sasl.mechanisms': config.get("sasl_mechanism", None),
-                    'sasl.username': config.get("username", None),
-                    'sasl.password': config.get("password", None)
+                    "bootstrap.servers": config.get("kafka_broker", None),
+                    "client.id": config.get(
+                        "kafka_client_id", "holmes-kafka-core-toolset"
+                    ),
+                    "security.protocol": config.get("kafka_security_protocol", None),
+                    "sasl.mechanisms": config.get("kafka_sasl_mechanism", None),
+                    "sasl.username": config.get("kafka_username", None),
+                    "sasl.password": config.get("kafka_password", None),
                 }
                 self.admin_client = AdminClient(admin_config)
                 logging.info("Kafka admin client is available")
                 return True
             else:
                 self.admin_client = None
-                logging.info(f"Kafka client not configured")
+                logging.info("Kafka client not configured")
                 return False
         except Exception as e:
             self.admin_client = None

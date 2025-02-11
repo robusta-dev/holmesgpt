@@ -922,6 +922,25 @@ toolsets:
 
 </details>
 
+<summary>Kafka Integration</summary>
+
+Enable Kafka as a tool for Holmes to fetch kafka metadata like the topics or consumer groups.
+
+```bash
+toolsets:
+  kafka:
+    enabled: true
+    config:
+      kafka_broker: "localhost:9092" # Comma separated values
+      kafka_client_id: holmes-kafka-core-toolset
+      kafka_security_protocol: ...
+      kafka_sasl_mechanism: ...
+      kafka_username: ...
+      kafka_password: ...
+```
+
+</details>
+
 
 <details>
 
