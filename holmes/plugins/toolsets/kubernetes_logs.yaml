@@ -1,7 +1,7 @@
 toolsets:
   kubernetes/logs:
     description: "Read pod logs"
-    docs_url: "https://kubernetes.io/docs/home/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#logs"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     tags:
       - core
