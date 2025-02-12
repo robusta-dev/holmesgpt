@@ -230,7 +230,7 @@ class GrafanaLokiToolset(BaseGrafanaToolset):
     def __init__(self):
         super().__init__(
             name="grafana/loki",
-            description="Fetchs kubernetes pods and node logs from Loki",
+            description="Fetches kubernetes pods and node logs from Loki",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             doc_url="https://grafana.com/oss/loki/",
             tools=[

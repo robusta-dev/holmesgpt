@@ -41,7 +41,7 @@ class BaseGrafanaToolset(Toolset):
             return False
 
         try:
-            self._grafana_config = BaseGrafanaToolset.config_class(**config)
+            self._grafana_config = self.config_class(**config)
             is_healthy = get_health(
                 self._grafana_config.url, self._grafana_config.api_key
             )
