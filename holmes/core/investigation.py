@@ -23,6 +23,7 @@ def investigate_issues(
         raw_data["extra_context"] = context
 
     ai = config.create_issue_investigator(dal=dal)
+
     issue = Issue(
         id=context["id"] if context else "",
         name=investigate_request.title,
@@ -37,6 +38,7 @@ def investigate_issues(
         post_processing_prompt=HOLMES_POST_PROCESSING_PROMPT,
         instructions=resource_instructions,
         global_instructions=global_instructions,
+        sections=investigate_request.sections,
     )
 
     (text_response, sections) = process_response_into_sections(investigation.result)

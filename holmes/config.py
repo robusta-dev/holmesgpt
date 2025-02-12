@@ -253,7 +253,9 @@ class Config(RobustaBaseConfig):
         all_toolsets = load_builtin_toolsets(dal=dal)
 
         toolsets_by_name: dict[str, Toolset] = {
-            toolset.name: toolset for toolset in all_toolsets
+            toolset.name: toolset
+            for toolset in all_toolsets
+            if any(tag in (ToolsetTag.CORE, ToolsetTag.CLUSTER) for tag in toolset.tags)
         }
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()

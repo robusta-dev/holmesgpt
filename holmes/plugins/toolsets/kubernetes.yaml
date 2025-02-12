@@ -1,7 +1,7 @@
 toolsets:
   kubernetes/core:
     description: "Read access to cluster resources (excluding secrets and other sensitive data)"
-    docs_url: "https://kubernetes.io/docs/home/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#core"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     tags:
       - core
@@ -131,7 +131,6 @@ toolsets:
           Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
         command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
 
-
     # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic
     # http GET capabilities which are more powerful than we want to expose
     #- name: "check_liveness_probe"
@@ -151,7 +150,7 @@ toolsets:
 
   kubernetes/live-metrics:
     description: "Provides real-time metrics for pods and nodes"
-    docs_url: "https://kubernetes.io/docs/home/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#live-metrics"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     tags:
       - core
@@ -167,7 +166,7 @@ toolsets:
 
   kubernetes/kube-prometheus-stack:
     description: "Fetches prometheus definition"
-    docs_url: "https://kubernetes.io/docs/home/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#prometheus-stack"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     tags:
       - core
@@ -178,7 +177,7 @@ toolsets:
 
   kubernetes/krew-extras: # To make this work, install kube-lineage with krew
     description: "Fetches children/dependents and parents/dependencies resources using kube-lineage installed via `kubectl krew`"
-    docs_url: "https://kubernetes.io/docs/home/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#resource-lineage-extras-with-krew"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     tags:
       - cli
@@ -194,7 +193,7 @@ toolsets:
 
   kubernetes/kube-lineage-extras: # To make this work, build kube-lineage from source
     description: "Fetches children/dependents and parents/dependencies resources using kube-lineage"
-    docs_url: "https://kubernetes.io/docs/home/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#resource-lineage-extras"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
     tags:
       - cluster

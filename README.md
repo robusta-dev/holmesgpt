@@ -55,7 +55,7 @@ Includes free use of the Robusta AI model.
 <details>
 <summary>Add root-cause-analysis to Prometheus alerts in Slack</summary>
 
-Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/holmes_chart_dependency/configuration/ai-analysis.html).
+Investigate Prometheus alerts right from Slack with the official [Robusta integration](https://docs.robusta.dev/master/configuration/ai-analysis.html).
 
 ![342708962-e0c9ccde-299e-41d7-84e3-c201277a9ccb (1)](https://github.com/robusta-dev/holmesgpt/assets/494087/fd2451b0-b951-4798-af62-f69affac831e)
 
@@ -603,15 +603,6 @@ If your llm provider url uses a certificate from a custom CA, in order to trust 
 ### Enabling Integrations
 
 <details>
-<summary>Confluence</summary>
-HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
-
-* `CONFLUENCE_BASE_URL` - e.g. https://robusta-dev-test.atlassian.net
-* `CONFLUENCE_USER` - e.g. user@company.com
-* `CONFLUENCE_API_KEY` - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
-</details>
-
-<details>
 <summary>
 Jira, GitHub, OpsGenie, PagerDuty, and AlertManager
 </summary>
@@ -624,66 +615,15 @@ Refer to `holmes investigate jira --help` etc for details.
 
 <details>
 <summary>
-Fetching runbooks through URLs
+Builtin toolsets
 </summary>
 
-HolmesGPT can consult webpages containing runbooks or other relevant information.
-This is done through a HTTP GET and the resulting HTML is then cleaned and parsed into markdown.
-Any Javascript that is on the webpage is ignored.
+HolmesGPT has a number of toolsets that give it access to many datasources. This enhances HolmesGPT's ability to get to the root cause of issues.
+
+These toolsets are documented on [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html),
+although this documentation applies to running Holmes in clusters and not with the CLI.
 </details>
 
-<details>
-<summary>
-Using Grafana Loki
-</summary>
-
-HolmesGPT can consult logs from [Loki](https://grafana.com/oss/loki/) by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
-
-To configure loki toolset:
-
-```yaml
-toolsets:
-  grafana/loki:
-    enabled: true
-    config:
-      api_key: "{{ env.GRAFANA_API_KEY }}"
-      url: "http://loki-url"
-```
-
-For search terms, you can optionally tweak the search terms used by the toolset.
-This is done by appending the following to your Holmes grafana/loki configuration:
-
-```yaml
-pod_name_search_key: "pod"
-namespace_search_key: "namespace"
-node_name_search_key: "node"
-```
-
-> You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
-
-</details>
-
-<details>
-<summary>
-Using Grafana Tempo
-</summary>
-
-HolmesGPT can fetch trace information from Grafana Tempo to debug performance related issues.
-
-Tempo is configured the using the same Grafana settings as the Grafana Loki toolset.
-
-</details>
-
-
-<details>
-<summary>
-ArgoCD
-</summary>
-
-Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps configuration and status, clusters and projects within ArgoCD.
-To enable ArgoCD, set the `ARGOCD_AUTH_TOKEN` environment variable as described in the [argocd documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
-
-</details>
 
 ## More Use Cases
 
@@ -740,6 +680,9 @@ That said, we provide several extension points for teaching HolmesGPT to investi
 The more data you give HolmesGPT, the better it will perform. Give it access to more data by adding custom tools.
 
 New tools are loaded using `-t` from [custom toolset files](./examples/custom_toolset.yaml) or by adding them to the `~/.holmes/config.yaml` with the setting `custom_toolsets: ["/path/to/toolset.yaml"]`.
+
+There is additional documentation in [Robusta's online docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html) that you can get inspiration from.
+However this documentation is mostly relevant to running Robusta in-cluster.
 </details>
 
 <details>
@@ -770,6 +713,8 @@ You can define your own custom toolsets to extend the functionality of your setu
 # Example: ["path/to/your/custom_toolset.yaml"]
 #custom_toolsets: ["examples/custom_toolset.yaml"]
 ```
+
+There is also detailed documentation in [Robusta's online docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html).
 </details>
 
 <details>
@@ -876,51 +821,6 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 
 </details>
 
-
-<details>
-<summary>OpenSearch Integration</summary>
-
-The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
-The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file:
-
-```
-opensearch_clusters:
-  - hosts:
-      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
-    headers:
-      Authorization: "ApiKey <your_API_key>"
-# or
-#  - hosts:
-#      - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
-#    http_auth:
-#      username: ELASTIC_USERNAME
-#      password: ELASTIC_PASSWORD
-```
-
-The configuration for each OpenSearch cluster is passed directly to the [opensearch-py](https://github.com/opensearch-project/opensearch-py) module. Refer to the module's documentation for detailed guidance on configuring connectivity.
-
-To enable OpenSearch integration when running HolmesGPT in a Kubernetes cluster, **include the following configuration** in the `Helm chart`:
-
-```yaml
-toolsets:
-  opensearch:
-    enabled: true
-    config:
-      # OpenSearch configuration
-      opensearch_clusters:
-        - hosts:
-            - host: "{{ env.OPENSEARCH_URL }}"
-              port: 9200
-          headers:
-            Authorization: "Basic {{ env.OPENSEARCH_BEARER_TOKEN }}"
-          # Additional parameters
-          use_ssl: true
-          ssl_assert_hostname: false
-          verify_certs: false
-          ssl_show_warn: false
-```
-
-</details>
 
 
 <details>
