@@ -185,7 +185,6 @@ class Config(RobustaBaseConfig):
                 default_toolsets, allowed_toolsets.split(",")
             )
 
-        # Load custom toolsets config from file and environment
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
         loaded_toolsets_from_env = None
         if self.toolsets:
@@ -456,7 +455,6 @@ class Config(RobustaBaseConfig):
         
         # if toolsets are loaded from custom_toolsets, return them without checking the default location
         if loaded_toolsets:
-            print("loaded_toolsets", loaded_toolsets)
             return loaded_toolsets
         
         if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
