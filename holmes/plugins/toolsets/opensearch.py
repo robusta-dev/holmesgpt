@@ -152,10 +152,10 @@ class OpenSearchToolset(Toolset):
 
     def __init__(self):
         super().__init__(
-            name="opensearch",
+            name="opensearch/status",
             enabled=False,
             description="Provide cluster metadata information like health, shards, settings.",
-            docs_url="https://opensearch.org/docs/latest/clients/python-low-level/",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html",
             icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
