@@ -212,7 +212,7 @@ class Config(RobustaBaseConfig):
                     toolsets_by_name,
                 )
             )
-        
+
         for toolset in toolsets_by_name.values():
             if toolset.enabled:
                 toolset.check_prerequisites()
@@ -442,23 +442,25 @@ class Config(RobustaBaseConfig):
                         parsed_yaml = yaml.safe_load(file)
                 except (yaml.YAMLError, Exception) as err:
                     logging.error(f"Error parsing YAML from {custom_path}: {err}")
-                    continue  
-                
+                    continue
+
                 if not parsed_yaml:
-                    logging.error(f"No content found in custom toolset file: {custom_path}")
+                    logging.error(
+                        f"No content found in custom toolset file: {custom_path}"
+                    )
                     continue
 
                 toolsets = parsed_yaml.get("toolsets", {})
                 if not toolsets:
                     logging.error(f"No 'toolsets' key found in: {custom_path}")
-                    continue  
+                    continue
 
                 loaded_toolsets.extend(self.load_toolsets_config(toolsets, custom_path))
-        
+
         # if toolsets are loaded from custom_toolsets, return them without checking the default location
         if loaded_toolsets:
             return loaded_toolsets
-        
+
         if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             return []
 
