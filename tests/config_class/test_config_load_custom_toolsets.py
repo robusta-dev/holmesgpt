@@ -53,7 +53,7 @@ def test_load_custom_toolsets_config_missing_toolsets(tmp_path, monkeypatch):
 
 def test_load_custom_toolsets_config_invalid_yaml(tmp_path, monkeypatch):
     custom_file = tmp_path / "custom_toolset.yaml"
-    custom_file.write_text("::::error")
+    custom_file.write_text("::::")
 
     monkeyatch_value = str(tmp_path / "nonexistent.yaml")
     monkeypatch.setattr("holmes.config.CUSTOM_TOOLSET_LOCATION", monkeyatch_value)
