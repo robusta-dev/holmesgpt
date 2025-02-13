@@ -3,7 +3,7 @@ import subprocess
 import pytest
 import random
 import string
-from confluent_kafka.admin import AdminClient, NewTopic
+from confluent_kafka.admin import NewTopic
 from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.kafka import (
     KafkaToolset,
@@ -34,13 +34,17 @@ def kafka_toolset():
     kafka_toolset = KafkaToolset()
     kafka_toolset.config = kafka_config
     kafka_toolset.check_prerequisites()
-    assert kafka_toolset.get_status() == ToolsetStatusEnum.ENABLED, "Prerequisites check failed for Kafka toolset"
+    assert (
+        kafka_toolset.get_status() == ToolsetStatusEnum.ENABLED
+    ), "Prerequisites check failed for Kafka toolset"
     assert kafka_toolset.admin_client is not None, "Missing admin client"
     return kafka_toolset
+
 
 @pytest.fixture(scope="module", autouse=True)
 def admin_client(kafka_toolset):
     return kafka_toolset.admin_client
+
 
 @pytest.fixture(scope="module", autouse=True)
 def docker_compose(kafka_toolset):

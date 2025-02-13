@@ -58,19 +58,22 @@ def convert_to_dict(obj: Any) -> Union[str, Dict]:
         return str(obj)
     return obj
 
-def format_list_consumer_group_errors(errors:Optional[List]) -> str:
+
+def format_list_consumer_group_errors(errors: Optional[List]) -> str:
     errors_text = ""
     if errors:
         if len(errors) > 1:
             errors_text = "# Some errors happened while listing consumer groups:\n\n"
-        errors_text = errors_text + "\n\n".join([
-            f"## Error:\n{str(error)}" for error in errors
-        ])
+        errors_text = errors_text + "\n\n".join(
+            [f"## Error:\n{str(error)}" for error in errors]
+        )
 
     return errors_text
 
+
 class BaseKafkaTool(Tool):
     toolset: "KafkaToolset"
+
 
 class KafkaConfig(BaseModel):
     brokers: List[str]
@@ -82,7 +85,6 @@ class KafkaConfig(BaseModel):
 
 
 class ListKafkaConsumers(BaseKafkaTool):
-
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="list_kafka_consumers",
@@ -102,16 +104,17 @@ class ListKafkaConsumers(BaseKafkaTool):
             if list_groups_result.valid and len(list_groups_result.valid) > 0:
                 groups = []
                 for group in list_groups_result.valid:
-                    groups.append({
-                        "group_id": group.group_id,
-                        "is_simple_consumer_group": group.is_simple_consumer_group,
-                        "state": str(group.state),
-                        "type": str(group.type)
-                    })
+                    groups.append(
+                        {
+                            "group_id": group.group_id,
+                            "is_simple_consumer_group": group.is_simple_consumer_group,
+                            "state": str(group.state),
+                            "type": str(group.type),
+                        }
+                    )
                 groups_text = yaml.dump({"consumer_groups": groups})
             else:
                 groups_text = "No consumer group was found"
-
 
             errors_text = format_list_consumer_group_errors(list_groups_result.errors)
 
@@ -129,7 +132,6 @@ class ListKafkaConsumers(BaseKafkaTool):
 
 
 class DescribeConsumerGroup(BaseKafkaTool):
-
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="describe_consumer_group",
@@ -167,7 +169,6 @@ class DescribeConsumerGroup(BaseKafkaTool):
 
 
 class ListTopics(BaseKafkaTool):
-
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="list_topics",
@@ -193,7 +194,6 @@ class ListTopics(BaseKafkaTool):
 
 
 class DescribeTopic(BaseKafkaTool):
-
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="describe_topic",
@@ -229,9 +229,7 @@ class DescribeTopic(BaseKafkaTool):
             ]
 
             metadata = convert_to_dict(metadata)
-            result:dict = {
-                "metadata": metadata
-            }
+            result: dict = {"metadata": metadata}
 
             if config_future:
                 config = config_future.result()
@@ -259,7 +257,6 @@ def group_has_topic(
 
 
 class FindConsumerGroupsByTopic(BaseKafkaTool):
-
     def __init__(self, toolset: "KafkaToolset"):
         super().__init__(
             name="find_consumer_groups_by_topic",
