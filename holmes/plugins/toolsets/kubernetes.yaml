@@ -173,7 +173,7 @@ toolsets:
     tools:
       - name: "get_prometheus_target"
         description: "Fetch the definition of a Prometheus target"
-        command: 'kubectl get --raw ''/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets'' | jq ''.data.activeTargets[] | select(.labels.job == "{{ target_name }}")'
+        command: 'kubectl get --raw ''/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets'' | jq ''.data.activeTargets[] | select(.labels.job == "{{ target_name }}")'''
 
   kubernetes/krew-extras: # To make this work, install kube-lineage with krew
     description: "Fetches children/dependents and parents/dependencies resources using kube-lineage installed via `kubectl krew`"
