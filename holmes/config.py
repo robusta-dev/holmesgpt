@@ -439,12 +439,12 @@ class Config(RobustaBaseConfig):
         """
         loaded_toolsets = []
         for custom_path in self.custom_toolsets:
-            if os.path.isfile(custom_path):
-                toolset_config = self.parse_toolsets_file(
-                    custom_path, raise_error=False
-                )
-                if toolset_config:
-                    loaded_toolsets.extend(toolset_config)
+            if not os.path.isfile(custom_path):
+                logging.warning(f"Custom toolset file {custom_path} does not exist")
+                continue
+            toolset_config = self.parse_toolsets_file(custom_path, raise_error=False)
+            if toolset_config:
+                loaded_toolsets.extend(toolset_config)
 
         # if toolsets are loaded from custom_toolsets, return them without checking the default location
         if loaded_toolsets:
