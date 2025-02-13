@@ -9,7 +9,7 @@
   </p>
 </div>
 
-Respond to alerts faster, by using AI to automatically:
+Respond to alerts faster, using AI to automatically:
 
 * Fetch logs, traces, and metrics
 * Decide if the problem is likely **application problem or infrastructure problem** (who should investigate first?)
@@ -26,12 +26,12 @@ To this 👇
 </div>
 
 ### Key Features
-- **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
+- **Automatic data collection:** HolmesGPT surfaces up observability data you need to investigate
 - **Secure:** *Read-only* access to data - respects RBAC permissions
-- **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
+- **Knowledge Sharing:** Experts add knowledge to Holmes and become a force-multiplier for others
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
-- **Integrates with your existing tools** including Prometheus, PagerDuty, OpsGenie, Jira, and more
+- **Integrates with Existing Tools** including Prometheus, PagerDuty, OpsGenie, Jira, and more
 
 ### See it in Action
 
@@ -81,7 +81,9 @@ holmes ask "what pods are in crashloopbackoff in my cluster and why?"
 </details>
 
 <details>
-<summary>OpsGenie Integration</summary>
+<summary>Bi-Directional Integration with On-Call Tools (OpsGenie, PagerDuty)</summary>
+
+**OpsGenie**
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
@@ -90,11 +92,8 @@ holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
 By default results are displayed in the CLI . Use `--update --opsgenie-team-integration-key <PLACEHOLDER_TEAM_KEY>` to get the results as a comment in the OpsGenie alerts. Refer to the CLI help for more info.
 
 ![OpsGenie](./images/opsgenie-holmes-update.png)
-</details>
 
-
-<details>
-<summary>PagerDuty Integration</summary>
+**PagerDuty**
 
 ```bash
 holmes investigate pagerduty --pagerduty-api-key <PLACEHOLDER_APIKEY>
@@ -176,7 +175,7 @@ plugins:
 </details>
 
 <details>
-<summary>Importing Holmes as a Python library and bringing your own LLM</summary>
+<summary>Python API</summary>
 
 You can use Holmes as a library and pass in your own LLM implementation. This is particularly useful if LiteLLM or the default Holmes implementation does not suit you.
 
