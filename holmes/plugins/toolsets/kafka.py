@@ -339,6 +339,7 @@ class KafkaToolset(Toolset):
             name="kafka/admin",
             description="Fetches metadata from Kafka",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kafka.html",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-cR1JrBgJxB_SPVKUIRwtiHnR8qBvLeHXjQ&s",
             tags=[ToolsetTag.CORE],
             tools=[
