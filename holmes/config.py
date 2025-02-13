@@ -170,13 +170,22 @@ class Config(RobustaBaseConfig):
         self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
-        Creates ToolExecutor for the cli
+        Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
+        and their execution in the command-line interface.
+
+        The method loads toolsets in this order, with later sources overriding earlier ones:
+        1. Built-in toolsets (tagged as CORE or CLI)
+        2. Custom toolsets from config files which can override built-in toolsets
+        3. Toolsets defined in self.toolsets which can override both built-in and custom toolsets config
         """
         default_toolsets = [
             toolset
             for toolset in load_builtin_toolsets(dal)
             if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
         ]
+
+        for toolset in default_toolsets:
+            toolset.enabled = True
 
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
@@ -185,18 +194,9 @@ class Config(RobustaBaseConfig):
                 default_toolsets, allowed_toolsets.split(",")
             )
 
-        toolsets_loaded_from_config = self.load_custom_toolsets_config()
-        loaded_toolsets_from_env = None
-        if self.toolsets:
-            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
-
-        # Enable all matching toolsets if no custom configs are provided!
-        if not toolsets_loaded_from_config and not loaded_toolsets_from_env:
-            for toolset in matching_toolsets:
-                toolset.enabled = True
-
         toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
+        toolsets_loaded_from_config = self.load_custom_toolsets_config()
         if toolsets_loaded_from_config:
             toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -205,13 +205,15 @@ class Config(RobustaBaseConfig):
                 )
             )
 
-        if loaded_toolsets_from_env:
-            toolsets_by_name = (
-                self.merge_and_override_bultin_toolsets_with_toolsets_config(
-                    loaded_toolsets_from_env,
-                    toolsets_by_name,
+        if self.toolsets:
+            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
+            if loaded_toolsets_from_env:
+                toolsets_by_name = (
+                    self.merge_and_override_bultin_toolsets_with_toolsets_config(
+                        loaded_toolsets_from_env,
+                        toolsets_by_name,
+                    )
                 )
-            )
 
         for toolset in toolsets_by_name.values():
             if toolset.enabled:
@@ -437,25 +439,11 @@ class Config(RobustaBaseConfig):
         loaded_toolsets = []
         for custom_path in self.custom_toolsets:
             if os.path.isfile(custom_path):
-                try:
-                    with open(custom_path) as file:
-                        parsed_yaml = yaml.safe_load(file)
-                except (yaml.YAMLError, Exception) as err:
-                    logging.error(f"Error parsing YAML from {custom_path}: {err}")
-                    continue
-
-                if not parsed_yaml:
-                    logging.error(
-                        f"No content found in custom toolset file: {custom_path}"
-                    )
-                    continue
-
-                toolsets = parsed_yaml.get("toolsets", {})
-                if not toolsets:
-                    logging.error(f"No 'toolsets' key found in: {custom_path}")
-                    continue
-
-                loaded_toolsets.extend(self.load_toolsets_config(toolsets, custom_path))
+                toolset_config = self.parse_toolsets_file(
+                    custom_path, raise_error=False
+                )
+                if toolset_config:
+                    loaded_toolsets.extend(toolset_config)
 
         # if toolsets are loaded from custom_toolsets, return them without checking the default location
         if loaded_toolsets:
@@ -464,13 +452,56 @@ class Config(RobustaBaseConfig):
         if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             return []
 
-        with open(CUSTOM_TOOLSET_LOCATION) as file:
-            parsed_yaml = yaml.safe_load(file)
-            toolsets = parsed_yaml.get("toolsets", {})
-            loaded_toolsets = self.load_toolsets_config(
-                toolsets, CUSTOM_TOOLSET_LOCATION
-            )
-            return loaded_toolsets
+        return self.parse_toolsets_file(CUSTOM_TOOLSET_LOCATION, raise_error=True)
+
+    def parse_toolsets_file(
+        self, path: str, raise_error: bool = True
+    ) -> Optional[ToolsetYamlFromConfig]:
+        try:
+            with open(path, "r", encoding="utf-8") as file:
+                parsed_yaml = yaml.safe_load(file)
+        except yaml.YAMLError as err:
+            logging.exception(f"Error parsing YAML from {path}: {err}")
+            if raise_error:
+                raise err
+            return None
+        except Exception as err:
+            logging.exception(f"Failed to open toolset file {path}: {err}")
+            if raise_error:
+                raise err
+            return None
+
+        if not parsed_yaml:
+            message = f"No content found in custom toolset file: {path}"
+            logging.error(message)
+            if raise_error:
+                raise ValueError(message)
+            return None
+
+        if not isinstance(parsed_yaml, dict):
+            message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
+            logging.error(message)
+            if raise_error:
+                raise ValueError(message)
+            return None
+
+        toolsets = parsed_yaml.get("toolsets")
+        if not toolsets:
+            message = f"No 'toolsets' key found in: {path}"
+            logging.error(message)
+            if raise_error:
+                raise ValueError(message)
+            return None
+
+        try:
+            toolset_config = self.load_toolsets_config(toolsets, path)
+        except Exception as err:
+            logging.exception(f"Error loading toolset configuration from {path}: {err}")
+            if raise_error:
+                raise err
+            return None
+
+        return toolset_config
 
     def load_toolsets_config(
         self, toolsets: dict[str, dict[str, Any]], path: str
