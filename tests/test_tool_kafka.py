@@ -4,7 +4,9 @@ import pytest
 import random
 import string
 from confluent_kafka.admin import AdminClient, NewTopic
+from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.kafka import (
+    KafkaToolset,
     ListKafkaConsumers,
     DescribeConsumerGroup,
     ListTopics,
@@ -22,18 +24,26 @@ pytestmark = pytest.mark.skipif(
     reason="missing env KAFKA_BOOTSTRAP_SERVER",
 )
 
-
-@pytest.fixture(scope="module", autouse=True)
-def admin_client():
-    config = {
-        "bootstrap.servers": KAFKA_BOOTSTRAP_SERVER,
-        "client.id": "holmes_kafka_tools_test",
-    }
-    return AdminClient(config)
+kafka_config = {
+    "kafka_broker": KAFKA_BOOTSTRAP_SERVER,
+}
 
 
 @pytest.fixture(scope="module", autouse=True)
-def docker_compose(admin_client):
+def kafka_toolset():
+    kafka_toolset = KafkaToolset()
+    kafka_toolset.config = kafka_config
+    kafka_toolset.check_prerequisites()
+    assert kafka_toolset.get_status() == ToolsetStatusEnum.ENABLED, "Prerequisites check failed for Kafka toolset"
+    assert kafka_toolset.admin_client is not None, "Missing admin client"
+    return kafka_toolset
+
+@pytest.fixture(scope="module", autouse=True)
+def admin_client(kafka_toolset):
+    return kafka_toolset.admin_client
+
+@pytest.fixture(scope="module", autouse=True)
+def docker_compose(kafka_toolset):
     try:
         subprocess.Popen(
             "docker compose up -d".split(),
@@ -45,7 +55,7 @@ def docker_compose(admin_client):
         if not wait_for_containers(FIXTURE_FOLDER):
             raise Exception("Containers failed to start properly")
 
-        if not wait_for_kafka_ready(admin_client):
+        if not wait_for_kafka_ready(kafka_toolset.admin_client):
             raise Exception("Kafka failed to initialize properly")
 
         yield
@@ -71,20 +81,19 @@ def test_topic(admin_client):
     admin_client.delete_topics([topic_name])
 
 
-def test_list_kafka_consumers(admin_client):
-    tool = ListKafkaConsumers(admin_client)
+def test_list_kafka_consumers(kafka_toolset):
+    tool = ListKafkaConsumers(kafka_toolset)
     result = tool.invoke({})
-
-    assert "errors: []" in result
-    assert "valid:" in result
+    print(result)
+    assert "consumer_groups:" in result
     assert (
         tool.get_parameterized_one_liner({})
         == "Listed all Kafka consumer groups in the cluster"
     )
 
 
-def test_describe_consumer_group(admin_client):
-    tool = DescribeConsumerGroup(admin_client)
+def test_describe_consumer_group(kafka_toolset):
+    tool = DescribeConsumerGroup(kafka_toolset)
 
     result = tool.invoke({"group_id": "test_group"})
     assert "group_id: test_group" in result
@@ -94,8 +103,8 @@ def test_describe_consumer_group(admin_client):
     )
 
 
-def test_list_topics(admin_client, test_topic):
-    tool = ListTopics(admin_client)
+def test_list_topics(kafka_toolset, test_topic):
+    tool = ListTopics(kafka_toolset)
     result = tool.invoke({})
 
     assert "topics" in result
@@ -106,8 +115,8 @@ def test_list_topics(admin_client, test_topic):
     )
 
 
-def test_describe_topic(admin_client, test_topic):
-    tool = DescribeTopic(admin_client)
+def test_describe_topic(kafka_toolset, test_topic):
+    tool = DescribeTopic(kafka_toolset)
     result = tool.invoke({"topic_name": test_topic})
 
     assert "configuration:" not in result
@@ -120,8 +129,8 @@ def test_describe_topic(admin_client, test_topic):
     )
 
 
-def test_describe_topic_with_configuration(admin_client, test_topic):
-    tool = DescribeTopic(admin_client)
+def test_describe_topic_with_configuration(kafka_toolset, test_topic):
+    tool = DescribeTopic(kafka_toolset)
     result = tool.invoke({"topic_name": test_topic, "fetch_configuration": True})
 
     print(result)
@@ -135,8 +144,8 @@ def test_describe_topic_with_configuration(admin_client, test_topic):
     )
 
 
-def test_find_consumer_groups_by_topic(admin_client, test_topic):
-    tool = FindConsumerGroupsByTopic(admin_client)
+def test_find_consumer_groups_by_topic(kafka_toolset, test_topic):
+    tool = FindConsumerGroupsByTopic(kafka_toolset)
     result = tool.invoke({"topic_name": test_topic})
 
     assert result == f"No consumer group were found for topic {test_topic}"
@@ -146,8 +155,8 @@ def test_find_consumer_groups_by_topic(admin_client, test_topic):
     )
 
 
-def test_tool_error_handling(admin_client):
-    tool = DescribeTopic(admin_client)
+def test_tool_error_handling(kafka_toolset):
+    tool = DescribeTopic(kafka_toolset)
     result = tool.invoke({"topic_name": "non_existent_topic"})
 
     print(result)
