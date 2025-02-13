@@ -451,6 +451,9 @@ class Config(RobustaBaseConfig):
             return loaded_toolsets
 
         if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            logging.warning(
+                f"Custom toolset file {CUSTOM_TOOLSET_LOCATION} does not exist"
+            )
             return []
 
         return self.parse_toolsets_file(CUSTOM_TOOLSET_LOCATION, raise_error=True)
