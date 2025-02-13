@@ -184,6 +184,7 @@ class Config(RobustaBaseConfig):
             if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
         ]
 
+        # All built-in toolsets are enabled by default, users can override this in their config
         for toolset in default_toolsets:
             toolset.enabled = True
 
@@ -461,26 +462,26 @@ class Config(RobustaBaseConfig):
             with open(path, "r", encoding="utf-8") as file:
                 parsed_yaml = yaml.safe_load(file)
         except yaml.YAMLError as err:
-            logging.exception(f"Error parsing YAML from {path}: {err}")
+            logging.warning(f"Error parsing YAML from {path}: {err}")
             if raise_error:
                 raise err
             return None
         except Exception as err:
-            logging.exception(f"Failed to open toolset file {path}: {err}")
+            logging.warning(f"Failed to open toolset file {path}: {err}")
             if raise_error:
                 raise err
             return None
 
         if not parsed_yaml:
             message = f"No content found in custom toolset file: {path}"
-            logging.error(message)
+            logging.warning(message)
             if raise_error:
                 raise ValueError(message)
             return None
 
         if not isinstance(parsed_yaml, dict):
             message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
-            logging.error(message)
+            logging.warning(message)
             if raise_error:
                 raise ValueError(message)
             return None
@@ -488,7 +489,7 @@ class Config(RobustaBaseConfig):
         toolsets = parsed_yaml.get("toolsets")
         if not toolsets:
             message = f"No 'toolsets' key found in: {path}"
-            logging.error(message)
+            logging.warning(message)
             if raise_error:
                 raise ValueError(message)
             return None
@@ -496,7 +497,7 @@ class Config(RobustaBaseConfig):
         try:
             toolset_config = self.load_toolsets_config(toolsets, path)
         except Exception as err:
-            logging.exception(f"Error loading toolset configuration from {path}: {err}")
+            logging.warning(f"Error loading toolset configuration from {path}: {err}")
             if raise_error:
                 raise err
             return None
