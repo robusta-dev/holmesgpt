@@ -56,6 +56,7 @@ RUN chmod 777 argocd
 RUN ./argocd --help
 
 # Set the architecture-specific aws-cli
+# Currently comment out to reduce image size since this toolset not in use in server.
 # ARG AWS_CLI_ARM_URL=https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip
 # ARG AWS_CLI_AMD_URL=https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
 # # Conditional download based on the platform
