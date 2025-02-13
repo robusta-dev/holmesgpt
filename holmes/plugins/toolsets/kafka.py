@@ -55,6 +55,16 @@ def convert_to_dict(obj: Any):
         return str(obj)
     return obj
 
+def format_list_consumer_group_errors(errors:Optional[List]) -> str:
+    errors_text = ""
+    if errors:
+        if len(errors) > 1:
+            errors_text = "# Some errors happened while listing consumer groups:\n\n"
+        errors_text = errors_text + "\n\n".join([
+            f"## Error:\n{str(error)}" for error in errors
+        ])
+
+    return errors_text
 
 class KafkaConfig(BaseModel):
     brokers: List[str]
@@ -79,12 +89,24 @@ class ListKafkaConsumers(Tool):
     def invoke(self, params: Dict) -> str:
         try:
             futures = self.toolset.admin_client.list_consumer_groups()
-            groups: ListConsumerGroupsResult = futures.result()
-            return yaml.dump(groups)
+            list_groups_result: ListConsumerGroupsResult = futures.result()
+            groups_text = ""
+            if list_groups_result.valid and len(list_groups_result.valid) > 0:
+                groups_text = yaml.dump(list_groups_result.valid)
+            else:
+                groups_text = "No consumer group was found"
+
+
+            errors_text = format_list_consumer_group_errors(list_groups_result.errors)
+
+            result_text = groups_text
+            if errors_text:
+                result_text = result_text + "\n\n" + errors_text
+            return result_text
         except Exception as e:
             error_msg = f"Failed to list consumer groups: {str(e)}"
             logging.error(error_msg)
-            raise e
+            return error_msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return "Listed all Kafka consumer groups in the cluster"
@@ -243,10 +265,6 @@ class FindConsumerGroupsByTopic(Tool):
                 group_ids_to_evaluate = group_ids_to_evaluate + [
                     group.group_id for group in groups.valid
                 ]
-            if groups.errors:
-                group_ids_to_evaluate = group_ids_to_evaluate + [
-                    group.group_id for group in groups.errors
-                ]
 
             if len(group_ids_to_evaluate) > 0:
                 consumer_groups_futures = (
@@ -267,9 +285,18 @@ class FindConsumerGroupsByTopic(Tool):
                             convert_to_dict(consumer_group_description)
                         )
 
-            if len(consumer_groups) == 0:
-                return f"No consumer group were found for topic {topic_name}"
-            return yaml.dump(consumer_groups)
+            errors_text = format_list_consumer_group_errors(groups.errors)
+
+            result_text = None
+            if len(consumer_groups) > 0:
+                result_text = yaml.dump(consumer_groups)
+            else:
+                result_text = f"No consumer group were found for topic {topic_name}"
+
+            if errors_text:
+                result_text = result_text + "\n\n" + errors_text
+
+            return result_text
         except Exception as e:
             error_msg = (
                 f"Failed to find consumer groups for topic {topic_name}: {str(e)}"
@@ -288,7 +315,7 @@ class KafkaToolset(Toolset):
         self,
     ):
         super().__init__(
-            name="kafka_tools",
+            name="kafka/admin",
             description="Fetches metadata from Kafka",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-cR1JrBgJxB_SPVKUIRwtiHnR8qBvLeHXjQ&s",

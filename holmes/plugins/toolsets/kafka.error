@@ -1,0 +1,72 @@
+2025-02-10 16:10:51.885 INFO     Wrapper: Completed Call, calling success_handler
+%3|1739203851.915|FAIL|holmes-kafka-core-toolset#producer-1| [thrd:sasl_plaintext://aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.]: sasl_plaintext://aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.svc:9095/2: Failed to resolve 'aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.svc:9095': Name or service not known (after 26ms in state CONNECT)
+%3|1739203851.935|FAIL|holmes-kafka-core-toolset#producer-1| [thrd:sasl_plaintext://aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.]: sasl_plaintext://aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.svc:9095/2: Failed to resolve 'aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.svc:9095': Name or service not known (after 19ms in state CONNECT, 1 identical error(s) suppressed)
+%3|1739203882.054|FAIL|holmes-kafka-core-toolset#producer-1| [thrd:sasl_plaintext://aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.]: sasl_plaintext://aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.svc:9095/2: Failed to resolve 'aks-prod-kafka-2.aks-prod-kafka-brokers.kafka.svc:9095': Name or service not known (after 4ms in state CONNECT, 30 identical error(s) suppressed)
+2025-02-10 16:11:51.890 ERROR    Failed to list consumer groups: cannot pickle 'cimpl.KafkaError' object
+2025-02-10 16:11:51.891 ERROR    Error in /api/investigate: cannot pickle 'cimpl.KafkaError' object
+Traceback (most recent call last):
+  File "/app/server.py", line 115, in investigate_issues
+    result = investigation.investigate_issues(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/holmes/core/investigation.py", line 35, in investigate_issues
+    investigation = ai.investigate(
+                    ^^^^^^^^^^^^^^^
+  File "/app/holmes/core/tool_calling_llm.py", line 453, in investigate
+    res = self.prompt_call(
+          ^^^^^^^^^^^^^^^^^
+  File "/app/holmes/core/tool_calling_llm.py", line 91, in prompt_call
+    return self.call(
+           ^^^^^^^^^^
+  File "/app/holmes/core/tool_calling_llm.py", line 225, in call
+    tool_call_result: ToolCallResult = future.result()
+                                       ^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/concurrent/futures/_base.py", line 449, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/usr/local/lib/python3.11/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/holmes/core/tool_calling_llm.py", line 262, in _invoke_tool
+    tool_response = tool.invoke(tool_params)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/holmes/plugins/toolsets/kafka.py", line 55, in invoke
+    raise e
+  File "/app/holmes/plugins/toolsets/kafka.py", line 51, in invoke
+    return yaml.dump(groups)
+           ^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/__init__.py", line 253, in dump
+    return dump_all([data], stream, Dumper=Dumper, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/__init__.py", line 241, in dump_all
+    dumper.represent(data)
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 27, in represent
+    node = self.represent_data(data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 52, in represent_data
+    node = self.yaml_multi_representers[data_type](self, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 342, in represent_object
+    return self.represent_mapping(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 118, in represent_mapping
+    node_value = self.represent_data(item_value)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 48, in represent_data
+    node = self.yaml_representers[data_types[0]](self, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 199, in represent_list
+    return self.represent_sequence('tag:yaml.org,2002:seq', data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 92, in represent_sequence
+    node_item = self.represent_data(item)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 52, in represent_data
+    node = self.yaml_multi_representers[data_type](self, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/venv/lib/python3.11/site-packages/yaml/representer.py", line 317, in represent_object
+    reduce = data.__reduce_ex__(2)
+             ^^^^^^^^^^^^^^^^^^^^^
+TypeError: cannot pickle 'cimpl.KafkaError' object
+2025-02-10 16:11:51,895 INFO     172.31.16.45:39446 - "POST /api/investigate HTTP/1.1" 500
