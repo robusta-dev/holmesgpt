@@ -1,8 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"name":"get-data-tvdsh","namespace":"default"}}
-stdout:
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0curl: (6) Could not resolve host: kldsvklnsdiogjerkngernjk23432i90erfefjio.com
-
-stderr:
