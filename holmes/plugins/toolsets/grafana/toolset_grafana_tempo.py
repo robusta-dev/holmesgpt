@@ -130,7 +130,7 @@ class GrafanaTempoToolset(BaseGrafanaToolset):
     def __init__(self):
         super().__init__(
             name="grafana/tempo",
-            description="Fetchs kubernetes traces from Tempo",
+            description="Fetches kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
             doc_url="https://grafana.com/oss/tempo/",
             tools=[
