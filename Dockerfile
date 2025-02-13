@@ -56,18 +56,18 @@ RUN chmod 777 argocd
 RUN ./argocd --help
 
 # Set the architecture-specific aws-cli
-ARG AWS_CLI_ARM_URL=https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip
-ARG AWS_CLI_AMD_URL=https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
-# Conditional download based on the platform
-RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-    curl $AWS_CLI_ARM_URL -o "awscliv2.zip"; \
-    elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-    curl $AWS_CLI_AMD_URL -o "awscliv2.zip"; \
-    else \
-    echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
-    fi
-RUN unzip awscliv2.zip && ./aws/install
-RUN aws --version
+# ARG AWS_CLI_ARM_URL=https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip
+# ARG AWS_CLI_AMD_URL=https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+# # Conditional download based on the platform
+# RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+#     curl $AWS_CLI_ARM_URL -o "awscliv2.zip"; \
+#     elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+#     curl $AWS_CLI_AMD_URL -o "awscliv2.zip"; \
+#     else \
+#     echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
+#     fi
+# RUN unzip awscliv2.zip && ./aws/install
+# RUN aws --version
 
 # Install Helm
 RUN curl https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg \
@@ -130,9 +130,9 @@ COPY --from=builder /app/argocd /usr/local/bin/argocd
 RUN argocd --help
 
 # Set up AWS CLI
-COPY --from=builder /usr/local/aws-cli/ /usr/local/aws-cli/
-ENV PATH $PATH:/usr/local/aws-cli/v2/current/bin
-RUN aws --version
+# COPY --from=builder /usr/local/aws-cli/ /usr/local/aws-cli/
+# ENV PATH $PATH:/usr/local/aws-cli/v2/current/bin
+# RUN aws --version
 
 # Set up Helm
 COPY --from=builder /usr/bin/helm /usr/local/bin/helm
