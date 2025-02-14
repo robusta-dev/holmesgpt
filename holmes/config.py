@@ -2,14 +2,11 @@ import logging
 import os
 import yaml
 import os.path
+from typing import Any, Dict, List, Optional, Union
 
 from holmes.core.llm import LLM, DefaultLLM
-from typing import Any, Dict, List, Optional
-
-
 from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
-
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
@@ -511,11 +508,10 @@ class Config(RobustaBaseConfig):
         self, toolsets: dict[str, dict[str, Any]], path: str
     ) -> List[ToolsetYamlFromConfig]:
         loaded_toolsets: list[ToolsetYamlFromConfig] = []
-        is_old_toolset_config = self.is_old_toolset_config(toolsets)
-        if is_old_toolset_config:
+        if self.is_old_toolset_config(toolsets):
             message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
             logging.warning(message)
-            raise ValidationError(message)
+            raise ValueError(message)
         for name, config in toolsets.items():
             try:
                 validated_config: ToolsetYamlFromConfig = ToolsetYamlFromConfig(
@@ -535,10 +531,13 @@ class Config(RobustaBaseConfig):
 
         return loaded_toolsets
 
-    def is_old_toolset_config(self, toolsets: dict[str, dict[str, Any]]) -> bool:
+    def is_old_toolset_config(
+        self, toolsets: Union[dict[str, dict[str, Any]], List[dict[str, Any]]]
+    ) -> bool:
         # old config is a list of toolsets
         if isinstance(toolsets, list):
             return True
+        return False
 
     def merge_and_override_bultin_toolsets_with_toolsets_config(
         self,
