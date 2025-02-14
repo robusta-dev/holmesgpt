@@ -511,6 +511,11 @@ class Config(RobustaBaseConfig):
         self, toolsets: dict[str, dict[str, Any]], path: str
     ) -> List[ToolsetYamlFromConfig]:
         loaded_toolsets: list[ToolsetYamlFromConfig] = []
+        is_old_toolset_config = self.is_old_toolset_config(toolsets)
+        if is_old_toolset_config:
+            message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
+            logging.warning(message)
+            raise ValidationError(message)
         for name, config in toolsets.items():
             try:
                 validated_config: ToolsetYamlFromConfig = ToolsetYamlFromConfig(
@@ -523,11 +528,17 @@ class Config(RobustaBaseConfig):
                     )
                 loaded_toolsets.append(validated_config)
             except ValidationError as e:
-                logging.error(f"Toolset '{name}' is invalid: {e}")
+                logging.warning(f"Toolset '{name}' is invalid: {e}")
+
             except Exception:
-                logging.exception("Failed to load toolset: %s", name)
+                logging.warning("Failed to load toolset: %s", name)
 
         return loaded_toolsets
+
+    def is_old_toolset_config(self, toolsets: dict[str, dict[str, Any]]) -> bool:
+        # old config is a list of toolsets
+        if isinstance(toolsets, list):
+            return True
 
     def merge_and_override_bultin_toolsets_with_toolsets_config(
         self,
