@@ -9,29 +9,39 @@
   </p>
 </div>
 
-Respond to alerts faster, using AI to automatically:
+## Why HolmesGPT?
 
-* Fetch logs, traces, and metrics
-* Decide if the problem is likely **application problem or infrastructure problem** (who should investigate first?)
-* Find upstream root-causes
+HolmesGPT transforms your on-call experience by automatically:
+- Fetching relevant logs, traces, and metrics
+- Determining if issues are application or infrastructure related
+- Identifying upstream root causes
+- Providing actionable insights
 
-Using HolmesGPT, you can transform your existing alerts from this 👇
+### Before & After
 
-![Screenshot 2024-10-31 at 12 01 12 2](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
+**Traditional Alert:**
+![Before HolmesGPT](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
 
-To this 👇
-
+**With HolmesGPT:**
 <div align="center">
   <img src="https://github.com/user-attachments/assets/238d385c-70b5-4f41-a3cd-b7785f49d74c" alt="Prometheus alert with AI investigation" width="500px" />
 </div>
 
+
 ### Key Features
-- **Automatic data collection:** HolmesGPT surfaces up observability data you need to investigate
-- **Secure:** *Read-only* access to data - respects RBAC permissions
-- **Knowledge Sharing:** Experts add knowledge to Holmes and become a force-multiplier for others
-- **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
-- **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
-- **Integrates with Existing Tools** including Prometheus, PagerDuty, OpsGenie, Jira, and more
+🔍 **Automatic Data Collection**
+- Surfaces relevant observability data for investigation
+- Integrates with your existing monitoring stack
+
+🔒 **Enterprise-Ready**
+- Read-only data access - respects RBAC permissions
+- Bring your own API key (OpenAI, Azure, AWS Bedrock, etc.)
+- Privacy-focused design - can keep all data in your cloud account
+
+🚀 **Powerful Integrations**
+- Works with Prometheus, PagerDuty, OpsGenie, Jira, and more
+- Extensible plugin system for custom data sources
+- Connect to knowledge-bases and existing runbooks in Confluence
 
 ### See it in Action
 
