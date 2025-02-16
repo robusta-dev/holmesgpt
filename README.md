@@ -76,15 +76,13 @@ See [Additional Installation Options](docs/installation.md).
 
 If you installed Robusta + HolmesGFPT, go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
 
-If you installed HolmesGPT as a CLI tool, you'll need to first setup an API key. See [Getting an API Key](#getting-an-api-key) below. 
-
-Once you have an API key, you can ask Holmes a question:
+If you installed HolmesGPT as a CLI tool, you'll need to first [setup an API key](#getting-an-api-key). Then ask Holmes a question:
 
 ```bash
 holmes ask "what pods are unhealthy and why?"
 ```
 
-Or investigate your Prometheus alerts in the CLI:
+To investigate Prometheus alerts with the CLI:
 
 ```bash
 kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
@@ -93,17 +91,16 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093
 #  holmes investigate alertmanager --alertmanager-url http://docker.for.mac.localhost:9093
 ```
 
-Or investigate an alert from your on-call tools:
+To investigate alerts from your on-call tools:
 
 ```bash
-holmes investigate opsgenie --opsgenie-api-key <PLACEHOLDER_APIKEY>
-holmes investigate pagerduty --pagerduty-api-key <API_KEY>
+holmes investigate opsgenie --opsgenie-api-key <OPSGENIE_API_KEY>
+holmes investigate pagerduty --pagerduty-api-key <PAGERDUTY_API_KEY>
+# to write the analysis back to the incident as a comment
+holmes investigate pagerduty --pagerduty-api-key <PAGERDUTY_API_KEY> --update
 ```
 
-(Results are displayed in CLI by default. Use --update to have HolmesGPT write its analysis as a comment on the incidents.)
-
-
-Finally, you add HolmesGPT as a [K9s plugin](docs/k9s.md) to investigate why Kubernetes resources are unhealthy.
+Finally, you can add HolmesGPT as a [K9s plugin](docs/k9s.md) to quickly run investigations on Kubernetes resources.
 
 ### Getting an API Key
 
@@ -325,8 +322,7 @@ You can customize HolmesGPT's behaviour with command line flags, or you can save
 
 You can view an example config file with all available settings [here](config.example.yaml).
 
-By default, without specifying `--config` the agent will try to read `~/.holmes/config.yaml`. When settings are present in both config file and cli, the cli option takes precedence.
-
+</defails>
 
 ## License
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
