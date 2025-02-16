@@ -50,14 +50,13 @@ And get this 👇
 
 ## Quick Start
 
-If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package:
+If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package. This will let you:
 
-- Forward alerts by webhook to Robusta
 - Analyze alerts in a web UI and ask follow-up questions
-- ChatGPT-like interface to query observability and K8s data in natural language
-- Built-in integrations with **Prometheus alerts**, [Slack](https://docs.robusta.dev/master/configuration/ai-analysis.html), and more
-- No need for an OpenAI API Key (allows bringing your own LLM if you prefer)
-- Simple installation using `helm`
+- Use natural language to query observability and K8s data in a ChatGPT-like interface
+- Easily integrate Holmes with **Prometheus alerts**, [Slack](https://docs.robusta.dev/master/configuration/ai-analysis.html), and more
+- Use Holmes immediately without needing an OpenAI API Key (but you can bring one if you prefer!)
+- Install HolmesGPT quickly with `helm`
 
 [Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
 
