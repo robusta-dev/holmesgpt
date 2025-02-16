@@ -47,7 +47,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchToolset(),
         GrafanaLokiToolset(),
         GrafanaTempoToolset(),
-        NotionToolset
+        NotionToolset(),
     ]
 
     return toolsets
