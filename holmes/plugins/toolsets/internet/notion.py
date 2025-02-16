@@ -1,5 +1,4 @@
 import re
-import os
 import logging
 import json
 from typing import Any, Dict
@@ -7,13 +6,11 @@ from holmes.core.tools import (
     Tool,
     ToolParameter,
     ToolsetTag,
-    CallablePrerequisite,
 )
 from holmes.plugins.toolsets.internet.internet import (
-    InternetBaseToolset, 
+    InternetBaseToolset,
     scrape,
 )
-
 
 
 class FetchNotion(Tool):
@@ -46,7 +43,9 @@ class FetchNotion(Tool):
         url: str = params["url"]
 
         # Get headers from the toolset configuration
-        additional_headers = self.toolset.additional_headers if self.toolset.additional_headers else {}
+        additional_headers = (
+            self.toolset.additional_headers if self.toolset.additional_headers else {}
+        )
         url = self.convert_notion_url(url)
         content, _ = scrape(url, additional_headers)
 

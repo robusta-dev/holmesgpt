@@ -1,4 +1,3 @@
-from optparse import Option
 import re
 import os
 import logging
@@ -181,7 +180,9 @@ class FetchWebpage(Tool):
     def invoke(self, params: Any) -> str:
         url: str = params["url"]
 
-        additional_headers = self.toolset.additional_headers if self.toolset.additional_headers else {}
+        additional_headers = (
+            self.toolset.additional_headers if self.toolset.additional_headers else {}
+        )
         content, mime_type = scrape(url, additional_headers)
 
         if not content:
@@ -204,15 +205,16 @@ class FetchWebpage(Tool):
 class InternetBaseToolset(Toolset):
     additional_headers: Dict[str, str] = {}
 
-    def __init__(self,
+    def __init__(
+        self,
         name: str,
         description: str,
         icon_url: str,
         tools: list[Tool],
         is_default: str,
         tags: List[ToolsetTag],
-        docs_url: Optional[str] = None
-        ):
+        docs_url: Optional[str] = None,
+    ):
         super().__init__(
             name=name,
             description=description,
@@ -223,7 +225,7 @@ class InternetBaseToolset(Toolset):
             tools=tools,
             tags=tags,
             is_default=is_default,
-            docs_url=docs_url
+            docs_url=docs_url,
         )
 
     def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
@@ -231,6 +233,7 @@ class InternetBaseToolset(Toolset):
             return True
         self.additional_headers = config.get("additional_headers", {})
         return True
+
 
 class InternetToolset(InternetBaseToolset):
     additional_headers: Dict[str, str] = {}
