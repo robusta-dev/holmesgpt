@@ -24,6 +24,10 @@ OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 
 class LLM:
     @abstractmethod
+    def __init__(self):
+        self.model: str
+
+    @abstractmethod
     def get_context_window_size(self) -> int:
         pass
 

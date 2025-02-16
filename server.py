@@ -1,5 +1,7 @@
 # ruff: noqa: E402
 import os
+
+import sentry_sdk
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -25,6 +27,8 @@ from holmes.common.env_vars import (
     HOLMES_PORT,
     HOLMES_POST_PROCESSING_PROMPT,
     LOG_PERFORMANCE,
+    SENTRY_DSN,
+    ENABLE_TELEMETRY,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
@@ -86,6 +90,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
+if ENABLE_TELEMETRY and SENTRY_DSN:
+    logging.info("Initializing sentry")
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        send_default_pii=False,
+        traces_sample_rate=0,
+        profiles_sample_rate=0,
+    )
+
 app = FastAPI(lifespan=lifespan)
 
 
@@ -119,6 +132,9 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/investigate: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/workload_health_check")
@@ -167,6 +183,9 @@ def workload_health_check(request: WorkloadHealthRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.exception(f"Error in /api/workload_health_check: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/workload_health_chat")
@@ -190,6 +209,9 @@ def workload_health_conversation(
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/workload_health_chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # older api that does not support conversation history
@@ -230,6 +252,9 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/issue_chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/chat")
@@ -255,6 +280,9 @@ def chat(chat_request: ChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/model")

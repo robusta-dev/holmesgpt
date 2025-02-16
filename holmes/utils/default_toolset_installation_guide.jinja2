@@ -1,7 +1,11 @@
 {% if enabled %}
+{% if is_default %}
 This integration is enabled by default.
 
 If you would like to disable this toolset (not recommended), you need to update the `generated_values.yaml` configuration.
+{% else %}
+To disable this intrgration, you need to update the `generated_values.yaml` configuration.
+{% endif %}
 
 ```yaml
 holmes:

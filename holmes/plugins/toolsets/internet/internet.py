@@ -240,6 +240,7 @@ class InternetToolset(InternetBaseToolset):
             tools=[
                 FetchWebpage(self),
             ],
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html",
             tags=[
                 ToolsetTag.CORE,
             ],

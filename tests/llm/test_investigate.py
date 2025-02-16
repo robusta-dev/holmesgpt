@@ -83,7 +83,6 @@ def idfn(val):
 def test_investigate(experiment_name, test_case):
     config = MockConfig(test_case)
     config.model = os.environ.get("MODEL", "gpt-4o")
-
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
         generate_mocks=test_case.generate_mocks,
@@ -102,10 +101,12 @@ def test_investigate(experiment_name, test_case):
 
     # eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
+    investigate_request = test_case.investigate_request
+    investigate_request.sections = DEFAULT_SECTIONS
     result = investigate_issues(
-        investigate_request=test_case.investigate_request, config=config, dal=mock_dal
+        investigate_request=investigate_request, config=config, dal=mock_dal
     )
-    assert result
+    assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
 
@@ -138,10 +139,14 @@ def test_investigate(experiment_name, test_case):
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
 
-    assert result.sections
-    assert len(result.sections) >= len(DEFAULT_SECTIONS)
+    assert result.sections, "Missing sections"
+    assert (
+        len(result.sections) >= len(DEFAULT_SECTIONS)
+    ), f"Received {len(result.sections)} sections but expected {len(DEFAULT_SECTIONS)}. Received: {result.sections.keys()}"
     for expected_section_title in DEFAULT_SECTIONS:
-        assert expected_section_title in result.sections
+        assert (
+            expected_section_title in result.sections
+        ), f"Expected title {expected_section_title} in sections"
 
     if test_case.expected_sections:
         for (

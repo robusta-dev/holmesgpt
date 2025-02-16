@@ -4,7 +4,7 @@ import os.path
 from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.plugins.toolsets.findings import FindingsToolset
+from holmes.plugins.toolsets.robusta import RobustaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet.internet import InternetToolset
@@ -43,7 +43,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
     toolsets: list[Toolset] = [
         InternetToolset(),
-        FindingsToolset(dal),
+        RobustaToolset(dal),
         OpenSearchToolset(),
         GrafanaLokiToolset(),
         GrafanaTempoToolset(),

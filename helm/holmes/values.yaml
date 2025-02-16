@@ -9,6 +9,9 @@ imagePullSecrets: []
 image: holmes:0.0.0
 registry: us-central1-docker.pkg.dev/genuine-flight-317411/devel
 
+sentryDSN: https://51f9cd9bd2fdee16144db08fc423cd3b@o1120648.ingest.us.sentry.io/4508799804702720
+enableTelemetry: true
+
 enableAccountsCreate: true
 
 createServiceAccount: true
