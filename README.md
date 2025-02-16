@@ -322,7 +322,7 @@ You can customize HolmesGPT's behaviour with command line flags, or you can save
 
 You can view an example config file with all available settings [here](config.example.yaml).
 
-</defails>
+</details>
 
 ## License
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
