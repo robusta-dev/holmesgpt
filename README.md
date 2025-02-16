@@ -1,6 +1,5 @@
 <div align="center">
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
-  <h2 align="center">HolmesGPT - AI Agent for On-Call Engineers 🔥</h2>
   <p align="center">
     <a href="#ways-to-use-holmesgpt"><strong>Examples</strong></a> |
     <a href="#key-features"><strong>Key Features</strong></a> |
