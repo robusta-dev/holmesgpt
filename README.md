@@ -63,10 +63,16 @@ If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github
 
 ## More Installation methods
 
-For additional installation methods, including Brew, Docker, Pip/Pipx, and building from source, see [Additional Installation Options](docs/installation.md).
+Holmes can be installed as a local CLI using: 
 
+* Brew
+* Docker
+* Pip/Pipx
+* Building from source
 
-## Trying Out HolmesGPT
+See [Additional Installation Options](docs/installation.md).
+
+## Using HolmesGPT
 
 If you installed Robusta + HolmesGFPT, go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
 
