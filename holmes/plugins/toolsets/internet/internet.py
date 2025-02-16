@@ -1,7 +1,6 @@
 import re
 import os
 import logging
-import json
 from typing import Any, Optional, Tuple, Dict, List
 
 from requests import RequestException, Timeout
@@ -161,70 +160,6 @@ def looks_like_html(content):
     return False
 
 
-class FetchNotion(Tool):
-    toolset: "InternetToolset"
-
-    def __init__(self, toolset: "InternetToolset"):
-        super().__init__(
-            name="fetch_notion_webpage",
-            description="Fetch a Notion webpage with HTTP requests and authentication.",
-            parameters={
-                "url": ToolParameter(
-                    description="The URL to fetch",
-                    type="string",
-                    required=True,
-                ),
-                "is_runbook": ToolParameter(
-                    description="True if the url is a runbook",
-                    type="boolean",
-                    required=True,
-                ),
-            },
-            toolset=toolset,
-        )
-
-    def convert_notion_url(self, url):
-        if "api.notion.com" in url:
-            return url
-        match = re.search(r"-(\w{32})$", url)
-        if match:
-            notion_id = match.group(1)
-            return f"https://api.notion.com/v1/blocks/{notion_id}/children"
-        return url  # Return original URL if no match is found
-
-    def invoke(self, params: Any) -> str:
-        url: str = params["url"]
-        is_runbook: bool = params.get("is_runbook", False)
-
-        # Get headers from the toolset configuration
-        additional_headers = self.toolset.runbook_headers if is_runbook else {}
-        url = self.convert_notion_url(url)
-        content, _ = scrape(url, additional_headers)
-
-        if not content:
-            logging.error(f"Failed to retrieve content from {url}")
-            return ""
-
-        return self.parse_notion_content(content)
-
-    def parse_notion_content(self, content: Any) -> str:
-        data = json.loads(content)
-        texts = []
-        for result in data["results"]:
-            if "paragraph" in result and "rich_text" in result["paragraph"]:
-                texts.extend(
-                    [text["plain_text"] for text in result["paragraph"]["rich_text"]]
-                )
-
-        # Join and print the result
-        return "".join(texts)
-
-    def get_parameterized_one_liner(self, params) -> str:
-        url: str = params["url"]
-        is_runbook: bool = params["is_runbook"]
-        return f"fetched notion webpage {url} {is_runbook}"
-
-
 class FetchWebpage(Tool):
     toolset: "InternetToolset"
 
@@ -238,20 +173,14 @@ class FetchWebpage(Tool):
                     type="string",
                     required=True,
                 ),
-                "is_runbook": ToolParameter(
-                    description="True if the url is a runbook",
-                    type="boolean",
-                    required=True,
-                ),
             },
             toolset=toolset,
         )
 
     def invoke(self, params: Any) -> str:
         url: str = params["url"]
-        is_runbook: bool = params.get("is_runbook", False)
 
-        additional_headers = self.toolset.runbook_headers if is_runbook else {}
+        additional_headers = self.toolset.runbook_headers if self.toolset.runbook_headers else {}
         content, mime_type = scrape(url, additional_headers)
 
         if not content:
@@ -266,22 +195,9 @@ class FetchWebpage(Tool):
 
         return content
 
-    def parse_notion_content(self, content: Any) -> str:
-        data = json.loads(content)
-        texts = []
-        for result in data["results"]:
-            if "paragraph" in result and "rich_text" in result["paragraph"]:
-                texts.extend(
-                    [text["plain_text"] for text in result["paragraph"]["rich_text"]]
-                )
-
-        # Join and print the result
-        return "".join(texts)
-
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
-        is_runbook: bool = params["is_runbook"]
-        return f"fetched webpage {url} {is_runbook}"
+        return f"fetched webpage {url}"
 
 
 class InternetBaseToolset(Toolset):
