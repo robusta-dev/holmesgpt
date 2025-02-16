@@ -58,7 +58,7 @@ If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github
 - Use Holmes immediately without needing an OpenAI API Key (but you can bring one if you prefer!)
 - Install HolmesGPT quickly with `helm`
 
-[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
+[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) or contact us about on-premise options.
 
 
 ## More Installation methods
