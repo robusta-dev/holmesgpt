@@ -1,3 +1,4 @@
+from optparse import Option
 import re
 import os
 import logging
@@ -209,7 +210,8 @@ class InternetBaseToolset(Toolset):
         icon_url: str,
         tools: list[Tool],
         is_default: str,
-        tags: List[ToolsetTag]
+        tags: List[ToolsetTag],
+        docs_url: Optional[str] = None
         ):
         super().__init__(
             name=name,
@@ -221,6 +223,7 @@ class InternetBaseToolset(Toolset):
             tools=tools,
             tags=tags,
             is_default=is_default,
+            docs_url=docs_url
         )
 
     def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
