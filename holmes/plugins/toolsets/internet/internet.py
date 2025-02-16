@@ -2,7 +2,7 @@ import re
 import os
 import logging
 import json
-from typing import Any, Optional, Tuple, Dict
+from typing import Any, Optional, Tuple, Dict, List
 
 from requests import RequestException, Timeout
 from holmes.core.tools import (
@@ -284,25 +284,27 @@ class FetchWebpage(Tool):
         return f"fetched webpage {url} {is_runbook}"
 
 
-class InternetToolset(Toolset):
+class InternetBaseToolset(Toolset):
     runbook_headers: Dict[str, str] = {}
 
-    def __init__(self):
+    def __init__(self,
+        name: str,
+        description: str,
+        icon_url: str,
+        tools: list[Tool],
+        is_default: str,
+        tags: List[ToolsetTag]
+        ):
         super().__init__(
-            name="internet",
-            description="Fetch webpages",
-            icon_url="https://platform.robusta.dev/demos/internet-access.svg",
+            name=name,
+            description=description,
+            icon_url=icon_url,
             prerequisites=[
                 CallablePrerequisite(callable=self.prerequisites_callable),
             ],
-            tools=[
-                FetchWebpage(self),
-                FetchNotion(self),
-            ],
-            tags=[
-                ToolsetTag.CORE,
-            ],
-            is_default=True,
+            tools=tools,
+            tags=tags,
+            is_default=is_default,
         )
 
     def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
@@ -310,3 +312,20 @@ class InternetToolset(Toolset):
             return True
         self.runbook_headers = config.get("runbook_headers", {})
         return True
+
+class InternetToolset(InternetBaseToolset):
+    runbook_headers: Dict[str, str] = {}
+
+    def __init__(self):
+        super().__init__(
+            name="internet",
+            description="Fetch webpages",
+            icon_url="https://platform.robusta.dev/demos/internet-access.svg",
+            tools=[
+                FetchWebpage(self),
+            ],
+            tags=[
+                ToolsetTag.CORE,
+            ],
+            is_default=True,
+        )
