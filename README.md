@@ -8,8 +8,6 @@
   </p>
 </div>
 
-**Why HolmesGPT?**
-
 HolmesGPT transforms your on-call experience by automatically:
 - Fetching relevant logs, traces, and metrics
 - Determining if issues are application or infrastructure related
