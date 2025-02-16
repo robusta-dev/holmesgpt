@@ -19,10 +19,10 @@ HolmesGPT transforms your on-call experience by automatically:
 ### Before & After
 
 Take traditional alerts like this 👇 
-**Traditional Alert:**
+
 ![Before HolmesGPT](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
 
-And solve them faster with AI like this 👇
+Send them to Holmes and solve them faster like this 👇
 
 <div align="center">
   <img src="https://github.com/user-attachments/assets/238d385c-70b5-4f41-a3cd-b7785f49d74c" alt="Prometheus alert with AI investigation" width="500px" />
