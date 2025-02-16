@@ -180,7 +180,7 @@ class FetchWebpage(Tool):
     def invoke(self, params: Any) -> str:
         url: str = params["url"]
 
-        additional_headers = self.toolset.runbook_headers if self.toolset.runbook_headers else {}
+        additional_headers = self.toolset.additional_headers if self.toolset.additional_headers else {}
         content, mime_type = scrape(url, additional_headers)
 
         if not content:
@@ -201,7 +201,7 @@ class FetchWebpage(Tool):
 
 
 class InternetBaseToolset(Toolset):
-    runbook_headers: Dict[str, str] = {}
+    additional_headers: Dict[str, str] = {}
 
     def __init__(self,
         name: str,
@@ -226,11 +226,11 @@ class InternetBaseToolset(Toolset):
     def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
         if not config:
             return True
-        self.runbook_headers = config.get("runbook_headers", {})
+        self.additional_headers = config.get("additional_headers", {})
         return True
 
 class InternetToolset(InternetBaseToolset):
-    runbook_headers: Dict[str, str] = {}
+    additional_headers: Dict[str, str] = {}
 
     def __init__(self):
         super().__init__(
