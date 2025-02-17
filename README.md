@@ -82,13 +82,13 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 HolmesGPT can be used in three ways:
 
-1. [Install Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
-2. [Install HolmesGPT CLI on your desktop](docs/installation.md) or as a [K9s plugin](docs/k9s.md) - no Kubernetes required, can be used for one-off investigations
-3. [Import HolmesGPT as a Python library](docs/python.md) - for advanced use cases
+1. **Recommended**: [Install Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) for the full HolmesGPT experience (Kubernetes required)
+2. [Desktop CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) - no Kubernetes required, supports one-off investigations
+3. [Python library](docs/python.md) - for advanced use cases
 
-## Using HolmesGPT
+### Using HolmesGPT
 
-- In Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
+- In the Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser
 - With HolmesGPT CLI: [setup an API key](#getting-an-api-key) and ask Holmes a question 👇
 
 ```bash
@@ -98,7 +98,7 @@ holmes ask "what pods are unhealthy and why?"
 Also supported: 
 
 <details>
-<summary>Prometheus/AlertManager alerts</summary>
+<summary>HolmesGPT CLI: investigate Prometheus alerts</summary>
 
 Optional: port-forward to AlertManager (if running Prometheus inside Kubernetes)
 
@@ -119,7 +119,7 @@ To investigate alerts in your browser, sign up for a free trial of [Robusta SaaS
 </details>
 
 <details>
-<summary>PagerDuty and OpsGenie</summary>
+<summary>HolmesGPT CLI: investigate PagerDuty and OpsGenie alerts</summary>
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <OPSGENIE_API_KEY>
@@ -133,9 +133,7 @@ For more details, run `holmes investigate <source> --help`
 
 ## Customizing HolmesGPT
 
-HolmesGPT can investigate many issues out of the box, with no customization or training.
-
-That said, HolmesGPT provides two main extension points:
+HolmesGPT can investigate many issues out of the box, with no customization or training. Optionally, you can extend Holmes to improve results:
 
 **Custom Data Sources**: Add data sources (toolsets) to improve investigations
    - If using Robusta SaaS: See [Robusta's docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html)
