@@ -24,51 +24,54 @@ To this 👇
   <img src="https://github.com/user-attachments/assets/238d385c-70b5-4f41-a3cd-b7785f49d74c" alt="Prometheus alert with AI investigation" width="500px" />
 </div>
 
-### Key Features
+### How it Works
 
-🔍 **Automatic Data Correlation**
+HolmesGPT connects AI models like OpenAI with live observability data and knowledge bases. It uses an **agentic loop** to repeatedly pull data from multiple sources, analyze the data, and then fetch more data if needed until all possible root causes are found.
 
-Holmes supports the following observability sources:
+<img width="3114" alt="holmesgpt-architecture-diagram" src="https://github.com/user-attachments/assets/f659707e-1958-4add-9238-8565a5e3713a" />
 
-| Data Source | Description |
-|-------------|-------------|
-| Kubernetes | Pod logs, k8s events, resource status (kubectl describe) |
-| Grafana Loki | Logs |
-| Grafana Tempo | Traces |
-| Helm | Read Helm charts and values |
-| ArgoCD | Check sync status |
-| AWS RDS | DB logs and metrics |
-| Prometheus | Alerts and metrics (ability to render graphs coming soon) |
-| OpenSearch | Self-diagnostics (ability to query logs coming soon) |
+### 📈 Data Sources
 
-📚 **Learns Your Knowledge Bases**
+The following data sources ("toolsets")  are built-in:
 
-Optional: if you have runbooks or documentation about your architecture, Holmes can use them to guide its investigations.
+| Data Source    | Status         | Description                                                  |
+|----------------|----------------|--------------------------------------------------------------|
+| Kubernetes     | ✅             | Pod logs, K8s events, and resource status (kubectl describe) |
+| Grafana        | ✅             | [Loki (logs)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html) and ✅ [Tempo (traces)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#tempo) |
+| Helm           | ✅             | Release status, chart metadata, and values                   |
+| ArgoCD         | ✅             | Application sync status                                      |
+| AWS RDS        | ✅             | Logs and events                                              |
+| Prometheus     | ✅             | Currently supports investigating alerts; coming soon: automatically write PromQL and show related graphs |
+| Internet       | ✅             | Public runbooks                                              |
+| Confluence     | ✅             | Private runbooks and documentation                           |
+| OpenSearch     | 🟡 Beta        | Query logs and investigate issues with OpenSearch itself (using self-health diagnostics) |
+| NewRelic       | 🟡 Beta        | Investigate alerts, query tracing data                       |
+| Coralogi       | 🟡 Beta        | Logs                                                         |
+| GitHub         | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
 
-| Source | Description |
-|--------|-------------|
-| Internet | For public runbooks and documentation |
-| Confluence | For private runbooks and documentation |
+If you use Robusta SaaS, refer [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html). (Docs for CLI users are coming soon!)
 
-🔒 **Enterprise-Ready**
-- Read-only data access - respects RBAC permissions
-- [Bring your own API key](docs/api-keys.md) (OpenAI, Azure, AWS Bedrock, etc.)
-- Privacy-focused design - can keep all data in your cloud account
+To request access to beta features, message beta@robusta.dev.
 
-🚀 **Bi-Directional Integrations With Your Tools**
+### 🔐 Data Privacy
 
-| Integration | Description |
-|-------------|-------------|
-| Slack | Tag HolmesGPT bot in Slack messages and ask it to investigate (coming soon) |
-| Prometheus/AlertManager | Investigate alerts |
-| PagerDuty | Investigate incidents |
-| OpsGenie | Investigate incidents |
-| Jira | Investigate tickets |
+By design, HolmesGPT has limited **read-only access** to your datasources and respects RBAC permissions.
 
-HolmesGPT has a number of toolsets that give it access to many datasources. This enhances HolmesGPT's ability to get to the root cause of issues.
+Robusta **does not train HolmesGPT** on your data, and when using Robusta SaaS no data is shared between customers.
 
-These toolsets are documented on [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html),
-although this documentation applies to running Holmes in clusters and not with the CLI.
+For extra privacy, you can [bring your own API key](docs/api-keys.md) (OpenAI, Azure, AWS Bedrock, etc) so data is only sent to an approved LLM in your cloud account.
+
+### 🚀 Bi-Directional Integrations With Your Tools
+
+Robusta can investigate alerts - or even just answer questions - from the following sources:
+
+| Integration             | Status    | Notes |
+|-------------------------|-----------|-------|
+| Slack                   | 🟡 Beta   | Tag HolmesGPT bot in any Slack message to invoke it |
+| Prometheus/AlertManager | ✅        | Can be used with Robusta SaaS or HolmesGPT cli |
+| PagerDuty               | ✅        | HolmesGPT CLI only |
+| OpsGenie                | ✅        | HolmesGPT CLI only | 
+| Jira                    | ✅        | HolmesGPT CLI only | 
 
 ### See it in Action
 
@@ -94,11 +97,10 @@ If you installed HolmesGPT as a CLI tool, you'll need to first [setup an API key
 holmes ask "what pods are unhealthy and why?"
 ```
 
-The CLI also supports pulling alerts and investigating them from AlertManager, PagerDuty, OpsGenie, and more.  
+Also supported: 
 
 <details>
 <summary>Prometheus/AlertManager alerts</summary>
-</details>
 
 To do a one-off investigation with the cli, first port-forward to AlertManager (if necessary)
 
@@ -117,6 +119,8 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093
 ```
 
 For the full experience, sign up for a free trial of [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and investigate alerts from your browser.
+
+</details>
 
 <details>
 <summary>PagerDuty and OpsGenie</summary>
@@ -154,6 +158,8 @@ HolmesGPT can investigate by following runbooks written in plain English. Add yo
 
 New runbooks are loaded using `-r` from [custom runbook files](./examples/custom_runbooks.yaml) or by adding them to the `~/.holmes/config.yaml` with the `custom_runbooks: ["/path/to/runbook.yaml"]`.
 </details>
+
+You can save settings in a config file to avoid passing them to the CLI each time:
 
 <details>
 <summary>Reading settings from a config file</summary>
