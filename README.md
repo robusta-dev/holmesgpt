@@ -45,7 +45,7 @@ The following data sources ("toolsets")  are built-in:
 | Confluence     | ✅             | Private runbooks and documentation                           |
 | OpenSearch     | 🟡 Beta        | Query logs and investigate issues with OpenSearch itself (using self-health diagnostics) |
 | NewRelic       | 🟡 Beta        | Investigate alerts, query tracing data                       |
-| Coralogi       | 🟡 Beta        | Logs                                                         |
+| Coralogix      | 🟡 Beta        | Logs                                                         |
 | GitHub         | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
 
 [How to configure datasources with Robusta SaaS](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (docs for CLI coming soon)
@@ -69,8 +69,8 @@ Robusta can investigate alerts - or just answer questions - from the following s
 | Slack                   | 🟡 Beta   | Tag HolmesGPT bot in any Slack message |
 | Prometheus/AlertManager | ✅        | Robusta SaaS or HolmesGPT CLI |
 | PagerDuty               | ✅        | HolmesGPT CLI only |
-| OpsGenie                | ✅        | HolmesGPT CLI only | 
-| Jira                    | ✅        | HolmesGPT CLI only | 
+| OpsGenie                | ✅        | HolmesGPT CLI only |
+| Jira                    | ✅        | HolmesGPT CLI only |
 
 ### See it in Action
 
@@ -95,7 +95,7 @@ HolmesGPT can be used in three ways:
 holmes ask "what pods are unhealthy and why?"
 ```
 
-Also supported: 
+Also supported:
 
 <details>
 <summary>HolmesGPT CLI: investigate Prometheus alerts</summary>
