@@ -25,7 +25,7 @@ To this 👇
 
 ### How it Works
 
-HolmesGPT connects AI models with live observability data and knowledge bases, using an **agentic loop** to analyze data from multiple sources and identify possible root causes.
+HolmesGPT connects AI models with live observability data and organizational knowledge. It uses an **agentic loop** to analyze data from multiple sources and identify possible root causes.
 
 <img width="3114" alt="holmesgpt-architecture-diagram" src="https://github.com/user-attachments/assets/f659707e-1958-4add-9238-8565a5e3713a" />
 
@@ -36,7 +36,7 @@ The following data sources ("toolsets")  are built-in:
 | Data Source    | Status         | Description                                                  |
 |----------------|----------------|--------------------------------------------------------------|
 | Kubernetes     | ✅             | Pod logs, K8s events, and resource status (kubectl describe) |
-| Grafana        | ✅             | [Loki (logs)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html) and [Tempo (traces)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#tempo) |
+| Grafana        | ✅             | [Logs (Loki)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html) and [traces (Tempo)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#tempo) |
 | Helm           | ✅             | Release status, chart metadata, and values                   |
 | ArgoCD         | ✅             | Application sync status                                      |
 | AWS RDS        | ✅             | Logs and events                                              |
@@ -48,17 +48,17 @@ The following data sources ("toolsets")  are built-in:
 | Coralogi       | 🟡 Beta        | Logs                                                         |
 | GitHub         | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
 
-[Toolset documentation for Robusta SaaS](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (docs for CLI coming soon)
+[How to configure datasources with Robusta SaaS](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (docs for CLI coming soon)
 
-[Request access to beta features](mailto:beta@robusta.dev).
+[Request access to beta features](mailto:beta@robusta.dev)
 
 ### 🔐 Data Privacy
 
-By design, HolmesGPT has **read-only access** and respects RBAC permissions.
+By design, HolmesGPT has **read-only access** and respects RBAC permissions. It is safe to run in production environments.
 
-Robusta **does not train HolmesGPT** on your data, and data sent to Robusta SaaS is private to your account.
+We do **not** train HolmesGPT on your data. Data sent to Robusta SaaS is private to your account.
 
-For extra privacy, you can [bring your own API key](docs/api-keys.md) for an AI model in your own cloud account.
+For extra privacy, [bring your own API key](docs/api-keys.md) and use your own AI model.
 
 ### 🚀 Bi-Directional Integrations With Your Tools
 
@@ -83,13 +83,13 @@ Robusta can investigate alerts - or just answer questions - from the following s
 HolmesGPT can be used in three ways:
 
 1. [Install Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
-2. [Use HolmesGPT as a local CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) - no Kubernetes required, can be used for one-off investigations
+2. [Install HolmesGPT CLI on your desktop](docs/installation.md) or as a [K9s plugin](docs/k9s.md) - no Kubernetes required, can be used for one-off investigations
 3. [Import HolmesGPT as a Python library](docs/python.md) - for advanced use cases
 
 ## Using HolmesGPT
 
 - In Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
-- With HolmesGPT as a CLI tool: [setup an API key](#getting-an-api-key) and ask Holmes a question 👇
+- With HolmesGPT CLI: [setup an API key](#getting-an-api-key) and ask Holmes a question 👇
 
 ```bash
 holmes ask "what pods are unhealthy and why?"
@@ -137,13 +137,13 @@ HolmesGPT can investigate many issues out of the box, with no customization or t
 
 That said, HolmesGPT provides two main extension points:
 
-1. **Custom Data Sources**: Add data sources (toolsets) to improve investigations. Configure via:
-   - In-cluster: See [Robusta's docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html)
-   - CLI: Use `-t` flag with [custom toolset files](./examples/custom_toolset.yaml) or add to `~/.holmes/config.yaml`
+**Custom Data Sources**: Add data sources (toolsets) to improve investigations
+   - If using Robusta SaaS: See [Robusta's docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html)
+   - If using the CLI: Use `-t` flag with [custom toolset files](./examples/custom_toolset.yaml) or add to `~/.holmes/config.yaml`
 
-2. **Custom Runbooks**: Add plain English investigation procedures via:
-   - In-cluster: Use the Robusta UI to add runbooks
-   - CLI: Use `-r` flag with [custom runbook files](./examples/custom_runbooks.yaml)
+**Custom Runbooks**: Give HolmesGPT instructions for known alerts:
+   - If using Robusta SaaS: Use the Robusta UI to add runbooks
+   - If using the CLI: Use `-r` flag with [custom runbook files](./examples/custom_runbooks.yaml)
 
 You can save settings in a config file to avoid passing them to the CLI each time:
 
