@@ -97,3 +97,53 @@ def test_load_custom_toolsets_config_fallback(tmp_path, monkeypatch):
     tool = result[0]
     assert tool.name == "fallback_tool"
     assert getattr(tool, "path", None) == str(fallback_file)
+
+
+def test_load_toolsets_config_old_format():
+    config = Config()
+    old_format_data = [
+        {
+            "name": "aws/security",
+            "prerequisites": [{"command": "aws sts get-caller-identity"}],
+            "tools": [
+                {
+                    "name": "aws_cloudtrail_event_lookup",
+                    "description": "Fetches events from AWS CloudTrail",
+                    "command": "aws cloudtrail lookup-events",
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(ValueError, match="Old toolset config format detected"):
+        config.load_toolsets_config(old_format_data, "dummy_path")
+
+
+def test_load_toolsets_config_multiple_old_format_toolsets():
+    config = Config()
+    old_format_data = [
+        {
+            "name": "aws/security",
+            "prerequisites": [{"command": "aws sts get-caller-identity"}],
+            "tools": [
+                {
+                    "name": "aws_cloudtrail_event_lookup",
+                    "description": "Fetches events from AWS CloudTrail",
+                    "command": "aws cloudtrail lookup-events",
+                }
+            ],
+        },
+        {
+            "name": "kubernetes/logs",
+            "tools": [
+                {
+                    "name": "kubectl_logs",
+                    "description": "Fetch Kubernetes logs",
+                    "command": "kubectl logs",
+                }
+            ],
+        },
+    ]
+
+    with pytest.raises(ValueError, match="Old toolset config format detected"):
+        config.load_toolsets_config(old_format_data, "dummy_path")
