@@ -120,4 +120,3 @@ See an example implementation [here](examples/custom_llm.py).
 
 </details>
 
-Like what you see? Discover [more use cases](#more-use-cases) or get started by [installing HolmesGPT](#installation).
