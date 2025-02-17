@@ -48,7 +48,7 @@ The following data sources ("toolsets")  are built-in:
 | Coralogi       | 🟡 Beta        | Logs                                                         |
 | GitHub         | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
 
-If you use Robusta SaaS, refer to [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html). (Docs for CLI users are coming soon.)
+[Toolset documentation](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (for Robusta SaaS users - docs for CLI users are coming soon)
 
 [Request access to beta features](mailto:beta@robusta.dev).
 
