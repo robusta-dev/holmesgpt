@@ -29,7 +29,7 @@ HolmesGPT connects AI models with live observability data and organizational kno
 
 ### 📈 Data Sources
 
-The following data sources ("toolsets")  are built-in:
+The following data sources ("toolsets") are built-in. [Add your own](#customizing-holmesgpt).
 
 | Data Source    | Status         | Description                                                  |
 |----------------|----------------|--------------------------------------------------------------|
