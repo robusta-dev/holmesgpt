@@ -58,7 +58,7 @@ By design, HolmesGPT has **read-only access** and respects RBAC permissions. It 
 
 We do **not** train HolmesGPT on your data. Data sent to Robusta SaaS is private to your account.
 
-For extra privacy, [bring your own API key](docs/api-keys.md) and use your own AI model.
+For extra privacy, [bring an API key](docs/api-keys.md) for your own AI model.
 
 ### 🚀 Bi-Directional Integrations With Your Tools
 
