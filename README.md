@@ -1,9 +1,8 @@
 <div align="center">
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
-    <a href="#ways-to-use-holmesgpt"><strong>Examples</strong></a> |
-    <a href="#key-features"><strong>Key Features</strong></a> |
-    <a href="#installation"><strong>Installation</strong></a> |
+    <a href="#how-it-works"><strong>How it Works</strong></a> |
+    <a href="#quick-start"><strong>Quick Start</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
