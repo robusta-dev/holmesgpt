@@ -82,7 +82,7 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 HolmesGPT can be used in three ways:
 
-1. **Recommended**: [Install Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) for the full HolmesGPT experience (Kubernetes required)
+1. [Use Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
 2. [Desktop CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) - no Kubernetes required, supports one-off investigations
 3. [Python library](docs/python.md) - for advanced use cases
 
