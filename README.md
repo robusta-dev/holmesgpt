@@ -19,9 +19,7 @@ Using HolmesGPT, you can transform your existing alerts from this 👇
 
 To this 👇
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/238d385c-70b5-4f41-a3cd-b7785f49d74c" alt="Prometheus alert with AI investigation" width="500px" />
-</div>
+<img width="600" alt="example-holmesgpt-analysis" src="https://github.com/user-attachments/assets/d03df693-9eff-4d61-8947-2b101f648c3e" />
 
 ### How it Works
 
