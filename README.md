@@ -11,7 +11,7 @@
 Respond to alerts faster, using AI to automatically:
 
 - Fetch logs, traces, and metrics
-- Determining if issues are application or infrastructure related
+- Determine if issues are application or infrastructure related
 - Find upstream root-causes
 
 Using HolmesGPT, you can transform your existing alerts from this 👇
