@@ -52,18 +52,23 @@ Optional: if you have runbooks or documentation about your architecture, Holmes 
 
 🔒 **Enterprise-Ready**
 - Read-only data access - respects RBAC permissions
-- Bring your own API key (OpenAI, Azure, AWS Bedrock, etc.)
+- [Bring your own API key](docs/api-keys.md) (OpenAI, Azure, AWS Bedrock, etc.)
 - Privacy-focused design - can keep all data in your cloud account
 
 🚀 **Bi-Directional Integrations With Your Tools**
 
 | Integration | Description |
 |-------------|-------------|
-| Slack | Tag the HolmesGPT bot in any Slack message and ask it to investigate (coming soon) |
-| Prometheus/AlertManager | Forward alerts by webhook and investigate them |
-| PagerDuty | Read incidents using the holmes cli and write back analysis |
-| OpsGenie | Read incidents using the holmes cli and write back analysis |
-| Jira | Read tickets using the holmes cli and write back analysis |
+| Slack | Tag HolmesGPT bot in Slack messages and ask it to investigate (coming soon) |
+| Prometheus/AlertManager | Investigate alerts |
+| PagerDuty | Investigate incidents |
+| OpsGenie | Investigate incidents |
+| Jira | Investigate tickets |
+
+HolmesGPT has a number of toolsets that give it access to many datasources. This enhances HolmesGPT's ability to get to the root cause of issues.
+
+These toolsets are documented on [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html),
+although this documentation applies to running Holmes in clusters and not with the CLI.
 
 ### See it in Action
 
@@ -73,27 +78,11 @@ Optional: if you have runbooks or documentation about your architecture, Holmes 
 
 ## Quick Start
 
-If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package. This will let you:
+HolmesGPT can be used in three ways:
 
-- Analyze alerts in a web UI and ask follow-up questions
-- Use natural language to query observability and K8s data in a ChatGPT-like interface
-- Easily integrate Holmes with **Prometheus alerts**, [Slack](https://docs.robusta.dev/master/configuration/ai-analysis.html), and more
-- Use Holmes immediately without needing an OpenAI API Key (but bring one if you prefer!)
-- Install HolmesGPT quickly with `helm`
-
-[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) or contact us about on-premise options.
-
-## More Installation methods
-
-Holmes can be [installed as a local CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) using: 
-
-* Brew
-* Docker
-* Pip/Pipx
-
-See [Additional Installation Options](docs/installation.md).
-
-You can also install HolmesGPT as a [Python library](docs/python.md) and use it from your own code.
+1. [Install Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
+2. [Use HolmesGPT as a local CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) - no Kubernetes required, can be used for one-off investigations
+3. [Import HolmesGPT as a Python library](docs/python.md) - for advanced use cases
 
 ## Using HolmesGPT
 
@@ -105,16 +94,32 @@ If you installed HolmesGPT as a CLI tool, you'll need to first [setup an API key
 holmes ask "what pods are unhealthy and why?"
 ```
 
-To investigate Prometheus alerts with the CLI:
+The CLI also supports pulling alerts and investigating them from AlertManager, PagerDuty, OpsGenie, and more.  
+
+<details>
+<summary>Prometheus/AlertManager alerts</summary>
+</details>
+
+To do a one-off investigation with the cli, first port-forward to AlertManager (if necessary)
 
 ```bash
 kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
+# if on Mac OS and using the Holmes Docker image👇
+#  holmes investigate alertmanager --alertmanager-url http://docker.for.mac.localhost:9093
+```
+
+Then run HolmesGPT with the AlertManager URL:
+
+```bash
 holmes investigate alertmanager --alertmanager-url http://localhost:9093
 # if on Mac OS and using the Holmes Docker image👇
 #  holmes investigate alertmanager --alertmanager-url http://docker.for.mac.localhost:9093
 ```
 
-To investigate alerts from your on-call tools:
+For the full experience, sign up for a free trial of [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and investigate alerts from your browser.
+
+<details>
+<summary>PagerDuty and OpsGenie</summary>
 
 ```bash
 holmes investigate opsgenie --opsgenie-api-key <OPSGENIE_API_KEY>
@@ -123,32 +128,8 @@ holmes investigate pagerduty --pagerduty-api-key <PAGERDUTY_API_KEY>
 holmes investigate pagerduty --pagerduty-api-key <PAGERDUTY_API_KEY> --update
 ```
 
-Finally, you can add HolmesGPT as a [K9s plugin](docs/k9s.md) to quickly run investigations on Kubernetes resources.
-
-### Enabling Integrations
-
-<details>
-<summary>
-Jira, GitHub, OpsGenie, PagerDuty, and AlertManager
-</summary>
-
-HolmesGPT can pull tickets/alerts from each of these sources and investigate them.
-
-Refer to `holmes investigate jira --help` etc for details.
+For more details, run `holmes investigate <source> --help`
 </details>
-
-
-<details>
-<summary>
-Builtin toolsets
-</summary>
-
-HolmesGPT has a number of toolsets that give it access to many datasources. This enhances HolmesGPT's ability to get to the root cause of issues.
-
-These toolsets are documented on [Robusta's documentation for builtin toolsets](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html),
-although this documentation applies to running Holmes in clusters and not with the CLI.
-</details>
-
 
 ## Customizing HolmesGPT
 
