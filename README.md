@@ -64,7 +64,7 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 | Integration             | Status    | Notes |
 |-------------------------|-----------|-------|
-| Slack                   | 🟡 Beta   | Tag HolmesGPT bot in any Slack message |
+| Slack                   | 🟡 Beta   | [Demo.](https://www.loom.com/share/afcd81444b1a4adfaa0bbe01c37a4847) Tag HolmesGPT bot in any Slack message |
 | Prometheus/AlertManager | ✅        | Robusta SaaS or HolmesGPT CLI |
 | PagerDuty               | ✅        | HolmesGPT CLI only |
 | OpsGenie                | ✅        | HolmesGPT CLI only |
