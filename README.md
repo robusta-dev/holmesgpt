@@ -1,5 +1,5 @@
 <div align="center">
-  <h1 align="center">Solve cloud alerts faster with an AI assistant</h1>
+  <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <h2 align="center">HolmesGPT - AI Agent for On-Call Engineers 🔥</h2>
   <p align="center">
     <a href="#ways-to-use-holmesgpt"><strong>Examples</strong></a> |
@@ -9,17 +9,25 @@
   </p>
 </div>
 
-Improve developer experience and reduce mean-time-to-respond (MTTR) by transforming alerts from this 👇
+Respond to alerts faster, by using AI to automatically:
+
+* Fetch logs, traces, and metrics
+* Decide if the problem is likely **application problem or infrastructure problem** (who should investigate first?)
+* Find upstream root-causes
+
+Using HolmesGPT, you can transform your existing alerts from this 👇
 
 ![Screenshot 2024-10-31 at 12 01 12 2](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
 
 To this 👇
 
-![Screenshot 2024-10-31 at 11 40 09](https://github.com/user-attachments/assets/9e2c7a23-b942-4720-8a98-488323e092ca)
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/238d385c-70b5-4f41-a3cd-b7785f49d74c" alt="Prometheus alert with AI investigation" width="500px" />
+</div>
 
 ### Key Features
 - **Automatic data collection:** HolmesGPT surfaces up the observability data you need to investigate
-- **Secure:** *Read-only* access to your data - respects RBAC permissions 
+- **Secure:** *Read-only* access to data - respects RBAC permissions
 - **Runbook automation and knowledge sharing:** Tell Holmes how you investigate today and it will automate it
 - **Extensible:** Add your own data sources (tools) and Holmes will use them to investigate
 - **Data Privacy:** Bring your own API key for any AI provider (OpenAI, Azure, AWS Bedrock, etc)
@@ -551,7 +559,7 @@ To use Vertex AI with Gemini models, set the following environment variables:
 
 ```bash
 export VERTEXAI_PROJECT="your-project-id"
-export VERTEXAI_LOCATION="us-central1" 
+export VERTEXAI_LOCATION="us-central1"
 export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
 ```
 
@@ -598,9 +606,9 @@ If your llm provider url uses a certificate from a custom CA, in order to trust 
 <summary>Confluence</summary>
 HolmesGPT can read runbooks from Confluence. To give it access, set the following environment variables:
 
-* CONFLUENCE_BASE_URL - e.g. https://robusta-dev-test.atlassian.net
-* CONFLUENCE_USER - e.g. user@company.com
-* CONFLUENCE_API_KEY - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+* `CONFLUENCE_BASE_URL` - e.g. https://robusta-dev-test.atlassian.net
+* `CONFLUENCE_USER` - e.g. user@company.com
+* `CONFLUENCE_API_KEY` - [refer to Atlassian docs on generating API keys](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
 </details>
 
 <details>
@@ -620,8 +628,52 @@ Fetching runbooks through URLs
 </summary>
 
 HolmesGPT can consult webpages containing runbooks or other relevant information.
-HolmesGPT uses playwright to scrape webpages and requires playwright to be installed and working through `playwright install`.
+This is done through a HTTP GET and the resulting HTML is then cleaned and parsed into markdown.
+Any Javascript that is on the webpage is ignored.
 </details>
+
+<details>
+<summary>
+Using Grafana Loki
+</summary>
+
+HolmesGPT can consult logs from [Loki](https://grafana.com/oss/loki/) by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
+
+To configure loki toolset:
+
+```yaml
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      api_key: "{{ env.GRAFANA_API_KEY }}"
+      url: "http://loki-url"
+```
+
+For search terms, you can optionally tweak the search terms used by the toolset.
+This is done by appending the following to your Holmes grafana/loki configuration:
+
+```yaml
+pod_name_search_key: "pod"
+namespace_search_key: "namespace"
+node_name_search_key: "node"
+```
+
+> You only need to tweak the configuration file if your Loki logs settings for pod, namespace and node differ from the above defaults.
+
+</details>
+
+<details>
+<summary>
+Using Grafana Tempo
+</summary>
+
+HolmesGPT can fetch trace information from Grafana Tempo to debug performance related issues.
+
+Tempo is configured the using the same Grafana settings as the Grafana Loki toolset.
+
+</details>
+
 
 <details>
 <summary>
@@ -630,6 +682,7 @@ ArgoCD
 
 Holmes can use the `argocd` CLI to get details about the ArgoCD setup like the apps configuration and status, clusters and projects within ArgoCD.
 To enable ArgoCD, set the `ARGOCD_AUTH_TOKEN` environment variable as described in the [argocd documentation](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
+
 </details>
 
 ## More Use Cases
@@ -828,9 +881,9 @@ Configure Slack to send notifications to specific channels. Provide your Slack t
 <summary>OpenSearch Integration</summary>
 
 The OpenSearch toolset (`opensearch`) allows Holmes to consult an opensearch cluster for its health, settings and shards information.
-The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file (or in cluster to the configuration secret):
+The toolset supports multiple opensearch or elasticsearch clusters that are configured by editing Holmes' configuration file:
 
-```                                                                                 
+```
 opensearch_clusters:
   - hosts:
       - https://my_elasticsearch.us-central1.gcp.cloud.es.io:443
@@ -865,6 +918,25 @@ toolsets:
           ssl_assert_hostname: false
           verify_certs: false
           ssl_show_warn: false
+```
+
+</details>
+
+<summary>Kafka Integration</summary>
+
+Enable Kafka as a tool for Holmes to fetch kafka metadata like the topics or consumer groups.
+
+```bash
+toolsets:
+  kafka:
+    enabled: true
+    config:
+      kafka_broker: "localhost:9092" # Comma separated values
+      kafka_client_id: holmes-kafka-core-toolset
+      kafka_security_protocol: ...
+      kafka_sasl_mechanism: ...
+      kafka_username: ...
+      kafka_password: ...
 ```
 
 </details>

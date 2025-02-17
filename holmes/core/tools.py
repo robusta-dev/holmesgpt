@@ -57,6 +57,7 @@ class ToolsetStatusEnum(str, Enum):
     DISABLED = "disabled"
     FAILED = "failed"
 
+
 class ToolsetTag(str, Enum):
     CORE = "core"
     CLUSTER = "cluster"
@@ -83,9 +84,9 @@ class Tool(ABC, BaseModel):
         for param_name, param_attributes in self.parameters.items():
             tool_properties[param_name] = {"type": param_attributes.type}
             if param_attributes.description is not None:
-                tool_properties[param_name][
-                    "description"
-                ] = param_attributes.description
+                tool_properties[param_name]["description"] = (
+                    param_attributes.description
+                )
 
         result = {
             "type": "function",
@@ -103,7 +104,7 @@ class Tool(ABC, BaseModel):
                 },
             },
         }
- 
+
         # gemini doesnt have parameters object if it is without params
         if tool_properties is None:
             result["function"].pop("parameters")
@@ -139,7 +140,7 @@ class YAMLTool(Tool, BaseModel):
         #    if param not in self.parameters:
         #        self.parameters[param] = ToolParameter()
         for param in inferred_params:
-            if param not in self.parameters: 
+            if param not in self.parameters:
                 self.parameters[param] = ToolParameter()
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -263,17 +264,19 @@ class Toolset(BaseModel):
             StaticPrerequisite,
             ToolsetCommandPrerequisite,
             ToolsetEnvironmentPrerequisite,
-            CallablePrerequisite
+            CallablePrerequisite,
         ]
     ] = []
     tools: List[Tool]
-    tags: List[ToolsetTag] = Field(default_factory=lambda: [ToolsetTag.CORE],)
+    tags: List[ToolsetTag] = Field(
+        default_factory=lambda: [ToolsetTag.CORE],
+    )
     config: Optional[Any] = None
     is_default: bool = False
 
-    _path: Optional[str] =  PrivateAttr(None)
-    _status: ToolsetStatusEnum =  PrivateAttr(ToolsetStatusEnum.DISABLED)
-    _error: Optional[str]  = PrivateAttr(None)
+    _path: Optional[str] = PrivateAttr(None)
+    _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
+    _error: Optional[str] = PrivateAttr(None)
 
     def override_with(self, override: "ToolsetYamlFromConfig") -> None:
         """
@@ -344,16 +347,14 @@ class Toolset(BaseModel):
                         and prereq.expected_output not in result.stdout
                     ):
                         self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"Prerequisites check gave wrong output"
+                        self._error = "Prerequisites check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED
                     logging.debug(
                         f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
                     )
-                    self._error = (
-                        f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
-                    )
+                    self._error = f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
                     return
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
@@ -367,7 +368,7 @@ class Toolset(BaseModel):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.DISABLED
                     return
-                
+
             elif isinstance(prereq, CallablePrerequisite):
                 res = prereq.callable(self.config)
                 if not res:
@@ -375,6 +376,9 @@ class Toolset(BaseModel):
                     return
 
         self._status = ToolsetStatusEnum.ENABLED
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
 
 
 class YAMLToolset(Toolset):
@@ -419,6 +423,7 @@ class ToolExecutor:
 
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
+
 
 class ToolsetYamlFromConfig(Toolset):
     name: str

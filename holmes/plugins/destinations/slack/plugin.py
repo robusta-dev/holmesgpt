@@ -73,7 +73,7 @@ class SlackDestination(DestinationPlugin):
                 )
             elif e.response.data["error"] == "invalid_auth":
                 logging.error(
-                    f"Unable to authenticate using the provided Slack token. Please verify the setting of --slack-token"
+                    "Unable to authenticate using the provided Slack token. Please verify the setting of --slack-token"
                 )
             else:
                 logging.error(f"Error sending message: {e}. message={text}")
@@ -108,7 +108,7 @@ class SlackDestination(DestinationPlugin):
 
         text = "*🐞 DEBUG: messages with OpenAI*"
         file_response = self.client.files_upload_v2(
-            content=result.prompt, title=f"ai-prompt"
+            content=result.prompt, title="ai-prompt"
         )
         permalink = file_response["file"]["permalink"]
         text += f"\n`<{permalink}|ai-prompt>`"

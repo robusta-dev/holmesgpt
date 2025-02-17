@@ -40,11 +40,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-tjb7n (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   kube-api-access-tjb7n:
     Type:                    Projected (a volume that contains injected data from multiple sources)

@@ -5,6 +5,7 @@ import yaml
 from holmes.core.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
+    GrafanaConfig,
     get_datasource_id,
     get_param_or_raise,
     process_timestamps,
@@ -17,8 +18,13 @@ from holmes.plugins.toolsets.grafana.loki_api import (
 )
 
 
-class ListLokiDatasources(Tool):
+class GrafanaLokiConfig(GrafanaConfig):
+    pod_name_search_key: str = "pod"
+    namespace_search_key: str = "namespace"
+    node_name_search_key: str = "node"
 
+
+class ListLokiDatasources(Tool):
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="list_loki_datasources",
@@ -40,7 +46,6 @@ class ListLokiDatasources(Tool):
 
 
 class GetLokiLogsByNode(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_loki_logs_by_node",
@@ -84,7 +89,7 @@ class GetLokiLogsByNode(Tool):
             api_key=self._toolset._grafana_config.api_key,
             loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             node_name=get_param_or_raise(params, "node_name"),
-            node_name_search_key=self._toolset._grafana_config.loki.node_name_search_key,
+            node_name_search_key=self._toolset._grafana_config.node_name_search_key,
             start=start,
             end=end,
             limit=int(get_param_or_raise(params, "limit")),
@@ -158,7 +163,6 @@ class GetLokiLogsByLabel(Tool):
 
 
 class GetLokiLogsByPod(Tool):
-
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_loki_logs_by_pod",
@@ -208,8 +212,8 @@ class GetLokiLogsByPod(Tool):
             loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
             pod_regex=get_param_or_raise(params, "pod_regex"),
             namespace=get_param_or_raise(params, "namespace"),
-            namespace_search_key=self._toolset._grafana_config.loki.namespace_search_key,
-            pod_name_search_key=self._toolset._grafana_config.loki.pod_name_search_key,
+            namespace_search_key=self._toolset._grafana_config.namespace_search_key,
+            pod_name_search_key=self._toolset._grafana_config.pod_name_search_key,
             start=start,
             end=end,
             limit=int(get_param_or_raise(params, "limit")),
@@ -221,11 +225,14 @@ class GetLokiLogsByPod(Tool):
 
 
 class GrafanaLokiToolset(BaseGrafanaToolset):
+    config_class = GrafanaLokiConfig
+
     def __init__(self):
         super().__init__(
             name="grafana/loki",
             description="Fetchs kubernetes pods and node logs from Loki",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
+            doc_url="https://grafana.com/oss/loki/",
             tools=[
                 ListLokiDatasources(self),
                 GetLokiLogsByNode(self),
@@ -233,3 +240,9 @@ class GrafanaLokiToolset(BaseGrafanaToolset):
                 GetLokiLogsByLabel(self),
             ],
         )
+
+    def get_example_config(self):
+        example_config = GrafanaLokiConfig(
+            api_key="YOUR API KEY", url="YOUR GRAFANA URL"
+        )
+        return example_config.model_dump()

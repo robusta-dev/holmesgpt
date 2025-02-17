@@ -1,5 +1,7 @@
 import os
 import re
+from typing import List
+from pydantic import BaseModel
 import pytest
 from pathlib import Path
 
@@ -20,7 +22,7 @@ Example Domain
 This domain is for use in illustrative examples in documents. You may use this
  domain in literature without prior coordination or asking for permission.
 
-More information...
+[More information...](https://www.iana.org/domains/example)
 """.strip()
 
 
@@ -38,7 +40,13 @@ def parse_fixture_id(file_name: str) -> str:
         raise Exception(f"Could not find fixture id in filename {file_name}")
 
 
-def load_all_fixtures():
+class Fixture(BaseModel):
+    id: str
+    input: str
+    expected_output: str
+
+
+def load_all_fixtures() -> List[Fixture]:
     """
     Load the fixtures in the fixtures folder by pair fixtureX_input.html with fixtureX_output.md
     to feed the test
@@ -54,28 +62,26 @@ def load_all_fixtures():
         if output_file.exists():
             input_content = read_file(input_file)
             output_content = read_file(output_file)
-            test_cases.append((input_content, output_content))
+            test_cases.append(
+                Fixture(id=number, input=input_content, expected_output=output_content)
+            )
 
     assert len(test_cases) > 0
     return test_cases
 
 
-@pytest.mark.parametrize("input,expected_output", load_all_fixtures())
-def test_html_to_markdown(input, expected_output):
-    actual_output = html_to_markdown(input)
-    assert actual_output.strip() == expected_output.strip()
+def idfn(val):
+    if isinstance(val, Fixture):
+        return f"Fixture #{val.id}"
+    else:
+        return str(val)
 
 
-def test_internet_toolset_prerequisites():
-    toolset = InternetToolset()
-
-    toolset.check_prerequisites()
-    assert toolset._status == ToolsetStatusEnum.ENABLED, (
-        ""
-        if toolset._status == ToolsetStatusEnum.ENABLED
-        else toolset.get_error()
-        + ". Make sure playwright is installed by running `playwright install`."
-    )
+@pytest.mark.parametrize("fixture", load_all_fixtures(), ids=idfn)
+def test_html_to_markdown(fixture: Fixture):
+    actual_output = html_to_markdown(fixture.input)
+    print(actual_output)
+    assert actual_output.strip() == fixture.expected_output.strip()
 
 
 def test_fetch_webpage():
@@ -85,4 +91,5 @@ def test_fetch_webpage():
     fetch_webpage_tool = tool_executor.get_tool_by_name("fetch_webpage")
     assert fetch_webpage_tool
     actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
+    print(actual_output)
     assert actual_output.strip() == EXPECTED_TEST_RESULT

@@ -1,23 +1,12 @@
 from typing import Dict, Optional, Union
 import uuid
 import time
-import os
 from pydantic import BaseModel
 
-
-GRAFANA_URL_ENV_NAME = "GRAFANA_URL"
-GRAFANA_API_KEY_ENV_NAME = "GRAFANA_API_KEY"
 ONE_HOUR_IN_SECONDS = 3600
 
 
-class GrafanaLokiConfig(BaseModel):
-    pod_name_search_key: str = "pod"
-    namespace_search_key: str = "namespace"
-    node_name_search_key: str = "node"
-
-
 class GrafanaConfig(BaseModel):
-    loki: GrafanaLokiConfig = GrafanaLokiConfig()
     api_key: str
     url: str
 
@@ -59,7 +48,7 @@ def get_datasource_id(dict: Dict, param: str) -> str:
     try:
         if uuid.UUID(datasource_id, version=4):
             return f"uid/{datasource_id}"
-    except:
+    except Exception:
         pass
-    
+
     return datasource_id
