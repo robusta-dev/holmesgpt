@@ -48,7 +48,7 @@ The following data sources ("toolsets")  are built-in:
 | Coralogi       | 🟡 Beta        | Logs                                                         |
 | GitHub         | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
 
-[Toolset documentation](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (for Robusta SaaS users - docs for CLI users are coming soon)
+[Toolset documentation for Robusta SaaS](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (docs for CLI coming soon)
 
 [Request access to beta features](mailto:beta@robusta.dev).
 
@@ -88,9 +88,8 @@ HolmesGPT can be used in three ways:
 
 ## Using HolmesGPT
 
-If you installed Robusta + HolmesGPT, go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
-
-If you installed HolmesGPT as a CLI tool, [setup an API key](#getting-an-api-key) and ask Holmes a question:
+- In Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
+- With HolmesGPT as a CLI tool: [setup an API key](#getting-an-api-key) and ask Holmes a question 👇
 
 ```bash
 holmes ask "what pods are unhealthy and why?"
