@@ -119,4 +119,3 @@ You can use Holmes as a library and pass in your own LLM implementation. This is
 See an example implementation [here](examples/custom_llm.py).
 
 </details>
-
