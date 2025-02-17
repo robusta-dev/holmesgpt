@@ -26,7 +26,7 @@ To this 👇
 
 ### How it Works
 
-HolmesGPT connects AI models like OpenAI with live observability data and knowledge bases. It uses an **agentic loop** to repeatedly pull data from multiple sources, analyze the data, and then fetch more data if needed until all possible root causes are found.
+HolmesGPT connects AI models with live observability data and knowledge bases, using an **agentic loop** to analyze data from multiple sources and identify possible root causes.
 
 <img width="3114" alt="holmesgpt-architecture-diagram" src="https://github.com/user-attachments/assets/f659707e-1958-4add-9238-8565a5e3713a" />
 
@@ -75,7 +75,7 @@ Robusta can investigate alerts - or even just answer questions - from the follow
 
 ### See it in Action
 
-<a href="https://www.loom.com/share/4c55f395dbd64ef3b69670eccf961124">
+<a href="https://www.loom.com/share/4c55f395dbd64ef3b69670eccf961124" target="_blank">
 <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/4c55f395dbd64ef3b69670eccf961124-db2004995e8d621c-full-play.gif">
 </a>
 
@@ -89,7 +89,7 @@ HolmesGPT can be used in three ways:
 
 ## Using HolmesGPT
 
-If you installed Robusta + HolmesGFPT, go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
+If you installed Robusta + HolmesGPT, go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser.
 
 If you installed HolmesGPT as a CLI tool, you'll need to first [setup an API key](#getting-an-api-key). Then ask Holmes a question:
 
