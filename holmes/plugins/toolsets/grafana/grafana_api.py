@@ -67,4 +67,5 @@ def get_health(grafana_url: str, api_key: str) -> bool:
         response.raise_for_status()
         return True
     except Exception:
+        logging.error("Failed to fetch grafana health status", exc_info=True)
         return False
