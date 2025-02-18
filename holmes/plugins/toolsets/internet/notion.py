@@ -1,5 +1,4 @@
 import re
-import os
 import logging
 import json
 from typing import Any, Dict
@@ -7,13 +6,11 @@ from holmes.core.tools import (
     Tool,
     ToolParameter,
     ToolsetTag,
-    CallablePrerequisite,
 )
 from holmes.plugins.toolsets.internet.internet import (
-    InternetBaseToolset, 
+    InternetBaseToolset,
     scrape,
 )
-
 
 
 class FetchNotion(Tool):
@@ -27,11 +24,6 @@ class FetchNotion(Tool):
                 "url": ToolParameter(
                     description="The URL to fetch",
                     type="string",
-                    required=True,
-                ),
-                "is_runbook": ToolParameter(
-                    description="True if the url is a runbook",
-                    type="boolean",
                     required=True,
                 ),
             },
@@ -49,13 +41,15 @@ class FetchNotion(Tool):
 
     def invoke(self, params: Any) -> str:
         url: str = params["url"]
-        is_runbook: bool = params.get("is_runbook", False)
 
         # Get headers from the toolset configuration
-        additional_headers = self.toolset.runbook_headers if is_runbook else {}
+        additional_headers = (
+            self.toolset.additional_headers if self.toolset.additional_headers else {}
+        )
+        logging.warning(f"additional_headers {additional_headers}")
         url = self.convert_notion_url(url)
-        content, _ = scrape(url, additional_headers)
-
+        content, _ = scrape(url, headers=additional_headers)
+        logging.warning(f"Content '{content}'")
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
             return ""
@@ -103,12 +97,11 @@ class FetchNotion(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
-        is_runbook: bool = params["is_runbook"]
-        return f"fetched notion webpage {url} {is_runbook}"
+        return f"fetched notion webpage {url}"
 
 
 class NotionToolset(InternetBaseToolset):
-    runbook_headers: Dict[str, str] = {}
+    additional_headers: Dict[str, str] = {}
 
     def __init__(self):
         super().__init__(

@@ -5,7 +5,7 @@ toolsets:
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg"
     tags:
       - core
-      
+
     tools:
       - name: "git_read_file_with_line_numbers"
         description: |
@@ -13,17 +13,17 @@ toolsets:
           Parameters:
           - filepath: The path of the file in the repository to read.
         command: >
-          curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
-          "https://api.github.com/repos/${GIT_REPO}/contents/{{ filepath }}" | 
-          jq -r '.content' | base64 -d | 
+          curl -s -H "Authorization: token ${GIT_CREDENTIALS}"
+          "https://api.github.com/repos/${GIT_REPO}/contents/{{ filepath }}" |
+          jq -r '.content' | base64 -d |
           nl -ba
 
       - name: "git_list_files"
         description: |
           Lists all files and directories in the remote Git repository (recursively).
         command: >
-          curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
-          "https://api.github.com/repos/${GIT_REPO}/git/trees/${GIT_BRANCH}?recursive=1" | 
+          curl -s -H "Authorization: token ${GIT_CREDENTIALS}"
+          "https://api.github.com/repos/${GIT_REPO}/git/trees/${GIT_BRANCH}?recursive=1" |
           jq -r '.tree[] | .path'
 
       - name: "git_list_open_prs"
@@ -31,8 +31,8 @@ toolsets:
           Lists all open pull requests (PRs) in the remote Git repository.
           Before creating a new PR, we always check if there is an open PR first.
         command: >
-          curl -s -H "Authorization: token ${GIT_CREDENTIALS}" 
-          "https://api.github.com/repos/${GIT_REPO}/pulls?state=open" | 
+          curl -s -H "Authorization: token ${GIT_CREDENTIALS}"
+          "https://api.github.com/repos/${GIT_REPO}/pulls?state=open" |
           jq -r '.[] | "\(.number): \(.title) - https://github.com/'"${GIT_REPO}"'/pull/\(.number)"'
 
       - name: "git_execute_changes"
@@ -48,12 +48,12 @@ toolsets:
           - dry_run: true/false, whether to simulate the changes and print the resulting content without making remote changes.
           - commit_message: string detailing the message for the commit, Prometheus Alert X was firing on recource Y on X date.
         command: >
-          ./remote_git_operations.sh 
-          "{{ line }}" 
-          "{{ filename }}" 
-          "{{ command }}" 
-          "{{ code }}" 
-          "{{ open_pr }}" 
-          "{{ commit_pr }}" 
+          ./remote_git_operations.sh
+          "{{ line }}"
+          "{{ filename }}"
+          "{{ command }}"
+          "{{ code }}"
+          "{{ open_pr }}"
+          "{{ commit_pr }}"
           "{{ dry_run }}"
           "{{ commit_message }}"

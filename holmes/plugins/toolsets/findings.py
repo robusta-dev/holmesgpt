@@ -61,7 +61,6 @@ class FetchRobustaFinding(Tool):
 
 
 class FetchRobustaAlerts(Tool):
-
     _dal: Optional[SupabaseDal]
 
     def __init__(self, dal: Optional[SupabaseDal]):
@@ -102,9 +101,8 @@ class FetchRobustaAlerts(Tool):
 
         return f"There was an internal error while fetching alerts {alert_name}"
 
-    def get_parameterized_one_liner(self, params:Dict) -> str:
-        return f"Fetch alert information"
-
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return "Fetch alert information"
 
 
 class FindingsToolset(Toolset):
@@ -124,6 +122,8 @@ class FindingsToolset(Toolset):
             name="robusta",
             prerequisites=[dal_prereq],
             tools=[FetchRobustaFinding(dal), FetchRobustaAlerts(dal)],
-            tags=[ToolsetTag.CORE,],
-            is_default=True
+            tags=[
+                ToolsetTag.CORE,
+            ],
+            is_default=True,
         )

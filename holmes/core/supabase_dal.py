@@ -225,12 +225,15 @@ class SupabaseDal:
         if not self.enabled:  # store not initialized
             return None
         try:
-            query = self.client.table(GROUPEDISSUES_TABLE).select("*").is_("ends_at", None).filter("account_id", "eq", self.account_id)
+            query = (
+                self.client.table(GROUPEDISSUES_TABLE)
+                .select("*")
+                .is_("ends_at", None)
+                .filter("account_id", "eq", self.account_id)
+            )
             if aggregation_key:
                 query.filter("aggregation_key", "eq", aggregation_key)
-            return (
-                query.execute()
-            )
+            return query.execute()
 
         except Exception:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue data")

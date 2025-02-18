@@ -1,7 +1,7 @@
 import requests
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -62,18 +62,32 @@ class GetLogs(BaseCoralogixTool):
         )
 
     def invoke(self, params: Any) -> str:
-        app_name = params.get("app_name", "*")
-        namespace = params.get("namespace", "*")
-        pod_name = params.get("pod_name", "*")
+        app_name = params.get("app_name", None)
+        namespace = params.get("namespace", None)
+        pod_name = params.get("pod_name", None)
         log_count = params.get("log_count", 200)
         min_log_level = params.get("min_log_level", "INFO")
 
         # Compute default timestamps
         end_time = params.get("end_time", datetime.utcnow().isoformat() + "Z")
-        start_time = params.get("start_time", (datetime.utcnow() - timedelta(hours=2)).isoformat() + "Z")
+        start_time = params.get(
+            "start_time", (datetime.utcnow() - timedelta(hours=5)).isoformat() + "Z"
+        )
+
+        query_filters = []
+        if namespace:
+            query_filters.append(f"kubernetes.namespace_name:{namespace}")
+        if pod_name:
+            query_filters.append(f"kubernetes.pod_name:{pod_name}")
+        if app_name:
+            query_filters.append(f"coralogix.metadata.applicationName:{app_name}")
+        if min_log_level:
+            query_filters.append(f"log:({min_log_level})")
+
+        query_string = " AND ".join(query_filters)
 
         query = {
-            "query": f"source logs | lucene 'kubernetes.namespace_name:{namespace} AND kubernetes.pod_name:{pod_name} AND coralogix.metadata.applicationName:{app_name} AND log:({min_log_level})' | limit {log_count}",
+            "query": f"source logs | lucene '{query_string}' | limit {log_count}",
             "metadata": {
                 "syntax": "QUERY_SYNTAX_DATAPRIME",
                 "startDate": start_time,
@@ -83,16 +97,18 @@ class GetLogs(BaseCoralogixTool):
 
         url = "https://ng-api-http.eu2.coralogix.com/api/v1/dataprime/query"
         headers = {
-            "Authorization": f"Bearer {self.toolset.config.get('coralogix_api_key', None)}",
+            "Authorization": f"Bearer {self.toolset.coralogix_api_key}",
             "Content-Type": "application/json",
         }
 
         response = requests.post(url, headers=headers, json=query)
-        logging.info(f"Fetching logs for app={app_name}, namespace={namespace}, pod={pod_name}, from {start_time} to {end_time}")
+        logging.info(
+            f"Fetching logs for app={app_name}, namespace={namespace}, pod={pod_name}, from {start_time} to {end_time}"
+        )
 
         try:
             return self.process_response(response)
-        except:
+        except Exception:
             logging.error(f"Failed to decode JSON response: {response} {response.text}")
             return f"Failed to decode JSON response. Raw response: {response.text}"
 
@@ -110,20 +126,27 @@ class GetLogs(BaseCoralogixTool):
         """Extracts only the log values from parsed JSON objects."""
         logs = []
         for data in json_objects:
-            if isinstance(data, dict) and "result" in data and "results" in data["result"]:
+            if (
+                isinstance(data, dict)
+                and "result" in data
+                and "results" in data["result"]
+            ):
                 for entry in data["result"]["results"]:
                     try:
                         user_data = json.loads(entry.get("userData", "{}"))
                         if "log" in user_data:
                             logs.append(user_data["log"])
                     except json.JSONDecodeError:
-                        logging.error(f"Failed to decode userData JSON: {entry.get('userData')}")
+                        logging.error(
+                            f"Failed to decode userData JSON: {entry.get('userData')}"
+                        )
         return logs
 
     def process_response(self, response):
         """Processes the HTTP response and extracts only log outputs."""
         try:
             raw_text = response.text.strip()
+            logging.warning(f"raw_text {raw_text}")
             json_objects = self.parse_json_lines(raw_text)
             if not json_objects:
                 return "Error: No valid JSON objects found."
@@ -133,12 +156,13 @@ class GetLogs(BaseCoralogixTool):
             logging.error(f"Unexpected error processing response: {str(e)}")
             return f"Error: {str(e)}"
 
-
     def get_parameterized_one_liner(self, params) -> str:
         return f"coralogix GetLogs(app_name='{params.get('app_name', '*')}', namespace='{params.get('namespace', '*')}', pod_name='{params.get('pod_name', '*')}', start_time='{params.get('start_time', (datetime.utcnow() - timedelta(hours=2)).isoformat() + 'Z')}', end_time='{params.get('end_time', datetime.utcnow().isoformat() + 'Z')}', log_count={params.get('log_count', 100)}, min_log_level='{params.get('min_log_level', 'INFO')}')"
 
 
 class CoralogixToolset(Toolset):
+    coralogix_api_key: Optional[str] = None
+
     def __init__(self):
         super().__init__(
             name="coralogix",
@@ -153,4 +177,5 @@ class CoralogixToolset(Toolset):
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
-        return bool(config.get("coralogix_api_key", None))
+        self.coralogix_api_key = config.get("coralogix_api_key", None)
+        return self.coralogix_api_key
