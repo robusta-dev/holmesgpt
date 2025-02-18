@@ -169,6 +169,10 @@ class DefaultLLM(LLM):
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
     ) -> ModelResponse:
+        headers = {}
+        if os.getenv("OVERRIDE_API_KEY", None):
+            key = os.getenv("OVERRIDE_API_KEY", None)
+            headers["Authorization"] = f"Bearer {key}"
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
@@ -179,6 +183,7 @@ class DefaultLLM(LLM):
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
+            headers=headers,
         )
 
         if isinstance(result, ModelResponse):
