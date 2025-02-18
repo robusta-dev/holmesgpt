@@ -148,6 +148,9 @@ def process_trace_json(trace_json):
             value = attr.get("value", {}).get("stringValue")
             if key == "app":
                 app_name = value
+                service_name = value
+                if not app_name:
+                    app_name = service_name
 
         scope_spans = batch.get("scopeSpans", [])
         for scope_span in scope_spans:
