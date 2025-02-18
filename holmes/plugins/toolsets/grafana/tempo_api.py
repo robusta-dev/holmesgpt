@@ -148,6 +148,7 @@ def process_trace_json(trace_json):
             value = attr.get("value", {}).get("stringValue")
             if key == "app":
                 app_name = value
+            if key == "service.name":
                 service_name = value
                 if not app_name:
                     app_name = service_name
