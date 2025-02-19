@@ -18,6 +18,8 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
     parsed_logs = []
     for result in results:
         stream = result.get("stream", {})
+        labels = result.get("metric", {})
+        stream.update(labels)
         for value in result.get("values", []):
             timestamp, log_line = value
             parsed_logs.append(
