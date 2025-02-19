@@ -87,7 +87,7 @@ HolmesGPT can be used in three ways:
 ### Using HolmesGPT
 
 - In the Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser
-- With HolmesGPT CLI: [setup an API key](#getting-an-api-key) and ask Holmes a question 👇
+- With HolmesGPT CLI: [setup an API key](docs/api-keys.md) and ask Holmes a question 👇
 
 ```bash
 holmes ask "what pods are unhealthy and why?"
