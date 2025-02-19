@@ -32,7 +32,6 @@ class BaseGrafanaToolset(Toolset):
                 ToolsetTag.CORE,
             ],
             enabled=False,
-            is_default=True,
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
