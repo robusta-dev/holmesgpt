@@ -1,10 +1,10 @@
 toolsets:
   aws/security:
     description: "Set of tools to audit AWS security"
-    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html#security"
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg"
     tags:
-      - core
+      - cli
     prerequisites:
       - command: "aws sts get-caller-identity"
 
@@ -42,7 +42,7 @@ toolsets:
 
   aws/rds:
     description: "Read access to Amazon RDS resources"
-    docs_url: "https://docs.aws.amazon.com/rds/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html#rds"
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg"
     tags:
       - core
