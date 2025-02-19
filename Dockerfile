@@ -42,8 +42,10 @@ RUN chmod 777 kube-lineage
 RUN ./kube-lineage --version
 
 # Set the architecture-specific argocd URLs
-ARG ARGOCD_ARM_URL=https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-arm64
-ARG ARGOCD_AMD_URL=https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+# Freezing to argocd 2.13.5 as it has fixes CVE-2025-21613 and CVE-2025-21614.
+# The argocd release 2.14.2 (latest as 2025-02-19) unfortunately has these CVEs.
+ARG ARGOCD_ARM_URL=https://github.com/argoproj/argo-cd/releases/download/v2.13.5/argocd-linux-arm64
+ARG ARGOCD_AMD_URL=https://github.com/argoproj/argo-cd/releases/download/v2.13.5/argocd-linux-amd64
 # Conditional download based on the platform
 RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
     curl -L -o argocd $ARGOCD_ARM_URL; \
