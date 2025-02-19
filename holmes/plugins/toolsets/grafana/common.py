@@ -9,6 +9,9 @@ ONE_HOUR_IN_SECONDS = 3600
 class GrafanaConfig(BaseModel):
     api_key: str
     url: str
+    pod_name_search_key: Optional[str] = "pod"
+    namespace_search_key: Optional[str] = "namespace"
+    node_name_search_key: Optional[str] = "node"
 
 
 def headers(api_key: str):

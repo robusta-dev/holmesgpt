@@ -1,3 +1,4 @@
+import logging
 from typing import Dict
 
 import yaml
@@ -98,6 +99,83 @@ class GetLokiLogsByNode(Tool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
+
+
+class DetectElevatedLogRate(Tool):
+    def __init__(self, toolset: BaseGrafanaToolset):
+        super().__init__(
+            name="detect_elevated_log_rate",
+            description="Detects an elevated number of logs per minute in Loki and identifies the app(s) responsible.",
+            parameters={
+                "loki_datasource_id": ToolParameter(
+                    description="The ID of the Loki datasource to use. Call list_loki_datasources to find available sources.",
+                    type="string",
+                    required=True,
+                ),
+                "threshold": ToolParameter(
+                    description="The log count per minute threshold for an app to be flagged as elevated.",
+                    type="integer",
+                    required=True,
+                ),
+                "start_timestamp": ToolParameter(
+                    description="The start time boundary (epoch in seconds). If negative, it's relative to now.",
+                    type="string",
+                    required=False,
+                ),
+                "end_timestamp": ToolParameter(
+                    description="The end time boundary (epoch in seconds). Defaults to NOW().",
+                    type="string",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def invoke(self, params: Dict) -> str:
+        logging.info(f"DetectElevatedLogRate called {params}")
+        (start, end) = process_timestamps(
+            params.get("start_timestamp"), params.get("end_timestamp")
+        )
+        loki_datasource_id = get_datasource_id(params, "loki_datasource_id")
+        threshold = int(get_param_or_raise(params, "threshold"))
+
+        # Loki query to get log count per minute per app
+        query = 'sum by (app) (count_over_time({app=~".+"}[1m]))'
+
+        # Execute query
+        results = execute_loki_query(
+            grafana_url=self._toolset._grafana_config.url,
+            api_key=self._toolset._grafana_config.api_key,
+            loki_datasource_id=loki_datasource_id,
+            query=query,
+            start=start,
+            end=end,
+            limit=1000,
+        )
+
+        # Parse results and filter elevated logs
+        if not isinstance(results, list):
+            return "Unexpected response format from Loki"
+
+        # Parse results and filter elevated logs
+        elevated_apps = []
+        for result in results:
+            if "log" in result and "labels" in result:
+                log_count = int(result["log"])
+                labels = result["labels"]
+
+                app_name = labels.get("app", "unknown")
+                if log_count > threshold:
+                    elevated_apps.append({"app": app_name, "log_count": log_count})
+
+        return (
+            yaml.dump(elevated_apps)
+            if elevated_apps
+            else "No elevated log rates detected."
+        )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Detected elevated log rates in Loki ({str(params)})"
 
 
 class GetLokiLogsByLabel(Tool):
@@ -238,6 +316,7 @@ class GrafanaLokiToolset(BaseGrafanaToolset):
                 GetLokiLogsByNode(self),
                 GetLokiLogsByPod(self),
                 GetLokiLogsByLabel(self),
+                DetectElevatedLogRate(self),
             ],
         )
 
