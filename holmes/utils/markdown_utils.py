@@ -42,12 +42,13 @@ def to_plain_text(element):
 
 
 class PlainTextExtension(Extension):
-    def extendMarkdown(self, md):      
-        md.serializer = to_plain_text    
+    def extendMarkdown(self, md):
+        md.serializer = to_plain_text
         md.stripTopLevelTags = False
 
         # Extention register actually runs before the format is set and it ends up rewriting serializer that we have just changed
         md.set_output_format = lambda x: x
+
 
 def markdown_to_plain_text(text):
     md = Markdown(extensions=[PlainTextExtension()])

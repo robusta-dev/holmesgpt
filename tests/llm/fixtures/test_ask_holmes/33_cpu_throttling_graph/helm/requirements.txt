@@ -1,0 +1,5 @@
+bcrypt
+fastapi
+uvicorn[standard]
+pymysql
+prometheus-fastapi-instrumentator

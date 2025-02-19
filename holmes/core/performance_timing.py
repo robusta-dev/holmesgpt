@@ -7,6 +7,7 @@ from holmes.common.env_vars import (
     LOG_PERFORMANCE,
 )
 
+
 class PerformanceTiming:
     def __init__(self, name):
         if not LOG_PERFORMANCE:
@@ -40,18 +41,33 @@ class PerformanceTiming:
         self.ended = True
         current_time = time.time()
         time_since_start = int((current_time - self.start_time) * 1000)
-        message = f'{self.name}(TOTAL) {time_since_start}ms'
+        message = f"{self.name}(TOTAL) {time_since_start}ms"
         logging.info(message)
         for label, time_since_last, time_since_start in self.timings:
-            logging.info(f'\t{self.name}({label}) +{time_since_last}ms  {time_since_start}ms')
+            logging.info(
+                f"\t{self.name}({label}) +{time_since_last}ms  {time_since_start}ms"
+            )
 
-def log_function_timing(func):
-    @wraps(func)
-    def function_timing_wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = int((end_time - start_time) * 1000)
-        logging.info(f'Function "{func.__name__}()" took {total_time}ms')
-        return result
-    return function_timing_wrapper
+
+def log_function_timing(label=None):
+    def decorator(func):
+        @wraps(func)
+        def function_timing_wrapper(*args, **kwargs):
+            start_time = time.perf_counter()
+            result = func(*args, **kwargs)
+            end_time = time.perf_counter()
+            total_time = int((end_time - start_time) * 1000)
+
+            function_identifier = (
+                f'"{label}: {func.__name__}()"' if label else f'"{func.__name__}()"'
+            )
+            logging.info(f"Function {function_identifier} took {total_time}ms")
+            return result
+
+        return function_timing_wrapper
+
+    if callable(label):
+        func = label
+        label = None
+        return decorator(func)
+    return decorator

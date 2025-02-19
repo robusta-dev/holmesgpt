@@ -1,64 +1,50 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"payment-processing-worker-747ccfb9db-pd6wz","namespace":"default"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"user-profile-resources-659d4dd659-cq4kq","namespace":"default"}}
 stdout:
-Name:             payment-processing-worker-747ccfb9db-pd6wz
+Name:             user-profile-resources-659d4dd659-cq4kq
 Namespace:        default
 Priority:         0
 Service Account:  default
-Node:             kind-control-plane/172.18.0.2
-Start Time:       Fri, 29 Nov 2024 09:24:29 +0100
-Labels:           app=payment-processing-worker
-                  pod-template-hash=747ccfb9db
+Node:             <none>
+Labels:           app=user-profile-resources
+                  pod-template-hash=659d4dd659
 Annotations:      <none>
-Status:           Running
-IP:               10.244.0.15
-IPs:
-  IP:           10.244.0.15
-Controlled By:  ReplicaSet/payment-processing-worker-747ccfb9db
+Status:           Pending
+IP:
+IPs:              <none>
+Controlled By:    ReplicaSet/user-profile-resources-659d4dd659
 Containers:
-  payment-processing-container:
-    Container ID:  containerd://5714b7a193dd4bd5cfeede3e2cd37a53ba88ce5f292974d5aaeda1c1d0b8167f
-    Image:         bash
-    Image ID:      docker.io/library/bash@sha256:4bbfbe07eceeed5ab9136b37faf4f5cff3c28a339087ce068a76f2c1733054e8
-    Port:          <none>
-    Host Port:     <none>
-    Command:
-      /bin/sh
-    Args:
-      -c
-      if [[ -z "${DEPLOY_ENV}" ]]; then echo Environment variable DEPLOY_ENV is undefined ; else while true; do echo hello; sleep 10;done; fi
-    State:          Waiting
-      Reason:       CrashLoopBackOff
-    Last State:     Terminated
-      Reason:       Completed
-      Exit Code:    0
-      Started:      Fri, 29 Nov 2024 14:01:30 +0100
-      Finished:     Fri, 29 Nov 2024 14:01:30 +0100
-    Ready:          False
-    Restart Count:  59
-    Environment:    <none>
+  profile-getter:
+    Image:      nginx
+    Port:       <none>
+    Host Port:  <none>
+    Limits:
+      cpu:             3
+      memory:          5Gi
+      nvidia.com/gpu:  5
+    Requests:
+      cpu:             3
+      memory:          5Gi
+      nvidia.com/gpu:  5
+    Environment:       <none>
     Mounts:
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lfjgv (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-7hdk7 (ro)
 Conditions:
-  Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  Type           Status
+  PodScheduled   False
 Volumes:
-  kube-api-access-lfjgv:
+  kube-api-access-7hdk7:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
     ConfigMapName:           kube-root-ca.crt
     ConfigMapOptional:       <nil>
     DownwardAPI:             true
-QoS Class:                   BestEffort
+QoS Class:                   Guaranteed
 Node-Selectors:              <none>
 Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:
-  Type     Reason   Age                     From     Message
-  ----     ------   ----                    ----     -------
-  Warning  BackOff  73s (x1289 over 4h41m)  kubelet  Back-off restarting failed container payment-processing-container in pod payment-processing-worker-747ccfb9db-pd6wz_default(b9cc2b01-9250-4360-941f-40e522628f6c)
+  Type     Reason            Age                  From               Message
+  ----     ------            ----                 ----               -------
+  Warning  FailedScheduling  10m (x37 over 3h7m)  default-scheduler  0/1 nodes are available: 1 Insufficient nvidia.com/gpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.
 
 stderr:

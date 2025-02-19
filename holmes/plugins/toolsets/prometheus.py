@@ -1,249 +1,225 @@
+import os
 import re
 import logging
+import random
+import string
+import time
 
-from typing import Any, Union
+from typing import Any, Union, Optional
 
 import requests
 from pydantic import BaseModel
-from holmes.core.tools import StaticPrerequisite, Tool, ToolParameter, Toolset, ToolsetTag
+from holmes.core.tools import (
+    CallablePrerequisite,
+    Tool,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
+)
 import json
-from pip._vendor.requests import RequestException
+from requests import RequestException
 
 from urllib.parse import urljoin
-# https://prometheus.io/docs/prometheus/latest/querying/api/#http-api
-# http://localhost:9090/api/v1/series?match[]=container_network_receive_bytes_total{namespace="default"}
 
-# Imagine you're a PromQL expert. If it's relevant to the investigation, attempt to build
-# a PromQL query to visualize the issue using ONLY available PromQL metrics and not the
-# others. When constructing the query, ensure it's functional by verifying its correctness.
-# Respond strictly in the following format and nothing else:: << { type: "graph",
-# promQL: "PROMQL_HERE", description: "DESCRIPTION_HERE" } >>(Note: do NOT include any
-# explanations, comments, titles, headers or additional text, related to this query,
-# outside this format)
+from holmes.utils.cache import TTLCache
+
+cache = None
+
 
 class PrometheusConfig(BaseModel):
-    url: Union[str, None]
+    prometheus_url: Union[str, None]
+    # Setting to None will remove the time window from the request for labels
+    metrics_labels_time_window_hrs: Union[int, None] = 48
+    # Setting to None will disable the cache
+    metrics_labels_cache_duration_hrs: Union[int, None] = 12
 
-class ListAvailableMetrics(Tool):
-    def __init__(self, config:PrometheusConfig):
+
+class BasePrometheusTool(Tool):
+    toolset: "PrometheusToolset"
+
+
+def generate_random_key():
+    return "".join(random.choices(string.ascii_letters + string.digits, k=4))
+
+
+def filter_metrics_by_type(metrics: dict, expected_type: str):
+    return {
+        metric_name: metric_data
+        for metric_name, metric_data in metrics.items()
+        if metric_data.get("type") == expected_type
+    }
+
+
+def filter_metrics_by_name(metrics: dict, pattern: str) -> dict:
+    regex = re.compile(pattern)
+    return {
+        metric_name: metric_data
+        for metric_name, metric_data in metrics.items()
+        if regex.search(metric_name)
+    }
+
+
+def fetch_metadata(url: str) -> dict:
+    metadata_url = urljoin(url, "/api/v1/metadata")
+    metadata_response = requests.get(metadata_url, timeout=60, verify=True)
+
+    metadata_response.raise_for_status()
+
+    metadata = metadata_response.json()["data"]
+    return metadata
+
+
+def fetch_metrics_labels(
+    prometheus_url: str,
+    cache: Optional[TTLCache],
+    metrics_labels_time_window_hrs: Union[int, None],
+) -> dict:
+    """This is a slow query. Takes 5+ seconds to run"""
+
+    if cache:
+        cached_result = cache.get("metrics_labels")
+        if cached_result:
+            logging.info("fetch_metrics_labels() result retrieved from cache")
+            return cached_result
+
+    series_url = urljoin(prometheus_url, "/api/v1/series")
+    params: dict = {
+        "match[]": '{__name__!=""}',
+    }
+    if metrics_labels_time_window_hrs is not None:
+        params["end_time"] = int(time.time())
+        params["start_time"] = params["end_time"] - (
+            metrics_labels_time_window_hrs * 60 * 60
+        )
+
+    series_response = requests.get(
+        url=series_url, params=params, timeout=60, verify=True
+    )
+    series_response.raise_for_status()
+    series = series_response.json()["data"]
+
+    metrics_labels: dict = {}
+    for serie in series:
+        metric_name = serie["__name__"]
+        # Add all labels except __name__
+        labels = {k for k in serie.keys() if k != "__name__"}
+        if metric_name in metrics_labels:
+            metrics_labels[metric_name].update(labels)
+        else:
+            metrics_labels[metric_name] = labels
+    if cache:
+        cache.set("metrics_labels", metrics_labels)
+    return metrics_labels
+
+
+def fetch_metrics(
+    url: str,
+    cache: Optional[TTLCache],
+    metrics_labels_time_window_hrs: Union[int, None],
+) -> dict:
+    metadata = fetch_metadata(url)
+    metrics_labels = fetch_metrics_labels(url, cache, metrics_labels_time_window_hrs)
+
+    metrics = {}
+    for metric_name, meta_list in metadata.items():
+        if meta_list:
+            metric_type = meta_list[0].get("type", "unknown")
+            metric_description = meta_list[0].get("help", "unknown")
+            metrics[metric_name] = {
+                "type": metric_type,
+                "description": metric_description,
+                "labels": set(),
+            }
+
+    for metric_name in metrics:
+        if metric_name in metrics_labels:
+            metrics[metric_name]["labels"] = metrics_labels[metric_name]
+
+    return metrics
+
+
+class ListAvailableMetrics(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
         super().__init__(
             name="list_available_metrics",
-            description="List all the available metrics to query from prometheus. This is necessary information prior to querying data.",
-            parameters={},
-        )
-        self._config = config
-
-    def invoke(self, params: Any) -> str:
-        if not self._config.url:
-            return "Prometheus is not configured. Prometheus URL is missing"
-        try:
-            api_endpoint = urljoin(self._config.url, '/api/v1/label/__name__/values')
-
-            response = requests.get(
-                api_endpoint,
-                timeout=10,  # Add timeout to prevent hanging
-                verify=True  # SSL verification
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success' and 'data' in data:
-                    metrics_list = data['data']
-                    if not metrics_list:
-                        return "No metrics found in Prometheus."
-                    formatted_response = "Available metrics:\n" + "\n".join(metrics_list)
-                    return formatted_response
-                else:
-                    return f"Invalid response format from Prometheus. Response: {data}"
-            else:
-                return f"Unexpected HTTP status code: {response.status_code}. {response.text}"
-
-        except Exception as e:
-            return f"Unexpected error: {str(e)}"
-
-    def get_parameterized_one_liner(self, params) -> str:
-        return "listed available prometheus metrics"
-
-
-
-
-class ListPrometheusSeries(Tool):
-    def __init__(self, config: PrometheusConfig):
-        super().__init__(
-            name="list_prometheus_series",
-            description="List all available time series in Prometheus.",
+            description="List all the available metrics to query from prometheus, including their types (counter, gauge, histogram, summary) and available labels.",
             parameters={
-                "match": ToolParameter(
-                    description="Repeated series selector argument that selects the series to return. At least one value must be provided",
-                    type="array[string]",
+                "type_filter": ToolParameter(
+                    description="Optional filter to only return a specific metric type. Can be one of counter, gauge, histogram, summary",
+                    type="string",
+                    required=False,
+                ),
+                "name_filter": ToolParameter(
+                    description="Only the metrics partially or fully matching this name will be returned",
+                    type="string",
                     required=True,
                 ),
-                "start": ToolParameter(
-                    description="Start timestamp. <rfc3339 | unix_timestamp>",
-                    type="string",
-                    required=False,
-                ),
-                "end": ToolParameter(
-                    description="End timestamp. <rfc3339 | unix_timestamp>",
-                    type="string",
-                    required=False,
-                ),
-                "limit": ToolParameter(
-                    description="Maximum number of returned series. Optional. 0 means disabled",
-                    type="number",
-                    required=False,
-                )
             },
+            toolset=toolset,
         )
-        self._config = config
+        self._cache = None
 
     def invoke(self, params: Any) -> str:
-        if not self._config.url:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
             return "Prometheus is not configured. Prometheus URL is missing"
-
+        if not self._cache and self.toolset.config.metrics_labels_cache_duration_hrs:
+            self._cache = TTLCache(
+                self.toolset.config.metrics_labels_cache_duration_hrs * 3600
+            )
         try:
-            api_endpoint = urljoin(self._config.url, '/api/v1/series')
+            prometheus_url = self.toolset.config.prometheus_url
+            metrics_labels_time_window_hrs = (
+                self.toolset.config.metrics_labels_time_window_hrs
+            )
+            if not prometheus_url:
+                return "Prometheus is not configured. Prometheus URL is missing"
 
-            query_params = {}
-
-            if not params.get('match'):
-                return "match parameter is required"
-            query_params['match[]'] = params['match']
-
-            # Handle optional parameters
-            if params.get('start'):
-                query_params['start'] = params['start']
-            if params.get('end'):
-                query_params['end'] = params['end']
-            if params.get('limit'):
-                query_params['limit'] = params['limit']
-
-            response = requests.get(
-                api_endpoint,
-                params=query_params,
-                timeout=10,
-                verify=True
+            name_filter = params.get("name_filter")
+            if not name_filter:
+                return "Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing."
+            metrics = fetch_metrics(
+                prometheus_url, self._cache, metrics_labels_time_window_hrs
             )
 
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success' and 'data' in data:
-                    series_list = data['data']
-                    if not series_list:
-                        return "No series found in Prometheus."
-                    formatted_response = "Available series:\n" + "\n".join(
-                        [str(series) for series in series_list]
-                    )
-                    return formatted_response
-                else:
-                    return f"Invalid response format from Prometheus. Response: {data}"
-            else:
-                return f"Unexpected HTTP status code: {response.status_code}. {response.text}"
-        except Exception as e:
-            return f"Unexpected error: {str(e)}"
+            metrics = filter_metrics_by_name(metrics, name_filter)
 
-    def get_parameterized_one_liner(self, params) -> str:
-        match_str = ', '.join(params.get('match', []))
-        return f"listed prometheus series matching: {match_str}"
+            if params.get("type_filter"):
+                metrics = filter_metrics_by_type(metrics, params.get("type_filter"))
 
-class ListPrometheusLabels(Tool):
-    def __init__(self, config: PrometheusConfig):
-        super().__init__(
-            name="list_prometheus_labels",
-            description="List all available label names in Prometheus.",
-            parameters={},
-        )
-        self._config = config
+            output = ["Metric | Description | Type | Labels"]
+            output.append("-" * 100)
 
-    def invoke(self, params: Any) -> str:
-        if not self._config.url:
-            return "Prometheus is not configured. Prometheus URL is missing"
-        try:
-            api_endpoint = urljoin(self._config.url, '/api/v1/labels')
-
-            response = requests.get(
-                api_endpoint,
-                timeout=10,
-                verify=True
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success' and 'data' in data:
-                    labels_list = data['data']
-                    if not labels_list:
-                        return "No labels found in Prometheus."
-                    formatted_response = "Available labels:\n" + "\n".join(labels_list)
-                    return formatted_response
-                else:
-                    return f"Invalid response format from Prometheus. Response: {data}"
-            else:
-                return f"Unexpected HTTP status code: {response.status_code}. {response.text}"
-
-        except Exception as e:
-            return f"Unexpected error: {str(e)}"
-
-    def get_parameterized_one_liner(self, params) -> str:
-        return "listed prometheus labels"
-
-class ListLabelValues(Tool):
-    def __init__(self, config: PrometheusConfig):
-        super().__init__(
-            name="list_prometheus_label_values",
-            description="List all possible values for a specific label in Prometheus.",
-            parameters={
-                "label_name": ToolParameter(
-                    description="The name of the label to get values for",
-                    type="string",
-                    required=True,
+            for metric, info in sorted(metrics.items()):
+                labels_str = (
+                    ", ".join(sorted(info["labels"])) if info["labels"] else "none"
                 )
-            }
-        )
-        self._config = config
+                output.append(
+                    f"{metric} | {info['description']} | {info['type']} | {labels_str}"
+                )
 
-    def invoke(self, params: Any) -> str:
-        if not self._config.url:
-            return "Prometheus is not configured. Prometheus URL is missing"
-        try:
-            label_name = params.get('label_name')
-            api_endpoint = urljoin(self._config.url, f'/api/v1/label/{label_name}/values')
+            table_output = "\n".join(output)
+            return table_output
 
-            response = requests.get(
-                api_endpoint,
-                timeout=10,
-                verify=True
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success' and 'data' in data:
-                    values_list = data['data']
-                    if not values_list:
-                        return f"No values found for label '{label_name}'."
-                    formatted_response = f"Values for label '{label_name}':\n" + "\n".join(values_list)
-                    return formatted_response
-                else:
-                    return f"Invalid response format from Prometheus. Response: {data}"
-            else:
-                return f"Unexpected HTTP status code: {response.status_code}. {response.text}"
-
+        except requests.Timeout:
+            logging.warn("Timeout while fetching prometheus metrics", exc_info=True)
+            return "Request timed out while fetching metrics"
+        except RequestException as e:
+            logging.warn("Failed to fetch prometheus metrics", exc_info=True)
+            return f"Network error while fetching metrics: {str(e)}"
         except Exception as e:
+            logging.warn("Failed to process prometheus metrics", exc_info=True)
             return f"Unexpected error: {str(e)}"
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"listed values for label '{params.get('label_name')}'"
+        return f'list available prometheus metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
 
-class ExecutePromQLQuery(Tool):
-    def __init__(self, config:PrometheusConfig):
+
+class ExecuteQuery(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
         super().__init__(
-            name="execute_prometheus_query",
-            description="Execute a PromQL query",
+            name="execute_prometheus_instant_query",
+            description="Execute an instant PromQL query",
             parameters={
-                "type": ToolParameter(
-                    description="The type of query. One of query, query_range",
-                    type="string",
-                    required=True,
-                ),
                 "query": ToolParameter(
                     description="The PromQL query",
                     type="string",
@@ -253,53 +229,46 @@ class ExecutePromQLQuery(Tool):
                     description="Describes the query",
                     type="string",
                     required=True,
-                )
+                ),
             },
+            toolset=toolset,
         )
-        self._config = config
 
     def invoke(self, params: Any) -> str:
-        if not self._config.url:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
             return "Prometheus is not configured. Prometheus URL is missing"
-
         try:
-            # Extract parameters
-            query_type = params.get("type", "").strip().lower()
             query = params.get("query", "")
+            description = params.get("description", "")
 
-            # Determine the endpoint based on query type
-            if query_type == "query":
-                endpoint = "/api/v1/query"
-            elif query_type == "query_range":
-                endpoint = "/api/v1/query_range"
-            else:
-                return f"Error: Invalid query type '{query_type}'. Expected 'query' or 'query_range'."
+            url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query")
 
-            url = urljoin(self._config.url, endpoint)
+            payload = {"query": query}
 
-            payload = {
-                "query": query
-            }
-
-            response = requests.post(
-                url=url,
-                data=payload,
-                timeout=120
-            )
+            response = requests.post(url=url, data=payload, timeout=60)
 
             if response.status_code == 200:
                 data = response.json()
-                return json.dumps(data)
+                data["random_key"] = generate_random_key()
+                data["tool_name"] = self.name
+                data["description"] = description
+                data["query"] = query
+                data_str = json.dumps(data, indent=2)
+                return data_str
 
             # Handle known Prometheus error status codes
             error_msg = "Unknown error occurred"
             if response.status_code in [400, 429]:
                 try:
                     error_data = response.json()
-                    error_msg = error_data.get("error", error_data.get("message", str(response.content)))
+                    error_msg = error_data.get(
+                        "error", error_data.get("message", str(response.content))
+                    )
                 except json.JSONDecodeError:
                     pass
-                return f"Query execution failed. HTTP {response.status_code}: {error_msg}"
+                return (
+                    f"Query execution failed. HTTP {response.status_code}: {error_msg}"
+                )
 
             # For other status codes, just return the status code and content
             return f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}"
@@ -312,23 +281,138 @@ class ExecutePromQLQuery(Tool):
             return f"Unexpected error executing query: {str(e)}"
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'<< { type: "{params.get("type")}", promQL: "{params.get("query")}", description: "{params.get("description")}" } >>'
+        query = params.get("query")
+        description = params.get("description")
+        return f"Prometheus query. query={query}, description={description}"
+
+
+class ExecuteRangeQuery(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
+        super().__init__(
+            name="execute_prometheus_range_query",
+            description="Execute a PromQL range query",
+            parameters={
+                "query": ToolParameter(
+                    description="The PromQL query",
+                    type="string",
+                    required=True,
+                ),
+                "description": ToolParameter(
+                    description="Describes the query",
+                    type="string",
+                    required=True,
+                ),
+                "start": ToolParameter(
+                    description="Start timestamp, inclusive. rfc3339 or unix_timestamp",
+                    type="string",
+                    required=True,
+                ),
+                "end": ToolParameter(
+                    description="End timestamp, inclusive. rfc3339 or unix_timestamp",
+                    type="string",
+                    required=True,
+                ),
+                "step": ToolParameter(
+                    description="Query resolution step width in duration format or float number of seconds",
+                    type="number",
+                    required=True,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def invoke(self, params: Any) -> str:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
+            return "Prometheus is not configured. Prometheus URL is missing"
+
+        try:
+            url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query_range")
+
+            query = params.get("query", "")
+            start = params.get("start", "")
+            end = params.get("end", "")
+            step = params.get("step", "")
+            description = params.get("description", "")
+
+            payload = {
+                "query": query,
+                "start": start,
+                "end": end,
+                "step": step,
+            }
+
+            response = requests.post(url=url, data=payload, timeout=120)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                data["random_key"] = generate_random_key()
+                data["tool_name"] = self.name
+                data["description"] = description
+                data["query"] = query
+                data["start"] = start
+                data["end"] = end
+                data["step"] = step
+                data_str = json.dumps(data, indent=2)
+                return data_str
+
+            error_msg = "Unknown error occurred"
+            if response.status_code in [400, 429]:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get(
+                        "error", error_data.get("message", str(response.content))
+                    )
+                except json.JSONDecodeError:
+                    pass
+                return (
+                    f"Query execution failed. HTTP {response.status_code}: {error_msg}"
+                )
+
+            return f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}"
+
+        except RequestException as e:
+            logging.info("Failed to connect to Prometheus", exc_info=True)
+            return f"Connection error to Prometheus: {str(e)}"
+        except Exception as e:
+            logging.info("Failed to connect to Prometheus", exc_info=True)
+            return f"Unexpected error executing query: {str(e)}"
+
+    def get_parameterized_one_liner(self, params) -> str:
+        query = params.get("query")
+        start = params.get("start")
+        end = params.get("end")
+        step = params.get("step")
+        description = params.get("description")
+        return f"Prometheus query_range. query={query}, start={start}, end={end}, step={step}, description={description}"
+
 
 class PrometheusToolset(Toolset):
-    def __init__(self, config:PrometheusConfig):
+    def __init__(self):
         super().__init__(
-            name="prometheus",
+            name="prometheus/metrics",
             description="Prometheus integration to fetch metadata and execute PromQL queries",
-            icon_url="https://platform.robusta.dev/demos/internet-access.svg",
-            prerequisites=[
-                StaticPrerequisite(enabled=config.url is not None, disabled_reason="Prometheus URL is not set")
-            ],
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html",
+            icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
+            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
-                ListAvailableMetrics(config),
-                ListPrometheusSeries(config),
-                ListPrometheusLabels(config),
-                ListLabelValues(config),
-                ExecutePromQLQuery(config)
+                ListAvailableMetrics(toolset=self),
+                ExecuteQuery(toolset=self),
+                ExecuteRangeQuery(toolset=self),
             ],
-            tags=[ToolsetTag.CORE,]
+            tags=[
+                ToolsetTag.CORE,
+            ],
         )
+
+    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+        if not config and not os.environ.get("PROMETHEUS_URL", None):
+            return False
+        elif not config and os.environ.get("PROMETHEUS_URL", None):
+            self.config = PrometheusConfig(
+                prometheus_url=os.environ.get("PROMETHEUS_URL")
+            )
+            return True
+        else:
+            self.config = PrometheusConfig(**config)
+            return True

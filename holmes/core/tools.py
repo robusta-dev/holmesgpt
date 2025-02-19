@@ -1,4 +1,3 @@
-from telnetlib import DET
 from abc import ABC, abstractmethod
 import logging
 import os
@@ -6,7 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from typing import Dict, List, Literal, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Union, Any
 from enum import Enum
 from datetime import datetime
 
@@ -60,6 +59,7 @@ class ToolsetStatusEnum(str, Enum):
     DISABLED = "disabled"
     FAILED = "failed"
 
+
 class ToolsetTag(str, Enum):
     CORE = "core"
     CLUSTER = "cluster"
@@ -70,7 +70,6 @@ class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
     required: bool = True
-
 
 
 class Tool(ABC, BaseModel):
@@ -84,9 +83,9 @@ class Tool(ABC, BaseModel):
 
     def get_openai_format(self):
         return format_tool_to_open_ai_standard(
-            tool_name= self.name,
-            tool_description= self.description,
-            tool_parameters=self.parameters
+            tool_name=self.name,
+            tool_description=self.description,
+            tool_parameters=self.parameters,
         )
 
     @abstractmethod
@@ -214,6 +213,10 @@ class StaticPrerequisite(BaseModel):
     disabled_reason: str
 
 
+class CallablePrerequisite(BaseModel):
+    callable: Callable[[dict[str, Any]], bool]
+
+
 class ToolsetCommandPrerequisite(BaseModel):
     command: str  # must complete successfully (error code 0) for prereq to be satisfied
     expected_output: str = None  # optional
@@ -225,6 +228,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
     enabled: bool = False
     name: str
     description: str
@@ -237,14 +241,19 @@ class Toolset(BaseModel):
             StaticPrerequisite,
             ToolsetCommandPrerequisite,
             ToolsetEnvironmentPrerequisite,
+            CallablePrerequisite,
         ]
     ] = []
     tools: List[Tool]
-    tags: List[ToolsetTag] = Field(default_factory=lambda: [ToolsetTag.CORE],)
+    tags: List[ToolsetTag] = Field(
+        default_factory=lambda: [ToolsetTag.CORE],
+    )
+    config: Optional[Any] = None
+    is_default: bool = False
 
-    _path: PrivateAttr = None
-    _status: PrivateAttr = ToolsetStatusEnum.DISABLED
-    _error: PrivateAttr = None
+    _path: Optional[str] = PrivateAttr(None)
+    _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
+    _error: Optional[str] = PrivateAttr(None)
 
     def override_with(self, override: "ToolsetYamlFromConfig") -> None:
         """
@@ -272,7 +281,7 @@ class Toolset(BaseModel):
 
         return values
 
-    def set_path(self, path):
+    def set_path(self, path: Optional[str]):
         self._path = path
 
     def get_path(self):
@@ -315,16 +324,14 @@ class Toolset(BaseModel):
                         and prereq.expected_output not in result.stdout
                     ):
                         self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"Prerequisites check gave wrong output"
+                        self._error = "Prerequisites check gave wrong output"
                         return
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED
                     logging.debug(
                         f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
                     )
-                    self._error = (
-                        f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
-                    )
+                    self._error = f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
                     return
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
@@ -339,7 +346,16 @@ class Toolset(BaseModel):
                     self._status = ToolsetStatusEnum.DISABLED
                     return
 
+            elif isinstance(prereq, CallablePrerequisite):
+                res = prereq.callable(self.config)
+                if not res:
+                    self._status = ToolsetStatusEnum.DISABLED
+                    return
+
         self._status = ToolsetStatusEnum.ENABLED
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
 
 
 class YAMLToolset(Toolset):
@@ -348,12 +364,22 @@ class YAMLToolset(Toolset):
 
 class ToolExecutor:
     def __init__(self, toolsets: List[Toolset]):
-        toolsets_by_name = {}
-        for ts in toolsets:
+        self.toolsets = toolsets
+
+        self.enabled_toolsets: list[Toolset] = list(
+            filter(
+                lambda toolset: toolset.get_status() == ToolsetStatusEnum.ENABLED,
+                toolsets,
+            )
+        )
+
+        toolsets_by_name: dict[str, Toolset] = {}
+        for ts in self.enabled_toolsets:
             if ts.name in toolsets_by_name:
                 logging.warning(f"Overriding toolset '{ts.name}'!")
             toolsets_by_name[ts.name] = ts
-        self.tools_by_name = {}
+
+        self.tools_by_name: dict[str, Tool] = {}
         for ts in toolsets_by_name.values():
             for tool in ts.tools:
                 if tool.name in self.tools_by_name:
@@ -366,7 +392,7 @@ class ToolExecutor:
         tool = self.get_tool_by_name(tool_name)
         return tool.invoke(params) if tool else ""
 
-    def get_tool_by_name(self, name: str) -> Optional[YAMLTool]:
+    def get_tool_by_name(self, name: str) -> Optional[Tool]:
         if name in self.tools_by_name:
             return self.tools_by_name[name]
         logging.warning(f"could not find tool {name}. skipping")
@@ -374,6 +400,7 @@ class ToolExecutor:
 
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
+
 
 class ToolsetYamlFromConfig(Toolset):
     name: str
@@ -391,6 +418,7 @@ class ToolsetYamlFromConfig(Toolset):
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
+    config: Optional[Any] = None
 
 
 class ToolsetDBModel(BaseModel):

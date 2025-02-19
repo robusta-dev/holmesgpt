@@ -7,10 +7,14 @@ def load_bool(env_var, default: bool):
     return json.loads(s.lower())
 
 
-ENABLED_BY_DEFAULT_TOOLSETS = os.environ.get('ENABLED_BY_DEFAULT_TOOLSETS', 'kubernetes/core,kubernetes/logs,robusta,internet')
-HOLMES_HOST = os.environ.get('HOLMES_HOST', '0.0.0.0')
-HOLMES_PORT = int(os.environ.get('HOLMES_PORT', 5050))
-ROBUSTA_CONFIG_PATH = os.environ.get('ROBUSTA_CONFIG_PATH', "/etc/robusta/config/active_playbooks.yaml")
+ENABLED_BY_DEFAULT_TOOLSETS = os.environ.get(
+    "ENABLED_BY_DEFAULT_TOOLSETS", "kubernetes/core,kubernetes/logs,robusta,internet"
+)
+HOLMES_HOST = os.environ.get("HOLMES_HOST", "0.0.0.0")
+HOLMES_PORT = int(os.environ.get("HOLMES_PORT", 5050))
+ROBUSTA_CONFIG_PATH = os.environ.get(
+    "ROBUSTA_CONFIG_PATH", "/etc/robusta/config/active_playbooks.yaml"
+)
 
 ROBUSTA_ACCOUNT_ID = os.environ.get("ROBUSTA_ACCOUNT_ID", "")
 STORE_URL = os.environ.get("STORE_URL", "")
@@ -22,3 +26,7 @@ ROBUSTA_AI = load_bool("ROBUSTA_AI", False)
 ROBUSTA_API_ENDPOINT = os.environ.get("ROBUSTA_API_ENDPOINT", "https://api.robusta.dev")
 
 LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
+
+
+ENABLE_TELEMETRY = load_bool("ENABLE_TELEMETRY", False)
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")

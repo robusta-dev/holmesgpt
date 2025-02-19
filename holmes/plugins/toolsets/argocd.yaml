@@ -1,14 +1,14 @@
 toolsets:
   argocd/core:
     description: "Set of tools to get argocd metadata like list of apps, repositories, projects, etc."
-    docs_url: "https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html"
     icon_url: "https://argo-cd.readthedocs.io/en/stable/assets/logo.png"
     tags:
       - core
     prerequisites:
       - command: "argocd version"
       - env:
-        - ARGOCD_AUTH_TOKEN
+          - ARGOCD_AUTH_TOKEN
     tools:
       - name: "argocd_app_get"
         description: "Retrieve information about an existing application, such as its status and configuration"

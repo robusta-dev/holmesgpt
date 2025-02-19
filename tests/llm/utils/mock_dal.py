@@ -10,9 +10,15 @@ from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from tests.llm.utils.mock_utils import read_file
 
-class MockSupabaseDal(SupabaseDal):
 
-    def __init__(self, test_case_folder:Path, issue_data:Optional[Dict], resource_instructions:Optional[ResourceInstructions], generate_mocks:bool):
+class MockSupabaseDal(SupabaseDal):
+    def __init__(
+        self,
+        test_case_folder: Path,
+        issue_data: Optional[Dict],
+        resource_instructions: Optional[ResourceInstructions],
+        generate_mocks: bool,
+    ):
         super().__init__()
         self._issue_data = issue_data
         self._resource_instructions = resource_instructions
@@ -27,15 +33,19 @@ class MockSupabaseDal(SupabaseDal):
             if self._generate_mocks:
                 file_path = self._get_mock_file_path("issue_data")
 
-                with open(file_path, 'w') as f:
+                with open(file_path, "w") as f:
                     f.write(json.dumps(data or {}, indent=2))
                     f.close()
 
-                logging.warning(f"A mock file was generated for you at {file_path} with the contentof dal.get_issue_data({issue_id})")
+                logging.warning(
+                    f"A mock file was generated for you at {file_path} with the contentof dal.get_issue_data({issue_id})"
+                )
 
             return data
 
-    def get_resource_instructions(self, type: str, name: Optional[str]) -> Optional[ResourceInstructions]:
+    def get_resource_instructions(
+        self, type: str, name: Optional[str]
+    ) -> Optional[ResourceInstructions]:
         if self._resource_instructions is not None:
             return self._resource_instructions
         else:
@@ -43,33 +53,43 @@ class MockSupabaseDal(SupabaseDal):
             if self._generate_mocks:
                 file_path = self._get_mock_file_path("resource_instructions")
 
-                with open(file_path, 'w') as f:
+                with open(file_path, "w") as f:
                     f.write(json.dumps(data or {}, indent=2))
                     f.close()
 
-                logging.warning(f"A mock file was generated for you at {file_path} with the contentof dal.get_resource_instructions({type}, {name})")
+                logging.warning(
+                    f"A mock file was generated for you at {file_path} with the contentof dal.get_resource_instructions({type}, {name})"
+                )
 
                 return data
 
-    def _get_mock_file_path(self, entity_type:str):
-        return f"{self._test_case_folder}/{entity_type}.json{AUTO_GENERATED_FILE_SUFFIX}"
+    def _get_mock_file_path(self, entity_type: str):
+        return (
+            f"{self._test_case_folder}/{entity_type}.json{AUTO_GENERATED_FILE_SUFFIX}"
+        )
+
 
 pydantic_resource_instructions = TypeAdapter(ResourceInstructions)
 
-def load_mock_dal(test_case_folder:Path, generate_mocks:bool):
+
+def load_mock_dal(test_case_folder: Path, generate_mocks: bool):
     issue_data_mock_path = test_case_folder.joinpath(Path("issue_data.json"))
     issue_data = None
     if issue_data_mock_path.exists():
         issue_data = json.loads(read_file(issue_data_mock_path))
 
-    resource_instructions_mock_path = test_case_folder.joinpath(Path("resource_instructions.json"))
+    resource_instructions_mock_path = test_case_folder.joinpath(
+        Path("resource_instructions.json")
+    )
     resource_instructions = None
     if resource_instructions_mock_path.exists():
-        resource_instructions = pydantic_resource_instructions.validate_json(read_file(Path(resource_instructions_mock_path)))
+        resource_instructions = pydantic_resource_instructions.validate_json(
+            read_file(Path(resource_instructions_mock_path))
+        )
 
     return MockSupabaseDal(
         test_case_folder=test_case_folder,
         issue_data=issue_data,
         resource_instructions=resource_instructions,
-        generate_mocks=generate_mocks
+        generate_mocks=generate_mocks,
     )

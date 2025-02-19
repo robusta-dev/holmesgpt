@@ -1,8 +1,7 @@
-from typing import List, Iterable, Pattern
-from pydantic import BaseModel
-from openai import AzureOpenAI, OpenAI
+from typing import List, Iterable
 from holmes.core.issue import Issue
 from holmes.core.tool_calling_llm import LLMResult
+
 
 # Sources must implement this
 class SourcePlugin:
@@ -17,9 +16,9 @@ class SourcePlugin:
     def write_back_result(self, issue_id: str, result_data: LLMResult) -> None:
         raise NotImplementedError()
 
+
 # Destinations must implement this
 class DestinationPlugin:
-
     def send_issue(self, issue: Issue, result: LLMResult):
         raise NotImplementedError()
 

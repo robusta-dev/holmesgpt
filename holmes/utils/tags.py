@@ -1,5 +1,3 @@
-
-
 import logging
 from typing import Optional
 from typing_extensions import Dict, List
@@ -7,7 +5,8 @@ import re
 import json
 from copy import deepcopy
 
-def stringify_tag(tag:Dict[str, str]) -> Optional[str]:
+
+def stringify_tag(tag: Dict[str, str]) -> Optional[str]:
     """
     This serializes a dictionary into something more readable to the LLM.
     Although I have not seen much difference in quality of output, in theory this can help the LLM
@@ -42,7 +41,8 @@ def stringify_tag(tag:Dict[str, str]) -> Optional[str]:
 
     return formatted_string
 
-def format_tags_in_string(user_prompt:str) -> str:
+
+def format_tags_in_string(user_prompt: str) -> str:
     """
     Formats the tags included in a user's message.
     E.g.
@@ -50,7 +50,7 @@ def format_tags_in_string(user_prompt:str) -> str:
             -> 'how many pods are running on node my-node?'
     """
     try:
-        pattern = r'<<(.*?)>>'
+        pattern = r"<<(.*?)>>"
 
         def replace_match(match):
             try:
@@ -68,13 +68,13 @@ def format_tags_in_string(user_prompt:str) -> str:
         return user_prompt
 
 
-def parse_messages_tags(messages:List[Dict[str, str]]) -> List[Dict[str, str]]:
+def parse_messages_tags(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
-        Parses the user messages for tags and format these.
-        System messages and llm responses are ignored and left as-is
+    Parses the user messages for tags and format these.
+    System messages and llm responses are ignored and left as-is
 
-        This method returns a shallow copy of the messages list with the exception
-        of the messages that have been parsed.
+    This method returns a shallow copy of the messages list with the exception
+    of the messages that have been parsed.
     """
     formatted_messages = []
     for message in messages:
@@ -85,7 +85,9 @@ def parse_messages_tags(messages:List[Dict[str, str]]) -> List[Dict[str, str]]:
                 formatted_message = deepcopy(message)
                 formatted_message["content"] = formatted_str
                 formatted_messages.append(formatted_message)
-                logging.debug(f"Message with tags '{original_message}' formatted to '{formatted_message}'")
+                logging.debug(
+                    f"Message with tags '{original_message}' formatted to '{formatted_message}'"
+                )
             else:
                 formatted_messages.append(message)
 

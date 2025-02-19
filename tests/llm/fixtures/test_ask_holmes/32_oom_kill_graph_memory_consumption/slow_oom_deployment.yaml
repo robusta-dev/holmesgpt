@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-exporter-slow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-exporter-slow
+  template:
+    metadata:
+      labels:
+        app: analytics-exporter-slow
+    spec:
+      containers:
+        - name: analytics-exporter-slow
+          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/memory-eater:1.0
+          imagePullPolicy: Always
+          args:
+            - 10Mi
+            - "0"
+            - 3000Mi
+            - "5000"
+            - "2"
+          resources:
+            limits:
+              memory: 2000Mi
+            requests:
+              memory: 2000Mi
+      restartPolicy: Always
+      nodeSelector:
+        kubernetes.io/arch: amd64

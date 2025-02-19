@@ -3,55 +3,134 @@ import os
 
 import pytest
 from holmes.core.tools import ToolExecutor
-from holmes.plugins.toolsets.prometheus import PrometheusConfig, PrometheusToolset
+from holmes.plugins.toolsets.prometheus import (
+    PrometheusConfig,
+    PrometheusToolset,
+    filter_metrics_by_name,
+    filter_metrics_by_type,
+)
 
-pytestmark = pytest.mark.skipif(os.environ.get("PROMETHEUS_URL", None) is None, reason="PROMETHEUS_URL must be set")
+pytestmark = pytest.mark.skipif(
+    os.environ.get("PROMETHEUS_URL", None) is None, reason="PROMETHEUS_URL must be set"
+)
 
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", None)
 
-toolset = PrometheusToolset(PrometheusConfig(url= PROMETHEUS_URL))
+toolset = PrometheusToolset()
+toolset.config = PrometheusConfig(prometheus_url=PROMETHEUS_URL)
 tool_executor = ToolExecutor(toolsets=[toolset])
 
+
 def test_list_available_metrics():
-    tool = tool_executor.get_tool_by_name('list_available_metrics')
+    tool = tool_executor.get_tool_by_name("list_available_metrics")
     assert tool
     actual_output = tool.invoke({})
     print(actual_output)
     assert "kubelet_running_pods" in actual_output
+    assert False
 
-def test_list_prometheus_series():
-    tool = tool_executor.get_tool_by_name('list_prometheus_series')
-    assert tool
-    actual_output = tool.invoke({
-        "match": [
-            'kubelet_running_pods',
-            'up',
-        ]})
-    print(actual_output)
-    assert "'__name__': 'kubelet_running_pods'" in actual_output
-    assert "'__name__': 'up'" in actual_output
-    # assert False
-
-def test_list_prometheus_labels():
-    tool = tool_executor.get_tool_by_name('list_prometheus_labels')
-    assert tool
-    actual_output = tool.invoke({})
-    print(actual_output)
-    assert "replicaset" in actual_output
-
-def test_list_prometheus_label_values():
-    tool = tool_executor.get_tool_by_name('list_prometheus_label_values')
-    assert tool
-    actual_output = tool.invoke({"label_name": "replicaset"})
-    print(actual_output)
-    assert actual_output
-    assert len(actual_output.split("\n")) > 1
 
 def test_execute_prometheus_query():
-    tool = tool_executor.get_tool_by_name('execute_prometheus_query')
+    tool = tool_executor.get_tool_by_name("execute_prometheus_query")
     assert tool
     actual_output = tool.invoke({"query": "up", "type": "query"})
     print(actual_output)
     assert actual_output
     parsed_output = json.loads(actual_output)
     assert parsed_output.get("status") == "success"
+
+
+@pytest.mark.parametrize(
+    "metrics, expected_type, expected_result",
+    [
+        (
+            {
+                "metric1": {"type": "counter"},
+                "metric2": {"type": "gauge"},
+                "metric3": {"type": "counter"},
+            },
+            "counter",
+            {"metric1": {"type": "counter"}, "metric3": {"type": "counter"}},
+        ),
+        # Test case 2: Empty result when type doesn't exist
+        (
+            {"metric1": {"type": "counter"}, "metric2": {"type": "gauge"}},
+            "histogram",
+            {},
+        ),
+        # Test case 3: Empty input dictionary
+        ({}, "counter", {}),
+        # Test case 4: Metrics with missing type field
+        (
+            {
+                "metric1": {"type": "counter"},
+                "metric2": {},
+                "metric3": {"type": "counter"},
+            },
+            "counter",
+            {"metric1": {"type": "counter"}, "metric3": {"type": "counter"}},
+        ),
+    ],
+)
+def test_filter_metrics_by_type(metrics, expected_type, expected_result):
+    result = filter_metrics_by_type(metrics, expected_type)
+    assert result == expected_result
+
+
+@pytest.mark.parametrize(
+    "metrics, pattern, expected",
+    [
+        (
+            {
+                "node_memory_Active_bytes": {"type": "gauge"},
+                "node_cpu_seconds_total": {"type": "counter"},
+                "process_start_time": {"type": "gauge"},
+            },
+            "node_.*",  # Pattern to match metrics starting with "node_"
+            {
+                "node_memory_Active_bytes": {"type": "gauge"},
+                "node_cpu_seconds_total": {"type": "counter"},
+            },
+        ),
+        (
+            {
+                "node_memory_Active_bytes": {"type": "gauge"},
+                "node_memory_Cached_bytes": {"type": "gauge"},
+                "process_cpu_seconds": {"type": "counter"},
+            },
+            "memory",
+            {
+                "node_memory_Active_bytes": {"type": "gauge"},
+                "node_memory_Cached_bytes": {"type": "gauge"},
+            },
+        ),
+        (
+            {
+                "node_memory_Active_bytes": {"type": "gauge"},
+                "node_memory_Cached_bytes": {"type": "gauge"},
+                "process_cpu_seconds": {"type": "counter"},
+            },
+            ".*memory.*",  # Pattern to match metrics containing "memory"
+            {
+                "node_memory_Active_bytes": {"type": "gauge"},
+                "node_memory_Cached_bytes": {"type": "gauge"},
+            },
+        ),
+        (
+            {
+                "node_memory_Active_bytes": {"type": "gauge"},
+                "process_cpu_seconds": {"type": "counter"},
+            },
+            "nonexistent.*",  # Pattern that matches nothing
+            {},
+        ),
+        (
+            {},
+            ".*",  # Pattern that matches everything, but empty input
+            {},
+        ),
+    ],
+)
+def test_filter_metrics_by_name(metrics, pattern, expected):
+    result = filter_metrics_by_name(metrics, pattern)
+    assert result == expected

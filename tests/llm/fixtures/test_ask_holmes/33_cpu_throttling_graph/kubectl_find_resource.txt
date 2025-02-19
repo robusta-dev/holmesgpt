@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"login-app"}}
+stdout:
+default              login-app-58995d8584-pbv8p                                   3/3     Running                 0                  52m     10.244.0.105   grafana-cloud-control-plane   <none>           <none>            app=login-app,pod-template-hash=58995d8584
+
+stderr:
