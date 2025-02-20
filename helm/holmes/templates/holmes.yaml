@@ -14,6 +14,9 @@ spec:
     metadata:
       labels:
         app: holmes
+      annotations:
+        # checksum annotation triggering pod reload when .Values.toolsets changes by helm upgrade
+        checksum/toolset-config: {{ toYaml .Values.toolsets | sha256sum }}
     spec:
       {{- if .Values.customServiceAccountName }}
       serviceAccountName: {{ .Values.customServiceAccountName }}
