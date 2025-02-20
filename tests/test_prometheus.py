@@ -2,7 +2,7 @@ import json
 import os
 
 import pytest
-from holmes.core.tools import ToolExecutor
+from holmes.core.tools import CallablePrerequisite, ToolExecutor, ToolsetStatusEnum
 from holmes.plugins.toolsets.prometheus import (
     PrometheusConfig,
     PrometheusToolset,
@@ -16,22 +16,27 @@ pytestmark = pytest.mark.skipif(
 
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", None)
 
-toolset = PrometheusToolset()
-toolset.config = PrometheusConfig(prometheus_url=PROMETHEUS_URL)
-tool_executor = ToolExecutor(toolsets=[toolset])
+@pytest.fixture
+def tool_executor():
+    toolset = PrometheusToolset()
+    toolset.enabled = True
+    toolset.config = {"prometheus_url": PROMETHEUS_URL}
+    toolset.check_prerequisites()
+    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    tool_executor = ToolExecutor(toolsets=[toolset])
+    return tool_executor
 
 
-def test_list_available_metrics():
+def test_list_available_metrics(tool_executor:ToolExecutor):
     tool = tool_executor.get_tool_by_name("list_available_metrics")
     assert tool
-    actual_output = tool.invoke({})
+    actual_output = tool.invoke({"name_filter": "kubelet_running_pods"})
     print(actual_output)
     assert "kubelet_running_pods" in actual_output
-    assert False
 
 
-def test_execute_prometheus_query():
-    tool = tool_executor.get_tool_by_name("execute_prometheus_query")
+def test_execute_prometheus_query(tool_executor:ToolExecutor):
+    tool = tool_executor.get_tool_by_name("execute_prometheus_instant_query")
     assert tool
     actual_output = tool.invoke({"query": "up", "type": "query"})
     print(actual_output)
