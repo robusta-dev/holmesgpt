@@ -1,0 +1,7 @@
+user_prompt: "Is the login-app being CPU throttled? Show me."
+expected_output:
+  - 'The answer should include something similar to << { tool_name: "execute_prometheus_range_query", random_key: "XXX" } >>.'
+before_test: kubectl apply -f ./helm/manifest.yaml
+after_test: kubectl delete -f ./helm/manifest.yaml
+evaluation:
+  correctness: 1

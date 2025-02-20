@@ -94,8 +94,8 @@ class MockToolWrapper(Tool):
                 return mock
 
             match = all(
-                key in params and params[key] == val
-                for key, val in mock.match_params.items()
+                key in params and params[key] == mock_val or mock_val == "*"
+                for key, mock_val in mock.match_params.items()
             )
             if match:
                 return mock
@@ -120,6 +120,10 @@ class MockToolsets:
 
     def __init__(self, test_case_folder: str, generate_mocks: bool = True) -> None:
         self.unmocked_toolsets = load_builtin_toolsets()
+
+        for toolset in self.unmocked_toolsets:
+            toolset.check_prerequisites()
+
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
         self._mocks = []

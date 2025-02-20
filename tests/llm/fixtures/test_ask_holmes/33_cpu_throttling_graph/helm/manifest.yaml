@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: login-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: login-app
+  template:
+    metadata:
+      labels:
+        app: login-app
+    spec:
+      containers:
+        - name: login-app
+          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/cpu-throttling-demo
+          ports:
+            - containerPort: 8000
+            - containerPort: 8001
+          resources:
+            requests:
+              cpu: "400m"
+            limits:
+              cpu: "800m"
+        - name: curl-sidecar-1
+          image: curlimages/curl
+          args:
+            - /bin/sh
+            - -c
+            - while true; do curl -s http://localhost:8000; sleep 1; done
+        - name: curl-sidecar-2
+          image: curlimages/curl
+          args:
+            - /bin/sh
+            - -c
+            - while true; do curl -s http://localhost:8000; sleep 1; done
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: login-app-service
+  labels:
+    app: login-app
+spec:
+  selector:
+    app: login-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+      name: http
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: login-app-service-monitor
+  labels:
+    release: robusta
+spec:
+  selector:
+    matchLabels:
+      app: login-app
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 5s
+  namespaceSelector:
+    matchNames:
+      - default
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: login-app-alert-rules
+  labels:
+    release: robusta
+spec:
+  groups:
+    - name: loginapp.rules
+      rules:
+        - alert: LoginAppCPUThrottling
+          expr: |
+            (rate(container_cpu_cfs_throttled_seconds_total{container="login-app"}[5m]) > 0)
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Login App CPU Throttling Detected"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} has been CPU throttled for the last 5 minutes. This might impact application performance."
+        - alert: LoginAppHighCPUThrottling
+          expr: |
+            (rate(container_cpu_cfs_throttled_seconds_total{container="login-app"}[5m]) > 0.1)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Login App Severe CPU Throttling"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is experiencing severe CPU throttling (>10% of CPU time). Immediate attention required."
