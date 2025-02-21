@@ -89,12 +89,12 @@ def fetch_metrics_labels(
             return cached_result
 
     series_url = urljoin(prometheus_url, "/api/v1/series")
-    # params: dict = {
-    #     "match[]": f'{{__name__=~".*{metric_name}.*"}}',
-    # }
     params: dict = {
-        "match[]": '{__name__!=""}',
+        "match[]": f'{{__name__=~".*{metric_name}.*"}}',
     }
+    # params: dict = {
+    #     "match[]": '{__name__!=""}',
+    # }
     if metrics_labels_time_window_hrs is not None:
         params["end_time"] = int(time.time())
         params["start_time"] = params["end_time"] - (
