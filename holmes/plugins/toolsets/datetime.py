@@ -26,6 +26,7 @@ class DatetimeToolset(Toolset):
             name="datetime",
             enabled=True,
             description="Current date and time information",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
             prerequisites=[],
             tools=[CurrentTime()],
