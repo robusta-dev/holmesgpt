@@ -1,5 +1,7 @@
 import re
 
+# parses both simple types: "int", "array", "string"
+# but also arrays of those simpler types: "array[int]", "array[string]", etc.
 pattern = r"^(array\[(?P<inner_type>\w+)\])|(?P<simple_type>\w+)$"
 
 
