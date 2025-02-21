@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_name","match_params":{"kind":"deployment","name":"analytics-exporter-slow","namespace":"default"}}
-stdout:
-NAME                      READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS                IMAGES                                                                    SELECTOR                      LABELS
-analytics-exporter-slow   1/1     1            1           4d6h   analytics-exporter-slow   us-central1-docker.pkg.dev/genuine-flight-317411/devel/memory-eater:1.0   app=analytics-exporter-slow   <none>
-
-stderr:

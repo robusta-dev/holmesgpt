@@ -69,20 +69,31 @@ def fetch_metadata(url: str) -> dict:
     return metadata
 
 
+def result_has_data(result: dict) -> bool:
+    data = result.get("data", {})
+    if data.get("resultType", None) == "vector" and len(data.get("result", [])) > 0:
+        return True
+    return False
+
+
 def fetch_metrics_labels(
     prometheus_url: str,
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
+    metric_name: str,
 ) -> dict:
     """This is a slow query. Takes 5+ seconds to run"""
-
+    cache_key = f"metrics_labels:{metric_name}"
     if cache:
-        cached_result = cache.get("metrics_labels")
+        cached_result = cache.get(cache_key)
         if cached_result:
             logging.info("fetch_metrics_labels() result retrieved from cache")
             return cached_result
 
     series_url = urljoin(prometheus_url, "/api/v1/series")
+    # params: dict = {
+    #     "match[]": f'{{__name__=~".*{metric_name}.*"}}',
+    # }
     params: dict = {
         "match[]": '{__name__!=""}',
     }
@@ -108,7 +119,8 @@ def fetch_metrics_labels(
         else:
             metrics_labels[metric_name] = labels
     if cache:
-        cache.set("metrics_labels", metrics_labels)
+        cache.set(cache_key, metrics_labels)
+
     return metrics_labels
 
 
@@ -116,9 +128,15 @@ def fetch_metrics(
     url: str,
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
+    metric_name: str,
 ) -> dict:
     metadata = fetch_metadata(url)
-    metrics_labels = fetch_metrics_labels(url, cache, metrics_labels_time_window_hrs)
+    metrics_labels = fetch_metrics_labels(
+        prometheus_url=url,
+        cache=cache,
+        metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
+        metric_name=metric_name,
+    )
 
     metrics = {}
     for metric_name, meta_list in metadata.items():
@@ -177,8 +195,9 @@ class ListAvailableMetrics(BasePrometheusTool):
             name_filter = params.get("name_filter")
             if not name_filter:
                 return "Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing."
+
             metrics = fetch_metrics(
-                prometheus_url, self._cache, metrics_labels_time_window_hrs
+                prometheus_url, self._cache, metrics_labels_time_window_hrs, name_filter
             )
 
             metrics = filter_metrics_by_name(metrics, name_filter)
@@ -214,7 +233,7 @@ class ListAvailableMetrics(BasePrometheusTool):
         return f'list available prometheus metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
 
 
-class ExecuteQuery(BasePrometheusTool):
+class ExecuteInstantQuery(BasePrometheusTool):
     def __init__(self, toolset: "PrometheusToolset"):
         super().__init__(
             name="execute_prometheus_instant_query",
@@ -249,11 +268,22 @@ class ExecuteQuery(BasePrometheusTool):
 
             if response.status_code == 200:
                 data = response.json()
-                data["random_key"] = generate_random_key()
-                data["tool_name"] = self.name
-                data["description"] = description
-                data["query"] = query
-                data_str = json.dumps(data, indent=2)
+                status = data.get("status")
+                error_message = None
+                if status == "success" and not result_has_data(data):
+                    status = "Failed"
+                    error_message = (
+                        "The prometheus query returned no result. Is the query correct?"
+                    )
+                response_data = {
+                    "status": status,
+                    "error_message": error_message,
+                    "random_key": generate_random_key(),
+                    "tool_name": self.name,
+                    "description": description,
+                    "query": query,
+                }
+                data_str = json.dumps(response_data, indent=2)
                 return data_str
 
             # Handle known Prometheus error status codes
@@ -345,15 +375,25 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
             if response.status_code == 200:
                 data = response.json()
-
-                data["random_key"] = generate_random_key()
-                data["tool_name"] = self.name
-                data["description"] = description
-                data["query"] = query
-                data["start"] = start
-                data["end"] = end
-                data["step"] = step
-                data_str = json.dumps(data, indent=2)
+                status = data.get("status")
+                error_message = None
+                if status == "success" and not result_has_data(data):
+                    status = "Failed"
+                    error_message = (
+                        "The prometheus query returned no result. Is the query correct?"
+                    )
+                response_data = {
+                    "status": status,
+                    "error_message": error_message,
+                    "random_key": generate_random_key(),
+                    "tool_name": self.name,
+                    "description": description,
+                    "query": query,
+                    "start": start,
+                    "end": end,
+                    "step": step,
+                }
+                data_str = json.dumps(response_data, indent=2)
                 return data_str
 
             error_msg = "Unknown error occurred"
@@ -397,7 +437,7 @@ class PrometheusToolset(Toolset):
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 ListAvailableMetrics(toolset=self),
-                ExecuteQuery(toolset=self),
+                ExecuteInstantQuery(toolset=self),
                 ExecuteRangeQuery(toolset=self),
             ],
             tags=[

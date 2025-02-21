@@ -15,7 +15,7 @@ class SetEncoder(json.JSONEncoder):
 def compress(data):
     json_str = json.dumps(data, cls=SetEncoder)
     json_bytes = json_str.encode("utf-8")
-    compressed = bz2.compress(json_bytes)
+    compressed = bz2.compress(json_bytes, compresslevel=1)
 
     return compressed
 
