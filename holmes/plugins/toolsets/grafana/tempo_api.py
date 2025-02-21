@@ -85,6 +85,53 @@ def query_tempo_traces_by_duration(
     )
 
 
+def query_tempo_traces(
+    grafana_url: str,
+    api_key: str,
+    tempo_datasource_id: str,
+    tempo_query: str,
+    start: int,
+    end: int,
+    limit: int = 50,
+) -> List[Dict]:
+    """
+    Query Tempo using a custom query string.
+
+    Args:
+        grafana_url: The Grafana instance URL.
+        api_key: The API key for authentication.
+        tempo_datasource_id: The ID of the Tempo datasource.
+        tempo_query: The Tempo query string.
+        start: Start of the time range (epoch in seconds).
+        end: End of the time range (epoch in seconds).
+        limit: Maximum number of traces to return.
+
+    Returns:
+        List of trace results.
+    """
+    query_url = f"{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/search"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    query_params = {
+        "q": tempo_query,  # ✅ Correct key for Tempo queries
+        "start": str(start),  # Convert seconds to nanoseconds
+        "end": str(end),  # Convert seconds to nanoseconds
+        "limit": str(limit),
+    }
+
+    try:
+        response = requests.get(query_url, headers=headers, params=query_params)
+        response.raise_for_status()  # Raise error for HTTP failure responses
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error querying Tempo: {e}")
+        return []
+
+
 def query_tempo_trace_by_id(
     grafana_url: str,
     api_key: str,

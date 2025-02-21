@@ -1,4 +1,3 @@
-import logging
 from typing import Dict
 
 import yaml
@@ -132,7 +131,6 @@ class DetectElevatedLogRate(Tool):
         self._toolset = toolset
 
     def invoke(self, params: Dict) -> str:
-        logging.info(f"DetectElevatedLogRate called {params}")
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
