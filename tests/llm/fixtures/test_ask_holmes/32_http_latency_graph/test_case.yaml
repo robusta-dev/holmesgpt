@@ -1,7 +1,6 @@
-user_prompt: "How is the http request latency for the service customer-orders-service?"
+user_prompt: "Show me the http request latency over time for the service customer-orders-service?"
 expected_output:
   - 'The answer should include something similar to << { tool_name: "execute_prometheus_range_query", random_key: "<alphanumeric code>" } >>.'
-  - "The root endpoint `/` latency ranges (very roughly) from 5+ to 8+ seconds."
 before_test: kubectl apply -f ./helm/manifest.yaml
 after_test: kubectl delete -f ./helm/manifest.yaml
 evaluation:

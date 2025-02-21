@@ -71,7 +71,7 @@ def fetch_metadata(url: str) -> dict:
 
 def result_has_data(result: dict) -> bool:
     data = result.get("data", {})
-    if data.get("resultType", None) == "vector" and len(data.get("result", [])) > 0:
+    if len(data.get("result", [])) > 0:
         return True
     return False
 
