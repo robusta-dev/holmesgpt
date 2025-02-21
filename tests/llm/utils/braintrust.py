@@ -3,6 +3,7 @@ from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
 from typing import Any, List, Optional
 
+from holmes.common.env_vars import load_bool
 from tests.llm.utils.mock_utils import HolmesTestCase
 from tests.llm.utils.system import get_machine_state_tags
 
@@ -33,6 +34,9 @@ def pop_matching_test_case_if_exists(
 
     test_case_id = item.get("id")
     return pop_test_case(test_cases, test_case_id)
+
+
+PUSH_EVALS_TO_BRAINTRUST = load_bool("PUSH_EVALS_TO_BRAINTRUST", False)
 
 
 class BraintrustEvalHelper:

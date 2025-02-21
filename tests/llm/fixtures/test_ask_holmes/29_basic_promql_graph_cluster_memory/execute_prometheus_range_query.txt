@@ -1,0 +1,10 @@
+{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query","match_params":{"query":"*","description":"*","start":"*","end":"*","step":"*"}}
+{
+  "status": "success",
+  "random_key": "AtEJ",
+  "tool_name": "execute_prometheus_range_query",
+  "start": "2025-01-29T14:46:41Z",
+  "end": "2025-01-29T15:16:41Z",
+  "step": 30,
+  "description": "Memory usage for the Kubernetes cluster"
+}

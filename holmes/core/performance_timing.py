@@ -49,14 +49,25 @@ class PerformanceTiming:
             )
 
 
-def log_function_timing(func):
-    @wraps(func)
-    def function_timing_wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = int((end_time - start_time) * 1000)
-        logging.info(f'Function "{func.__name__}()" took {total_time}ms')
-        return result
+def log_function_timing(label=None):
+    def decorator(func):
+        @wraps(func)
+        def function_timing_wrapper(*args, **kwargs):
+            start_time = time.perf_counter()
+            result = func(*args, **kwargs)
+            end_time = time.perf_counter()
+            total_time = int((end_time - start_time) * 1000)
 
-    return function_timing_wrapper
+            function_identifier = (
+                f'"{label}: {func.__name__}()"' if label else f'"{func.__name__}()"'
+            )
+            logging.info(f"Function {function_identifier} took {total_time}ms")
+            return result
+
+        return function_timing_wrapper
+
+    if callable(label):
+        func = label
+        label = None
+        return decorator(func)
+    return decorator
