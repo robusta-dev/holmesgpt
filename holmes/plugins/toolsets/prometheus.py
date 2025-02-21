@@ -23,8 +23,6 @@ from urllib.parse import urljoin
 
 from holmes.utils.cache import TTLCache
 
-cache = None
-
 
 class PrometheusConfig(BaseModel):
     prometheus_url: Union[str, None]
