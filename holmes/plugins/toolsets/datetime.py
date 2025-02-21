@@ -27,7 +27,7 @@ class DatetimeToolset(Toolset):
             enabled=True,
             description="Current date and time information",
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html",
-            icon_url="https://platform.robusta.dev/demos/internet-access.svg",
+            icon_url="https://upload.wikimedia.org/wikipedia/commons/8/8b/OOjs_UI_icon_calendar-ltr.svg",
             prerequisites=[],
             tools=[CurrentTime()],
             tags=[ToolsetTag.CORE],
