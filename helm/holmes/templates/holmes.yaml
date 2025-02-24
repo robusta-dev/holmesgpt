@@ -14,6 +14,9 @@ spec:
     metadata:
       labels:
         app: holmes
+      annotations:
+        # checksum annotation triggering pod reload when .Values.toolsets changes by helm upgrade
+        checksum/toolset-config: {{ toYaml .Values.toolsets | sha256sum }}
     spec:
       {{- if .Values.customServiceAccountName }}
       serviceAccountName: {{ .Values.customServiceAccountName }}
@@ -23,6 +26,9 @@ spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
       {{- toYaml .Values.imagePullSecrets | nindent 6 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
       {{- end }}
       containers:
       - name: holmes
@@ -39,6 +45,10 @@ spec:
           {{ if .Values.enablePostProcessing -}}
           - name: HOLMES_POST_PROCESSING_PROMPT
             value: {{ .Values.postProcessingPrompt }}
+          - name: ENABLE_TELEMETRY
+            value: {{ .Values.enableTelemetry }}
+          - name: SENTRY_DSN
+            value: {{ .Values.sentryDSN }}
           {{- end }}
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
@@ -55,6 +65,9 @@ spec:
             mountPath: /etc/robusta/config
           - name: custom-toolsets-configmap
             mountPath: /etc/holmes/config
+          {{- if .Values.additionalVolumeMounts -}}
+          {{ toYaml .Values.additionalVolumeMounts | nindent 10 }}
+          {{- end }}
         resources:
           requests:
             cpu: {{ .Values.resources.requests.cpu }}
@@ -74,7 +87,9 @@ spec:
           configMap:
             name: custom-toolsets-configmap
             optional: true
-
+        {{- if .Values.additionalVolumes -}}
+        {{ toYaml .Values.additionalVolumes | nindent 8 }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get","match_params":{"kind": "pod", "name": "robusta-kube-state-metrics-8667fd9775-kbsp7", "namespace": "default"}}
-stdout:
-NAME                                          READY   STATUS    RESTARTS        AGE   IP           NODE                 NOMINATED NODE   READINESS GATES   LABELS
-robusta-kube-state-metrics-8667fd9775-kbsp7   1/1     Running   15 (157m ago)   10d   10.244.0.3   kind-control-plane   <none>           <none>            app.kubernetes.io/component=metrics,app.kubernetes.io/instance=robusta,app.kubernetes.io/managed-by=Helm,app.kubernetes.io/name=kube-state-metrics,app.kubernetes.io/part-of=kube-state-metrics,app.kubernetes.io/version=2.10.1,helm.sh/chart=kube-state-metrics-5.15.3,pod-template-hash=8667fd9775,release=robusta
-
-stderr:

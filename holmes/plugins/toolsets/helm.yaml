@@ -1,42 +1,42 @@
 toolsets:
   helm/core:
     description: "Read access to cluster's Helm charts and releases"
-    docs_url: "https://helm.sh/docs/"
+    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html"
     icon_url: "https://helm.sh/img/helm.svg"
     tags:
       - core
     prerequisites:
-    - command: "helm version"
+      - command: "helm version"
 
     tools:
-    - name: "helm_list"
-      description: "Use to get all the current helm releases"
-      command: "helm list"
-    
-    - name: "helm_values"
-      description: "Use to gather Helm values or any released helm chart"
-      command: "helm get values -a {{ release_name }} -n {{ namespace }} -o json"
-  
-    - name: "helm_status"
-      description: "Check the status of a Helm release"
-      command: "helm status {{ release_name }} -n {{ namespace }}"
+      - name: "helm_list"
+        description: "Use to get all the current helm releases"
+        command: "helm list"
 
-    - name: "helm_history"
-      description: "Get the revision history of a Helm release"
-      command: "helm history {{ release_name }} -n {{ namespace }}"
+      - name: "helm_values"
+        description: "Use to gather Helm values or any released helm chart"
+        command: "helm get values -a {{ release_name }} -n {{ namespace }} -o json"
 
-    - name: "helm_manifest"
-      description: "Fetch the generated Kubernetes manifest for a Helm release"
-      command: "helm get manifest {{ release_name }} -n {{ namespace }}"
+      - name: "helm_status"
+        description: "Check the status of a Helm release"
+        command: "helm status {{ release_name }} -n {{ namespace }}"
 
-    - name: "helm_hooks"
-      description: "Get the hooks for a Helm release"
-      command: "helm get hooks {{ release_name }} -n {{ namespace }}"
+      - name: "helm_history"
+        description: "Get the revision history of a Helm release"
+        command: "helm history {{ release_name }} -n {{ namespace }}"
 
-    - name: "helm_chart"
-      description: "Show the chart used to create a Helm release"
-      command: "helm get chart {{ release_name }} -n {{ namespace }}"
+      - name: "helm_manifest"
+        description: "Fetch the generated Kubernetes manifest for a Helm release"
+        command: "helm get manifest {{ release_name }} -n {{ namespace }}"
 
-    - name: "helm_notes"
-      description: "Show the notes provided by the Helm chart"
-      command: "helm get notes {{ release_name }} -n {{ namespace }}"
+      - name: "helm_hooks"
+        description: "Get the hooks for a Helm release"
+        command: "helm get hooks {{ release_name }} -n {{ namespace }}"
+
+      - name: "helm_chart"
+        description: "Show the chart used to create a Helm release"
+        command: "helm get chart {{ release_name }} -n {{ namespace }}"
+
+      - name: "helm_notes"
+        description: "Show the notes provided by the Helm chart"
+        command: "helm get notes {{ release_name }} -n {{ namespace }}"

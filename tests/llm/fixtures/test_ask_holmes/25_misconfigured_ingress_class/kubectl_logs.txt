@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name":"my-http-app-deployment-75cdcff8b4-5kzjx","namespace":"default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"pod_name":"my-http-app-deployment-75cdcff8b4-5kzjx","namespace":"default"}}
 stdout:
 /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
 /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
@@ -11,7 +11,7 @@ stdout:
 /docker-entrypoint.sh: Configuration complete; ready for start up
 2024/11/26 11:37:45 [notice] 1#1: using the "epoll" event method
 2024/11/26 11:37:45 [notice] 1#1: nginx/1.27.2
-2024/11/26 11:37:45 [notice] 1#1: built by gcc 12.2.0 (Debian 12.2.0-14) 
+2024/11/26 11:37:45 [notice] 1#1: built by gcc 12.2.0 (Debian 12.2.0-14)
 2024/11/26 11:37:45 [notice] 1#1: OS: Linux 6.1.0-27-amd64
 2024/11/26 11:37:45 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576
 2024/11/26 11:37:45 [notice] 1#1: start worker processes

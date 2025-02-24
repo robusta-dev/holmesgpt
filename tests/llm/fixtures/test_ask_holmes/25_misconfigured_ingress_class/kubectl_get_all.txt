@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_all","match_params":{"kind":"service"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_cluster","match_params":{"kind":"service"}}
 stdout:
 NAMESPACE     NAME                                                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                        AGE     SELECTOR                                                                                              LABELS
 default       alertmanager-operated                                ClusterIP   None            <none>        9093/TCP,9094/TCP,9094/UDP     7d3h    app.kubernetes.io/name=alertmanager                                                                   operated-alertmanager=true

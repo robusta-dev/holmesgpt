@@ -1,11 +1,13 @@
+from holmes.core.investigation_structured_output import InputSectionsDataType
 from holmes.core.tool_calling_llm import ToolCallResult
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, model_validator
 from enum import Enum
 
 
 class InvestigationResult(BaseModel):
     analysis: Optional[str] = None
+    sections: Optional[Dict[str, Union[str, None]]] = None
     tool_calls: List[ToolCallResult] = []
     instructions: List[str] = []
 
@@ -20,6 +22,7 @@ class InvestigateRequest(BaseModel):
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://generic_investigation.jinja2"
+    sections: Optional[InputSectionsDataType] = None
     # TODO in the future
     # response_handler: ...
 
@@ -91,10 +94,16 @@ class ChatRequestBaseModel(BaseModel):
     @model_validator(mode="before")
     def check_first_item_role(cls, values):
         conversation_history = values.get("conversation_history")
-        if conversation_history and isinstance(conversation_history, list) and len(conversation_history)>0:
+        if (
+            conversation_history
+            and isinstance(conversation_history, list)
+            and len(conversation_history) > 0
+        ):
             first_item = conversation_history[0]
             if not first_item.get("role") == "system":
-                raise ValueError("The first item in conversation_history must contain 'role': 'system'")
+                raise ValueError(
+                    "The first item in conversation_history must contain 'role': 'system'"
+                )
         return values
 
 
@@ -124,3 +133,14 @@ class ChatResponse(BaseModel):
     analysis: str
     conversation_history: list[dict]
     tool_calls: Optional[List[ToolCallResult]] = []
+
+
+class WorkloadHealthInvestigationResult(BaseModel):
+    analysis: Optional[str] = None
+    tools: Optional[List[ToolCallConversationResult]] = []
+
+
+class WorkloadHealthChatRequest(ChatRequestBaseModel):
+    ask: str
+    workload_health_result: WorkloadHealthInvestigationResult
+    resource: dict

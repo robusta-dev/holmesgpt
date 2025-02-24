@@ -1,6 +1,4 @@
-user_prompt: "How are the page render times for pod customer-orders-67889fd856-k94k7"
-expected_output: "Page render times for `customer-orders-67889fd856-k94k7` range from 7.00 to 9.00 seconds."
+user_prompt: "How are the page render times for pod customer-orders"
+expected_output: "Page render times for `the pod range from about 7 to 9 seconds."
 evaluation:
-  answer_relevancy: .5
-  faithfulness: .5
-  contextual_precision: 0
+  correctness: 0

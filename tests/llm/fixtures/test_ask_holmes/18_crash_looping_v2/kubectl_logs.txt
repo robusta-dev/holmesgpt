@@ -1,51 +1,38 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_logs","match_params":{"name":"db-certs-authenticator-757f89d977-dwhl8","namespace":"default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"pod_name":"db-certs-authenticator-757f89d977-4qfst","namespace":"default"}}
 stdout:
  * Serving Flask app "app" (lazy loading)
  * Environment: production
    WARNING: This is a development server. Do not use it in a production deployment.
    Use a production WSGI server instead.
  * Debug mode: off
-2024-11-26 11:37:49,259 - INFO -  * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
-2024-11-26 11:37:49,260 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:37:49,262 - INFO - 127.0.0.1 - - [26/Nov/2024 11:37:49] "GET / HTTP/1.1" 200 -
-2024-11-26 11:37:49,262 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:37:51,259 - INFO - check_certificate_expiry thread started
-2024-11-26 11:37:57,292 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:37:57,293 - INFO - 127.0.0.1 - - [26/Nov/2024 11:37:57] "GET / HTTP/1.1" 200 -
-2024-11-26 11:37:57,294 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:02,617 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:02,618 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:02] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:02,618 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:09,709 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:09,710 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:09] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:09,711 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:14,753 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:14,755 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:14] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:14,755 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:18,929 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:18,931 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:18] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:18,932 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:26,535 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:26,536 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:26] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:26,537 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:29,029 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:29,030 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:29] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:29,031 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:33,821 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:33,822 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:33] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:33,823 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:42,413 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:42,414 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:42] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:42,414 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:51,081 - DEBUG - Starting new HTTP connection (1): localhost:5000
-2024-11-26 11:38:51,083 - INFO - 127.0.0.1 - - [26/Nov/2024 11:38:51] "GET / HTTP/1.1" 200 -
-2024-11-26 11:38:51,083 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
-2024-11-26 11:38:51,276 - INFO - Validating cert
-2024-11-26 11:38:51,285 - WARNING - Certificate has expired. Update the ssl certificate using the '/update_certificate' API or update the config map.
-2024-11-26 11:38:51,285 - ERROR - SSL certificate expired
-Traceback (most recent call last):
-  File "/app/app.py", line 141, in check_certificate_expiry
-    raise ExpiredCertException(f"Certificate expired on {cert_expiry}")
-ExpiredCertException: Certificate expired on 2024-08-03 17:00:08
+2025-01-24 12:24:35,412 - INFO -  * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
+2025-01-24 12:24:35,414 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:24:35,416 - INFO - 127.0.0.1 - - [24/Jan/2025 12:24:35] "GET / HTTP/1.1" 200 -
+2025-01-24 12:24:35,417 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:24:37,413 - INFO - check_certificate_expiry thread started
+2025-01-24 12:24:37,703 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:24:37,705 - INFO - 127.0.0.1 - - [24/Jan/2025 12:24:37] "GET / HTTP/1.1" 200 -
+2025-01-24 12:24:37,705 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:24:40,470 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:24:40,472 - INFO - 127.0.0.1 - - [24/Jan/2025 12:24:40] "GET / HTTP/1.1" 200 -
+2025-01-24 12:24:40,472 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:24:49,223 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:24:49,225 - INFO - 127.0.0.1 - - [24/Jan/2025 12:24:49] "GET / HTTP/1.1" 200 -
+2025-01-24 12:24:49,225 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:24:50,442 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:24:50,444 - INFO - 127.0.0.1 - - [24/Jan/2025 12:24:50] "GET / HTTP/1.1" 200 -
+2025-01-24 12:24:50,444 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:24:59,016 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:24:59,017 - INFO - 127.0.0.1 - - [24/Jan/2025 12:24:59] "GET / HTTP/1.1" 200 -
+2025-01-24 12:24:59,018 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:25:08,551 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:25:08,553 - INFO - 127.0.0.1 - - [24/Jan/2025 12:25:08] "GET / HTTP/1.1" 200 -
+2025-01-24 12:25:08,554 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:25:18,016 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:25:18,018 - INFO - 127.0.0.1 - - [24/Jan/2025 12:25:18] "GET / HTTP/1.1" 200 -
+2025-01-24 12:25:18,018 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:25:25,550 - DEBUG - Starting new HTTP connection (1): localhost:5000
+2025-01-24 12:25:25,552 - INFO - 127.0.0.1 - - [24/Jan/2025 12:25:25] "GET / HTTP/1.1" 200 -
+2025-01-24 12:25:25,552 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
 
 stderr:

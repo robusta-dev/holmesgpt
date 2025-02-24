@@ -46,7 +46,7 @@ Here are the possible fields in the `test_case.yaml` yaml file:
 | retrieval_context | List[str]        | Optional          | - pod xyz is running and healthy - there are no errors in the logs          | Context that the LLM is expected to have used in its answer. If present, this generates a 'context' score proportional to the number of matching context elements found in the LLM's output.                           |
 | evaluation        | Dict[str, float] | Optional          | evaluation: <br/>   faithfulness: 1  <br/>  context: 1  <br/>               | The minimum expected scores. The test will fail unless these are met. Set to 0 for unstable tests.                                                                                                                     |
 | before-test       | str              | Optional          | kubectl apply -f manifest.yaml                                              | A command to run before the LLM evaluation. The CWD for this command is the same folder as the fixture. This step is skipped unless `RUN_LIVE` environment variable is set                                             |
-| after-test        | str              | Optional          | kubectl delete -f manifest.yaml                                             | A command to run after the LLM evaluation.The CWD for this command is the same folder as the fixture. Typically cleans up any before-test action. This step is skipped unless  `RUN_LIVE`  environment variable is set |
+| after-test        | str              | Optional          | kubectl delete -f manifest.yaml                                             | A command to run after the LLM evaluation.The CWD for this command is the same folder as the fixture. Typically cleans up any before-test action. This step is skipped unless `RUN_LIVE`  environment variable is set  |
 | generate_mocks    | bool             | Optional          | True                                                                        | Whether the test suite should generate mock files. Existing mock files are overwritten.                                                                                                                                |
 
 
@@ -55,10 +55,10 @@ Here are the possible fields in the `test_case.yaml` yaml file:
 Run the following:
 
 ```sh
-UPLOAD_DATASET=1 RUN_LIVE=1 pytest ./tests/llm/test_ask_holmes.py -k 999_my_test_case
+UPLOAD_DATASET=1 RUN_LIVE=1 poetry run pytest ./tests/llm/test_ask_holmes.py -k 999_my_test_case
 ```
 
-The test may pass or not based on whether the evaluation scores are high enough. If the test fail,
+The test may pass or not based on whether the evaluation scores are high enough.
 
 # Environment variables
 

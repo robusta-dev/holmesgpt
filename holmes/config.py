@@ -2,40 +2,72 @@ import logging
 import os
 import yaml
 import os.path
+from typing import Any, Dict, List, Optional, Union
+
 from holmes.core.llm import LLM, DefaultLLM
-from typing import List, Optional
-
-
-from pydantic import FilePath, SecretStr, Field
+from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
-from rich.console import Console
-
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import (IssueInvestigator, 
-                                          ToolCallingLLM,
-                                          ToolExecutor)
-from holmes.core.tools import ToolsetPattern, get_matching_toolsets, ToolsetStatusEnum, ToolsetTag
+from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
+from holmes.core.tools import (
+    Toolset,
+    ToolsetPattern,
+    ToolsetYamlFromConfig,
+    get_matching_toolsets,
+    ToolsetStatusEnum,
+    ToolsetTag,
+)
 from holmes.plugins.destinations.slack import SlackDestination
-from holmes.plugins.runbooks import (load_builtin_runbooks,
-                                     load_runbooks_from_file)
+from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.github import GitHubSource
 from holmes.plugins.sources.jira import JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-from holmes.plugins.toolsets import (load_builtin_toolsets,
-                                     load_toolsets_from_file)
+
+from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
-from holmes.utils.holmes_sync_toolsets import load_custom_toolsets_config, merge_and_override_bultin_toolsets_with_toolsets_config
+
 from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
+import re
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+
+
+def get_env_replacement(value: str) -> Optional[str]:
+    env_values = re.findall(r"{{\s*env\.([^\s]*)\s*}}", value)
+    if not env_values:
+        return None
+    env_var_key = env_values[0].strip()
+    if env_var_key not in os.environ:
+        msg = f"ENV var replacement {env_var_key} does not exist for param: {value}"
+        logging.error(msg)
+        raise Exception(msg)
+
+    return os.environ.get(env_var_key)
+
+
+def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
+    for key, value in values.items():
+        if isinstance(value, str):
+            env_var_value = get_env_replacement(value)
+            if env_var_value:
+                values[key] = env_var_value
+        elif isinstance(value, SecretStr):
+            env_var_value = get_env_replacement(value.get_secret_value())
+            if env_var_value:
+                values[key] = SecretStr(env_var_value)
+        elif isinstance(value, dict):
+            replace_env_vars_values(value)
+        elif isinstance(value, list):
+            values[key] = [replace_env_vars_values(iter) for iter in value]
+    return values
 
 
 class Config(RobustaBaseConfig):
@@ -77,8 +109,10 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
     custom_toolsets: List[FilePath] = []
-    
-    enabled_toolsets_names: List[str] = Field(default_factory=list)
+
+    toolsets: Optional[dict[str, dict[str, Any]]] = None
+
+    _server_tool_executor: Optional[ToolExecutor] = None
 
     @classmethod
     def load_from_env(cls):
@@ -107,9 +141,9 @@ class Config(RobustaBaseConfig):
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
-            kwargs["cluster_name"] = Config.__get_cluster_name()
+        kwargs["cluster_name"] = Config.__get_cluster_name()
         return cls(**kwargs)
-    
+
     @staticmethod
     def __get_cluster_name() -> Optional[str]:
         config_file_path = ROBUSTA_CONFIG_PATH
@@ -130,133 +164,169 @@ class Config(RobustaBaseConfig):
         return None
 
     def create_console_tool_executor(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal]
+        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal]
     ) -> ToolExecutor:
         """
-        Creates ToolExecutor for the cli 
+        Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
+        and their execution in the command-line interface.
+
+        The method loads toolsets in this order, with later sources overriding earlier ones:
+        1. Built-in toolsets (tagged as CORE or CLI)
+        2. Custom toolsets from config files which can override built-in toolsets
+        3. Toolsets defined in self.toolsets which can override both built-in and custom toolsets config
         """
-        default_toolsets = [toolset for toolset in load_builtin_toolsets(dal) if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)]
-        
+        default_toolsets = [
+            toolset
+            for toolset in load_builtin_toolsets(dal)
+            if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
+        ]
+
+        # All built-in toolsets are enabled by default, users can override this in their config
+        for toolset in default_toolsets:
+            toolset.enabled = True
+
         if allowed_toolsets == "*":
             matching_toolsets = default_toolsets
         else:
             matching_toolsets = get_matching_toolsets(
                 default_toolsets, allowed_toolsets.split(",")
-            )        
-        
-        # Enable all matching toolsets that have CORE or CLI tag
-        for toolset in matching_toolsets:
-            toolset.enabled = True
+            )
 
-        matched_default_toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
-        toolsets_loaded_from_config = load_custom_toolsets_config()
+        toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
-        filtered_toolsets_by_name = merge_and_override_bultin_toolsets_with_toolsets_config(
-            toolsets_loaded_from_config,
-            matched_default_toolsets_by_name,
-        )
-        
-        for toolset in filtered_toolsets_by_name.values():
+        toolsets_loaded_from_config = self.load_custom_toolsets_config()
+        if toolsets_loaded_from_config:
+            toolsets_by_name = (
+                self.merge_and_override_bultin_toolsets_with_toolsets_config(
+                    toolsets_loaded_from_config,
+                    toolsets_by_name,
+                )
+            )
+
+        if self.toolsets:
+            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
+            if loaded_toolsets_from_env:
+                toolsets_by_name = (
+                    self.merge_and_override_bultin_toolsets_with_toolsets_config(
+                        loaded_toolsets_from_env,
+                        toolsets_by_name,
+                    )
+                )
+
+        for toolset in toolsets_by_name.values():
             if toolset.enabled:
                 toolset.check_prerequisites()
 
         enabled_toolsets = []
-        for ts in filtered_toolsets_by_name.values():
+        for ts in toolsets_by_name.values():
             if ts.get_status() == ToolsetStatusEnum.ENABLED:
                 enabled_toolsets.append(ts)
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.DISABLED:
                 logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()})")
             elif ts.get_status() == ToolsetStatusEnum.FAILED:
-                logging.info(f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})")
-        
+                logging.info(
+                    f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})"
+                )
+
         for ts in default_toolsets:
-            if ts.name not in filtered_toolsets_by_name.keys():
-                 logging.debug(f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value")
-        
+            if ts.name not in toolsets_by_name.keys():
+                logging.debug(
+                    f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value"
+                )
+
         enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
         return ToolExecutor(enabled_toolsets)
 
-    def create_tool_executor(
-        self, console: Console, dal:Optional[SupabaseDal]
-    ) -> ToolExecutor:
+    def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """
-        Creates ToolExecutor for the server endpoints 
+        Creates ToolExecutor for the server endpoints
         """
 
+        if self._server_tool_executor:
+            return self._server_tool_executor
+
+        logging.info("Creating server tool executor")
         all_toolsets = load_builtin_toolsets(dal=dal)
 
-        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            try:
-                all_toolsets.extend(load_toolsets_from_file(CUSTOM_TOOLSET_LOCATION, silent_fail=True))
-            except Exception as error:
-                logging.error(f"An error happened while trying to use custom toolset: {error}")
+        toolsets_by_name: dict[str, Toolset] = {
+            toolset.name: toolset
+            for toolset in all_toolsets
+            if any(tag in (ToolsetTag.CORE, ToolsetTag.CLUSTER) for tag in toolset.tags)
+        }
 
-        enabled_toolsets = [ts for ts in all_toolsets if ts.name in self.enabled_toolsets_names]
-        enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
+        toolsets_loaded_from_config = self.load_custom_toolsets_config()
+        if toolsets_loaded_from_config:
+            toolsets_by_name: Dict[str, Toolset] = (
+                self.merge_and_override_bultin_toolsets_with_toolsets_config(
+                    toolsets_loaded_from_config,
+                    toolsets_by_name,
+                )
+            )
+
+        if self.toolsets:
+            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
+            if loaded_toolsets_from_env:
+                toolsets_by_name = (
+                    self.merge_and_override_bultin_toolsets_with_toolsets_config(
+                        loaded_toolsets_from_env,
+                        toolsets_by_name,
+                    )
+                )
+
+        toolsets: list[Toolset] = list(toolsets_by_name.values())
+
+        for toolset in toolsets:
+            if toolset.enabled:
+                toolset.check_prerequisites()
+
+        self._server_tool_executor = ToolExecutor(toolsets)
+
         logging.debug(
-            f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
+            f"Starting AI session with tools: {[tn for tn in self._server_tool_executor.tools_by_name.keys()]}"
         )
-        return ToolExecutor(enabled_toolsets)
-    
+
+        return self._server_tool_executor
+
     def create_console_toolcalling_llm(
-        self, console: Console, allowed_toolsets: ToolsetPattern, dal:Optional[SupabaseDal] = None
+        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
-        return ToolCallingLLM(
-            tool_executor,
-            self.max_steps,
-            self._get_llm()
-        )
+        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
+        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
 
     def create_toolcalling_llm(
-        self, console: Console,  dal:Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_tool_executor(console, dal)
-        return ToolCallingLLM(
-            tool_executor,
-            self.max_steps,
-            self._get_llm()
-        )
+        tool_executor = self.create_tool_executor(dal)
+        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
 
     def create_issue_investigator(
-        self,
-        console: Console,
-        dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_tool_executor(console, dal)
+        tool_executor = self.create_tool_executor(dal)
         return IssueInvestigator(
-            tool_executor,
-            runbook_manager,
-            self.max_steps,
-            self._get_llm()
+            tool_executor, runbook_manager, self.max_steps, self._get_llm()
         )
-    
+
     def create_console_issue_investigator(
-        self,
-        console: Console,
-        allowed_toolsets: ToolsetPattern,
-        dal: Optional[SupabaseDal] = None
+        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(console, allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
         return IssueInvestigator(
-            tool_executor,
-            runbook_manager,
-            self.max_steps,
-            self._get_llm()
+            tool_executor, runbook_manager, self.max_steps, self._get_llm()
         )
 
     def create_jira_source(self) -> JiraSource:
@@ -280,8 +350,8 @@ class Config(RobustaBaseConfig):
 
     def create_github_source(self) -> GitHubSource:
         if not (
-            self.github_url.startswith(
-                "http://") or self.github_url.startswith("https://")
+            self.github_url.startswith("http://")
+            or self.github_url.startswith("https://")
         ):
             raise ValueError("--github-url must start with http:// or https://")
         if self.github_owner is None:
@@ -316,7 +386,11 @@ class Config(RobustaBaseConfig):
         return OpsGenieSource(
             api_key=self.opsgenie_api_key.get_secret_value(),
             query=self.opsgenie_query,
-            team_integration_key=self.opsgenie_team_integration_key.get_secret_value() if self.opsgenie_team_integration_key else None,
+            team_integration_key=(
+                self.opsgenie_team_integration_key.get_secret_value()
+                if self.opsgenie_team_integration_key
+                else None
+            ),
         )
 
     def create_alertmanager_source(self) -> AlertManagerSource:
@@ -336,21 +410,182 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
+    def load_custom_toolsets_config(self) -> list[ToolsetYamlFromConfig]:
+        """
+        Loads toolsets config from /etc/holmes/config/custom_toolset.yaml with ToolsetYamlFromConfig class
+        that doesn't have strict validations.
+        Example configuration:
+
+        kubernetes/logs:
+            enabled: false
+
+        test/configurations:
+            enabled: true
+            icon_url: "example.com"
+            description: "test_description"
+            docs_url: "https://docs.docker.com/"
+            prerequisites:
+                - env:
+                    - API_ENDPOINT
+                - command: "curl ${API_ENDPOINT}"
+            additional_instructions: "jq -r '.result.results[].userData | fromjson | .text | fromjson | .log'"
+            tools:
+                - name: "curl_example"
+                description: "Perform a curl request to example.com using variables"
+                command: "curl -X GET '{{api_endpoint}}?query={{ query_param }}' "
+        """
+        loaded_toolsets = []
+        for custom_path in self.custom_toolsets:
+            if not os.path.isfile(custom_path):
+                logging.warning(f"Custom toolset file {custom_path} does not exist")
+                continue
+            toolset_config = self.parse_toolsets_file(custom_path, raise_error=False)
+            if toolset_config:
+                loaded_toolsets.extend(toolset_config)
+
+        # if toolsets are loaded from custom_toolsets, return them without checking the default location
+        if loaded_toolsets:
+            return loaded_toolsets
+
+        if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            logging.warning(
+                f"Custom toolset file {CUSTOM_TOOLSET_LOCATION} does not exist"
+            )
+            return []
+
+        return self.parse_toolsets_file(CUSTOM_TOOLSET_LOCATION, raise_error=True)
+
+    def parse_toolsets_file(
+        self, path: str, raise_error: bool = True
+    ) -> Optional[ToolsetYamlFromConfig]:
+        try:
+            with open(path, "r", encoding="utf-8") as file:
+                parsed_yaml = yaml.safe_load(file)
+        except yaml.YAMLError as err:
+            logging.warning(f"Error parsing YAML from {path}: {err}")
+            if raise_error:
+                raise err
+            return None
+        except Exception as err:
+            logging.warning(f"Failed to open toolset file {path}: {err}")
+            if raise_error:
+                raise err
+            return None
+
+        if not parsed_yaml:
+            message = f"No content found in custom toolset file: {path}"
+            logging.warning(message)
+            if raise_error:
+                raise ValueError(message)
+            return None
+
+        if not isinstance(parsed_yaml, dict):
+            message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
+            logging.warning(message)
+            if raise_error:
+                raise ValueError(message)
+            return None
+
+        toolsets = parsed_yaml.get("toolsets")
+        if not toolsets:
+            message = f"No 'toolsets' key found in: {path}"
+            logging.warning(message)
+            if raise_error:
+                raise ValueError(message)
+            return None
+
+        try:
+            toolset_config = self.load_toolsets_config(toolsets, path)
+        except Exception as err:
+            logging.warning(f"Error loading toolset configuration from {path}: {err}")
+            if raise_error:
+                raise err
+            return None
+
+        return toolset_config
+
+    def load_toolsets_config(
+        self, toolsets: dict[str, dict[str, Any]], path: str
+    ) -> List[ToolsetYamlFromConfig]:
+        loaded_toolsets: list[ToolsetYamlFromConfig] = []
+        if self.is_old_toolset_config(toolsets):
+            message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
+            logging.warning(message)
+            raise ValueError(message)
+        for name, config in toolsets.items():
+            try:
+                validated_config: ToolsetYamlFromConfig = ToolsetYamlFromConfig(
+                    **config, name=name
+                )
+                validated_config.set_path(path)
+                if validated_config.config:
+                    validated_config.config = replace_env_vars_values(
+                        validated_config.config
+                    )
+                loaded_toolsets.append(validated_config)
+            except ValidationError as e:
+                logging.warning(f"Toolset '{name}' is invalid: {e}")
+
+            except Exception:
+                logging.warning("Failed to load toolset: %s", name)
+
+        return loaded_toolsets
+
+    def is_old_toolset_config(
+        self, toolsets: Union[dict[str, dict[str, Any]], List[dict[str, Any]]]
+    ) -> bool:
+        # old config is a list of toolsets
+        if isinstance(toolsets, list):
+            return True
+        return False
+
+    def merge_and_override_bultin_toolsets_with_toolsets_config(
+        self,
+        toolsets_loaded_from_config: list[ToolsetYamlFromConfig],
+        default_toolsets_by_name: dict[str, YAMLToolset],
+    ) -> dict[str, Toolset]:
+        """
+        Merges and overrides default_toolsets_by_name with custom
+        config from /etc/holmes/config/custom_toolset.yaml
+        """
+        toolsets_with_updated_statuses: Dict[str, YAMLToolset] = {
+            toolset.name: toolset for toolset in default_toolsets_by_name.values()
+        }
+
+        for toolset in toolsets_loaded_from_config:
+            if toolset.name in toolsets_with_updated_statuses.keys():
+                toolsets_with_updated_statuses[toolset.name].override_with(toolset)
+            else:
+                try:
+                    validated_toolset = YAMLToolset(
+                        **toolset.model_dump(exclude_none=True)
+                    )
+                    toolsets_with_updated_statuses[toolset.name] = validated_toolset
+                except Exception as error:
+                    logging.error(
+                        f"Toolset '{toolset.name}' is invalid: {error} ", exc_info=True
+                    )
+
+        return toolsets_with_updated_statuses
+
     @classmethod
     def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
         if config_file is not None:
-            logging.debug(f"Loading config from file %s", config_file)
+            logging.debug("Loading config from file %s", config_file)
             config_from_file = load_model_from_file(cls, config_file)
         elif os.path.exists(DEFAULT_CONFIG_LOCATION):
-            logging.debug(f"Loading config from default location {DEFAULT_CONFIG_LOCATION}")
+            logging.debug(
+                f"Loading config from default location {DEFAULT_CONFIG_LOCATION}"
+            )
             config_from_file = load_model_from_file(cls, DEFAULT_CONFIG_LOCATION)
         else:
-            logging.debug(f"No config file found at {DEFAULT_CONFIG_LOCATION}, using cli settings only")
+            logging.debug(
+                f"No config file found at {DEFAULT_CONFIG_LOCATION}, using cli settings only"
+            )
             config_from_file = None
 
-        cli_options = {
-            k: v for k, v in kwargs.items() if v is not None and v != []
-        }
+        cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
+
         if config_from_file is None:
             return cls(**cli_options)
 
