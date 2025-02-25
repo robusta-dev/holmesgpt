@@ -45,10 +45,13 @@ jobs:
         with:
           retries: 3
           script: |
+            const fs = require('fs');
+
+            const reportContent = fs.readFileSync('evals_report.txt', 'utf8');
             const experiment_id = `github-${context.runId}.${context.runNumber}.${context.runAttempt}`
-            octokit.rest.issues.createComment({
+            github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Link to the evals https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}`
+              body: `Link to the evals https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}\n\n${reportContent}`
             })
