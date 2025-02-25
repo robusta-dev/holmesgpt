@@ -82,8 +82,6 @@ def test_ask_holmes(experiment_name, test_case):
     output = result.result
     expected = test_case.expected_output
 
-    print(result.model_dump_json())
-
     if not isinstance(expected, list):
         expected = [expected]
 
