@@ -97,9 +97,13 @@ def test_investigate(experiment_name, test_case):
     metadata = get_machine_state_tags()
     metadata["model"] = config.model or "Unknown"
 
-    # bt_helper = braintrust_util.BraintrustEvalHelper(project_name=PROJECT, dataset_name=DATASET_NAME)
-
-    # eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    bt_helper = None
+    eval = None
+    if braintrust_util.PUSH_EVALS_TO_BRAINTRUST:
+        bt_helper = braintrust_util.BraintrustEvalHelper(
+            project_name=PROJECT, dataset_name=DATASET_NAME
+        )
+        eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     investigate_request = test_case.investigate_request
     investigate_request.sections = DEFAULT_SECTIONS
@@ -113,6 +117,7 @@ def test_investigate(experiment_name, test_case):
     scores = {}
 
     debug_expected = "\n-  ".join(expected)
+
     print(f"** EXPECTED **\n-  {debug_expected}")
 
     correctness_eval = evaluate_correctness(output=output, expected_elements=expected)
@@ -128,14 +133,17 @@ def test_investigate(experiment_name, test_case):
             input=input, output=output, context_items=test_case.retrieval_context
         ).score
 
-    # bt_helper.end_evaluation(
-    #     eval=eval,
-    #     input=input,
-    #     output=output or "",
-    #     expected=str(expected),
-    #     id=test_case.id,
-    #     scores=scores
-    # )
+    if bt_helper and eval:
+        bt_helper.end_evaluation(
+            eval=eval,
+            input=input,
+            output=output or "",
+            expected=str(expected),
+            id=test_case.id,
+            scores=scores,
+        )
+    tools_called = [t.tool_name for t in result.tool_calls]
+    print(f"\n** TOOLS CALLED **\n{tools_called}")
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
 

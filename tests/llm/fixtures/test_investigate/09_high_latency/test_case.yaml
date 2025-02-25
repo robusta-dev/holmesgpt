@@ -4,4 +4,5 @@ expected_output:
 before_test: kubectl apply -f ./helm/manifest.yaml
 after_test: kubectl delete -f ./helm/manifest.yaml
 evaluation:
-  correctness: 0
+  correctness: 1
+generate_mocks: True

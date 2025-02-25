@@ -1,6 +1,6 @@
 name: Evaluate LLM test cases
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   build:
@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -31,5 +31,9 @@ jobs:
         shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+          UPLOAD_DATASET: "true"
+          PUSH_EVALS_TO_BRAINTRUST: "true"
+          EXPERIMENT_ID: ${{ github.event.workflow_run.head_branch }}-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         run: |
           poetry run pytest -m "llm"

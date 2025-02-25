@@ -1,5 +1,5 @@
 expected_output:
-  - The node `ip-172-31-40-111.us-east-2.compute.internal` is running at 100% of its pod capacity, which is set to 17 pods
-  - The node cannot schedule any additional pods.
+  - The node `ip-172-31-40-111.us-east-2.compute.internal` is running too many pods for its capacity
 evaluation:
-  correctness: 0
+  correctness: 1
+generate_mocks: True

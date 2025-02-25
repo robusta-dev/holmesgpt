@@ -1,19 +1,19 @@
 {
   "source": "prometheus",
   "source_instance_id": "some-instance",
-  "title": "CrashLoopBackoff.",
-  "description": "Crashing pod inventory-management-api in namespace default",
+  "title": "CPUThrottlingHigh.",
+  "description": "100% throttling of CPU in namespace default for container stress in pod frontend-service.",
   "subject": {
-    "name": "inventory-management-api",
+    "name": "frontend-service",
     "subject_type": "pod",
     "namespace": "default",
-    "node": "ip-172-31-21-139.us-east-2.compute.internal",
-    "container": "inventory-management-api",
+    "node": "grafana-cloud-control-plane",
+    "container": "stress",
     "labels": {},
     "annotations": {}
   },
   "context": {
-    "robusta_issue_id": "cb37003b-9c88-440b-9f6b-7af1239d8da0"
+    "robusta_issue_id": "041e71b1-8d06-4815-ae91-75d8004f7d8b"
   },
   "include_tool_calls": true,
   "include_tool_call_results": true

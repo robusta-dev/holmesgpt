@@ -1,10 +1,10 @@
 expected_output:
   - The frontend-service pod in the default namespace is experiencing 100% CPU throttling for the stress container
   - Suggest increasing the CPU limit
-retrieval_context:
-  - The frontend-service pod is running on node ip-172-31-21-139.us-east-2.compute.internal
-  - The stress container is configured with CPU limits and requests set to 10m
-  - The container is running a command to stress the CPU with 100 threads
-  - The pod is in a Running state with no restarts
+before-test: |
+  kubectl apply -f manifest.yaml
+  sleep 60
+after-test: kubectl delete -f manifest.yaml
 evaluation:
-  correctness: 0
+  correctness: 1
+generate_mocks: True
