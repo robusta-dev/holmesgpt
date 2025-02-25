@@ -18,7 +18,6 @@ def get_active_branch_name():
 
     return "Unknown"
 
-
 def get_machine_state_tags() -> Dict[str, str]:
     return {
         "username": pwd.getpwuid(os.getuid()).pw_name,
@@ -28,5 +27,7 @@ def get_machine_state_tags() -> Dict[str, str]:
     }
 
 
+session_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
 def readable_timestamp():
-    return datetime.now().strftime("%Y%m%d_%H%M%S")
+    return session_timestamp

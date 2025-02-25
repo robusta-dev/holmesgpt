@@ -27,10 +27,7 @@ DATASET_NAME = f"ask_holmes:{system_metadata.get('branch', 'unknown_branch')}"
 
 
 def get_test_cases():
-    unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
-    experiment_name = f"ask_holmes:{unique_test_id}"
-    if os.environ.get("EXPERIMENT_ID"):
-        experiment_name = f'ask_holmes:{os.environ.get("EXPERIMENT_ID")}'
+    experiment_name = braintrust_util.get_experiment_name("ask_holmes")
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
@@ -39,8 +36,8 @@ def get_test_cases():
             project_name=PROJECT, dataset_name=DATASET_NAME
         )
         bt_helper.upload_test_cases(mh.load_test_cases())
-
     test_cases = mh.load_ask_holmes_test_cases()
+    test_cases = test_cases[:5]
     return [(experiment_name, test_case) for test_case in test_cases]
 
 

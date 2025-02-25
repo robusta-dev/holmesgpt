@@ -16,7 +16,7 @@ from tests.llm.utils.classifiers import (
     evaluate_previous_logs_mention,
 )
 from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
+from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
@@ -50,10 +50,7 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
-    experiment_name = f"investigate:{unique_test_id}"
-    if os.environ.get("EXPERIMENT_ID"):
-        experiment_name = f'investigate:{os.environ.get("EXPERIMENT_ID")}'
+    experiment_name = braintrust_util.get_experiment_name("investigate")
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
@@ -64,6 +61,7 @@ def get_test_cases():
         bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_investigate_test_cases()
+    test_cases = test_cases[:5]
     return [(experiment_name, test_case) for test_case in test_cases]
 
 

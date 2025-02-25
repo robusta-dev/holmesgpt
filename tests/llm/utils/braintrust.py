@@ -1,11 +1,13 @@
+import os
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
 from typing import Any, List, Optional
 
 from holmes.common.env_vars import load_bool
+from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_utils import HolmesTestCase
-from tests.llm.utils.system import get_machine_state_tags
+from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 
 
 def find_dataset_row_by_test_case(dataset: Dataset, test_case: HolmesTestCase):
@@ -122,3 +124,26 @@ class BraintrustEvalHelper:
             scores=scores,
         )
         self.experiment.flush()
+
+
+def get_experiment_name(test_suite:str):
+    unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
+    experiment_name = f"{test_suite}:{unique_test_id}"
+    if os.environ.get("EXPERIMENT_ID"):
+        experiment_name = f'{test_suite}:{os.environ.get("EXPERIMENT_ID")}'
+    return experiment_name
+
+def get_experiment_results(project_name:str, test_suite:str):
+    try:
+        experiment_name = get_experiment_name(test_suite)
+        print(f"Experiment name={experiment_name}")
+        experiment = braintrust.init(
+            project=project_name,
+            experiment=experiment_name,
+            open=True
+        )
+
+        return experiment.fetch()
+    except Exception:
+        print("Failed to fetch braintrust experiment")
+        return []
