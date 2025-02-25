@@ -82,12 +82,13 @@ def test_ask_holmes(experiment_name, test_case):
     output = result.result
     expected = test_case.expected_output
 
-    scores = {}
+    print(result.model_dump_json())
 
     if not isinstance(expected, list):
         expected = [expected]
 
     debug_expected = "\n-  ".join(expected)
+    scores = {}
     print(f"** EXPECTED **\n-  {debug_expected}")
     correctness_eval = evaluate_correctness(output=output, expected_elements=expected)
     print(

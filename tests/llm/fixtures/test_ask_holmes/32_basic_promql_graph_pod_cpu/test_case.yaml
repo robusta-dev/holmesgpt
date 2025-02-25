@@ -1,0 +1,5 @@
+user_prompt: "Show me a graph of the CPU usage for the pod robusta-holmes over the last 30 minutes"
+expected_output:
+  - 'The answer should include something similar to << { type: "promql", tool_name: "execute_prometheus_range_query", random_key: "HBGf" } >>. Both tool_name and random_key MUST absolutely be present and either the same as mentioned here or Rs0H.'
+evaluation:
+  correctness: 2

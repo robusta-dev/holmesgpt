@@ -38,10 +38,16 @@ brew install holmesgpt
 holmes --help
 ```
 
+4. Apply an example Pod to Kubernetes with an error that Holmes can investigate:
+
+```sh
+kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+```
+
 4. Run holmesgpt:
 
 ```sh
-holmes ask "what issues do I have in my cluster"
+holmes ask "what is wrong with the user-profile-import pod?"
 ```
 </details>
 
