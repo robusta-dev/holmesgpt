@@ -166,7 +166,6 @@ class OpenSearchToolset(Toolset):
             tags=[
                 ToolsetTag.CORE,
             ],
-            is_default=True,
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
