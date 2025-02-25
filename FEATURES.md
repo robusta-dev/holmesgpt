@@ -85,11 +85,11 @@ HolmesGPT text response:
 Here's the average HTTP request latency over time for the `customer-orders-service`:
 
 << {type: "promql", tool_name: "execute_prometheus_range_query", random_key: "9kLK"} >>
-``
+```
 
 In addition to this text response, the returned JSON will contain one or more tool calls, including the prometheus query:
 
-```
+```json
 "tool_calls": [
   {
     "tool_call_id": "call_lKI7CQW6Y2n1ZQ5dlxX79TcM",
