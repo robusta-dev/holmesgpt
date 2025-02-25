@@ -1,3 +1,4 @@
+import os
 import pytest
 from tests.llm.utils.braintrust import get_experiment_results
 from tests.llm.utils.constants import PROJECT
@@ -12,6 +13,9 @@ def pytest_configure(config):
 
 @pytest.mark.llm
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if not os.environ.get("BRAINTRUST_API_KEY"):
+        return
+
     table = Table(title="Evals")
     table.add_column("Suite", justify="right", style="cyan", no_wrap=True)
     table.add_column("Test case", style="magenta")
