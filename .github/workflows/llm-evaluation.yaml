@@ -44,6 +44,7 @@ jobs:
       - uses: actions/github-script@v7
         with:
           retries: 3
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
 
