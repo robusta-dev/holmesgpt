@@ -34,6 +34,18 @@ jobs:
           BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
           UPLOAD_DATASET: "true"
           PUSH_EVALS_TO_BRAINTRUST: "true"
-          EXPERIMENT_ID: ${{ github.event.workflow_run.head_branch }}-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
+          EXPERIMENT_ID: github-${{ github.event.workflow_run.head_branch }}-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         run: |
           poetry run pytest -m "llm"
+      - uses: actions/github-script@v7
+        with:
+          retries: 3
+          script: |
+            const headBranch = context.event.workflow_run?.head_branch;
+            const experiment_id = `github-${headBranch}-${context.runId}.${context.runNumber}.${context.runAttempt}`
+            octokit.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Link to the evals https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}`
+            })
