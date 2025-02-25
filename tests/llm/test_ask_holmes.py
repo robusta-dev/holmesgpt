@@ -11,7 +11,6 @@ import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.system import readable_timestamp
 from tests.llm.utils.mock_toolset import MockToolsets
 
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
