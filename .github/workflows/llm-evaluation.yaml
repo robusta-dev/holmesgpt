@@ -2,6 +2,10 @@ name: Evaluate LLM test cases
 
 on: [push, pull_request]
 
+permissions:
+  pull-requests: write
+  contents: read
+
 jobs:
   build:
     strategy:
