@@ -17,6 +17,7 @@ def markdown_table(headers, rows):
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if not os.environ.get("PUSH_EVALS_TO_BRAINTRUST"):
         # The code fetches the evals from Braintrust to print out a summary.
+        # Skip running it if the evals have not been uploaded to Braintrust
         return
 
     headers = ["Test suite", "Test case", "Status"]
