@@ -90,5 +90,5 @@ jobs:
               console.log(e)
             }
       - name: Check test results
-        if: steps.tests.outcome != 'success'
+        if: steps.evals.outcome != 'success'
         run: exit 1
