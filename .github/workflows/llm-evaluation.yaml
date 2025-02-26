@@ -36,6 +36,7 @@ jobs:
           poetry install --no-root
 
       - name: Run tests
+        id: evals
         continue-on-error: true
         shell: bash
         env:
@@ -89,5 +90,5 @@ jobs:
               console.log(e)
             }
       - name: Check test results
-        if: always() && steps.tests.outputs.status != '0'
+        if: always() && steps.evals.ourcome != 'success'
         run: exit 1
