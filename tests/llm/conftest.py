@@ -4,12 +4,14 @@ import pytest
 from tests.llm.utils.braintrust import get_experiment_results
 from tests.llm.utils.constants import PROJECT
 
+
 def markdown_table(headers, rows):
     markdown = "| " + " | ".join(headers) + " |\n"
     markdown += "| " + " | ".join(["---" for _ in headers]) + " |\n"
     for row in rows:
         markdown += "| " + " | ".join(str(cell) for cell in row) + " |\n"
     return markdown
+
 
 @pytest.mark.llm
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
@@ -27,7 +29,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     # )
 
     for test_suite in ["ask_holmes", "investigate"]:
-
         try:
             result = get_experiment_results(PROJECT, test_suite)
             result.records.sort(key=lambda x: x.get("span_attributes", {}).get("name"))
@@ -42,15 +43,20 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         ":white_check_mark:"
                         if scores.get("correctness", 0) == 1
                         else ":x:"
+                        # :warning:
                     )
-                    rows.append([
-                        f"[{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name})",
-                        f"[{span_name}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}?r={span_id})",
-                        status_text
-                    ])
+                    rows.append(
+                        [
+                            f"[{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name})",
+                            f"[{span_name}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}?r={span_id})",
+                            status_text,
+                        ]
+                    )
 
         except ValueError:
-            logging.info(f"Failed to fetch braintrust experiment {PROJECT}-{test_suite}")
+            logging.info(
+                f"Failed to fetch braintrust experiment {PROJECT}-{test_suite}"
+            )
 
     if len(rows) > 0:
         # markdown = (
@@ -58,7 +64,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         #     f"https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}"
 
         # )
-
 
         with open("evals_report.txt", "w", encoding="utf-8") as file:
             file.write(markdown_table(headers, rows))

@@ -134,9 +134,11 @@ def get_experiment_name(test_suite: str):
         experiment_name = f'{test_suite}:{os.environ.get("EXPERIMENT_ID")}'
     return experiment_name
 
+
 class ExperimentData(BaseModel):
     experiment_name: str
     records: List[Dict[str, Any]]
+
 
 def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData:
     experiment_name = get_experiment_name(test_suite)
@@ -145,7 +147,4 @@ def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData
     )
     records = list(experiment.fetch())
     # print(list(experiment.as_dataset()))
-    return ExperimentData(
-        experiment_name= experiment_name,
-        records= records
-    )
+    return ExperimentData(experiment_name=experiment_name, records=records)
