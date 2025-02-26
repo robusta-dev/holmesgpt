@@ -1,21 +1,41 @@
-{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"fbf7aa21-b188-41d0-87eb-b96c7ee8c56c"}}
+{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"3c6602c4-8561-4853-9f7d-d658d220ec72"}}
 account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
-aggregation_key: JobFailure
+aggregation_key: KubeJobFailed
 annotations:
+  description: Job default/product-data-scraper failed to complete. Removing failed
+    job after investigation should clear this alert.
   kubectl.kubernetes.io/last-applied-configuration: '{"apiVersion":"batch/v1","kind":"Job","metadata":{"annotations":{},"name":"product-data-scraper","namespace":"default"},"spec":{"backoffLimit":4,"completions":5,"parallelism":1,"suspend":false,"template":{"spec":{"containers":[{"args":["-c","wget
     -O - https://gist.githubusercontent.com/odyssomay/1078370/raw/35c5981f8c139bc9dc02186f187ebee61f5b9eb9/gistfile1.txt
     2\u003e/dev/null; while true; do sleep 10;done; fi"],"command":["/bin/sh"],"image":"bash","name":"run-forever"}],"restartPolicy":"Never"}}}}
 
     '
+  runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubejobfailed
+  summary: Job failed to complete.
 category: null
 cluster: nicolas-kind-cluster
-creation_date: '2025-02-26T10:18:04.227171'
-description: null
+creation_date: '2025-02-26T10:33:47.176355'
+description: Job default/product-data-scraper failed to complete. Removing failed
+  job after investigation should clear this alert.
 ends_at: null
 evidence:
 - account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
   collection_timestamp: null
-  creation_date: '2025-02-26T10:18:03.665196'
+  creation_date: '2025-02-26T10:33:46.198717'
+  data: '[{"type": "markdown", "data": "**Job information**"}, {"type": "table", "data":
+    {"headers": ["description", "value"], "rows": [["status", "FailureTarget"], ["message",
+    "Job has reached the specified backoff limit"], ["completions", "0/5"], ["failures",
+    "5"], ["backoffLimit", "4"], ["duration", "2025-02-26T10:15:22+00:00 - None"],
+    ["containers", "------------------"], ["name", "run-forever"], ["image", "bash"],
+    ["cpu (request/limit)", "None/None"], ["memory MB (request/limit)", "None/None"]],
+    "column_renderers": {}}, "metadata": {}}]'
+  enrichment_type: null
+  file_type: structured_data
+  id: 93429b4d-adc3-4e12-8717-e30b8e44187b
+  issue_id: 3c6602c4-8561-4853-9f7d-d658d220ec72
+  title: null
+- account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
+  collection_timestamp: null
+  creation_date: '2025-02-26T10:33:46.391341'
   data: '[{"type": "markdown", "data": "**Job events:**"}, {"type": "table", "data":
     {"headers": ["reason", "type", "time", "message"], "rows": [["BackoffLimitExceeded",
     "Warning", 1740565083000.0, "Job has reached the specified backoff limit"], ["SuccessfulCreate",
@@ -27,12 +47,12 @@ evidence:
     {"time": "DATETIME"}}, "metadata": {}}]'
   enrichment_type: k8s_events
   file_type: structured_data
-  id: c552d9d3-8b4e-410a-9608-c44d600584e1
-  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+  id: 7d6c9745-2e7e-4a9f-bb2f-2f863ff4ba7f
+  issue_id: 3c6602c4-8561-4853-9f7d-d658d220ec72
   title: Job Events
 - account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
   collection_timestamp: null
-  creation_date: '2025-02-26T10:18:03.818301'
+  creation_date: '2025-02-26T10:33:46.589511'
   data: '[{"type": "markdown", "data": "**Job pod events:**"}, {"type": "table", "data":
     {"headers": ["reason", "type", "time", "message"], "rows": [["Pulled", "Normal",
     1740565080000.0, "Successfully pulled image \"bash\" in 865ms (865ms including
@@ -44,53 +64,68 @@ evidence:
     {"time": "DATETIME"}}, "metadata": {}}]'
   enrichment_type: null
   file_type: structured_data
-  id: 63890f89-0a09-4401-9b59-1560fc1e797c
-  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+  id: e7f6d362-ba6b-4951-b715-657e328fef79
+  issue_id: 3c6602c4-8561-4853-9f7d-d658d220ec72
   title: null
 - account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
   collection_timestamp: null
-  creation_date: '2025-02-26T10:18:04.08662'
-  data: '[{"type": "gz", "data": "b''H4sIAFvqvmcC/9NPyszTL86wUiiuzCtJrFBILSrKL7JSKM1LrShITS5JTVFQSstU4gIAAv+YeycAAAA=''"}]'
+  creation_date: '2025-02-26T10:33:46.783144'
+  data: '[{"type": "gz", "data": "b''H4sIAAruvmcC/9NPyszTL86wUiiuzCtJrFBILSrKL7JSKM1LrShITS5JTVFQSstU4gIAAv+YeycAAAA=''"}]'
   enrichment_type: null
   file_type: structured_data
-  id: a17f0e3a-2b1a-43c9-aa48-387d7102421b
-  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+  id: 9fd472b9-2d6e-4d69-bc1a-24914beb5026
+  issue_id: 3c6602c4-8561-4853-9f7d-d658d220ec72
   title: null
 - account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
   collection_timestamp: null
-  creation_date: '2025-02-26T10:18:03.50129'
-  data: '[{"type": "markdown", "data": "**Job information**"}, {"type": "table", "data":
-    {"headers": ["description", "value"], "rows": [["status", "FailureTarget"], ["message",
-    "Job has reached the specified backoff limit"], ["completions", "0/5"], ["failures",
-    "5"], ["backoffLimit", "4"], ["duration", "2025-02-26T10:15:22Z - None"], ["containers",
-    "------------------"], ["name", "run-forever"], ["image", "bash"], ["cpu (request/limit)",
-    "None/None"], ["memory MB (request/limit)", "None/None"]], "column_renderers":
-    {}}, "metadata": {}}]'
-  enrichment_type: null
+  creation_date: '2025-02-26T10:33:47.001642'
+  data: '[{"type": "markdown", "data": "**Alert labels**"}, {"type": "table", "data":
+    {"headers": ["label", "value"], "rows": [["alertname", "KubeJobFailed"], ["condition",
+    "true"], ["container", "kube-state-metrics"], ["endpoint", "http"], ["instance",
+    "10.244.0.36:8080"], ["job", "kube-state-metrics"], ["job_name", "product-data-scraper"],
+    ["namespace", "default"], ["pod", "robusta-kube-state-metrics-8667fd9775-lb5nx"],
+    ["prometheus", "default/robusta-kube-prometheus-st-prometheus"], ["service", "robusta-kube-state-metrics"],
+    ["severity", "warning"]], "column_renderers": {}}, "metadata": {"format": "vertical"}}]'
+  enrichment_type: alert_labels
   file_type: structured_data
-  id: af1cfb9e-c47a-4e56-9f4b-723cc649ff73
-  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
-  title: null
+  id: 10f3b87d-d494-4932-a391-8d3034d24b9a
+  issue_id: 3c6602c4-8561-4853-9f7d-d658d220ec72
+  title: Alert labels
 failure: true
 finding_type: issue
-fingerprint: 888bd874cdb97620e48ae18ac147185b1465758c3b69cdc384647a4fe5f2a6cb
+fingerprint: 74a7ec31782bc665
 group_id: null
-id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+id: 3c6602c4-8561-4853-9f7d-d658d220ec72
 labels:
+  alertname: KubeJobFailed
   batch.kubernetes.io/controller-uid: 32a84d5b-df72-484a-93fa-05fef96df8fc
   batch.kubernetes.io/job-name: product-data-scraper
+  condition: 'true'
+  container: kube-state-metrics
   controller-uid: 32a84d5b-df72-484a-93fa-05fef96df8fc
+  endpoint: http
+  instance: 10.244.0.36:8080
+  job: kube-state-metrics
   job-name: product-data-scraper
-priority: HIGH
+  job_name: product-data-scraper
+  namespace: default
+  pod: robusta-kube-state-metrics-8667fd9775-lb5nx
+  prometheus: default/robusta-kube-prometheus-st-prometheus
+  service: robusta-kube-state-metrics
+  severity: warning
+priority: LOW
 service_key: default/Job/product-data-scraper
 service_kind: null
 service_name: null
-source: kubernetes_api_server
-starts_at: '2025-02-26T10:18:03.183161+00:00'
+source: prometheus
+starts_at: '2025-02-26T10:33:44.919+00:00'
 subject_name: product-data-scraper
 subject_namespace: default
 subject_node: null
 subject_type: job
-title: Job product-data-scraper on namespace default failed
-updated_at: '2025-02-26T10:18:04.151921+00:00'
-video_links: []
+title: Job failed to complete.
+updated_at: '2025-02-26T10:33:47.080692+00:00'
+video_links:
+- name: View Graph
+  type: prometheus_generator_url
+  url: http://robusta-kube-prometheus-st-prometheus.default:9090/graph?g0.expr=kube_job_failed%7Bjob%3D~%22kube-state-metrics%22%2Cnamespace%3D~%22.%2A%22%7D+%3E+0&g0.tab=1
