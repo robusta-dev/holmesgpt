@@ -22,12 +22,9 @@ from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
 from os import path
 
-system_metadata = get_machine_state_tags()
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
 )
-
-DATASET_NAME = f"investigate:{system_metadata.get('branch', 'unknown_branch')}"
 
 
 class MockConfig(Config):
@@ -51,12 +48,13 @@ class MockConfig(Config):
 
 def get_test_cases():
     experiment_name = braintrust_util.get_experiment_name("investigate")
+    dataset_name = braintrust_util.get_dataset_name("investigate")
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
     if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
         bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=DATASET_NAME
+            project_name=PROJECT, dataset_name=dataset_name
         )
         bt_helper.upload_test_cases(mh.load_test_cases())
 
@@ -97,8 +95,9 @@ def test_investigate(experiment_name, test_case):
     bt_helper = None
     eval = None
     if braintrust_util.PUSH_EVALS_TO_BRAINTRUST:
+        dataset_name = braintrust_util.get_dataset_name("investigate")
         bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=DATASET_NAME
+            project_name=PROJECT, dataset_name=dataset_name
         )
         eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 

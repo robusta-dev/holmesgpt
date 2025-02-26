@@ -19,32 +19,42 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         # The code fetches the evals from Braintrust to print out a summary.
         return
 
-    headers = ["Suite", "Test case", "Status"]
+    headers = ["Test suite", "Test case", "Status"]
     rows = []
 
-    # markdown = (
-    #     f"## Results of HolmesGPT evals\n"
-    #     f"https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}"
-
-    # )
+    # Do not change the title below without updating the github workflow that references it
+    markdown = "## Results of HolmesGPT evals\n"
 
     for test_suite in ["ask_holmes", "investigate"]:
         try:
             result = get_experiment_results(PROJECT, test_suite)
             result.records.sort(key=lambda x: x.get("span_attributes", {}).get("name"))
+            total_test_cases = 0
+            successful_test_cases = 0
             for record in result.records:
-                # print(record)
                 scores = record.get("scores", None)
                 span_id = record.get("id")
                 span_attributes = record.get("span_attributes")
                 if scores and span_attributes:
                     span_name = span_attributes.get("name")
-                    status_text = (
-                        ":white_check_mark:"
-                        if scores.get("correctness", 0) == 1
-                        else ":x:"
-                        # :warning:
+                    test_case = next(
+                        (tc for tc in result.test_cases if tc.get("id") == span_name),
+                        {},
                     )
+                    correctness_score = scores.get("correctness", 0)
+                    expected_correctness_score = (
+                        test_case.get("metadata", {})
+                        .get("test_case", {})
+                        .get("evaluation", {})
+                        .get("correctness", 0)
+                    )
+                    total_test_cases += 1
+                    status_text = ":x:"
+                    if correctness_score == 1:
+                        successful_test_cases += 1
+                        status_text = ":white_check_mark:"
+                    elif correctness_score >= expected_correctness_score:
+                        status_text = ":warning:"
                     rows.append(
                         [
                             f"[{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name})",
@@ -52,6 +62,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                             status_text,
                         ]
                     )
+            markdown += f"\n- [{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}): {successful_test_cases}/{total_test_cases} test cases were successful"
 
         except ValueError:
             logging.info(
@@ -59,11 +70,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             )
 
     if len(rows) > 0:
-        # markdown = (
-        #     f"## Results of HolmesGPT evals\n"
-        #     f"https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}"
-
-        # )
+        markdown += "\n\n"
+        markdown += markdown_table(headers, rows)
 
         with open("evals_report.txt", "w", encoding="utf-8") as file:
-            file.write(markdown_table(headers, rows))
+            file.write(markdown)

@@ -135,9 +135,15 @@ def get_experiment_name(test_suite: str):
     return experiment_name
 
 
+def get_dataset_name(test_suite: str):
+    system_metadata = get_machine_state_tags()
+    return f"{test_suite}:{system_metadata.get('branch', 'unknown_branch')}"
+
+
 class ExperimentData(BaseModel):
     experiment_name: str
     records: List[Dict[str, Any]]
+    test_cases: List[Dict[str, Any]]
 
 
 def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData:
@@ -145,6 +151,11 @@ def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData
     experiment = braintrust.init(
         project=project_name, experiment=experiment_name, open=True
     )
+    dataset = braintrust.init_dataset(
+        project=project_name, name=get_dataset_name(test_suite)
+    )
     records = list(experiment.fetch())
-    # print(list(experiment.as_dataset()))
-    return ExperimentData(experiment_name=experiment_name, records=records)
+    test_cases = list(dataset.fetch())
+    return ExperimentData(
+        experiment_name=experiment_name, records=records, test_cases=test_cases
+    )
