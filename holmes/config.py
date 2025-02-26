@@ -223,7 +223,7 @@ class Config(RobustaBaseConfig):
                 enabled_toolsets.append(ts)
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.DISABLED:
-                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()})")
+                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.FAILED:
                 logging.info(
                     f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})"

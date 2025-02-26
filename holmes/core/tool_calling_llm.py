@@ -263,6 +263,7 @@ class ToolCallingLLM:
 
         tool_response = None
         try:
+            tool.log(tool_params)
             tool_response = tool.invoke(tool_params)
         except Exception as e:
             logging.error(

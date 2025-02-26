@@ -111,6 +111,9 @@ class Tool(ABC, BaseModel):
 
         return result
 
+    def log(self, params: Dict):
+        logging.info(f"Running tool: {self.__class__.__name__} with params {params}")
+
     @abstractmethod
     def invoke(self, params: Dict) -> str:
         return ""
@@ -157,9 +160,11 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def invoke(self, params) -> str:
+    def log(self, params):
         context = self._build_context(params)
         logging.info(f"Running tool: {self.get_parameterized_one_liner(context)}")
+
+    def invoke(self, params) -> str:
         if self.command is not None:
             raw_output = self.__invoke_command(params)
         else:
