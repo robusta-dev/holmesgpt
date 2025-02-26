@@ -161,15 +161,16 @@ def test_investigate(experiment_name, test_case):
         ) in test_case.expected_sections.items():
             if not expected_section_array_content:
                 assert (
-                        result.sections.get(expected_section_title, None) is None
-                    ), f"Expected to NOT see section [{expected_section_title}] in result but that section is present and contains {result.sections.get(expected_section_title)}"
+                    result.sections.get(expected_section_title, None) is None
+                ), f"Expected to NOT see section [{expected_section_title}] in result but that section is present and contains {result.sections.get(expected_section_title)}"
             else:
                 assert (
                     expected_section_title in result.sections
                 ), f"Expected to see section [{expected_section_title}] in result but that section is missing"
                 for expected_content in expected_section_array_content:
                     assert (
-                        expected_content in result.sections.get(expected_section_title, "")
+                        expected_content
+                        in result.sections.get(expected_section_title, "")
                     ), f"Expected to see content [{expected_content}] in section [{expected_section_title}] but could not find such content"
 
     if test_case.evaluation.correctness:
