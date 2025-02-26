@@ -53,7 +53,7 @@ jobs:
           script: |
             const fs = require('fs');
             try {
-              if(!context.issue or !context.issue.number) {
+              if(!context.issue || !context.issue.number) {
                 // Only comment on PR if the workflow is run as part of a PR
                 return
               }

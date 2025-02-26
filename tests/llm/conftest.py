@@ -72,6 +72,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if len(rows) > 0:
         markdown += "\n\n"
         markdown += markdown_table(headers, rows)
+        markdown += "\n\n**Legend**\n"
+        markdown += "\n- :white_check_mark: the test was successful"
+        markdown += (
+            "\n- :warning: the test failed but is known to be flakky or known to fail"
+        )
+        markdown += "\n- :x: the test failed and should be fixed before merging the PR"
 
         with open("evals_report.txt", "w", encoding="utf-8") as file:
             file.write(markdown)
