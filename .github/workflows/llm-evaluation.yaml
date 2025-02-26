@@ -72,20 +72,19 @@ jobs:
               );
 
               if (botComment) {
-                await github.rest.issues.updateComment({
+                await github.rest.issues.deleteComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   comment_id: botComment.id,
                   body: reportContent
                 });
-              } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: reportContent
-                });
               }
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: reportContent
+              });
             } catch(e) {
               console.log(e)
             }
