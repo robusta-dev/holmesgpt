@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 import json
 import re
-
+from contextlib import suppress
 from holmes.common.env_vars import load_bool
 
 
@@ -13,6 +13,8 @@ PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS = load_bool(
     "PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS", True
 )
 
+
+InputSectionsDataType = Dict[str, str]
 
 InputSectionsDataType = Dict[str, str]
 
@@ -81,7 +83,7 @@ def parse_markdown_into_sections_from_equal_sign(
     matches = re.split(r"(?:^|\n)([^\n]+)\n=+\n", markdown_content.strip())
 
     # Remove any empty first element if the text starts with a header
-    if matches[0] == "":
+    if matches[0].strip() == "":
         matches = matches[1:]
 
     sections = {}
@@ -116,12 +118,13 @@ def parse_markdown_into_sections_from_hash_sign(
 
     if not matches[0].startswith("#"):
         matches = matches[1:]
-    # Create a dictionary to store the sections
+
     sections = {}
 
     for match in matches:
-        if match.strip():
-            parts = match.strip().split("\n", 1)
+        match = match.strip()
+        if match:
+            parts = match.split("\n", 1)
 
             if len(parts) > 1:
                 # Remove the # from the title and use it as key
@@ -141,17 +144,16 @@ def parse_markdown_into_sections_from_hash_sign(
 
 
 def extract_within(content: str, from_idx: int, to_idx: int) -> str:
-    try:
+    with suppress(Exception):
+        extracted_content = content[from_idx:to_idx]
         parsed = json.loads(
-            content[from_idx:to_idx]
+            extracted_content
         )  # if this parses as json, set the response as that.
         if isinstance(parsed, dict):
             logging.warning(
                 "The LLM did not return structured data but embedded the data into a markdown code block. This indicates the prompt is not optimised for that AI model."
             )
-            content = content[from_idx:to_idx]
-    except Exception:
-        pass
+            content = extracted_content
     return content
 
 
@@ -175,10 +177,8 @@ def pre_format_sections(response: Any) -> Any:
     if response.startswith('"{') and response.endswith('}"'):
         # Some Anthropic models embed the actual JSON dict inside a JSON string
         # In that case it gets parsed once to get rid of the first level of marshalling
-        try:
+        with suppress(Exception):
             response = json.loads(response)
-        except Exception:
-            pass
     return response
 
 
@@ -187,7 +187,7 @@ def parse_json_sections(
 ) -> Tuple[str, Optional[Dict[str, Optional[str]]]]:
     response = pre_format_sections(response)
 
-    try:
+    with suppress(Exception):
         parsed_json = json.loads(response)
 
         if not isinstance(parsed_json, dict):
@@ -208,8 +208,6 @@ def parse_json_sections(
         if sections:
             combined = combine_sections(sections)
             return (combined, sections)
-    except Exception:
-        pass
 
     return (response, None)
 
@@ -238,7 +236,7 @@ def is_response_an_incorrect_tool_call(
     In that case the intention is to retry the LLM calls without structured output.
     Post processing may still try to generate a structured output from a monolithic markdown.
     """
-    try:
+    with suppress(Exception):
         message = choice.get("message", {})
         finish_reason = choice.get("finish_reason")
         content = message.get("content")
@@ -265,7 +263,4 @@ def is_response_an_incorrect_tool_call(
                 if section_title in content:
                     return False
             return True
-
-    except Exception:
-        pass
     return False

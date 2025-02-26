@@ -205,7 +205,24 @@ TEST_SECTIONS = {
 }
 
 
-def test_parse_markdown_into_sections_hash():
+def test_parse_markdown_into_sections_hash_no_leading_line_feed():
+    markdown = ""
+    for title, content in TEST_SECTIONS.items():
+        if not markdown:
+            markdown = f"# {title}\n{content}\n"
+        else:
+            markdown = markdown + f"\n# {title}\n{content}\n"
+    (text, sections) = process_response_into_sections(markdown)
+    print(markdown)
+    print(json.dumps(sections, indent=2))
+    assert text == markdown
+    assert sections, "None sections returned"
+    for title, content in TEST_SECTIONS.items():
+        assert title in sections
+        assert sections.get(title) == content
+
+
+def test_parse_markdown_into_sections_hash_leading_line_feed():
     markdown = ""
     for title, content in TEST_SECTIONS.items():
         markdown = markdown + f"\n# {title}\n{content}\n"

@@ -42,6 +42,10 @@ spec:
           {{ if .Values.enablePostProcessing -}}
           - name: HOLMES_POST_PROCESSING_PROMPT
             value: {{ .Values.postProcessingPrompt }}
+          - name: ENABLE_TELEMETRY
+            value: {{ .Values.enableTelemetry }}
+          - name: SENTRY_DSN
+            value: {{ .Values.sentryDSN }}
           {{- end }}
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
