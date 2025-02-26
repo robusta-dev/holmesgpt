@@ -47,7 +47,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         test_case.get("metadata", {})
                         .get("test_case", {})
                         .get("evaluation", {})
-                        .get("correctness", 0)
+                        .get("correctness", 1)
                     )
                     total_test_cases += 1
                     status_text = ":x:"

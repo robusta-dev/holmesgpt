@@ -25,7 +25,7 @@ CONFIG_FILE_NAME = "test_case.yaml"
 
 class LLMEvaluation(BaseModel):
     faithfulness: float = 0.3
-    correctness: float = 0.3
+    correctness: float = 1
     context: float = 0
 
 
