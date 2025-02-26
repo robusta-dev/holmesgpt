@@ -90,10 +90,5 @@ jobs:
               console.log(e)
             }
       - name: Check test results
-        if: always()
-        run: |
-          if [[ "${{ steps.tests.outcome }}" == "success" ]]; then
-            exit 0
-          else
-            exit 1
-          fi
+        if: steps.tests.outcome != 'success'
+        run: exit 1
