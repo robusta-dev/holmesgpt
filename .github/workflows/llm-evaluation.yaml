@@ -90,5 +90,5 @@ jobs:
               console.log(e)
             }
       - name: Check test results
-        if: always() && steps.evals.ourcome != 'success'
-        run: exit 1
+        if: always()
+        run: exit ${{ steps.evals.outcome != 'success' }}
