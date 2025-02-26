@@ -8,4 +8,3 @@ retrieval_context:
   - "Grafana is running on port 3000"
 evaluation:
   correctness: 1
-generate_mocks: True
