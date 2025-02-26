@@ -8,6 +8,7 @@ toolsets:
 
     tools:
       - name: "git_read_file_with_line_numbers"
+        user_description: "Reading file from git repository"
         description: |
           Reads a specific file from the remote Git repository and prints each line with its corresponding line number.
           Parameters:
@@ -19,6 +20,7 @@ toolsets:
           nl -ba
 
       - name: "git_list_files"
+        user_description: "Listing files from your git repository"
         description: |
           Lists all files and directories in the remote Git repository (recursively).
         command: >
@@ -27,6 +29,7 @@ toolsets:
           jq -r '.tree[] | .path'
 
       - name: "git_list_open_prs"
+        user_description: "Listing Open PRs"
         description: |
           Lists all open pull requests (PRs) in the remote Git repository.
           Before creating a new PR, we always check if there is an open PR first.
@@ -36,6 +39,7 @@ toolsets:
           jq -r '.[] | "\(.number): \(.title) - https://github.com/'"${GIT_REPO}"'/pull/\(.number)"'
 
       - name: "git_execute_changes"
+        user_description: "Making git changes, (is_dry_run): {{ dry_run }}"
         description: |
           Executes remote changes in the Git repository and optionally opens a pull request.
           Parameters:
