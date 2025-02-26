@@ -41,47 +41,50 @@ class GetLogs(BaseDatadogTool):
         )
 
     def invoke(self, params: Any) -> str:
-        service = params.get("service")
-        from_time = params.get("from_time")
-        to_time = params.get("to_time")
+        try:
+            service = params.get("service")
+            from_time = params.get("from_time")
+            to_time = params.get("to_time")
 
-        url = "https://api.us5.datadoghq.com/api/v2/logs/events/search"
-        headers = {
-            "Content-Type": "application/json",
-            "DD-API-KEY": self.toolset.dd_api_key,
-            "DD-APPLICATION-KEY": self.toolset.dd_app_key,
-        }
+            url = "https://api.us5.datadoghq.com/api/v2/logs/events/search"
+            headers = {
+                "Content-Type": "application/json",
+                "DD-API-KEY": self.toolset.dd_api_key,
+                "DD-APPLICATION-KEY": self.toolset.dd_app_key,
+            }
 
-        payload = {
-            "filter": {
-                "from": from_time,
-                "to": to_time,
-                "query": f"service:{service}",
-            },
-            "sort": "timestamp",
-            "page": {"limit": 1000},
-        }
+            payload = {
+                "filter": {
+                    "from": from_time,
+                    "to": to_time,
+                    "query": f"service:{service}",
+                },
+                "sort": "timestamp",
+                "page": {"limit": 1000},
+            }
 
-        response = requests.post(url, headers=headers, json=payload)
-        logging.info(
-            f"Fetching Datadog logs for service {service} from {from_time} to {to_time}"
-        )
+            response = requests.post(url, headers=headers, json=payload)
+            logging.info(
+                f"Fetching Datadog logs for service {service} from {from_time} to {to_time}"
+            )
 
-        if response.status_code == 200:
-            data = response.json()
-            logs = [
-                log["attributes"].get("message", "[No message]")
-                for log in data.get("data", [])
-            ]
-            if logs:
-                return "\n".join(logs)
-            else:
-                logging.warning(f"No logs found for service {service}")
-                return "[No logs found]"
+            if response.status_code == 200:
+                data = response.json()
+                logs = [
+                    log["attributes"].get("message", "[No message]")
+                    for log in data.get("data", [])
+                ]
+                if logs:
+                    return "\n".join(logs)
+                else:
+                    logging.warning(f"No logs found for service {service}")
+                    return "[No logs found]"
 
-        logging.warning(
-            f"Failed to fetch logs. Status code: {response.status_code}, Response: {response.text}"
-        )
+            logging.warning(
+                f"Failed to fetch logs. Status code: {response.status_code}, Response: {response.text}"
+            )
+        except Exception:
+            logging.exception(f"failed to query datadog {params}")
         return f"Failed to fetch logs. Status code: {response.status_code}\n{response.text}"
 
     def get_parameterized_one_liner(self, params) -> str:
