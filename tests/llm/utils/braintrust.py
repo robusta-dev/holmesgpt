@@ -2,7 +2,9 @@ import os
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
 
 from holmes.common.env_vars import load_bool
 from tests.llm.utils.mock_utils import HolmesTestCase
@@ -132,16 +134,18 @@ def get_experiment_name(test_suite: str):
         experiment_name = f'{test_suite}:{os.environ.get("EXPERIMENT_ID")}'
     return experiment_name
 
+class ExperimentData(BaseModel):
+    experiment_name: str
+    records: List[Dict[str, Any]]
 
-def get_experiment_results(project_name: str, test_suite: str):
-    try:
-        experiment_name = get_experiment_name(test_suite)
-        print(f"Experiment name={experiment_name}")
-        experiment = braintrust.init(
-            project=project_name, experiment=experiment_name, open=True
-        )
-
-        return experiment.fetch()
-    except Exception:
-        print("Failed to fetch braintrust experiment")
-        return []
+def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData:
+    experiment_name = get_experiment_name(test_suite)
+    experiment = braintrust.init(
+        project=project_name, experiment=experiment_name, open=True
+    )
+    records = list(experiment.fetch())
+    # print(list(experiment.as_dataset()))
+    return ExperimentData(
+        experiment_name= experiment_name,
+        records= records
+    )

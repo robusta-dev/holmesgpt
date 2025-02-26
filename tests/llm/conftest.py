@@ -1,40 +1,64 @@
+import logging
 import os
 import pytest
 from tests.llm.utils.braintrust import get_experiment_results
 from tests.llm.utils.constants import PROJECT
-from rich.table import Table
-from rich.console import Console
 
-
-def pytest_configure(config):
-    # Register the llm marker if not already registered
-    config.addinivalue_line("markers", "llm: mark test as an LLM test")
-
+def markdown_table(headers, rows):
+    markdown = "| " + " | ".join(headers) + " |\n"
+    markdown += "| " + " | ".join(["---" for _ in headers]) + " |\n"
+    for row in rows:
+        markdown += "| " + " | ".join(str(cell) for cell in row) + " |\n"
+    return markdown
 
 @pytest.mark.llm
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    if not os.environ.get("BRAINTRUST_API_KEY"):
+    if not os.environ.get("PUSH_EVALS_TO_BRAINTRUST"):
+        # The code fetches the evals from Braintrust to print out a summary.
         return
 
-    table = Table(title="Evals")
-    table.add_column("Suite", justify="right", style="cyan", no_wrap=True)
-    table.add_column("Test case", style="magenta")
-    table.add_column("Pass/Fail", justify="right", style="green")
+    headers = ["Suite", "Test case", "Status"]
+    rows = []
+
+    # markdown = (
+    #     f"## Results of HolmesGPT evals\n"
+    #     f"https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}"
+
+    # )
 
     for test_suite in ["ask_holmes", "investigate"]:
-        results = list(get_experiment_results(PROJECT, test_suite))
-        results.sort(key=lambda x: x.get("span_attributes").get("name"))
-        for result in results:
-            if result.get("scores", {}):
-                success_text = (
-                    "pass"
-                    if result.get("scores").get("correctness", 0) == 1
-                    else "fail"
-                )
-                table.add_row(
-                    test_suite, result.get("span_attributes").get("name"), success_text
-                )
 
-    with open("evals_report.txt", "w", encoding="utf-8") as file:
-        console = Console(file=file)
-        console.print(table)
+        try:
+            result = get_experiment_results(PROJECT, test_suite)
+            result.records.sort(key=lambda x: x.get("span_attributes", {}).get("name"))
+            for record in result.records:
+                # print(record)
+                scores = record.get("scores", None)
+                span_id = record.get("id")
+                span_attributes = record.get("span_attributes")
+                if scores and span_attributes:
+                    span_name = span_attributes.get("name")
+                    status_text = (
+                        ":white_check_mark:"
+                        if scores.get("correctness", 0) == 1
+                        else ":x:"
+                    )
+                    rows.append([
+                        f"[{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name})",
+                        f"[{span_name}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}?r={span_id})",
+                        status_text
+                    ])
+
+        except ValueError:
+            logging.info(f"Failed to fetch braintrust experiment {PROJECT}-{test_suite}")
+
+    if len(rows) > 0:
+        # markdown = (
+        #     f"## Results of HolmesGPT evals\n"
+        #     f"https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/${experiment_id}"
+
+        # )
+
+
+        with open("evals_report.txt", "w", encoding="utf-8") as file:
+            file.write(markdown_table(headers, rows))

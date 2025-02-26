@@ -36,7 +36,6 @@ def get_test_cases():
         )
         bt_helper.upload_test_cases(mh.load_test_cases())
     test_cases = mh.load_ask_holmes_test_cases()
-    test_cases = test_cases[:5]
     return [(experiment_name, test_case) for test_case in test_cases]
 
 
