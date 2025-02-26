@@ -1,6 +1,9 @@
 expected_output:
   - Pod `oomkill-deployment-696dbdbf67-d47z6` is experiencing a `CrashLoopBackOff`
 expected_sections:
-  Related logs: False
+  Key Findings: False
+  Next Steps: False
+  App or Infra?: False
+  External links: False
 evaluation:
   correctness: 1
