@@ -45,7 +45,7 @@ jobs:
           PUSH_EVALS_TO_BRAINTRUST: "true"
           EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         run: |
-          poetry run pytest tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n 2
+          poetry run pytest tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n 4
       - uses: actions/github-script@v7
         with:
           retries: 3
