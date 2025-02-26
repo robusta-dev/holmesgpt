@@ -75,8 +75,7 @@ jobs:
                 await github.rest.issues.deleteComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  comment_id: botComment.id,
-                  body: reportContent
+                  comment_id: botComment.id
                 });
               }
               await github.rest.issues.createComment({
