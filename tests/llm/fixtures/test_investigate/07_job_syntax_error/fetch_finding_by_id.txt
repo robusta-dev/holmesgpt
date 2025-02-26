@@ -1,3 +1,96 @@
-{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"4a25f1ef-2206-43d2-9601-1eb4254b5904"}}
-error: 'Failed to find a finding with finding_id=4a25f1ef-2206-43d2-9601-1eb4254b5904:
-  Holmes'' data access layer is not enabled.'
+{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"fbf7aa21-b188-41d0-87eb-b96c7ee8c56c"}}
+account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
+aggregation_key: JobFailure
+annotations:
+  kubectl.kubernetes.io/last-applied-configuration: '{"apiVersion":"batch/v1","kind":"Job","metadata":{"annotations":{},"name":"product-data-scraper","namespace":"default"},"spec":{"backoffLimit":4,"completions":5,"parallelism":1,"suspend":false,"template":{"spec":{"containers":[{"args":["-c","wget
+    -O - https://gist.githubusercontent.com/odyssomay/1078370/raw/35c5981f8c139bc9dc02186f187ebee61f5b9eb9/gistfile1.txt
+    2\u003e/dev/null; while true; do sleep 10;done; fi"],"command":["/bin/sh"],"image":"bash","name":"run-forever"}],"restartPolicy":"Never"}}}}
+
+    '
+category: null
+cluster: nicolas-kind-cluster
+creation_date: '2025-02-26T10:18:04.227171'
+description: null
+ends_at: null
+evidence:
+- account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
+  collection_timestamp: null
+  creation_date: '2025-02-26T10:18:03.665196'
+  data: '[{"type": "markdown", "data": "**Job events:**"}, {"type": "table", "data":
+    {"headers": ["reason", "type", "time", "message"], "rows": [["BackoffLimitExceeded",
+    "Warning", 1740565083000.0, "Job has reached the specified backoff limit"], ["SuccessfulCreate",
+    "Normal", 1740565079000.0, "Created pod: product-data-scraper-dzhn2"], ["SuccessfulCreate",
+    "Normal", 1740564998000.0, "Created pod: product-data-scraper-spcj7"], ["SuccessfulCreate",
+    "Normal", 1740564957000.0, "Created pod: product-data-scraper-lfbtg"], ["SuccessfulCreate",
+    "Normal", 1740564936000.0, "Created pod: product-data-scraper-pfklk"], ["SuccessfulCreate",
+    "Normal", 1740564922000.0, "Created pod: product-data-scraper-6vg4b"]], "column_renderers":
+    {"time": "DATETIME"}}, "metadata": {}}]'
+  enrichment_type: k8s_events
+  file_type: structured_data
+  id: c552d9d3-8b4e-410a-9608-c44d600584e1
+  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+  title: Job Events
+- account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
+  collection_timestamp: null
+  creation_date: '2025-02-26T10:18:03.818301'
+  data: '[{"type": "markdown", "data": "**Job pod events:**"}, {"type": "table", "data":
+    {"headers": ["reason", "type", "time", "message"], "rows": [["Pulled", "Normal",
+    1740565080000.0, "Successfully pulled image \"bash\" in 865ms (865ms including
+    waiting). Image size: 6376191 bytes."], ["Created", "Normal", 1740565080000.0,
+    "Created container run-forever"], ["Started", "Normal", 1740565080000.0, "Started
+    container run-forever"], ["Scheduled", "Normal", 1740565079014.183, "Successfully
+    assigned default/product-data-scraper-dzhn2 to grafana-cloud-control-plane"],
+    ["Pulling", "Normal", 1740565079000.0, "Pulling image \"bash\""]], "column_renderers":
+    {"time": "DATETIME"}}, "metadata": {}}]'
+  enrichment_type: null
+  file_type: structured_data
+  id: 63890f89-0a09-4401-9b59-1560fc1e797c
+  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+  title: null
+- account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
+  collection_timestamp: null
+  creation_date: '2025-02-26T10:18:04.08662'
+  data: '[{"type": "gz", "data": "b''H4sIAFvqvmcC/9NPyszTL86wUiiuzCtJrFBILSrKL7JSKM1LrShITS5JTVFQSstU4gIAAv+YeycAAAA=''"}]'
+  enrichment_type: null
+  file_type: structured_data
+  id: a17f0e3a-2b1a-43c9-aa48-387d7102421b
+  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+  title: null
+- account_id: 16ecba1a-7993-4dd1-a98c-d201462ccba7
+  collection_timestamp: null
+  creation_date: '2025-02-26T10:18:03.50129'
+  data: '[{"type": "markdown", "data": "**Job information**"}, {"type": "table", "data":
+    {"headers": ["description", "value"], "rows": [["status", "FailureTarget"], ["message",
+    "Job has reached the specified backoff limit"], ["completions", "0/5"], ["failures",
+    "5"], ["backoffLimit", "4"], ["duration", "2025-02-26T10:15:22Z - None"], ["containers",
+    "------------------"], ["name", "run-forever"], ["image", "bash"], ["cpu (request/limit)",
+    "None/None"], ["memory MB (request/limit)", "None/None"]], "column_renderers":
+    {}}, "metadata": {}}]'
+  enrichment_type: null
+  file_type: structured_data
+  id: af1cfb9e-c47a-4e56-9f4b-723cc649ff73
+  issue_id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+  title: null
+failure: true
+finding_type: issue
+fingerprint: 888bd874cdb97620e48ae18ac147185b1465758c3b69cdc384647a4fe5f2a6cb
+group_id: null
+id: fbf7aa21-b188-41d0-87eb-b96c7ee8c56c
+labels:
+  batch.kubernetes.io/controller-uid: 32a84d5b-df72-484a-93fa-05fef96df8fc
+  batch.kubernetes.io/job-name: product-data-scraper
+  controller-uid: 32a84d5b-df72-484a-93fa-05fef96df8fc
+  job-name: product-data-scraper
+priority: HIGH
+service_key: default/Job/product-data-scraper
+service_kind: null
+service_name: null
+source: kubernetes_api_server
+starts_at: '2025-02-26T10:18:03.183161+00:00'
+subject_name: product-data-scraper
+subject_namespace: default
+subject_node: null
+subject_type: job
+title: Job product-data-scraper on namespace default failed
+updated_at: '2025-02-26T10:18:04.151921+00:00'
+video_links: []

@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get","match_params":{"kind":"pod","name":"product-data-scraper","namespace":"default"}}
-Command `kubectl get --show-labels -o wide pod product-data-scraper -n default` failed with return code 1
-stdout:
-
-stderr:
-Error from server (NotFound): pods "product-data-scraper" not found
