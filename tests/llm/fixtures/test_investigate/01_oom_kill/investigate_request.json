@@ -19,5 +19,10 @@
     "robusta_issue_id": "5b3e2fb1-cb83-45ea-82ec-318c94718e44"
   },
   "include_tool_calls": true,
-  "include_tool_call_results": true
+  "include_tool_call_results": true,
+  "sections": {
+    "Alert Explanation": "1-2 sentences explaining the alert itself - note don't say \"The alert indicates a warning event related to a Kubernetes pod doing blah\" rather just say \"The pod XYZ did blah\" because that is what the user actually cares about",
+    "Conclusions and Possible Root causes": "What conclusions can you reach based on the data you found? what are possible root causes (if you have enough conviction to say) or what uncertainty remains. Don't say root cause but 'possible root causes'. Be clear to distinguish between what you know for certain and what is a possible explanation",
+    "Related logs": "Truncate and share the most relevant logs, especially if these explain the root cause. For example: \nLogs from pod robusta-holmes:\n```\n<logs>```\n. Always embed the surroundding +/- 5 log lines to any relevant logs. "
+  }
 }

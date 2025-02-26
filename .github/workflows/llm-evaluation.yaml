@@ -71,6 +71,13 @@ jobs:
                 comment.body.includes('## Results of HolmesGPT evals')
               );
 
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: reportContent
+              });
+
               if (botComment) {
                 await github.rest.issues.deleteComment({
                   owner: context.repo.owner,
@@ -78,12 +85,6 @@ jobs:
                   comment_id: botComment.id
                 });
               }
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: reportContent
-              });
             } catch(e) {
               console.log(e)
             }

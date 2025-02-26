@@ -1,5 +1,7 @@
 expected_output:
   - Prometheus can't scrape the control plane
   - This is not an alert that requires your attention
+expected_sections:
+  Related logs: False
 evaluation:
   correctness: 0

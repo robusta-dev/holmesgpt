@@ -102,7 +102,9 @@ def test_investigate(experiment_name, test_case):
         eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     investigate_request = test_case.investigate_request
-    investigate_request.sections = DEFAULT_SECTIONS
+    if not investigate_request.sections:
+        investigate_request.sections = DEFAULT_SECTIONS
+
     result = investigate_issues(
         investigate_request=investigate_request, config=config, dal=mock_dal
     )
@@ -145,9 +147,9 @@ def test_investigate(experiment_name, test_case):
 
     assert result.sections, "Missing sections"
     assert (
-        len(result.sections) >= len(DEFAULT_SECTIONS)
-    ), f"Received {len(result.sections)} sections but expected {len(DEFAULT_SECTIONS)}. Received: {result.sections.keys()}"
-    for expected_section_title in DEFAULT_SECTIONS:
+        len(result.sections) >= len(investigate_request.sections)
+    ), f"Received {len(result.sections)} sections but expected {len(investigate_request.sections)}. Received: {result.sections.keys()}"
+    for expected_section_title in investigate_request.sections:
         assert (
             expected_section_title in result.sections
         ), f"Expected title {expected_section_title} in sections"
@@ -157,13 +159,18 @@ def test_investigate(experiment_name, test_case):
             expected_section_title,
             expected_section_array_content,
         ) in test_case.expected_sections.items():
-            assert (
-                expected_section_title in result.sections
-            ), f"Expected to see section [{expected_section_title}] in result but that section is missing"
-            for expected_content in expected_section_array_content:
+            if not expected_section_array_content:
                 assert (
-                    expected_content in result.sections.get(expected_section_title, "")
-                ), f"Expected to see content [{expected_content}] in section [{expected_section_title}] but could not find such content"
+                        result.sections.get(expected_section_title, None) is None
+                    ), f"Expected to NOT see section [{expected_section_title}] in result but that section is present and contains {result.sections.get(expected_section_title)}"
+            else:
+                assert (
+                    expected_section_title in result.sections
+                ), f"Expected to see section [{expected_section_title}] in result but that section is missing"
+                for expected_content in expected_section_array_content:
+                    assert (
+                        expected_content in result.sections.get(expected_section_title, "")
+                    ), f"Expected to see content [{expected_content}] in section [{expected_section_title}] but could not find such content"
 
     if test_case.evaluation.correctness:
         assert scores.get("correctness", 0) >= test_case.evaluation.correctness
