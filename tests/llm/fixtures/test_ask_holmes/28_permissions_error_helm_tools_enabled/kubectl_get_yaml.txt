@@ -1,0 +1,189 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_yaml","match_params":{"kind":"clusterrole","name":"robusta-holmes-cluster-role","namespace":"default"}}
+stdout:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    meta.helm.sh/release-name: robusta
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2025-02-18T11:23:57Z"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: robusta-holmes-cluster-role
+  resourceVersion: "2241481"
+  uid: 1076df62-8963-4642-b332-9c1b5c7091f6
+rules:
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - list
+  - get
+  - watch
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  - nodes
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - daemonsets
+  - deployments
+  - events
+  - namespaces
+  - persistentvolumes
+  - persistentvolumeclaims
+  - pods
+  - pods/status
+  - pods/log
+  - replicasets
+  - replicationcontrollers
+  - services
+  - serviceaccounts
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/scale
+  - replicasets
+  - replicasets/scale
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/scale
+  - ingresses
+  - replicasets
+  - replicasets/scale
+  - replicationcontrollers/scale
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  - podsecuritypolicies
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  - roles
+  - rolebindings
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - alertmanagers
+  - alertmanagers/finalizers
+  - alertmanagers/status
+  - alertmanagerconfigs
+  - prometheuses
+  - prometheuses/finalizers
+  - prometheuses/status
+  - prometheusagents
+  - prometheusagents/finalizers
+  - prometheusagents/status
+  - thanosrulers
+  - thanosrulers/finalizers
+  - thanosrulers/status
+  - scrapeconfigs
+  - servicemonitors
+  - podmonitors
+  - probes
+  - prometheusrules
+  verbs:
+  - get
+  - list
+  - watch
+
+stderr:

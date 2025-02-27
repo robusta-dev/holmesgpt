@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"MyResource","keyword":"my-resource-instance"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"*","keyword":"*"}}
 Command `kubectl get -A --show-labels -o wide MyResource | grep my-resource-instance` failed with return code 1
 stdout:
 

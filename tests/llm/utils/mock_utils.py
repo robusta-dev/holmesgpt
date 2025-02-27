@@ -25,7 +25,7 @@ CONFIG_FILE_NAME = "test_case.yaml"
 
 class LLMEvaluation(BaseModel):
     faithfulness: float = 0.3
-    correctness: float = 0.3
+    correctness: float = 1
     context: float = 0
 
 
@@ -58,7 +58,7 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     investigate_request: InvestigateRequest
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
-    expected_sections: Optional[Dict[str, List[str]]] = None
+    expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
 
 
 pydantic_tool_mock = TypeAdapter(MockMetadata)
