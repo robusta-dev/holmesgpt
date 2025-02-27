@@ -1,0 +1,4 @@
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs_all_containers","match_params":{"pod_name":"*","namespace":"default"}}
+stdout:
+
+stderr:

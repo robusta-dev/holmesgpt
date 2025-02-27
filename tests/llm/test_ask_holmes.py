@@ -11,35 +11,27 @@ import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.system import readable_timestamp
 from tests.llm.utils.mock_toolset import MockToolsets
 
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
-from tests.llm.utils.system import get_machine_state_tags
 from os import path
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
 )
 
-system_metadata = get_machine_state_tags()
-DATASET_NAME = f"ask_holmes:{system_metadata.get('branch', 'unknown_branch')}"
-
 
 def get_test_cases():
-    unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
-    experiment_name = f"ask_holmes:{unique_test_id}"
-    if os.environ.get("EXPERIMENT_ID"):
-        experiment_name = f'ask_holmes:{os.environ.get("EXPERIMENT_ID")}'
+    experiment_name = braintrust_util.get_experiment_name("ask_holmes")
+    dataset_name = braintrust_util.get_dataset_name("ask_holmes")
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
     if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
         bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=DATASET_NAME
+            project_name=PROJECT, dataset_name=dataset_name
         )
         bt_helper.upload_test_cases(mh.load_test_cases())
-
     test_cases = mh.load_ask_holmes_test_cases()
     return [(experiment_name, test_case) for test_case in test_cases]
 
@@ -58,11 +50,15 @@ def idfn(val):
 )
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(experiment_name, test_case):
-    bt_helper = braintrust_util.BraintrustEvalHelper(
-        project_name=PROJECT, dataset_name=DATASET_NAME
-    )
+    bt_helper = None
+    eval = None
+    dataset_name = braintrust_util.get_dataset_name("ask_holmes")
+    if braintrust_util.PUSH_EVALS_TO_BRAINTRUST:
+        bt_helper = braintrust_util.BraintrustEvalHelper(
+            project_name=PROJECT, dataset_name=dataset_name
+        )
 
-    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+        eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     try:
         before_test(test_case)
@@ -97,14 +93,20 @@ def test_ask_holmes(experiment_name, test_case):
             output=output, context_items=test_case.retrieval_context, input=input
         ).score
 
-    bt_helper.end_evaluation(
-        eval=eval,
-        input=input,
-        output=output or "",
-        expected=str(expected),
-        id=test_case.id,
-        scores=scores,
-    )
+    if bt_helper and eval:
+        bt_helper.end_evaluation(
+            eval=eval,
+            input=input,
+            output=output or "",
+            expected=str(expected),
+            id=test_case.id,
+            scores=scores,
+        )
+    if result.tool_calls:
+        tools_called = [t.tool_name for t in result.tool_calls]
+    else:
+        tools_called = "None"
+    print(f"\n** TOOLS CALLED **\n{tools_called}")
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
 
@@ -124,6 +126,7 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
             expected_tools.append(tool_mock.tool_name)
 
     tool_executor = ToolExecutor(mock.mocked_toolsets)
+
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,

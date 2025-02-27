@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"pod_name":"oomkill-deployment-696dbdbf67-d47z6","namespace":"default"}}
-Command `kubectl logs oomkill-deployment-696dbdbf67-d47z6 -n default` failed with return code 1
-stdout:
-
-stderr:
-error: error from server (NotFound): pods "oomkill-deployment-696dbdbf67-d47z6" not found in namespace "default"

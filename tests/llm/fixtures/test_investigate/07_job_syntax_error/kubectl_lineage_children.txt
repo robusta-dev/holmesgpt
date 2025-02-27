@@ -1,12 +1,47 @@
-{"toolset_name":"kubernetes/extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"job","name":"product-data-scraper","namespace":"default"}}
-NAME                                                        READY   STATUS                                                                                                               AGE
-Job/product-data-scraper                                    -                                                                                                                            21m
-├── Event/product-data-scraper.180905c3856b374f             -       SuccessfulCreate: Created pod: product-data-scraper-bg7vg                                                            21m                                                           19m
-├── Event/product-data-scraper.180905e5868ff48d             -       BackoffLimitExceeded: Job has reached the specified backoff limit                                                    19m                               -                                                                                                                            6d22h
-├── Pod/product-data-scraper-bg7vg                          0/1     Error                                                                                                                21m
-│   ├── Event/product-data-scraper-bg7vg.180905c386455311   -       Scheduled: Successfully assigned default/product-data-scraper-bg7vg to ip-172-31-40-111.us-east-2.compute.internal   21m
-│   ├── Event/product-data-scraper-bg7vg.180905c3a5239cc3   -       Pulling: Pulling image \"bash\"                                                                                        21m
-│   ├── Event/product-data-scraper-bg7vg.180905c3b7018c10   -       Pulled: Successfully pulled image \"bash\" in 299ms (299ms including waiting). Image size: 6335174 bytes.              21m
-│   ├── Event/product-data-scraper-bg7vg.180905c3b9556b37   -       Created: Created container run-forever                                                                               21m
-│   ├── Event/product-data-scraper-bg7vg.180905c3c16b1328   -       Started: Started container run-forever                                                                               21m
-│   └── Service/kubernetes                                  -                                                                                                                            6d22h
+{"toolset_name":"kubernetes/kube-lineage-extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"job","name":"product-data-scraper","namespace":"default"}}
+stdout:
+NAME                                                        READY   STATUS                                                                                                      AGE
+Job/product-data-scraper                                    -                                                                                                                   29m
+├── Event/product-data-scraper.1827ba93494b0ae5             -       SuccessfulCreate: Created pod: product-data-scraper-6vg4b                                                   29m
+├── Event/product-data-scraper.1827ba965f88131c             -       SuccessfulCreate: Created pod: product-data-scraper-pfklk                                                   29m
+├── Event/product-data-scraper.1827ba9b42f7cb44             -       SuccessfulCreate: Created pod: product-data-scraper-lfbtg                                                   29m
+├── Event/product-data-scraper.1827baa4cf1242cc             -       SuccessfulCreate: Created pod: product-data-scraper-spcj7                                                   28m
+├── Event/product-data-scraper.1827bab7aac3314f             -       SuccessfulCreate: Created pod: product-data-scraper-dzhn2                                                   27m
+├── Event/product-data-scraper.1827bab8a2d51635             -       BackoffLimitExceeded: Job has reached the specified backoff limit                                           27m
+├── Pod/product-data-scraper-6vg4b                          0/1     Error                                                                                                       29m
+│   ├── Event/product-data-scraper-6vg4b.1827ba9349ba1e69   -       Scheduled: Successfully assigned default/product-data-scraper-6vg4b to grafana-cloud-control-plane          29m
+│   ├── Event/product-data-scraper-6vg4b.1827ba93649f2c30   -       Pulling: Pulling image "bash"                                                                               29m
+│   ├── Event/product-data-scraper-6vg4b.1827ba9410997a31   -       Pulled: Successfully pulled image "bash" in 2.885s (2.885s including waiting). Image size: 6376191 bytes.   29m
+│   ├── Event/product-data-scraper-6vg4b.1827ba9412a9e71c   -       Created: Created container run-forever                                                                      29m
+│   ├── Event/product-data-scraper-6vg4b.1827ba9419b81c31   -       Started: Started container run-forever                                                                      29m
+│   └── Service/kubernetes                                  -                                                                                                                   78d
+├── Pod/product-data-scraper-dzhn2                          0/1     Error                                                                                                       27m
+│   ├── Event/product-data-scraper-dzhn2.1827bab7ab172ce2   -       Scheduled: Successfully assigned default/product-data-scraper-dzhn2 to grafana-cloud-control-plane          27m
+│   ├── Event/product-data-scraper-dzhn2.1827bab7c7b7bf6d   -       Pulling: Pulling image "bash"                                                                               27m
+│   ├── Event/product-data-scraper-dzhn2.1827bab7fb5032a7   -       Pulled: Successfully pulled image "bash" in 865ms (865ms including waiting). Image size: 6376191 bytes.     27m
+│   ├── Event/product-data-scraper-dzhn2.1827bab7fda2d217   -       Created: Created container run-forever                                                                      27m
+│   ├── Event/product-data-scraper-dzhn2.1827bab8045ea37d   -       Started: Started container run-forever                                                                      27m
+│   └── Service/kubernetes                                  -                                                                                                                   78d
+├── Pod/product-data-scraper-lfbtg                          0/1     Error                                                                                                       29m
+│   ├── Event/product-data-scraper-lfbtg.1827ba9b434a7c02   -       Scheduled: Successfully assigned default/product-data-scraper-lfbtg to grafana-cloud-control-plane          29m
+│   ├── Event/product-data-scraper-lfbtg.1827ba9b5da49e83   -       Pulling: Pulling image "bash"                                                                               29m
+│   ├── Event/product-data-scraper-lfbtg.1827ba9b9c424331   -       Pulled: Successfully pulled image "bash" in 1.05s (1.05s including waiting). Image size: 6376191 bytes.     29m
+│   ├── Event/product-data-scraper-lfbtg.1827ba9b9fc0e5ba   -       Created: Created container run-forever                                                                      29m
+│   ├── Event/product-data-scraper-lfbtg.1827ba9ba5d7fb99   -       Started: Started container run-forever                                                                      29m
+│   └── Service/kubernetes                                  -                                                                                                                   78d
+├── Pod/product-data-scraper-pfklk                          0/1     Error                                                                                                       29m
+│   ├── Event/product-data-scraper-pfklk.1827ba965fd63928   -       Scheduled: Successfully assigned default/product-data-scraper-pfklk to grafana-cloud-control-plane          29m
+│   ├── Event/product-data-scraper-pfklk.1827ba967b2409b6   -       Pulling: Pulling image "bash"                                                                               29m
+│   ├── Event/product-data-scraper-pfklk.1827ba96adee096b   -       Pulled: Successfully pulled image "bash" in 852ms (852ms including waiting). Image size: 6376191 bytes.     29m
+│   ├── Event/product-data-scraper-pfklk.1827ba96b03c184d   -       Created: Created container run-forever                                                                      29m
+│   ├── Event/product-data-scraper-pfklk.1827ba96b615e685   -       Started: Started container run-forever                                                                      29m
+│   └── Service/kubernetes                                  -                                                                                                                   78d
+└── Pod/product-data-scraper-spcj7                          0/1     Error                                                                                                       28m
+    ├── Event/product-data-scraper-spcj7.1827baa4cf5aac47   -       Scheduled: Successfully assigned default/product-data-scraper-spcj7 to grafana-cloud-control-plane          28m
+    ├── Event/product-data-scraper-spcj7.1827baa4eb4f92ae   -       Pulling: Pulling image "bash"                                                                               28m
+    ├── Event/product-data-scraper-spcj7.1827baa51e82503f   -       Pulled: Successfully pulled image "bash" in 858ms (858ms including waiting). Image size: 6376191 bytes.     28m
+    ├── Event/product-data-scraper-spcj7.1827baa52114d6bb   -       Created: Created container run-forever                                                                      28m
+    ├── Event/product-data-scraper-spcj7.1827baa527e40efd   -       Started: Started container run-forever                                                                      28m
+    └── Service/kubernetes                                  -                                                                                                                   78d
+
+stderr:

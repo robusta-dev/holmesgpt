@@ -1,6 +1,6 @@
 user_prompt: "Why did the sock-shop front-end stop working?"
 expected_output:
-  - The sock-shop front-end stopped working due to an internal server error related to the database
+  - There is an error related to the database
   - The MongoDB client driver may require an upgrade
 retrieval_context:
   - "The sock-shop front-end crashed"

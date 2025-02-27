@@ -1,4 +1,4 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"frontend-certs-validator"}}
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"*","keyword":"*"}}
 Command `kubectl get -A --show-labels -o wide pod | grep frontend-certs-validator` failed with return code 1
 stdout:
 

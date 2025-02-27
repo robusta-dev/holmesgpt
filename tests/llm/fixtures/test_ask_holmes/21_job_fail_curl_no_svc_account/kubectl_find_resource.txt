@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"job","keyword":"get-data"}}
+stdout:
+default     get-data                                       Failed     0/1           3m22s      3m22s   curl-container         curlimages/curl:latest   batch.kubernetes.io/controller-uid=8028495e-626c-4097-b241-bd2d22d19539   batch.kubernetes.io/controller-uid=8028495e-626c-4097-b241-bd2d22d19539,batch.kubernetes.io/job-name=get-data,controller-uid=8028495e-626c-4097-b241-bd2d22d19539,job-name=get-data
+
+stderr:
