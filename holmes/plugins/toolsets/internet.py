@@ -166,7 +166,7 @@ class FetchWebpage(Tool):
             },
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         url: str = params["url"]
         content, mime_type = scrape(url)
 

@@ -68,7 +68,7 @@ class SaveMockTool(Tool):
 
         return output
 
-    def invoke(self, params) -> str:
+    def _invoke(self, params) -> str:
         return self._auto_generate_mock_file(params)
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -100,7 +100,7 @@ class MockToolWrapper(Tool):
             if match:
                 return mock
 
-    def invoke(self, params) -> str:
+    def _invoke(self, params) -> str:
         mock = self.find_matching_mock(params)
         if mock:
             return mock.return_value

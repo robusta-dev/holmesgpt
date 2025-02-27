@@ -33,7 +33,7 @@ class ListLokiDatasources(Tool):
         )
         self._toolset: BaseGrafanaToolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         datasources = list_grafana_datasources(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
@@ -80,7 +80,7 @@ class GetLokiLogsByNode(Tool):
         )
         self._toolset: BaseGrafanaToolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
@@ -140,7 +140,7 @@ class GetLokiLogsByLabel(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
@@ -202,7 +202,7 @@ class GetLokiLogsByPod(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
