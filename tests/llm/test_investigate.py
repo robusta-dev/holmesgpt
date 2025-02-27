@@ -128,7 +128,9 @@ def test_investigate(experiment_name, test_case):
     scores["previous_logs"] = evaluate_previous_logs_mention(output=output).score
 
     if test_case.expected_sections:
-        sections = {key: bool(value) for key, value in test_case.expected_sections.items()}
+        sections = {
+            key: bool(value) for key, value in test_case.expected_sections.items()
+        }
         scores["sections"] = evaluate_sections(sections=sections, output=output).score
 
     if len(test_case.retrieval_context) > 0:

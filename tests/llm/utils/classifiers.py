@@ -146,15 +146,19 @@ def evaluate_factuality(
     eval_factuality = Factuality()
     return eval_factuality(input=input, output=output, expected=expected)
 
-def evaluate_sections(sections: Dict[str, bool], output: Optional[str]):
 
+def evaluate_sections(sections: Dict[str, bool], output: Optional[str]):
     expected_sections = [section for section, expected in sections.items() if expected]
-    expected_sections_str = '\n'.join([f'- {section}' for section in expected_sections])
+    expected_sections_str = "\n".join([f"- {section}" for section in expected_sections])
     if not expected_sections_str:
         expected_sections_str = "<No section is expected>"
 
-    unexpected_sections = [section for section, expected in sections.items() if not expected]
-    unexpected_sections_str = '\n'.join([f'- {section}' for section in unexpected_sections])
+    unexpected_sections = [
+        section for section, expected in sections.items() if not expected
+    ]
+    unexpected_sections_str = "\n".join(
+        [f"- {section}" for section in unexpected_sections]
+    )
     if not unexpected_sections_str:
         unexpected_sections_str = "<No element>"
 
@@ -198,4 +202,6 @@ Possible choices:
         use_cot=True,
         model=classifier_model,
     )
-    return classifier(input=unexpected_sections_str, output=output, expected=expected_sections_str)
+    return classifier(
+        input=unexpected_sections_str, output=output, expected=expected_sections_str
+    )
