@@ -1,5 +1,11 @@
 expected_output:
-  - Pod `oomkill-deployment-696dbdbf67-d47z6` is experiencing a `CrashLoopBackOff`
+  - Pod `analytics-exporter-fast` is experiencing a `CrashLoopBackOff`
+  - Pod is OOM killed
+before_test: |
+  kubectl apply -f ./fast_oom_deployment.yaml
+  sleep 60
+after_test: |
+  kubectl delete -f ./fast_oom_deployment.yaml
 expected_sections:
   Key Findings: False
   Next Steps: False
@@ -7,3 +13,4 @@ expected_sections:
   External links: False
 evaluation:
   correctness: 1
+generate_mocks: True

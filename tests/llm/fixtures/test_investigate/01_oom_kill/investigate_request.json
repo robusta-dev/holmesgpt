@@ -2,21 +2,17 @@
   "source": "prometheus",
   "source_instance_id": "some-instance",
   "title": "Pod is crash looping.",
-  "description": "Pod default/oomkill-deployment-696dbdbf67-d47z6 (main2) is in waiting state (reason: \"CrashLoopBackOff\").",
+  "description": "Crashing pod analytics-exporter-fast-76897854c-cw5wh in namespace default",
   "subject": {
-    "name": "oomkill-deployment-696dbdbf67-d47z6",
+    "name": "analytics-exporter-fast-76897854c-cw5wh",
     "subject_type": "deployment",
     "namespace": "default",
-    "node": "some-node",
-    "container": "main2",
-    "labels": {
-      "x": "y",
-      "p": "q"
-    },
+    "node": "grafana-cloud-control-plane",
+    "container": "memory-eater",
     "annotations": {}
   },
   "context": {
-    "robusta_issue_id": "5b3e2fb1-cb83-45ea-82ec-318c94718e44"
+    "robusta_issue_id": "916704eb-fc7f-4d6f-825f-5ad94f5a116e"
   },
   "include_tool_calls": true,
   "include_tool_call_results": true,

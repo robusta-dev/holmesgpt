@@ -14,6 +14,7 @@ from tests.llm.utils.classifiers import (
     evaluate_context_usage,
     evaluate_correctness,
     evaluate_previous_logs_mention,
+    evaluate_sections,
 )
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
@@ -126,6 +127,10 @@ def test_investigate(experiment_name, test_case):
 
     scores["previous_logs"] = evaluate_previous_logs_mention(output=output).score
 
+    if test_case.expected_sections:
+        sections = {key: bool(value) for key, value in test_case.expected_sections.items()}
+        scores["sections"] = evaluate_sections(sections=sections, output=output).score
+
     if len(test_case.retrieval_context) > 0:
         scores["context"] = evaluate_context_usage(
             input=input, output=output, context_items=test_case.retrieval_context
@@ -154,16 +159,15 @@ def test_investigate(experiment_name, test_case):
             expected_section_title in result.sections
         ), f"Expected title {expected_section_title} in sections"
 
+    if test_case.evaluation.correctness:
+        assert scores.get("correctness", 0) >= test_case.evaluation.correctness
+
     if test_case.expected_sections:
         for (
             expected_section_title,
             expected_section_array_content,
         ) in test_case.expected_sections.items():
-            if not expected_section_array_content:
-                assert (
-                    result.sections.get(expected_section_title, None) is None
-                ), f"Expected to NOT see section [{expected_section_title}] in result but that section is present and contains {result.sections.get(expected_section_title)}"
-            else:
+            if expected_section_array_content:
                 assert (
                     expected_section_title in result.sections
                 ), f"Expected to see section [{expected_section_title}] in result but that section is missing"
@@ -172,6 +176,3 @@ def test_investigate(experiment_name, test_case):
                         expected_content
                         in result.sections.get(expected_section_title, "")
                     ), f"Expected to see content [{expected_content}] in section [{expected_section_title}] but could not find such content"
-
-    if test_case.evaluation.correctness:
-        assert scores.get("correctness", 0) >= test_case.evaluation.correctness
