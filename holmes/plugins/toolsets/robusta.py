@@ -40,7 +40,7 @@ class FetchRobustaFinding(Tool):
             logging.error(error)
             return {"error": error}
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         finding_id = params[PARAM_FINDING_ID]
         try:
             finding = self._fetch_finding(finding_id)

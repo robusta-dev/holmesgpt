@@ -111,8 +111,14 @@ class Tool(ABC, BaseModel):
 
         return result
 
-    @abstractmethod
     def invoke(self, params: Dict) -> str:
+        logging.info(
+            f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
+        )
+        return self._invoke(params)
+
+    @abstractmethod
+    def _invoke(self, params: Dict) -> str:
         return ""
 
     @abstractmethod
@@ -157,9 +163,7 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def invoke(self, params) -> str:
-        context = self._build_context(params)
-        logging.info(f"Running tool: {self.get_parameterized_one_liner(context)}")
+    def _invoke(self, params) -> str:
         if self.command is not None:
             raw_output = self.__invoke_command(params)
         else:
