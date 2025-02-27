@@ -13,7 +13,7 @@ from holmes.plugins.toolsets.kafka import (
     DescribeTopic,
     FindConsumerGroupsByTopic,
 )
-from tests.utils.kafka import wait_for_containers, wait_for_kafka_ready
+from tests.utils.kafka import wait_for_kafka_ready
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 FIXTURE_FOLDER = os.path.join(dir_path, "fixtures", "test_tool_kafka")
@@ -49,15 +49,12 @@ def admin_client(kafka_toolset):
 @pytest.fixture(scope="module", autouse=True)
 def docker_compose(kafka_toolset):
     try:
-        subprocess.Popen(
-            "docker compose up -d".split(),
+        subprocess.run(
+            "docker compose up -d --wait".split(),
             cwd=FIXTURE_FOLDER,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-
-        if not wait_for_containers(FIXTURE_FOLDER):
-            raise Exception("Containers failed to start properly")
 
         if not wait_for_kafka_ready(kafka_toolset.admin_client):
             raise Exception("Kafka failed to initialize properly")

@@ -5,9 +5,6 @@ from typing import Tuple
 from confluent_kafka.admin import AdminClient
 
 
-import json
-
-
 def docker_not_available() -> Tuple[bool, str]:
     """
     Check if docker command is available in the system.
@@ -32,29 +29,6 @@ def docker_not_available() -> Tuple[bool, str]:
         return True, "Docker command timed out"
     except Exception as e:
         return True, f"Docker not available: {str(e)}"
-
-
-def wait_for_containers(folder):
-    max_attempts = 300
-    attempt = 0
-    while attempt < max_attempts:
-        try:
-            result = subprocess.run(
-                "docker compose ps --format json".split(),
-                cwd=folder,
-                capture_output=True,
-                text=True,
-            )
-
-            ps = json.loads(result.stdout)
-
-            if ps.get("State") == "running" and ps.get("Health") == "healthy":
-                return True
-        except Exception:
-            pass
-        attempt += 1
-        time.sleep(1)
-    return False
 
 
 def wait_for_kafka_ready(client: AdminClient, max_retries=30, delay=2):
