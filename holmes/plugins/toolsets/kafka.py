@@ -93,7 +93,7 @@ class ListKafkaConsumers(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         try:
             if self.toolset.admin_client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
@@ -146,7 +146,7 @@ class DescribeConsumerGroup(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         group_id = params["group_id"]
         try:
             if self.toolset.admin_client is None:
@@ -177,7 +177,7 @@ class ListTopics(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         try:
             if self.toolset.admin_client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
@@ -213,7 +213,7 @@ class DescribeTopic(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
         try:
             if self.toolset.admin_client is None:
@@ -271,7 +271,7 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
         try:
             if self.toolset.admin_client is None:
