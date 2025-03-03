@@ -13,6 +13,8 @@ from holmes.core.tools import Toolset, YAMLToolset
 from holmes.plugins.toolsets.opensearch import OpenSearchToolset
 import yaml
 
+from holmes.plugins.toolsets.kafka import KafkaToolset
+
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -46,6 +48,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchToolset(),
         GrafanaLokiToolset(),
         GrafanaTempoToolset(),
+        KafkaToolset(),
     ]
 
     return toolsets
