@@ -149,7 +149,6 @@ You can save settings in a config file to avoid passing them to the CLI each tim
 You can customize HolmesGPT's behaviour with command line flags, or you can save common settings in config file for re-use.
 
 You can view an example config file with all available settings [here](config.example.yaml).
-
 </details>
 
 ## License
