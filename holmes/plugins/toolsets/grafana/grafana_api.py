@@ -14,7 +14,7 @@ from holmes.plugins.toolsets.grafana.common import headers
     and e.response.status_code < 500,
 )
 def list_grafana_datasources(
-    grafana_url: str, api_key: str, source_name: Optional[str] = None
+    grafana_url: str, api_key: str, datasource_type: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     List all configured datasources from a Grafana instance with retry and backoff.
@@ -34,11 +34,11 @@ def list_grafana_datasources(
         response.raise_for_status()
 
         datasources = response.json()
-        if not source_name:
+        if not datasource_type:
             return datasources
 
         relevant_datasources = [
-            ds for ds in datasources if ds["type"].lower() == source_name.lower()
+            ds for ds in datasources if ds["type"].lower() == datasource_type.lower()
         ]
 
         for ds in relevant_datasources:
@@ -49,6 +49,28 @@ def list_grafana_datasources(
         return relevant_datasources
     except requests.exceptions.RequestException as e:
         raise Exception(f"Failed to list datasources: {str(e)}")
+
+
+def get_grafana_datasource_id_by_name(
+    grafana_url: str,
+    api_key: str,
+    datasource_name: Optional[str] = None,
+    datasource_type: Optional[str] = None,
+) -> str:
+    datasources = list_grafana_datasources(
+        grafana_url=grafana_url, api_key=api_key, datasource_type=datasource_type
+    )
+
+    for datasource in datasources:
+        id = datasource.get("id")
+        name = datasource.get("name")
+        if name == datasource_name and id:
+            return id
+
+    available_datasources = [datasource.get("name") for datasource in datasources]
+    raise Exception(
+        f'Failed to find grafana datasource with name="{datasource_name}". Possible names are {available_datasources} '
+    )
 
 
 @backoff.on_exception(

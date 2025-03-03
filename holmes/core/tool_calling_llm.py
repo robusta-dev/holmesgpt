@@ -112,6 +112,7 @@ class ToolCallingLLM:
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
+        print(messages[0])
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()
@@ -421,12 +422,16 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
+
+        enabled_toolsets_names = [ts.name for ts in self.tool_executor.enabled_toolsets]
+
         system_prompt = load_and_render_prompt(
             prompt,
             {
                 "issue": issue,
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
+                "enabled_toolsets": enabled_toolsets_names,
             },
         )
 

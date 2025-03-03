@@ -72,53 +72,17 @@ def execute_loki_query(
         raise Exception(f"Failed to query Loki logs: {str(e)}")
 
 
-def query_loki_logs_by_node(
-    grafana_url: str,
-    api_key: str,
-    loki_datasource_id: str,
-    node_name: str,
-    start: int,
-    end: int,
-    node_name_search_key: str = "node",
-    limit: int = 1000,
-) -> List[Dict]:
-    """
-    Query Loki logs filtered by node name
-
-    Args:
-        node_name: Kubernetes node name
-        start: Start of the time window to fetch the logs for. Epoch timestamp in seconds
-        end: End of the time window to fetch the logs for. Epoch timestamp in seconds
-        limit: Maximum number of log lines to return
-
-    Returns:
-        List of log entries
-    """
-
-    query = f'{{{node_name_search_key}="{node_name}"}}'
-
-    return execute_loki_query(
-        grafana_url=grafana_url,
-        api_key=api_key,
-        loki_datasource_id=loki_datasource_id,
-        query=query,
-        start=start,
-        end=end,
-        limit=limit,
-    )
-
-
-def query_loki_logs_by_pod(
+def query_loki_logs_by_label(
     grafana_url: str,
     api_key: str,
     loki_datasource_id: str,
     namespace: str,
-    pod_regex: str,
+    search_regex: str,
     start: int,
     end: int,
-    pod_name_search_key: str = "pod",
+    label: str,
     namespace_search_key: str = "namespace",
-    limit: int = 1000,
+    limit: int = 200,
 ) -> List[Dict]:
     """
     Query Loki logs filtered by namespace and pod name regex
@@ -134,7 +98,7 @@ def query_loki_logs_by_pod(
         List of log entries
     """
 
-    query = f'{{{namespace_search_key}="{namespace}", {pod_name_search_key}=~"{pod_regex}"}}'
+    query = f'{{{namespace_search_key}="{namespace}", {label}=~"{search_regex}"}}'
     return execute_loki_query(
         grafana_url=grafana_url,
         api_key=api_key,

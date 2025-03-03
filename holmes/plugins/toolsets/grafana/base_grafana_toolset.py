@@ -19,13 +19,13 @@ class BaseGrafanaToolset(Toolset):
         description: str,
         icon_url: str,
         tools: list[Tool],
-        doc_url: str,
+        docs_url: str,
     ):
         super().__init__(
             name=name,
             description=description,
             icon_url=icon_url,
-            docs_url=doc_url,
+            docs_url=docs_url,
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=tools,
             tags=[
@@ -51,5 +51,9 @@ class BaseGrafanaToolset(Toolset):
             return False
 
     def get_example_config(self):
-        example_config = GrafanaConfig(api_key="YOUR API KEY", url="YOUR GRAFANA URL")
+        example_config = GrafanaConfig(
+            api_key="YOUR API KEY",
+            url="YOUR GRAFANA URL",
+            grafana_datasource_name="DATASOURCE NAME IN GRAFANA",
+        )
         return example_config.model_dump()

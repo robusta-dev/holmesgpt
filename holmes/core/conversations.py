@@ -335,6 +335,7 @@ def build_chat_messages(
     conversation_history: Optional[List[Dict[str, str]]],
     ai: ToolCallingLLM,
     global_instructions: Optional[Instructions] = None,
+    prompt_template_context: Dict = {},
 ) -> List[dict]:
     """
     This function generates a list of messages for general chat conversation and ensures that the message sequence adheres to the model's context window limitations
@@ -386,7 +387,7 @@ def build_chat_messages(
     template_path = "builtin://generic_ask_conversation.jinja2"
 
     if not conversation_history or len(conversation_history) == 0:
-        system_prompt = load_and_render_prompt(template_path, {})
+        system_prompt = load_and_render_prompt(template_path, prompt_template_context)
         ask = add_global_instructions_to_user_prompt(ask, global_instructions)
 
         messages = [

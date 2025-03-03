@@ -1,5 +1,5 @@
+import json
 from typing import Dict, Optional, Union
-import uuid
 import time
 from pydantic import BaseModel
 
@@ -9,6 +9,7 @@ ONE_HOUR_IN_SECONDS = 3600
 class GrafanaConfig(BaseModel):
     api_key: str
     url: str
+    grafana_datasource_name: str
 
 
 def headers(api_key: str):
@@ -43,12 +44,8 @@ def get_param_or_raise(dict: Dict, param: str) -> str:
     return value
 
 
-def get_datasource_id(dict: Dict, param: str) -> str:
-    datasource_id = get_param_or_raise(dict, param)
-    try:
-        if uuid.UUID(datasource_id, version=4):
-            return f"uid/{datasource_id}"
-    except Exception:
-        pass
-
-    return datasource_id
+def format_log(log: Dict) -> str:
+    log_str = log.get("log")
+    if not log_str:
+        log_str = json.dumps(log)
+    return log_str

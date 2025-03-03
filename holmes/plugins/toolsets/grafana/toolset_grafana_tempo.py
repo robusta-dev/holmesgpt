@@ -9,32 +9,13 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
     query_tempo_traces_by_duration,
     query_tempo_trace_by_id,
 )
-from holmes.plugins.toolsets.grafana.grafana_api import list_grafana_datasources
+from holmes.plugins.toolsets.grafana.grafana_api import (
+    get_grafana_datasource_id_by_name,
+)
 from holmes.plugins.toolsets.grafana.common import (
-    get_datasource_id,
     get_param_or_raise,
     process_timestamps,
 )
-
-
-class ListAllDatasources(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
-        super().__init__(
-            name="list_all_datasources",
-            description="Fetches All the data sources in Grafana",
-            parameters={},
-        )
-        self._toolset = toolset
-
-    def _invoke(self, params: Dict) -> str:
-        datasources = list_grafana_datasources(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-        )
-        return yaml.dump(datasources)
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Fetched Grafana Tempo datasources"
 
 
 class GetTempoTracesByMinDuration(Tool):
@@ -76,10 +57,16 @@ class GetTempoTracesByMinDuration(Tool):
         start, end = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
+        datasource_id = get_grafana_datasource_id_by_name(
+            grafana_url=self._toolset._grafana_config.url,
+            api_key=self._toolset._grafana_config.api_key,
+            datasource_name=self._toolset._grafana_config.grafana_datasource_name,
+            datasource_type="tempo",
+        )
         traces = query_tempo_traces_by_duration(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_id=get_datasource_id(params, "tempo_datasource_id"),
+            tempo_datasource_id=datasource_id,
             min_duration=get_param_or_raise(params, "min_duration"),
             start=start,
             end=end,
@@ -114,10 +101,16 @@ class GetTempoTraceById(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
+        datasource_id = get_grafana_datasource_id_by_name(
+            grafana_url=self._toolset._grafana_config.url,
+            api_key=self._toolset._grafana_config.api_key,
+            datasource_name=self._toolset._grafana_config.grafana_datasource_name,
+            datasource_type="tempo",
+        )
         trace_data = query_tempo_trace_by_id(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_id=get_datasource_id(params, "tempo_datasource_id"),
+            tempo_datasource_id=datasource_id,
             trace_id=get_param_or_raise(params, "trace_id"),
         )
         return yaml.dump(trace_data)
@@ -132,9 +125,8 @@ class GrafanaTempoToolset(BaseGrafanaToolset):
             name="grafana/tempo",
             description="Fetches kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
-            doc_url="https://grafana.com/oss/tempo/",
+            docs_url="https://grafana.com/oss/tempo/",
             tools=[
-                ListAllDatasources(self),
                 GetTempoTracesByMinDuration(self),
                 GetTempoTraceById(self),
             ],
