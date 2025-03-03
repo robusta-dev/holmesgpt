@@ -8,6 +8,7 @@ import tempfile
 from typing import Callable, Dict, List, Literal, Optional, Union, Any
 from enum import Enum
 from datetime import datetime
+import sentry_sdk
 
 from jinja2 import Template
 from pydantic import (
@@ -425,6 +426,7 @@ class ToolExecutor:
         logging.warning(f"could not find tool {name}. skipping")
         return None
 
+    @sentry_sdk.trace
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
