@@ -21,7 +21,6 @@ import time
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from rich.console import Console
 from holmes.utils.robusta import load_robusta_api_key
 
 from holmes.common.env_vars import (
@@ -141,11 +140,10 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 @app.post("/api/stream/investigate")
 def investigate_issues1(req: InvestigateRequest):
-    # TODO create investigate context like in api/investiagte to compile the system and user prompt to send to ai.call_stream.
-    issue = Issue(id="", source_instance_id="", source_type="promethues", name="KubePodCrashLooping", raw={})
-    ai = config.create_console_toolcalling_llm(console, "*", dal=dal)
-    system_prompt = load_and_render_prompt(req.prompt_template, {"issue": issue})
-    return StreamingResponse(ai.call_stream(system_prompt, "what is the issue with crashpod deployment"), media_type='text/event-stream')
+    ai, system_prompt, user_prompt, response_format, sections = investigation.get_investigation_context(req, dal, config=config)
+
+    # TODO handle errors
+    return StreamingResponse(ai.call_stream(system_prompt, user_prompt, response_format), media_type='text/event-stream')
 
 
 @app.post("/api/workload_health_check")
