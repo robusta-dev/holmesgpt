@@ -20,7 +20,7 @@ from holmes.plugins.toolsets.grafana.loki_api import (
 )
 
 
-class GrafanaLokiSearchKeysConfig(BaseModel):
+class GrafanaLokiLabelsConfig(BaseModel):
     pod: str = "pod"
     node: str = "node"
     namespace: str = "namespace"
@@ -30,8 +30,24 @@ class GrafanaLokiSearchKeysConfig(BaseModel):
 
 
 class GrafanaLokiConfig(GrafanaConfig):
-    search_keys: GrafanaLokiSearchKeysConfig = GrafanaLokiSearchKeysConfig()
+    labels: GrafanaLokiLabelsConfig = GrafanaLokiLabelsConfig()
 
+
+
+def get_resource_label(params:Dict, config:GrafanaLokiConfig):
+    resource_type = get_param_or_raise(params, "resource_type")
+    label = None
+    if resource_type == "pod":
+        label = config.labels.pod
+    elif resource_type == "node":
+        label = config.labels.node
+    elif resource_type == "service":
+        label = config.labels.service
+    elif resource_type == "job":
+        label = config.labels.job
+    else:
+        return f'Error: unsupported resource type "{resource_type}". resource_type must be one of "pod", "node", "service" or "job"'
+    return label
 
 class BaseGrafanaLokiToolset(BaseGrafanaToolset):
     config_class = GrafanaLokiConfig
@@ -113,7 +129,6 @@ class GetLokiLogs(Tool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
 
-
 class GetLokiLogsForResource(Tool):
     def __init__(self, toolset: BaseGrafanaLokiToolset):
         super().__init__(
@@ -121,7 +136,7 @@ class GetLokiLogsForResource(Tool):
             description="Fetches the Loki logs for a given kubernetes resource",
             parameters={
                 "resource_type": ToolParameter(
-                    description="The type of resource. One of 'pod', 'node', 'service', 'app', 'job'",
+                    description="The type of resource. One of 'pod', 'node', 'service', 'job'",
                     type="string",
                     required=True,
                 ),
@@ -158,22 +173,8 @@ class GetLokiLogsForResource(Tool):
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
-        resource_type = get_param_or_raise(params, "resource_type")
+        label = get_resource_label(params, self._toolset.grafana_config)
         search_regex = get_param_or_raise(params, "search_regex")
-
-        label = None
-        if resource_type == "pod":
-            label = self._toolset.grafana_config.search_keys.pod
-        elif resource_type == "node":
-            label = self._toolset.grafana_config.search_keys.node
-        elif resource_type == "service":
-            label = self._toolset.grafana_config.search_keys.service
-        elif resource_type == "app":
-            label = self._toolset.grafana_config.search_keys.app
-        elif resource_type == "job":
-            label = self._toolset.grafana_config.search_keys.job
-        else:
-            return f'Error: unsupported resource type "{resource_type}". resource_type must be one of "pod", "node", "service", "app" or "job"'
 
         datasource_id = get_grafana_datasource_id_by_name(
             grafana_url=self._toolset.grafana_config.url,
@@ -187,7 +188,7 @@ class GetLokiLogsForResource(Tool):
             loki_datasource_id=datasource_id,
             search_regex=search_regex,
             namespace=get_param_or_raise(params, "namespace"),
-            namespace_search_key=self._toolset.grafana_config.search_keys.namespace,
+            namespace_search_key=self._toolset.grafana_config.labels.namespace,
             label=label,
             start=start,
             end=end,
