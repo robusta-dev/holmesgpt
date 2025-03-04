@@ -111,8 +111,8 @@ def test_ask_holmes(experiment_name, test_case):
             context_span.log(
                 scores={
                     "context": context_eval.score,
-                    "metadata": context_eval.metadata,
-                }
+                },
+                metadata={"context": context_eval.metadata},
             )
 
     if bt_helper and eval:
