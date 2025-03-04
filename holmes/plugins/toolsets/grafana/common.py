@@ -9,7 +9,7 @@ ONE_HOUR_IN_SECONDS = 3600
 class GrafanaConfig(BaseModel):
     api_key: str
     url: str
-    grafana_datasource_name: str
+    grafana_datasource_uid: str
 
 
 def headers(api_key: str):

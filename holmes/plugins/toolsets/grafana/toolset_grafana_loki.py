@@ -11,9 +11,6 @@ from holmes.plugins.toolsets.grafana.common import (
     get_param_or_raise,
     process_timestamps,
 )
-from holmes.plugins.toolsets.grafana.grafana_api import (
-    get_grafana_datasource_id_by_name,
-)
 from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
@@ -56,7 +53,7 @@ class BaseGrafanaLokiToolset(BaseGrafanaToolset):
         example_config = GrafanaLokiConfig(
             api_key="YOUR API KEY",
             url="YOUR GRAFANA URL",
-            grafana_datasource_name="Loki",
+            grafana_datasource_uid="<UID of the loki datasource to use>",
         )
         return example_config.model_dump()
 
@@ -109,16 +106,10 @@ class GetLokiLogs(Tool):
             params.get("start_timestamp"), params.get("end_timestamp")
         )
         query = get_param_or_raise(params, "query")
-        datasource_id = get_grafana_datasource_id_by_name(
-            grafana_url=self._toolset.grafana_config.url,
-            api_key=self._toolset.grafana_config.api_key,
-            datasource_name=self._toolset.grafana_config.grafana_datasource_name,
-            datasource_type="loki",
-        )
         logs = execute_loki_query(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            loki_datasource_id=datasource_id,
+            loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
             query=query,
             start=start,
             end=end,
@@ -177,16 +168,10 @@ class GetLokiLogsForResource(Tool):
         label = get_resource_label(params, self._toolset.grafana_config)
         search_regex = get_param_or_raise(params, "search_regex")
 
-        datasource_id = get_grafana_datasource_id_by_name(
-            grafana_url=self._toolset.grafana_config.url,
-            api_key=self._toolset.grafana_config.api_key,
-            datasource_name=self._toolset.grafana_config.grafana_datasource_name,
-            datasource_type="loki",
-        )
         logs = query_loki_logs_by_label(
             grafana_url=self._toolset.grafana_config.url,
             api_key=self._toolset.grafana_config.api_key,
-            loki_datasource_id=datasource_id,
+            loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
             search_regex=search_regex,
             namespace=get_param_or_raise(params, "namespace"),
             namespace_search_key=self._toolset.grafana_config.labels.namespace,

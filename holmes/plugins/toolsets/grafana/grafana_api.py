@@ -51,28 +51,6 @@ def list_grafana_datasources(
         raise Exception(f"Failed to list datasources: {str(e)}")
 
 
-def get_grafana_datasource_id_by_name(
-    grafana_url: str,
-    api_key: str,
-    datasource_name: Optional[str] = None,
-    datasource_type: Optional[str] = None,
-) -> str:
-    datasources = list_grafana_datasources(
-        grafana_url=grafana_url, api_key=api_key, datasource_type=datasource_type
-    )
-
-    for datasource in datasources:
-        id = datasource.get("id")
-        name = datasource.get("name")
-        if name == datasource_name and id:
-            return id
-
-    available_datasources = [datasource.get("name") for datasource in datasources]
-    raise Exception(
-        f'Failed to find grafana datasource with name="{datasource_name}". Possible names are {available_datasources} '
-    )
-
-
 @backoff.on_exception(
     backoff.expo,  # Exponential backoff
     requests.exceptions.RequestException,  # Retry on request exceptions
