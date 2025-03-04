@@ -4,10 +4,23 @@ from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.internet.notion import NotionToolset, FetchNotion
 
 
-@pytest.fixture(scope="module")
+notion_config = {
+    "additional_headers": {
+        "Authorization": "Bearer fake_token",
+        "Notion-Version": "2022-06-28",
+    },
+}
+
+
+@pytest.fixture(scope="module", autouse=True)
 def notion_toolset():
     toolset = NotionToolset()
+    toolset.config = notion_config
     toolset._status = ToolsetStatusEnum.ENABLED
+    toolset.check_prerequisites()
+    assert (
+        toolset.get_status() == ToolsetStatusEnum.ENABLED
+    ), "Prerequisites check failed for Notion toolset"
     return toolset
 
 
