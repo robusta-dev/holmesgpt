@@ -2,6 +2,7 @@ import logging
 import os
 import pytest
 from tests.llm.utils.braintrust import get_experiment_results
+from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
 
 
@@ -33,6 +34,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             total_test_cases = 0
             successful_test_cases = 0
             for record in result.records:
+                if record["type"] != SpanTypeAttribute.EVAL:
+                    continue
+
                 scores = record.get("scores", None)
                 span_id = record.get("id")
                 span_attributes = record.get("span_attributes")
