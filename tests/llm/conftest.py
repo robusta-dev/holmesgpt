@@ -37,10 +37,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 scores = record.get("scores", None)
                 span_id = record.get("id")
                 span_attributes = record.get("span_attributes")
-                if span_attributes["type"] != SpanTypeAttribute.EVAL:
-                    continue
-
                 if scores and span_attributes:
+                    span_type = span_attributes.get("type")
+                    print(span_type)
+                    if span_type != SpanTypeAttribute.EVAL:
+                        continue
+
                     span_name = span_attributes.get("name")
                     test_case = next(
                         (tc for tc in result.test_cases if tc.get("id") == span_name),
