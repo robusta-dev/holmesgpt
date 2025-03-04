@@ -112,7 +112,6 @@ class ToolCallingLLM:
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
-        print(messages[0])
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []
         tools = self.tool_executor.get_all_tools_openai_format()

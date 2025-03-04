@@ -165,11 +165,13 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask, global_instructions
         )
 
-        system_prompt = load_and_render_prompt(
-            request.prompt_template, context={"alerts": workload_alerts}
-        )
-
         ai = config.create_toolcalling_llm(dal=dal)
+
+        enabled_toolsets = [ts.name for ts in ai.tool_executor.enabled_toolsets]
+        system_prompt = load_and_render_prompt(
+            request.prompt_template,
+            context={"alerts": workload_alerts, "enabled_toolsets": enabled_toolsets},
+        )
 
         structured_output = {"type": "json_object"}
         ai_call = ai.prompt_call(
@@ -265,15 +267,11 @@ def chat(chat_request: ChatRequest):
         ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
 
-        enabled_toolsets_names = [ts.name for ts in ai.tool_executor.enabled_toolsets]
-        prompt_context = {"enabled_toolsets": enabled_toolsets_names}
-
         messages = build_chat_messages(
             chat_request.ask,
             chat_request.conversation_history,
             ai=ai,
             global_instructions=global_instructions,
-            prompt_template_context=prompt_context,
         )
 
         llm_call = ai.messages_call(messages=messages)
