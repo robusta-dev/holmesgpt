@@ -1,5 +1,5 @@
 Logs:
-{% if 'kubernetes/logs' in enabled_tools %}
+{% if 'kubernetes/logs' in enabled_toolsets %}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.
