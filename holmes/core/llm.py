@@ -3,6 +3,7 @@ from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Type, Union
 
 from litellm.types.utils import ModelResponse
+import sentry_sdk
 
 from holmes.core.tools import Tool
 from pydantic import BaseModel
@@ -157,6 +158,7 @@ class DefaultLLM(LLM):
             )
             return 128000
 
+    @sentry_sdk.trace
     def count_tokens_for_message(self, messages: list[dict]) -> int:
         return litellm.token_counter(model=self.model, messages=messages)
 

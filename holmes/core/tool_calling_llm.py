@@ -4,6 +4,8 @@ import logging
 import textwrap
 from typing import List, Optional, Dict, Type, Union
 
+import sentry_sdk
+
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -33,6 +35,7 @@ class ToolCallResult(BaseModel):
     tool_name: str
     description: str
     result: str
+    size: Optional[int] = None
 
 
 class LLMResult(BaseModel):
@@ -104,6 +107,7 @@ class ToolCallingLLM:
     ) -> LLMResult:
         return self.call(messages, post_process_prompt, response_format)
 
+    @sentry_sdk.trace
     def call(
         self,
         messages: List[Dict[str, str]],
@@ -218,7 +222,7 @@ class ToolCallingLLM:
                 )
 
             perf_timing.measure("pre-tool-calls")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 futures = []
                 for t in tools_to_call:
                     futures.append(executor.submit(self._invoke_tool, t))
@@ -317,6 +321,7 @@ class ToolCallingLLM:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
 
+    @sentry_sdk.trace
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
     ) -> list:
