@@ -33,8 +33,7 @@ class GrafanaLokiConfig(GrafanaConfig):
     labels: GrafanaLokiLabelsConfig = GrafanaLokiLabelsConfig()
 
 
-
-def get_resource_label(params:Dict, config:GrafanaLokiConfig):
+def get_resource_label(params: Dict, config: GrafanaLokiConfig):
     resource_type = get_param_or_raise(params, "resource_type")
     label = None
     if resource_type == "pod":
@@ -48,6 +47,7 @@ def get_resource_label(params:Dict, config:GrafanaLokiConfig):
     else:
         return f'Error: unsupported resource type "{resource_type}". resource_type must be one of "pod", "node", "service" or "job"'
     return label
+
 
 class BaseGrafanaLokiToolset(BaseGrafanaToolset):
     config_class = GrafanaLokiConfig
@@ -128,6 +128,7 @@ class GetLokiLogs(Tool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
+
 
 class GetLokiLogsForResource(Tool):
     def __init__(self, toolset: BaseGrafanaLokiToolset):
