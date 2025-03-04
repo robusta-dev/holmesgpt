@@ -109,7 +109,7 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093
 <b>To investigate alerts in your browser, sign up for a free trial of [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section). </b>
 
 
-<b>Optional:</b> port-forward to AlertManager (if running Prometheus inside Kubernetes)
+<b>Optional:</b> port-forward to AlertManager before running the command mentioned above (if running Prometheus inside Kubernetes)
 
 ```bash
 kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
