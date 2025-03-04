@@ -69,6 +69,8 @@ def test_ask_holmes(experiment_name, test_case):
     try:
         result: LLMResult = ask_holmes(test_case)
         for tool_call in result.tool_calls:
+            # TODO: mock this instead so span start time & end time will be accurate.
+            # Also to include calls to llm spans
             with eval.start_span(
                 name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
             ) as tool_span:
@@ -101,8 +103,6 @@ def test_ask_holmes(experiment_name, test_case):
             scores={
                 "correctness": correctness_eval.score,
             },
-            # This will merge the metadata from the factuality score with the
-            # metadata from the tree.
             metadata={"correctness": correctness_eval.metadata},
         )
     if len(test_case.retrieval_context) > 0:
