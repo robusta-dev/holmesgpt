@@ -124,6 +124,7 @@ class BraintrustEvalHelper:
             dataset_record_id=id,
             scores=scores,
         )
+        eval.end()
         self.experiment.flush()
 
 
