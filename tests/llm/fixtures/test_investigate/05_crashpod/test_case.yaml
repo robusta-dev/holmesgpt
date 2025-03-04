@@ -1,5 +1,6 @@
 expected_output:
-  - The pod `db-certs-authenticator` in the `default` namespace is experiencing a `CrashLoopBackOff`
+  - The pod `db-certs-authenticator namespace is experiencing a `CrashLoopBackOff`
+  - The SSL certificate expired
 expected_sections:
   Related logs:
     - ERROR - SSL certificate expired

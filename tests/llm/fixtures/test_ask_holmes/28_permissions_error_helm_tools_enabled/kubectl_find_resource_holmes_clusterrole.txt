@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"clusterrole","keyword":"holmes"}}
+stdout:
+robusta-holmes-cluster-role                                            2025-02-18T11:23:57Z   app.kubernetes.io/managed-by=Helm
+
+stderr:

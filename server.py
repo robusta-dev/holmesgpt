@@ -30,6 +30,7 @@ from holmes.common.env_vars import (
     LOG_PERFORMANCE,
     SENTRY_DSN,
     ENABLE_TELEMETRY,
+    SENTRY_TRACES_SAMPLE_RATE,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
@@ -92,12 +93,19 @@ async def lifespan(app: FastAPI):
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
-    logging.info("Initializing sentry")
+    logging.info("Initializing sentry...")
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         send_default_pii=False,
-        traces_sample_rate=0,
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
         profiles_sample_rate=0,
+    )
+    sentry_sdk.set_tags(
+        {
+            "account_id": dal.account_id,
+            "cluster_name": config.cluster_name,
+            "model_name": config.model,
+        }
     )
 
 app = FastAPI(lifespan=lifespan)

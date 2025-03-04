@@ -1,5 +1,7 @@
 from typing import Dict, List, Optional
 
+import sentry_sdk
+
 from holmes.core.models import (
     ConversationRequest,
     HolmesConversationHistory,
@@ -16,6 +18,7 @@ from holmes.utils.global_instructions import add_global_instructions_to_user_pro
 DEFAULT_TOOL_SIZE = 10000
 
 
+@sentry_sdk.trace
 def calculate_tool_size(
     ai: ToolCallingLLM, messages_without_tools: list[dict], number_of_tools: int
 ) -> int:

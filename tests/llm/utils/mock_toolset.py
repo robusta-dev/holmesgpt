@@ -68,7 +68,7 @@ class SaveMockTool(Tool):
 
         return output
 
-    def invoke(self, params) -> str:
+    def _invoke(self, params) -> str:
         return self._auto_generate_mock_file(params)
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -94,13 +94,13 @@ class MockToolWrapper(Tool):
                 return mock
 
             match = all(
-                key in params and params[key] == val
-                for key, val in mock.match_params.items()
+                key in params and params[key] == mock_val or mock_val == "*"
+                for key, mock_val in mock.match_params.items()
             )
             if match:
                 return mock
 
-    def invoke(self, params) -> str:
+    def _invoke(self, params) -> str:
         mock = self.find_matching_mock(params)
         if mock:
             return mock.return_value
@@ -120,6 +120,11 @@ class MockToolsets:
 
     def __init__(self, test_case_folder: str, generate_mocks: bool = True) -> None:
         self.unmocked_toolsets = load_builtin_toolsets()
+
+        for toolset in self.unmocked_toolsets:
+            toolset.enabled = True
+            toolset.check_prerequisites()
+
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
         self._mocks = []
@@ -156,6 +161,7 @@ class MockToolsets:
         mocked_toolsets = []
         for toolset in self.unmocked_toolsets:
             mocked_tools = []
+            has_mocks = False
             for i in range(len(toolset.tools)):
                 tool = toolset.tools[i]
                 mocks = self._find_mocks_for_tool(
@@ -166,20 +172,21 @@ class MockToolsets:
                 )
 
                 if len(mocks) > 0:
+                    has_mocks = True
                     mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
                     mock_tool.mocks = mocks
                     mocked_tools.append(mock_tool)
                 else:
                     mocked_tools.append(wrapped_tool)
 
-            mocked_toolset = Toolset(
-                name=toolset.name,
-                prerequisites=toolset.prerequisites,
-                tools=toolset.tools,
-                description=toolset.description,
-            )
-            mocked_toolset.tools = mocked_tools
-            mocked_toolset._status = ToolsetStatusEnum.ENABLED
-            mocked_toolsets.append(mocked_toolset)
-
+            if has_mocks or toolset.get_status() == ToolsetStatusEnum.ENABLED:
+                mocked_toolset = Toolset(
+                    name=toolset.name,
+                    prerequisites=toolset.prerequisites,
+                    tools=toolset.tools,
+                    description=toolset.description,
+                )
+                mocked_toolset.tools = mocked_tools
+                mocked_toolset._status = ToolsetStatusEnum.ENABLED
+                mocked_toolsets.append(mocked_toolset)
         self.mocked_toolsets = mocked_toolsets

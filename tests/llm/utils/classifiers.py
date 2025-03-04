@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Literal
+from typing import Dict, List, Optional, Union, Literal
 from autoevals import Factuality, LLMClassifier
 import os
 
@@ -145,3 +145,63 @@ def evaluate_factuality(
 ):
     eval_factuality = Factuality()
     return eval_factuality(input=input, output=output, expected=expected)
+
+
+def evaluate_sections(sections: Dict[str, bool], output: Optional[str]):
+    expected_sections = [section for section, expected in sections.items() if expected]
+    expected_sections_str = "\n".join([f"- {section}" for section in expected_sections])
+    if not expected_sections_str:
+        expected_sections_str = "<No section is expected>"
+
+    unexpected_sections = [
+        section for section, expected in sections.items() if not expected
+    ]
+    unexpected_sections_str = "\n".join(
+        [f"- {section}" for section in unexpected_sections]
+    )
+    if not unexpected_sections_str:
+        unexpected_sections_str = "<No element>"
+
+    prompt_prefix = """
+You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
+represents the correctness of that OUTPUT.
+
+The LLM output is expected to be split into sections. Typically each section is represented by a markdown title `# <section title>`.
+Some sections are expected and should be populated in the output. Some sections are unexpected and should not be present in the outpout
+(i.e. there is no such title: `# <unexpected section`)
+
+If there are <No element> in EXPECTED SECTIONS assume the OUTPUT has all appropriate EXPECTED SECTIONS.
+If there are <No element> in UNEXPECTED SECTIONS assume the OUTPUT has no UNEXPECTED SECTIONS.
+
+
+# EXPECTED SECTIONS
+
+{{expected}}
+
+
+# UNEXPECTED SECTIONS
+
+{{input}}
+
+
+# OUTPUT
+
+{{output}}
+
+
+Return a choice based on the number of EXPECTED ELEMENTS present in the OUTPUT.
+Possible choices:
+    A. One or more of the EXPECTED SECTIONS is missing and one or more of the UNEXPECTED SECTIONS is present
+    B. All EXPECTED SECTIONS are present in the OUTPUT and no UNEXPECTED SECTIONS is present in the output
+    """
+
+    classifier = LLMClassifier(
+        name="Correctness",
+        prompt_template=prompt_prefix,
+        choice_scores={"A": 0, "B": 1},
+        use_cot=True,
+        model=classifier_model,
+    )
+    return classifier(
+        input=unexpected_sections_str, output=output, expected=expected_sections_str
+    )

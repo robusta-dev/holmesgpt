@@ -1,12 +1,17 @@
 
 {% if structured_output %}
-Give your answer in a pure JSON format with the following sections. You can set a null value to a section if it's not relevant to the investigation.
+Give your answer in a pure JSON format with the following sections.
 The content of each section should be formatted with markdown:
 
 {
 {% for title, description in sections.items() %}
   "{{ title }}": "{{ description | replace("\n", "\\n") }}",{% endfor %}
 }
+
+You MUST set a section as `null` if:
+- It's not relevant to the investigation
+- It does not contain relevant information
+- Its content is not related to a possible root cause
 
 <DO NOT list tools used and DO NOT add a `Tools` section>
 {% else %}
@@ -19,4 +24,9 @@ Ignore any section that is not relevant to the investigation.
 {% endfor %}
 
 # <DO NOT list tools used and DO NOT add a `# Tools` section>
+
+You MUST ignore a section and skip it:
+- It's not relevant to the investigation
+- It does not contain relevant information
+- Its content is not related to a possible root cause
 {% endif %}

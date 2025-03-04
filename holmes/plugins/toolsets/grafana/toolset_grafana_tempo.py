@@ -26,7 +26,7 @@ class ListAllDatasources(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         datasources = list_grafana_datasources(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
@@ -72,7 +72,7 @@ class GetTempoTracesByMinDuration(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         start, end = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
@@ -113,7 +113,7 @@ class GetTempoTraceById(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         trace_data = query_tempo_trace_by_id(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,

@@ -34,5 +34,12 @@ stdout:
 2025-01-24 12:25:25,550 - DEBUG - Starting new HTTP connection (1): localhost:5000
 2025-01-24 12:25:25,552 - INFO - 127.0.0.1 - - [24/Jan/2025 12:25:25] "GET / HTTP/1.1" 200 -
 2025-01-24 12:25:25,552 - DEBUG - http://localhost:5000 "GET / HTTP/10" 200 1435
+2025-01-24 12:25:37,473 - INFO - Validating cert
+2025-01-24 12:25:37,482 - WARNING - Certificate has expired. Update the ssl certificate using the '/update_certificate' API or update the config map.
+2025-01-24 12:25:37,482 - ERROR - SSL certificate expired
+Traceback (most recent call last):
+  File "/app/app.py", line 141, in check_certificate_expiry
+    raise ExpiredCertException(f"Certificate expired on {cert_expiry}")
+ExpiredCertException: Certificate expired on 2024-08-03 17:00:08
 
 stderr:
