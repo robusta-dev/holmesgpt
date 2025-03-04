@@ -10,6 +10,7 @@ from holmes.core.investigation_structured_output import (
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
+    process_response_into_sections
 )
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
@@ -363,29 +364,38 @@ class ToolCallingLLM:
         self,
         system_prompt: str,
         user_prompt: Optional[str] = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        sections: Optional[InputSectionsDataType] = None,
     ):
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-
+        perf_timing = PerformanceTiming("tool_calling_llm.call")
+        tool_calls: List[ToolCallResult] = []
         tools = self.tool_executor.get_all_tools_openai_format()
-        for i in range(self.max_steps):
-            tool_calls: List[ToolCallResult] = []
-            logging.debug(f"running iteration {i}")
-            # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
-            tools = NOT_GIVEN if i == self.max_steps - 1 else tools
-            tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
+        perf_timing.measure("get_all_tools_openai_format")
+        i = 0
+        chunks = []
+        while i < self.max_steps:
+            i += 1
+            perf_timing.measure(f"start iteration {i}")
+            logging.info(f"running iteration {i}")
+
+            tools = [] if i == self.max_steps - 1 else tools
+            tool_choice = None if tools == [] else "auto"
 
             total_tokens = self.llm.count_tokens_for_message(messages)
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
+            perf_timing.measure("count tokens")
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -394,10 +404,12 @@ class ToolCallingLLM:
                     tools=tools,
                     tool_choice=tool_choice,
                     temperature=0.00000001,
+                    response_format=response_format,
                     stream=True,
                     drop_params=True,
                 )
-                #logging.debug(f"got response {full_response.to_json()}")
+                perf_timing.measure("llm.completion")
+
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if (
@@ -405,26 +417,42 @@ class ToolCallingLLM:
                     in str(e)
                 ):
                     yield json.dumps({"type": "error", "details": {"msg": "The Azure model you chose is not supported. Model version 1106 and higher required."}})
-            except Exception as e:
-                yield json.dumps({"type": "error", "details": {"msg": str(e)}})
-
-            chunks = []
+                    return
+                raise
+            except Exception:
+                raise
+            
+            chunks.clear()
             peek_chunk = next(full_response)
-            if not peek_chunk.choices[0].delta.tool_calls:
-                yield json.dumps({"type": "ai_answer", "details": {"answer": peek_chunk.choices[0].delta.content or ""}})
+            tools_to_call = peek_chunk.choices[0].delta.tool_calls
+            if not tools_to_call:
+                yield json.dumps({"type": "start_ai_answer"})
+                chunks.append(peek_chunk)
                 for chunk in full_response:
-                    yield json.dumps({"type": "ai_answer", "details": {"answer": chunk.choices[0].delta.content or ""}})
-
+                    chunks.append(chunk)
+                response = stream_chunk_builder(chunks, messages=messages)
+                response_message = response.choices[0].message
+                (text_response, sections) = process_response_into_sections(response_message.content)
+                yield text_response
                 return
 
-            # collect all tool call chunks.
+            # some extra call case from model to structure the output.?
+            if any(t1.function.name == "json_tool_call" for t1 in tools_to_call):
+                yield json.dumps({"type": "start_ai_answer"})
+                chunks.append(peek_chunk)
+                for chunk in full_response:
+                    chunks.append(chunk)
+                response = stream_chunk_builder(chunks, messages=messages)
+                response_message = response.choices[0].message
+                (text_response, sections) = process_response_into_sections(response_message.tool_calls[0].function.arguments)
+                yield text_response
+                return
+
             chunks.append(peek_chunk)
             for chunk in full_response:
                 chunks.append(chunk)
-
             response = stream_chunk_builder(chunks, messages=messages)
-            response = response.choices[0]
-            response_message = response.message
+            response_message = response.choices[0].message
             messages.append(
                 response_message.model_dump(
                     exclude_defaults=True, exclude_unset=True, exclude_none=True
@@ -436,13 +464,14 @@ class ToolCallingLLM:
                 futures = []
                 for t in tools_to_call:
                     futures.append(executor.submit(self._invoke_tool, t))
-                    yield json.dumps({"type": "start_tool_calling", "details": {"tool_name": t.function.name}})
+                    yield json.dumps({"type": "start_tool_calling", "details": {"tool_name": t.function.name, "id": t.id}})
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
                     tool_calls.append(tool_call_result)
                     messages.append(tool_call_result.as_dict())
-                    yield json.dumps({"type": "tool_calling_result", "details": tool_call_result.as_dict()})               
+                    yield json.dumps({"type": "tool_calling_result", "details": tool_call_result.as_dict()})
+
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
