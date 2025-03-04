@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Dict, cast
-
 from pydantic import BaseModel
 
 from holmes.core.tools import Tool, ToolParameter
@@ -83,7 +82,7 @@ class GetLokiLogs(Tool):
                     required=True,
                 ),
                 "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
+                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
@@ -93,9 +92,9 @@ class GetLokiLogs(Tool):
                     required=False,
                 ),
                 "limit": ToolParameter(
-                    description="Maximum number of logs to return.",
+                    description="Maximum number of logs to return. Defaults to 5000. Reduce if the query times out",
                     type="string",
-                    required=True,
+                    required=False,
                 ),
             },
         )
@@ -113,7 +112,7 @@ class GetLokiLogs(Tool):
             query=query,
             start=start,
             end=end,
-            limit=int(get_param_or_raise(params, "limit")),
+            limit=int(params.get("limit", 5000)),
         )
         return "\n".join([format_log(log) for log in logs])
 
@@ -132,7 +131,7 @@ class GetLokiLogsForResource(Tool):
                     type="string",
                     required=True,
                 ),
-                "search_regex": ToolParameter(
+                "resource_name": ToolParameter(
                     description='Regular expression to match the resource name. This can be a regular expression. For example "<pod-name>.*" will match any pod name starting with "<pod-name>"',
                     type="string",
                     required=True,
@@ -143,7 +142,7 @@ class GetLokiLogsForResource(Tool):
                     required=True,
                 ),
                 "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
+                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
@@ -153,9 +152,14 @@ class GetLokiLogsForResource(Tool):
                     required=False,
                 ),
                 "limit": ToolParameter(
-                    description="Maximum number of logs to return.",
+                    description="Maximum number of logs to return. Defaults to 5000. Reduce if the query times out",
                     type="string",
-                    required=True,
+                    required=False,
+                ),
+                "logs_filter": ToolParameter(
+                    description="Filter the logs and only return log lines matching this regular expression. Use if looking for a particular string",
+                    type="string",
+                    required=False,
                 ),
             },
         )
@@ -166,19 +170,20 @@ class GetLokiLogsForResource(Tool):
             params.get("start_timestamp"), params.get("end_timestamp")
         )
         label = get_resource_label(params, self._toolset.grafana_config)
-        search_regex = get_param_or_raise(params, "search_regex")
+        resource_name = get_param_or_raise(params, "resource_name")
 
         logs = query_loki_logs_by_label(
             grafana_url=self._toolset.grafana_config.url,
             api_key=self._toolset.grafana_config.api_key,
             loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
-            search_regex=search_regex,
+            filter_regexp=params.get("logs_filter"),
             namespace=get_param_or_raise(params, "namespace"),
             namespace_search_key=self._toolset.grafana_config.labels.namespace,
             label=label,
+            label_value=resource_name,
             start=start,
             end=end,
-            limit=int(get_param_or_raise(params, "limit")),
+            limit=int(params.get("limit", 5000)),
         )
         return "\n".join([format_log(log) for log in logs])
 

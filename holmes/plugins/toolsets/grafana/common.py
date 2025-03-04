@@ -30,8 +30,10 @@ def process_timestamps(
 
     if not end_timestamp:
         end_timestamp = int(time.time())
+
     if not start_timestamp:
-        start_timestamp = end_timestamp - ONE_HOUR_IN_SECONDS
+        start_timestamp = -ONE_HOUR_IN_SECONDS
+
     if start_timestamp < 0:
         start_timestamp = end_timestamp + start_timestamp
     return (start_timestamp, end_timestamp)

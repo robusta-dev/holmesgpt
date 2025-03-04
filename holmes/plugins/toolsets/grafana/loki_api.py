@@ -1,5 +1,5 @@
 import requests
-from typing import Dict, List
+from typing import Dict, List, Optional
 import backoff
 
 from holmes.plugins.toolsets.grafana.common import headers
@@ -43,7 +43,6 @@ def execute_loki_query(
     limit: int,
 ) -> List[Dict]:
     params = {"query": query, "limit": limit, "start": start, "end": end}
-
     try:
         url = f"{grafana_url}/api/datasources/proxy/uid/{loki_datasource_uid}/loki/api/v1/query_range"
         response = requests.get(url, headers=headers(api_key=api_key), params=params)
@@ -63,14 +62,17 @@ def query_loki_logs_by_label(
     api_key: str,
     loki_datasource_uid: str,
     namespace: str,
-    search_regex: str,
+    label_value: str,
+    filter_regexp: Optional[str],
     start: int,
     end: int,
     label: str,
     namespace_search_key: str = "namespace",
     limit: int = 200,
 ) -> List[Dict]:
-    query = f'{{{namespace_search_key}="{namespace}", {label}=~"{search_regex}"}}'
+    query = f'{{{namespace_search_key}="{namespace}", {label}=~"{label_value}"}}'
+    if filter_regexp:
+        query += f' |~ "{filter_regexp}"'
     return execute_loki_query(
         grafana_url=grafana_url,
         api_key=api_key,
