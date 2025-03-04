@@ -49,7 +49,7 @@ class LLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
-		stream: Optional[bool] = None,
+        stream: Optional[bool] = None,
     ) -> ModelResponse:
         pass
 
