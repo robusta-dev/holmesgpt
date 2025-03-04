@@ -82,11 +82,22 @@ def test_ask_holmes(experiment_name, test_case):
 
     debug_expected = "\n-  ".join(expected)
     print(f"** EXPECTED **\n-  {debug_expected}")
-    correctness_eval = evaluate_correctness(output=output, expected_elements=expected)
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-    )
-    scores["correctness"] = correctness_eval.score
+    with eval.start_span(name="Correctness") as span:
+        correctness_eval = evaluate_correctness(
+            output=output, expected_elements=expected
+        )
+        print(
+            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
+        )
+        scores["correctness"] = correctness_eval.score
+        span.log(
+            scores={
+                "factuality": correctness_eval.score,
+            },
+            # This will merge the metadata from the factuality score with the
+            # metadata from the tree.
+            metadata={"factuality": correctness_eval.metadata},
+        )
 
     if len(test_case.retrieval_context) > 0:
         scores["context"] = evaluate_context_usage(
