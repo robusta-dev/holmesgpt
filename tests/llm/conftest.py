@@ -39,7 +39,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 span_attributes = record.get("span_attributes")
                 if scores and span_attributes:
                     span_type = span_attributes.get("type")
-                    print(span_type)
                     if span_type != SpanTypeAttribute.EVAL:
                         continue
 
