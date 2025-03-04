@@ -94,21 +94,26 @@ def test_ask_holmes(experiment_name, test_case):
         scores["correctness"] = correctness_eval.score
         correctness_span.log(
             scores={
-                "factuality": correctness_eval.score,
+                "correctness": correctness_eval.score,
             },
             # This will merge the metadata from the factuality score with the
             # metadata from the tree.
-            metadata={"factuality": correctness_eval.metadata},
+            metadata={"correctness": correctness_eval.metadata},
         )
     if len(test_case.retrieval_context) > 0:
         with eval.start_span(
-            name="Correctness", type=SpanTypeAttribute.SCORE
+            name="Context", type=SpanTypeAttribute.SCORE
         ) as context_span:
             context_eval = evaluate_context_usage(
                 output=output, context_items=test_case.retrieval_context, input=input
             )
             scores["context"] = context_eval.score
-            context_span.log(scores={"context": context_eval.score})
+            context_span.log(
+                scores={
+                    "context": context_eval.score,
+                    "metadata": context_eval.metadata,
+                }
+            )
 
     if bt_helper and eval:
         bt_helper.end_evaluation(
