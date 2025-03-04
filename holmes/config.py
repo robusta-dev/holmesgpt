@@ -2,14 +2,11 @@ import logging
 import os
 import yaml
 import os.path
+from typing import Any, Dict, List, Optional, Union
 
 from holmes.core.llm import LLM, DefaultLLM
-from typing import Any, Dict, List, Optional
-
-
 from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
-
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
@@ -226,7 +223,7 @@ class Config(RobustaBaseConfig):
                 enabled_toolsets.append(ts)
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.DISABLED:
-                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()})")
+                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.FAILED:
                 logging.info(
                     f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})"
@@ -511,6 +508,10 @@ class Config(RobustaBaseConfig):
         self, toolsets: dict[str, dict[str, Any]], path: str
     ) -> List[ToolsetYamlFromConfig]:
         loaded_toolsets: list[ToolsetYamlFromConfig] = []
+        if self.is_old_toolset_config(toolsets):
+            message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
+            logging.warning(message)
+            raise ValueError(message)
         for name, config in toolsets.items():
             try:
                 validated_config: ToolsetYamlFromConfig = ToolsetYamlFromConfig(
@@ -523,11 +524,20 @@ class Config(RobustaBaseConfig):
                     )
                 loaded_toolsets.append(validated_config)
             except ValidationError as e:
-                logging.error(f"Toolset '{name}' is invalid: {e}")
+                logging.warning(f"Toolset '{name}' is invalid: {e}")
+
             except Exception:
-                logging.exception("Failed to load toolset: %s", name)
+                logging.warning("Failed to load toolset: %s", name)
 
         return loaded_toolsets
+
+    def is_old_toolset_config(
+        self, toolsets: Union[dict[str, dict[str, Any]], List[dict[str, Any]]]
+    ) -> bool:
+        # old config is a list of toolsets
+        if isinstance(toolsets, list):
+            return True
+        return False
 
     def merge_and_override_bultin_toolsets_with_toolsets_config(
         self,

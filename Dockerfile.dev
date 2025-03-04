@@ -26,6 +26,9 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Needed for kubectl
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key -o Release.key
 
+# Define a build argument to identify the platform
+ARG TARGETPLATFORM
+
 # Set the architecture-specific aws-cli
 ARG AWS_CLI_ARM_URL=https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip
 ARG AWS_CLI_AMD_URL=https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
@@ -49,8 +52,6 @@ RUN mkdir -p /usr/local/gcloud \
 # Set the architecture-specific kube lineage URLs
 ARG ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.1/kube-lineage-macos-latest-v2.1
 ARG AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.1/kube-lineage-ubuntu-latest-v2.1
-# Define a build argument to identify the platform
-ARG TARGETPLATFORM
 # Conditional download based on the platform
 RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
         curl -L -o kube-lineage $ARM_URL; \

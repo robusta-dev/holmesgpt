@@ -1,0 +1,15 @@
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs_all_containers","match_params":{"pod_name":"front-end-6bc5876d74-kn2zt","namespace":"sock-shop"}}
+stdout:
+npm info it worked if it ends with ok
+npm info using npm@2.15.11
+npm info using node@v4.8.0
+npm info prestart microservices-demo-front-end@0.0.1
+npm info start microservices-demo-front-end@0.0.1
+
+> microservices-demo-front-end@0.0.1 start /usr/src/app
+> node server.js
+
+Using the redis based session manager
+App now running in production mode on port 8079
+
+stderr:

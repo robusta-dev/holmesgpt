@@ -47,7 +47,7 @@ class MyCustomLLM(LLM):
 
 
 def ask_holmes():
-    prompt = "what issues do I have in my cluster"
+    prompt = "what pods are unhealthy in my cluster?"
 
     system_prompt = load_and_render_prompt("builtin://generic_ask.jinja2")
 

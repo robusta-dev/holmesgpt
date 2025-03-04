@@ -177,7 +177,7 @@ class FetchWebpage(Tool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         url: str = params["url"]
 
         additional_headers = (

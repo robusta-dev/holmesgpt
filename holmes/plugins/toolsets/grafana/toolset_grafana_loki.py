@@ -33,7 +33,7 @@ class ListLokiDatasources(Tool):
         )
         self._toolset: BaseGrafanaToolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         datasources = list_grafana_datasources(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
@@ -52,7 +52,7 @@ class GetLokiLogsByNode(Tool):
             description="""Fetches the Loki logs for a given node""",
             parameters={
                 "loki_datasource_id": ToolParameter(
-                    description="The id of the loki datasource to use. Call the tool list_loki_datasources",
+                    description="The id of the loki datasource to use. First call the tool list_loki_datasources, then pass the numerical id field here",
                     type="string",
                     required=True,
                 ),
@@ -80,7 +80,7 @@ class GetLokiLogsByNode(Tool):
         )
         self._toolset: BaseGrafanaToolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
@@ -104,7 +104,7 @@ class GetLokiLogsByLabel(Tool):
     def __init__(self, toolset: BaseGrafanaToolset):
         super().__init__(
             name="fetch_loki_logs_by_label",
-            description="""Fetches the Loki logs for a label and value from a Tempo trace""",
+            description="""Fetches Loki logs matching a <label>=<value> pair""",
             parameters={
                 "loki_datasource_id": ToolParameter(
                     description="The id of the loki datasource to use. Call the tool list_loki_datasources",
@@ -140,7 +140,7 @@ class GetLokiLogsByLabel(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
@@ -202,7 +202,7 @@ class GetLokiLogsByPod(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
