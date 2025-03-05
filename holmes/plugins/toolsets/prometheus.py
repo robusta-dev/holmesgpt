@@ -175,7 +175,7 @@ class ListAvailableMetrics(BasePrometheusTool):
         )
         self._cache = None
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return "Prometheus is not configured. Prometheus URL is missing"
         if not self._cache and self.toolset.config.metrics_labels_cache_duration_hrs:
@@ -251,7 +251,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return "Prometheus is not configured. Prometheus URL is missing"
         try:
@@ -349,7 +349,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return "Prometheus is not configured. Prometheus URL is missing"
 

@@ -12,7 +12,7 @@ class CurrentTime(Tool):
             parameters={},
         )
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         now = datetime.datetime.now(datetime.timezone.utc)
         return f"The current UTC date and time are {now}. The current UTC timestamp in seconds is {int(now.timestamp())}."
 

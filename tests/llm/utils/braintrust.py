@@ -103,11 +103,11 @@ class BraintrustEvalHelper:
                     "Experiment must be writable. The above options open=False and update=True ensure this is the case so this exception should never be raised"
                 )
             self.experiment = experiment
-        return self.experiment.start_span(name=name)
+        self._root_span = self.experiment.start_span(name=name)
+        return self._root_span
 
     def end_evaluation(
         self,
-        eval: Span,
         input: str,
         output: str,
         expected: str,
@@ -117,15 +117,17 @@ class BraintrustEvalHelper:
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")
 
-        eval.log(
+        self._root_span.log(
             input=input,
             output=output,
             expected=expected,
             dataset_record_id=id,
             scores=scores,
         )
-        eval.end()
+        self._root_span.end()
         self.experiment.flush()
+
+    # def score(self)
 
 
 def get_experiment_name(test_suite: str):
