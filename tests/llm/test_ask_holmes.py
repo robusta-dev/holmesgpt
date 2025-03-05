@@ -103,7 +103,7 @@ def test_ask_holmes(experiment_name, test_case):
             scores={
                 "correctness": correctness_eval.score,
             },
-            metadata={"correctness": correctness_eval.metadata},
+            metadata=correctness_eval.metadata,
         )
     if len(test_case.retrieval_context) > 0:
         with eval.start_span(
@@ -117,7 +117,7 @@ def test_ask_holmes(experiment_name, test_case):
                 scores={
                     "context": context_eval.score,
                 },
-                metadata={"context": context_eval.metadata},
+                metadata=context_eval.metadata,
             )
 
     if bt_helper and eval:
