@@ -11,7 +11,7 @@ Use conversation history to maintain continuity when appropriate, ensuring effic
 Prometheus/PromQL queries
 * Use prometheus to execute promql queries with the tools `execute_prometheus_instant_query` and `execute_prometheus_range_query`
 * ALWAYS embed the execution results into your answer
-* You only need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "promql", "tool_name": "execute_prometheus_query", "random_key": "92jf2hf"} >>
+* You only need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>
 * Use these tools to generate charts that users can see. Here are standard metrics but you can use different ones:
 ** For memory consumption: `container_memory_working_set_bytes`
 ** For CPU usage: `container_cpu_usage_seconds_total`

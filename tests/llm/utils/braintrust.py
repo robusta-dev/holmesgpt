@@ -39,9 +39,6 @@ def pop_matching_test_case_if_exists(
     return pop_test_case(test_cases, test_case_id)
 
 
-PUSH_EVALS_TO_BRAINTRUST = load_bool("PUSH_EVALS_TO_BRAINTRUST", False)
-
-
 class BraintrustEvalHelper:
     def __init__(self, project_name: str, dataset_name: str) -> None:
         self.project_name = project_name
