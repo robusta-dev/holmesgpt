@@ -1,5 +1,6 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"product-data-scraper-2fqrh","namespace":"default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"product-data-scraper-6vg4b","namespace":"default"}}
+Command `kubectl logs product-data-scraper-6vg4b -n default --previous` failed with return code 1
 stdout:
-/bin/sh: syntax error: unexpected "fi"
 
 stderr:
+Error from server (BadRequest): previous terminated container "run-forever" in pod "product-data-scraper-6vg4b" not found

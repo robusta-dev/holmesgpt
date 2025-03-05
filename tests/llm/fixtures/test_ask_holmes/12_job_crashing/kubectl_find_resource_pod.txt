@@ -1,0 +1,2 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"java-api-checker"}}
+java-api-checker-mdr44   1/1     Running   0          48s   10.244.0.92   kind-control-plane   <none>           <none>

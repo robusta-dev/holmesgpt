@@ -1,6 +1,64 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"inventory-management-api","namespace":"default"}}
-Command `kubectl describe pod inventory-management-api -n default` failed with return code 1
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"frontend-service","namespace":"default"}}
 stdout:
+Name:             frontend-service
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             grafana-cloud-control-plane/172.18.0.2
+Start Time:       Fri, 14 Feb 2025 14:05:01 +0100
+Labels:           <none>
+Annotations:      <none>
+Status:           Running
+IP:               10.244.0.37
+IPs:
+  IP:  10.244.0.37
+Containers:
+  stress:
+    Container ID:  containerd://b025ed921825b79c879a7e3d4f93795d887aec59d5902c629cdef18aa2dc933e
+    Image:         jfusterm/stress
+    Image ID:      sha256:95c477f06eefebe5ab343ce1b2dc80313dc79559067304f72b10a5a82bfb9179
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      stress
+      --cpu
+      100
+    State:          Running
+      Started:      Mon, 24 Feb 2025 07:01:57 +0100
+    Last State:     Terminated
+      Reason:       Unknown
+      Exit Code:    255
+      Started:      Fri, 21 Feb 2025 07:14:06 +0100
+      Finished:     Mon, 24 Feb 2025 07:01:35 +0100
+    Ready:          True
+    Restart Count:  6
+    Limits:
+      cpu:     10m
+      memory:  64Mi
+    Requests:
+      cpu:        10m
+      memory:     64Mi
+    Environment:  <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-6hbq2 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  kube-api-access-6hbq2:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   Guaranteed
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
 
 stderr:
-Error from server (NotFound): pods "inventory-management-api" not found

@@ -1,8 +1,16 @@
 expected_output:
-  - Pod `oomkill-deployment-696dbdbf67-d47z6` is experiencing a `CrashLoopBackOff`
-retrieval_context:
-  - There is a total of 12 pods on node ip-172-31-8-128.us-east-2.compute.internal
-  - There are 5 pods in running state
-  - 7 pods are not running as indicated by the STATUS column
+  - Pod `analytics-exporter-fast` is experiencing a `CrashLoopBackOff`
+  - Pod is OOM killed
+before_test: |
+  kubectl apply -f ./fast_oom_deployment.yaml
+  sleep 60
+after_test: |
+  kubectl delete -f ./fast_oom_deployment.yaml
+expected_sections:
+  Key Findings: False
+  Next Steps: False
+  App or Infra?: False
+  External links: False
 evaluation:
-  correctness: 0
+  correctness: 1
+generate_mocks: True
