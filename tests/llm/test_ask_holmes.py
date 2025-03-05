@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import pytest
 
+from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
@@ -115,12 +116,15 @@ def test_ask_holmes(experiment_name, test_case):
 
 
 def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
+    run_live = load_bool("RUN_LIVE", False)
     mock = MockToolsets(
-        generate_mocks=test_case.generate_mocks, test_case_folder=test_case.folder
+        generate_mocks=test_case.generate_mocks,
+        test_case_folder=test_case.folder,
+        run_live=run_live,
     )
 
     expected_tools = []
-    if not os.environ.get("RUN_LIVE"):
+    if not run_live:
         for tool_mock in test_case.tool_mocks:
             mock.mock_tool(tool_mock)
             expected_tools.append(tool_mock.tool_name)
@@ -136,4 +140,5 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
     chat_request = ChatRequest(ask=test_case.user_prompt)
 
     messages = build_chat_messages(chat_request.ask, [], ai=ai)
+    print(messages[0]["content"])
     return ai.messages_call(messages=messages)

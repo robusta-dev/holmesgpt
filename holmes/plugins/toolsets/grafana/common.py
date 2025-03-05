@@ -2,6 +2,7 @@ import json
 from typing import Dict, Optional, Union
 import time
 from pydantic import BaseModel
+from datetime import datetime
 
 ONE_HOUR_IN_SECONDS = 3600
 
@@ -48,6 +49,12 @@ def get_param_or_raise(dict: Dict, param: str) -> str:
 
 def format_log(log: Dict) -> str:
     log_str = log.get("log")
+    timestamp_nanoseconds = log.get("timestamp")
     if not log_str:
         log_str = json.dumps(log)
+    elif timestamp_nanoseconds:
+        timestamp_seconds = int(timestamp_nanoseconds) // 1_000_000_000
+        dt = datetime.fromtimestamp(timestamp_seconds)
+        log_str = dt.strftime("%Y-%m-%dT%H:%M:%SZ") + " " + log_str
+
     return log_str

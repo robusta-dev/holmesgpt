@@ -18,11 +18,7 @@ from holmes.plugins.toolsets.grafana.loki_api import (
 
 class GrafanaLokiLabelsConfig(BaseModel):
     pod: str = "pod"
-    node: str = "node"
     namespace: str = "namespace"
-    job: str = "node_name"
-    service: str = "service_name"
-    app: str = "app"
 
 
 class GrafanaLokiConfig(GrafanaConfig):
@@ -30,18 +26,12 @@ class GrafanaLokiConfig(GrafanaConfig):
 
 
 def get_resource_label(params: Dict, config: GrafanaLokiConfig):
-    resource_type = get_param_or_raise(params, "resource_type")
+    resource_type = params.get("resource_type", "pod")
     label = None
     if resource_type == "pod":
         label = config.labels.pod
-    elif resource_type == "node":
-        label = config.labels.node
-    elif resource_type == "service":
-        label = config.labels.service
-    elif resource_type == "job":
-        label = config.labels.job
     else:
-        return f'Error: unsupported resource type "{resource_type}". resource_type must be one of "pod", "node", "service" or "job"'
+        return f'Error: unsupported resource type "{resource_type}". resource_type must be "pod"'
     return label
 
 
@@ -127,9 +117,9 @@ class GetLokiLogsForResource(Tool):
             description="Fetches the Loki logs for a given kubernetes resource",
             parameters={
                 "resource_type": ToolParameter(
-                    description="The type of resource. One of 'pod', 'node', 'service', 'job'",
+                    description="The type of resource. Can only be 'pod' for now. Defaults to 'pod'.",
                     type="string",
-                    required=True,
+                    required=False,
                 ),
                 "resource_name": ToolParameter(
                     description='Regular expression to match the resource name. This can be a regular expression. For example "<pod-name>.*" will match any pod name starting with "<pod-name>"',

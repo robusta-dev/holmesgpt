@@ -66,22 +66,25 @@ evaluation:
   correctness: 1
 ```
 
+If some toolsets require configuration, you can
+
 #### 3. Run the test
 
 Run the following:
 
 ```sh
-UPLOAD_DATASET=1 RUN_LIVE=1 poetry run pytest ./tests/llm/test_ask_holmes.py -k 999_my_test_case
+PUSH_EVALS_TO_BRAINTRUST=true UPLOAD_DATASET=true RUN_LIVE=true poetry run pytest ./tests/llm/test_ask_holmes.py -k 999_my_test_case
 ```
 
 The test may pass or not based on whether the evaluation scores are high enough.
 
 # Environment variables
 
-| Name               | Example                             | Description                                                                                                                            |
-|--------------------|-------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| RUN_LIVE           | RUN_LIVE=1                          | Enables the execution of `before-test` and `after-test` commands to setuo any remote resource. This also ignores any mock files.       |
-| BRAINTRUST_API_KEY | BRAINTRUST_API_KEY=sk-1dh1...swdO02 | The braintrust API key you get from your account. Log in https://www.braintrust.dev -> top right persona logo -> settings -> API keys. |
-| UPLOAD_DATASET     | UPLOAD_DATASET=1                    | Synchronise the dataset from the local machine to braintrust. This is usually safe as datasets are separated by branch name.           |
-| EXPERIMENT_ID      | EXPERIMENT_ID=nicolas_gemini_v1     | Override the experiment name in Braintrust. Helps with identifying and comparing experiments. Must be unique across ALL experiments.   |
-| MODEL              | MODEL=anthropic/claude-3.5          | The model to use for generation.                                                                                                       |
+| Name                     | Example                             | Description                                                                                                                            |
+|--------------------------|-------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| RUN_LIVE                 | RUN_LIVE=true                       | Enables the execution of `before-test` and `after-test` commands to setuo any remote resource. This also ignores any mock files.       |
+| BRAINTRUST_API_KEY       | BRAINTRUST_API_KEY=sk-1dh1...swdO02 | The braintrust API key you get from your account. Log in https://www.braintrust.dev -> top right persona logo -> settings -> API keys. |
+| UPLOAD_DATASET           | UPLOAD_DATASET=true                 | Synchronise the dataset from the local machine to braintrust. This is usually safe as datasets are separated by branch name.           |
+| EXPERIMENT_ID            | EXPERIMENT_ID=nicolas_gemini_v1     | Override the experiment name in Braintrust. Helps with identifying and comparing experiments. Must be unique across ALL experiments.   |
+| MODEL                    | MODEL=anthropic/claude-3.5          | The model to use for generation.                                                                                                       |
+| PUSH_EVALS_TO_BRAINTRUST | PUSH_EVALS_TO_BRAINTRUST=true       | Whether to push the eval results to Braintrust                                                                                         |
