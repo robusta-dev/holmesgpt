@@ -84,7 +84,7 @@ HolmesGPT text response:
 ```
 Here's the average HTTP request latency over time for the `customer-orders-service`:
 
-<< {type: "promql", tool_name: "execute_prometheus_range_query", random_key: "9kLK"} >>
+<< {"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "9kLK"} >>
 ```
 
 In addition to this text response, the returned JSON will contain one or more tool calls, including the prometheus query:
@@ -120,7 +120,7 @@ In addition to `execute_prometheus_range_query`, HolmesGPT can generate similar 
 ```
 Here's the average HTTP request latency over time for the `customer-orders-service`:
 
-<< {type: "promql", tool_name: "execute_prometheus_instant_query", random_key: "9kLK"} >>
+<< {"type": "promql", "tool_name": "execute_prometheus_instant_query", "random_key": "9kLK"} >>
 ```
 
 ```json
