@@ -2,7 +2,7 @@
 # we test this on each commit/PR to catch build problems early
 name: Build and test HolmesGPT
 
-on: [push, pull_request, workflow_dispatch]
+on: [push, workflow_dispatch]
 
 jobs:
   check:

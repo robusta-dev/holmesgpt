@@ -12,7 +12,7 @@ from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correct
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
-
+from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
 from os import path
 
@@ -67,7 +67,14 @@ def test_ask_holmes(experiment_name, test_case):
         raise e
 
     try:
-        result = ask_holmes(test_case)
+        result: LLMResult = ask_holmes(test_case)
+        for tool_call in result.tool_calls:
+            # TODO: mock this instead so span start time & end time will be accurate.
+            # Also to include calls to llm spans
+            with eval.start_span(
+                name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
+            ) as tool_span:
+                tool_span.log(input=tool_call.description, output=tool_call.result)
     finally:
         after_test(test_case)
 
@@ -82,16 +89,36 @@ def test_ask_holmes(experiment_name, test_case):
 
     debug_expected = "\n-  ".join(expected)
     print(f"** EXPECTED **\n-  {debug_expected}")
-    correctness_eval = evaluate_correctness(output=output, expected_elements=expected)
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-    )
-    scores["correctness"] = correctness_eval.score
-
+    with eval.start_span(
+        name="Correctness", type=SpanTypeAttribute.SCORE
+    ) as correctness_span:
+        correctness_eval = evaluate_correctness(
+            output=output, expected_elements=expected
+        )
+        print(
+            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
+        )
+        scores["correctness"] = correctness_eval.score
+        correctness_span.log(
+            scores={
+                "correctness": correctness_eval.score,
+            },
+            metadata=correctness_eval.metadata,
+        )
     if len(test_case.retrieval_context) > 0:
-        scores["context"] = evaluate_context_usage(
-            output=output, context_items=test_case.retrieval_context, input=input
-        ).score
+        with eval.start_span(
+            name="Context", type=SpanTypeAttribute.SCORE
+        ) as context_span:
+            context_eval = evaluate_context_usage(
+                output=output, context_items=test_case.retrieval_context, input=input
+            )
+            scores["context"] = context_eval.score
+            context_span.log(
+                scores={
+                    "context": context_eval.score,
+                },
+                metadata=context_eval.metadata,
+            )
 
     if bt_helper and eval:
         bt_helper.end_evaluation(
