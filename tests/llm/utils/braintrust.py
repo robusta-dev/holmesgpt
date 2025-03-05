@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from holmes.common.env_vars import load_bool
 from tests.llm.utils.mock_utils import HolmesTestCase
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 
