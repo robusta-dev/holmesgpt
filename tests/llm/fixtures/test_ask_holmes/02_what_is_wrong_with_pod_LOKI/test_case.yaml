@@ -15,4 +15,3 @@ retrieval_context:
       Container test-container in pod test-pod was killed due to out of memory
 evaluation:
   correctness: 1
-generate_mocks: True
