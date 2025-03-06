@@ -38,11 +38,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-bzfms (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   cert-volume:
     Type:      ConfigMap (a volume populated by a ConfigMap)
@@ -54,7 +54,7 @@ Volumes:
     Optional:  false
   writable-certs:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
-    Medium:     
+    Medium:
     SizeLimit:  <unset>
   kube-api-access-bzfms:
     Type:                    Projected (a volume that contains injected data from multiple sources)
