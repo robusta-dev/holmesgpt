@@ -1,7 +1,7 @@
 import yaml
 import pytest
 
-from holmes.config import Config
+from holmes.config import Config, load_toolsets_definitions
 
 
 # class DummyToolsetYamlFromConfig to bypass actual validations and test only load_custom_toolsets_config
@@ -99,8 +99,7 @@ def test_load_custom_toolsets_config_fallback(tmp_path, monkeypatch):
     assert getattr(tool, "path", None) == str(fallback_file)
 
 
-def test_load_toolsets_config_old_format():
-    config = Config()
+def test_load_toolsets_definitions_old_format():
     old_format_data = [
         {
             "name": "aws/security",
@@ -116,11 +115,10 @@ def test_load_toolsets_config_old_format():
     ]
 
     with pytest.raises(ValueError, match="Old toolset config format detected"):
-        config.load_toolsets_config(old_format_data, "dummy_path")
+        load_toolsets_definitions(old_format_data, "dummy_path")
 
 
-def test_load_toolsets_config_multiple_old_format_toolsets():
-    config = Config()
+def test_load_toolsets_definitions_multiple_old_format_toolsets():
     old_format_data = [
         {
             "name": "aws/security",
@@ -146,4 +144,4 @@ def test_load_toolsets_config_multiple_old_format_toolsets():
     ]
 
     with pytest.raises(ValueError, match="Old toolset config format detected"):
-        config.load_toolsets_config(old_format_data, "dummy_path")
+        load_toolsets_definitions(old_format_data, "dummy_path")
