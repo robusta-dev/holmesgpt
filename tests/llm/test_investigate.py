@@ -94,14 +94,11 @@ def test_investigate(experiment_name, test_case):
     metadata = get_machine_state_tags()
     metadata["model"] = config.model or "Unknown"
 
-    bt_helper = None
-    eval = None
-    if braintrust_util.PUSH_EVALS_TO_BRAINTRUST:
-        dataset_name = braintrust_util.get_dataset_name("investigate")
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
-        eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    dataset_name = braintrust_util.get_dataset_name("investigate")
+    bt_helper = braintrust_util.BraintrustEvalHelper(
+        project_name=PROJECT, dataset_name=dataset_name
+    )
+    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:

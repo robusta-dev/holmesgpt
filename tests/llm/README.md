@@ -88,3 +88,25 @@ The test may pass or not based on whether the evaluation scores are high enough.
 | EXPERIMENT_ID            | EXPERIMENT_ID=nicolas_gemini_v1     | Override the experiment name in Braintrust. Helps with identifying and comparing experiments. Must be unique across ALL experiments.   |
 | MODEL                    | MODEL=anthropic/claude-3.5          | The model to use for generation.                                                                                                       |
 | PUSH_EVALS_TO_BRAINTRUST | PUSH_EVALS_TO_BRAINTRUST=true       | Whether to push the eval results to Braintrust                                                                                         |
+
+
+# Comparing LLM models
+
+1. Create a baseline test with gpt-4o
+Note that you could also use the [master tests](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments?search={%22filter%22:[{%22text%22:%22source%2520ILIKE%2520%2522%2525master%2525%2522%22,%22label%22:%22Source%2520contains%2520master%22,%22originType%22:%22form%22}]}&ye=metric|duration,metric|llm_duration,metric|prompt_tokens,metric|completion_tokens,metric|total_tokens&y=score|context)
+in Braintrust. Look for the `source` column and you identify the latest master build. Open one of each experiment
+for `ask_holmes` and `investigate` in separate tabs.
+
+You can also create your own baseline:
+
+```bash
+export UPLOAD_DATASET=true
+export PUSH_EVALS_TO_BRAINTRUST=true
+EXPERIMENT_ID=my_baseline pytest -n 10 ./tests/llm/test_*
+```
+
+2. Then run a new set of evals to compare against by specifying the MODEL env var as well
+
+```
+EXPERIMENT_ID=test_model_xyz MODEL=xyz pytest -n 10 ./tests/llm/test_*
+```

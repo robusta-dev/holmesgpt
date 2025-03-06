@@ -51,15 +51,12 @@ def idfn(val):
 )
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(experiment_name, test_case):
-    bt_helper = None
-    eval = None
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
-    if braintrust_util.PUSH_EVALS_TO_BRAINTRUST:
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
+    bt_helper = braintrust_util.BraintrustEvalHelper(
+        project_name=PROJECT, dataset_name=dataset_name
+    )
 
-        eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     try:
         before_test(test_case)
