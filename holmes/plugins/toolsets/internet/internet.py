@@ -1,11 +1,16 @@
 import re
 import os
 import logging
-
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Dict, List
 
 from requests import RequestException, Timeout
-from holmes.core.tools import Tool, ToolParameter, Toolset, ToolsetTag
+from holmes.core.tools import (
+    Tool,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
+    CallablePrerequisite,
+)
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 
@@ -67,14 +72,17 @@ SELECTORS_TO_REMOVE = [
 ]
 
 
-def scrape(url) -> Tuple[Optional[str], Optional[str]]:
+def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[str]]:
     response = None
     content = None
     mime_type = None
+    if not headers:
+        headers = {}
+    headers["User-Agent"] = INTERNET_TOOLSET_USER_AGENT
     try:
         response = requests.get(
             url,
-            headers={"User-Agent": INTERNET_TOOLSET_USER_AGENT},
+            headers=headers,
             timeout=INTERNET_TOOLSET_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -156,7 +164,9 @@ def looks_like_html(content):
 
 
 class FetchWebpage(Tool):
-    def __init__(self):
+    toolset: "InternetToolset"
+
+    def __init__(self, toolset: "InternetToolset"):
         super().__init__(
             name="fetch_webpage",
             description="Fetch a webpage. Use this to fetch runbooks if they are present before starting your investigation (if no other tool like confluence is more appropriate)",
@@ -165,13 +175,18 @@ class FetchWebpage(Tool):
                     description="The URL to fetch",
                     type="string",
                     required=True,
-                )
+                ),
             },
+            toolset=toolset,
         )
 
     def _invoke(self, params: Any) -> str:
         url: str = params["url"]
-        content, mime_type = scrape(url)
+
+        additional_headers = (
+            self.toolset.additional_headers if self.toolset.additional_headers else {}
+        )
+        content, mime_type = scrape(url, additional_headers)
 
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
@@ -190,15 +205,51 @@ class FetchWebpage(Tool):
         return f"fetched webpage {url}"
 
 
-class InternetToolset(Toolset):
+class InternetBaseToolset(Toolset):
+    additional_headers: Dict[str, str] = {}
+
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        icon_url: str,
+        tools: list[Tool],
+        is_default: str,
+        tags: List[ToolsetTag],
+        docs_url: Optional[str] = None,
+    ):
+        super().__init__(
+            name=name,
+            description=description,
+            icon_url=icon_url,
+            prerequisites=[
+                CallablePrerequisite(callable=self.prerequisites_callable),
+            ],
+            tools=tools,
+            tags=tags,
+            is_default=is_default,
+            docs_url=docs_url,
+        )
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+        if not config:
+            return True
+        self.additional_headers = config.get("additional_headers", {})
+        return True
+
+
+class InternetToolset(InternetBaseToolset):
+    additional_headers: Dict[str, str] = {}
+
     def __init__(self):
         super().__init__(
             name="internet",
             description="Fetch webpages",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
+            tools=[
+                FetchWebpage(self),
+            ],
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html",
-            prerequisites=[],
-            tools=[FetchWebpage()],
             tags=[
                 ToolsetTag.CORE,
             ],

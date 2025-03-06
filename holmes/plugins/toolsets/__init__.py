@@ -8,7 +8,8 @@ from holmes.plugins.toolsets.datetime import DatetimeToolset
 from holmes.plugins.toolsets.robusta import RobustaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
-from holmes.plugins.toolsets.internet import InternetToolset
+from holmes.plugins.toolsets.internet.internet import InternetToolset
+from holmes.plugins.toolsets.internet.notion import NotionToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
 from holmes.plugins.toolsets.opensearch import OpenSearchToolset
@@ -49,6 +50,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchToolset(),
         GrafanaLokiToolset(),
         GrafanaTempoToolset(),
+        NotionToolset(),
         KafkaToolset(),
         DatetimeToolset(),
     ]
