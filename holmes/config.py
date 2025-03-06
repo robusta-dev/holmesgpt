@@ -66,7 +66,15 @@ def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, dict):
             replace_env_vars_values(value)
         elif isinstance(value, list):
-            values[key] = [replace_env_vars_values(iter) for iter in value]
+            # can be a list of strings
+            values[key] = [
+                replace_env_vars_values(iter)
+                if isinstance(iter, dict)
+                else get_env_replacement(iter)
+                if isinstance(iter, str)
+                else iter
+                for iter in value
+            ]
     return values
 
 
@@ -527,7 +535,7 @@ class Config(RobustaBaseConfig):
                 logging.warning(f"Toolset '{name}' is invalid: {e}")
 
             except Exception:
-                logging.warning("Failed to load toolset: %s", name)
+                logging.exception("Failed to load toolset: %s", name)
 
         return loaded_toolsets
 
