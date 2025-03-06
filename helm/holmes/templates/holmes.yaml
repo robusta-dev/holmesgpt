@@ -27,6 +27,9 @@ spec:
       imagePullSecrets:
       {{- toYaml .Values.imagePullSecrets | nindent 6 }}
       {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
+      {{- end }}
       {{- if .Values.affinity }}
       affinity: {{ toYaml .Values.affinity | nindent 8 }}
       {{- end }}
@@ -38,6 +41,10 @@ spec:
         env:
           - name: LOG_LEVEL
             value: {{ .Values.logLevel }}
+          - name: ENABLE_TELEMETRY
+            value: {{ .Values.enableTelemetry }}
+          - name: SENTRY_DSN
+            value: {{ .Values.sentryDSN }}
           {{ if .Values.certificate -}}
           - name: CERTIFICATE
             value: {{ .Values.certificate }}
@@ -45,10 +52,6 @@ spec:
           {{ if .Values.enablePostProcessing -}}
           - name: HOLMES_POST_PROCESSING_PROMPT
             value: {{ .Values.postProcessingPrompt }}
-          - name: ENABLE_TELEMETRY
-            value: {{ .Values.enableTelemetry }}
-          - name: SENTRY_DSN
-            value: {{ .Values.sentryDSN }}
           {{- end }}
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
