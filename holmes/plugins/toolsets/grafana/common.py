@@ -1,8 +1,9 @@
 import json
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Tuple
 import time
 from pydantic import BaseModel
-from datetime import datetime
+import datetime
+from dateutil import parser
 
 ONE_HOUR_IN_SECONDS = 3600
 
@@ -21,22 +22,96 @@ def headers(api_key: str):
     }
 
 
+def is_int(string):
+    try:
+        int(string)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+def is_rfc3339(timestamp_str: str) -> bool:
+    """Check if a string is in RFC3339 format."""
+    try:
+        parser.parse(timestamp_str)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def rfc3339_to_unix(timestamp_str: str) -> int:
+    dt = parser.parse(timestamp_str)
+    return int(dt.timestamp())
+
+
+def unix_to_rfc3339(timestamp: int) -> str:
+    dt = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
+    return dt.isoformat()
+
+
 def process_timestamps(
     start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
-):
-    if start_timestamp and isinstance(start_timestamp, str):
-        start_timestamp = int(start_timestamp)
-    if end_timestamp and isinstance(end_timestamp, str):
-        end_timestamp = int(end_timestamp)
+) -> Tuple[str, str]:
+    """
+    Process and normalize start and end timestamps.
 
+    Supports:
+    - Integer timestamps (Unix time)
+    - RFC3339 formatted timestamps
+    - Negative integers as relative time from the other timestamp
+    - Auto-inversion if start is after end
+
+    Returns:
+        Tuple of (start_timestamp, end_timestamp)
+    """
+    # If no end_timestamp provided, use current time
     if not end_timestamp:
         end_timestamp = int(time.time())
 
+    # If no start_timestamp provided, default to one hour before end
     if not start_timestamp:
         start_timestamp = -ONE_HOUR_IN_SECONDS
 
-    if start_timestamp < 0:
-        start_timestamp = end_timestamp + start_timestamp
+    if start_timestamp and is_int(start_timestamp):
+        start_timestamp = int(start_timestamp)
+    elif isinstance(start_timestamp, str) and is_rfc3339(start_timestamp):
+        start_timestamp = rfc3339_to_unix(start_timestamp)
+
+    if end_timestamp and is_int(end_timestamp):
+        end_timestamp = int(end_timestamp)
+    elif isinstance(end_timestamp, str) and is_rfc3339(end_timestamp):
+        end_timestamp = rfc3339_to_unix(end_timestamp)
+
+    # Handle negative timestamps (relative to the other timestamp)
+    if isinstance(start_timestamp, int) and isinstance(end_timestamp, int):
+        if start_timestamp < 0 and end_timestamp < 0:
+            raise ValueError(
+                f"Both start_timestamp and end_timestamp cannot be negative. Received start_timestamp={start_timestamp} and end_timestamp={end_timestamp}"
+            )
+        elif start_timestamp < 0:
+            start_timestamp = end_timestamp + start_timestamp
+        elif end_timestamp < 0:
+            # start/end are inverted. end_timestamp should be after start_timestamp
+            delta = end_timestamp
+            end_timestamp = start_timestamp
+            start_timestamp = start_timestamp + delta
+
+    # Invert timestamps if start is after end
+    if (
+        isinstance(start_timestamp, int)
+        and isinstance(end_timestamp, int)
+        and start_timestamp > end_timestamp
+    ):
+        start_timestamp, end_timestamp = end_timestamp, start_timestamp
+
+    # Convert timestamps to RFC3399 because APIs support it and it's
+    # more human readable than timestamps
+    if isinstance(start_timestamp, int):
+        start_timestamp = unix_to_rfc3339(start_timestamp)
+    if isinstance(end_timestamp, int):
+        end_timestamp = unix_to_rfc3339(end_timestamp)
+
     return (start_timestamp, end_timestamp)
 
 
@@ -54,7 +129,7 @@ def format_log(log: Dict) -> str:
         log_str = json.dumps(log)
     elif timestamp_nanoseconds:
         timestamp_seconds = int(timestamp_nanoseconds) // 1_000_000_000
-        dt = datetime.fromtimestamp(timestamp_seconds)
+        dt = datetime.datetime.fromtimestamp(timestamp_seconds)
         log_str = dt.strftime("%Y-%m-%dT%H:%M:%SZ") + " " + log_str
 
     return log_str

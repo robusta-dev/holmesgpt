@@ -27,10 +27,10 @@ Containers:
       /bin/sh
       -c
     Args:
-      echo 'Java Network Exception: 
-      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256 
-      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256 
-      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256 
+      echo 'Java Network Exception:
+      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
+      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
+      All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
       All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256'; sleep 60; exit 1
     State:          Terminated
       Reason:       Error
@@ -44,11 +44,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-b5m22 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   False 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
 Volumes:
   kube-api-access-b5m22:
     Type:                    Projected (a volume that contains injected data from multiple sources)

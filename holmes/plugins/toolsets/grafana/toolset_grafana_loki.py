@@ -132,12 +132,12 @@ class GetLokiLogsForResource(Tool):
                     required=True,
                 ),
                 "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
+                    description="The beginning time boundary for the log search period. String in RFC3339 format. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
                 "end_timestamp": ToolParameter(
-                    description="The ending time boundary for the log search period. Epoch in seconds. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    description="The ending time boundary for the log search period. String in RFC3339 format. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
                     type="string",
                     required=False,
                 ),

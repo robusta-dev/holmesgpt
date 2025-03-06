@@ -1,4 +1,3 @@
-
 import os
 import yaml
 from holmes.config import load_toolsets_definitions
@@ -13,8 +12,9 @@ grafana/loki:
 
 env_vars = {
     "GRAFANA_API_KEY": "glsa_sdj1q2o3prujpqfd",
-    "GRAFANA_URL": "https://my-grafana.com/"
+    "GRAFANA_URL": "https://my-grafana.com/",
 }
+
 
 def test_load_toolsets_definition():
     original_env = os.environ.copy()
