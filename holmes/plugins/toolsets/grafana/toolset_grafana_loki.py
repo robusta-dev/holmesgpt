@@ -1,68 +1,78 @@
-from typing import Dict
-
-import yaml
+from abc import ABC, abstractmethod
+from typing import Dict, cast
+from pydantic import BaseModel
 
 from holmes.core.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
-    get_datasource_id,
+    format_log,
     get_param_or_raise,
     process_timestamps,
 )
-from holmes.plugins.toolsets.grafana.grafana_api import list_grafana_datasources
 from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
-    query_loki_logs_by_node,
-    query_loki_logs_by_pod,
+    query_loki_logs_by_label,
 )
 
 
+class GrafanaLokiLabelsConfig(BaseModel):
+    pod: str = "pod"
+    namespace: str = "namespace"
+
+
 class GrafanaLokiConfig(GrafanaConfig):
-    pod_name_search_key: str = "pod"
-    namespace_search_key: str = "namespace"
-    node_name_search_key: str = "node"
+    labels: GrafanaLokiLabelsConfig = GrafanaLokiLabelsConfig()
 
 
-class ListLokiDatasources(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
-        super().__init__(
-            name="list_loki_datasources",
-            description="Fetches the Loki data sources in Grafana",
-            parameters={},
+def get_resource_label(params: Dict, config: GrafanaLokiConfig):
+    resource_type = params.get("resource_type", "pod")
+    label = None
+    if resource_type == "pod":
+        label = config.labels.pod
+    else:
+        return f'Error: unsupported resource type "{resource_type}". resource_type must be "pod"'
+    return label
+
+
+class BaseGrafanaLokiToolset(BaseGrafanaToolset):
+    config_class = GrafanaLokiConfig
+
+    def get_example_config(self):
+        example_config = GrafanaLokiConfig(
+            api_key="YOUR API KEY",
+            url="YOUR GRAFANA URL",
+            grafana_datasource_uid="<UID of the loki datasource to use>",
         )
-        self._toolset: BaseGrafanaToolset = toolset
+        return example_config.model_dump()
 
-    def _invoke(self, params: Dict) -> str:
-        datasources = list_grafana_datasources(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-            source_name="loki",
-        )
-        return yaml.dump(datasources)
+    @property
+    def grafana_config(self) -> GrafanaLokiConfig:
+        return cast(GrafanaLokiConfig, self._grafana_config)
+
+
+class BaseLokiLogsQuery(Tool, ABC):
+    @abstractmethod
+    def _build_query(self, params: Dict):
+        pass
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Fetched Grafana Loki datasources"
+        return f"Fetched Loki logs ({self._build_query(params)})"
 
 
-class GetLokiLogsByNode(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+class GetLokiLogs(Tool):
+    def __init__(self, toolset: BaseGrafanaLokiToolset):
         super().__init__(
-            name="fetch_loki_logs_by_node",
-            description="""Fetches the Loki logs for a given node""",
+            name="fetch_loki_logs",
+            description="Fetches Loki logs from any query",
             parameters={
-                "loki_datasource_id": ToolParameter(
-                    description="The id of the loki datasource to use. First call the tool list_loki_datasources, then pass the numerical id field here",
-                    type="string",
-                    required=True,
-                ),
-                "node_name": ToolParameter(
-                    description="The name of the kubernetes node to fetch",
+                "query": ToolParameter(
+                    description="The query.",
                     type="string",
                     required=True,
                 ),
                 "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
+                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
@@ -72,69 +82,9 @@ class GetLokiLogsByNode(Tool):
                     required=False,
                 ),
                 "limit": ToolParameter(
-                    description="Maximum number of logs to return.",
-                    type="string",
-                    required=True,
-                ),
-            },
-        )
-        self._toolset: BaseGrafanaToolset = toolset
-
-    def _invoke(self, params: Dict) -> str:
-        (start, end) = process_timestamps(
-            params.get("start_timestamp"), params.get("end_timestamp")
-        )
-        logs = query_loki_logs_by_node(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
-            node_name=get_param_or_raise(params, "node_name"),
-            node_name_search_key=self._toolset._grafana_config.node_name_search_key,
-            start=start,
-            end=end,
-            limit=int(get_param_or_raise(params, "limit")),
-        )
-        return yaml.dump(logs)
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Loki logs ({str(params)})"
-
-
-class GetLokiLogsByLabel(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
-        super().__init__(
-            name="fetch_loki_logs_by_label",
-            description="""Fetches Loki logs matching a <label>=<value> pair""",
-            parameters={
-                "loki_datasource_id": ToolParameter(
-                    description="The id of the loki datasource to use. Call the tool list_loki_datasources",
-                    type="string",
-                    required=True,
-                ),
-                "label": ToolParameter(
-                    description="The label for the query.",
-                    type="string",
-                    required=True,
-                ),
-                "value": ToolParameter(
-                    description="The value of the label.",
-                    type="string",
-                    required=True,
-                ),
-                "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
+                    description="Maximum number of logs to return. Defaults to 5000. Reduce if the query times out",
                     type="string",
                     required=False,
-                ),
-                "end_timestamp": ToolParameter(
-                    description="The ending time boundary for the log search period. Epoch in seconds. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
-                    type="string",
-                    required=False,
-                ),
-                "limit": ToolParameter(
-                    description="Maximum number of logs to return.",
-                    type="string",
-                    required=True,
                 ),
             },
         )
@@ -144,37 +94,35 @@ class GetLokiLogsByLabel(Tool):
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
-        label = get_param_or_raise(params, "label")
-        value = get_param_or_raise(params, "value")
-        query = f'{{{label}="{value}"}}'
+        query = get_param_or_raise(params, "query")
         logs = execute_loki_query(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
+            loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
             query=query,
             start=start,
             end=end,
-            limit=int(get_param_or_raise(params, "limit")),
+            limit=int(params.get("limit", 5000)),
         )
-        return yaml.dump(logs)
+        return "\n".join([format_log(log) for log in logs])
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
 
 
-class GetLokiLogsByPod(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+class GetLokiLogsForResource(Tool):
+    def __init__(self, toolset: BaseGrafanaLokiToolset):
         super().__init__(
-            name="fetch_loki_logs_by_pod",
-            description="Fetches the Loki logs for a given pod",
+            name="fetch_loki_logs_for_resource",
+            description="Fetches the Loki logs for a given kubernetes resource",
             parameters={
-                "loki_datasource_id": ToolParameter(
-                    description="The id of the loki datasource to use. Call the tool list_loki_datasources",
+                "resource_type": ToolParameter(
+                    description="The type of resource. Can only be 'pod' for now. Defaults to 'pod'.",
                     type="string",
-                    required=True,
+                    required=False,
                 ),
-                "pod_regex": ToolParameter(
-                    description="Regular expression to match pod names",
+                "resource_name": ToolParameter(
+                    description='Regular expression to match the resource name. This can be a regular expression. For example "<pod-name>.*" will match any pod name starting with "<pod-name>"',
                     type="string",
                     required=True,
                 ),
@@ -184,19 +132,24 @@ class GetLokiLogsByPod(Tool):
                     required=True,
                 ),
                 "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. Epoch in seconds. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp.",
+                    description="The beginning time boundary for the log search period. String in RFC3339 format. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
                 "end_timestamp": ToolParameter(
-                    description="The ending time boundary for the log search period. Epoch in seconds. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    description="The ending time boundary for the log search period. String in RFC3339 format. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
                     type="string",
                     required=False,
                 ),
                 "limit": ToolParameter(
-                    description="Maximum number of logs to return.",
+                    description="Maximum number of logs to return. Defaults to 5000. Reduce if the query times out",
                     type="string",
-                    required=True,
+                    required=False,
+                ),
+                "logs_filter": ToolParameter(
+                    description="Filter the logs and only return log lines matching this regular expression. Use if looking for a particular string",
+                    type="string",
+                    required=False,
                 ),
             },
         )
@@ -206,43 +159,34 @@ class GetLokiLogsByPod(Tool):
         (start, end) = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
-        logs = query_loki_logs_by_pod(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-            loki_datasource_id=get_datasource_id(params, "loki_datasource_id"),
-            pod_regex=get_param_or_raise(params, "pod_regex"),
+        label = get_resource_label(params, self._toolset.grafana_config)
+        resource_name = get_param_or_raise(params, "resource_name")
+
+        logs = query_loki_logs_by_label(
+            grafana_url=self._toolset.grafana_config.url,
+            api_key=self._toolset.grafana_config.api_key,
+            loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
+            filter_regexp=params.get("logs_filter"),
             namespace=get_param_or_raise(params, "namespace"),
-            namespace_search_key=self._toolset._grafana_config.namespace_search_key,
-            pod_name_search_key=self._toolset._grafana_config.pod_name_search_key,
+            namespace_search_key=self._toolset.grafana_config.labels.namespace,
+            label=label,
+            label_value=resource_name,
             start=start,
             end=end,
-            limit=int(get_param_or_raise(params, "limit")),
+            limit=int(params.get("limit", 5000)),
         )
-        return yaml.dump(logs)
+        return "\n".join([format_log(log) for log in logs])
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Loki logs({str(params)})"
 
 
-class GrafanaLokiToolset(BaseGrafanaToolset):
-    config_class = GrafanaLokiConfig
-
+class GrafanaLokiToolset(BaseGrafanaLokiToolset):
     def __init__(self):
         super().__init__(
             name="grafana/loki",
             description="Fetches kubernetes pods and node logs from Loki",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
-            doc_url="https://grafana.com/oss/loki/",
-            tools=[
-                ListLokiDatasources(self),
-                GetLokiLogsByNode(self),
-                GetLokiLogsByPod(self),
-                GetLokiLogsByLabel(self),
-            ],
+            docs_url="https://grafana.com/oss/loki/",
+            tools=[GetLokiLogsForResource(self), GetLokiLogs(self)],
         )
-
-    def get_example_config(self):
-        example_config = GrafanaLokiConfig(
-            api_key="YOUR API KEY", url="YOUR GRAFANA URL"
-        )
-        return example_config.model_dump()

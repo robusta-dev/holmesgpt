@@ -377,6 +377,9 @@ class ToolExecutor:
                 toolsets,
             )
         )
+        self.enabled_toolsets_names: set[str] = set(
+            [ts.name for ts in self.enabled_toolsets]
+        )
 
         toolsets_by_name: dict[str, Toolset] = {}
         for ts in self.enabled_toolsets:

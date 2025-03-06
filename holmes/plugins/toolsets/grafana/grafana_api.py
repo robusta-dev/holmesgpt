@@ -14,7 +14,7 @@ from holmes.plugins.toolsets.grafana.common import headers
     and e.response.status_code < 500,
 )
 def list_grafana_datasources(
-    grafana_url: str, api_key: str, source_name: Optional[str] = None
+    grafana_url: str, api_key: str, datasource_type: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     List all configured datasources from a Grafana instance with retry and backoff.
@@ -34,11 +34,11 @@ def list_grafana_datasources(
         response.raise_for_status()
 
         datasources = response.json()
-        if not source_name:
+        if not datasource_type:
             return datasources
 
         relevant_datasources = [
-            ds for ds in datasources if ds["type"].lower() == source_name.lower()
+            ds for ds in datasources if ds["type"].lower() == datasource_type.lower()
         ]
 
         for ds in relevant_datasources:

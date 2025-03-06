@@ -1,10 +1,11 @@
 from typing import Dict, List, Optional
-from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum
+from holmes.config import parse_toolsets_file
+from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
 from holmes.plugins.toolsets import load_builtin_toolsets
 from pydantic import BaseModel
 import logging
 import re
-
+import os
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
@@ -118,18 +119,40 @@ class MockToolsets:
     generate_mocks: bool
     test_case_folder: str
 
-    def __init__(self, test_case_folder: str, generate_mocks: bool = True) -> None:
-        self.unmocked_toolsets = load_builtin_toolsets()
-
-        for toolset in self.unmocked_toolsets:
-            toolset.enabled = True
-            toolset.check_prerequisites()
-
+    def __init__(
+        self, test_case_folder: str, generate_mocks: bool = True, run_live: bool = False
+    ) -> None:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
         self._mocks = []
         self.mocked_toolsets = []
+        self._enable_builtin_toolsets(run_live)
         self._update()
+
+    def _load_toolsets_definitions(self, run_live) -> List[ToolsetYamlFromConfig]:
+        config_path = os.path.join(self.test_case_folder, "config.yaml")
+        toolsets_definitions = None
+        if os.path.isfile(config_path):
+            toolsets_definitions = parse_toolsets_file(
+                path=config_path, raise_error=run_live
+            )
+
+        return toolsets_definitions or []
+
+    def _enable_builtin_toolsets(self, run_live: bool):
+        self.unmocked_toolsets = load_builtin_toolsets()
+
+        toolset_definitions = self._load_toolsets_definitions(run_live)
+
+        for toolset in self.unmocked_toolsets:
+            toolset.enabled = True
+            definition = next(
+                (d for d in toolset_definitions if d.name == toolset.name), None
+            )
+            if definition:
+                toolset.config = definition.config
+                toolset.enabled = definition.enabled
+            toolset.check_prerequisites()
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)
