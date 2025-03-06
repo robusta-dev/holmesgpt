@@ -175,10 +175,12 @@ def workload_health_check(request: WorkloadHealthRequest):
 
         ai = config.create_toolcalling_llm(dal=dal)
 
-        enabled_toolsets = [ts.name for ts in ai.tool_executor.enabled_toolsets]
         system_prompt = load_and_render_prompt(
             request.prompt_template,
-            context={"alerts": workload_alerts, "enabled_toolsets": enabled_toolsets},
+            context={
+                "alerts": workload_alerts,
+                "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+            },
         )
 
         structured_output = {"type": "json_object"}

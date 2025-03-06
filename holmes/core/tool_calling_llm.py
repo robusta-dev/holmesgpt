@@ -427,15 +427,13 @@ class IssueInvestigator(ToolCallingLLM):
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
 
-        enabled_toolsets_names = [ts.name for ts in self.tool_executor.enabled_toolsets]
-
         system_prompt = load_and_render_prompt(
             prompt,
             {
                 "issue": issue,
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
-                "enabled_toolsets": enabled_toolsets_names,
+                "enabled_toolsets": self.tool_executor.enabled_toolsets_names,
             },
         )
 

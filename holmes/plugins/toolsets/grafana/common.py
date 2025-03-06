@@ -45,9 +45,27 @@ def rfc3339_to_unix(timestamp_str: str) -> int:
     return int(dt.timestamp())
 
 
+def datetime_to_unix(timestamp_or_datetime_str):
+    if timestamp_or_datetime_str and is_int(timestamp_or_datetime_str):
+        return int(timestamp_or_datetime_str)
+    elif isinstance(timestamp_or_datetime_str, str) and is_rfc3339(
+        timestamp_or_datetime_str
+    ):
+        return rfc3339_to_unix(timestamp_or_datetime_str)
+    else:
+        return timestamp_or_datetime_str
+
+
 def unix_to_rfc3339(timestamp: int) -> str:
     dt = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
     return dt.isoformat()
+
+
+def datetime_to_rfc3339(timestamp):
+    if isinstance(timestamp, int):
+        return unix_to_rfc3339(timestamp)
+    else:
+        return timestamp
 
 
 def process_timestamps(
@@ -73,15 +91,8 @@ def process_timestamps(
     if not start_timestamp:
         start_timestamp = -ONE_HOUR_IN_SECONDS
 
-    if start_timestamp and is_int(start_timestamp):
-        start_timestamp = int(start_timestamp)
-    elif isinstance(start_timestamp, str) and is_rfc3339(start_timestamp):
-        start_timestamp = rfc3339_to_unix(start_timestamp)
-
-    if end_timestamp and is_int(end_timestamp):
-        end_timestamp = int(end_timestamp)
-    elif isinstance(end_timestamp, str) and is_rfc3339(end_timestamp):
-        end_timestamp = rfc3339_to_unix(end_timestamp)
+    start_timestamp = datetime_to_unix(start_timestamp)
+    end_timestamp = datetime_to_unix(end_timestamp)
 
     # Handle negative timestamps (relative to the other timestamp)
     if isinstance(start_timestamp, int) and isinstance(end_timestamp, int):
@@ -107,10 +118,8 @@ def process_timestamps(
 
     # Convert timestamps to RFC3399 because APIs support it and it's
     # more human readable than timestamps
-    if isinstance(start_timestamp, int):
-        start_timestamp = unix_to_rfc3339(start_timestamp)
-    if isinstance(end_timestamp, int):
-        end_timestamp = unix_to_rfc3339(end_timestamp)
+    start_timestamp = datetime_to_rfc3339(start_timestamp)
+    end_timestamp = datetime_to_rfc3339(end_timestamp)
 
     return (start_timestamp, end_timestamp)
 
