@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Any
+import logging
+from typing import Any, List
 
 import yaml
 
@@ -8,6 +9,11 @@ from holmes.config import Config
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetDBModel
 from holmes.plugins.prompts import load_and_render_prompt
+
+
+def log_toolsets_statuses(toolsets: List[Toolset]):
+    statuses = {toolset.name: toolset.get_status().value for toolset in toolsets}
+    logging.info(f"Enabled toolsets: {statuses}")
 
 
 def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
@@ -46,6 +52,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
             ).model_dump()
         )
     dal.sync_toolsets(db_toolsets, config.cluster_name)
+    log_toolsets_statuses(tool_executor.toolsets)
 
 
 def render_default_installation_instructions_for_toolset(toolset: Toolset) -> str:
