@@ -46,6 +46,8 @@ In general:
 ** check the application aspects with kubectl_logs + kubectl_previous_logs and other relevant tools
 ** look for misconfigured ingresses/services etc
 
+{% include '_fetch_logs.jinja2' %}
+
 Style guide:
 * Be painfully concise.
 * Leave out "the" and filler words when possible.
@@ -69,6 +71,7 @@ Style guide:
     "workload_healthy"
   ]
 }
+
 
 
 {% if alerts %}
