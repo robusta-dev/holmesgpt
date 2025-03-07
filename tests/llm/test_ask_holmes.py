@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import pytest
 
+from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
@@ -50,15 +51,12 @@ def idfn(val):
 )
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(experiment_name, test_case):
-    bt_helper = None
-    eval = None
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
-    if braintrust_util.PUSH_EVALS_TO_BRAINTRUST:
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
+    bt_helper = braintrust_util.BraintrustEvalHelper(
+        project_name=PROJECT, dataset_name=dataset_name
+    )
 
-        eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     try:
         before_test(test_case)
@@ -142,12 +140,15 @@ def test_ask_holmes(experiment_name, test_case):
 
 
 def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
+    run_live = load_bool("RUN_LIVE", False)
     mock = MockToolsets(
-        generate_mocks=test_case.generate_mocks, test_case_folder=test_case.folder
+        generate_mocks=test_case.generate_mocks,
+        test_case_folder=test_case.folder,
+        run_live=run_live,
     )
 
     expected_tools = []
-    if not os.environ.get("RUN_LIVE"):
+    if not run_live:
         for tool_mock in test_case.tool_mocks:
             mock.mock_tool(tool_mock)
             expected_tools.append(tool_mock.tool_name)

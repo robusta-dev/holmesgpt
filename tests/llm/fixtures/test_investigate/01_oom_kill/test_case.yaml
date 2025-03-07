@@ -13,4 +13,3 @@ expected_sections:
   External links: False
 evaluation:
   correctness: 1
-generate_mocks: True
