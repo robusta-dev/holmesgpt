@@ -92,9 +92,6 @@ def fetch_metrics_labels(
     params: dict = {
         "match[]": f'{{__name__=~".*{metric_name}.*"}}',
     }
-    # params: dict = {
-    #     "match[]": '{__name__!=""}',
-    # }
     if metrics_labels_time_window_hrs is not None:
         params["end_time"] = int(time.time())
         params["start_time"] = params["end_time"] - (
@@ -187,8 +184,6 @@ class ListAvailableMetrics(BasePrometheusTool):
             metrics_labels_time_window_hrs = (
                 self.toolset.config.metrics_labels_time_window_hrs
             )
-            if not prometheus_url:
-                return "Prometheus is not configured. Prometheus URL is missing"
 
             name_filter = params.get("name_filter")
             if not name_filter:
