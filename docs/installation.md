@@ -54,24 +54,31 @@ holmes ask "what is wrong with the user-profile-import pod?"
 <details>
 <summary>Docker Container</summary>
 
-Run the prebuilt Docker container `docker.pkg.dev/genuine-flight-317411/devel/holmes`, with extra flags to mount relevant config files (so that kubectl and other tools can access AWS/GCP resources using your local machine's credentials)
+You can run HolmesGPT via a prebuilt Docker container:
+
+```
+docker.pkg.dev/genuine-flight-317411/devel/holmes
+```
+
+Here is an example, that mounts relevant config files so that HolmesGPT can use kubectl and other tools:
 
 ```bash
 docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
 ```
+
+Don't forget to setup [Setup an API key](./api-keys.md) first.
+
 </details>
 
 <details>
 
 <summary>Pip and Pipx</summary>
 
-You can install HolmesGPT from the latest git version with pip or pipx.
+You can install HolmesGPT from source with pip or pipx. Pipx is recommended, as it prevents dependency conflicts.
 
-We recommend using pipx because it guarantees that HolmesGPT is isolated from other python packages on your system, preventing dependency conflicts.
+First [Pipx](https://github.com/pypa/pipx)
 
-First [Pipx](https://github.com/pypa/pipx) (skip this step if you are using pip).
-
-Then install HolmesGPT from git with either pip or pipx:
+Then install HolmesGPT from git:
 
 ```
 pipx install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
@@ -83,13 +90,17 @@ Verify that HolmesGPT was installed by checking the version:
 holmes version
 ```
 
-To upgrade HolmesGPT with pipx, you can run:
+[Setup an API key](./api-keys.md) and start testing HolmesGPT:
+
+```
+holmes ask "what pods are unhealthy and why?"
+```
+
+When new versions of HolmesGPT are released, you can upgrade HolmesGPT with pipx:
 
 ```
 pipx upgrade holmesgpt
 ```
-
-[Setup an API key](./api-keys.md) and start testing HolmesGPT
 
 </details>
 
@@ -105,7 +116,7 @@ cd holmesgpt
 poetry install --no-root
 ```
 
-[Setup an API key](./api-keys.md) and then test HolmesGPT
+[Setup an API key](./api-keys.md) and run HolmesGPT:
 
 ```
 poetry run python3 holmes.py ask "what pods are unhealthy and why?"
