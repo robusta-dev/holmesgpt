@@ -64,3 +64,74 @@ class JiraSource(SourcePlugin):
         response.raise_for_status()
         data = response.json()
         logging.debug(f"Comment added to issue {issue_id}: {data}")
+
+
+class JiraServiceManagementSource(JiraSource):
+    def __init__(self, url: str, username: str, api_key: str, ticket_id: str):
+        super().__init__(url, username, api_key, None)
+        self.ticket_id = ticket_id
+
+    def fetch_issues(self) -> List[Issue]:
+        logging.info(
+            f"Fetching Jira Service Management issue {self.ticket_id} from {self.url}"
+        )
+
+        try:
+            response = requests.get(
+                f"{self.url}/rest/api/3/issue/{self.ticket_id}",
+                auth=HTTPBasicAuth(self.username, self.api_key),
+                headers={"Accept": "application/json"},
+            )
+            response.raise_for_status()
+            jira_issue = response.json()
+            return [self.convert_to_issue(jira_issue)]
+        except requests.RequestException as e:
+            raise ConnectionError(
+                f"Failed to fetch Jira ticket {self.ticket_id}"
+            ) from e
+
+    def convert_to_issue(self, jira_issue):
+        """
+        Converts the Jira API response to an `Issue` object, including formatted description.
+        """
+        return Issue(
+            id=jira_issue["id"],
+            name=jira_issue["fields"]["summary"],
+            source_type="jira-service-management",
+            source_instance_id=self.url,
+            url=f"{self.url}/browse/{jira_issue['key']}",
+            raw=jira_issue,
+            description=self.extract_description(jira_issue),
+        )
+
+    def extract_description(self, jira_issue) -> str:
+        """
+        Extracts and formats the issue description.
+        """
+        description_blocks = (
+            jira_issue.get("fields", {}).get("description", {}).get("content", [])
+        )
+        description_text = []
+
+        for block in description_blocks:
+            if block["type"] == "paragraph":
+                text = " ".join(
+                    [c["text"] for c in block.get("content", []) if "text" in c]
+                )
+                description_text.append(text)
+            elif block["type"] == "orderedList":
+                for idx, item in enumerate(block["content"], start=1):
+                    text = " ".join(
+                        [
+                            c["text"]
+                            for c in item["content"][0].get("content", [])
+                            if "text" in c
+                        ]
+                    )
+                    description_text.append(f"{idx}. {text}")
+
+        return (
+            "\n".join(description_text)
+            if description_text
+            else "No description available."
+        )

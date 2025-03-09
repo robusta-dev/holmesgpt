@@ -551,6 +551,111 @@ def jira(
         write_json_file(json_output_file, results)
 
 
+# Define supported sources
+class SupportedSources(str, Enum):
+    JIRA_SERVICE_MANAGEMENT = "jira-service-management"
+
+
+@investigate_app.command()
+def ticket(
+    source: SupportedSources = typer.Option(
+        ...,
+        help=f"Source system to investigate the ticket from. Supported sources: {', '.join(s.value for s in SupportedSources)}",
+    ),
+    jira_url: Optional[str] = typer.Option(
+        None,
+        help="Jira URL - e.g. https://your-company.atlassian.net",
+        envvar="JIRA_URL",
+    ),
+    jira_username: Optional[str] = typer.Option(
+        None,
+        help="The email address with which you log into Jira",
+        envvar="JIRA_USERNAME",
+    ),
+    jira_api_key: Optional[str] = typer.Option(
+        None,
+        envvar="JIRA_API_KEY",
+    ),
+    ticket_id: Optional[str] = typer.Option(
+        None,
+        help="Jira ticket ID to investigate (e.g., 'KAN-1')",
+    ),
+    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
+    system_prompt: Optional[str] = typer.Option(
+        "builtin://generic_investigation.jinja2", help=system_prompt_help
+    ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+):
+    """
+    Fetch and print a Jira ticket from the specified source.
+    """
+
+    console = init_logging([])
+
+    # Validate source
+    supported_sources = [s.value for s in SupportedSources]
+    if source not in supported_sources:
+        console.print(
+            f"[bold red]Error: Source '{source}' is not supported yet.[/bold red] Supported sources: {', '.join(supported_sources)}"
+        )
+        raise typer.Exit(1)
+
+    # Validate Jira details if source is Jira Service Management
+    if source == SupportedSources.JIRA_SERVICE_MANAGEMENT:
+        if not jira_url or not jira_username or not jira_api_key or not ticket_id:
+            console.print(
+                "[bold red]Error: Jira URL, username, API key, and ticket ID are required for jira-service-management.[/bold red]"
+            )
+            raise typer.Exit(1)
+
+        config = Config.load_from_file(
+            config_file=None,
+            api_key=None,
+            model=None,
+            max_steps=None,
+            jira_url=jira_url,
+            jira_username=jira_username,
+            jira_api_key=jira_api_key,
+            jira_query=None,
+            custom_toolsets=None,
+            custom_runbooks=None,
+        )
+
+        source_handler = config.create_jira_service_management_source(ticket_id)
+
+    # Fetch issue
+    try:
+        issues = source_handler.fetch_issues()
+    except Exception as e:
+        logging.error("Failed to fetch issue from Jira", exc_info=e)
+        console.print(
+            f"[bold red]Error: Failed to fetch issue {ticket_id} from Jira.[/bold red]"
+        )
+        raise typer.Exit(1)
+
+    if not issues:
+        console.print("[bold red]No issues found.[/bold red]")
+        return
+
+    issue = issues[0]
+    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
+    console.print(f"[bold yellow]Analyzing Jira ticket: {issue.name}...[/bold yellow]")
+    result = ai.investigate(
+        issue=issue,
+        prompt=system_prompt,
+        console=console,
+        instructions=None,
+        post_processing_prompt=post_processing_prompt,
+    )
+
+    console.print(Rule())
+    console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
+    console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
+    console.print(Rule())
+    source_handler.write_back_result(issue.id, result)
+    console.print(f"[bold]Updated ticket {issue.url}.[/bold]")
+
+
 @investigate_app.command()
 def github(
     github_url: str = typer.Option(
