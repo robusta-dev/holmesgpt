@@ -66,13 +66,14 @@ def test_ask_holmes(experiment_name, test_case):
 
     try:
         result: LLMResult = ask_holmes(test_case)
-        for tool_call in result.tool_calls:
-            # TODO: mock this instead so span start time & end time will be accurate.
-            # Also to include calls to llm spans
-            with eval.start_span(
-                name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-            ) as tool_span:
-                tool_span.log(input=tool_call.description, output=tool_call.result)
+        if result.tool_calls:
+            for tool_call in result.tool_calls:
+                # TODO: mock this instead so span start time & end time will be accurate.
+                # Also to include calls to llm spans
+                with eval.start_span(
+                    name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
+                ) as tool_span:
+                    tool_span.log(input=tool_call.description, output=tool_call.result)
     finally:
         after_test(test_case)
 
@@ -120,7 +121,6 @@ def test_ask_holmes(experiment_name, test_case):
 
     if bt_helper and eval:
         bt_helper.end_evaluation(
-            eval=eval,
             input=input,
             output=output or "",
             expected=str(expected),
