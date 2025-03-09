@@ -66,8 +66,105 @@ def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, dict):
             replace_env_vars_values(value)
         elif isinstance(value, list):
-            values[key] = [replace_env_vars_values(iter) for iter in value]
+            # can be a list of strings
+            values[key] = [
+                replace_env_vars_values(iter)
+                if isinstance(iter, dict)
+                else get_env_replacement(iter)
+                if isinstance(iter, str)
+                else iter
+                for iter in value
+            ]
     return values
+
+
+def is_old_toolset_config(
+    toolsets: Union[dict[str, dict[str, Any]], List[dict[str, Any]]],
+) -> bool:
+    # old config is a list of toolsets
+    if isinstance(toolsets, list):
+        return True
+    return False
+
+
+def load_toolsets_definitions(
+    toolsets: dict[str, dict[str, Any]], path: str
+) -> List[ToolsetYamlFromConfig]:
+    loaded_toolsets: list[ToolsetYamlFromConfig] = []
+    if is_old_toolset_config(toolsets):
+        message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
+        logging.warning(message)
+        raise ValueError(message)
+
+    for name, config in toolsets.items():
+        try:
+            validated_config: ToolsetYamlFromConfig = ToolsetYamlFromConfig(
+                **config, name=name
+            )
+            validated_config.set_path(path)
+            if validated_config.config:
+                validated_config.config = replace_env_vars_values(
+                    validated_config.config
+                )
+            loaded_toolsets.append(validated_config)
+        except ValidationError as e:
+            logging.warning(f"Toolset '{name}' is invalid: {e}")
+
+        except Exception:
+            logging.warning("Failed to load toolset: %s", name)
+
+    return loaded_toolsets
+
+
+def parse_toolsets_file(
+    path: str, raise_error: bool = True
+) -> Optional[List[ToolsetYamlFromConfig]]:
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            parsed_yaml = yaml.safe_load(file)
+    except yaml.YAMLError as err:
+        logging.warning(f"Error parsing YAML from {path}: {err}")
+        if raise_error:
+            raise err
+        return None
+
+    except Exception as err:
+        logging.warning(f"Failed to open toolset file {path}: {err}")
+        if raise_error:
+            raise err
+        return None
+
+    if not parsed_yaml:
+        message = f"No content found in custom toolset file: {path}"
+        logging.warning(message)
+        if raise_error:
+            raise ValueError(message)
+        return None
+
+    if not isinstance(parsed_yaml, dict):
+        message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
+        logging.warning(message)
+        if raise_error:
+            raise ValueError(message)
+        return None
+
+    toolsets_definitions = parsed_yaml.get("toolsets")
+    if not toolsets_definitions:
+        message = f"No 'toolsets' key found in: {path}"
+        logging.warning(message)
+        if raise_error:
+            raise ValueError(message)
+        return None
+
+    try:
+        toolset_config = load_toolsets_definitions(toolsets_definitions, path)
+    except Exception as err:
+        logging.warning(f"Error loading toolset configuration from {path}: {err}")
+        if raise_error:
+            raise err
+        return None
+
+    return toolset_config
 
 
 class Config(RobustaBaseConfig):
@@ -204,7 +301,7 @@ class Config(RobustaBaseConfig):
             )
 
         if self.toolsets:
-            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
+            loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
             if loaded_toolsets_from_env:
                 toolsets_by_name = (
                     self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -223,7 +320,7 @@ class Config(RobustaBaseConfig):
                 enabled_toolsets.append(ts)
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.DISABLED:
-                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()})")
+                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.FAILED:
                 logging.info(
                     f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})"
@@ -268,7 +365,7 @@ class Config(RobustaBaseConfig):
             )
 
         if self.toolsets:
-            loaded_toolsets_from_env = self.load_toolsets_config(self.toolsets, "env")
+            loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
             if loaded_toolsets_from_env:
                 toolsets_by_name = (
                     self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -410,7 +507,7 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
-    def load_custom_toolsets_config(self) -> list[ToolsetYamlFromConfig]:
+    def load_custom_toolsets_config(self) -> Optional[list[ToolsetYamlFromConfig]]:
         """
         Loads toolsets config from /etc/holmes/config/custom_toolset.yaml with ToolsetYamlFromConfig class
         that doesn't have strict validations.
@@ -439,7 +536,9 @@ class Config(RobustaBaseConfig):
             if not os.path.isfile(custom_path):
                 logging.warning(f"Custom toolset file {custom_path} does not exist")
                 continue
-            toolset_config = self.parse_toolsets_file(custom_path, raise_error=False)
+            toolset_config = parse_toolsets_file(
+                path=str(custom_path), raise_error=False
+            )
             if toolset_config:
                 loaded_toolsets.extend(toolset_config)
 
@@ -453,91 +552,7 @@ class Config(RobustaBaseConfig):
             )
             return []
 
-        return self.parse_toolsets_file(CUSTOM_TOOLSET_LOCATION, raise_error=True)
-
-    def parse_toolsets_file(
-        self, path: str, raise_error: bool = True
-    ) -> Optional[ToolsetYamlFromConfig]:
-        try:
-            with open(path, "r", encoding="utf-8") as file:
-                parsed_yaml = yaml.safe_load(file)
-        except yaml.YAMLError as err:
-            logging.warning(f"Error parsing YAML from {path}: {err}")
-            if raise_error:
-                raise err
-            return None
-        except Exception as err:
-            logging.warning(f"Failed to open toolset file {path}: {err}")
-            if raise_error:
-                raise err
-            return None
-
-        if not parsed_yaml:
-            message = f"No content found in custom toolset file: {path}"
-            logging.warning(message)
-            if raise_error:
-                raise ValueError(message)
-            return None
-
-        if not isinstance(parsed_yaml, dict):
-            message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
-            logging.warning(message)
-            if raise_error:
-                raise ValueError(message)
-            return None
-
-        toolsets = parsed_yaml.get("toolsets")
-        if not toolsets:
-            message = f"No 'toolsets' key found in: {path}"
-            logging.warning(message)
-            if raise_error:
-                raise ValueError(message)
-            return None
-
-        try:
-            toolset_config = self.load_toolsets_config(toolsets, path)
-        except Exception as err:
-            logging.warning(f"Error loading toolset configuration from {path}: {err}")
-            if raise_error:
-                raise err
-            return None
-
-        return toolset_config
-
-    def load_toolsets_config(
-        self, toolsets: dict[str, dict[str, Any]], path: str
-    ) -> List[ToolsetYamlFromConfig]:
-        loaded_toolsets: list[ToolsetYamlFromConfig] = []
-        if self.is_old_toolset_config(toolsets):
-            message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
-            logging.warning(message)
-            raise ValueError(message)
-        for name, config in toolsets.items():
-            try:
-                validated_config: ToolsetYamlFromConfig = ToolsetYamlFromConfig(
-                    **config, name=name
-                )
-                validated_config.set_path(path)
-                if validated_config.config:
-                    validated_config.config = replace_env_vars_values(
-                        validated_config.config
-                    )
-                loaded_toolsets.append(validated_config)
-            except ValidationError as e:
-                logging.warning(f"Toolset '{name}' is invalid: {e}")
-
-            except Exception:
-                logging.warning("Failed to load toolset: %s", name)
-
-        return loaded_toolsets
-
-    def is_old_toolset_config(
-        self, toolsets: Union[dict[str, dict[str, Any]], List[dict[str, Any]]]
-    ) -> bool:
-        # old config is a list of toolsets
-        if isinstance(toolsets, list):
-            return True
-        return False
+        return parse_toolsets_file(path=str(CUSTOM_TOOLSET_LOCATION), raise_error=True)
 
     def merge_and_override_bultin_toolsets_with_toolsets_config(
         self,

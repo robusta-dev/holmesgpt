@@ -87,7 +87,7 @@ HolmesGPT can be used in three ways:
 ### Using HolmesGPT
 
 - In the Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser
-- With HolmesGPT CLI: [setup an API key](#getting-an-api-key) and ask Holmes a question 👇
+- With HolmesGPT CLI: [setup an LLM API key](docs/api-keys.md) and ask Holmes a question 👇
 
 ```bash
 holmes ask "what pods are unhealthy and why?"
@@ -98,12 +98,6 @@ Also supported:
 <details>
 <summary>HolmesGPT CLI: investigate Prometheus alerts</summary>
 
-Optional: port-forward to AlertManager (if running Prometheus inside Kubernetes)
-
-```bash
-kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
-```
-
 Pull alerts from AlertManager and investigate them with HolmesGPT:
 
 ```bash
@@ -112,8 +106,14 @@ holmes investigate alertmanager --alertmanager-url http://localhost:9093
 #  holmes investigate alertmanager --alertmanager-url http://docker.for.mac.localhost:9093
 ```
 
-To investigate alerts in your browser, sign up for a free trial of [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section).
+<b>To investigate alerts in your browser, sign up for a free trial of [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section). </b>
 
+
+<b>Optional:</b> port-forward to AlertManager before running the command mentioned above (if running Prometheus inside Kubernetes)
+
+```bash
+kubectl port-forward alertmanager-robusta-kube-prometheus-st-alertmanager-0 9093:9093 &
+```
 </details>
 
 <details>
@@ -139,17 +139,16 @@ HolmesGPT can investigate many issues out of the box, with no customization or t
 
 **Custom Runbooks**: Give HolmesGPT instructions for known alerts:
    - If using Robusta SaaS: Use the Robusta UI to add runbooks
-   - If using the CLI: Use `-r` flag with [custom runbook files](./examples/custom_runbooks.yaml)
+   - If using the CLI: Use `-r` flag with [custom runbook files](./examples/custom_runbooks.yaml) or add to `~/.holmes/config.yaml`
 
-You can save settings in a config file to avoid passing them to the CLI each time:
+You can save common settings and API Keys in a config file to avoid passing them from the CLI each time:
 
 <details>
 <summary>Reading settings from a config file</summary>
 
-You can customize HolmesGPT's behaviour with command line flags, or you can save common settings in config file for re-use.
+You can save common settings and API keys in config file for re-use. Place the config file in <code>~/.holmes/config.yaml`</code> or pass it using the <code> --config</code>
 
 You can view an example config file with all available settings [here](config.example.yaml).
-
 </details>
 
 ## License

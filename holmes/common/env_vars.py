@@ -30,3 +30,4 @@ LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
 
 ENABLE_TELEMETRY = load_bool("ENABLE_TELEMETRY", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))

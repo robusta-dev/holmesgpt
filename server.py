@@ -29,6 +29,7 @@ from holmes.common.env_vars import (
     LOG_PERFORMANCE,
     SENTRY_DSN,
     ENABLE_TELEMETRY,
+    SENTRY_TRACES_SAMPLE_RATE,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
@@ -91,12 +92,19 @@ async def lifespan(app: FastAPI):
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
-    logging.info("Initializing sentry")
+    logging.info("Initializing sentry...")
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         send_default_pii=False,
-        traces_sample_rate=0,
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
         profiles_sample_rate=0,
+    )
+    sentry_sdk.set_tags(
+        {
+            "account_id": dal.account_id,
+            "cluster_name": config.cluster_name,
+            "model_name": config.model,
+        }
     )
 
 app = FastAPI(lifespan=lifespan)
@@ -165,11 +173,15 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask, global_instructions
         )
 
-        system_prompt = load_and_render_prompt(
-            request.prompt_template, context={"alerts": workload_alerts}
-        )
-
         ai = config.create_toolcalling_llm(dal=dal)
+
+        system_prompt = load_and_render_prompt(
+            request.prompt_template,
+            context={
+                "alerts": workload_alerts,
+                "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+            },
+        )
 
         structured_output = {"type": "json_object"}
         ai_call = ai.prompt_call(

@@ -6,7 +6,7 @@ import backoff
 def execute_tempo_query_with_retry(
     grafana_url: str,
     api_key: str,
-    tempo_datasource_id: str,
+    tempo_datasource_uid: str,
     query_params: dict,
     retries: int = 3,
     timeout: int = 5,
@@ -15,7 +15,7 @@ def execute_tempo_query_with_retry(
     Execute a Tempo API query through Grafana with retries and timeout.
 
     Args:
-        tempo_datasource_id: The ID of the Tempo datasource.
+        tempo_datasource_uid: The UID of the Tempo datasource.
         query_params: Query parameters for the API.
         retries: Number of retries for the request.
         timeout: Timeout for each request in seconds.
@@ -23,7 +23,7 @@ def execute_tempo_query_with_retry(
     Returns:
         List of trace results.
     """
-    url = f"{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/search"
+    url = f"{grafana_url}/api/datasources/proxy/uid/{tempo_datasource_uid}/api/search"
 
     @backoff.on_exception(
         backoff.expo,  # Exponential backoff
@@ -55,7 +55,7 @@ def execute_tempo_query_with_retry(
 def query_tempo_traces_by_duration(
     grafana_url: str,
     api_key: str,
-    tempo_datasource_id: str,
+    tempo_datasource_uid: str,
     min_duration: str,
     start: int,
     end: int,
@@ -65,7 +65,7 @@ def query_tempo_traces_by_duration(
     Query Tempo for traces exceeding a minimum duration.
 
     Args:
-        tempo_datasource_id: The ID of the Tempo datasource.
+        tempo_datasource_uid: The UID of the Tempo datasource.
         min_duration: Minimum duration for traces (e.g., "5s").
         start: Start of the time range (epoch in seconds).
         end: End of the time range (epoch in seconds).
@@ -81,7 +81,7 @@ def query_tempo_traces_by_duration(
         "limit": str(limit),
     }
     return execute_tempo_query_with_retry(
-        grafana_url, api_key, tempo_datasource_id, query_params
+        grafana_url, api_key, tempo_datasource_uid, query_params
     )
 
 
@@ -135,7 +135,7 @@ def query_tempo_traces(
 def query_tempo_trace_by_id(
     grafana_url: str,
     api_key: str,
-    tempo_datasource_id: str,
+    tempo_datasource_uid: str,
     trace_id: str,
     retries: int = 3,
     timeout: int = 5,
@@ -152,7 +152,7 @@ def query_tempo_trace_by_id(
     Returns:
         Trace details.
     """
-    url = f"{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/traces/{trace_id}"
+    url = f"{grafana_url}/api/datasources/proxy/uid/{tempo_datasource_uid}/api/traces/{trace_id}"
 
     @backoff.on_exception(
         backoff.expo,  # Exponential backoff

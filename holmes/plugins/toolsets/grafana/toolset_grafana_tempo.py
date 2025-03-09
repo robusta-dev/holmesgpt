@@ -5,39 +5,17 @@ from holmes.core.tools import (
     ToolParameter,
 )
 import logging
+from urllib.parse import quote
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.tempo_api import (
     query_tempo_traces_by_duration,
     query_tempo_trace_by_id,
     query_tempo_traces,
 )
-from urllib.parse import quote
-from holmes.plugins.toolsets.grafana.grafana_api import list_grafana_datasources
 from holmes.plugins.toolsets.grafana.common import (
-    get_datasource_id,
     get_param_or_raise,
     process_timestamps,
 )
-
-
-class ListAllDatasources(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
-        super().__init__(
-            name="list_all_datasources",
-            description="Fetches All the data sources in Grafana",
-            parameters={},
-        )
-        self._toolset = toolset
-
-    def invoke(self, params: Dict) -> str:
-        datasources = list_grafana_datasources(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-        )
-        return yaml.dump(datasources)
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Fetched Grafana Tempo datasources"
 
 
 class GetTempoTracesByMinDuration(Tool):
@@ -75,14 +53,14 @@ class GetTempoTracesByMinDuration(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         start, end = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
         traces = query_tempo_traces_by_duration(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_id=get_datasource_id(params, "tempo_datasource_id"),
+            tempo_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
             min_duration=get_param_or_raise(params, "min_duration"),
             start=start,
             end=end,
@@ -102,11 +80,6 @@ class GetTempoTracesByQuery(Tool):
             name="fetch_tempo_traces_by_query",
             description="""Queries tempo with a custom query string within a given time range.""",
             parameters={
-                "tempo_datasource_id": ToolParameter(
-                    description="The ID of the Tempo datasource to use. Call the tool list_grafana_datasources.",
-                    type="string",
-                    required=True,
-                ),
                 "tempo_query": ToolParameter(
                     description='The Tempo query string to filter traces, e.g., \'{resource.service.name="service-name" || span.http.code="200"}\'',
                     type="string",
@@ -140,7 +113,7 @@ class GetTempoTracesByQuery(Tool):
         traces = query_tempo_traces(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_id=get_datasource_id(params, "tempo_datasource_id"),
+            tempo_datasource_id=self._toolset._grafana_config.grafana_datasource_uid,
             tempo_query=get_param_or_raise(params, "tempo_query"),
             start=start,
             end=end,
@@ -174,11 +147,11 @@ class GetTempoTraceById(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         trace_data = query_tempo_trace_by_id(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_id=get_datasource_id(params, "tempo_datasource_id"),
+            tempo_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
             trace_id=get_param_or_raise(params, "trace_id"),
         )
         return yaml.dump(trace_data)
@@ -193,9 +166,8 @@ class GrafanaTempoToolset(BaseGrafanaToolset):
             name="grafana/tempo",
             description="Fetches kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
-            doc_url="https://grafana.com/oss/tempo/",
+            docs_url="https://grafana.com/oss/tempo/",
             tools=[
-                ListAllDatasources(self),
                 GetTempoTracesByMinDuration(self),
                 GetTempoTraceById(self),
                 GetTempoTracesByQuery(self),

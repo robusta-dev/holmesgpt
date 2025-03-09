@@ -47,9 +47,11 @@ class MyCustomLLM(LLM):
 
 
 def ask_holmes():
-    prompt = "what issues do I have in my cluster"
+    prompt = "what pods are unhealthy in my cluster?"
 
-    system_prompt = load_and_render_prompt("builtin://generic_ask.jinja2")
+    system_prompt = load_and_render_prompt(
+        prompt="builtin://generic_ask.jinja2", context={}
+    )
 
     tool_executor = ToolExecutor(load_builtin_toolsets())
     ai = ToolCallingLLM(tool_executor, max_steps=10, llm=MyCustomLLM())

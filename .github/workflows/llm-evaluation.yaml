@@ -1,6 +1,14 @@
 name: Evaluate LLM test cases
 
-on: [push]
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: [master]
+
+permissions:
+  pull-requests: write
+  contents: read
 
 jobs:
   build:
@@ -11,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -28,8 +36,59 @@ jobs:
           poetry install --no-root
 
       - name: Run tests
+        id: evals
+        continue-on-error: true
         shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+          UPLOAD_DATASET: "true"
+          PUSH_EVALS_TO_BRAINTRUST: "true"
+          EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         run: |
-          poetry run pytest -m "llm"
+          poetry run pytest tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n 6
+      - uses: actions/github-script@v7
+        if: always()
+        with:
+          retries: 3
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            try {
+              if(!context.issue || !context.issue.number) {
+                // Only comment on PR if the workflow is run as part of a PR
+                return
+              }
+              const reportContent = fs.readFileSync('evals_report.txt', 'utf8');
+
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number
+              });
+
+              const botComment = comments.data.find(comment =>
+                comment.user.type === 'Bot' &&
+                comment.body.includes('## Results of HolmesGPT evals')
+              );
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: reportContent
+              });
+
+              if (botComment) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id
+                });
+              }
+            } catch(e) {
+              console.log(e)
+            }
+      - name: Check test results
+        if: always()
+        run: if [[ ${{ steps.evals.outcome }} == 'success' ]]; then exit 0; else exit 1; fi

@@ -1,5 +1,5 @@
 import requests
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
 import backoff
 
 from holmes.plugins.toolsets.grafana.common import headers
@@ -38,30 +38,15 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
 def execute_loki_query(
     grafana_url: str,
     api_key: str,
-    loki_datasource_id: str,
+    loki_datasource_uid: str,
     query: str,
-    start: int,
-    end: int,
+    start: Union[int, str],
+    end: Union[int, str],
     limit: int,
 ) -> List[Dict]:
-    """
-    Execute a Loki query through Grafana with retry and backoff.
-
-    Args:
-        loki_datasource_id: The ID of the Loki datasource.
-        query: Loki query string.
-        start: Start of the time window to fetch the logs for (Epoch timestamp in seconds).
-        end: End of the time window to fetch the logs for (Epoch timestamp in seconds).
-        limit: Maximum number of log lines to return.
-
-    Returns:
-        List of log entries.
-    """
-
     params = {"query": query, "limit": limit, "start": start, "end": end}
-
     try:
-        url = f"{grafana_url}/api/datasources/proxy/{loki_datasource_id}/loki/api/v1/query_range"
+        url = f"{grafana_url}/api/datasources/proxy/uid/{loki_datasource_uid}/loki/api/v1/query_range"
         response = requests.get(url, headers=headers(api_key=api_key), params=params)
         response.raise_for_status()
 
@@ -74,73 +59,26 @@ def execute_loki_query(
         raise Exception(f"Failed to query Loki logs: {str(e)}")
 
 
-def query_loki_logs_by_node(
+def query_loki_logs_by_label(
     grafana_url: str,
     api_key: str,
-    loki_datasource_id: str,
-    node_name: str,
-    start: int,
-    end: int,
-    node_name_search_key: str = "node",
-    limit: int = 1000,
-) -> List[Dict]:
-    """
-    Query Loki logs filtered by node name
-
-    Args:
-        node_name: Kubernetes node name
-        start: Start of the time window to fetch the logs for. Epoch timestamp in seconds
-        end: End of the time window to fetch the logs for. Epoch timestamp in seconds
-        limit: Maximum number of log lines to return
-
-    Returns:
-        List of log entries
-    """
-
-    query = f'{{{node_name_search_key}="{node_name}"}}'
-
-    return execute_loki_query(
-        grafana_url=grafana_url,
-        api_key=api_key,
-        loki_datasource_id=loki_datasource_id,
-        query=query,
-        start=start,
-        end=end,
-        limit=limit,
-    )
-
-
-def query_loki_logs_by_pod(
-    grafana_url: str,
-    api_key: str,
-    loki_datasource_id: str,
+    loki_datasource_uid: str,
     namespace: str,
-    pod_regex: str,
-    start: int,
-    end: int,
-    pod_name_search_key: str = "pod",
+    label_value: str,
+    filter_regexp: Optional[str],
+    start: Union[int, str],
+    end: Union[int, str],
+    label: str,
     namespace_search_key: str = "namespace",
-    limit: int = 1000,
+    limit: int = 200,
 ) -> List[Dict]:
-    """
-    Query Loki logs filtered by namespace and pod name regex
-
-    Args:
-        namespace: Kubernetes namespace
-        pod_regex: Regular expression to match pod names
-        start: Start of the time window to fetch the logs for. Epoch timestamp in seconds
-        end: End of the time window to fetch the logs for. Epoch timestamp in seconds
-        limit: Maximum number of log lines to return
-
-    Returns:
-        List of log entries
-    """
-
-    query = f'{{{namespace_search_key}="{namespace}", {pod_name_search_key}=~"{pod_regex}"}}'
+    query = f'{{{namespace_search_key}="{namespace}", {label}=~"{label_value}"}}'
+    if filter_regexp:
+        query += f' |~ "{filter_regexp}"'
     return execute_loki_query(
         grafana_url=grafana_url,
         api_key=api_key,
-        loki_datasource_id=loki_datasource_id,
+        loki_datasource_uid=loki_datasource_uid,
         query=query,
         start=start,
         end=end,

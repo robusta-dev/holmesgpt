@@ -47,6 +47,7 @@ class OpenSearchClient:
                     http_auth.get("password"),
                 )
         # Initialize OpenSearch client
+        self.hosts = [host.get("host") for host in kwargs.get("hosts", [])]
         self.client = OpenSearch(**kwargs)
 
 
@@ -81,13 +82,13 @@ class ListShards(BaseOpenSearchTool):
                 "host": ToolParameter(
                     description="The cluster host",
                     type="string",
-                    required=False,
+                    required=True,
                 )
             },
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         shards = client.client.cat.shards()
         return str(shards)
@@ -105,13 +106,13 @@ class GetClusterSettings(BaseOpenSearchTool):
                 "host": ToolParameter(
                     description="The cluster host",
                     type="string",
-                    required=False,
+                    required=True,
                 )
             },
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         client = get_client(self.toolset.clients, host=params.get("host"))
         response = client.client.cluster.get_settings(
             include_defaults=True, flat_settings=True
@@ -131,19 +132,36 @@ class GetClusterHealth(BaseOpenSearchTool):
                 "host": ToolParameter(
                     description="The cluster host",
                     type="string",
-                    required=False,
+                    required=True,
                 )
             },
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         health = client.client.cluster.health()
         return str(health)
 
     def get_parameterized_one_liner(self, params) -> str:
         return f"opensearch GetClusterSettings({params.get('host')})"
+
+
+class ListOpenSearchHosts(BaseOpenSearchTool):
+    def __init__(self, toolset: "OpenSearchToolset"):
+        super().__init__(
+            name="opensearch_list_hosts",
+            description="List all OpenSearch hosts in the cluster",
+            parameters={},
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> str:
+        hosts = [host for client in self.toolset.clients for host in client.hosts]
+        return str(hosts)
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return "opensearch ListOpenSearchHosts()"
 
 
 class OpenSearchToolset(Toolset):
@@ -162,11 +180,11 @@ class OpenSearchToolset(Toolset):
                 ListShards(self),
                 GetClusterSettings(self),
                 GetClusterHealth(self),
+                ListOpenSearchHosts(self),
             ],
             tags=[
                 ToolsetTag.CORE,
             ],
-            is_default=True,
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
@@ -188,7 +206,7 @@ class OpenSearchToolset(Toolset):
 
             return len(self.clients) > 0
         except Exception:
-            logging.exception("Failed to set up grafana toolset")
+            logging.exception("Failed to set up OpenSearch toolset")
             return False
 
     def get_example_config(self) -> Dict[str, Any]:

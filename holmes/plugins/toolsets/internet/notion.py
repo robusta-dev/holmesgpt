@@ -39,17 +39,16 @@ class FetchNotion(Tool):
             return f"https://api.notion.com/v1/blocks/{notion_id}/children"
         return url  # Return original URL if no match is found
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         url: str = params["url"]
 
         # Get headers from the toolset configuration
         additional_headers = (
             self.toolset.additional_headers if self.toolset.additional_headers else {}
         )
-        logging.warning(f"additional_headers {additional_headers}")
         url = self.convert_notion_url(url)
-        content, _ = scrape(url, headers=additional_headers)
-        logging.warning(f"Content '{content}'")
+        content, _ = scrape(url, additional_headers)
+
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
             return ""
@@ -108,11 +107,12 @@ class NotionToolset(InternetBaseToolset):
             name="notion",
             description="Fetch notion webpages",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Notion-logo.svg/2048px-Notion-logo.svg.png",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/notion.html",
             tools=[
                 FetchNotion(self),
             ],
             tags=[
                 ToolsetTag.CORE,
             ],
-            is_default=True,
+            is_default=False,
         )
