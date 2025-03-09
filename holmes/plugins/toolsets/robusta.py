@@ -85,7 +85,7 @@ class FetchRobustaAlerts(Tool):
             logging.error(error)
             return {"error": error}
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         alert_name = params.get("alert_name", None)
         try:
             finding = self._fetch_alert(alert_name)

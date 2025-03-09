@@ -36,7 +36,7 @@ class GetLogs(BaseNewRelicTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         app = params.get("app")
         since = params.get("since")
 
@@ -92,7 +92,7 @@ class GetTraces(BaseNewRelicTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         duration = params.get("duration")
         trace_id = params.get("trace_id")
 

@@ -40,7 +40,7 @@ class GetLogs(BaseDatadogTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         try:
             service = params.get("service")
             from_time = params.get("from_time")

@@ -104,7 +104,7 @@ class GetTempoTracesByQuery(Tool):
         )
         self._toolset = toolset
 
-    def invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:
         start, end = process_timestamps(
             params.get("start_timestamp"), params.get("end_timestamp")
         )

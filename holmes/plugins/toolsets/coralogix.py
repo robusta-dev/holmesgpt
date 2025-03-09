@@ -64,7 +64,7 @@ class GetLogs(BaseCoralogixTool):
             toolset=toolset,
         )
 
-    def invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> str:
         app_name = params.get("app_name", None)
         # namespace = None
         pod_name = params.get("pod_name", None)

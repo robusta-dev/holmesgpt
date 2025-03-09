@@ -13,6 +13,7 @@ from holmes.plugins.toolsets.internet.notion import NotionToolset
 from holmes.plugins.toolsets.newrelic import NewRelicToolset
 from holmes.plugins.toolsets.coralogix import CoralogixToolset
 from holmes.plugins.toolsets.datadog import DatadogToolset
+from holmes.plugins.toolsets.bash import BashToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
 from holmes.plugins.toolsets.opensearch import OpenSearchToolset
@@ -59,6 +60,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         CoralogixToolset(),
         DatadogToolset(),
         DatetimeToolset(),
+        BashToolset(),
     ]
 
     return toolsets
