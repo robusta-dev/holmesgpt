@@ -88,6 +88,9 @@ To upgrade HolmesGPT with pipx, you can run:
 ```
 pipx upgrade holmesgpt
 ```
+
+[Setup an API key](./api-keys.md) and start testing HolmesGPT
+
 </details>
 
 <details>
@@ -100,6 +103,11 @@ First [install poetry (the python package manager)](https://python-poetry.org/do
 git clone https://github.com/robusta-dev/holmesgpt.git
 cd holmesgpt
 poetry install --no-root
+```
+
+[Setup an API key](./api-keys.md) and then test HolmesGPT
+
+```
 poetry run python3 holmes.py ask "what pods are unhealthy and why?"
 ```
 </details>
@@ -107,7 +115,7 @@ poetry run python3 holmes.py ask "what pods are unhealthy and why?"
 <details>
 <summary>From Source (Docker)</summary>
 
-Clone the project from github, and then run:
+Clone the project from github, [setup an API key](./api-keys.md), and then run:
 
 ```bash
 cd holmesgpt
