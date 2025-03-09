@@ -2,7 +2,7 @@
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
-    <a href="#quick-start"><strong>Quick Start</strong></a> |
+    <a href="#quick-start-installating-holmesgpt"><strong>Quick Start</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
@@ -76,7 +76,7 @@ Robusta can investigate alerts - or just answer questions - from the following s
 <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/4c55f395dbd64ef3b69670eccf961124-db2004995e8d621c-full-play.gif">
 </a>
 
-## Quick Start
+## Quick Start - Installing HolmesGPT
 
 HolmesGPT can be used in three ways:
 
