@@ -3,6 +3,7 @@ import json
 import logging
 import hashlib
 from typing import Any, Dict, Optional
+import subprocess
 
 from pydantic import BaseModel
 from holmes.core.tools import (
@@ -75,12 +76,25 @@ class ExecuteBashCommand(BaseBashTool):
 
         if not validate_token(self.toolset.config.bash_execution_token, token):
             return "Invalid or already used token."
-
         try:
-            result = os.popen(command).read()
-            return result
+            result = subprocess.run(
+                command, shell=True, capture_output=True, text=True, timeout=30
+            )
+
+            stdout = result.stdout.strip()
+            stderr = result.stderr.strip()
+
+            if result.returncode != 0:
+                return f"Command failed with error: {stderr or 'Unknown error'}"
+
+            if not stdout and not stderr:
+                return "Command executed successfully but returned no output."
+
+            return f"STDOUT:\n{stdout}\n\nSTDERR:\n{stderr}" if stderr else stdout
+
+        except subprocess.TimeoutExpired:
+            return "Command execution timed out."
         except Exception as e:
-            logging.exception("Error executing bash command")
             return f"Execution error: {str(e)}"
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
