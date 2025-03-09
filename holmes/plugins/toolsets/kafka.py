@@ -27,6 +27,20 @@ from confluent_kafka.admin import (
 )
 
 
+class KafkaClusterConfig(BaseModel):
+    name: str
+    kafka_broker: List[str]
+    kafka_security_protocol: Optional[str] = None
+    kafka_sasl_mechanism: Optional[str] = None
+    kafka_username: Optional[str] = None
+    kafka_password: Optional[str] = None
+    kafka_client_id: Optional[str] = "holmes-kafka-client"
+
+
+class KafkaConfig(BaseModel):
+    kafka_clusters: List[KafkaClusterConfig]
+
+
 def convert_to_dict(obj: Any) -> Union[str, Dict]:
     if isinstance(
         obj,
@@ -74,14 +88,24 @@ def format_list_consumer_group_errors(errors: Optional[List]) -> str:
 class BaseKafkaTool(Tool):
     toolset: "KafkaToolset"
 
+    def get_kafka_client(self, cluster_name: Optional[str]) -> AdminClient:
+        """
+        Retrieves the correct Kafka AdminClient based on the cluster name.
+        """
+        if len(self.toolset.clients) == 1:
+            return next(
+                iter(self.toolset.clients.values())
+            )  # Return the only available client
 
-class KafkaConfig(BaseModel):
-    brokers: List[str]
-    security_protocol: Optional[str] = None
-    sasl_mechanism: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    client_id: Optional[str] = None
+        if not cluster_name:
+            raise Exception("Missing cluster name to resolve Kafka client")
+
+        if cluster_name in self.toolset.clients:
+            return self.toolset.clients[cluster_name]
+
+        raise Exception(
+            f"Failed to resolve Kafka client. No matching cluster: {cluster_name}"
+        )
 
 
 class ListKafkaConsumers(BaseKafkaTool):
@@ -89,16 +113,24 @@ class ListKafkaConsumers(BaseKafkaTool):
         super().__init__(
             name="list_kafka_consumers",
             description="Lists all Kafka consumer groups in the cluster",
-            parameters={},
+            parameters={
+                "kafka_cluster_name": ToolParameter(
+                    description="The name of the kafka cluster to investigate",
+                    type="string",
+                    required=True,
+                ),
+            },
             toolset=toolset,
         )
 
     def _invoke(self, params: Dict) -> str:
         try:
-            if self.toolset.admin_client is None:
+            kafka_cluster_name = params["kafka_cluster_name"]
+            client = self.get_kafka_client(kafka_cluster_name)
+            if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
 
-            futures = self.toolset.admin_client.list_consumer_groups()
+            futures = client.list_consumer_groups()
             list_groups_result: ListConsumerGroupsResult = futures.result()
             groups_text = ""
             if list_groups_result.valid and len(list_groups_result.valid) > 0:
@@ -137,22 +169,29 @@ class DescribeConsumerGroup(BaseKafkaTool):
             name="describe_consumer_group",
             description="Describes a specific Kafka consumer group",
             parameters={
+                "kafka_cluster_name": ToolParameter(
+                    description="The name of the kafka cluster to investigate",
+                    type="string",
+                    required=True,
+                ),
                 "group_id": ToolParameter(
                     description="The ID of the consumer group to describe",
                     type="string",
                     required=True,
-                )
+                ),
             },
             toolset=toolset,
         )
 
     def _invoke(self, params: Dict) -> str:
         group_id = params["group_id"]
+        kafka_cluster_name = params["kafka_cluster_name"]
+        client = self.get_kafka_client(kafka_cluster_name)
         try:
-            if self.toolset.admin_client is None:
+            if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
 
-            futures = self.toolset.admin_client.describe_consumer_groups([group_id])
+            futures = client.describe_consumer_groups([group_id])
 
             if futures.get(group_id):
                 group_metadata = futures.get(group_id).result()
@@ -173,16 +212,24 @@ class ListTopics(BaseKafkaTool):
         super().__init__(
             name="list_topics",
             description="Lists all Kafka topics in the cluster",
-            parameters={},
+            parameters={
+                "kafka_cluster_name": ToolParameter(
+                    description="The name of the kafka cluster to investigate",
+                    type="string",
+                    required=True,
+                ),
+            },
             toolset=toolset,
         )
 
     def _invoke(self, params: Dict) -> str:
         try:
-            if self.toolset.admin_client is None:
+            kafka_cluster_name = params["kafka_cluster_name"]
+            client = self.get_kafka_client(kafka_cluster_name)
+            if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
 
-            topics = self.toolset.admin_client.list_topics()
+            topics = client.list_topics()
             return yaml.dump(convert_to_dict(topics))
         except Exception as e:
             error_msg = f"Failed to list topics: {str(e)}"
@@ -199,6 +246,11 @@ class DescribeTopic(BaseKafkaTool):
             name="describe_topic",
             description="Describes details of a specific Kafka topic",
             parameters={
+                "kafka_cluster_name": ToolParameter(
+                    description="The name of the kafka cluster to investigate",
+                    type="string",
+                    required=True,
+                ),
                 "topic_name": ToolParameter(
                     description="The name of the topic to describe",
                     type="string",
@@ -215,18 +267,18 @@ class DescribeTopic(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
+        kafka_cluster_name = params["kafka_cluster_name"]
+        client = self.get_kafka_client(kafka_cluster_name)
         try:
-            if self.toolset.admin_client is None:
+            if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
             config_future = None
             if str(params.get("fetch_configuration", False)).lower() == "true":
                 resource = ConfigResource("topic", topic_name)
-                configs = self.toolset.admin_client.describe_configs([resource])
+                configs = client.describe_configs([resource])
                 config_future = next(iter(configs.values()))
 
-            metadata = self.toolset.admin_client.list_topics(topic_name).topics[
-                topic_name
-            ]
+            metadata = client.list_topics(topic_name).topics[topic_name]
 
             metadata = convert_to_dict(metadata)
             result: dict = {"metadata": metadata}
@@ -262,22 +314,29 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             name="find_consumer_groups_by_topic",
             description="Finds all consumer groups consuming from a specific topic",
             parameters={
+                "kafka_cluster_name": ToolParameter(
+                    description="The name of the kafka cluster to investigate",
+                    type="string",
+                    required=True,
+                ),
                 "topic_name": ToolParameter(
                     description="The name of the topic to find consumers for",
                     type="string",
                     required=True,
-                )
+                ),
             },
             toolset=toolset,
         )
 
     def _invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
+        kafka_cluster_name = params["kafka_cluster_name"]
+        client = self.get_kafka_client(kafka_cluster_name)
         try:
-            if self.toolset.admin_client is None:
+            if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
 
-            groups_future = self.toolset.admin_client.list_consumer_groups()
+            groups_future = client.list_consumer_groups()
             groups: ListConsumerGroupsResult = groups_future.result()
 
             consumer_groups = []
@@ -288,10 +347,8 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
                 ]
 
             if len(group_ids_to_evaluate) > 0:
-                consumer_groups_futures = (
-                    self.toolset.admin_client.describe_consumer_groups(
-                        group_ids_to_evaluate
-                    )
+                consumer_groups_futures = client.describe_consumer_groups(
+                    group_ids_to_evaluate
                 )
 
                 for (
@@ -329,20 +386,36 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
         return f"Found consumer groups for topic: {params['topic_name']}"
 
 
-class KafkaToolset(Toolset):
-    admin_client: Optional[Any] = None
+class ListKafkaClusters(BaseKafkaTool):
+    def __init__(self, toolset: "KafkaToolset"):
+        super().__init__(
+            name="list_kafka_clusters",
+            description="Lists all available Kafka clusters configured in HolmesGPT",
+            parameters={},
+            toolset=toolset,
+        )
 
-    def __init__(
-        self,
-    ):
+    def _invoke(self, params: Dict) -> str:
+        cluster_names = list(self.toolset.clients.keys())
+        return "Available Kafka Clusters:\n" + "\n".join(cluster_names)
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return "Listed all available Kafka clusters"
+
+
+class KafkaToolset(Toolset):
+    clients: Dict[str, AdminClient] = {}
+
+    def __init__(self):
         super().__init__(
             name="kafka/admin",
-            description="Fetches metadata from Kafka",
+            description="Fetches metadata from multiple Kafka clusters",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kafka.html",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-cR1JrBgJxB_SPVKUIRwtiHnR8qBvLeHXjQ&s",
             tags=[ToolsetTag.CORE],
             tools=[
+                ListKafkaClusters(self),
                 ListKafkaConsumers(self),
                 DescribeConsumerGroup(self),
                 ListTopics(self),
@@ -352,39 +425,61 @@ class KafkaToolset(Toolset):
         )
 
     def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
-        try:
-            if config:
-                admin_config = {
-                    "bootstrap.servers": config.get("kafka_broker", None),
-                    "client.id": config.get(
-                        "kafka_client_id", "holmes-kafka-core-toolset"
-                    ),
-                }
-
-                kafka_security_protocol = config.get("kafka_security_protocol", None)
-                if kafka_security_protocol:
-                    admin_config["security.protocol"] = kafka_security_protocol
-
-                kafka_sasl_mechanism = config.get("kafka_sasl_mechanism", None)
-                if kafka_sasl_mechanism:
-                    admin_config["sasl.mechanisms"] = kafka_sasl_mechanism
-
-                kafka_username = config.get("kafka_username", None)
-                if kafka_username:
-                    admin_config["sasl.username"] = kafka_username
-
-                kafka_password = config.get("kafka_password", None)
-                if kafka_password:
-                    admin_config["sasl.password"] = kafka_password
-
-                self.admin_client = AdminClient(admin_config)
-                logging.info("Kafka admin client is available")
-                return True
-            else:
-                self.admin_client = None
-                logging.info("Kafka client not configured")
-                return False
-        except Exception as e:
-            self.admin_client = None
-            logging.error(f"Failed to initialize Kafka admin client: {str(e)}")
+        if not config:
             return False
+
+        try:
+            kafka_config = KafkaConfig(**config)
+
+            for cluster in kafka_config.kafka_clusters:
+                try:
+                    logging.info(f"Setting up Kafka client for cluster: {cluster.name}")
+                    admin_config = {
+                        "bootstrap.servers": ",".join(cluster.kafka_broker),
+                        "client.id": cluster.kafka_client_id,
+                    }
+
+                    if cluster.kafka_security_protocol:
+                        admin_config["security.protocol"] = (
+                            cluster.kafka_security_protocol
+                        )
+                    if cluster.kafka_sasl_mechanism:
+                        admin_config["sasl.mechanisms"] = cluster.kafka_sasl_mechanism
+                    if cluster.kafka_username and cluster.kafka_password:
+                        admin_config["sasl.username"] = cluster.kafka_username
+                        admin_config["sasl.password"] = cluster.kafka_password
+
+                    client = AdminClient(admin_config)
+                    self.clients[cluster.name] = client  # Store in dictionary
+                except Exception as e:
+                    logging.error(
+                        f"Failed to set up Kafka client for {cluster.name}: {str(e)}"
+                    )
+
+            return len(self.clients) > 0
+        except Exception:
+            logging.exception("Failed to set up Kafka toolset")
+            return False
+
+    def get_example_config(self) -> Dict[str, Any]:
+        example_config = KafkaConfig(
+            kafka_clusters=[
+                KafkaClusterConfig(
+                    name="us-west-kafka",
+                    kafka_broker=[
+                        "broker1.example.com:9092",
+                        "broker2.example.com:9092",
+                    ],
+                    kafka_security_protocol="SASL_SSL",
+                    kafka_sasl_mechanism="PLAIN",
+                    kafka_username="{{ env.KAFKA_USERNAME }}",
+                    kafka_password="{{ env.KAFKA_PASSWORD }}",
+                ),
+                KafkaClusterConfig(
+                    name="eu-central-kafka",
+                    kafka_broker=["broker3.example.com:9092"],
+                    kafka_security_protocol="SSL",
+                ),
+            ]
+        )
+        return example_config.model_dump()
