@@ -2,14 +2,11 @@
 
 ## In-Cluster Installation (Recommended)
 
-If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package:
+If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package so you can:
 
-- Forward alerts by webhook to Robusta
-- Analyze alerts in a web UI and ask follow-up questions
-- ChatGPT-like interface to query observability and K8s data in natural language
-- Built-in integrations with **Prometheus alerts**, [Slack](https://docs.robusta.dev/master/configuration/ai-analysis.html), and more
-- No need for an OpenAI API Key (allows bringing your own LLM if you prefer)
-- Simple installation using `helm`
+- Analyze Prometheus alerts easily
+- Use HolmesGPT in a friendly web UI
+- Get started without an OpenAI API Key (but you can bring your own LLM if you prefer)
 
 [Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
 
@@ -44,7 +41,9 @@ holmes --help
 kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
 ```
 
-4. Run holmesgpt:
+5. [Setup an API key](./api-keys.md)
+
+6. Run holmesgpt:
 
 ```sh
 holmes ask "what is wrong with the user-profile-import pod?"
