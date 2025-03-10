@@ -1,5 +1,5 @@
 import logging
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import yaml
 from typing import Any, Dict, List, Optional, Union
 from holmes.core.tools import (
@@ -29,7 +29,7 @@ from confluent_kafka.admin import (
 
 class KafkaClusterConfig(BaseModel):
     name: str
-    kafka_broker: List[str]
+    kafka_broker: str
     kafka_security_protocol: Optional[str] = None
     kafka_sasl_mechanism: Optional[str] = None
     kafka_username: Optional[str] = None
@@ -160,7 +160,7 @@ class ListKafkaConsumers(BaseKafkaTool):
             return error_msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Listed all Kafka consumer groups in the cluster"
+        return f"Listed all Kafka consumer groups in the cluster {params['kafka_cluster_name']}"
 
 
 class DescribeConsumerGroup(BaseKafkaTool):
@@ -204,7 +204,7 @@ class DescribeConsumerGroup(BaseKafkaTool):
             return error_msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Described consumer group: {params['group_id']}"
+        return f"Described consumer group: {params['group_id']} in cluster {params['kafka_cluster_name']}"
 
 
 class ListTopics(BaseKafkaTool):
@@ -237,7 +237,7 @@ class ListTopics(BaseKafkaTool):
             return error_msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Listed all Kafka topics in the cluster"
+        return f"Listed all Kafka topics in the cluster {params['kafka_cluster_name']}"
 
 
 class DescribeTopic(BaseKafkaTool):
@@ -294,7 +294,7 @@ class DescribeTopic(BaseKafkaTool):
             return error_msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Described topic: {params['topic_name']}"
+        return f"Described topic: {params['topic_name']} in cluster {params['kafka_cluster_name']}"
 
 
 def group_has_topic(
@@ -383,7 +383,7 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             return error_msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Found consumer groups for topic: {params['topic_name']}"
+        return f"Found consumer groups for topic: {params['topic_name']} in cluster {params['kafka_cluster_name']}"
 
 
 class ListKafkaClusters(BaseKafkaTool):
@@ -404,6 +404,7 @@ class ListKafkaClusters(BaseKafkaTool):
 
 
 class KafkaToolset(Toolset):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     clients: Dict[str, AdminClient] = {}
 
     def __init__(self):
@@ -435,7 +436,7 @@ class KafkaToolset(Toolset):
                 try:
                     logging.info(f"Setting up Kafka client for cluster: {cluster.name}")
                     admin_config = {
-                        "bootstrap.servers": ",".join(cluster.kafka_broker),
+                        "bootstrap.servers": cluster.kafka_broker,
                         "client.id": cluster.kafka_client_id,
                     }
 
@@ -466,10 +467,7 @@ class KafkaToolset(Toolset):
             kafka_clusters=[
                 KafkaClusterConfig(
                     name="us-west-kafka",
-                    kafka_broker=[
-                        "broker1.example.com:9092",
-                        "broker2.example.com:9092",
-                    ],
+                    kafka_broker="broker1.example.com:9092,broker2.example.com:9092",
                     kafka_security_protocol="SASL_SSL",
                     kafka_sasl_mechanism="PLAIN",
                     kafka_username="{{ env.KAFKA_USERNAME }}",
@@ -477,7 +475,7 @@ class KafkaToolset(Toolset):
                 ),
                 KafkaClusterConfig(
                     name="eu-central-kafka",
-                    kafka_broker=["broker3.example.com:9092"],
+                    kafka_broker="broker3.example.com:9092",
                     kafka_security_protocol="SSL",
                 ),
             ]
