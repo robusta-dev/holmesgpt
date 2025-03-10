@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Optional, Union, Tuple
+from typing import Dict, Literal, Optional, Union, Tuple
 import time
 from pydantic import BaseModel
 import datetime
@@ -69,8 +69,10 @@ def datetime_to_rfc3339(timestamp):
 
 
 def process_timestamps(
-    start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
-) -> Tuple[str, str]:
+    start_timestamp: Optional[Union[int, str]],
+    end_timestamp: Optional[Union[int, str]],
+    output_format: Union[Literal["unix"], Literal["RFC3339"]] = "RFC3339"
+) -> Tuple[Union[str, int], Union[str, int]]:
     """
     Process and normalize start and end timestamps.
 
@@ -83,6 +85,7 @@ def process_timestamps(
     Returns:
         Tuple of (start_timestamp, end_timestamp)
     """
+    print(f"** process_timestamps {start_timestamp} - {end_timestamp}")
     # If no end_timestamp provided, use current time
     if not end_timestamp:
         end_timestamp = int(time.time())
@@ -118,8 +121,9 @@ def process_timestamps(
 
     # Convert timestamps to RFC3399 because APIs support it and it's
     # more human readable than timestamps
-    start_timestamp = datetime_to_rfc3339(start_timestamp)
-    end_timestamp = datetime_to_rfc3339(end_timestamp)
+    if output_format == "RFC3339":
+        start_timestamp = datetime_to_rfc3339(start_timestamp)
+        end_timestamp = datetime_to_rfc3339(end_timestamp)
 
     return (start_timestamp, end_timestamp)
 

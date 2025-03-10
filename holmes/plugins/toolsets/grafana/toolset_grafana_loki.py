@@ -98,7 +98,7 @@ class GetLokiLogs(Tool):
         logs = execute_loki_query(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
+            loki_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
             query=query,
             start=start,
             end=end,
@@ -132,12 +132,12 @@ class GetLokiLogsForResource(Tool):
                     required=True,
                 ),
                 "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. String in RFC3339 format. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
+                    description="The beginning time boundary for the log search period. String in RFC3339 format. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
                 "end_timestamp": ToolParameter(
-                    description="The ending time boundary for the log search period. String in RFC3339 format. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    description="The ending time boundary for the log search period. String in RFC3339 format. Defaults to NOW()",
                     type="string",
                     required=False,
                 ),

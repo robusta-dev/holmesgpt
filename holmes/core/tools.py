@@ -362,6 +362,9 @@ class Toolset(BaseModel):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
+    def get_prompt(self) -> Optional[str]:
+        return None
+
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]

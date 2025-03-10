@@ -1,0 +1,7 @@
+Tempo:
+You are provided with a set of tools to investigate tempo traces. Use Tempo when investigating latency or performance issues.
+1. Start by getting a threshold of performance issue. This could be from an alert or by looking at a performance threshold.
+e.g. service A is having some requests exceed XX seconds which triggers an alert.
+2. Use `fetch_tempo_traces_for_service` setting the appropriate query params: start and end_time, min_duration, etc.
+3. Look at the duration of each span in any single trace and deduct any issues.
+4. Potentially follow up by looking at the logs of any service mentioned in the traces that is responsible for long traces durations
