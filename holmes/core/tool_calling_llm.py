@@ -381,11 +381,11 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
-        chunks = []
+
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
-            logging.info(f"running iteration {i}")
+            logging.info(f"running iteration {i}") # todo change to debug.
 
             tools = [] if i == self.max_steps - 1 else tools
             tool_choice = None if tools == [] else "auto"
@@ -410,7 +410,7 @@ class ToolCallingLLM:
                     tool_choice=tool_choice,
                     temperature=0.00000001,
                     response_format=response_format,
-                    stream=True,
+                    stream=False,
                     drop_params=True,
                 )
                 perf_timing.measure("llm.completion")
@@ -426,45 +426,22 @@ class ToolCallingLLM:
                 raise
             except Exception:
                 raise
-            
-            chunks.clear()
-            peek_chunk = next(full_response)
-            tools_to_call = peek_chunk.choices[0].delta.tool_calls
+
+            response_message = full_response.choices[0].message
+            tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                yield json.dumps({"type": "start_ai_answer"})
-                chunks.append(peek_chunk)
-                for chunk in full_response:
-                    chunks.append(chunk)
-                response = stream_chunk_builder(chunks, messages=messages)
-                response_message = response.choices[0].message
-                (text_response, sections) = process_response_into_sections(response_message.content)
-                yield text_response
+
+                (text_response, _) = process_response_into_sections(response_message.content)
+                yield json.dumps({"type": "ai_answer", "details": {"answer": text_response}})
                 return
 
-            # some extra call case from model to structure the output.?
-            if any(t1.function.name == "json_tool_call" for t1 in tools_to_call):
-                yield json.dumps({"type": "start_ai_answer"})
-                chunks.append(peek_chunk)
-                for chunk in full_response:
-                    chunks.append(chunk)
-                response = stream_chunk_builder(chunks, messages=messages)
-                response_message = response.choices[0].message
-                (text_response, sections) = process_response_into_sections(response_message.tool_calls[0].function.arguments)
-                yield text_response
-                return
-
-            chunks.append(peek_chunk)
-            for chunk in full_response:
-                chunks.append(chunk)
-            response = stream_chunk_builder(chunks, messages=messages)
-            response_message = response.choices[0].message
             messages.append(
                 response_message.model_dump(
                     exclude_defaults=True, exclude_unset=True, exclude_none=True
                 )
             )
 
-            tools_to_call = getattr(response_message, "tool_calls", None)
+            perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for t in tools_to_call:
@@ -475,6 +452,7 @@ class ToolCallingLLM:
                     tool_call_result: ToolCallResult = future.result()
                     tool_calls.append(tool_call_result)
                     messages.append(tool_call_result.as_dict())
+                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
                     yield json.dumps({"type": "tool_calling_result", "details": tool_call_result.as_dict()})
 
 
