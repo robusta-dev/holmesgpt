@@ -385,7 +385,7 @@ class ToolCallingLLM:
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
-            logging.info(f"running iteration {i}") # todo change to debug.
+            logging.debug(f"running iteration {i}")
 
             tools = [] if i == self.max_steps - 1 else tools
             tool_choice = None if tools == [] else "auto"
