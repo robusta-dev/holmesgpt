@@ -5,7 +5,7 @@ import random
 import string
 import time
 
-from typing import Any, Union, Optional
+from typing import Any, List, Union, Optional
 
 import requests
 from pydantic import BaseModel
@@ -30,6 +30,8 @@ class PrometheusConfig(BaseModel):
     metrics_labels_time_window_hrs: Union[int, None] = 48
     # Setting to None will disable the cache
     metrics_labels_cache_duration_hrs: Union[int, None] = 12
+    fetch_labels_with_labels_api: bool = False
+    tool_calls_return_data: bool = False
 
 
 class BasePrometheusTool(Tool):
@@ -74,18 +76,17 @@ def result_has_data(result: dict) -> bool:
     return False
 
 
-def fetch_metrics_labels(
+def fetch_metrics_labels_with_series_api(
     prometheus_url: str,
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
     metric_name: str,
 ) -> dict:
     """This is a slow query. Takes 5+ seconds to run"""
-    cache_key = f"metrics_labels:{metric_name}"
+    cache_key = f"metrics_labels_series_api:{metric_name}"
     if cache:
         cached_result = cache.get(cache_key)
         if cached_result:
-            logging.info("fetch_metrics_labels() result retrieved from cache")
             return cached_result
 
     series_url = urljoin(prometheus_url, "/api/v1/series")
@@ -119,19 +120,67 @@ def fetch_metrics_labels(
     return metrics_labels
 
 
+def fetch_metrics_labels_with_labels_api(
+    prometheus_url: str,
+    cache: Optional[TTLCache],
+    metrics_labels_time_window_hrs: Union[int, None],
+    metric_names: List[str],
+) -> dict:
+    metrics_labels = {}
+
+    for metric_name in metric_names:
+        cache_key = f"metrics_labels_labels_api:{metric_name}"
+        if cache:
+            cached_result = cache.get(cache_key)
+            if cached_result:
+                metrics_labels[metric_name] = cached_result
+
+        url = urljoin(prometheus_url, "/api/v1/labels")
+        params: dict = {
+            "match[]": f'{{__name__="{metric_name}"}}',
+        }
+        if metrics_labels_time_window_hrs is not None:
+            params["end_time"] = int(time.time())
+            params["start_time"] = params["end_time"] - (
+                metrics_labels_time_window_hrs * 60 * 60
+            )
+
+        response = requests.get(url=url, params=params, timeout=60, verify=True)
+        response.raise_for_status()
+        labels = response.json()["data"]
+        filtered_labels = {label for label in labels if label != "__name__"}
+        metrics_labels[metric_name] = filtered_labels
+
+        if cache:
+            cache.set(cache_key, filtered_labels)
+
+    return metrics_labels
+
+
 def fetch_metrics(
     url: str,
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
     metric_name: str,
+    fetch_labels_with_labels_api: bool,
 ) -> dict:
     metadata = fetch_metadata(url)
-    metrics_labels = fetch_metrics_labels(
-        prometheus_url=url,
-        cache=cache,
-        metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
-        metric_name=metric_name,
-    )
+
+    metrics_labels = {}
+    if not fetch_labels_with_labels_api:
+        metrics_labels = fetch_metrics_labels_with_series_api(
+            prometheus_url=url,
+            cache=cache,
+            metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
+            metric_name=metric_name,
+        )
+    else:
+        metrics_labels = fetch_metrics_labels_with_labels_api(
+            prometheus_url=url,
+            cache=cache,
+            metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
+            metric_names=list(metadata.keys()),
+        )
 
     metrics = {}
     for metric_name, meta_list in metadata.items():
@@ -190,7 +239,11 @@ class ListAvailableMetrics(BasePrometheusTool):
                 return "Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing."
 
             metrics = fetch_metrics(
-                prometheus_url, self._cache, metrics_labels_time_window_hrs, name_filter
+                url=prometheus_url,
+                cache=self._cache,
+                metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
+                metric_name=name_filter,
+                fetch_labels_with_labels_api=self.toolset.config.fetch_labels_with_labels_api,
             )
 
             metrics = filter_metrics_by_name(metrics, name_filter)
@@ -276,6 +329,10 @@ class ExecuteInstantQuery(BasePrometheusTool):
                     "description": description,
                     "query": query,
                 }
+
+                if self.toolset.config.tool_calls_return_data:
+                    response_data["data"] = data.get("data")
+
                 data_str = json.dumps(response_data, indent=2)
                 return data_str
 
@@ -386,6 +443,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     "end": end,
                     "step": step,
                 }
+
+                if self.toolset.config.tool_calls_return_data:
+                    response_data["data"] = data.get("data")
                 data_str = json.dumps(response_data, indent=2)
                 return data_str
 
