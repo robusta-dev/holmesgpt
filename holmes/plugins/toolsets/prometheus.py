@@ -60,11 +60,15 @@ def filter_metrics_by_name(metrics: Dict, pattern: str) -> Dict:
         if regex.search(metric_name)
     }
 
-METRICS_SUFFIXES_TO_STRIP = ['_bucket', '_count', '_sum']
+
+METRICS_SUFFIXES_TO_STRIP = ["_bucket", "_count", "_sum"]
+
 
 def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
     metadata_url = urljoin(prometheus_url, "/api/v1/metadata")
-    metadata_response = requests.get(metadata_url, headers=headers, timeout=60, verify=True)
+    metadata_response = requests.get(
+        metadata_url, headers=headers, timeout=60, verify=True
+    )
 
     metadata_response.raise_for_status()
 
@@ -83,16 +87,17 @@ def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
 
     return metrics
 
+
 def fetch_metadata_with_series_api(
-    prometheus_url: str,
-    metric_name: str,
-    headers: Dict
+    prometheus_url: str, metric_name: str, headers: Dict
 ) -> Dict:
     url = urljoin(prometheus_url, "/api/v1/series")
     params: Dict = {
         "match[]": f'{{__name__=~".*{metric_name}.*"}}',
     }
-    response = requests.get(url, headers=headers, timeout=60, params=params, verify=True)
+    response = requests.get(
+        url, headers=headers, timeout=60, params=params, verify=True
+    )
     response.raise_for_status()
     metrics = response.json()["data"]
 
@@ -104,11 +109,7 @@ def fetch_metadata_with_series_api(
 
         metric = metadata.get(metric_name)
         if not metric:
-            metric = {
-                "description": "?",
-                "type": "?",
-                "labels": set()
-            }
+            metric = {"description": "?", "type": "?", "labels": set()}
             metadata[metric_name] = metric
 
         labels = {k for k in metric_data.keys() if k != "__name__"}
@@ -129,7 +130,7 @@ def fetch_metrics_labels_with_series_api(
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
     metric_name: str,
-    headers: Dict
+    headers: Dict,
 ) -> dict:
     """This is a slow query. Takes 5+ seconds to run"""
     cache_key = f"metrics_labels_series_api:{metric_name}"
@@ -195,7 +196,9 @@ def fetch_metrics_labels_with_labels_api(
                 metrics_labels_time_window_hrs * 60 * 60
             )
 
-        response = requests.get(url=url, headers=headers, params=params, timeout=60, verify=True)
+        response = requests.get(
+            url=url, headers=headers, params=params, timeout=60, verify=True
+        )
         response.raise_for_status()
         labels = response.json()["data"]
         filtered_labels = {label for label in labels if label != "__name__"}
@@ -220,16 +223,11 @@ def fetch_metrics(
     should_fetch_labels = True
     if should_fetch_metadata_with_series_api:
         metrics = fetch_metadata_with_series_api(
-            prometheus_url=prometheus_url,
-            metric_name=metric_name,
-            headers=headers
+            prometheus_url=prometheus_url, metric_name=metric_name, headers=headers
         )
-        should_fetch_labels = False # series API returns the labels
+        should_fetch_labels = False  # series API returns the labels
     else:
-        metrics = fetch_metadata(
-            prometheus_url=prometheus_url,
-            headers=headers
-        )
+        metrics = fetch_metadata(prometheus_url=prometheus_url, headers=headers)
         metrics = filter_metrics_by_name(metrics, metric_name)
 
     if should_fetch_labels:
@@ -240,7 +238,7 @@ def fetch_metrics(
                 cache=cache,
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
                 metric_name=metric_name,
-                headers=headers
+                headers=headers,
             )
         else:
             metrics_labels = fetch_metrics_labels_with_labels_api(
@@ -248,7 +246,7 @@ def fetch_metrics(
                 cache=cache,
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
                 metric_names=list(metrics.keys()),
-                headers=headers
+                headers=headers,
             )
 
         for metric_name in metrics:
@@ -303,7 +301,7 @@ class ListAvailableMetrics(BasePrometheusTool):
                 metric_name=name_filter,
                 should_fetch_labels_with_labels_api=self.toolset.config.fetch_labels_with_labels_api,
                 should_fetch_metadata_with_series_api=self.toolset.config.fetch_metadata_with_series_api,
-                headers=self.toolset.config.headers
+                headers=self.toolset.config.headers,
             )
 
             if params.get("type_filter"):
@@ -369,10 +367,8 @@ class ExecuteInstantQuery(BasePrometheusTool):
             payload = {"query": query}
 
             response = requests.post(
-                url=url,
-                headers=self.toolset.config.headers,
-                data=payload,
-                timeout=60)
+                url=url, headers=self.toolset.config.headers, data=payload, timeout=60
+            )
 
             if response.status_code == 200:
                 data = response.json()
@@ -484,10 +480,8 @@ class ExecuteRangeQuery(BasePrometheusTool):
             }
 
             response = requests.post(
-                url=url,
-                headers=self.toolset.config.headers,
-                data=payload,
-                timeout=120)
+                url=url, headers=self.toolset.config.headers, data=payload, timeout=120
+            )
 
             if response.status_code == 200:
                 data = response.json()
