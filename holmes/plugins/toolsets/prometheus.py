@@ -48,7 +48,8 @@ def filter_metrics_by_type(metrics: Dict, expected_type: str):
     return {
         metric_name: metric_data
         for metric_name, metric_data in metrics.items()
-        if expected_type in metric_data.get("type") or metric_data.get("type") == "?"
+        if expected_type in metric_data.get("type", "")
+        or metric_data.get("type", "") == "?"
     }
 
 
