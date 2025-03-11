@@ -9,6 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
     CallablePrerequisite,
 )
+from holmes.plugins.toolsets.grafana.common import get_param_or_raise
 from confluent_kafka.admin import (
     AdminClient,
     BrokerMetadata,
@@ -125,7 +126,7 @@ class ListKafkaConsumers(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> str:
         try:
-            kafka_cluster_name = params["kafka_cluster_name"]
+            kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
             if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
@@ -185,8 +186,8 @@ class DescribeConsumerGroup(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> str:
         group_id = params["group_id"]
-        kafka_cluster_name = params["kafka_cluster_name"]
         try:
+            kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
             if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
@@ -224,7 +225,7 @@ class ListTopics(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> str:
         try:
-            kafka_cluster_name = params["kafka_cluster_name"]
+            kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
             if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
@@ -267,8 +268,8 @@ class DescribeTopic(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
-        kafka_cluster_name = params["kafka_cluster_name"]
         try:
+            kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
             if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
@@ -330,8 +331,8 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> str:
         topic_name = params["topic_name"]
-        kafka_cluster_name = params["kafka_cluster_name"]
         try:
+            kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
             if client is None:
                 return "No admin_client on toolset. This toolset is misconfigured."
