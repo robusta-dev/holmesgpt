@@ -94,8 +94,9 @@ class JiraServiceManagementSource(JiraSource):
         """
         Converts the Jira API response to an `Issue` object, including formatted description.
         """
+
         return Issue(
-            id=jira_issue["id"],
+            id=jira_issue["key"],
             name=jira_issue["fields"]["summary"],
             source_type="jira-service-management",
             source_instance_id=self.url,

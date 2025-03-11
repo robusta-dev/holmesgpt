@@ -580,6 +580,7 @@ def ticket(
         None,
         help="Jira ticket ID to investigate (e.g., 'KAN-1')",
     ),
+    prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
@@ -626,6 +627,12 @@ def ticket(
     # Fetch issue
     try:
         issues = source_handler.fetch_issues()
+        issue_to_investigate = None
+        for issue in issues:
+            if issue.id == ticket_id:
+                issue_to_investigate = issue
+        if issue_to_investigate is None:
+            raise Exception("Ticket Not found")
     except Exception as e:
         logging.error("Failed to fetch issue from Jira", exc_info=e)
         console.print(
@@ -640,16 +647,14 @@ def ticket(
     issue = issues[0]
     ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
     console.print(f"[bold yellow]Analyzing Jira ticket: {issue.name}...[/bold yellow]")
-    result = ai.investigate(
-        issue=issue,
-        prompt=system_prompt,
-        console=console,
-        instructions=None,
-        post_processing_prompt=post_processing_prompt,
+    prompt = (
+        prompt
+        + f" for issue '{issue_to_investigate.name}' with description:'{issue_to_investigate.description}'"
     )
+    result = ai.prompt_call(system_prompt, prompt, post_processing_prompt)
 
     console.print(Rule())
-    console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
+    console.print(f"[bold green]AI analysis of {issue.url} {prompt}[/bold green]")
     console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
     console.print(Rule())
     source_handler.write_back_result(issue.id, result)
