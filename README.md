@@ -2,7 +2,7 @@
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
-    <a href="#quick-start"><strong>Quick Start</strong></a> |
+    <a href="#quick-start---installing-holmesgpt"><strong>Quick Start</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
@@ -76,13 +76,14 @@ Robusta can investigate alerts - or just answer questions - from the following s
 <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/4c55f395dbd64ef3b69670eccf961124-db2004995e8d621c-full-play.gif">
 </a>
 
-## Quick Start
+## Quick Start - Installing HolmesGPT
 
-HolmesGPT can be used in three ways:
+HolmesGPT can be installed two ways:
 
-1. [Use Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
+1. [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
 2. [Desktop CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) - no Kubernetes required, supports one-off investigations
-3. [Python library](docs/python.md) - for advanced use cases
+
+For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend install HolmesGPT SaaS or CLI (see above) to learn your way around.
 
 ### Using HolmesGPT
 
