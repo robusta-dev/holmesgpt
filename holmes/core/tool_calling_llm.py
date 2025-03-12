@@ -29,7 +29,6 @@ from rich.console import Console
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
-from litellm import stream_chunk_builder
 
 class ToolCallResult(BaseModel):
     tool_call_id: str
