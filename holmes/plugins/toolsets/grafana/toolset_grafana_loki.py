@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, cast
 from pydantic import BaseModel
-from urllib.parse import quote
+from urllib.parse import urlencode
 from holmes.core.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
@@ -14,7 +14,6 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
 )
-import logging
 import json
 
 
@@ -183,21 +182,6 @@ class GetLokiLogsForResource(Tool):
         return f"Fetched Loki logs({str(params)})"
 
 
-LOKI_URL_TEMPLATE = (
-    "{grafana_url}/explore?"
-    "schemaVersion=1&orgId=1&panes="
-    "%7B%22GU7%22:%7B%22datasource%22:%22{datasource_uid}%22,"
-    "%22queries%22:%5B%7B%22refId%22:%22A%22,"
-    "%22expr%22:%22%7B{label}%3D%5C%22{identifier}%5C%22%7D%22,"
-    "%22queryType%22:%22range%22,"
-    "%22datasource%22:%7B%22type%22:%22loki%22,"
-    "%22uid%22:%22{datasource_uid}%22%7D,"
-    "%22editorMode%22:%22builder%22%7D%5D,"
-    "%22range%22:%7B%22from%22:%22{start_time}%22,"
-    "%22to%22:%22{end_time}%22%7D%7D%7D"
-)
-
-
 class BuildLokiLogURL(Tool):
     def __init__(self, toolset: BaseGrafanaLokiToolset):
         super().__init__(
@@ -243,16 +227,6 @@ class BuildLokiLogURL(Tool):
     ) -> str:
         label_key = "pod" if resource_type == "pod" else "app"
 
-        # Generate expected URL using the Loki URL template
-        generated_url = LOKI_URL_TEMPLATE.format(
-            grafana_url=self._toolset._grafana_config.url,
-            datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
-            label=label_key,
-            identifier=identifier,
-            start_time=start_time,
-            end_time=end_time,
-        )
-
         # Correct JSON structure to match the expected URL format
         expected_query_params = {
             "schemaVersion": 1,
@@ -263,7 +237,7 @@ class BuildLokiLogURL(Tool):
                     "queries": [
                         {
                             "refId": "A",
-                            "expr": f'{{{label_key}=\\"{identifier}\\"}}',  # Proper escaping of quotes
+                            "expr": f'{{{label_key}="{identifier}"}}',  # Proper escaping of quotes
                             "queryType": "range",
                             "datasource": {
                                 "type": "loki",
@@ -277,20 +251,23 @@ class BuildLokiLogURL(Tool):
             },
         }
 
-        # Encode JSON into a query string format that matches the expected output
-        expected_query_string = "http://localhost:61502/explore?" + quote(
-            json.dumps(expected_query_params, separators=(",", ":"), ensure_ascii=False)
-        )
-
-        # Compare and log differences
-        if expected_query_string != generated_url:
-            logging.error("Mismatch between JSON encoding and expected URL format!")
-            logging.error(f"Generated URL: {generated_url}")
-            logging.error(f"Expected JSON: {expected_query_string}")
-            logging.error(
-                "Updating expected JSON formatting to match the correct format."
+        # Encode JSON into URL format properly
+        expected_query_string = (
+            f"{self._toolset._grafana_config.url}/explore?"
+            + urlencode(
+                {
+                    "schemaVersion": 1,
+                    "orgId": 1,
+                    "panes": json.dumps(
+                        expected_query_params["panes"],
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    ),
+                }
             )
-            return generated_url  # Return the correctly formatted URL instead
+            .replace("%3A", ":")
+            .replace("%2C", ",")
+        )
 
         return expected_query_string
 

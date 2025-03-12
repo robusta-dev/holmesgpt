@@ -584,7 +584,7 @@ def ticket(
     prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     system_prompt: Optional[str] = typer.Option(
-        "builtin://generic_investigation.jinja2", help=system_prompt_help
+        "builtin://generic_ticket.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
 ):
@@ -601,7 +601,7 @@ def ticket(
             f"[bold red]Error: Source '{source}' is not supported yet.[/bold red] Supported sources: {', '.join(supported_sources)}"
         )
         raise typer.Exit(1)
-
+    output_instructions = []
     # Validate Jira details if source is Jira Service Management
     if source == SupportedSources.JIRA_SERVICE_MANAGEMENT:
         if not jira_url or not jira_username or not jira_api_key or not ticket_id:
@@ -622,9 +622,15 @@ def ticket(
             custom_toolsets=None,
             custom_runbooks=None,
         )
-        prompt += ". Verify pod names before creating the link, use format for links [Atlassian|http://atlassian.com]"
+        output_instructions = [
+            "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
+        ]
         source_handler = config.create_jira_service_management_source(ticket_id)
 
+    system_prompt = load_and_render_prompt(
+        prompt=system_prompt,
+        context={"source": source, "output_instructions": output_instructions},
+    )
     # Fetch issue
     try:
         issues = source_handler.fetch_issues()
