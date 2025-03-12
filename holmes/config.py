@@ -277,7 +277,6 @@ class Config(RobustaBaseConfig):
             for toolset in load_builtin_toolsets(dal)
             if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
         ]
-
         # All built-in toolsets are enabled by default, users can override this in their config
         for toolset in default_toolsets:
             toolset.enabled = True
@@ -292,6 +291,7 @@ class Config(RobustaBaseConfig):
         toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
+
         if toolsets_loaded_from_config:
             toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -299,7 +299,6 @@ class Config(RobustaBaseConfig):
                     toolsets_by_name,
                 )
             )
-
         if self.toolsets:
             loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
             if loaded_toolsets_from_env:

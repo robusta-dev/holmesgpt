@@ -580,6 +580,7 @@ def ticket(
         None,
         help="Jira ticket ID to investigate (e.g., 'KAN-1')",
     ),
+    config_file: Optional[str] = opt_config_file,
     prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     system_prompt: Optional[str] = typer.Option(
@@ -610,7 +611,7 @@ def ticket(
             raise typer.Exit(1)
 
         config = Config.load_from_file(
-            config_file=None,
+            config_file=config_file,
             api_key=None,
             model=None,
             max_steps=None,
@@ -621,7 +622,7 @@ def ticket(
             custom_toolsets=None,
             custom_runbooks=None,
         )
-
+        prompt += ". Verify pod names before creating the link, use format for links [Atlassian|http://atlassian.com]"
         source_handler = config.create_jira_service_management_source(ticket_id)
 
     # Fetch issue

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, cast
 from pydantic import BaseModel
-
+from urllib.parse import quote
 from holmes.core.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
@@ -14,6 +14,8 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
 )
+import logging
+import json
 
 
 class GrafanaLokiLabelsConfig(BaseModel):
@@ -181,6 +183,135 @@ class GetLokiLogsForResource(Tool):
         return f"Fetched Loki logs({str(params)})"
 
 
+LOKI_URL_TEMPLATE = (
+    "{grafana_url}/explore?"
+    "schemaVersion=1&orgId=1&panes="
+    "%7B%22GU7%22:%7B%22datasource%22:%22{datasource_uid}%22,"
+    "%22queries%22:%5B%7B%22refId%22:%22A%22,"
+    "%22expr%22:%22%7B{label}%3D%5C%22{identifier}%5C%22%7D%22,"
+    "%22queryType%22:%22range%22,"
+    "%22datasource%22:%7B%22type%22:%22loki%22,"
+    "%22uid%22:%22{datasource_uid}%22%7D,"
+    "%22editorMode%22:%22builder%22%7D%5D,"
+    "%22range%22:%7B%22from%22:%22{start_time}%22,"
+    "%22to%22:%22{end_time}%22%7D%7D%7D"
+)
+
+
+class BuildLokiLogURL(Tool):
+    def __init__(self, toolset: BaseGrafanaLokiToolset):
+        super().__init__(
+            name="build_loki_log_url",
+            description="Builds a Loki log query URL for either a pod or an app label.",
+            parameters={
+                "namespace": ToolParameter(
+                    description="The namespace of the pod or app.",
+                    type="string",
+                    required=True,
+                ),
+                "identifier": ToolParameter(
+                    description="The name of the pod or app to filter logs for.",
+                    type="string",
+                    required=True,
+                ),
+                "resource_type": ToolParameter(
+                    description="Specify 'pod' or 'app' to filter logs based on the respective label.",
+                    type="string",
+                    required=True,
+                ),
+                "start_time": ToolParameter(
+                    description="The start timestamp in RFC3339 format. Defaults to -6h.",
+                    type="string",
+                    required=False,
+                ),
+                "end_time": ToolParameter(
+                    description="The end timestamp in RFC3339 format. Defaults to now.",
+                    type="string",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _build_query_params(
+        self,
+        namespace: str,
+        identifier: str,
+        resource_type: str,
+        start_time: str,
+        end_time: str,
+    ) -> str:
+        label_key = "pod" if resource_type == "pod" else "app"
+
+        # Generate expected URL using the Loki URL template
+        generated_url = LOKI_URL_TEMPLATE.format(
+            grafana_url=self._toolset._grafana_config.url,
+            datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
+            label=label_key,
+            identifier=identifier,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        # Correct JSON structure to match the expected URL format
+        expected_query_params = {
+            "schemaVersion": 1,
+            "orgId": 1,
+            "panes": {
+                "GU7": {
+                    "datasource": self._toolset._grafana_config.grafana_datasource_uid,
+                    "queries": [
+                        {
+                            "refId": "A",
+                            "expr": f'{{{label_key}=\\"{identifier}\\"}}',  # Proper escaping of quotes
+                            "queryType": "range",
+                            "datasource": {
+                                "type": "loki",
+                                "uid": self._toolset._grafana_config.grafana_datasource_uid,
+                            },
+                            "editorMode": "builder",
+                        }
+                    ],
+                    "range": {"from": start_time, "to": end_time},
+                }
+            },
+        }
+
+        # Encode JSON into a query string format that matches the expected output
+        expected_query_string = "http://localhost:61502/explore?" + quote(
+            json.dumps(expected_query_params, separators=(",", ":"), ensure_ascii=False)
+        )
+
+        # Compare and log differences
+        if expected_query_string != generated_url:
+            logging.error("Mismatch between JSON encoding and expected URL format!")
+            logging.error(f"Generated URL: {generated_url}")
+            logging.error(f"Expected JSON: {expected_query_string}")
+            logging.error(
+                "Updating expected JSON formatting to match the correct format."
+            )
+            return generated_url  # Return the correctly formatted URL instead
+
+        return expected_query_string
+
+    def _invoke(self, params: Dict) -> str:
+        namespace = params.get("namespace")
+        identifier = params.get("identifier")
+        resource_type = params.get("resource_type")
+        start_time = params.get("start_time", "now-6h")
+        end_time = params.get("end_time", "now")
+
+        if resource_type not in ["pod", "app"]:
+            return "Error: resource_type must be either 'pod' or 'app'."
+
+        return self._build_query_params(
+            namespace, identifier, resource_type, start_time, end_time
+        )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Generate a Loki log query URL for {params.get('resource_type')} '{params.get('identifier')}' in namespace '{params.get('namespace')}' from {params.get('start_time', 'now-6h')} to {params.get('end_time', 'now')}."
+
+
 class GrafanaLokiToolset(BaseGrafanaLokiToolset):
     def __init__(self):
         super().__init__(
@@ -188,5 +319,9 @@ class GrafanaLokiToolset(BaseGrafanaLokiToolset):
             description="Fetches kubernetes pods and node logs from Loki",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             docs_url="https://grafana.com/oss/loki/",
-            tools=[GetLokiLogsForResource(self), GetLokiLogs(self)],
+            tools=[
+                GetLokiLogsForResource(self),
+                GetLokiLogs(self),
+                BuildLokiLogURL(self),
+            ],
         )

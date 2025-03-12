@@ -36,7 +36,7 @@ class BaseGrafanaToolset(Toolset):
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
         if not config:
-            logging.debug("Grafana config not provided")
+            logging.warning(f"Grafana config not provided {self.name}")
             return False
 
         try:
@@ -47,7 +47,7 @@ class BaseGrafanaToolset(Toolset):
             return is_healthy
 
         except Exception:
-            logging.exception("Failed to set up grafana toolset")
+            logging.exception(f"Failed to set up grafana toolset {self.name}")
             return False
 
     def get_example_config(self):
