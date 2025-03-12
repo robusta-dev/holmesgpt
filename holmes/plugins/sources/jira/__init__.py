@@ -37,73 +37,18 @@ class JiraSource(SourcePlugin):
             raise ConnectionError("Failed to fetch data from Jira.") from e
 
     def convert_to_issue(self, jira_issue):
+        description = self.extract_description(jira_issue)
         return Issue(
             id=jira_issue["id"],
             name=jira_issue["fields"]["summary"],
             source_type="jira",
             source_instance_id=self.url,
             url=f"{self.url}/browse/{jira_issue['key']}",
+            description=description,
             raw=jira_issue,
         )
 
         # status=jira_issue["fields"]["status"]["name"],
-        # description=jira_issue.get("fields", {}).get("description", ""),
-
-    def write_back_result(self, issue_id: str, result_data: LLMResult) -> None:
-        # TODO: upload files and show tool usage
-        comment_url = f"{self.url}/rest/api/2/issue/{issue_id}/comment"
-        comment_data = {
-            "body": f"Automatic AI Investigation by Robusta:\n\n{result_data.result}\n"
-        }
-        response = requests.post(
-            comment_url,
-            json=comment_data,
-            auth=HTTPBasicAuth(self.username, self.api_key),
-            headers={"Accept": "application/json"},
-        )
-        response.raise_for_status()
-        data = response.json()
-        logging.debug(f"Comment added to issue {issue_id}: {data}")
-
-
-class JiraServiceManagementSource(JiraSource):
-    def __init__(self, url: str, username: str, api_key: str, ticket_id: str):
-        super().__init__(url, username, api_key, None)
-        self.ticket_id = ticket_id
-
-    def fetch_issues(self) -> List[Issue]:
-        logging.info(
-            f"Fetching Jira Service Management issue {self.ticket_id} from {self.url}"
-        )
-
-        try:
-            response = requests.get(
-                f"{self.url}/rest/api/3/issue/{self.ticket_id}",
-                auth=HTTPBasicAuth(self.username, self.api_key),
-                headers={"Accept": "application/json"},
-            )
-            response.raise_for_status()
-            jira_issue = response.json()
-            return [self.convert_to_issue(jira_issue)]
-        except requests.RequestException as e:
-            raise ConnectionError(
-                f"Failed to fetch Jira ticket {self.ticket_id}"
-            ) from e
-
-    def convert_to_issue(self, jira_issue):
-        """
-        Converts the Jira API response to an `Issue` object, including formatted description.
-        """
-
-        return Issue(
-            id=jira_issue["key"],
-            name=jira_issue["fields"]["summary"],
-            source_type="jira-service-management",
-            source_instance_id=self.url,
-            url=f"{self.url}/browse/{jira_issue['key']}",
-            raw=jira_issue,
-            description=self.extract_description(jira_issue),
-        )
 
     def extract_description(self, jira_issue) -> str:
         """
@@ -136,3 +81,19 @@ class JiraServiceManagementSource(JiraSource):
             if description_text
             else "No description available."
         )
+
+    def write_back_result(self, issue_id: str, result_data: LLMResult) -> None:
+        # TODO: upload files and show tool usage
+        comment_url = f"{self.url}/rest/api/2/issue/{issue_id}/comment"
+        comment_data = {
+            "body": f"Automatic AI Investigation by Robusta:\n\n{result_data.result}\n"
+        }
+        response = requests.post(
+            comment_url,
+            json=comment_data,
+            auth=HTTPBasicAuth(self.username, self.api_key),
+            headers={"Accept": "application/json"},
+        )
+        response.raise_for_status()
+        data = response.json()
+        logging.debug(f"Comment added to issue {issue_id}: {data}")

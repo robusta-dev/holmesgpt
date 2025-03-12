@@ -67,6 +67,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
                 if params.get("node_name") and "node" not in dash["title"].lower():
                     continue
 
+                # we add all params since if the dashboard isnt configured for a param it will ignore it if it is added
                 query_string = urlencode({k: v for k, v in params_dict.items() if v})
                 dashboard_url = (
                     f"{dashboard_url}?{query_string}" if query_string else dashboard_url

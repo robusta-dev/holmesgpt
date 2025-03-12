@@ -604,12 +604,6 @@ def ticket(
     output_instructions = []
     # Validate Jira details if source is Jira Service Management
     if source == SupportedSources.JIRA_SERVICE_MANAGEMENT:
-        if not jira_url or not jira_username or not jira_api_key or not ticket_id:
-            console.print(
-                "[bold red]Error: Jira URL, username, API key, and ticket ID are required for jira-service-management.[/bold red]"
-            )
-            raise typer.Exit(1)
-
         config = Config.load_from_file(
             config_file=config_file,
             api_key=None,
@@ -622,6 +616,17 @@ def ticket(
             custom_toolsets=None,
             custom_runbooks=None,
         )
+
+        if (
+            not config.jira_url
+            or not config.jira_username
+            or not config.jira_api_key
+            or not ticket_id
+        ):
+            console.print(
+                "[bold red]Error: Jira URL, username, API key, and ticket ID are required for jira-service-management.[/bold red]"
+            )
+            raise typer.Exit(1)
         output_instructions = [
             "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
         ]
