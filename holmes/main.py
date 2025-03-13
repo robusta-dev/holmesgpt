@@ -24,7 +24,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
-from holmes.config import Config
+from holmes.config import Config, SupportedTicketSources
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
@@ -552,15 +552,13 @@ def jira(
 
 
 # Define supported sources
-class SupportedSources(str, Enum):
-    JIRA_SERVICE_MANAGEMENT = "jira-service-management"
 
 
 @investigate_app.command()
 def ticket(
-    source: SupportedSources = typer.Option(
+    source: SupportedTicketSources = typer.Option(
         ...,
-        help=f"Source system to investigate the ticket from. Supported sources: {', '.join(s.value for s in SupportedSources)}",
+        help=f"Source system to investigate the ticket from. Supported sources: {', '.join(s.value for s in SupportedTicketSources)}",
     ),
     jira_url: Optional[str] = typer.Option(
         None,
@@ -595,15 +593,15 @@ def ticket(
     console = init_logging([])
 
     # Validate source
-    supported_sources = [s.value for s in SupportedSources]
+    supported_sources = [s.value for s in SupportedTicketSources]
     if source not in supported_sources:
         console.print(
             f"[bold red]Error: Source '{source}' is not supported yet.[/bold red] Supported sources: {', '.join(supported_sources)}"
         )
-        raise typer.Exit(1)
+        return
     output_instructions = []
     # Validate Jira details if source is Jira Service Management
-    if source == SupportedSources.JIRA_SERVICE_MANAGEMENT:
+    if source == SupportedTicketSources.JIRA_SERVICE_MANAGEMENT:
         config = Config.load_from_file(
             config_file=config_file,
             api_key=None,
@@ -626,7 +624,7 @@ def ticket(
             console.print(
                 "[bold red]Error: Jira URL, username, API key, and ticket ID are required for jira-service-management.[/bold red]"
             )
-            raise typer.Exit(1)
+            return
         output_instructions = [
             "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
         ]
@@ -650,7 +648,7 @@ def ticket(
         console.print(
             f"[bold red]Error: Failed to fetch issue {ticket_id} from Jira.[/bold red]"
         )
-        raise typer.Exit(1)
+        return
 
     if not issues:
         console.print("[bold red]No issues found.[/bold red]")

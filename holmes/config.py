@@ -22,7 +22,7 @@ from holmes.core.tools import (
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.github import GitHubSource
-from holmes.plugins.sources.jira import JiraSource, JiraServiceManagementSource
+from holmes.plugins.sources.jira import JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
@@ -36,8 +36,13 @@ from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 import re
+from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+
+
+class SupportedTicketSources(str, Enum):
+    JIRA_SERVICE_MANAGEMENT = "jira-service-management"
 
 
 def get_env_replacement(value: str) -> Optional[str]:
@@ -442,29 +447,6 @@ class Config(RobustaBaseConfig):
             username=self.jira_username,
             api_key=self.jira_api_key.get_secret_value(),
             jql_query=self.jira_query,
-        )
-
-    def create_jira_service_management_source(
-        self, ticket_id: str
-    ) -> JiraServiceManagementSource:
-        if self.jira_url is None:
-            raise ValueError("--jira-url must be specified")
-        if not self.jira_url.startswith(("http://", "https://")):
-            raise ValueError("--jira-url must start with http:// or https://")
-        if self.jira_username is None:
-            raise ValueError("--jira-username must be specified")
-        if self.jira_api_key is None:
-            raise ValueError("--jira-api-key must be specified")
-        if not ticket_id:
-            raise ValueError(
-                "--ticket-id must be specified for Jira Service Management"
-            )
-
-        return JiraServiceManagementSource(
-            url=self.jira_url,
-            username=self.jira_username,
-            api_key=self.jira_api_key.get_secret_value(),
-            ticket_id=ticket_id,
         )
 
     def create_github_source(self) -> GitHubSource:
