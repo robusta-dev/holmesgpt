@@ -35,9 +35,21 @@ from holmes.plugins.toolsets.prometheus import (
             "counter",
             {"metric1": {"type": "counter"}, "metric3": {"type": "counter"}},
         ),
+        # Test case 4: Metrics with missing type field
+        (
+            {
+                "metric1": {"type": "counter"},
+                "metric2": {"type": "?"},
+            },
+            "counter",
+            {"metric1": {"type": "counter"}, "metric2": {"type": "?"}},
+        ),
     ],
 )
 def test_filter_metrics_by_type(metrics, expected_type, expected_result):
+    print(f"metrics={metrics}")
+    print(f"expected_type={expected_type}")
+    print(f"expected_result={expected_result}")
     result = filter_metrics_by_type(metrics, expected_type)
     assert result == expected_result
 
