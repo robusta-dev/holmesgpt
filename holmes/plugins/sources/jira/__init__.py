@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -36,7 +36,25 @@ class JiraSource(SourcePlugin):
         except requests.RequestException as e:
             raise ConnectionError("Failed to fetch data from Jira.") from e
 
-    def convert_to_issue(self, jira_issue):
+    def fetch_jsm_issue(self, ticket_id: str) -> Issue:
+        logging.info(
+            f"Fetching Jira Service Management issue {ticket_id} from {self.url}"
+        )
+
+        try:
+            response = requests.get(
+                f"{self.url}/rest/api/3/issue/{ticket_id}",
+                auth=HTTPBasicAuth(self.username, self.api_key),
+                headers={"Accept": "application/json"},
+            )
+            response.raise_for_status()
+            jira_issue = response.json()
+            description = self.extract_description(jira_issue)
+            return self.convert_to_issue(jira_issue, description)
+        except requests.RequestException as e:
+            raise ConnectionError(f"Failed to fetch Jira ticket {ticket_id}") from e
+
+    def convert_to_issue(self, jira_issue, description: Optional[str] = None):
         description = self.extract_description(jira_issue)
         return Issue(
             id=jira_issue["id"],

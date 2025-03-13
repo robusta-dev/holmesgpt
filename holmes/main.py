@@ -628,35 +628,26 @@ def ticket(
         output_instructions = [
             "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
         ]
-        source_handler = config.create_jira_service_management_source(ticket_id)
-
+        source_handler = config.create_jira_source()
+        try:
+            issue_to_investigate = source_handler.fetch_jsm_issue(ticket_id)
+            if issue_to_investigate is None:
+                raise Exception("Ticket Not found")
+        except Exception as e:
+            logging.error("Failed to fetch issue from Jira", exc_info=e)
+            console.print(
+                f"[bold red]Error: Failed to fetch issue {ticket_id} from Jira.[/bold red]"
+            )
+            return
     system_prompt = load_and_render_prompt(
         prompt=system_prompt,
         context={"source": source, "output_instructions": output_instructions},
     )
-    # Fetch issue
-    try:
-        issues = source_handler.fetch_issues()
-        issue_to_investigate = None
-        for issue in issues:
-            if issue.id == ticket_id:
-                issue_to_investigate = issue
-        if issue_to_investigate is None:
-            raise Exception("Ticket Not found")
-    except Exception as e:
-        logging.error("Failed to fetch issue from Jira", exc_info=e)
-        console.print(
-            f"[bold red]Error: Failed to fetch issue {ticket_id} from Jira.[/bold red]"
-        )
-        return
 
-    if not issues:
-        console.print("[bold red]No issues found.[/bold red]")
-        return
-
-    issue = issues[0]
     ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
-    console.print(f"[bold yellow]Analyzing Jira ticket: {issue.name}...[/bold yellow]")
+    console.print(
+        f"[bold yellow]Analyzing Jira ticket: {issue_to_investigate.name}...[/bold yellow]"
+    )
     prompt = (
         prompt
         + f" for issue '{issue_to_investigate.name}' with description:'{issue_to_investigate.description}'"
@@ -664,11 +655,13 @@ def ticket(
     result = ai.prompt_call(system_prompt, prompt, post_processing_prompt)
 
     console.print(Rule())
-    console.print(f"[bold green]AI analysis of {issue.url} {prompt}[/bold green]")
+    console.print(
+        f"[bold green]AI analysis of {issue_to_investigate.url} {prompt}[/bold green]"
+    )
     console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
     console.print(Rule())
-    source_handler.write_back_result(issue.id, result)
-    console.print(f"[bold]Updated ticket {issue.url}.[/bold]")
+    source_handler.write_back_result(issue_to_investigate.id, result)
+    console.print(f"[bold]Updated ticket {issue_to_investigate.url}.[/bold]")
 
 
 @investigate_app.command()
