@@ -169,6 +169,13 @@ class DefaultLLM(LLM):
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
     ) -> ModelResponse:
+
+        logging.info("llm.completion()")
+        logging.info(f"llm.completion[len(messages)] - {len(messages)}")
+        logging.info(f"llm.completion[tools] - {tools}")
+        logging.info(f"llm.completion[tool_choice] - {tool_choice}")
+        logging.info(f"llm.completion[response_format] - {response_format}")
+        logging.info(f"llm.completion[drop_params] - {drop_params}")
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,

@@ -121,10 +121,13 @@ class ToolCallingLLM:
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
-            logging.debug(f"running iteration {i}")
+            logging.info(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
-            tools = NOT_GIVEN if i == max_steps - 1 else tools
-            tool_choice = NOT_GIVEN if tools == NOT_GIVEN else "auto"
+            tools = NOT_GIVEN if i == max_steps else tools
+            tool_choice = None if tools == NOT_GIVEN else "auto"
+
+            logging.info(f"tools - {tools}")
+            logging.info(f"tool_choice - {tool_choice}")
 
             total_tokens = self.llm.count_tokens_for_message(messages)
             max_context_size = self.llm.get_context_window_size()
