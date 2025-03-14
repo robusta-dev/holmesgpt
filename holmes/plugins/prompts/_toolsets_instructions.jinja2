@@ -1,0 +1,5 @@
+
+# Available Toolsets
+
+{% for toolset in enabled_toolsets %}{% if toolset.llm_instructions %}
+## {{ toolset.name }}{{ toolset.llm_instructions }}{% endif %}{% endfor %}

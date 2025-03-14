@@ -1,5 +1,6 @@
-Logs:
-{% if 'grafana/loki' in enabled_toolsets %}
+# Logs
+
+{% if enabled_toolsets | selectattr("name", "equalto", "grafana/loki") | list %}
 * For any logs, including for investigating kubernetes problems, use Loki
 * Use the tool fetch_loki_logs_for_resource to get the logs of any kubernetes pod or node
 * Use fetch_loki_logs and build a query for any other logs
@@ -9,7 +10,7 @@ Logs:
 ** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
 ** If there are too many logs, or not enough, narrow or widen the timestamps
 * If you are not provided with time information. Ignore start_timestamp and end_timestamp. Loki will default to the latest logs.
-{% elif 'kubernetes/logs' in enabled_toolsets %}
+{% elif enabled_toolsets | selectattr("name", "equalto", "kubernetes/logs") | list %}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.

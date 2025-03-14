@@ -1487,6 +1487,17 @@ extra-proxy = ["azure-identity (>=1.15.0,<2.0.0)", "azure-keyvault-secrets (>=4.
 proxy = ["PyJWT (>=2.8.0,<3.0.0)", "apscheduler (>=3.10.4,<4.0.0)", "backoff", "cryptography (>=43.0.1,<44.0.0)", "fastapi (>=0.115.5,<0.116.0)", "fastapi-sso (>=0.16.0,<0.17.0)", "gunicorn (>=22.0.0,<23.0.0)", "orjson (>=3.9.7,<4.0.0)", "pynacl (>=1.5.0,<2.0.0)", "python-multipart (>=0.0.18,<0.0.19)", "pyyaml (>=6.0.1,<7.0.0)", "rq", "uvicorn (>=0.29.0,<0.30.0)", "uvloop (>=0.21.0,<0.22.0)"]
 
 [[package]]
+name = "logfmter"
+version = "0.0.9"
+description = "A Python package which supports global logfmt formatted logging."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "logfmter-0.0.9-py3-none-any.whl", hash = "sha256:940d99ec81f13bef6c182855fdc7edc09f16abab89a4eb3910ecbab176d7e943"},
+    {file = "logfmter-0.0.9.tar.gz", hash = "sha256:c754478865a243f4f9bad8e5df859ec7c74e8aa3c40e6dc38b01b840769334b4"},
+]
+
+[[package]]
 name = "markdown"
 version = "3.7"
 description = "Python implementation of John Gruber's Markdown."
@@ -3576,4 +3587,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "5809709bf8a4f2a37948073c621d46c57a3405e263f01659d25beee26004997e"
+content-hash = "ab00f4896ad953575c816b46da574d8b02f85f2a2629782a85f13a427188692e"

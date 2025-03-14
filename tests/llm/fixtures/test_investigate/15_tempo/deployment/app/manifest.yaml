@@ -1,0 +1,315 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minishop
+---
+# Backend Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minishop
+      service: backend
+  template:
+    metadata:
+      labels:
+        app: minishop
+        service: backend
+    spec:
+      containers:
+        - name: backend
+          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
+          imagePullPolicy: Always
+          command: ["node", "dist/backend-service.js"]
+          ports:
+            - containerPort: 3003
+              name: http
+            - containerPort: 9464
+              name: metrics
+          env:
+            - name: TEMPO_URL
+              value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /backend/health
+              port: 3003
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /backend/health
+              port: 3003
+            initialDelaySeconds: 15
+            periodSeconds: 20
+        - name: checkout-sidecar
+          image: curlimages/curl:7.86.0
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                curl -X POST \
+                -H "Content-Type: application/json" \
+                -d '{"name":"John Doe","email":"john.doe@example.com","address":"main street","cardNumber":"1234-5678-9101-1121"}' \
+                http://localhost:3003/backend/api/checkout;
+                sleep 5;
+              done
+---
+# Checkout Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: checkout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minishop
+      service: checkout
+  template:
+    metadata:
+      labels:
+        app: minishop
+        service: checkout
+    spec:
+      containers:
+        - name: checkout
+          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
+          imagePullPolicy: Always
+          command: ["node", "dist/checkout-service.js"]
+          ports:
+            - containerPort: 3004
+              name: http
+            - containerPort: 9464
+              name: metrics
+          env:
+            - name: TEMPO_URL
+              value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
+          readinessProbe:
+            httpGet:
+              path: /checkout/health
+              port: 3004
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /checkout/health
+              port: 3004
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+# Fraud Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: fraud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minishop
+      service: fraud
+  template:
+    metadata:
+      labels:
+        app: minishop
+        service: fraud
+    spec:
+      containers:
+        - name: fraud
+          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
+          imagePullPolicy: Always
+          command: ["node", "dist/fraud-service.js"]
+          ports:
+            - containerPort: 3005
+              name: http
+            - containerPort: 9464
+              name: metrics
+          env:
+            - name: TEMPO_URL
+              value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
+          readinessProbe:
+            httpGet:
+              path: /fraud/health
+              port: 3005
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /fraud/health
+              port: 3005
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+# Auth Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minishop
+      service: auth
+  template:
+    metadata:
+      labels:
+        app: minishop
+        service: auth
+    spec:
+      containers:
+        - name: auth
+          image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
+          imagePullPolicy: Always
+          command: ["node", "dist/auth-service.js"]
+          ports:
+            - containerPort: 3006
+              name: http
+            - containerPort: 9464
+              name: metrics
+          env:
+            - name: TEMPO_URL
+              value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
+          readinessProbe:
+            httpGet:
+              path: /auth/health
+              port: 3006
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /auth/health
+              port: 3006
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+# Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: backend
+spec:
+  selector:
+    app: minishop
+    service: backend
+  ports:
+    - name: http
+      port: 3003
+      targetPort: 3003
+    - name: metrics
+      port: 9464
+      targetPort: 9464
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: checkout
+spec:
+  selector:
+    app: minishop
+    service: checkout
+  ports:
+    - name: http
+      port: 3004
+      targetPort: 3004
+    - name: metrics
+      port: 9464
+      targetPort: 9464
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: fraud
+spec:
+  selector:
+    app: minishop
+    service: fraud
+  ports:
+    - name: http
+      port: 3005
+      targetPort: 3005
+    - name: metrics
+      port: 9464
+      targetPort: 9464
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: minishop
+  labels:
+    app: minishop
+    service: auth
+spec:
+  selector:
+    app: minishop
+    service: auth
+  ports:
+    - name: http
+      port: 3006
+      targetPort: 3006
+    - name: metrics
+      port: 9464
+      targetPort: 9464
+---
+# Prometheus Rule for High Latency
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: minishop-high-latency
+  namespace: minishop
+  labels:
+    app: minishop
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: minishop.rules
+      rules:
+        - alert: MinishopHighLatency
+          expr: rate(http_request_duration_seconds_sum[24h]) / (rate(http_request_duration_seconds_count[24h])) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High latency detected in Minishop application"
+            description: "The service is experiencing high latency (> 3s avg) over the past 24 hours."
