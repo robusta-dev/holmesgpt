@@ -171,16 +171,21 @@ class DefaultLLM(LLM):
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
     ) -> ModelResponse:
+
+        tools_args = {}
+        if tools and len(tools) > 0 and tool_choice:
+            tools_args["tools"] = tools
+            tools_args["tool_choice"] = tool_choice
+
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
             base_url=self.base_url,
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
+            **tools_args
         )
 
         if isinstance(result, ModelResponse):

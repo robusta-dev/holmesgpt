@@ -1,5 +1,6 @@
 import os
-from typing import Dict
+from typing import Any, Dict, List, cast
+from pydantic import BaseModel
 import requests
 import yaml
 from logfmter import Logfmter
@@ -7,86 +8,88 @@ from holmes.core.tools import (
     Tool,
     ToolParameter,
 )
-from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.tempo_api import (
     execute_tempo_query_with_retry,
-    query_tempo_traces_by_duration,
     query_tempo_trace_by_id,
+    query_tempo_traces,
 )
 from holmes.plugins.toolsets.grafana.common import (
+    GrafanaConfig,
     get_param_or_raise,
-    process_timestamps,
+    process_timestamps_to_int,
 )
+from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
 
 
-class GetTempoTracesByMinDuration(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+class GrafanaTempoLabelsConfig(BaseModel):
+    pod: str = "k8s.pod.name"
+    namespace: str = "k8s.namespace.name"
+    deployment: str = "k8s.deployment.name"
+    node: str = "k8s.node.name"
+    service: str = "service.name"
+
+class GrafanaTempoConfig(GrafanaConfig):
+    labels: GrafanaTempoLabelsConfig = GrafanaTempoLabelsConfig()
+
+
+class BaseGrafanaTempoToolset(BaseGrafanaToolset):
+    config_class = GrafanaTempoConfig
+
+    def get_example_config(self):
+        example_config = GrafanaTempoConfig(
+            api_key="YOUR API KEY",
+            url="YOUR GRAFANA URL",
+            grafana_datasource_uid="<UID of the tempo datasource to use>",
+        )
+        return example_config.model_dump()
+
+    @property
+    def grafana_config(self) -> GrafanaTempoConfig:
+        return cast(GrafanaTempoConfig, self._grafana_config)
+
+def validate_params(params:Dict[str, Any], expected_params: List[str]):
+    for param in expected_params:
+        if param in params and params[param] not in (None, "", [], {}):
+            return None
+
+    return f"At least one of the following argument is expected but none were set: {expected_params}"
+
+class GetTempoTraces(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="fetch_tempo_traces_by_min_duration",
-            description="""Lists Tempo traces ids that exceed a specified minimum duration in a given time range""",
+            name="fetch_tempo_traces",
+            description="""Lists Tempo traces. At least one of `service_name`, `pod_name` or `deployment_name` argument is required.""",
             parameters={
                 "min_duration": ToolParameter(
                     description="The minimum duration of traces to fetch, e.g., '5s' for 5 seconds.",
                     type="string",
                     required=True,
-                ),
-                "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
-                    type="string",
-                    required=False,
-                ),
-                "end_timestamp": ToolParameter(
-                    description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
-                    type="string",
-                    required=False,
-                ),
-                "limit": ToolParameter(
-                    description="Maximum number of traces to return. Defaults to 50",
-                    type="string",
-                    required=False,
-                ),
-            },
-        )
-        self._toolset = toolset
-
-    def _invoke(self, params: Dict) -> str:
-        start, end = process_timestamps(
-            params.get("start_timestamp"),
-            params.get("end_timestamp"),
-            output_format="unix"
-        )
-        traces = query_tempo_traces_by_duration(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
-            min_duration=get_param_or_raise(params, "min_duration"),
-            start=start,
-            end=end,
-            limit=int(
-                params.get("limit", 50)
-            ),  # Default to 50 if limit is not provided
-        )
-        return yaml.dump(traces)
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo traces with min_duration={params.get('min_duration')} ({str(params)})"
-
-class GetTempoTracesForService(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
-        super().__init__(
-            name="fetch_tempo_traces_for_service",
-            description="""Lists Tempo traces ids for a specific service that exceed a specified minimum duration in a given time range""",
-            parameters={
-                "min_duration": ToolParameter(
-                    description="The minimum duration of traces to fetch, e.g., '5s' for 5 seconds.",
-                    type="string",
-                    required=False,
                 ),
                 "service_name": ToolParameter(
-                    description="The name of the service to fetch traces from",
+                    description="Filter traces by service name",
                     type="string",
-                    required=True,
+                    required=False,
+                ),
+                "pod_name": ToolParameter(
+                    description="Filter traces by pod name",
+                    type="string",
+                    required=False,
+                ),
+                "namespace_name": ToolParameter(
+                    description="Filter traces by namespace",
+                    type="string",
+                    required=False,
+                ),
+                "deployment_name": ToolParameter(
+                    description="Filter traces by deployment name",
+                    type="string",
+                    required=False,
+                ),
+                "node_name": ToolParameter(
+                    description="Filter traces by node",
+                    type="string",
+                    required=False,
                 ),
                 "start_timestamp": ToolParameter(
                     description="The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
@@ -103,38 +106,62 @@ class GetTempoTracesForService(Tool):
                     type="string",
                     required=False,
                 ),
+                "sort": ToolParameter(
+                    description="One of 'descending', 'ascending' or 'none' for no sorting. Defaults to descending",
+                    type="string",
+                    required=False,
+                ),
             },
         )
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
-        grafana_url=self._toolset._grafana_config.url
-        api_key=self._toolset._grafana_config.api_key
-        tempo_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid
+        grafana_url=self._toolset.grafana_config.url
+        api_key=self._toolset.grafana_config.api_key
+        tempo_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid
+        labels = self._toolset.grafana_config.labels
 
-        start, end = process_timestamps(
+        invalid_params_error = validate_params(params, ["service_name", "pod_name", "deployment_name"])
+        if invalid_params_error:
+            return invalid_params_error
+
+        start, end = process_timestamps_to_int(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
 
-        query_params = {
-            "minDuration": get_param_or_raise(params, "min_duration"),
-            "start": start,
-            "end": end,
-            "tags": Logfmter.format_params({
-                "service.name": get_param_or_raise(params, "service.name")
-            }),
-            "limit": params.get("limit", 50),
-        }
-        traces = execute_tempo_query_with_retry(
-            grafana_url, api_key, tempo_datasource_uid, query_params
+        filters = []
+        if params.get("service_name"):
+            filters.append(f'resource.{labels.service}="{params.get("service_name")}"')
+        if params.get("pod_name"):
+            filters.append(f'resource.{labels.pod}="{params.get("pod_name")}"')
+        if params.get("namespace_name"):
+            filters.append(f'resource.{labels.namespace}="{params.get("namespace_name")}"')
+        if params.get("deployment_name"):
+            filters.append(f'resource.{labels.deployment}="{params.get("deployment_name")}"')
+        if params.get("node_name"):
+            filters.append(f'resource.{labels.node}="{params.get("node_name")}"')
+
+        filters.append(f'duration>{get_param_or_raise(params, "min_duration")}')
+
+        query = " && ".join(filters)
+        query = f"{{{query}}}"
+
+        traces = query_tempo_traces(
+            grafana_url= grafana_url,
+            api_key=api_key,
+            tempo_datasource_uid= tempo_datasource_uid,
+            query=query,
+            start= start,
+            end= end,
+            limit=params.get("limit", 50)
         )
-        return yaml.dump(traces)
+        return format_traces_list(traces)
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Tempo traces with min_duration={params.get('min_duration')} ({str(params)})"
 
 class GetTempoTags(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
             name="fetch_tempo_tags",
             description="List the tags available in Tempo",
@@ -171,7 +198,7 @@ class GetTempoTags(Tool):
         return f"Fetched Tempo trace with trace_id={params.get('trace_id')} ({str(params)})"
 
 class GetTempoTraceById(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
             name="fetch_tempo_trace_by_id",
             description="""Retrieves detailed information about a Tempo trace using its trace ID. Use this to investigate a trace.""",
@@ -186,19 +213,23 @@ class GetTempoTraceById(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
+        labels_mapping = self._toolset.grafana_config.labels
+        labels = list(labels_mapping.model_dump().values())
+
         trace_data = query_tempo_trace_by_id(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
             tempo_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
             trace_id=get_param_or_raise(params, "trace_id"),
+            key_labels=labels
         )
-        return yaml.dump(trace_data)
+        return trace_data
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Tempo trace with trace_id={params.get('trace_id')} ({str(params)})"
 
 
-class GrafanaTempoToolset(BaseGrafanaToolset):
+class GrafanaTempoToolset(BaseGrafanaTempoToolset):
     def __init__(self):
         super().__init__(
             name="grafana/tempo",
@@ -206,14 +237,9 @@ class GrafanaTempoToolset(BaseGrafanaToolset):
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
             docs_url="https://grafana.com/oss/tempo/",
             tools=[
-                GetTempoTracesByMinDuration(self),
-                GetTempoTracesForService(self),
+                GetTempoTraces(self),
                 GetTempoTraceById(self),
                 GetTempoTags(self)
             ],
         )
-
-    def get_prompt(self):
-        promt_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'tempo_prompt.jinja2'))
-        tool_names = [t.name for t in self.tools]
-        return load_and_render_prompt(prompt=f"file://{promt_file_path}", context={"tool_names": tool_names})
+        self._load_llm_instructions(os.path.abspath(os.path.join(os.path.dirname(__file__), 'toolset_grafana_tempo.jinja2')))

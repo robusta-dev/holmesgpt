@@ -60,6 +60,14 @@ def unix_to_rfc3339(timestamp: int) -> str:
     dt = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
     return dt.isoformat()
 
+def unix_nano_to_rfc3339(unix_nano: int) -> str:
+    unix_seconds = unix_nano / 1_000_000_000
+
+    seconds_part = int(unix_seconds)
+    milliseconds_part = int((unix_seconds - seconds_part) * 1000)
+
+    dt = datetime.datetime.fromtimestamp(seconds_part, datetime.timezone.utc)
+    return f"{dt.strftime('%Y-%m-%dT%H:%M:%S')}.{milliseconds_part:03d}Z"
 
 def datetime_to_rfc3339(timestamp):
     if isinstance(timestamp, int):
@@ -68,11 +76,21 @@ def datetime_to_rfc3339(timestamp):
         return timestamp
 
 
-def process_timestamps(
+def process_timestamps_to_rfc3339(
     start_timestamp: Optional[Union[int, str]],
-    end_timestamp: Optional[Union[int, str]],
-    output_format: Union[Literal["unix"], Literal["RFC3339"]] = "RFC3339"
-) -> Tuple[Union[str, int], Union[str, int]]:
+    end_timestamp: Optional[Union[int, str]]
+) -> Tuple[str, str]:
+    (start_timestamp, end_timestamp) = process_timestamps_to_int(start_timestamp, end_timestamp)
+    start_timestamp = datetime_to_rfc3339(start_timestamp)
+    end_timestamp = datetime_to_rfc3339(end_timestamp)
+    return (start_timestamp, end_timestamp)
+
+
+def process_timestamps_to_int(
+    start_timestamp: Optional[Union[int, str]],
+    end_timestamp: Optional[Union[int, str]]
+) -> Tuple[int, int]:
+
     """
     Process and normalize start and end timestamps.
 
@@ -83,9 +101,8 @@ def process_timestamps(
     - Auto-inversion if start is after end
 
     Returns:
-        Tuple of (start_timestamp, end_timestamp)
+    Tuple of (start_timestamp, end_timestamp)
     """
-    print(f"** process_timestamps {start_timestamp} - {end_timestamp}")
     # If no end_timestamp provided, use current time
     if not end_timestamp:
         end_timestamp = int(time.time())
@@ -119,11 +136,6 @@ def process_timestamps(
     ):
         start_timestamp, end_timestamp = end_timestamp, start_timestamp
 
-    # Convert timestamps to RFC3399 because APIs support it and it's
-    # more human readable than timestamps
-    if output_format == "RFC3339":
-        start_timestamp = datetime_to_rfc3339(start_timestamp)
-        end_timestamp = datetime_to_rfc3339(end_timestamp)
 
     return (start_timestamp, end_timestamp)
 

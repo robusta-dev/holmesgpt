@@ -1,7 +1,9 @@
-Tempo:
 You are provided with a set of tools to investigate tempo traces. Use Tempo when investigating latency or performance issues.
-1. Start by getting a threshold of performance issue. This could be from an alert or by looking at a performance threshold.
-e.g. service A is having some requests exceed XX seconds which triggers an alert.
-2. Use `fetch_tempo_traces_for_service` setting the appropriate query params: start and end_time, min_duration, etc.
+1. Start by identifying an initial filter to use. This can be a pod name, a deployment name or a service name
+2. Use `fetch_tempo_traces` setting the appropriate query params
+    - If investigating a performance issue, use the min_duration filter to ensure you get traces that trigger the alert
+    - If possible, use start and end date to narrow down your search.
+        - Use fetch_finding_by_id if you are provided with a finding/alert id. It will contain details about when the alert was triggerred
+    - Use at least one of the following argument to ensure you get relevant traces: `service_name`, `pod_name` or `deployment_name`.
 3. Look at the duration of each span in any single trace and deduct any issues.
-4. Potentially follow up by looking at the logs of any service mentioned in the traces that is responsible for long traces durations
+4. ALWAYS fetch the logs for a pod once you identify a span that is taking a long time. There may be an explanation for the slowness in the logs.

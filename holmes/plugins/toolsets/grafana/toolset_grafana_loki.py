@@ -8,18 +8,16 @@ from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
     format_log,
     get_param_or_raise,
-    process_timestamps,
+    process_timestamps_to_rfc3339,
 )
 from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
 )
 
-
 class GrafanaLokiLabelsConfig(BaseModel):
     pod: str = "pod"
     namespace: str = "namespace"
-
 
 class GrafanaLokiConfig(GrafanaConfig):
     labels: GrafanaLokiLabelsConfig = GrafanaLokiLabelsConfig()
@@ -91,7 +89,7 @@ class GetLokiLogs(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
-        (start, end) = process_timestamps(
+        (start, end) = process_timestamps_to_rfc3339(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
         query = get_param_or_raise(params, "query")
@@ -156,7 +154,7 @@ class GetLokiLogsForResource(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
-        (start, end) = process_timestamps(
+        (start, end) = process_timestamps_to_rfc3339(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
         label = get_resource_label(params, self._toolset.grafana_config)
