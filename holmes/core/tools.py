@@ -361,6 +361,7 @@ class Toolset(BaseModel):
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.DISABLED
+                    self._error = prereq.disabled_reason or "Disabled by configuration"
                     self._checked = True
                     return
 
@@ -368,6 +369,8 @@ class Toolset(BaseModel):
                 res = prereq.callable(self.config)
                 if not res:
                     self._status = ToolsetStatusEnum.DISABLED
+                    # Since we don't have direct access to reason, use a generic message
+                    self._error = "Missing required configuration"
                     self._checked = True
                     return
 

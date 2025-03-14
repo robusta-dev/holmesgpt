@@ -384,10 +384,24 @@ class Config(RobustaBaseConfig):
                             )
                         elif ts.get_status() == ToolsetStatusEnum.DISABLED:
                             disabled_toolsets.append(ts)
-                            console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
+                            if ts.get_error():
+                                console.print(
+                                    f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
+                                )
+                            else:
+                                console.print(
+                                    f"  [yellow]◯[/yellow] {ts.name}: Disabled"
+                                )
                         elif ts.get_status() == ToolsetStatusEnum.FAILED:
                             failed_toolsets.append(ts)
-                            console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
+                            if ts.get_error():
+                                console.print(
+                                    f"  [red]✗[/red] {ts.name}: {ts.get_error()}"
+                                )
+                            else:
+                                console.print(
+                                    f"  [red]✗[/red] {ts.name}: Failed to load"
+                                )
 
                 # Add a divider before the summary
                 console.print()

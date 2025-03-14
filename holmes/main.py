@@ -87,17 +87,20 @@ def suppress_noisy_logs():
 def init_logging(verbose_flags: List[bool] = None):
     verbosity = cli_flags_to_verbosity(verbose_flags)
 
+    # Create a custom handler that doesn't show location info
+    handler = RichHandler(show_level=False, show_time=False, show_path=False)
+
     if verbosity == Verbosity.VERY_VERBOSE:
         logging.basicConfig(
             level=logging.DEBUG,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[handler],
         )
     elif verbosity == Verbosity.VERBOSE:
         logging.basicConfig(
             level=logging.INFO,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[handler],
         )
         logging.getLogger().setLevel(logging.DEBUG)
         suppress_noisy_logs()
@@ -105,7 +108,7 @@ def init_logging(verbose_flags: List[bool] = None):
         logging.basicConfig(
             level=logging.INFO,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[handler],
         )
         suppress_noisy_logs()
 

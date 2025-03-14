@@ -460,7 +460,8 @@ class KafkaToolset(Toolset):
 
             return len(self.clients) > 0
         except Exception:
-            logging.exception("Failed to set up Kafka toolset")
+            logging.info("Failed to set up Kafka toolset. Use -vv for details.")
+            logging.debug("Kafka toolset error details:", exc_info=True)
             return False
 
     def get_example_config(self) -> Dict[str, Any]:

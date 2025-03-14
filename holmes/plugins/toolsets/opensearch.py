@@ -202,11 +202,15 @@ class OpenSearchToolset(Toolset):
                     if client.client.cluster.health(params={"timeout": 5}):
                         self.clients.append(client)
                 except Exception:
-                    logging.exception("Failed to set up opensearch client")
+                    logging.info(
+                        "Failed to set up opensearch client. Use -vv for details."
+                    )
+                    logging.debug("OpenSearch client error details:", exc_info=True)
 
             return len(self.clients) > 0
         except Exception:
-            logging.exception("Failed to set up OpenSearch toolset")
+            logging.info("Failed to set up OpenSearch toolset. Use -vv for details.")
+            logging.debug("OpenSearch toolset error details:", exc_info=True)
             return False
 
     def get_example_config(self) -> Dict[str, Any]:
