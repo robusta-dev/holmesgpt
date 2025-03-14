@@ -148,7 +148,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=0.00000001,
+                    temperature=0,
                     response_format=response_format,
                     drop_params=True,
                 )

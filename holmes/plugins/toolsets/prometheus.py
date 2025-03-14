@@ -6,6 +6,7 @@ import string
 import time
 
 from typing import Any, Dict, List, Union, Optional
+from typing import Any, Union, Optional, Dict
 
 import requests
 from pydantic import BaseModel
@@ -23,6 +24,7 @@ from urllib.parse import urljoin
 
 from holmes.utils.cache import TTLCache
 
+PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 
 class PrometheusConfig(BaseModel):
     prometheus_url: Union[str, None]
@@ -34,6 +36,7 @@ class PrometheusConfig(BaseModel):
     fetch_metadata_with_series_api: bool = False
     tool_calls_return_data: bool = False
     headers: Dict = {}
+    rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
 
 
 class BasePrometheusTool(Tool):
@@ -125,13 +128,18 @@ def result_has_data(result: Dict) -> bool:
         return True
     return False
 
+def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]:
+    results = {}
+    if prometheus_auth_header:
+        results["Authorization"] = prometheus_auth_header
+    return results
 
 def fetch_metrics_labels_with_series_api(
     prometheus_url: str,
+    headers: Dict[str, str],
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
     metric_name: str,
-    headers: Dict,
 ) -> dict:
     """This is a slow query. Takes 5+ seconds to run"""
     cache_key = f"metrics_labels_series_api:{metric_name}"
@@ -256,6 +264,54 @@ def fetch_metrics(
 
     return metrics
 
+
+class ListPrometheusRules(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
+        super().__init__(
+            name="list_prometheus_rules",
+            description="List all defined prometheus rules. Will show the prometheus rules description, expression and annotations",
+            parameters={},
+            toolset=toolset,
+        )
+        self._cache = None
+
+    def _invoke(self, params: Any) -> str:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
+            return "Prometheus is not configured. Prometheus URL is missing"
+        if not self._cache and self.toolset.config.rules_cache_duration_seconds:
+            self._cache = TTLCache(
+                self.toolset.config.rules_cache_duration_seconds
+            )
+        try:
+            cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
+            if cached_rules:
+                logging.info("### rules returned from cache")
+                return cached_rules
+
+            prometheus_url = self.toolset.config.prometheus_url
+
+            rules_url = urljoin(prometheus_url, "/api/v1/rules")
+
+            rules_response = requests.get(
+                url=rules_url, params=params, timeout=180, verify=True,
+                headers=self.toolset.config.headers
+            )
+            rules_response.raise_for_status()
+            response = json.dumps(rules_response.json()["data"])
+            self._cache.set(PROMETHEUS_RULES_CACHE_KEY, response)
+            return response
+        except requests.Timeout:
+            logging.warn("Timeout while fetching prometheus rules", exc_info=True)
+            return "Request timed out while fetching rules"
+        except RequestException as e:
+            logging.warn("Failed to fetch prometheus rules", exc_info=True)
+            return f"Network error while fetching rules: {str(e)}"
+        except Exception as e:
+            logging.warn("Failed to process prometheus rules", exc_info=True)
+            return f"Unexpected error: {str(e)}"
+
+    def get_parameterized_one_liner(self, params) -> str:
+        return f'list available prometheus rules'
 
 class ListAvailableMetrics(BasePrometheusTool):
     def __init__(self, toolset: "PrometheusToolset"):
@@ -550,6 +606,7 @@ class PrometheusToolset(Toolset):
             icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
+                ListPrometheusRules(toolset=self),
                 ListAvailableMetrics(toolset=self),
                 ExecuteInstantQuery(toolset=self),
                 ExecuteRangeQuery(toolset=self),
@@ -564,8 +621,10 @@ class PrometheusToolset(Toolset):
             return False
         elif not config and os.environ.get("PROMETHEUS_URL", None):
             self.config = PrometheusConfig(
-                prometheus_url=os.environ.get("PROMETHEUS_URL")
+                prometheus_url=os.environ.get("PROMETHEUS_URL"),
+                headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER", None)),
             )
+
             return True
         else:
             self.config = PrometheusConfig(**config)
