@@ -358,26 +358,34 @@ class Config(RobustaBaseConfig):
                         if not ts.is_checked():
                             ts.check_prerequisites()
 
-                    # Now show the final status on the same line (without tags)
+                    # Add to appropriate list based on status
                     if ts.get_status() == ToolsetStatusEnum.ENABLED:
                         enabled_toolsets.append(ts)
-                        console.print(
-                            f"  [green]✓[/green] {ts.name}: Loaded successfully"
-                        )
                     elif ts.get_status() == ToolsetStatusEnum.DISABLED:
                         disabled_toolsets.append(ts)
-                        if ts.get_error():
-                            console.print(
-                                f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
-                            )
-                        else:
-                            console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
                     elif ts.get_status() == ToolsetStatusEnum.FAILED:
                         failed_toolsets.append(ts)
-                        if ts.get_error():
-                            console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
-                        else:
-                            console.print(f"  [red]✗[/red] {ts.name}: Failed to load")
+
+                # Display toolsets in order: enabled, disabled, failed
+                # First show enabled toolsets
+                for ts in enabled_toolsets:
+                    console.print(f"  [green]✓[/green] {ts.name}: Loaded successfully")
+
+                # Then show disabled toolsets
+                for ts in disabled_toolsets:
+                    if ts.get_error():
+                        console.print(
+                            f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
+                        )
+                    else:
+                        console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
+
+                # Finally show failed toolsets
+                for ts in failed_toolsets:
+                    if ts.get_error():
+                        console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
+                    else:
+                        console.print(f"  [red]✗[/red] {ts.name}: Failed to load")
 
                 # Add a divider before the summary
                 console.print()
@@ -436,29 +444,26 @@ class Config(RobustaBaseConfig):
                 status_summary = ", ".join(status_parts)
                 console.print(f"[bold]Total toolsets: {status_summary}[/bold]")
 
+                # Display toolsets in order: enabled, disabled, failed
                 # Show enabled toolsets
-                if enabled_toolsets:
-                    console.print(
-                        f"[bold green]Loaded {len(enabled_toolsets)} toolsets:[/bold green]"
-                    )
-                    for ts in enabled_toolsets:
-                        console.print(f"  [green]✓[/green] {ts.name}")
+                for ts in enabled_toolsets:
+                    console.print(f"  [green]✓[/green] {ts.name}: Loaded successfully")
 
                 # Show disabled toolsets
-                if disabled_toolsets:
-                    console.print(
-                        f"[bold yellow]Disabled {len(disabled_toolsets)} toolsets:[/bold yellow]"
-                    )
-                    for ts in disabled_toolsets:
-                        console.print(f"  [yellow]◯[/yellow] {ts.name}")
+                for ts in disabled_toolsets:
+                    if ts.get_error():
+                        console.print(
+                            f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
+                        )
+                    else:
+                        console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
 
                 # Show failed toolsets
-                if failed_toolsets:
-                    console.print(
-                        f"[bold red]Failed to load {len(failed_toolsets)} toolsets:[/bold red]"
-                    )
-                    for ts in failed_toolsets:
+                for ts in failed_toolsets:
+                    if ts.get_error():
                         console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
+                    else:
+                        console.print(f"  [red]✗[/red] {ts.name}: Failed to load")
 
             console.print(Rule(style="cyan"))
         else:
