@@ -558,7 +558,11 @@ class PrometheusToolset(Toolset):
                 ToolsetTag.CORE,
             ],
         )
-        self._load_llm_instructions(os.path.abspath(os.path.join(os.path.dirname(__file__), 'llm_instructions.jinja2')))
+        self._load_llm_instructions(
+            os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "llm_instructions.jinja2")
+            )
+        )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
         if not config and not os.environ.get("PROMETHEUS_URL", None):

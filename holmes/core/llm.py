@@ -44,7 +44,7 @@ class LLM:
     def completion(
         self,
         messages: List[Dict[str, Any]],
-        tools: Optional[List[Tool]] = [],
+        tools: Optional[List[Tool]] = None,
         tool_choice: Optional[Union[str, dict]] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
@@ -165,13 +165,12 @@ class DefaultLLM(LLM):
     def completion(
         self,
         messages: List[Dict[str, Any]],
-        tools: Optional[List[Tool]] = [],
+        tools: Optional[List[Tool]] = None,
         tool_choice: Optional[Union[str, dict]] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
     ) -> ModelResponse:
-
         tools_args = {}
         if tools and len(tools) > 0 and tool_choice:
             tools_args["tools"] = tools
@@ -185,7 +184,7 @@ class DefaultLLM(LLM):
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
-            **tools_args
+            **tools_args,
         )
 
         if isinstance(result, ModelResponse):

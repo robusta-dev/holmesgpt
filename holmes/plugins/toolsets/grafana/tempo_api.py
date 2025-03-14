@@ -96,7 +96,7 @@ def query_tempo_trace_by_id(
     api_key: str,
     tempo_datasource_uid: str,
     trace_id: str,
-    key_labels:List[str],
+    key_labels: List[str],
     retries: int = 3,
     timeout: int = 5,
 ) -> str:

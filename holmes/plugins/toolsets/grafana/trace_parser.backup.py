@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 import base64
 
+
 @dataclass
 class Span:
     span_id: str
@@ -12,16 +13,20 @@ class Span:
     end_time: int
     attributes: Dict[str, Any] = field(default_factory=dict)
     events: List[Dict[str, Any]] = field(default_factory=list)
-    children: List['Span'] = field(default_factory=list)
+    children: List["Span"] = field(default_factory=list)
 
     @property
     def duration_ms(self) -> float:
         """Calculate duration in milliseconds"""
-        return (self.end_time - self.start_time) / 1_000_000  # Convert nanoseconds to milliseconds
+        return (
+            self.end_time - self.start_time
+        ) / 1_000_000  # Convert nanoseconds to milliseconds
+
 
 def decode_id(encoded_id: str) -> str:
     """Decode base64 IDs to a hex string for easier reading"""
     return base64.b64decode(encoded_id).hex()
+
 
 def build_span_hierarchy(trace_data: Dict) -> List[Span]:
     # Step 1: Extract all spans and create span objects
@@ -52,9 +57,11 @@ def build_span_hierarchy(trace_data: Dict) -> List[Span]:
                     service_name=service_name,
                     start_time=int(span_data["startTimeUnixNano"]),
                     end_time=int(span_data["endTimeUnixNano"]),
-                    attributes={attr["key"]: list(attr["value"].values())[0]
-                                for attr in span_data.get("attributes", [])},
-                    events=span_data.get("events", [])
+                    attributes={
+                        attr["key"]: list(attr["value"].values())[0]
+                        for attr in span_data.get("attributes", [])
+                    },
+                    events=span_data.get("events", []),
                 )
 
                 all_spans[span_id] = span
@@ -72,6 +79,7 @@ def build_span_hierarchy(trace_data: Dict) -> List[Span]:
                 all_spans[span.parent_span_id].children.append(span)
 
     return root_spans
+
 
 def print_span_tree(span: Span, level: int = 0):
     """Print the span hierarchy in a tree format"""
@@ -97,6 +105,7 @@ def print_span_tree(span: Span, level: int = 0):
     # Print children
     for child in sorted(span.children, key=lambda s: s.start_time):
         print_span_tree(child, level + 1)
+
 
 def process_trace(trace_data):
     root_spans = build_span_hierarchy(trace_data)

@@ -1,8 +1,8 @@
-
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 import base64
 from holmes.plugins.toolsets.grafana.common import unix_nano_to_rfc3339
+
 
 @dataclass
 class Span:
@@ -14,17 +14,21 @@ class Span:
     end_time: int
     attributes: Dict[str, Any] = field(default_factory=dict)
     events: List[Dict[str, Any]] = field(default_factory=list)
-    children: List['Span'] = field(default_factory=list)
+    children: List["Span"] = field(default_factory=list)
     resource_attributes: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def duration_ms(self) -> float:
         """Calculate duration in milliseconds"""
-        return (self.end_time - self.start_time) / 1_000_000  # Convert nanoseconds to milliseconds
+        return (
+            self.end_time - self.start_time
+        ) / 1_000_000  # Convert nanoseconds to milliseconds
+
 
 def decode_id(encoded_id: str) -> str:
     """Decode base64 IDs to a hex string for easier reading"""
     return base64.b64decode(encoded_id).hex()
+
 
 def build_span_hierarchy(trace_data: Dict) -> List[Span]:
     # Step 1: Extract all spans and create span objects
@@ -60,10 +64,12 @@ def build_span_hierarchy(trace_data: Dict) -> List[Span]:
                     service_name=service_name,
                     start_time=int(span_data["startTimeUnixNano"]),
                     end_time=int(span_data["endTimeUnixNano"]),
-                    attributes={attr["key"]: list(attr["value"].values())[0]
-                                for attr in span_data.get("attributes", [])},
+                    attributes={
+                        attr["key"]: list(attr["value"].values())[0]
+                        for attr in span_data.get("attributes", [])
+                    },
                     events=span_data.get("events", []),
-                    resource_attributes=resource_attributes
+                    resource_attributes=resource_attributes,
                 )
 
                 all_spans[span_id] = span
@@ -82,6 +88,7 @@ def build_span_hierarchy(trace_data: Dict) -> List[Span]:
 
     return root_spans
 
+
 def get_trace_timestamps(root_spans):
     """Calculate the start and end times for the entire trace"""
     if not root_spans:
@@ -99,6 +106,7 @@ def get_trace_timestamps(root_spans):
 
     return min_start, max_end
 
+
 def get_span_timestamps_recursive(span):
     """Recursively get min start time and max end time for a span and its children"""
     min_start = span.start_time
@@ -111,6 +119,7 @@ def get_span_timestamps_recursive(span):
 
     return min_start, max_end
 
+
 def format_labels(attributes, key_labels):
     """Format the specified labels from attributes into a string"""
     result = []
@@ -120,9 +129,10 @@ def format_labels(attributes, key_labels):
 
     return " ".join(result) if result else None
 
+
 def format_span_tree(span: Span, level: int = 0, key_labels: List[str] = []) -> str:
     """Format the span hierarchy in a tree format with timestamps and labels"""
-    span_tree_text = ''
+    span_tree_text = ""
     indent = "  " * level
     duration = span.duration_ms
 
@@ -130,7 +140,9 @@ def format_span_tree(span: Span, level: int = 0, key_labels: List[str] = []) -> 
 
     start_time_str = unix_nano_to_rfc3339(span.start_time)
     end_time_str = unix_nano_to_rfc3339(span.end_time)
-    span_tree_text += f"{indent}│  Datetime: start={start_time_str} end={end_time_str}\n"
+    span_tree_text += (
+        f"{indent}│  Datetime: start={start_time_str} end={end_time_str}\n"
+    )
 
     if key_labels and span.resource_attributes:
         resource_labels = format_labels(span.resource_attributes, key_labels)
@@ -167,28 +179,39 @@ def format_span_tree(span: Span, level: int = 0, key_labels: List[str] = []) -> 
 
     return span_tree_text
 
-def process_trace(trace_data:Dict, key_labels:List[str]=['service.name', 'service.version', 'k8s.deployment.name',
-'k8s.node.name', 'k8s.pod.name', 'k8s.namespace.name']) -> str:
 
+def process_trace(
+    trace_data: Dict,
+    key_labels: List[str] = [
+        "service.name",
+        "service.version",
+        "k8s.deployment.name",
+        "k8s.node.name",
+        "k8s.pod.name",
+        "k8s.namespace.name",
+    ],
+) -> str:
     root_spans = build_span_hierarchy(trace_data)
 
     span_trees = []
     for root_span in sorted(root_spans, key=lambda s: s.start_time):
-        span_trees.append(
-            format_span_tree(root_span, key_labels=key_labels)
-        )
+        span_trees.append(format_span_tree(root_span, key_labels=key_labels))
 
     return "\n\n".join(span_trees)
 
 
-def format_traces_list(trace_data:Dict) -> str:
+def format_traces_list(trace_data: Dict) -> str:
     traces = trace_data.get("traces", [])
 
     if len(traces) > 0:
         traces_str = []
         for trace in traces:
             trace_str = f"Trace (traceID={trace.get('traceID')})"
-            trace_str += f" (durationMs={trace.get('durationMs')})\n" if trace.get("durationMs") is not None else "\n"
+            trace_str += (
+                f" (durationMs={trace.get('durationMs')})\n"
+                if trace.get("durationMs") is not None
+                else "\n"
+            )
             trace_str += f"\tstartTime={unix_nano_to_rfc3339(int(trace.get('startTimeUnixNano')))}"
             trace_str += f" rootServiceName={trace.get('trootServiceName')}"
             trace_str += f" rootTraceName={trace.get('rootTraceName')}"

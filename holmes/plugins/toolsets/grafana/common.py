@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Literal, Optional, Union, Tuple
+from typing import Dict, Optional, Union, Tuple
 import time
 from pydantic import BaseModel
 import datetime
@@ -60,6 +60,7 @@ def unix_to_rfc3339(timestamp: int) -> str:
     dt = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
     return dt.isoformat()
 
+
 def unix_nano_to_rfc3339(unix_nano: int) -> str:
     unix_seconds = unix_nano / 1_000_000_000
 
@@ -69,6 +70,7 @@ def unix_nano_to_rfc3339(unix_nano: int) -> str:
     dt = datetime.datetime.fromtimestamp(seconds_part, datetime.timezone.utc)
     return f"{dt.strftime('%Y-%m-%dT%H:%M:%S')}.{milliseconds_part:03d}Z"
 
+
 def datetime_to_rfc3339(timestamp):
     if isinstance(timestamp, int):
         return unix_to_rfc3339(timestamp)
@@ -77,20 +79,19 @@ def datetime_to_rfc3339(timestamp):
 
 
 def process_timestamps_to_rfc3339(
-    start_timestamp: Optional[Union[int, str]],
-    end_timestamp: Optional[Union[int, str]]
+    start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
 ) -> Tuple[str, str]:
-    (start_timestamp, end_timestamp) = process_timestamps_to_int(start_timestamp, end_timestamp)
+    (start_timestamp, end_timestamp) = process_timestamps_to_int(
+        start_timestamp, end_timestamp
+    )
     start_timestamp = datetime_to_rfc3339(start_timestamp)
     end_timestamp = datetime_to_rfc3339(end_timestamp)
     return (start_timestamp, end_timestamp)
 
 
 def process_timestamps_to_int(
-    start_timestamp: Optional[Union[int, str]],
-    end_timestamp: Optional[Union[int, str]]
+    start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
 ) -> Tuple[int, int]:
-
     """
     Process and normalize start and end timestamps.
 
@@ -135,7 +136,6 @@ def process_timestamps_to_int(
         and start_timestamp > end_timestamp
     ):
         start_timestamp, end_timestamp = end_timestamp, start_timestamp
-
 
     return (start_timestamp, end_timestamp)
 

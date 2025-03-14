@@ -18,7 +18,6 @@ from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.llm import LLM
 from openai import BadRequestError
-from openai._types import NOT_GIVEN
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
@@ -128,7 +127,7 @@ class ToolCallingLLM:
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
             tools = None if i == max_steps - 1 else tools
-            tool_choice = None if tools == None else "auto"
+            tool_choice = None if tools else "auto"
 
             total_tokens = self.llm.count_tokens_for_message(messages)
             max_context_size = self.llm.get_context_window_size()

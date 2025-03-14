@@ -1,8 +1,8 @@
-
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     GrafanaTempoToolset,
-    GetTempoTracesForService
+    GetTempoTracesForService,
 )
+
 
 def test_grafana_tempo_has_prompt():
     toolset = GrafanaTempoToolset()

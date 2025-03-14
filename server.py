@@ -284,7 +284,6 @@ def chat(chat_request: ChatRequest):
             global_instructions=global_instructions,
         )
 
-
         llm_call = ai.messages_call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,

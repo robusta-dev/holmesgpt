@@ -15,9 +15,11 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     query_loki_logs_by_label,
 )
 
+
 class GrafanaLokiLabelsConfig(BaseModel):
     pod: str = "pod"
     namespace: str = "namespace"
+
 
 class GrafanaLokiConfig(GrafanaConfig):
     labels: GrafanaLokiLabelsConfig = GrafanaLokiLabelsConfig()
