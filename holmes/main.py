@@ -289,7 +289,7 @@ def ask(
     )
     system_prompt = load_and_render_prompt(system_prompt)
     ai = config.create_console_toolcalling_llm(
-        allowed_toolsets=allowed_toolsets, dal=None
+        allowed_toolsets=allowed_toolsets, dal=None, console=console
     )
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
@@ -378,7 +378,9 @@ def alertmanager(
         custom_runbooks=custom_runbooks,
     )
 
-    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
+    ai = config.create_console_issue_investigator(
+        allowed_toolsets=allowed_toolsets, console=console
+    )
 
     source = config.create_alertmanager_source()
 
@@ -508,7 +510,9 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
+    ai = config.create_console_issue_investigator(
+        allowed_toolsets=allowed_toolsets, console=console
+    )
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()
@@ -605,7 +609,7 @@ def github(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets, console=console)
     source = config.create_github_source()
     try:
         issues = source.fetch_issues()
@@ -690,7 +694,7 @@ def pagerduty(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets, console=console)
     source = config.create_pagerduty_source()
     try:
         issues = source.fetch_issues()
@@ -777,7 +781,7 @@ def opsgenie(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets, console=console)
     source = config.create_opsgenie_source()
     try:
         issues = source.fetch_issues()

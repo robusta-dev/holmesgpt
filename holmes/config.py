@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional, Union
 from holmes.core.llm import LLM, DefaultLLM
 from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
+from rich.console import Console
+from rich.rule import Rule
+from rich.table import Table
 
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
@@ -261,7 +264,10 @@ class Config(RobustaBaseConfig):
         return None
 
     def create_console_tool_executor(
-        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal]
+        self,
+        allowed_toolsets: ToolsetPattern,
+        dal: Optional[SupabaseDal],
+        console: Optional[Console] = None,
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -310,18 +316,168 @@ class Config(RobustaBaseConfig):
                     )
                 )
 
-        for toolset in toolsets_by_name.values():
-            if toolset.enabled:
-                toolset.check_prerequisites()
+        # We'll check prerequisites in the live display loop instead
+        if not console:
+            for toolset in toolsets_by_name.values():
+                if toolset.enabled:
+                    toolset.check_prerequisites()
 
-        enabled_toolsets = []
-        for ts in toolsets_by_name.values():
-            if ts.get_status() == ToolsetStatusEnum.ENABLED:
-                enabled_toolsets.append(ts)
+        if console:
+            # Set up live display for toolset loading
+            status_table = Table(show_header=True, expand=True)
+            status_table.add_column("Status", justify="center", style="cyan", width=10)
+            status_table.add_column("Toolset", style="bold", width=30)
+            status_table.add_column("Details", style="dim")
+
+            # Go through each toolset and check prerequisites with live updates
+            enabled_toolsets = []
+            disabled_toolsets = []
+            failed_toolsets = []
+
+            toolsets_to_check = [ts for ts in toolsets_by_name.values() if ts.enabled]
+
+            # Count other toolsets that are already disabled by configuration
+            already_disabled = [
+                ts for ts in toolsets_by_name.values() if not ts.enabled
+            ]
+            disabled_toolsets.extend(already_disabled)
+
+            # First show a header
+            console.print(Rule("[bold cyan]Loading Toolsets[/bold cyan]"))
+
+            # Only use live display if we have toolsets to check
+            if toolsets_to_check:
+                # Group toolsets by category for better organization
+                toolsets_by_category = {}
+                for ts in toolsets_to_check:
+                    category = next(
+                        (tag.value for tag in ts.tags if tag != ToolsetTag.CORE),
+                        "Other",
+                    )
+                    if category not in toolsets_by_category:
+                        toolsets_by_category[category] = []
+                    toolsets_by_category[category].append(ts)
+
+                # Process toolsets by category
+                for category, toolsets in toolsets_by_category.items():
+                    if (
+                        len(toolsets_by_category) > 1
+                    ):  # Only show category headers if we have multiple categories
+                        console.print(
+                            f"[bold cyan]{category.title()} Toolsets:[/bold cyan]"
+                        )
+
+                    for ts in toolsets:
+                        # Print status message for each toolset and prepare to update it
+                        with console.status(
+                            f"  [cyan]⟳[/cyan] {ts.name}: Loading...", spinner="dots"
+                        ):
+                            # Check prerequisites and update status if needed
+                            if not ts.is_checked():
+                                ts.check_prerequisites()
+
+                        # Now show the final status on the same line
+                        if ts.get_status() == ToolsetStatusEnum.ENABLED:
+                            enabled_toolsets.append(ts)
+                            console.print(
+                                f"  [green]✓[/green] {ts.name}: Loaded successfully"
+                            )
+                        elif ts.get_status() == ToolsetStatusEnum.DISABLED:
+                            disabled_toolsets.append(ts)
+                            console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
+                        elif ts.get_status() == ToolsetStatusEnum.FAILED:
+                            failed_toolsets.append(ts)
+                            console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
+
+                # Add a divider before the summary
+                console.print()
+
+                # Just prepare the status summary for the final rule
+                # We'll skip the detailed table since it's too verbose
+            else:
+                # If there are no toolsets to check, collect all toolsets
+                for ts in toolsets_by_name.values():
+                    if ts.get_status() == ToolsetStatusEnum.ENABLED:
+                        enabled_toolsets.append(ts)
+                    elif ts.get_status() == ToolsetStatusEnum.DISABLED:
+                        disabled_toolsets.append(ts)
+                    elif ts.get_status() == ToolsetStatusEnum.FAILED:
+                        failed_toolsets.append(ts)
+
+            # Show final toolset summary - only show the title if not showing the full summary
+            if not toolsets_to_check:
+                console.print(Rule("Toolset Loading Summary", style="bold cyan"))
+            else:
+                # Just show a divider with minimal text since we've already shown details
+                status_parts = []
+                if enabled_toolsets:
+                    status_parts.append(
+                        f"[green]{len(enabled_toolsets)} loaded[/green]"
+                    )
+                if disabled_toolsets:
+                    status_parts.append(
+                        f"[yellow]{len(disabled_toolsets)} disabled[/yellow]"
+                    )
+                if failed_toolsets:
+                    status_parts.append(f"[red]{len(failed_toolsets)} failed[/red]")
+
+                status_summary = ", ".join(status_parts)
+                console.print(
+                    Rule(
+                        f"[bold cyan]Toolset Loading Complete: {status_summary}[/bold cyan]"
+                    )
+                )
+
+            # Skip detailed summary if we already showed it interactively
+            if not toolsets_to_check:
+                # Prepare a summary line first
+                status_parts = []
+                if enabled_toolsets:
+                    status_parts.append(
+                        f"[green]{len(enabled_toolsets)} loaded[/green]"
+                    )
+                if disabled_toolsets:
+                    status_parts.append(
+                        f"[yellow]{len(disabled_toolsets)} disabled[/yellow]"
+                    )
+                if failed_toolsets:
+                    status_parts.append(f"[red]{len(failed_toolsets)} failed[/red]")
+
+                status_summary = ", ".join(status_parts)
+                console.print(f"[bold]Total toolsets: {status_summary}[/bold]")
+
+                # Show enabled toolsets
+                if enabled_toolsets:
+                    console.print(
+                        f"[bold green]Loaded {len(enabled_toolsets)} toolsets:[/bold green]"
+                    )
+                    for ts in enabled_toolsets:
+                        console.print(f"  [green]✓[/green] {ts.name}")
+
+                # Show disabled toolsets
+                if disabled_toolsets:
+                    console.print(
+                        f"[bold yellow]Disabled {len(disabled_toolsets)} toolsets:[/bold yellow]"
+                    )
+                    for ts in disabled_toolsets:
+                        console.print(f"  [yellow]◯[/yellow] {ts.name}")
+
+                # Show failed toolsets
+                if failed_toolsets:
+                    console.print(
+                        f"[bold red]Failed to load {len(failed_toolsets)} toolsets:[/bold red]"
+                    )
+                    for ts in failed_toolsets:
+                        console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
+
+            console.print(Rule(style="cyan"))
+        else:
+            # Fall back to logging if no console is provided
+            for ts in enabled_toolsets:
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
-            elif ts.get_status() == ToolsetStatusEnum.DISABLED:
+            for ts in disabled_toolsets:
                 logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
-            elif ts.get_status() == ToolsetStatusEnum.FAILED:
+            for ts in failed_toolsets:
                 logging.info(
                     f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})"
                 )
@@ -389,9 +545,14 @@ class Config(RobustaBaseConfig):
         return self._server_tool_executor
 
     def create_console_toolcalling_llm(
-        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal] = None
+        self,
+        allowed_toolsets: ToolsetPattern,
+        dal: Optional[SupabaseDal] = None,
+        console: Optional[Console] = None,
     ) -> ToolCallingLLM:
-        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(
+            allowed_toolsets, dal, console
+        )
         return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
 
     def create_toolcalling_llm(
@@ -414,14 +575,19 @@ class Config(RobustaBaseConfig):
         )
 
     def create_console_issue_investigator(
-        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal] = None
+        self,
+        allowed_toolsets: ToolsetPattern,
+        dal: Optional[SupabaseDal] = None,
+        console: Optional[Console] = None,
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(
+            allowed_toolsets, dal, console
+        )
         return IssueInvestigator(
             tool_executor, runbook_manager, self.max_steps, self._get_llm()
         )

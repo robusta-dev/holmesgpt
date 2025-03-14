@@ -259,6 +259,11 @@ class Toolset(BaseModel):
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
     _error: Optional[str] = PrivateAttr(None)
+    _checked: bool = PrivateAttr(False)
+
+    def is_checked(self) -> bool:
+        """Returns whether prerequisites have been checked."""
+        return self._checked
 
     def override_with(self, override: "ToolsetYamlFromConfig") -> None:
         """
@@ -312,6 +317,10 @@ class Toolset(BaseModel):
         return interpolated_command
 
     def check_prerequisites(self):
+        # Skip if already checked
+        if self._checked:
+            return
+
         for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetCommandPrerequisite):
                 try:
@@ -330,6 +339,7 @@ class Toolset(BaseModel):
                     ):
                         self._status = ToolsetStatusEnum.FAILED
                         self._error = "Prerequisites check gave wrong output"
+                        self._checked = True
                         return
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED
@@ -337,6 +347,7 @@ class Toolset(BaseModel):
                         f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
                     )
                     self._error = f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
+                    self._checked = True
                     return
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
@@ -344,20 +355,24 @@ class Toolset(BaseModel):
                     if env_var not in os.environ:
                         self._status = ToolsetStatusEnum.FAILED
                         self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
+                        self._checked = True
                         return
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.DISABLED
+                    self._checked = True
                     return
 
             elif isinstance(prereq, CallablePrerequisite):
                 res = prereq.callable(self.config)
                 if not res:
                     self._status = ToolsetStatusEnum.DISABLED
+                    self._checked = True
                     return
 
         self._status = ToolsetStatusEnum.ENABLED
+        self._checked = True
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
