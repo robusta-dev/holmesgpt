@@ -347,61 +347,37 @@ class Config(RobustaBaseConfig):
 
             # Only use live display if we have toolsets to check
             if toolsets_to_check:
-                # Group toolsets by category for better organization
-                toolsets_by_category = {}
                 for ts in toolsets_to_check:
-                    category = next(
-                        (tag.value for tag in ts.tags if tag != ToolsetTag.CORE),
-                        "Other",
-                    )
-                    if category not in toolsets_by_category:
-                        toolsets_by_category[category] = []
-                    toolsets_by_category[category].append(ts)
+                    # We're no longer displaying tags as requested
 
-                # Process toolsets by category
-                for category, toolsets in toolsets_by_category.items():
-                    if (
-                        len(toolsets_by_category) > 1
-                    ):  # Only show category headers if we have multiple categories
+                    # Print status message for each toolset and prepare to update it
+                    with console.status(
+                        f"  [cyan]⟳[/cyan] {ts.name}: Loading...", spinner="dots"
+                    ):
+                        # Check prerequisites and update status if needed
+                        if not ts.is_checked():
+                            ts.check_prerequisites()
+
+                    # Now show the final status on the same line (without tags)
+                    if ts.get_status() == ToolsetStatusEnum.ENABLED:
+                        enabled_toolsets.append(ts)
                         console.print(
-                            f"[bold cyan]{category.title()} Toolsets:[/bold cyan]"
+                            f"  [green]✓[/green] {ts.name}: Loaded successfully"
                         )
-
-                    for ts in toolsets:
-                        # Print status message for each toolset and prepare to update it
-                        with console.status(
-                            f"  [cyan]⟳[/cyan] {ts.name}: Loading...", spinner="dots"
-                        ):
-                            # Check prerequisites and update status if needed
-                            if not ts.is_checked():
-                                ts.check_prerequisites()
-
-                        # Now show the final status on the same line
-                        if ts.get_status() == ToolsetStatusEnum.ENABLED:
-                            enabled_toolsets.append(ts)
+                    elif ts.get_status() == ToolsetStatusEnum.DISABLED:
+                        disabled_toolsets.append(ts)
+                        if ts.get_error():
                             console.print(
-                                f"  [green]✓[/green] {ts.name}: Loaded successfully"
+                                f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
                             )
-                        elif ts.get_status() == ToolsetStatusEnum.DISABLED:
-                            disabled_toolsets.append(ts)
-                            if ts.get_error():
-                                console.print(
-                                    f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
-                                )
-                            else:
-                                console.print(
-                                    f"  [yellow]◯[/yellow] {ts.name}: Disabled"
-                                )
-                        elif ts.get_status() == ToolsetStatusEnum.FAILED:
-                            failed_toolsets.append(ts)
-                            if ts.get_error():
-                                console.print(
-                                    f"  [red]✗[/red] {ts.name}: {ts.get_error()}"
-                                )
-                            else:
-                                console.print(
-                                    f"  [red]✗[/red] {ts.name}: Failed to load"
-                                )
+                        else:
+                            console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
+                    elif ts.get_status() == ToolsetStatusEnum.FAILED:
+                        failed_toolsets.append(ts)
+                        if ts.get_error():
+                            console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
+                        else:
+                            console.print(f"  [red]✗[/red] {ts.name}: Failed to load")
 
                 # Add a divider before the summary
                 console.print()
