@@ -24,7 +24,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
 from holmes.utils.file_utils import write_json_file
-from holmes.config import Config
+from holmes.config import Config, SupportedTicketSources
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
@@ -549,6 +549,119 @@ def jira(
 
     if json_output_file:
         write_json_file(json_output_file, results)
+
+
+# Define supported sources
+
+
+@investigate_app.command()
+def ticket(
+    source: SupportedTicketSources = typer.Option(
+        ...,
+        help=f"Source system to investigate the ticket from. Supported sources: {', '.join(s.value for s in SupportedTicketSources)}",
+    ),
+    jira_url: Optional[str] = typer.Option(
+        None,
+        help="Jira URL - e.g. https://your-company.atlassian.net",
+        envvar="JIRA_URL",
+    ),
+    jira_username: Optional[str] = typer.Option(
+        None,
+        help="The email address with which you log into Jira",
+        envvar="JIRA_USERNAME",
+    ),
+    jira_api_key: Optional[str] = typer.Option(
+        None,
+        envvar="JIRA_API_KEY",
+    ),
+    ticket_id: Optional[str] = typer.Option(
+        None,
+        help="Jira ticket ID to investigate (e.g., 'KAN-1')",
+    ),
+    config_file: Optional[str] = opt_config_file,
+    prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
+    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
+    system_prompt: Optional[str] = typer.Option(
+        "builtin://generic_ticket.jinja2", help=system_prompt_help
+    ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+):
+    """
+    Fetch and print a Jira ticket from the specified source.
+    """
+
+    console = init_logging([])
+
+    # Validate source
+    supported_sources = [s.value for s in SupportedTicketSources]
+    if source not in supported_sources:
+        console.print(
+            f"[bold red]Error: Source '{source}' is not supported yet.[/bold red] Supported sources: {', '.join(supported_sources)}"
+        )
+        return
+    output_instructions = []
+    # Validate Jira details if source is Jira Service Management
+    if source == SupportedTicketSources.JIRA_SERVICE_MANAGEMENT:
+        config = Config.load_from_file(
+            config_file=config_file,
+            api_key=None,
+            model=None,
+            max_steps=None,
+            jira_url=jira_url,
+            jira_username=jira_username,
+            jira_api_key=jira_api_key,
+            jira_query=None,
+            custom_toolsets=None,
+            custom_runbooks=None,
+        )
+
+        if (
+            not config.jira_url
+            or not config.jira_username
+            or not config.jira_api_key
+            or not ticket_id
+        ):
+            console.print(
+                "[bold red]Error: Jira URL, username, API key, and ticket ID are required for jira-service-management.[/bold red]"
+            )
+            return
+        output_instructions = [
+            "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
+        ]
+        source_handler = config.create_jira_source()
+        try:
+            issue_to_investigate = source_handler.fetch_jsm_issue(ticket_id)
+            if issue_to_investigate is None:
+                raise Exception("Ticket Not found")
+        except Exception as e:
+            logging.error("Failed to fetch issue from Jira", exc_info=e)
+            console.print(
+                f"[bold red]Error: Failed to fetch issue {ticket_id} from Jira.[/bold red]"
+            )
+            return
+    system_prompt = load_and_render_prompt(
+        prompt=system_prompt,
+        context={"source": source, "output_instructions": output_instructions},
+    )
+
+    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
+    console.print(
+        f"[bold yellow]Analyzing Jira ticket: {issue_to_investigate.name}...[/bold yellow]"
+    )
+    prompt = (
+        prompt
+        + f" for issue '{issue_to_investigate.name}' with description:'{issue_to_investigate.description}'"
+    )
+    result = ai.prompt_call(system_prompt, prompt, post_processing_prompt)
+
+    console.print(Rule())
+    console.print(
+        f"[bold green]AI analysis of {issue_to_investigate.url} {prompt}[/bold green]"
+    )
+    console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
+    console.print(Rule())
+    source_handler.write_back_result(issue_to_investigate.id, result)
+    console.print(f"[bold]Updated ticket {issue_to_investigate.url}.[/bold]")
 
 
 @investigate_app.command()

@@ -12,6 +12,7 @@ class GrafanaConfig(BaseModel):
     api_key: str
     url: str
     grafana_datasource_uid: str
+    external_url: Optional[str] = None
 
 
 def headers(api_key: str):

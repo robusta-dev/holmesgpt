@@ -36,8 +36,13 @@ from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 import re
+from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+
+
+class SupportedTicketSources(str, Enum):
+    JIRA_SERVICE_MANAGEMENT = "jira-service-management"
 
 
 def get_env_replacement(value: str) -> Optional[str]:
@@ -277,7 +282,6 @@ class Config(RobustaBaseConfig):
             for toolset in load_builtin_toolsets(dal)
             if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
         ]
-
         # All built-in toolsets are enabled by default, users can override this in their config
         for toolset in default_toolsets:
             toolset.enabled = True
@@ -292,6 +296,7 @@ class Config(RobustaBaseConfig):
         toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
+
         if toolsets_loaded_from_config:
             toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -299,7 +304,6 @@ class Config(RobustaBaseConfig):
                     toolsets_by_name,
                 )
             )
-
         if self.toolsets:
             loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
             if loaded_toolsets_from_env:
