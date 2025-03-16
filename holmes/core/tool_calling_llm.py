@@ -12,7 +12,7 @@ from holmes.core.investigation_structured_output import (
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
-    process_response_into_sections
+    process_response_into_sections,
 )
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
@@ -30,6 +30,7 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 
+
 class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
@@ -39,11 +40,12 @@ class ToolCallResult(BaseModel):
 
     def as_dict(self):
         return {
-                "tool_call_id": self.tool_call_id,
-                "role": "tool",
-                "name": self.tool_name,
-                "content": self.result,
-                }
+            "tool_call_id": self.tool_call_id,
+            "role": "tool",
+            "name": self.tool_name,
+            "content": self.result,
+        }
+
 
 class LLMResult(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = None
@@ -416,11 +418,17 @@ class ToolCallingLLM:
 
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                if (
-                    "Unrecognized request arguments supplied: tool_choice, tools"
-                    in str(e)
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
                 ):
-                    yield json.dumps({"type": "error", "details": {"msg": "The Azure model you chose is not supported. Model version 1106 and higher required."}})
+                    yield json.dumps(
+                        {
+                            "type": "error",
+                            "details": {
+                                "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
+                            },
+                        }
+                    )
                     return
                 raise
             except Exception:
@@ -429,11 +437,19 @@ class ToolCallingLLM:
             response_message = full_response.choices[0].message
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-
-                (text_response, _) = process_response_into_sections(response_message.content)
-                yield json.dumps({"type": "ai_answer", "details": {"answer": text_response}})
+                (text_response, _) = process_response_into_sections(
+                    response_message.content
+                )
+                yield json.dumps(
+                    {"type": "ai_answer", "details": {"answer": text_response}}
+                )
                 if runbooks:
-                    yield json.dumps({"type": "instructions", "details": {"instructions": json.dumps(runbooks)}})
+                    yield json.dumps(
+                        {
+                            "type": "instructions",
+                            "details": {"instructions": json.dumps(runbooks)},
+                        }
+                    )
                 return
 
             messages.append(
@@ -447,7 +463,12 @@ class ToolCallingLLM:
                 futures = []
                 for t in tools_to_call:
                     futures.append(executor.submit(self._invoke_tool, t))
-                    yield json.dumps({"type": "start_tool_calling", "details": {"tool_name": t.function.name, "id": t.id}})
+                    yield json.dumps(
+                        {
+                            "type": "start_tool_calling",
+                            "details": {"tool_name": t.function.name, "id": t.id},
+                        }
+                    )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
@@ -455,8 +476,9 @@ class ToolCallingLLM:
                     tool_call_dict = tool_call_result.as_dict()
                     messages.append(tool_call_dict)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield json.dumps({"type": "tool_calling_result", "details": tool_call_dict})
-
+                    yield json.dumps(
+                        {"type": "tool_calling_result", "details": tool_call_dict}
+                    )
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py

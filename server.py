@@ -148,15 +148,21 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
-    ai, system_prompt, user_prompt, response_format, sections, runbooks = investigation.get_investigation_context(req, dal, config=config)
+    ai, system_prompt, user_prompt, response_format, sections, runbooks = (
+        investigation.get_investigation_context(req, dal, config=config)
+    )
 
     try:
-        return StreamingResponse(ai.call_stream(system_prompt, user_prompt, response_format, runbooks), media_type='text/event-stream')
+        return StreamingResponse(
+            ai.call_stream(system_prompt, user_prompt, response_format, runbooks),
+            media_type="text/event-stream",
+        )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:
         logging.exception(f"Error in /api/stream/investigate: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):

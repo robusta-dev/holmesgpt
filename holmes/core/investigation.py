@@ -15,6 +15,7 @@ from holmes.core.investigation_structured_output import (
 
 from holmes.plugins.prompts import load_and_render_prompt
 
+
 def investigate_issues(
     investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config
 ):
@@ -59,7 +60,9 @@ def investigate_issues(
     )
 
 
-def get_investigation_context(investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config):
+def get_investigation_context(
+    investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config
+):
     load_robusta_api_key(dal=dal, config=config)
     ai = config.create_issue_investigator(dal=dal)
 
@@ -86,11 +89,8 @@ def get_investigation_context(investigate_request: InvestigateRequest, dal: Supa
     if instructions is not None and len(instructions.documents) > 0:
         docPrompts = []
         for document in instructions.documents:
-            docPrompts.append(
-                f"* fetch information from this URL: {document.url}\n"
-            )
+            docPrompts.append(f"* fetch information from this URL: {document.url}\n")
         runbooks.extend(docPrompts)
-
 
     # This section is about setting vars to request the LLM to return structured output.
     # It does not mean that Holmes will not return structured sections for investigation as it is
@@ -143,6 +143,5 @@ def get_investigation_context(investigate_request: InvestigateRequest, dal: Supa
         user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
 
     user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
-
 
     return ai, system_prompt, user_prompt, response_format, sections, runbooks
