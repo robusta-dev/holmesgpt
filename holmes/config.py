@@ -4,8 +4,10 @@ import yaml
 import os.path
 from typing import Any, Dict, List, Optional, Union
 
+from holmes import get_version
+from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
-from pydantic import FilePath, SecretStr
+from pydantic import FilePath, SecretStr, Field
 from pydash.arrays import concat
 
 from holmes.core.runbooks import RunbookManager
@@ -210,6 +212,26 @@ class Config(RobustaBaseConfig):
     toolsets: Optional[dict[str, dict[str, Any]]] = None
 
     _server_tool_executor: Optional[ToolExecutor] = None
+
+    version: Optional[str] = Field(
+        default=None, description="The latest version of holmes app"
+    )
+    holmes_info: Optional[HolmesInfo] = Field(
+        default=None, description="Latest holmes info from the server"
+    )
+
+    def model_post_init(self, __context: Any) -> None:
+        self.version = get_version()
+        self.holmes_info = fetch_holmes_info()
+
+        if self.holmes_info and self.holmes_info.latest_version:
+            in_latest_version = self.version.startswith(self.holmes_info.latest_version)
+            if not in_latest_version:
+                logging.warning(
+                    "You are running version %s of holmes, but the latest version is %s. Please update to the latest version.",
+                    self.version,
+                    self.holmes_info.latest_version,
+                )
 
     @classmethod
     def load_from_env(cls):
