@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 from litellm.types.utils import ModelResponse
 import sentry_sdk
 
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from holmes.core.tools import Tool
 from pydantic import BaseModel
 import litellm
@@ -49,6 +50,7 @@ class LLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
+        stream: Optional[bool] = None,
     ) -> ModelResponse:
         pass
 
@@ -170,6 +172,7 @@ class DefaultLLM(LLM):
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
+        stream: Optional[bool] = None,
     ) -> ModelResponse:
         result = litellm.completion(
             model=self.model,
@@ -181,9 +184,12 @@ class DefaultLLM(LLM):
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
+            stream=stream,
         )
 
         if isinstance(result, ModelResponse):
+            return result
+        elif isinstance(result, CustomStreamWrapper):
             return result
         else:
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
