@@ -452,9 +452,10 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
                     tool_calls.append(tool_call_result)
-                    messages.append(tool_call_result.as_dict())
+                    tool_call_dict = tool_call_result.as_dict()
+                    messages.append(tool_call_dict)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield json.dumps({"type": "tool_calling_result", "details": tool_call_result.as_dict()})
+                    yield json.dumps({"type": "tool_calling_result", "details": tool_call_dict})
 
 
 
