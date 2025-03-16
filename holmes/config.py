@@ -220,18 +220,24 @@ class Config(RobustaBaseConfig):
         default=None, description="Latest holmes info from the server"
     )
 
+    @property
+    def is_latest_version(self) -> bool:
+        if self.holmes_info and self.holmes_info.latest_version:
+            return self.version.startswith(self.holmes_info.latest_version)
+
+        # We couldn't resolve version, assume we are running the latest version
+        return True
+
     def model_post_init(self, __context: Any) -> None:
         self.version = get_version()
         self.holmes_info = fetch_holmes_info()
 
-        if self.holmes_info and self.holmes_info.latest_version:
-            in_latest_version = self.version.startswith(self.holmes_info.latest_version)
-            if not in_latest_version:
-                logging.warning(
-                    "You are running version %s of holmes, but the latest version is %s. Please update to the latest version.",
-                    self.version,
-                    self.holmes_info.latest_version,
-                )
+        if not self.is_latest_version:
+            logging.warning(
+                "You are running version %s of holmes, but the latest version is %s. Please update to the latest version.",
+                self.version,
+                self.holmes_info.latest_version,
+            )
 
     @classmethod
     def load_from_env(cls):
