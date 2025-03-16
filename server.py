@@ -147,7 +147,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 
 @app.post("/api/stream/investigate")
-def investigate_issues1(req: InvestigateRequest):
+def stream_investigate_issues(req: InvestigateRequest):
     ai, system_prompt, user_prompt, response_format, sections = investigation.get_investigation_context(req, dal, config=config)
 
     try:
