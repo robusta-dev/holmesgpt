@@ -369,7 +369,7 @@ class ToolCallingLLM:
         system_prompt: str,
         user_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
-        sections: Optional[InputSectionsDataType] = None,
+        runbooks: List[str] = None,
     ):
         messages = [
             {"role": "system", "content": system_prompt},
@@ -432,6 +432,8 @@ class ToolCallingLLM:
 
                 (text_response, _) = process_response_into_sections(response_message.content)
                 yield json.dumps({"type": "ai_answer", "details": {"answer": text_response}})
+                if runbooks:
+                    yield json.dumps({"type": "instructions", "details": {"instructions": json.dumps(runbooks)}})
                 return
 
             messages.append(

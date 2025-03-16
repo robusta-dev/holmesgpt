@@ -145,4 +145,4 @@ def get_investigation_context(investigate_request: InvestigateRequest, dal: Supa
     user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
 
 
-    return ai, system_prompt, user_prompt, response_format, sections
+    return ai, system_prompt, user_prompt, response_format, sections, runbooks
