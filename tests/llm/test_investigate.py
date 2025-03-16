@@ -22,6 +22,7 @@ from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
 from os import path
+from braintrust.span_types import SpanTypeAttribute
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -93,14 +94,11 @@ def test_investigate(experiment_name, test_case):
     metadata = get_machine_state_tags()
     metadata["model"] = config.model or "Unknown"
 
-    bt_helper = None
-    eval = None
-    if braintrust_util.PUSH_EVALS_TO_BRAINTRUST:
-        dataset_name = braintrust_util.get_dataset_name("investigate")
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
-        eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    dataset_name = braintrust_util.get_dataset_name("investigate")
+    bt_helper = braintrust_util.BraintrustEvalHelper(
+        project_name=PROJECT, dataset_name=dataset_name
+    )
+    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:
@@ -110,6 +108,13 @@ def test_investigate(experiment_name, test_case):
         investigate_request=investigate_request, config=config, dal=mock_dal
     )
     assert result, "No result returned by investigate_issues()"
+    for tool_call in result.tool_calls:
+        # TODO: mock this instead so span start time & end time will be accurate.
+        # Also to include calls to llm spans
+        with eval.start_span(
+            name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
+        ) as tool_span:
+            tool_span.log(input=tool_call.description, output=tool_call.result)
 
     output = result.analysis
 
@@ -118,29 +123,68 @@ def test_investigate(experiment_name, test_case):
     debug_expected = "\n-  ".join(expected)
 
     print(f"** EXPECTED **\n-  {debug_expected}")
+    with eval.start_span(
+        name="Correctness", type=SpanTypeAttribute.SCORE
+    ) as correctness_span:
+        correctness_eval = evaluate_correctness(
+            output=output, expected_elements=expected
+        )
+        print(
+            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
+        )
+        scores["correctness"] = correctness_eval.score
+        correctness_span.log(
+            scores={
+                "correctness": correctness_eval.score,
+            },
+            metadata=correctness_eval.metadata,
+        )
 
-    correctness_eval = evaluate_correctness(output=output, expected_elements=expected)
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-    )
-    scores["correctness"] = correctness_eval.score
-
-    scores["previous_logs"] = evaluate_previous_logs_mention(output=output).score
+    with eval.start_span(
+        name="Previous Logs", type=SpanTypeAttribute.SCORE
+    ) as logs_span:
+        logs_eval = evaluate_previous_logs_mention(output=output)
+        scores["previous_logs"] = logs_eval.score
+        logs_span.log(
+            scores={
+                "previous_logs": logs_eval.score,
+            },
+            metadata=logs_eval.metadata,
+        )
 
     if test_case.expected_sections:
-        sections = {
-            key: bool(value) for key, value in test_case.expected_sections.items()
-        }
-        scores["sections"] = evaluate_sections(sections=sections, output=output).score
+        with eval.start_span(
+            name="Sections", type=SpanTypeAttribute.SCORE
+        ) as sections_span:
+            sections = {
+                key: bool(value) for key, value in test_case.expected_sections.items()
+            }
+            sections_eval = evaluate_sections(sections=sections, output=output)
+            scores["sections"] = sections_eval.score
+            sections_span.log(
+                scores={
+                    "sections": sections_eval.score,
+                },
+                metadata=sections_eval.metadata,
+            )
 
     if len(test_case.retrieval_context) > 0:
-        scores["context"] = evaluate_context_usage(
-            input=input, output=output, context_items=test_case.retrieval_context
-        ).score
+        with eval.start_span(
+            name="Context", type=SpanTypeAttribute.SCORE
+        ) as context_span:
+            context_eval = evaluate_context_usage(
+                input=input, output=output, context_items=test_case.retrieval_context
+            )
+            scores["context"] = context_eval.score
+            context_span.log(
+                scores={
+                    "context": context_eval.score,
+                },
+                metadata=context_eval.metadata,
+            )
 
     if bt_helper and eval:
         bt_helper.end_evaluation(
-            eval=eval,
             input=input,
             output=output or "",
             expected=str(expected),

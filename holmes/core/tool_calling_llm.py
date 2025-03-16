@@ -527,12 +527,14 @@ class IssueInvestigator(ToolCallingLLM):
             console.print(
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
+
         system_prompt = load_and_render_prompt(
             prompt,
             {
                 "issue": issue,
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
+                "enabled_toolsets": self.tool_executor.enabled_toolsets_names,
             },
         )
 

@@ -4,17 +4,19 @@ import os.path
 from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
+from holmes.plugins.toolsets.datetime import DatetimeToolset
 from holmes.plugins.toolsets.robusta import RobustaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
+from holmes.plugins.toolsets.prometheus import PrometheusToolset
+from holmes.plugins.toolsets.opensearch import OpenSearchToolset
+from holmes.plugins.toolsets.kafka import KafkaToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
-from holmes.plugins.toolsets.opensearch import OpenSearchToolset
 import yaml
 
-from holmes.plugins.toolsets.kafka import KafkaToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -51,6 +53,8 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         GrafanaTempoToolset(),
         NotionToolset(),
         KafkaToolset(),
+        PrometheusToolset(),
+        DatetimeToolset(),
     ]
 
     return toolsets

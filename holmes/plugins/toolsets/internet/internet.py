@@ -87,13 +87,16 @@ def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[s
         )
         response.raise_for_status()
     except Timeout:
+        error_message = f"Failed to load {url}. Timeout after {INTERNET_TOOLSET_TIMEOUT_SECONDS} seconds"
         logging.error(
-            f"Failed to load {url}. Timeout after {INTERNET_TOOLSET_TIMEOUT_SECONDS} seconds",
+            error_message,
             exc_info=True,
         )
+        return error_message, None
     except RequestException as e:
-        logging.error(f"Failed to load {url}: {str(e)}", exc_info=True)
-        return None, None
+        error_message = f"Failed to load {url}: {str(e)}"
+        logging.warning(error_message, exc_info=True)
+        return error_message, None
 
     if response:
         content = response.text

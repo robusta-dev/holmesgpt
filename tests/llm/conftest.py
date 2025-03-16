@@ -2,6 +2,7 @@ import logging
 import os
 import pytest
 from tests.llm.utils.braintrust import get_experiment_results
+from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
 
 
@@ -37,6 +38,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 span_id = record.get("id")
                 span_attributes = record.get("span_attributes")
                 if scores and span_attributes:
+                    span_type = span_attributes.get("type")
+                    if span_type != SpanTypeAttribute.EVAL:
+                        continue
+
                     span_name = span_attributes.get("name")
                     test_case = next(
                         (tc for tc in result.test_cases if tc.get("id") == span_name),

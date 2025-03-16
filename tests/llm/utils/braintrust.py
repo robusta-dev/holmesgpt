@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from holmes.common.env_vars import load_bool
 from tests.llm.utils.mock_utils import HolmesTestCase
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 
@@ -37,9 +36,6 @@ def pop_matching_test_case_if_exists(
 
     test_case_id = item.get("id")
     return pop_test_case(test_cases, test_case_id)
-
-
-PUSH_EVALS_TO_BRAINTRUST = load_bool("PUSH_EVALS_TO_BRAINTRUST", False)
 
 
 class BraintrustEvalHelper:
@@ -103,11 +99,11 @@ class BraintrustEvalHelper:
                     "Experiment must be writable. The above options open=False and update=True ensure this is the case so this exception should never be raised"
                 )
             self.experiment = experiment
-        return self.experiment.start_span(name=name)
+        self._root_span = self.experiment.start_span(name=name)
+        return self._root_span
 
     def end_evaluation(
         self,
-        eval: Span,
         input: str,
         output: str,
         expected: str,
@@ -117,15 +113,17 @@ class BraintrustEvalHelper:
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")
 
-        eval.log(
+        self._root_span.log(
             input=input,
             output=output,
             expected=expected,
             dataset_record_id=id,
             scores=scores,
         )
-        eval.end()
+        self._root_span.end()
         self.experiment.flush()
+
+    # def score(self)
 
 
 def get_experiment_name(test_suite: str):

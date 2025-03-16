@@ -1,7 +1,7 @@
 import yaml
 import pytest
-
-from holmes.config import Config
+import os
+from holmes.config import Config, load_toolsets_definitions
 
 
 # class DummyToolsetYamlFromConfig to bypass actual validations and test only load_custom_toolsets_config
@@ -99,8 +99,7 @@ def test_load_custom_toolsets_config_fallback(tmp_path, monkeypatch):
     assert getattr(tool, "path", None) == str(fallback_file)
 
 
-def test_load_toolsets_config_old_format():
-    config = Config()
+def test_load_toolsets_definitions_old_format():
     old_format_data = [
         {
             "name": "aws/security",
@@ -116,11 +115,10 @@ def test_load_toolsets_config_old_format():
     ]
 
     with pytest.raises(ValueError, match="Old toolset config format detected"):
-        config.load_toolsets_config(old_format_data, "dummy_path")
+        load_toolsets_definitions(old_format_data, "dummy_path")
 
 
-def test_load_toolsets_config_multiple_old_format_toolsets():
-    config = Config()
+def test_load_toolsets_definitions_multiple_old_format_toolsets():
     old_format_data = [
         {
             "name": "aws/security",
@@ -146,4 +144,41 @@ def test_load_toolsets_config_multiple_old_format_toolsets():
     ]
 
     with pytest.raises(ValueError, match="Old toolset config format detected"):
-        config.load_toolsets_config(old_format_data, "dummy_path")
+        load_toolsets_definitions(old_format_data, "dummy_path")
+
+
+toolsets_config_str = """
+grafana/loki:
+    config:
+        api_key: "{{env.GRAFANA_API_KEY}}"
+        url: "{{env.GRAFANA_URL}}"
+        grafana_datasource_uid: "my_grafana_datasource_uid"
+"""
+
+env_vars = {
+    "GRAFANA_API_KEY": "glsa_sdj1q2o3prujpqfd",
+    "GRAFANA_URL": "https://my-grafana.com/",
+}
+
+
+def test_load_toolsets_definition():
+    original_env = os.environ.copy()
+
+    try:
+        for key, value in env_vars.items():
+            os.environ[key] = value
+
+        toolsets_config = yaml.safe_load(toolsets_config_str)
+        assert isinstance(toolsets_config, dict)
+        definitions = load_toolsets_definitions(toolsets=toolsets_config, path="env")
+        assert len(definitions) == 1
+        grafana_loki = definitions[0]
+        config = grafana_loki.config
+        assert config
+        assert config.get("api_key") == "glsa_sdj1q2o3prujpqfd"
+        assert config.get("url") == "https://my-grafana.com/"
+        assert config.get("grafana_datasource_uid") == "my_grafana_datasource_uid"
+
+    finally:
+        os.environ.clear()
+        os.environ.update(original_env)

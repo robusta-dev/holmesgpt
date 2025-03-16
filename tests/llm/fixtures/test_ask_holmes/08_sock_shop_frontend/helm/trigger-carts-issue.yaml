@@ -13,11 +13,8 @@ spec:
           args:
             - -c
             - |
-              cat /etc/resolv.conf
-              nslookup front-end.sock-shop.svc.cluster.local
-
               # this works, but not if triggered too frequently (then the svc might not have ready endpoints so communicating with it fails?)
-              SERVICE_URL="10.96.34.222"
+              SERVICE_URL="front-end.sock-shop.svc.cluster.local"
               echo "Logging in"
               curl -4 -u Eve_Berger:eve -c cookie.txt ${SERVICE_URL}/login
               echo "Logged in"
