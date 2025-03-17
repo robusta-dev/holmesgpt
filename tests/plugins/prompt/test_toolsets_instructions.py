@@ -2,20 +2,23 @@ from holmes.plugins.prompts import load_and_render_prompt
 
 template = "builtin://_toolsets_instructions.jinja2"
 
+
 def test_empty_when_no_toolsets():
     """Test that template returns empty string when no toolsets are provided."""
     result = load_and_render_prompt(template, {"enabled_toolsets": []})
     assert result == ""
 
+
 def test_empty_when_toolsets_without_llm_instructions():
     """Test that template returns empty when toolsets have no llm_instructions."""
     toolsets = [
         {"name": "Tool1", "llm_instructions": ""},
-        {"name": "Tool2", "llm_instructions": None}
+        {"name": "Tool2", "llm_instructions": None},
     ]
     result = load_and_render_prompt(template, {"enabled_toolsets": toolsets})
     print(f"** result:\n{result}")
     assert result == ""
+
 
 def test_renders_toolsets_with_instructions():
     """Test that template properly renders toolsets with llm_instructions."""
@@ -24,7 +27,7 @@ def test_renders_toolsets_with_instructions():
         {"name": "Tool2", "llm_instructions": ""},
         {"name": "Tool3", "llm_instructions": "\nInstructions for Tool3"},
         {"name": "Tool4", "llm_instructions": ""},
-        {"name": "Tool5", "llm_instructions": "\nInstructions for Tool5"}
+        {"name": "Tool5", "llm_instructions": "\nInstructions for Tool5"},
     ]
     result = load_and_render_prompt(template, {"enabled_toolsets": toolsets})
     expected = "# Available Toolsets\n## Tool1\nInstructions for Tool1\n## Tool3\nInstructions for Tool3\n## Tool5\nInstructions for Tool5\n"
