@@ -12,6 +12,7 @@ from holmes.core.investigation_structured_output import (
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
+    process_response_into_sections,
 )
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
@@ -35,6 +36,14 @@ class ToolCallResult(BaseModel):
     description: str
     result: str
     size: Optional[int] = None
+
+    def as_dict(self):
+        return {
+            "tool_call_id": self.tool_call_id,
+            "role": "tool",
+            "name": self.tool_name,
+            "content": self.result,
+        }
 
 
 class LLMResult(BaseModel):
@@ -355,6 +364,120 @@ class ToolCallingLLM:
             if message["role"] == "tool":
                 message["content"] = message["content"][:tool_size]
         return messages
+
+    def call_stream(
+        self,
+        system_prompt: str,
+        user_prompt: Optional[str] = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        runbooks: List[str] = None,
+    ):
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        perf_timing = PerformanceTiming("tool_calling_llm.call")
+        tool_calls: List[ToolCallResult] = []
+        tools = self.tool_executor.get_all_tools_openai_format()
+        perf_timing.measure("get_all_tools_openai_format")
+        i = 0
+
+        while i < self.max_steps:
+            i += 1
+            perf_timing.measure(f"start iteration {i}")
+            logging.debug(f"running iteration {i}")
+
+            tools = [] if i == self.max_steps - 1 else tools
+            tool_choice = None if tools == [] else "auto"
+
+            total_tokens = self.llm.count_tokens_for_message(messages)
+            max_context_size = self.llm.get_context_window_size()
+            maximum_output_token = self.llm.get_maximum_output_token()
+            perf_timing.measure("count tokens")
+
+            if (total_tokens + maximum_output_token) > max_context_size:
+                logging.warning("Token limit exceeded. Truncating tool responses.")
+                messages = self.truncate_messages_to_fit_context(
+                    messages, max_context_size, maximum_output_token
+                )
+                perf_timing.measure("truncate_messages_to_fit_context")
+
+            logging.debug(f"sending messages={messages}\n\ntools={tools}")
+            try:
+                full_response = self.llm.completion(
+                    messages=parse_messages_tags(messages),
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    temperature=0.00000001,
+                    response_format=response_format,
+                    stream=False,
+                    drop_params=True,
+                )
+                perf_timing.measure("llm.completion")
+
+            # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
+            except BadRequestError as e:
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
+                ):
+                    yield json.dumps(
+                        {
+                            "type": "error",
+                            "details": {
+                                "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
+                            },
+                        }
+                    )
+                    return
+                raise
+            except Exception:
+                raise
+
+            response_message = full_response.choices[0].message
+            tools_to_call = getattr(response_message, "tool_calls", None)
+            if not tools_to_call:
+                (text_response, _) = process_response_into_sections(
+                    response_message.content
+                )
+                yield json.dumps(
+                    {"type": "ai_answer", "details": {"answer": text_response}}
+                )
+                if runbooks:
+                    yield json.dumps(
+                        {
+                            "type": "instructions",
+                            "details": {"instructions": json.dumps(runbooks)},
+                        }
+                    )
+                return
+
+            messages.append(
+                response_message.model_dump(
+                    exclude_defaults=True, exclude_unset=True, exclude_none=True
+                )
+            )
+
+            perf_timing.measure("pre-tool-calls")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                futures = []
+                for t in tools_to_call:
+                    futures.append(executor.submit(self._invoke_tool, t))
+                    yield json.dumps(
+                        {
+                            "type": "start_tool_calling",
+                            "details": {"tool_name": t.function.name, "id": t.id},
+                        }
+                    )
+
+                for future in concurrent.futures.as_completed(futures):
+                    tool_call_result: ToolCallResult = future.result()
+                    tool_calls.append(tool_call_result)
+                    tool_call_dict = tool_call_result.as_dict()
+                    messages.append(tool_call_dict)
+                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+                    yield json.dumps(
+                        {"type": "tool_calling_result", "details": tool_call_dict}
+                    )
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
