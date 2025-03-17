@@ -90,7 +90,9 @@ def process_timestamps_to_rfc3339(
 
 
 def process_timestamps_to_int(
-    start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
+    start: Optional[Union[int, str]],
+    end: Optional[Union[int, str]],
+    default_time_span_seconds: int = ONE_HOUR_IN_SECONDS,
 ) -> Tuple[int, int]:
     """
     Process and normalize start and end timestamps.
@@ -105,39 +107,35 @@ def process_timestamps_to_int(
     Tuple of (start_timestamp, end_timestamp)
     """
     # If no end_timestamp provided, use current time
-    if not end_timestamp:
-        end_timestamp = int(time.time())
+    if not end:
+        end = int(time.time())
 
-    # If no start_timestamp provided, default to one hour before end
-    if not start_timestamp:
-        start_timestamp = -ONE_HOUR_IN_SECONDS
+    # If no start provided, default to one hour before end
+    if not start:
+        start = -1 * default_time_span_seconds
 
-    start_timestamp = datetime_to_unix(start_timestamp)
-    end_timestamp = datetime_to_unix(end_timestamp)
+    start = datetime_to_unix(start)
+    end = datetime_to_unix(end)
 
     # Handle negative timestamps (relative to the other timestamp)
-    if isinstance(start_timestamp, int) and isinstance(end_timestamp, int):
-        if start_timestamp < 0 and end_timestamp < 0:
+    if isinstance(start, int) and isinstance(end, int):
+        if start < 0 and end < 0:
             raise ValueError(
-                f"Both start_timestamp and end_timestamp cannot be negative. Received start_timestamp={start_timestamp} and end_timestamp={end_timestamp}"
+                f"Both start and end cannot be negative. Received start={start} and end={end}"
             )
-        elif start_timestamp < 0:
-            start_timestamp = end_timestamp + start_timestamp
-        elif end_timestamp < 0:
-            # start/end are inverted. end_timestamp should be after start_timestamp
-            delta = end_timestamp
-            end_timestamp = start_timestamp
-            start_timestamp = start_timestamp + delta
+        elif start < 0:
+            start = end + start
+        elif end < 0:
+            # start/end are inverted. end should be after start_timestamp
+            delta = end
+            end = start
+            start = start + delta
 
     # Invert timestamps if start is after end
-    if (
-        isinstance(start_timestamp, int)
-        and isinstance(end_timestamp, int)
-        and start_timestamp > end_timestamp
-    ):
-        start_timestamp, end_timestamp = end_timestamp, start_timestamp
+    if isinstance(start, int) and isinstance(end, int) and start > end:
+        start, end = end, start
 
-    return (start_timestamp, end_timestamp)
+    return (start, end)
 
 
 def get_param_or_raise(dict: Dict, param: str) -> str:

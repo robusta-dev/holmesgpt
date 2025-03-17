@@ -1,7 +1,10 @@
+from holmes.plugins.toolsets.grafana.common import ONE_HOUR_IN_SECONDS
 import os
+import yaml
 from typing import Any, Dict, List, cast
 from pydantic import BaseModel
 import requests
+from holmes.common.env_vars import load_bool
 from holmes.core.tools import (
     Tool,
     ToolParameter,
@@ -17,6 +20,8 @@ from holmes.plugins.toolsets.grafana.common import (
     process_timestamps_to_int,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
+
+TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 
 
 class GrafanaTempoLabelsConfig(BaseModel):
@@ -91,12 +96,12 @@ class GetTempoTraces(Tool):
                     type="string",
                     required=False,
                 ),
-                "start_timestamp": ToolParameter(
+                "start_datetime": ToolParameter(
                     description="The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
-                "end_timestamp": ToolParameter(
+                "end_datetime": ToolParameter(
                     description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
                     type="string",
                     required=False,
@@ -128,24 +133,28 @@ class GetTempoTraces(Tool):
             return invalid_params_error
 
         start, end = process_timestamps_to_int(
-            params.get("start_timestamp"), params.get("end_timestamp")
+            params.get("start_datetime"), params.get("end_datetime")
         )
+
+        prefix = ""
+        if TEMPO_LABELS_ADD_PREFIX:
+            prefix = "resource."
 
         filters = []
         if params.get("service_name"):
-            filters.append(f'resource.{labels.service}="{params.get("service_name")}"')
+            filters.append(f'{prefix}{labels.service}="{params.get("service_name")}"')
         if params.get("pod_name"):
-            filters.append(f'resource.{labels.pod}="{params.get("pod_name")}"')
+            filters.append(f'{prefix}{labels.pod}="{params.get("pod_name")}"')
         if params.get("namespace_name"):
             filters.append(
-                f'resource.{labels.namespace}="{params.get("namespace_name")}"'
+                f'{prefix}{labels.namespace}="{params.get("namespace_name")}"'
             )
         if params.get("deployment_name"):
             filters.append(
-                f'resource.{labels.deployment}="{params.get("deployment_name")}"'
+                f'{prefix}{labels.deployment}="{params.get("deployment_name")}"'
             )
         if params.get("node_name"):
-            filters.append(f'resource.{labels.node}="{params.get("node_name")}"')
+            filters.append(f'{prefix}{labels.node}="{params.get("node_name")}"')
 
         filters.append(f'duration>{get_param_or_raise(params, "min_duration")}')
 
@@ -172,17 +181,32 @@ class GetTempoTags(Tool):
         super().__init__(
             name="fetch_tempo_tags",
             description="List the tags available in Tempo",
-            parameters={},
+            parameters={
+                "start_datetime": ToolParameter(
+                    description="The beginning time boundary for the search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to negative 8 hours (-3600)",
+                    type="string",
+                    required=False,
+                ),
+                "end_datetime": ToolParameter(
+                    description="The ending time boundary for the search period. String in RFC3339 format. Defaults to NOW().",
+                    type="string",
+                    required=False,
+                ),
+            },
         )
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
-        # TODO: add start.end
-        grafana_url = (self._toolset._grafana_config.url,)
-        api_key = (self._toolset._grafana_config.api_key,)
-        tempo_datasource_uid = (self._toolset._grafana_config.grafana_datasource_uid,)
+        grafana_url = self._toolset._grafana_config.url
+        api_key = self._toolset._grafana_config.api_key
+        tempo_datasource_uid = self._toolset._grafana_config.grafana_datasource_uid
+        start, end = process_timestamps_to_int(
+            start=params.get("start_datetime"),
+            end=params.get("end_datetime"),
+            default_time_span_seconds=8 * ONE_HOUR_IN_SECONDS,
+        )
 
-        url = f"{grafana_url}/api/datasources/proxy/uid/{tempo_datasource_uid}/api/v2/search/tags"
+        url = f"{grafana_url}/api/datasources/proxy/uid/{tempo_datasource_uid}/api/v2/search/tags?start={start}&end={end}"
 
         try:
             response = requests.get(
@@ -194,14 +218,15 @@ class GetTempoTags(Tool):
                 timeout=60,
             )
             response.raise_for_status()  # Raise an error for non-2xx responses
-            return response.json()
+            data = response.json()
+            return yaml.dump(data.get("scopes"))
         except requests.exceptions.RequestException as e:
             raise Exception(
                 f"Failed to retrieve trace by ID after retries: {e} \n for URL: {url}"
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo trace with trace_id={params.get('trace_id')} ({str(params)})"
+        return f"Fetched Tempo tags ({str(params)})"
 
 
 class GetTempoTraceById(Tool):

@@ -1,4 +1,0 @@
-ask: Why is there increased latency for the backend running in the minishop namespace?
-expected_output: "The fraud verification is slow"
-evaluation:
-  correctness: 1

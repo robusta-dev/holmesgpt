@@ -325,4 +325,4 @@ spec:
             severity: warning
           annotations:
             summary: "High latency detected in Minishop application"
-            description: "The service is experiencing high latency (> 5s avg) over the past 24 hours."
+            description: "The service is experiencing high latency (> 4s 90% percentile)"
