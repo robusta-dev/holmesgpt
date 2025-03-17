@@ -174,7 +174,7 @@ class DefaultLLM(LLM):
         stream: Optional[bool] = None,
     ) -> Union[ModelResponse, CustomStreamWrapper]:
         tools_args = {}
-        if tools and len(tools) > 0 and tool_choice:
+        if tools and tool_choice:
             tools_args["tools"] = tools
             tools_args["tool_choice"] = tool_choice
 
