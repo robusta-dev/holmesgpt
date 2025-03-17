@@ -26,7 +26,6 @@ export async function callout(url, data, logger) {
       span.setAttribute("downstream_url", url);
 
       propagation.inject(context.active(), headers);
-      console.log(headers);
       const response = await fetch(url, {
         method: "POST",
         headers: headers,

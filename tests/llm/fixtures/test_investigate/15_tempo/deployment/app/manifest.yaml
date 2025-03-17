@@ -28,15 +28,21 @@ spec:
         - name: backend
           image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
           imagePullPolicy: Always
-          command: ["node", "dist/backend-service.js"]
+          command:
+            [
+              "node",
+              "--require",
+              "./dist/telemetry.js",
+              "./dist/backend-service.js",
+            ]
           ports:
             - containerPort: 3003
               name: http
-            - containerPort: 9464
-              name: metrics
           env:
             - name: TEMPO_URL
               value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
+            - name: SERVICE_NAME
+              value: "backend-service"
           resources:
             limits:
               cpu: "500m"
@@ -94,21 +100,21 @@ spec:
         - name: checkout
           image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
           imagePullPolicy: Always
-          command: ["node", "dist/checkout-service.js"]
+          command:
+            [
+              "node",
+              "--require",
+              "./dist/telemetry.js",
+              "./dist/checkout-service.js",
+            ]
           ports:
             - containerPort: 3004
               name: http
-            - containerPort: 9464
-              name: metrics
           env:
             - name: TEMPO_URL
               value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
-          readinessProbe:
-            httpGet:
-              path: /checkout/health
-              port: 3004
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            - name: SERVICE_NAME
+              value: "checkout-service"
           livenessProbe:
             httpGet:
               path: /checkout/health
@@ -141,21 +147,21 @@ spec:
         - name: fraud
           image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
           imagePullPolicy: Always
-          command: ["node", "dist/fraud-service.js"]
+          command:
+            [
+              "node",
+              "--require",
+              "./dist/telemetry.js",
+              "./dist/fraud-service.js",
+            ]
           ports:
             - containerPort: 3005
               name: http
-            - containerPort: 9464
-              name: metrics
           env:
             - name: TEMPO_URL
               value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
-          readinessProbe:
-            httpGet:
-              path: /fraud/health
-              port: 3005
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            - name: SERVICE_NAME
+              value: "fraud-service"
           livenessProbe:
             httpGet:
               path: /fraud/health
@@ -188,21 +194,21 @@ spec:
         - name: auth
           image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/shop-app-demo:v1
           imagePullPolicy: Always
-          command: ["node", "dist/auth-service.js"]
+          command:
+            [
+              "node",
+              "--require",
+              "./dist/telemetry.js",
+              "./dist/auth-service.js",
+            ]
           ports:
             - containerPort: 3006
               name: http
-            - containerPort: 9464
-              name: metrics
           env:
             - name: TEMPO_URL
               value: "http://opentelemetry-collector-agent.tempo:4318/v1/traces"
-          readinessProbe:
-            httpGet:
-              path: /auth/health
-              port: 3006
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            - name: SERVICE_NAME
+              value: "auth-service"
           livenessProbe:
             httpGet:
               path: /auth/health
@@ -227,9 +233,6 @@ spec:
     - name: http
       port: 3003
       targetPort: 3003
-    - name: metrics
-      port: 9464
-      targetPort: 9464
 ---
 apiVersion: v1
 kind: Service
@@ -247,9 +250,6 @@ spec:
     - name: http
       port: 3004
       targetPort: 3004
-    - name: metrics
-      port: 9464
-      targetPort: 9464
 ---
 apiVersion: v1
 kind: Service
@@ -267,9 +267,6 @@ spec:
     - name: http
       port: 3005
       targetPort: 3005
-    - name: metrics
-      port: 9464
-      targetPort: 9464
 ---
 apiVersion: v1
 kind: Service
@@ -287,9 +284,26 @@ spec:
     - name: http
       port: 3006
       targetPort: 3006
-    - name: metrics
-      port: 9464
-      targetPort: 9464
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: minishop-services
+  namespace: minishop
+  labels:
+    app: minishop
+    release: robusta
+spec:
+  selector:
+    matchLabels:
+      app: minishop
+  namespaceSelector:
+    matchNames:
+      - minishop
+  endpoints:
+    - port: http
+      interval: 15s
+      path: /metrics
 ---
 # Prometheus Rule for High Latency
 apiVersion: monitoring.coreos.com/v1
@@ -299,17 +313,16 @@ metadata:
   namespace: minishop
   labels:
     app: minishop
-    prometheus: kube-prometheus
+    release: robusta
     role: alert-rules
 spec:
   groups:
     - name: minishop.rules
       rules:
         - alert: MinishopHighLatency
-          expr: rate(http_request_duration_seconds_sum[24h]) / (rate(http_request_duration_seconds_count[24h])) > 3
-          for: 5m
+          expr: histogram_quantile(0.9, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 4
           labels:
             severity: warning
           annotations:
             summary: "High latency detected in Minishop application"
-            description: "The service is experiencing high latency (> 3s avg) over the past 24 hours."
+            description: "The service is experiencing high latency (> 5s avg) over the past 24 hours."

@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          traceparent: `00-${traceId}-${spanId}-01`,
+          // traceparent: `00-${traceId}-${spanId}-01`,
         },
         body: JSON.stringify(checkoutData),
       });

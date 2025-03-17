@@ -7,9 +7,11 @@
   "scripts": {
     "build": "tsc && npm run copy-files",
     "copy-files": "copyfiles -u 1 \"src/templates/**/*\" \"src/public/**/*\" dist",
-    "start:backend": "node dist/backend.js",
-    "dev:backend": "tsx watch src/backend.ts",
-    "dev": "tsx watch src/dev.ts",
+    "start:backend": "node --require ./dist/telemetry.js dist/backend-service.js",
+    "start:fraud": "node --require ./dist/telemetry.js dist/fraud-service.js",
+    "start:auth": "node --require ./dist/telemetry.js dist/auth-service.js",
+    "start:checkout": "node --require ./dist/telemetry.js dist/checkout-service.js",
+    "dev": "tsx src/dev.ts --require ./src/telemetry.ts",
     "start": "node dist/dev.js"
   },
   "dependencies": {
@@ -30,6 +32,7 @@
     "@opentelemetry/sdk-trace-node": "^1.30.1",
     "@opentelemetry/semantic-conventions": "^1.30.0",
     "fastify": "^5.2.1",
+    "fastify-metrics": "^12.1.0",
     "pino": "^9.6.0"
   },
   "devDependencies": {

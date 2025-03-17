@@ -1,6 +1,6 @@
+import { fastifyOtelInstrumentation } from "./telemetry.js";
 import Fastify, { FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
-import { initTelemetry } from "./telemetry.js";
 import {
   context,
   propagation,
@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import path from "path";
 import { callout, getUrl } from "./util/callout.js";
 import { createTracedHandler } from "./util/trace-handler.js";
+import fastifyMetrics from "fastify-metrics";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,11 +37,12 @@ export const setup = async (fastify: FastifyInstance) => {
     }),
   );
 
-  fastify.get("/backend/checkout", async (request, reply) => {
-    return tracer.startActiveSpan("serve_checkout_page", async (span) => {
-      try {
-        span.addEvent("serving_checkout_page");
-
+  fastify.get(
+    "/backend/checkout",
+    createTracedHandler(
+      "serve_checkout_page",
+      tracer,
+      async (request, reply, span) => {
         return reply
           .type("text/html")
           .send(
@@ -49,32 +51,21 @@ export const setup = async (fastify: FastifyInstance) => {
               "utf8",
             ),
           );
-      } catch (error) {
-        span.recordException(error as Error);
-        span.setStatus({ code: SpanStatusCode.ERROR });
-        throw error;
-      } finally {
-        span.end();
-      }
-    });
-  });
+      },
+    ),
+  );
 
   // Process checkout API
-  fastify.post("/backend/api/checkout", async (request, reply) => {
-    // Extract trace context from headers
-    const traceparent = request.headers.traceparent as string;
-    console.log(`traceparent=${traceparent}`);
-
-    if (traceparent) {
-      fastify.log.info(`Received traceparent: ${traceparent}`);
-    }
-    return tracer.startActiveSpan("forward_checkout", async (span) => {
-      try {
+  fastify.post(
+    "/backend/api/checkout",
+    createTracedHandler(
+      "/backend/api/checkout",
+      tracer,
+      async (request, reply, span) => {
         const checkoutData = request.body as any;
 
         const authUrl = getUrl("auth-service", 3006, "/auth/api/auth");
         await callout(authUrl, checkoutData, request.log);
-        span.addEvent("forwarding_checkout");
 
         const checkoutUrl = getUrl(
           "checkout-service",
@@ -83,24 +74,10 @@ export const setup = async (fastify: FastifyInstance) => {
         );
         const data = await callout(checkoutUrl, checkoutData, request.log);
 
-        span.addEvent("forward_successful");
-
         return data;
-      } catch (error) {
-        request.log.error(error);
-        // Record error in the span
-        span.recordException(error as Error);
-        span.setStatus({ code: SpanStatusCode.ERROR });
-
-        return {
-          success: false,
-          message: `Checkout failed: ${(error as Error).message}`,
-        };
-      } finally {
-        span.end();
-      }
-    });
-  });
+      },
+    ),
+  );
 };
 
 const isMainModule = () => {
@@ -113,8 +90,9 @@ if (isMainModule()) {
   const fastify = Fastify({
     logger: true,
   });
-  initTelemetry("backend-service", fastify);
-  setup(fastify);
+  await fastify.register(fastifyMetrics as any, { endpoint: "/metrics" });
+  // await fastify.register(fastifyOtelInstrumentation.plugin());
+  await setup(fastify);
   try {
     await fastify.listen({ port: 3003, host: "0.0.0.0" });
     console.log("Backend server is running on http://localhost:3003");

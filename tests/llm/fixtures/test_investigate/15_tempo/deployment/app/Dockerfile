@@ -26,4 +26,4 @@ EXPOSE 3005
 EXPOSE 3006
 EXPOSE 9464
 
-CMD ["node", "dist/dev.js"]
+CMD ["node", "--require", "dist/telemetry.js", "dist/dev.js"]

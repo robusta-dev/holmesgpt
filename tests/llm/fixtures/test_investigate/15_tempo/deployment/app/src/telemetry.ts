@@ -1,131 +1,74 @@
-import { Resource } from "@opentelemetry/resources";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import opentelemetry from "@opentelemetry/api";
+import {
+  BatchSpanProcessor,
+  ConsoleSpanExporter,
+  NodeTracerProvider,
+} from "@opentelemetry/sdk-trace-node";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import {
+  PeriodicExportingMetricReader,
+  ConsoleMetricExporter,
+  MeterProvider,
+} from "@opentelemetry/sdk-metrics";
+import pkg from "@fastify/otel";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from "@opentelemetry/semantic-conventions";
+import { Resource } from "@opentelemetry/resources";
 import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
-import { metrics } from "@opentelemetry/api";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
-import { MeterProvider } from "@opentelemetry/sdk-metrics";
-import { FastifyInstance } from "fastify";
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
-import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
-import pkg from "@fastify/otel";
 const { FastifyOtelInstrumentation } = pkg;
 
-// Function to register the @fastify/otel plugin with Fastify
-export async function initTelemetry(
-  service_name: string,
-  fastify: FastifyInstance,
-): Promise<void> {
-  const fastifyOtelInstrumentation = new FastifyOtelInstrumentation({
-    servername: service_name,
-  });
+const service_name = process.env.SERVICE_NAME || "minishop";
 
-  // Enable logging for troubleshooting if needed
-  diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
+const resource = new Resource({
+  [ATTR_SERVICE_NAME]: service_name,
+  [ATTR_SERVICE_VERSION]: "1.0",
+});
 
-  // Service name and version constants
-  const SERVICE_VERSION = "1.0.0";
+const metricReader = new PrometheusExporter({
+  port: parseInt(process.env.METRICS_PORT) || 9463,
+});
 
-  // Configure the trace exporter to send to Tempo
-  const traceExporter = new OTLPTraceExporter({
-    url: process.env.TEMPO_URL || "http://localhost:4318/v1/traces",
-    keepAlive: true,
-    concurrencyLimit: 100,
-    timeoutMillis: 5000,
-  });
+// const myServiceMeterProvider = new MeterProvider({
+//   resource: resource,
+//   readers: [metricReader],
+// });
+// opentelemetry.metrics.setGlobalMeterProvider(myServiceMeterProvider);
 
-  // // Set up the Prometheus metrics exporter
-  const prometheusExporter = new PrometheusExporter({
-    port: 9464, // Prometheus metrics endpoint will be exposed on this port
-  });
+const traceExporter = new OTLPTraceExporter({
+  url: process.env.TEMPO_URL || "http://localhost:4318/v1/traces",
+  keepAlive: true,
+  concurrencyLimit: 100,
+  timeoutMillis: 5000,
+});
 
-  const resource = new Resource({
-    [ATTR_SERVICE_NAME]: service_name,
-    [ATTR_SERVICE_VERSION]: SERVICE_VERSION,
-  });
+const spanProcessor = new BatchSpanProcessor(traceExporter, {
+  maxExportBatchSize: 10,
+  scheduledDelayMillis: 100,
+});
 
-  const spanProcessor = new BatchSpanProcessor(traceExporter, {
-    maxExportBatchSize: 10,
-    scheduledDelayMillis: 100,
-  });
+const traceProvider = new NodeTracerProvider({
+  resource: resource,
+  spanProcessors: [spanProcessor],
+});
 
-  const traceProvider = new NodeTracerProvider({
-    resource: resource,
-    spanProcessors: [spanProcessor],
-  });
+traceProvider.register();
+const sdk = new NodeSDK({
+  serviceName: service_name,
+  resource: resource,
+  traceExporter: traceExporter,
+  spanProcessor: spanProcessor,
+  metricReader: metricReader,
+  // instrumentations: [getNodeAutoInstrumentations()],
+});
 
-  const meterProvider = new MeterProvider({
-    resource: resource,
-    readers: [prometheusExporter], // Use readers array instead of addMetricReader
-  });
+sdk.start();
 
-  metrics.setGlobalMeterProvider(meterProvider);
-  traceProvider.register();
+const fastifyOtelInstrumentation = new FastifyOtelInstrumentation({
+  servername: service_name,
+});
 
-  // Configuration for @fastify/otel plugin
-  const otelPluginOptions = {
-    serviceName: service_name,
-    serviceVersion: SERVICE_VERSION,
-    resource: resource,
-    meterProvider: meterProvider,
-    traceProvider: traceProvider,
-    traceExporter: traceExporter,
-    exposeMetrics: true,
-    path: "/metrics",
-    wrapRoutes: true,
-  };
-  // Register the @fastify/otel plugin
-  await fastify.register(
-    fastifyOtelInstrumentation.plugin(),
-    otelPluginOptions,
-  );
-
-  console.log("Tracing and metrics initialized");
-
-  const shutdown = async () => {
-    try {
-      await traceProvider.forceFlush();
-      await traceProvider.shutdown();
-      fastify.close();
-      console.log("Tracing and metrics terminated");
-    } catch (error) {
-      console.error("Error terminating tracing:", error);
-    } finally {
-      process.exit(0);
-    }
-  };
-
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
-
-  // // Create HTTP metrics
-  // const checkoutCounter = metrics
-  //   .getMeter(service_name)
-  //   .createCounter("http_requests", {
-  //     description: "Number of checkout requests",
-  //   });
-
-  // const checkoutLatency = metrics
-  //   .getMeter(service_name)
-  //   .createHistogram("checkout_latency", {
-  //     description: "Latency of checkout operations in milliseconds",
-  //     unit: "ms",
-  //   });
-
-  // const activeCheckouts = metrics
-  //   .getMeter(service_name)
-  //   .createUpDownCounter("active_checkouts", {
-  //     description: "Number of active checkout sessions",
-  //   });
-
-  // const httpMetrics = {
-  //   checkoutCounter,
-  //   checkoutLatency,
-  //   activeCheckouts,
-  // };
-
-  // return httpMetrics;
-}
+export { fastifyOtelInstrumentation };

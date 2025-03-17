@@ -32,6 +32,10 @@ export function createTracedHandler<T>(
       request.headers,
     );
 
+    console.log(
+      `** headers ${spanName} -> ${JSON.stringify(request.headers["traceparent"])}`,
+    );
+
     // Run the handler within the extracted context
     return context.with(extractedContext, () => {
       return tracer.startActiveSpan(spanName, async (span) => {

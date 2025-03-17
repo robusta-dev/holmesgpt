@@ -1,6 +1,5 @@
+import { fastifyOtelInstrumentation } from "./telemetry.js";
 import Fastify, { FastifyInstance } from "fastify";
-import fastifyStatic from "@fastify/static";
-import { initTelemetry } from "./telemetry.js";
 import {
   context,
   propagation,
@@ -13,6 +12,7 @@ import path from "path";
 import { createTracedHandler } from "./util/trace-handler.js";
 import { callout, getUrl } from "./util/callout.js";
 import { executePostgresQuery } from "./util/db.js";
+import fastifyMetrics from "fastify-metrics";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,8 +68,9 @@ if (isMainModule()) {
   const fastify = Fastify({
     logger: true,
   });
-  initTelemetry("checkout-service", fastify);
-  setup(fastify);
+  await fastify.register(fastifyMetrics as any, { endpoint: "/metrics" });
+  // await fastify.register(fastifyOtelInstrumentation.plugin());
+  await setup(fastify);
   try {
     await fastify.listen({ port: 3004, host: "0.0.0.0" });
     console.log("Backend server is running on http://localhost:3004");
