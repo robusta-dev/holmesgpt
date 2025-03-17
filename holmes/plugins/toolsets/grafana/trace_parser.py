@@ -171,8 +171,9 @@ def format_span_tree(span: Span, level: int = 0, key_labels: List[str] = []) -> 
             if "attributes" in event and event["attributes"]:
                 for attr in event["attributes"]:
                     attr_key = attr["key"]
-                    attr_value = list(attr["value"].values())[0]
-                    span_tree_text += f"{indent}│      {attr_key}: {attr_value}\n"
+                    values = list(attr["value"].values())
+                    if values:
+                        span_tree_text += f"{indent}│      {attr_key}: {str(values)}\n"
 
     for child in sorted(span.children, key=lambda s: s.start_time):
         span_tree_text += format_span_tree(child, level + 1, key_labels)
