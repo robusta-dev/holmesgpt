@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
-from pydantic import FilePath, SecretStr, Field
+from pydantic import FilePath, SecretStr
 from pydash.arrays import concat
 
 from holmes.core.runbooks import RunbookManager
@@ -213,30 +213,26 @@ class Config(RobustaBaseConfig):
 
     _server_tool_executor: Optional[ToolExecutor] = None
 
-    version: Optional[str] = Field(
-        default=None, description="The latest version of holmes app"
-    )
-    holmes_info: Optional[HolmesInfo] = Field(
-        default=None, description="Latest holmes info from the server"
-    )
+    _version: Optional[str] = None
+    _holmes_info: Optional[HolmesInfo] = None
 
     @property
     def is_latest_version(self) -> bool:
-        if self.holmes_info and self.holmes_info.latest_version:
-            return self.version.startswith(self.holmes_info.latest_version)
+        if self._holmes_info and self._holmes_info.latest_version:
+            return self._version.startswith(self._holmes_info.latest_version)
 
         # We couldn't resolve version, assume we are running the latest version
         return True
 
     def model_post_init(self, __context: Any) -> None:
-        self.version = get_version()
-        self.holmes_info = fetch_holmes_info()
+        self._version = get_version()
+        self._holmes_info = fetch_holmes_info()
 
         if not self.is_latest_version:
             logging.warning(
                 "You are running version %s of holmes, but the latest version is %s. Please update to the latest version.",
-                self.version,
-                self.holmes_info.latest_version,
+                self._version,
+                self._holmes_info.latest_version,
             )
 
     @classmethod

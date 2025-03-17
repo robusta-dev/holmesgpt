@@ -48,5 +48,5 @@ def test_config_load_failed_fetch_version():
         status=HTTPStatus.INTERNAL_SERVER_ERROR,
     )
     config = Config.load_from_env()
-    assert config.holmes_info is None
+    assert config._holmes_info is None
     assert config.is_latest_version
