@@ -59,13 +59,13 @@ def list_grafana_datasources(
     and e.response.status_code < 500,
 )
 def get_health(grafana_url: str, api_key: str) -> bool:
+    url = f"{grafana_url}/api/health"
     try:
-        url = f"{grafana_url}/api/health"
         headers_ = headers(api_key=api_key)
 
         response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
         response.raise_for_status()
         return True
     except Exception:
-        logging.error("Failed to fetch grafana health status", exc_info=True)
+        logging.error(f"Failed to fetch grafana health status at {url}", exc_info=True)
         return False

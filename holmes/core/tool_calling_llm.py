@@ -127,7 +127,7 @@ class ToolCallingLLM:
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
             tools = None if i == max_steps - 1 else tools
-            tool_choice = None if tools else "auto"
+            tool_choice = "auto" if tools else None
 
             total_tokens = self.llm.count_tokens_for_message(messages)
             max_context_size = self.llm.get_context_window_size()
