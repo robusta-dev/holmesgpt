@@ -6,7 +6,6 @@ from litellm.types.utils import ModelResponse
 import sentry_sdk
 
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from holmes.core.tools import Tool
 from pydantic import BaseModel
 import litellm
 import os
@@ -45,13 +44,13 @@ class LLM:
     def completion(
         self,
         messages: List[Dict[str, Any]],
-        tools: Optional[List[Tool]] = [],
+        tools: Optional[List[Dict[str, Any]]] = [],
         tool_choice: Optional[Union[str, dict]] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
         stream: Optional[bool] = None,
-    ) -> ModelResponse:
+    ) -> Union[ModelResponse, CustomStreamWrapper]:
         pass
 
 
@@ -167,24 +166,28 @@ class DefaultLLM(LLM):
     def completion(
         self,
         messages: List[Dict[str, Any]],
-        tools: Optional[List[Tool]] = [],
+        tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, dict]] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
         stream: Optional[bool] = None,
-    ) -> ModelResponse:
+    ) -> Union[ModelResponse, CustomStreamWrapper]:
+        tools_args = {}
+        if tools and tool_choice:
+            tools_args["tools"] = tools
+            tools_args["tool_choice"] = tool_choice
+
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
             base_url=self.base_url,
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
             stream=stream,
+            **tools_args,
         )
 
         if isinstance(result, ModelResponse):
