@@ -135,7 +135,7 @@ class ToolCallingLLM:
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
-            tools = None if i == max_steps - 1 else tools
+            tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
             total_tokens = self.llm.count_tokens_for_message(messages)
