@@ -1,0 +1,41 @@
+{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_traces","match_params":{"min_duration":"4s","service_name":"*","namespace_name":"*"}}
+Trace (traceID=b284215873240e599f6a6329ba023b74)
+	startTime=2025-03-17T14:49:12.121Z rootServiceName=None rootTraceName=health
+Trace (traceID=a7a30492fa4d8beba88037ea3f1c44db) (durationMs=476)
+	startTime=2025-03-17T14:49:09.397Z rootServiceName=None rootTraceName=None
+Trace (traceID=589c56d34a2974d6cd107fbf5cab93b7)
+	startTime=2025-03-17T14:49:02.167Z rootServiceName=None rootTraceName=health
+Trace (traceID=317f1bf1a3a0ae0acff402ba58fb7669)
+	startTime=2025-03-17T14:49:02.144Z rootServiceName=None rootTraceName=health
+Trace (traceID=8b8c27da4d41b2faf7194463fd360e8e)
+	startTime=2025-03-17T14:49:02.128Z rootServiceName=None rootTraceName=health
+Trace (traceID=36e6842b929223af4f7023d616785197)
+	startTime=2025-03-17T14:49:02.121Z rootServiceName=None rootTraceName=health
+Trace (traceID=7b531d4892bef34ee929ba018b9a4fe0)
+	startTime=2025-03-17T14:49:02.121Z rootServiceName=None rootTraceName=health
+Trace (traceID=a85a723512d2b0d5f714669b2f9b4194) (durationMs=4817)
+	startTime=2025-03-17T14:48:59.573Z rootServiceName=None rootTraceName=/backend/api/checkout
+Trace (traceID=18d542d084c9b89fd10f449a0ed7cab6)
+	startTime=2025-03-17T14:48:52.121Z rootServiceName=None rootTraceName=health
+Trace (traceID=b71478ad8d136d0aef72efaaa9aa5397) (durationMs=370)
+	startTime=2025-03-17T14:48:51.346Z rootServiceName=None rootTraceName=None
+Trace (traceID=bfbb10a92a0701156dd6c5f06a2d7e5b) (durationMs=1188)
+	startTime=2025-03-17T14:48:45.153Z rootServiceName=None rootTraceName=/backend/api/checkout
+Trace (traceID=8491de9c953fb2fb638cb6e4ef283033)
+	startTime=2025-03-17T14:48:42.167Z rootServiceName=None rootTraceName=health
+Trace (traceID=9f8fc212a694725cbe62c50e3a3e6c45)
+	startTime=2025-03-17T14:48:42.144Z rootServiceName=None rootTraceName=health
+Trace (traceID=1cded07cc60328b7a59afafe1fbf5cf8)
+	startTime=2025-03-17T14:48:42.128Z rootServiceName=None rootTraceName=health
+Trace (traceID=dbc20f3efb907b7f13b97e678439dcd8)
+	startTime=2025-03-17T14:48:42.121Z rootServiceName=None rootTraceName=health
+Trace (traceID=8a5c6b584b9e90dc50c311227d8776cd)
+	startTime=2025-03-17T14:48:42.121Z rootServiceName=None rootTraceName=health
+Trace (traceID=8fa1db94257429ab705738a64559bed9) (durationMs=3406)
+	startTime=2025-03-17T14:48:36.740Z rootServiceName=None rootTraceName=/backend/api/checkout
+Trace (traceID=110272aa35dfbd7f3c4f883148d9e282)
+	startTime=2025-03-17T14:48:32.121Z rootServiceName=None rootTraceName=health
+Trace (traceID=63a1c8c3ed943f6e478747938521cc5e) (durationMs=5058)
+	startTime=2025-03-17T14:48:26.677Z rootServiceName=None rootTraceName=/backend/api/checkout
+Trace (traceID=25b3a57470c04622021800ae421d5661)
+	startTime=2025-03-17T14:48:22.167Z rootServiceName=None rootTraceName=health

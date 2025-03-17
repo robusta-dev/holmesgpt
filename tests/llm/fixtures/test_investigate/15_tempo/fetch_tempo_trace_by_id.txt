@@ -1,0 +1,72 @@
+{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_trace_by_id","match_params":{"trace_id":"a85a723512d2b0d5f714669b2f9b4194"}}
+├─ /backend/api/checkout (backend-service) - 4817.70ms (span_id=62ba5290d0310a24)
+│  Datetime: start=2025-03-17T14:48:59.573Z end=2025-03-17T14:49:04.391Z
+│  Resource labels: k8s.pod.name='backend-service-66468d89c8-sxrjj' k8s.namespace.name='minishop' k8s.deployment.name='backend-service' k8s.node.name='local-kind-multi-node-worker2' service.name='backend-service'
+│  Attributes:
+│    http.method: POST
+│    http.url: /backend/api/checkout
+  ├─ callout (backend-service) - 291.80ms (span_id=07b7efbe9ed1096d)
+  │  Datetime: start=2025-03-17T14:48:59.573Z end=2025-03-17T14:48:59.865Z
+  │  Resource labels: k8s.pod.name='backend-service-66468d89c8-sxrjj' k8s.namespace.name='minishop' k8s.deployment.name='backend-service' k8s.node.name='local-kind-multi-node-worker2' service.name='backend-service'
+  │  Attributes:
+  │    downstream_url: http://auth-service:3006/auth/api/auth
+    ├─ authenticate (auth-service) - 290.24ms (span_id=1798e18f1721fcc2)
+    │  Datetime: start=2025-03-17T14:48:59.575Z end=2025-03-17T14:48:59.865Z
+    │  Resource labels: k8s.pod.name='auth-service-f79c78ccb-zzr9j' k8s.namespace.name='minishop' k8s.deployment.name='auth-service' k8s.node.name='local-kind-multi-node-worker' service.name='auth-service'
+    │  Attributes:
+    │    http.method: POST
+    │    http.url: /auth/api/auth
+      ├─ postgres.query (auth-service) - 290.19ms (span_id=37f0326ea9d55f12)
+      │  Datetime: start=2025-03-17T14:48:59.575Z end=2025-03-17T14:48:59.865Z
+      │  Resource labels: k8s.pod.name='auth-service-f79c78ccb-zzr9j' k8s.namespace.name='minishop' k8s.deployment.name='auth-service' k8s.node.name='local-kind-multi-node-worker' service.name='auth-service'
+      │  Attributes:
+      │    db.system: postgresql
+      │    db.statement: SELECT * FROM users WHERE id=$1
+      │    db.execution_time_ms: 290
+      │    db.rows_affected: 1
+  ├─ callout (backend-service) - 4525.77ms (span_id=17fdcd1d427d9596)
+  │  Datetime: start=2025-03-17T14:48:59.865Z end=2025-03-17T14:49:04.391Z
+  │  Resource labels: k8s.pod.name='backend-service-66468d89c8-sxrjj' k8s.namespace.name='minishop' k8s.deployment.name='backend-service' k8s.node.name='local-kind-multi-node-worker2' service.name='backend-service'
+  │  Attributes:
+  │    downstream_url: http://checkout-service:3004/checkout/api/checkout
+    ├─ process_checkout (checkout-service) - 4524.32ms (span_id=ca3b64712314e7f0)
+    │  Datetime: start=2025-03-17T14:48:59.867Z end=2025-03-17T14:49:04.391Z
+    │  Resource labels: k8s.pod.name='checkout-service-66cb4b6c4b-77chl' k8s.namespace.name='minishop' k8s.deployment.name='checkout-service' k8s.node.name='local-kind-multi-node-worker' service.name='checkout-service'
+    │  Attributes:
+    │    http.method: POST
+    │    http.url: /checkout/api/checkout
+    │  Events:
+    │    processing_payment (+0.02ms) at 2025-03-17T14:48:59.867Z
+    │      email: ['john.doe@example.com']
+    │    checkout_successful (+4524.31ms) at 2025-03-17T14:49:04.391Z
+      ├─ callout (checkout-service) - 4261.59ms (span_id=ba0cc2a62e83eb6f)
+      │  Datetime: start=2025-03-17T14:48:59.867Z end=2025-03-17T14:49:04.128Z
+      │  Resource labels: k8s.pod.name='checkout-service-66cb4b6c4b-77chl' k8s.namespace.name='minishop' k8s.deployment.name='checkout-service' k8s.node.name='local-kind-multi-node-worker' service.name='checkout-service'
+      │  Attributes:
+      │    downstream_url: http://fraud-service:3005/fraud/api/fraud
+        ├─ check_for_fraud (fraud-service) - 4259.93ms (span_id=1fa406f1212fb1d3)
+        │  Datetime: start=2025-03-17T14:48:59.868Z end=2025-03-17T14:49:04.127Z
+        │  Resource labels: k8s.pod.name='fraud-service-5f8b576878-slnpb' k8s.namespace.name='minishop' k8s.deployment.name='fraud-service' k8s.node.name='local-kind-multi-node-worker4' service.name='fraud-service'
+        │  Attributes:
+        │    http.method: POST
+        │    http.url: /fraud/api/fraud
+        │  Events:
+        │    validated_payment (+4060.54ms) at 2025-03-17T14:49:03.928Z
+        │      cardNumber: ['1234-5678-9101-1121']
+        │    check_for_fraud_completed (+4259.92ms) at 2025-03-17T14:49:04.127Z
+          ├─ postgres.query (fraud-service) - 4060.47ms (span_id=46c476f0589e9e7e)
+          │  Datetime: start=2025-03-17T14:48:59.868Z end=2025-03-17T14:49:03.928Z
+          │  Resource labels: k8s.pod.name='fraud-service-5f8b576878-slnpb' k8s.namespace.name='minishop' k8s.deployment.name='fraud-service' k8s.node.name='local-kind-multi-node-worker4' service.name='fraud-service'
+          │  Attributes:
+          │    db.system: postgresql
+          │    db.statement: SELECT * FROM banned_card_numbers WHERE id=$1
+          │    db.execution_time_ms: 4060
+          │    db.rows_affected: 3
+      ├─ postgres.query (checkout-service) - 62.26ms (span_id=2bd82843d6ea2600)
+      │  Datetime: start=2025-03-17T14:49:04.128Z end=2025-03-17T14:49:04.190Z
+      │  Resource labels: k8s.pod.name='checkout-service-66cb4b6c4b-77chl' k8s.namespace.name='minishop' k8s.deployment.name='checkout-service' k8s.node.name='local-kind-multi-node-worker' service.name='checkout-service'
+      │  Attributes:
+      │    db.system: postgresql
+      │    db.statement: SELECT * FROM products WHERE status='available'
+      │    db.execution_time_ms: 62
+      │    db.rows_affected: 9
