@@ -1,5 +1,5 @@
 import pytest
-from holmes.plugins.toolsets.prometheus import (
+from holmes.plugins.toolsets.prometheus.prometheus import (
     filter_metrics_by_name,
     filter_metrics_by_type,
 )

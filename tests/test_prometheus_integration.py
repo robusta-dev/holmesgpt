@@ -4,7 +4,7 @@ import os
 
 import pytest
 from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
-from holmes.plugins.toolsets.prometheus import (
+from holmes.plugins.toolsets.prometheus.prometheus import (
     PrometheusToolset,
 )
 
