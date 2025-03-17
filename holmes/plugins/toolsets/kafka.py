@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
     CallablePrerequisite,
 )
-from holmes.plugins.toolsets.grafana.common import get_param_or_raise
+from holmes.plugins.toolsets.utils import get_param_or_raise
 from confluent_kafka.admin import (
     AdminClient,
     BrokerMetadata,

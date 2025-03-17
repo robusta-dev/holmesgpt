@@ -9,7 +9,7 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
     query_tempo_traces_by_duration,
     query_tempo_trace_by_id,
 )
-from holmes.plugins.toolsets.grafana.common import (
+from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps,
 )
