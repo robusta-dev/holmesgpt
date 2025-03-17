@@ -21,7 +21,7 @@ from requests import RequestException
 
 from urllib.parse import urljoin
 
-from holmes.plugins.toolsets.utils import process_timestamps
+from holmes.plugins.toolsets.utils import get_param_or_raise, process_timestamps
 from holmes.utils.cache import TTLCache
 
 
@@ -468,9 +468,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
         try:
             url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query_range")
 
-            query = params.get("query", "")
-            start = params.get("start", "")
-
+            query = get_param_or_raise(params, "query")
             (start, end) = process_timestamps(params.get("start"), params.get("end"))
             step = params.get("step", "")
             description = params.get("description", "")
