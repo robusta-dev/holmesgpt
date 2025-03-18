@@ -21,6 +21,7 @@ from requests import RequestException
 
 from urllib.parse import urljoin
 
+from holmes.plugins.toolsets.utils import get_param_or_raise, process_timestamps
 from holmes.utils.cache import TTLCache
 
 
@@ -442,14 +443,14 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description="Start timestamp, inclusive. rfc3339 or unix_timestamp",
+                    description="Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to negative one hour (-3600)",
                     type="string",
-                    required=True,
+                    required=False,
                 ),
                 "end": ToolParameter(
-                    description="End timestamp, inclusive. rfc3339 or unix_timestamp",
+                    description="End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW",
                     type="string",
-                    required=True,
+                    required=False,
                 ),
                 "step": ToolParameter(
                     description="Query resolution step width in duration format or float number of seconds",
@@ -467,9 +468,8 @@ class ExecuteRangeQuery(BasePrometheusTool):
         try:
             url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query_range")
 
-            query = params.get("query", "")
-            start = params.get("start", "")
-            end = params.get("end", "")
+            query = get_param_or_raise(params, "query")
+            (start, end) = process_timestamps(params.get("start"), params.get("end"))
             step = params.get("step", "")
             description = params.get("description", "")
 

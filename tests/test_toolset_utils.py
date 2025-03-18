@@ -1,6 +1,6 @@
 import pytest
 from dateutil import parser
-from holmes.plugins.toolsets.grafana.common import process_timestamps
+from holmes.plugins.toolsets.utils import process_timestamps
 
 
 class TestProcessTimestamps:
