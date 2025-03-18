@@ -89,37 +89,6 @@ def build_span_hierarchy(trace_data: Dict) -> List[Span]:
     return root_spans
 
 
-def get_trace_timestamps(root_spans):
-    """Calculate the start and end times for the entire trace"""
-    if not root_spans:
-        return None, None
-
-    min_start = min(span.start_time for span in root_spans)
-    max_end = max(span.end_time for span in root_spans)
-
-    # Check all children recursively
-    for root_span in root_spans:
-        for child in root_span.children:
-            child_min, child_max = get_span_timestamps_recursive(child)
-            min_start = min(min_start, child_min)
-            max_end = max(max_end, child_max)
-
-    return min_start, max_end
-
-
-def get_span_timestamps_recursive(span):
-    """Recursively get min start time and max end time for a span and its children"""
-    min_start = span.start_time
-    max_end = span.end_time
-
-    for child in span.children:
-        child_min, child_max = get_span_timestamps_recursive(child)
-        min_start = min(min_start, child_min)
-        max_end = max(max_end, child_max)
-
-    return min_start, max_end
-
-
 def format_labels(attributes, key_labels):
     """Format the specified labels from attributes into a string"""
     result = []
@@ -172,7 +141,11 @@ def format_span_tree(span: Span, level: int = 0, key_labels: List[str] = []) -> 
                 for attr in event["attributes"]:
                     attr_key = attr["key"]
                     values = list(attr["value"].values())
-                    if values:
+                    if len(values) == 1:
+                        span_tree_text += (
+                            f"{indent}│      {attr_key}: {str(values[0])}\n"
+                        )
+                    elif values:
                         span_tree_text += f"{indent}│      {attr_key}: {str(values)}\n"
 
     for child in sorted(span.children, key=lambda s: s.start_time):

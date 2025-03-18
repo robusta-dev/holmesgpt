@@ -84,7 +84,6 @@ def query_tempo_traces(
 
     if query:
         query_params["q"] = query
-    print(query_params)
     data = execute_tempo_query_with_retry(
         grafana_url, api_key, tempo_datasource_uid, query_params
     )

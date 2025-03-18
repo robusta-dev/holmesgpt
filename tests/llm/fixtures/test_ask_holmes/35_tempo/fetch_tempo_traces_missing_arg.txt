@@ -1,0 +1,2 @@
+{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_traces","match_params":{"min_duration":"5s","namespace_name":"minishop","limit":"5"}}
+At least one of the following argument is expected but none were set: ['service_name', 'pod_name', 'deployment_name']
