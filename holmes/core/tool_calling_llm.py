@@ -377,7 +377,6 @@ class ToolCallingLLM:
             {"role": "user", "content": user_prompt},
         ]
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls: List[ToolCallResult] = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
@@ -420,13 +419,11 @@ class ToolCallingLLM:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
-                    yield json.dumps(
+                    yield create_sse_message(
+                        "error",
                         {
-                            "type": "error",
-                            "details": {
-                                "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
-                            },
-                        }
+                            "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
+                        },
                     )
                     return
                 raise
@@ -439,15 +436,10 @@ class ToolCallingLLM:
                 (text_response, _) = process_response_into_sections(
                     response_message.content
                 )
-                yield json.dumps(
-                    {"type": "ai_answer", "details": {"answer": text_response}}
-                )
+                yield create_sse_message("ai_answer", {"answer": text_response})
                 if runbooks:
-                    yield json.dumps(
-                        {
-                            "type": "instructions",
-                            "details": {"instructions": json.dumps(runbooks)},
-                        }
+                    yield create_sse_message(
+                        "instructions", {"instructions": json.dumps(runbooks)}
                     )
                 return
 
@@ -462,22 +454,16 @@ class ToolCallingLLM:
                 futures = []
                 for t in tools_to_call:
                     futures.append(executor.submit(self._invoke_tool, t))
-                    yield json.dumps(
-                        {
-                            "type": "start_tool_calling",
-                            "details": {"tool_name": t.function.name, "id": t.id},
-                        }
+                    yield create_sse_message(
+                        "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result)
                     tool_call_dict = tool_call_result.as_dict()
                     messages.append(tool_call_dict)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield json.dumps(
-                        {"type": "tool_calling_result", "details": tool_call_dict}
-                    )
+                    yield create_sse_message("tool_calling_result", tool_call_dict)
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
@@ -597,3 +583,7 @@ class IssueInvestigator(ToolCallingLLM):
         )
         res.instructions = runbooks
         return res
+
+
+def create_sse_message(event_type: str, data: dict):
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
