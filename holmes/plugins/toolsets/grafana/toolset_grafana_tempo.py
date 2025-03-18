@@ -197,9 +197,9 @@ class GetTempoTags(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
-        grafana_url = self._toolset._grafana_config.url
-        api_key = self._toolset._grafana_config.api_key
-        tempo_datasource_uid = self._toolset._grafana_config.grafana_datasource_uid
+        grafana_url = self._toolset.grafana_config.url
+        api_key = self._toolset.grafana_config.api_key
+        tempo_datasource_uid = self._toolset.grafana_config.grafana_datasource_uid
         start, end = process_timestamps_to_int(
             start=params.get("start_datetime"),
             end=params.get("end_datetime"),
@@ -249,9 +249,9 @@ class GetTempoTraceById(Tool):
         labels = list(labels_mapping.model_dump().values())
 
         trace_data = query_tempo_trace_by_id(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
+            grafana_url=self._toolset.grafana_config.url,
+            api_key=self._toolset.grafana_config.api_key,
+            tempo_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
             trace_id=get_param_or_raise(params, "trace_id"),
             key_labels=labels,
         )

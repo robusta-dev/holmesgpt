@@ -1,4 +1,4 @@
-{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_traces","match_params":{"min_duration":"4s","service_name":"*"}}
+{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_traces"}
 Trace (traceID=b284215873240e599f6a6329ba023b74)
 	startTime=2025-03-17T14:49:12.121Z rootServiceName=None rootTraceName=health
 Trace (traceID=a7a30492fa4d8beba88037ea3f1c44db) (durationMs=476)
