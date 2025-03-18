@@ -1,0 +1,789 @@
+{
+  "batches": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.2.22" } },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "ef7d6c21-245d-4e15-b894-93cb4d14be2b" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "backend-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker2" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "backend-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "backend-service-9c7df4576-tzshj" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "callout" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "JvGMttFf5MM=",
+              "parentSpanId": "XkXXF0dBWJc=",
+              "name": "callout",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946418852000000",
+              "endTimeUnixNano": "1741946419154156283",
+              "attributes": [
+                {
+                  "key": "downstream_url",
+                  "value": {
+                    "stringValue": "http://auth-service:3006/auth/api/auth"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.2.22" } },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "ef7d6c21-245d-4e15-b894-93cb4d14be2b" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "backend-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker2" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "backend-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "backend-service-9c7df4576-tzshj" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "backend-service" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "XkXXF0dBWJc=",
+              "name": "forward_checkout",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946418852000000",
+              "endTimeUnixNano": "1741946421582956461",
+              "events": [
+                {
+                  "timeUnixNano": "1741946419154276457",
+                  "name": "forwarding_checkout"
+                },
+                {
+                  "timeUnixNano": "1741946421582954420",
+                  "name": "forward_successful"
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.2.23" } },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "auth-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker2" }
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "7249c62f-d39e-4446-8253-216f847c7f5d" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "auth-service-66668cb747-wfq9r" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "auth-service" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "e5CnVwGu+nc=",
+              "parentSpanId": "JvGMttFf5MM=",
+              "name": "authenticate",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946418853000000",
+              "endTimeUnixNano": "1741946419153482996",
+              "attributes": [
+                { "key": "http.method", "value": { "stringValue": "POST" } },
+                {
+                  "key": "http.url",
+                  "value": { "stringValue": "/auth/api/auth" }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.2.23" } },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "auth-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker2" }
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "7249c62f-d39e-4446-8253-216f847c7f5d" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "auth-service-66668cb747-wfq9r" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "postgres-service" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "9EkoKBXqecA=",
+              "parentSpanId": "e5CnVwGu+nc=",
+              "name": "postgres.query",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946418853000000",
+              "endTimeUnixNano": "1741946419153437164",
+              "attributes": [
+                {
+                  "key": "db.system",
+                  "value": { "stringValue": "postgresql" }
+                },
+                {
+                  "key": "db.statement",
+                  "value": { "stringValue": "SELECT * FROM users WHERE id=$1" }
+                },
+                {
+                  "key": "db.execution_time_ms",
+                  "value": { "intValue": "300" }
+                },
+                { "key": "db.rows_affected", "value": { "intValue": "4" } }
+              ],
+              "status": { "code": "STATUS_CODE_OK" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.2.22" } },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "ef7d6c21-245d-4e15-b894-93cb4d14be2b" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "backend-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker2" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "backend-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "backend-service-9c7df4576-tzshj" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "callout" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "E3pRyUSYDQ0=",
+              "parentSpanId": "XkXXF0dBWJc=",
+              "name": "callout",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946419154000000",
+              "endTimeUnixNano": "1741946421582534469",
+              "attributes": [
+                {
+                  "key": "downstream_url",
+                  "value": {
+                    "stringValue": "http://checkout-service:3004/checkout/api/checkout"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.1.31" } },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "7f7f9c70-040d-4ce0-9c25-fbffc3631186" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker" }
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "checkout-service-6b4c44ddf9-bmgww" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "callout" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "qH3UdzEZw8s=",
+              "parentSpanId": "70N9GnzCg6I=",
+              "name": "callout",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946419155000000",
+              "endTimeUnixNano": "1741946420992470176",
+              "attributes": [
+                {
+                  "key": "downstream_url",
+                  "value": {
+                    "stringValue": "http://fraud-service:3005/fraud/api/fraud"
+                  }
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.1.31" } },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "7f7f9c70-040d-4ce0-9c25-fbffc3631186" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "checkout-service-6b4c44ddf9-bmgww" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "checkout-service" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "70N9GnzCg6I=",
+              "parentSpanId": "E3pRyUSYDQ0=",
+              "name": "process_checkout",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946419155000000",
+              "endTimeUnixNano": "1741946421581455738",
+              "attributes": [
+                { "key": "http.method", "value": { "stringValue": "POST" } },
+                {
+                  "key": "http.url",
+                  "value": { "stringValue": "/checkout/api/checkout" }
+                }
+              ],
+              "events": [
+                {
+                  "timeUnixNano": "1741946419155012551",
+                  "name": "processing_payment",
+                  "attributes": [
+                    {
+                      "key": "email",
+                      "value": { "stringValue": "john.doe@example.com" }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1741946421581443557",
+                  "name": "checkout_successful"
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.1.32" } },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "c68a4310-641b-4a69-8c72-0b904443861d" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "fraud-service" }
+          },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "fraud-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "fraud-service-7d4567c8f8-mshd6" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "fraud-service" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "SRHqZkVtz5U=",
+              "parentSpanId": "qH3UdzEZw8s=",
+              "name": "check_for_fraud",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946419157000000",
+              "endTimeUnixNano": "1741946420992557301",
+              "attributes": [
+                { "key": "http.method", "value": { "stringValue": "POST" } },
+                {
+                  "key": "http.url",
+                  "value": { "stringValue": "/fraud/api/fraud" }
+                }
+              ],
+              "events": [
+                {
+                  "timeUnixNano": "1741946420792848401",
+                  "name": "validated_payment",
+                  "attributes": [
+                    {
+                      "key": "cardNumber",
+                      "value": { "stringValue": "1234-5678-9101-1121" }
+                    }
+                  ]
+                },
+                {
+                  "timeUnixNano": "1741946420992549710",
+                  "name": "check_for_fraud_completed"
+                }
+              ],
+              "status": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.1.32" } },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker" }
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "c68a4310-641b-4a69-8c72-0b904443861d" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "fraud-service" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "fraud-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "fraud-service-7d4567c8f8-mshd6" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "postgres-service" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "seu5e3EQgws=",
+              "parentSpanId": "SRHqZkVtz5U=",
+              "name": "postgres.query",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946419157000000",
+              "endTimeUnixNano": "1741946420792793600",
+              "attributes": [
+                {
+                  "key": "db.system",
+                  "value": { "stringValue": "postgresql" }
+                },
+                {
+                  "key": "db.statement",
+                  "value": {
+                    "stringValue": "SELECT * FROM banned_card_numbers WHERE id=$1"
+                  }
+                },
+                {
+                  "key": "db.execution_time_ms",
+                  "value": { "intValue": "1634" }
+                },
+                { "key": "db.rows_affected", "value": { "intValue": "7" } }
+              ],
+              "status": { "code": "STATUS_CODE_OK" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.language",
+            "value": { "stringValue": "nodejs" }
+          },
+          {
+            "key": "telemetry.sdk.name",
+            "value": { "stringValue": "opentelemetry" }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": { "stringValue": "1.30.1" }
+          },
+          { "key": "service.version", "value": { "stringValue": "1.0.0" } },
+          { "key": "k8s.pod.ip", "value": { "stringValue": "10.244.1.31" } },
+          {
+            "key": "k8s.node.name",
+            "value": { "stringValue": "local-kind-multi-node-worker" }
+          },
+          {
+            "key": "k8s.pod.start_time",
+            "value": { "stringValue": "2025-03-14T09:17:23Z" }
+          },
+          {
+            "key": "k8s.pod.uid",
+            "value": { "stringValue": "7f7f9c70-040d-4ce0-9c25-fbffc3631186" }
+          },
+          {
+            "key": "k8s.deployment.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "service.name",
+            "value": { "stringValue": "checkout-service" }
+          },
+          {
+            "key": "k8s.namespace.name",
+            "value": { "stringValue": "minishop" }
+          },
+          {
+            "key": "k8s.pod.name",
+            "value": { "stringValue": "checkout-service-6b4c44ddf9-bmgww" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "postgres-service" },
+          "spans": [
+            {
+              "traceId": "I9eOdVwT6HHri1koljkmQw==",
+              "spanId": "wph+ty/5c7g=",
+              "parentSpanId": "70N9GnzCg6I=",
+              "name": "postgres.query",
+              "kind": "SPAN_KIND_INTERNAL",
+              "startTimeUnixNano": "1741946420993000000",
+              "endTimeUnixNano": "1741946421382445868",
+              "attributes": [
+                {
+                  "key": "db.system",
+                  "value": { "stringValue": "postgresql" }
+                },
+                {
+                  "key": "db.statement",
+                  "value": {
+                    "stringValue": "SELECT * FROM products WHERE status='available'"
+                  }
+                },
+                {
+                  "key": "db.execution_time_ms",
+                  "value": { "intValue": "389" }
+                },
+                { "key": "db.rows_affected", "value": { "intValue": "0" } }
+              ],
+              "status": { "code": "STATUS_CODE_OK" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

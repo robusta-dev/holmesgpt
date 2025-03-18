@@ -14,9 +14,10 @@ GRAFANA_DATASOURCE_UID = os.environ.get("GRAFANA_DATASOURCE_UID", "")
 
 
 @pytest.mark.skipif(
-    not GRAFANA_URL, reason="'GRAFANA_URL' must be set to run Grafana tests"
+    not GRAFANA_URL or not GRAFANA_DATASOURCE_UID,
+    reason="'GRAFANA_URL' must be set to run Grafana tests",
 )
-def test_grafana_query_loki_logs_by_node():
+def test_grafana_query_loki_logs_by_pod():
     config = GrafanaLokiConfig(
         api_key=GRAFANA_API_KEY,
         url=GRAFANA_URL,
@@ -29,8 +30,8 @@ def test_grafana_query_loki_logs_by_node():
     # just tests that this does not throw
     tool.invoke(
         params={
-            "resource_type": "node",
-            "search_regex": "foo",
+            "resource_type": "pod",
+            "resource_name": "robusta-runner",
             "namespace": "default",
             "limit": 10,
             "start_timestamp": int(time.time()) - 3600,

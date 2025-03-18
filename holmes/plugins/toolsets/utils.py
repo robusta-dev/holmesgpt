@@ -24,20 +24,26 @@ def is_rfc3339(timestamp_str: str) -> bool:
         return False
 
 
-def rfc3339_to_unix(timestamp_str: str) -> int:
+def to_unix(timestamp_str: str) -> int:
     dt = parser.parse(timestamp_str)
     return int(dt.timestamp())
+
+
+def unix_nano_to_rfc3339(unix_nano: int) -> str:
+    unix_seconds = unix_nano / 1_000_000_000
+
+    seconds_part = int(unix_seconds)
+    milliseconds_part = int((unix_seconds - seconds_part) * 1000)
+
+    dt = datetime.datetime.fromtimestamp(seconds_part, datetime.timezone.utc)
+    return f"{dt.strftime('%Y-%m-%dT%H:%M:%S')}.{milliseconds_part:03d}Z"
 
 
 def datetime_to_unix(timestamp_or_datetime_str):
     if timestamp_or_datetime_str and is_int(timestamp_or_datetime_str):
         return int(timestamp_or_datetime_str)
-    elif isinstance(timestamp_or_datetime_str, str) and is_rfc3339(
-        timestamp_or_datetime_str
-    ):
-        return rfc3339_to_unix(timestamp_or_datetime_str)
     else:
-        return timestamp_or_datetime_str
+        return to_unix(timestamp_or_datetime_str)
 
 
 def unix_to_rfc3339(timestamp: int) -> str:
@@ -52,9 +58,22 @@ def datetime_to_rfc3339(timestamp):
         return timestamp
 
 
-def process_timestamps(
+def process_timestamps_to_rfc3339(
     start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
 ) -> Tuple[str, str]:
+    (start_timestamp, end_timestamp) = process_timestamps_to_int(
+        start_timestamp, end_timestamp
+    )
+    start_timestamp = datetime_to_rfc3339(start_timestamp)
+    end_timestamp = datetime_to_rfc3339(end_timestamp)
+    return (start_timestamp, end_timestamp)
+
+
+def process_timestamps_to_int(
+    start: Optional[Union[int, str]],
+    end: Optional[Union[int, str]],
+    default_time_span_seconds: int = ONE_HOUR_IN_SECONDS,
+) -> Tuple[int, int]:
     """
     Process and normalize start and end timestamps.
 
@@ -65,47 +84,38 @@ def process_timestamps(
     - Auto-inversion if start is after end
 
     Returns:
-        Tuple of (start_timestamp, end_timestamp)
+    Tuple of (start_timestamp, end_timestamp)
     """
     # If no end_timestamp provided, use current time
-    if not end_timestamp:
-        end_timestamp = int(time.time())
+    if not end:
+        end = int(time.time())
 
-    # If no start_timestamp provided, default to one hour before end
-    if not start_timestamp:
-        start_timestamp = -ONE_HOUR_IN_SECONDS
+    # If no start provided, default to one hour before end
+    if not start:
+        start = -1 * default_time_span_seconds
 
-    start_timestamp = datetime_to_unix(start_timestamp)
-    end_timestamp = datetime_to_unix(end_timestamp)
+    start = datetime_to_unix(start)
+    end = datetime_to_unix(end)
 
     # Handle negative timestamps (relative to the other timestamp)
-    if isinstance(start_timestamp, int) and isinstance(end_timestamp, int):
-        if start_timestamp < 0 and end_timestamp < 0:
+    if isinstance(start, int) and isinstance(end, int):
+        if start < 0 and end < 0:
             raise ValueError(
-                f"Both start_timestamp and end_timestamp cannot be negative. Received start_timestamp={start_timestamp} and end_timestamp={end_timestamp}"
+                f"Both start and end cannot be negative. Received start={start} and end={end}"
             )
-        elif start_timestamp < 0:
-            start_timestamp = end_timestamp + start_timestamp
-        elif end_timestamp < 0:
-            # start/end are inverted. end_timestamp should be after start_timestamp
-            delta = end_timestamp
-            end_timestamp = start_timestamp
-            start_timestamp = start_timestamp + delta
+        elif start < 0:
+            start = end + start
+        elif end < 0:
+            # start/end are inverted. end should be after start_timestamp
+            delta = end
+            end = start
+            start = start + delta
 
     # Invert timestamps if start is after end
-    if (
-        isinstance(start_timestamp, int)
-        and isinstance(end_timestamp, int)
-        and start_timestamp > end_timestamp
-    ):
-        start_timestamp, end_timestamp = end_timestamp, start_timestamp
+    if isinstance(start, int) and isinstance(end, int) and start > end:
+        start, end = end, start
 
-    # Convert timestamps to RFC3399 because APIs support it and it's
-    # more human readable than timestamps
-    start_timestamp = datetime_to_rfc3339(start_timestamp)
-    end_timestamp = datetime_to_rfc3339(end_timestamp)
-
-    return (start_timestamp, end_timestamp)
+    return (start, end)
 
 
 def get_param_or_raise(dict: Dict, param: str) -> str:
