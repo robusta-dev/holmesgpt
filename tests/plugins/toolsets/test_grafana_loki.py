@@ -14,7 +14,8 @@ GRAFANA_DATASOURCE_UID = os.environ.get("GRAFANA_DATASOURCE_UID", "")
 
 
 @pytest.mark.skipif(
-    not GRAFANA_URL or not GRAFANA_DATASOURCE_UID, reason="'GRAFANA_URL' must be set to run Grafana tests"
+    not GRAFANA_URL or not GRAFANA_DATASOURCE_UID,
+    reason="'GRAFANA_URL' must be set to run Grafana tests",
 )
 def test_grafana_query_loki_logs_by_pod():
     config = GrafanaLokiConfig(

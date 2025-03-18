@@ -16,7 +16,7 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
 from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_int,
-    ONE_HOUR_IN_SECONDS
+    ONE_HOUR_IN_SECONDS,
 )
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
