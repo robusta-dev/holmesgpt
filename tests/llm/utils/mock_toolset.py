@@ -153,11 +153,6 @@ class MockToolsets:
                 toolset.config = definition.config
                 toolset.enabled = definition.enabled
             toolset.check_prerequisites()
-            print(f"** TOOLSET {toolset.name}")
-            print(f"\tconfig={toolset.config}")
-            print(f"\tenabled={toolset.enabled}")
-            print(f"\tstatus={toolset.get_status()}")
-            print(f"\tllm_instructions={toolset.llm_instructions}")
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)
