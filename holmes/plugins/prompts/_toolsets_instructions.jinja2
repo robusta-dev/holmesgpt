@@ -1,15 +1,10 @@
 {% if enabled_toolsets|selectattr('llm_instructions')|list -%}
 # Available Toolsets
-{% for toolset in enabled_toolsets -%}
-{% if toolset.llm_instructions -%}
+{%- for toolset in enabled_toolsets -%}
+{% if toolset.llm_instructions %}
+
 ## {{ toolset.name }}
 {{ toolset.llm_instructions }}
-{% endif -%}
+{%- endif -%}
 {%- endfor -%}
 {%- endif -%}
-
-# Toolsets
-{% for toolset in enabled_toolsets -%}
-## {{ toolset.name }}
-{{ toolset.llm_instructions }}
-{%- endfor -%}
