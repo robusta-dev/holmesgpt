@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 import base64
-from holmes.plugins.toolsets.grafana.common import unix_nano_to_rfc3339
+from holmes.plugins.toolsets.utils import unix_nano_to_rfc3339
 
 
 @dataclass

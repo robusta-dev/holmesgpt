@@ -1,4 +1,3 @@
-from holmes.plugins.toolsets.grafana.common import ONE_HOUR_IN_SECONDS
 import os
 import yaml
 from typing import Any, Dict, List, cast
@@ -14,10 +13,13 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
     query_tempo_trace_by_id,
     query_tempo_traces,
 )
-from holmes.plugins.toolsets.grafana.common import (
-    GrafanaConfig,
+from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_int,
+    ONE_HOUR_IN_SECONDS
+)
+from holmes.plugins.toolsets.grafana.common import (
+    GrafanaConfig,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
 

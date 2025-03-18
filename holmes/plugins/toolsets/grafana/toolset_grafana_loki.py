@@ -7,9 +7,12 @@ from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaTool
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
     format_log,
+)
+from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
+
 from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
