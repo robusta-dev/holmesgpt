@@ -1,4 +1,4 @@
-{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_traces","match_params":{"min_duration":"5s","deployment_name":"*","namespace_name":"minishop","limit":"*"}}
+{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_traces"}
 Trace (traceID=3cb939a36c4e98222d540cfb7da96279) (durationMs=1855)
 	startTime=2025-03-18T05:56:07.529Z rootServiceName=None rootTraceName=/backend/api/checkout
 Trace (traceID=9ac26e58cb2dd8ca5b57d015c13402a2)
