@@ -45,6 +45,12 @@ def parse_fixture_id(file_name: str) -> str:
         raise Exception(f"Could not find fixture id in filename {file_name}")
 
 
+def clean_content(text):
+    lines = text.splitlines()
+    cleaned_lines = [line.rstrip() for line in lines]
+    return "\n".join(cleaned_lines).strip()
+
+
 class Fixture(BaseModel):
     id: str
     input: str
@@ -64,7 +70,7 @@ def load_all_fixtures() -> List[Fixture]:
 
     for input_file in input_files:
         number = parse_fixture_id(input_file.stem)
-        output_file = fixtures_dir / f"fixture{number}_output.txt"
+        output_file = fixtures_dir / f"fixture{number}_output.md"
 
         if output_file.exists():
             input_content = read_file(input_file)
@@ -73,7 +79,7 @@ def load_all_fixtures() -> List[Fixture]:
                 Fixture(
                     id=number,
                     input=input_content,
-                    expected_output=output_content.strip(),
+                    expected_output=clean_content(output_content),
                     input_file_path=input_file,
                     expected_output_file_path=output_file,
                 )
@@ -94,7 +100,7 @@ def idfn(val):
 def test_html_to_markdown(fixture: Fixture):
     actual_output = html_to_markdown(fixture.input)
     print(actual_output)
-    actual_output = actual_output.strip()
+    actual_output = clean_content(actual_output)
     match = actual_output == fixture.expected_output
     actual_file_path_for_debugging = fixture.expected_output_file_path.with_suffix(
         ".actual"

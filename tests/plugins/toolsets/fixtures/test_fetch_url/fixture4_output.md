@@ -2,7 +2,7 @@
 
 {{ message }}
 
-[Robusta\-dev](/Robusta-dev) 
+[Robusta\-dev](/Robusta-dev)
 /
 **[devops\-runbooks](/Robusta-dev/devops-runbooks)**
 Public
@@ -28,9 +28,9 @@ Copy path          Latest commit
 File metadata and controls
 --------------------------
 
-* 
-* 
-* 
+*
+*
+*
 
 215 lines (164 loc) · 6\.76 KB[Raw](https://github.com/Robusta-dev/devops-runbooks/raw/refs/heads/main/cluster/certificate-issues.md)Troubleshooting Certificate Issues
 ==================================

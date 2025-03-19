@@ -258,6 +258,3 @@ class InternetToolset(InternetBaseToolset):
             ],
             is_default=True,
         )
-        self._load_llm_instructions(
-            os.path.abspath(os.path.join(os.path.dirname(__file__), "internet.jinja2"))
-        )
