@@ -1,5 +1,3 @@
-
-
 [Skip to content](#start-of-content)
 
 {{ message }}
@@ -263,4 +261,3 @@ Related Runbooks
 * [Admission Controller Issues](/Robusta-dev/devops-runbooks/blob/main/cluster/admission-controller-issues.md)
 
  You can’t perform that action at this time.
-

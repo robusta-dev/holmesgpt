@@ -30,9 +30,11 @@ def read_file(file_path: Path):
     with open(file_path, "r", encoding="utf-8") as file:
         return file.read().strip()
 
+
 def write_file(file_path: Path, content: str):
     with open(file_path, "w", encoding="utf-8") as file:
         file.write(content)
+
 
 def parse_fixture_id(file_name: str) -> str:
     match = re.match(r"fixture(\d+)", file_name)
@@ -62,7 +64,7 @@ def load_all_fixtures() -> List[Fixture]:
 
     for input_file in input_files:
         number = parse_fixture_id(input_file.stem)
-        output_file = fixtures_dir / f"fixture{number}_output.md"
+        output_file = fixtures_dir / f"fixture{number}_output.txt"
 
         if output_file.exists():
             input_content = read_file(input_file)
@@ -71,7 +73,7 @@ def load_all_fixtures() -> List[Fixture]:
                 Fixture(
                     id=number,
                     input=input_content,
-                    expected_output=output_content,
+                    expected_output=output_content.strip(),
                     input_file_path=input_file,
                     expected_output_file_path=output_file,
                 )
@@ -92,11 +94,14 @@ def idfn(val):
 def test_html_to_markdown(fixture: Fixture):
     actual_output = html_to_markdown(fixture.input)
     print(actual_output)
-    match = actual_output.strip() == fixture.expected_output.strip()
-    actual_file_path = fixture.expected_output_file_path.with_suffix(".actual")
+    actual_output = actual_output.strip()
+    match = actual_output == fixture.expected_output
+    actual_file_path_for_debugging = fixture.expected_output_file_path.with_suffix(
+        ".actual"
+    )
     if not match:
-        write_file(actual_file_path, actual_output)
-    assert match, f"Values mismatch. Run diff {fixture.expected_output_file_path} {actual_file_path} to compare"
+        write_file(actual_file_path_for_debugging, actual_output)
+    assert match, f"Values mismatch. Run the following command to compare expected with actual: `diff {fixture.expected_output_file_path} {actual_file_path_for_debugging}`"
 
 
 def test_fetch_webpage():

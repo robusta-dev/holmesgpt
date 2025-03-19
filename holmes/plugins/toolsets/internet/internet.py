@@ -40,7 +40,9 @@ SELECTORS_TO_REMOVE = [
     "menu",
     "sidebar",
     "aside",
-    ".header", ".footer", ".navigation",
+    ".header",
+    ".footer",
+    ".navigation",
     ".nav",
     ".menu",
     ".sidebar",
@@ -54,7 +56,9 @@ SELECTORS_TO_REMOVE = [
     ".social-share",
     ".related-articles",
     ".recommended",
-    "#header", "#footer", "#navigation",
+    "#header",
+    "#footer",
+    "#navigation",
     "#nav",
     "#menu",
     "#sidebar",
@@ -255,7 +259,5 @@ class InternetToolset(InternetBaseToolset):
             is_default=True,
         )
         self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "internet.jinja2")
-            )
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "internet.jinja2"))
         )

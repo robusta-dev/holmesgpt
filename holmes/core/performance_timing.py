@@ -33,7 +33,7 @@ class PerformanceTiming:
         self.last_measure_time = current_time
         self.last_measure_label = label
 
-    def end(self, custom_message:str=""):
+    def end(self, custom_message: str = ""):
         self.ended = True
         current_time = time.time()
         time_since_start = int((current_time - self.start_time) * 1000)
@@ -44,7 +44,6 @@ class PerformanceTiming:
                 logging.info(
                     f"\t{self.name}({label}) +{time_since_last}ms  {time_since_start}ms"
                 )
-
 
 
 def log_function_timing(label=None):
