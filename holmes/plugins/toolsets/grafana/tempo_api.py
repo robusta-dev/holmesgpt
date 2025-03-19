@@ -1,6 +1,8 @@
 import requests
-from typing import Dict, List
+from typing import Dict, List, Optional
 import backoff
+
+from holmes.plugins.toolsets.grafana.trace_parser import process_trace
 
 
 def execute_tempo_query_with_retry(
@@ -52,15 +54,15 @@ def execute_tempo_query_with_retry(
         raise Exception(f"Request to Tempo API failed after retries: {e}")
 
 
-def query_tempo_traces_by_duration(
+def query_tempo_traces(
     grafana_url: str,
     api_key: str,
     tempo_datasource_uid: str,
-    min_duration: str,
+    query: Optional[str],
     start: int,
     end: int,
-    limit: int = 50,
-) -> List[Dict]:
+    limit: int,
+) -> Dict:
     """
     Query Tempo for traces exceeding a minimum duration.
 
@@ -75,61 +77,17 @@ def query_tempo_traces_by_duration(
         List of trace results.
     """
     query_params = {
-        "minDuration": min_duration,
         "start": str(start),
         "end": str(end),
         "limit": str(limit),
     }
-    return execute_tempo_query_with_retry(
+
+    if query:
+        query_params["q"] = query
+    data = execute_tempo_query_with_retry(
         grafana_url, api_key, tempo_datasource_uid, query_params
     )
-
-
-def query_tempo_traces(
-    grafana_url: str,
-    api_key: str,
-    tempo_datasource_id: str,
-    tempo_query: str,
-    start: int,
-    end: int,
-    limit: int = 50,
-) -> List[Dict]:
-    """
-    Query Tempo using a custom query string.
-
-    Args:
-        grafana_url: The Grafana instance URL.
-        api_key: The API key for authentication.
-        tempo_datasource_id: The ID of the Tempo datasource.
-        tempo_query: The Tempo query string.
-        start: Start of the time range (epoch in seconds).
-        end: End of the time range (epoch in seconds).
-        limit: Maximum number of traces to return.
-
-    Returns:
-        List of trace results.
-    """
-    query_url = f"{grafana_url}/api/datasources/proxy/{tempo_datasource_id}/api/search"
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    query_params = {
-        "q": tempo_query,  # ✅ Correct key for Tempo queries
-        "start": str(start),  # Convert seconds to nanoseconds
-        "end": str(end),  # Convert seconds to nanoseconds
-        "limit": str(limit),
-    }
-
-    try:
-        response = requests.get(query_url, headers=headers, params=query_params)
-        response.raise_for_status()  # Raise error for HTTP failure responses
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error querying Tempo: {e}")
-        return []
+    return data
 
 
 def query_tempo_trace_by_id(
@@ -137,9 +95,10 @@ def query_tempo_trace_by_id(
     api_key: str,
     tempo_datasource_uid: str,
     trace_id: str,
+    key_labels: List[str],
     retries: int = 3,
     timeout: int = 5,
-) -> Dict:
+) -> str:
     """
     Query Tempo for a specific trace by its ID with retries and backoff.
 
@@ -150,14 +109,14 @@ def query_tempo_trace_by_id(
         timeout: Timeout for each request in seconds.
 
     Returns:
-        Trace details.
+        A formatted trace details string
     """
     url = f"{grafana_url}/api/datasources/proxy/uid/{tempo_datasource_uid}/api/traces/{trace_id}"
 
     @backoff.on_exception(
-        backoff.expo,  # Exponential backoff
-        requests.exceptions.RequestException,  # Retry on request exceptions
-        max_tries=retries,  # Maximum retries
+        backoff.expo,
+        requests.exceptions.RequestException,
+        max_tries=retries,
         giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
         and e.response.status_code < 500,
     )
@@ -168,10 +127,10 @@ def query_tempo_trace_by_id(
                 "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json",
             },
-            timeout=timeout,  # Set timeout for the request
+            timeout=timeout,
         )
-        response.raise_for_status()  # Raise an error for non-2xx responses
-        return process_trace_json(response.json())
+        response.raise_for_status()
+        return process_trace(response.json(), key_labels)
 
     try:
         return make_request()

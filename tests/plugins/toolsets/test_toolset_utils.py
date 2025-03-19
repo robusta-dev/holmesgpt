@@ -1,6 +1,6 @@
 import pytest
 from dateutil import parser
-from holmes.plugins.toolsets.grafana.common import process_timestamps
+from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
 
 
 class TestProcessTimestamps:
@@ -72,10 +72,12 @@ class TestProcessTimestamps:
             ),
         ],
     )
-    def test_process_timestamps(
+    def test_process_timestamps_to_rfc3339(
         self, start_timestamp, end_timestamp, expected_start, expected_end
     ):
-        result_start, result_end = process_timestamps(start_timestamp, end_timestamp)
+        result_start, result_end = process_timestamps_to_rfc3339(
+            start_timestamp, end_timestamp
+        )
 
         # For time-dependent tests, we allow a small tolerance
         if start_timestamp is None or end_timestamp is None:

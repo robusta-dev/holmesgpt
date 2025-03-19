@@ -213,7 +213,7 @@ def build_issue_chat_messages(
                     "investigation": investigation_analysis,
                     "tools_called_for_investigation": tools_for_investigation,
                     "issue": issue_chat_request.issue_type,
-                    "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+                    "enabled_toolsets": ai.tool_executor.enabled_toolsets,
                 },
             )
             messages = [
@@ -232,7 +232,7 @@ def build_issue_chat_messages(
             "investigation": investigation_analysis,
             "tools_called_for_investigation": None,
             "issue": issue_chat_request.issue_type,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -264,7 +264,7 @@ def build_issue_chat_messages(
             "investigation": investigation_analysis,
             "tools_called_for_investigation": truncated_investigation_result_tool_calls,
             "issue": issue_chat_request.issue_type,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -304,7 +304,7 @@ def build_issue_chat_messages(
         "investigation": investigation_analysis,
         "tools_called_for_investigation": None,
         "issue": issue_chat_request.issue_type,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -326,7 +326,7 @@ def build_issue_chat_messages(
         "investigation": investigation_analysis,
         "tools_called_for_investigation": truncated_investigation_result_tool_calls,
         "issue": issue_chat_request.issue_type,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context
@@ -392,7 +392,7 @@ def build_chat_messages(
     ]
     """
     template_path = "builtin://generic_ask_conversation.jinja2"
-    context = {"enabled_toolsets": ai.tool_executor.enabled_toolsets_names}
+    context = {"enabled_toolsets": ai.tool_executor.enabled_toolsets}
     if not conversation_history or len(conversation_history) == 0:
         system_prompt = load_and_render_prompt(template_path, context)
         ask = add_global_instructions_to_user_prompt(ask, global_instructions)
@@ -508,7 +508,7 @@ def build_workload_health_chat_messages(
                     "workload_analysis": workload_analysis,
                     "tools_called_for_workload": tools_for_workload,
                     "resource": resource,
-                    "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+                    "enabled_toolsets": ai.tool_executor.enabled_toolsets,
                 },
             )
             messages = [
@@ -527,7 +527,7 @@ def build_workload_health_chat_messages(
             "workload_analysis": workload_analysis,
             "tools_called_for_workload": None,
             "resource": resource,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -559,7 +559,7 @@ def build_workload_health_chat_messages(
             "workload_analysis": workload_analysis,
             "tools_called_for_workload": truncated_workload_result_tool_calls,
             "resource": resource,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -599,7 +599,7 @@ def build_workload_health_chat_messages(
         "workload_analysis": workload_analysis,
         "tools_called_for_workload": None,
         "resource": resource,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -621,7 +621,7 @@ def build_workload_health_chat_messages(
         "workload_analysis": workload_analysis,
         "tools_called_for_workload": truncated_workload_result_tool_calls,
         "resource": resource,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context

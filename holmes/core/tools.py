@@ -19,6 +19,9 @@ from pydantic import (
     model_validator,
 )
 
+from holmes.core.openai_formatting import format_tool_to_open_ai_standard
+from holmes.plugins.prompts import load_and_render_prompt
+
 
 ToolsetPattern = Union[Literal["*"], List[str]]
 
@@ -81,36 +84,11 @@ class Tool(ABC, BaseModel):
     additional_instructions: Optional[str] = None
 
     def get_openai_format(self):
-        tool_properties = {}
-        for param_name, param_attributes in self.parameters.items():
-            tool_properties[param_name] = {"type": param_attributes.type}
-            if param_attributes.description is not None:
-                tool_properties[param_name]["description"] = (
-                    param_attributes.description
-                )
-
-        result = {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": {
-                    "properties": tool_properties,
-                    "required": [
-                        param_name
-                        for param_name, param_attributes in self.parameters.items()
-                        if param_attributes.required
-                    ],
-                    "type": "object",
-                },
-            },
-        }
-
-        # gemini doesnt have parameters object if it is without params
-        if tool_properties is None:
-            result["function"].pop("parameters")
-
-        return result
+        return format_tool_to_open_ai_standard(
+            tool_name=self.name,
+            tool_description=self.description,
+            tool_parameters=self.parameters,
+        )
 
     def invoke(self, params: Dict) -> str:
         logging.info(
@@ -278,6 +256,7 @@ class Toolset(BaseModel):
     )
     config: Optional[Any] = None
     is_default: bool = False
+    llm_instructions: Optional[str] = None
 
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
@@ -385,6 +364,13 @@ class Toolset(BaseModel):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
+    def _load_llm_instructions(self, jinja_template_file_path: str):
+        tool_names = [t.name for t in self.tools]
+        self.llm_instructions = load_and_render_prompt(
+            prompt=f"file://{jinja_template_file_path}",
+            context={"tool_names": tool_names},
+        )
+
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]
@@ -399,9 +385,6 @@ class ToolExecutor:
                 lambda toolset: toolset.get_status() == ToolsetStatusEnum.ENABLED,
                 toolsets,
             )
-        )
-        self.enabled_toolsets_names: set[str] = set(
-            [ts.name for ts in self.enabled_toolsets]
         )
 
         toolsets_by_name: dict[str, Toolset] = {}
@@ -423,7 +406,7 @@ class ToolExecutor:
         tool = self.get_tool_by_name(tool_name)
         return tool.invoke(params) if tool else ""
 
-    def get_tool_by_name(self, name: str) -> Optional[YAMLTool]:
+    def get_tool_by_name(self, name: str) -> Optional[Tool]:
         if name in self.tools_by_name:
             return self.tools_by_name[name]
         logging.warning(f"could not find tool {name}. skipping")

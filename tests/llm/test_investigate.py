@@ -185,7 +185,6 @@ def test_investigate(experiment_name, test_case):
 
     if bt_helper and eval:
         bt_helper.end_evaluation(
-            eval=eval,
             input=input,
             output=output or "",
             expected=str(expected),

@@ -208,6 +208,7 @@ class MockToolsets:
                     prerequisites=toolset.prerequisites,
                     tools=toolset.tools,
                     description=toolset.description,
+                    llm_instructions=toolset.llm_instructions,
                 )
                 mocked_toolset.tools = mocked_tools
                 mocked_toolset._status = ToolsetStatusEnum.ENABLED
