@@ -212,7 +212,7 @@ class ToolCallingLLM:
                         user_prompt=post_process_prompt,
                     )
 
-                    perf_timing.end()
+                    perf_timing.end(f"- completed in {i} iterations -")
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -221,7 +221,7 @@ class ToolCallingLLM:
                         messages=messages,
                     )
 
-                perf_timing.end()
+                perf_timing.end(f"- completed in {i} iterations -")
                 return LLMResult(
                     result=text_response,
                     tool_calls=tool_calls,

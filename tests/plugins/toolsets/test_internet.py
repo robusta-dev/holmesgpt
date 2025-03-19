@@ -30,6 +30,9 @@ def read_file(file_path: Path):
     with open(file_path, "r", encoding="utf-8") as file:
         return file.read().strip()
 
+def write_file(file_path: Path, content: str):
+    with open(file_path, "w", encoding="utf-8") as file:
+        file.write(content)
 
 def parse_fixture_id(file_name: str) -> str:
     match = re.match(r"fixture(\d+)", file_name)
@@ -44,6 +47,8 @@ class Fixture(BaseModel):
     id: str
     input: str
     expected_output: str
+    input_file_path: Path
+    expected_output_file_path: Path
 
 
 def load_all_fixtures() -> List[Fixture]:
@@ -63,7 +68,13 @@ def load_all_fixtures() -> List[Fixture]:
             input_content = read_file(input_file)
             output_content = read_file(output_file)
             test_cases.append(
-                Fixture(id=number, input=input_content, expected_output=output_content)
+                Fixture(
+                    id=number,
+                    input=input_content,
+                    expected_output=output_content,
+                    input_file_path=input_file,
+                    expected_output_file_path=output_file,
+                )
             )
 
     assert len(test_cases) > 0
@@ -81,7 +92,11 @@ def idfn(val):
 def test_html_to_markdown(fixture: Fixture):
     actual_output = html_to_markdown(fixture.input)
     print(actual_output)
-    assert actual_output.strip() == fixture.expected_output.strip()
+    match = actual_output.strip() == fixture.expected_output.strip()
+    actual_file_path = fixture.expected_output_file_path.with_suffix(".actual")
+    if not match:
+        write_file(actual_file_path, actual_output)
+    assert match, f"Values mismatch. Run diff {fixture.expected_output_file_path} {actual_file_path} to compare"
 
 
 def test_fetch_webpage():

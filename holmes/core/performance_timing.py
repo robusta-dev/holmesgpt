@@ -10,8 +10,6 @@ from holmes.common.env_vars import (
 
 class PerformanceTiming:
     def __init__(self, name):
-        if not LOG_PERFORMANCE:
-            return
         self.ended = False
 
         self.name = name
@@ -35,18 +33,18 @@ class PerformanceTiming:
         self.last_measure_time = current_time
         self.last_measure_label = label
 
-    def end(self):
-        if not LOG_PERFORMANCE:
-            return
+    def end(self, custom_message:str=""):
         self.ended = True
         current_time = time.time()
         time_since_start = int((current_time - self.start_time) * 1000)
-        message = f"{self.name}(TOTAL) {time_since_start}ms"
+        message = f"{self.name} {custom_message} {time_since_start}ms"
         logging.info(message)
-        for label, time_since_last, time_since_start in self.timings:
-            logging.info(
-                f"\t{self.name}({label}) +{time_since_last}ms  {time_since_start}ms"
-            )
+        if LOG_PERFORMANCE:
+            for label, time_since_last, time_since_start in self.timings:
+                logging.info(
+                    f"\t{self.name}({label}) +{time_since_last}ms  {time_since_start}ms"
+                )
+
 
 
 def log_function_timing(label=None):

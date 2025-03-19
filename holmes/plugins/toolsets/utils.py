@@ -6,9 +6,9 @@ import time
 ONE_HOUR_IN_SECONDS = 3600
 
 
-def is_int(string):
+def is_int(val):
     try:
-        int(string)
+        int(val)
     except ValueError:
         return False
     else:
@@ -87,7 +87,7 @@ def process_timestamps_to_int(
     Tuple of (start_timestamp, end_timestamp)
     """
     # If no end_timestamp provided, use current time
-    if not end:
+    if not end or end == "0" or end == 0:
         end = int(time.time())
 
     # If no start provided, default to one hour before end
@@ -100,9 +100,9 @@ def process_timestamps_to_int(
     # Handle negative timestamps (relative to the other timestamp)
     if isinstance(start, int) and isinstance(end, int):
         if start < 0 and end < 0:
-            raise ValueError(
-                f"Both start and end cannot be negative. Received start={start} and end={end}"
-            )
+            # end is relative to now()
+            end = int(time.time()) + end
+            start = end + start
         elif start < 0:
             start = end + start
         elif end < 0:
