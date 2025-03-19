@@ -556,30 +556,30 @@ def jira(
 
 @investigate_app.command()
 def ticket(
+    prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
     source: SupportedTicketSources = typer.Option(
         ...,
         help=f"Source system to investigate the ticket from. Supported sources: {', '.join(s.value for s in SupportedTicketSources)}",
     ),
-    jira_url: Optional[str] = typer.Option(
+    ticket_url: Optional[str] = typer.Option(
         None,
-        help="Jira URL - e.g. https://your-company.atlassian.net",
-        envvar="JIRA_URL",
+        help="URL - e.g. https://your-company.atlassian.net",
+        envvar="TICKET_URL",
     ),
-    jira_username: Optional[str] = typer.Option(
+    ticket_username: Optional[str] = typer.Option(
         None,
-        help="The email address with which you log into Jira",
-        envvar="JIRA_USERNAME",
+        help="The email address with which you log into your Source",
+        envvar="TICKET_USERNAME",
     ),
-    jira_api_key: Optional[str] = typer.Option(
+    ticket_api_key: Optional[str] = typer.Option(
         None,
-        envvar="JIRA_API_KEY",
+        envvar="TICKET_API_KEY",
     ),
     ticket_id: Optional[str] = typer.Option(
         None,
-        help="Jira ticket ID to investigate (e.g., 'KAN-1')",
+        help="ticket ID to investigate (e.g., 'KAN-1')",
     ),
     config_file: Optional[str] = opt_config_file,
-    prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_ticket.jinja2", help=system_prompt_help
@@ -607,9 +607,9 @@ def ticket(
             api_key=None,
             model=None,
             max_steps=None,
-            jira_url=jira_url,
-            jira_username=jira_username,
-            jira_api_key=jira_api_key,
+            jira_url=ticket_url,
+            jira_username=ticket_username,
+            jira_api_key=ticket_api_key,
             jira_query=None,
             custom_toolsets=None,
             custom_runbooks=None,
@@ -622,23 +622,49 @@ def ticket(
             or not ticket_id
         ):
             console.print(
-                "[bold red]Error: Jira URL, username, API key, and ticket ID are required for jira-service-management.[/bold red]"
+                "[bold red]Error: URL, username, API key, and ticket ID are required for jira-service-management.[/bold red]"
             )
             return
         output_instructions = [
             "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
         ]
-        source_handler = config.create_jira_source()
-        try:
-            issue_to_investigate = source_handler.fetch_jsm_issue(ticket_id)
-            if issue_to_investigate is None:
-                raise Exception("Ticket Not found")
-        except Exception as e:
-            logging.error("Failed to fetch issue from Jira", exc_info=e)
+        source_handler = config.create_jira_service_management_source()
+    elif source == SupportedTicketSources.PAGERDUTY:
+        config = Config.load_from_file(
+            config_file,
+            api_key=None,
+            model=None,
+            max_steps=None,
+            pagerduty_api_key=ticket_api_key,
+            pagerduty_user_email=ticket_username,
+            pagerduty_incident_key=None,
+            custom_toolsets=None,
+            custom_runbooks=None,
+        )
+
+        if (
+            not config.pagerduty_user_email
+            or not config.pagerduty_api_key
+            or not ticket_id
+        ):
             console.print(
-                f"[bold red]Error: Failed to fetch issue {ticket_id} from Jira.[/bold red]"
+                "[bold red]Error: username, API key, and ticket ID are required for pagerduty.[/bold red]"
             )
             return
+        output_instructions = [
+            "All output links/urls must **always** be of this format : \n link text here: http://your.url.here.com\n **never*** use the url the format [link text here](http://your.url.here.com)"
+        ]
+        source_handler = config.create_pagerduty_source()
+    try:
+        issue_to_investigate = source_handler.fetch_issue(id=ticket_id)
+        if issue_to_investigate is None:
+            raise Exception(f"Issue {ticket_id} Not found")
+    except Exception as e:
+        logging.error(f"Failed to fetch issue from {source}", exc_info=e)
+        console.print(
+            f"[bold red]Error: Failed to fetch issue {ticket_id} from {source}.[/bold red]"
+        )
+        return
     system_prompt = load_and_render_prompt(
         prompt=system_prompt,
         context={"source": source, "output_instructions": output_instructions},
@@ -646,7 +672,7 @@ def ticket(
 
     ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
     console.print(
-        f"[bold yellow]Analyzing Jira ticket: {issue_to_investigate.name}...[/bold yellow]"
+        f"[bold yellow]Analyzing ticket: {issue_to_investigate.name}...[/bold yellow]"
     )
     prompt = (
         prompt
@@ -658,7 +684,7 @@ def ticket(
     console.print(
         f"[bold green]AI analysis of {issue_to_investigate.url} {prompt}[/bold green]"
     )
-    console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
+    console.print(result.result.replace("\n", "\n\n"), style="bold green")
     console.print(Rule())
     source_handler.write_back_result(issue_to_investigate.id, result)
     console.print(f"[bold]Updated ticket {issue_to_investigate.url}.[/bold]")

@@ -250,24 +250,22 @@ class BuildLokiLogURL(Tool):
                 }
             },
         }
-
-        # Encode JSON into URL format properly
-        expected_query_string = (
-            f"{self._toolset._grafana_config.url}/explore?"
-            + urlencode(
-                {
-                    "schemaVersion": 1,
-                    "orgId": 1,
-                    "panes": json.dumps(
-                        expected_query_params["panes"],
-                        separators=(",", ":"),
-                        ensure_ascii=False,
-                    ),
-                }
-            )
-            .replace("%3A", ":")
-            .replace("%2C", ",")
+        base_url = (
+            self._toolset._grafana_config.external_url
+            or self._toolset._grafana_config.url
         )
+        # Encode JSON into URL format properly
+        expected_query_string = f"{base_url}/explore?" + urlencode(
+            {
+                "schemaVersion": 1,
+                "orgId": 1,
+                "panes": json.dumps(
+                    expected_query_params["panes"],
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ),
+            }
+        ).replace("%3A", ":").replace("%2C", ",")
 
         return expected_query_string
 

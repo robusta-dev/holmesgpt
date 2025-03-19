@@ -36,24 +36,6 @@ class JiraSource(SourcePlugin):
         except requests.RequestException as e:
             raise ConnectionError("Failed to fetch data from Jira.") from e
 
-    def fetch_jsm_issue(self, ticket_id: str) -> Issue:
-        logging.info(
-            f"Fetching Jira Service Management issue {ticket_id} from {self.url}"
-        )
-
-        try:
-            response = requests.get(
-                f"{self.url}/rest/api/3/issue/{ticket_id}",
-                auth=HTTPBasicAuth(self.username, self.api_key),
-                headers={"Accept": "application/json"},
-            )
-            response.raise_for_status()
-            jira_issue = response.json()
-            description = self.extract_description(jira_issue)
-            return self.convert_to_issue(jira_issue, description)
-        except requests.RequestException as e:
-            raise ConnectionError(f"Failed to fetch Jira ticket {ticket_id}") from e
-
     def convert_to_issue(self, jira_issue, description: Optional[str] = None):
         description = self.extract_description(jira_issue)
         return Issue(
@@ -115,3 +97,27 @@ class JiraSource(SourcePlugin):
         response.raise_for_status()
         data = response.json()
         logging.debug(f"Comment added to issue {issue_id}: {data}")
+
+
+class JiraServiceManagementSource(JiraSource):
+    def __init__(self, url: str, username: str, api_key: str, jql_query: str):
+        super().__init__(url, username, api_key, jql_query)
+
+    def fetch_issue(self, id: str) -> Issue:
+        """
+        Might also be the same in jira, needs additional testing
+        """
+        logging.info(f"Fetching Jira Service Management issue {id} from {self.url}")
+
+        try:
+            response = requests.get(
+                f"{self.url}/rest/api/3/issue/{id}",
+                auth=HTTPBasicAuth(self.username, self.api_key),
+                headers={"Accept": "application/json"},
+            )
+            response.raise_for_status()
+            jira_issue = response.json()
+            description = self.extract_description(jira_issue)
+            return self.convert_to_issue(jira_issue, description)
+        except requests.RequestException as e:
+            raise ConnectionError(f"Failed to fetch Jira ticket {id}") from e

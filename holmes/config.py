@@ -22,7 +22,7 @@ from holmes.core.tools import (
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.github import GitHubSource
-from holmes.plugins.sources.jira import JiraSource
+from holmes.plugins.sources.jira import JiraSource, JiraServiceManagementSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
@@ -43,6 +43,7 @@ DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 
 class SupportedTicketSources(str, Enum):
     JIRA_SERVICE_MANAGEMENT = "jira-service-management"
+    PAGERDUTY = "pagerduty"
 
 
 def get_env_replacement(value: str) -> Optional[str]:
@@ -430,7 +431,7 @@ class Config(RobustaBaseConfig):
             tool_executor, runbook_manager, self.max_steps, self._get_llm()
         )
 
-    def create_jira_source(self) -> JiraSource:
+    def validate_jira_config(self):
         if self.jira_url is None:
             raise ValueError("--jira-url must be specified")
         if not (
@@ -442,7 +443,20 @@ class Config(RobustaBaseConfig):
         if self.jira_api_key is None:
             raise ValueError("--jira-api-key must be specified")
 
+    def create_jira_source(self) -> JiraSource:
+        self.validate_jira_config()
+
         return JiraSource(
+            url=self.jira_url,
+            username=self.jira_username,
+            api_key=self.jira_api_key.get_secret_value(),
+            jql_query=self.jira_query,
+        )
+
+    def create_jira_service_management_source(self) -> JiraServiceManagementSource:
+        self.validate_jira_config()
+
+        return JiraServiceManagementSource(
             url=self.jira_url,
             username=self.jira_username,
             api_key=self.jira_api_key.get_secret_value(),

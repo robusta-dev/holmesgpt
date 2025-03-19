@@ -47,10 +47,13 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
             response.raise_for_status()
             dashboards = response.json()
             formatted_dashboards: List[str] = []
-
+            base_url = (
+                self._toolset._grafana_config.external_url
+                or self._toolset._grafana_config.url
+            )
             for dash in dashboards:
                 dashboard_url = urljoin(
-                    self._toolset._grafana_config.url,
+                    base_url,
                     f"/d/{dash['uid']}/{dash['uri'].split('/')[-1]}",
                 )
 
