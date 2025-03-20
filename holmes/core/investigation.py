@@ -4,6 +4,7 @@ from holmes.core.investigation_structured_output import process_response_into_se
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
+from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 from holmes.utils.robusta import load_robusta_api_key
 import logging
 
@@ -135,12 +136,9 @@ def get_investigation_context(
         user_prompt = f'My instructions to check \n"""{user_prompt}"""'
 
     global_instructions = dal.get_global_instructions_for_account()
-    if (
-        global_instructions
-        and global_instructions.instructions
-        and len(global_instructions.instructions[0]) > 0
-    ):
-        user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
+    user_prompt = add_global_instructions_to_user_prompt(
+        user_prompt, global_instructions
+    )
 
     user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
 

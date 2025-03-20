@@ -11,7 +11,5 @@ def add_global_instructions_to_user_prompt(
         and len(global_instructions.instructions[0]) > 0
     ):
         instructions = "\n\n".join(global_instructions.instructions)
-        user_prompt += (
-            f"\n\nGlobal Instructions (use only if relevant): {instructions}\n"
-        )
+        user_prompt += f"\n\nGlobal Instructions (use if relevant): {instructions}\n"
     return user_prompt
