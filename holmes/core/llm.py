@@ -171,22 +171,29 @@ class DefaultLLM(LLM):
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
     ) -> ModelResponse:
+
+        tools_args = {}
+        if tools and len(tools) > 0 and tool_choice == 'auto':
+            tools_args["tools"] = tools
+            tools_args["tool_choice"] = tool_choice
+
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
             base_url=self.base_url,
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
+            thinking={"type": "enabled", "budget_tokens": 1024},
+            **tools_args
         )
 
         if isinstance(result, ModelResponse):
             return result
         else:
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
+
 
     def get_maximum_output_token(self) -> int:
         if OVERRIDE_MAX_OUTPUT_TOKEN:

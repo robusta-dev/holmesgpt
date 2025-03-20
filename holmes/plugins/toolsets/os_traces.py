@@ -127,6 +127,7 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
         self._cache = None
 
     def _invoke(self, params: Any) -> str:
+        err_msg = ""
         try:
             logs_url = urljoin(self.toolset.config.opensearch_url, "/traces/_search")
             body = json.loads(params.get("query"))
@@ -146,17 +147,20 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
                 url=logs_url, timeout=180, verify=True, data=json.dumps(full_query),
                 headers=headers
             )
+            if logs_response.status_code > 300:
+                err_msg = logs_response.text
+
             logs_response.raise_for_status()
             return json.dumps(logs_response.json())
         except requests.Timeout:
             logging.warn("Timeout while fetching opensearch traces search", exc_info=True)
-            return "Request timed out while fetching opensearch traces search"
+            return f"Request timed out while fetching opensearch traces search {err_msg}"
         except RequestException as e:
             logging.warn("Failed to fetch opensearch traces search", exc_info=True)
-            return f"Network error while opensearch traces search: {str(e)}"
+            return f"Network error while opensearch traces search {err_msg} : {str(e)}"
         except Exception as e:
-            logging.warn("Failed to process opensearch traces search", exc_info=True)
-            return f"Unexpected error: {str(e)}"
+            logging.warn("Failed to process opensearch traces search ", exc_info=True)
+            return f"Unexpected error {err_msg}: {str(e)}"
 
     def get_parameterized_one_liner(self, params) -> str:
         return (f'search traces: query="{params.get("query")}"')

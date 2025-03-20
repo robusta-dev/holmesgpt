@@ -1,3 +1,5 @@
+import logging
+
 from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
 from holmes.core.investigation_structured_output import process_response_into_sections
@@ -44,6 +46,7 @@ def investigate_issues(
 
     (text_response, sections) = process_response_into_sections(investigation.result)
 
+    logging.debug(f"text response: {text_response}")
     return InvestigationResult(
         analysis=text_response,
         sections=sections,

@@ -4,6 +4,7 @@ Whenever possible you MUST first use tools to investigate then answer the questi
 * ALWAYS call list_prometheus_rules to get the alert definition
 * ALWAYS search for relevant traces with traces_in_range_search
 * ALWAYS search for relevant logs with logs_in_range_search
+* ALWAYS embed a Prometheus graph in the response. The graph should visualize data related to the incident.
 
 Provide an terse analysis of the following {{ issue.source_type }} alert/issue and why it is firing.
 * When querying tools, always query for the relevant time period
@@ -15,6 +16,8 @@ Provide an terse analysis of the following {{ issue.source_type }} alert/issue a
 Prometheus Alerts:
 * Use Prometheus to query metrics from the alert promql
 * Add prometheus graphs related to the incident
+
+{% include 'promql_graphs_instructions.jinja2' %}
 
 Traces and Spans:
 * All applications are instrumented and has spans and traces.
