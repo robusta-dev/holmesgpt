@@ -366,26 +366,19 @@ class Config(RobustaBaseConfig):
                     elif ts.get_status() == ToolsetStatusEnum.FAILED:
                         failed_toolsets.append(ts)
 
-                # Display toolsets in order: enabled, disabled, failed
-                # First show enabled toolsets
-                for ts in enabled_toolsets:
-                    console.print(f"  [green]✓[/green] {ts.name}: Loaded successfully")
+                # Display concise summary with loaded toolsets in one line and others in second line
+                # Show loaded toolsets on one line
+                if enabled_toolsets:
+                    loaded_names = ", ".join([ts.name for ts in enabled_toolsets])
+                    console.print(f"  [green]Loaded:[/green] {loaded_names}")
 
-                # Then show disabled toolsets
-                for ts in disabled_toolsets:
-                    if ts.get_error():
-                        console.print(
-                            f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
-                        )
-                    else:
-                        console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
-
-                # Finally show failed toolsets
-                for ts in failed_toolsets:
-                    if ts.get_error():
-                        console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
-                    else:
-                        console.print(f"  [red]✗[/red] {ts.name}: Failed to load")
+                # Show disabled and failed toolsets on one line with hint
+                not_loaded = disabled_toolsets + failed_toolsets
+                if not_loaded:
+                    not_loaded_names = ", ".join([ts.name for ts in not_loaded])
+                    console.print(
+                        f"  [yellow]Not Loaded:[/yellow] {not_loaded_names} [dim](Use --verbose flag for details)[/dim]"
+                    )
 
                 # Add a divider before the summary
                 console.print()
@@ -444,26 +437,19 @@ class Config(RobustaBaseConfig):
                 status_summary = ", ".join(status_parts)
                 console.print(f"[bold]Total toolsets: {status_summary}[/bold]")
 
-                # Display toolsets in order: enabled, disabled, failed
-                # Show enabled toolsets
-                for ts in enabled_toolsets:
-                    console.print(f"  [green]✓[/green] {ts.name}: Loaded successfully")
+                # Display concise summary with loaded toolsets in one line and others in second line
+                # Show loaded toolsets on one line
+                if enabled_toolsets:
+                    loaded_names = ", ".join([ts.name for ts in enabled_toolsets])
+                    console.print(f"  [green]Loaded:[/green] {loaded_names}")
 
-                # Show disabled toolsets
-                for ts in disabled_toolsets:
-                    if ts.get_error():
-                        console.print(
-                            f"  [yellow]◯[/yellow] {ts.name}: Disabled - {ts.get_error()}"
-                        )
-                    else:
-                        console.print(f"  [yellow]◯[/yellow] {ts.name}: Disabled")
-
-                # Show failed toolsets
-                for ts in failed_toolsets:
-                    if ts.get_error():
-                        console.print(f"  [red]✗[/red] {ts.name}: {ts.get_error()}")
-                    else:
-                        console.print(f"  [red]✗[/red] {ts.name}: Failed to load")
+                # Show disabled and failed toolsets on one line with hint
+                not_loaded = disabled_toolsets + failed_toolsets
+                if not_loaded:
+                    not_loaded_names = ", ".join([ts.name for ts in not_loaded])
+                    console.print(
+                        f"  [yellow]Not Loaded:[/yellow] {not_loaded_names} [dim](Use --verbose flag for details)[/dim]"
+                    )
 
             console.print(Rule(style="cyan"))
         else:
