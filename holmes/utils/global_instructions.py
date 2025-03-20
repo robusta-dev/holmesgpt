@@ -1,5 +1,10 @@
-from typing import Optional
-from holmes.core.tool_calling_llm import Instructions
+from typing import List, Optional
+
+from pydantic import BaseModel
+
+
+class Instructions(BaseModel):
+    instructions: List[str] = []
 
 
 def add_global_instructions_to_user_prompt(
