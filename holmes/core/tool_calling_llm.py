@@ -75,7 +75,7 @@ class ResourceInstructionDocument(BaseModel):
 
 
 class ResourceInstructions(BaseModel):
-    Instructions: List[str] = []
+    instructions: List[str] = []
     documents: List[ResourceInstructionDocument] = []
 
 
