@@ -441,6 +441,8 @@ class ToolCallingLLM:
                     yield create_sse_message(
                         "instructions", {"instructions": json.dumps(runbooks)}
                     )
+
+                yield create_sse_message("done")
                 return
 
             messages.append(
@@ -585,5 +587,5 @@ class IssueInvestigator(ToolCallingLLM):
         return res
 
 
-def create_sse_message(event_type: str, data: dict):
+def create_sse_message(event_type: str, data: dict = {}):
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
