@@ -5,7 +5,7 @@ import textwrap
 from typing import List, Optional, Dict, Type, Union
 
 import sentry_sdk
-
+import requests
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -28,7 +28,8 @@ from rich.console import Console
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
-
+from litellm.types.utils import Message
+from holmes.common.env_vars import ( ROBUSTA_API_ENDPOINT )
 
 class ToolCallResult(BaseModel):
     tool_call_id: str
@@ -597,3 +598,112 @@ class IssueInvestigator(ToolCallingLLM):
         )
         res.instructions = runbooks
         return res
+
+
+
+    def call_stream_robusta(
+        self,
+        system_prompt: str,
+        user_prompt: Optional[str] = None,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        runbooks: List[str] = None,
+    ):
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        perf_timing = PerformanceTiming("tool_calling_llm.call")
+        tools = self.tool_executor.get_all_tools_openai_format()
+        perf_timing.measure("get_all_tools_openai_format")
+        i = 0
+
+        while i < self.max_steps:
+            i += 1
+            perf_timing.measure(f"start iteration {i}")
+            logging.debug(f"running iteration {i}")
+
+            tools = [] if i == self.max_steps - 1 else tools
+            tool_choice = None if tools == [] else "auto"
+
+            total_tokens = self.llm.count_tokens_for_message(messages)
+            max_context_size = self.llm.get_context_window_size()
+            maximum_output_token = self.llm.get_maximum_output_token()
+            perf_timing.measure("count tokens")
+
+            if (total_tokens + maximum_output_token) > max_context_size:
+                logging.warning("Token limit exceeded. Truncating tool responses.")
+                messages = self.truncate_messages_to_fit_context(
+                    messages, max_context_size, maximum_output_token
+                )
+                perf_timing.measure("truncate_messages_to_fit_context")
+
+            logging.debug(f"sending messages={messages}\n\ntools={tools}")
+            try:
+                response = requests.post(f"{ROBUSTA_API_ENDPOINT}/chat/completions", json={
+                    "messages": parse_messages_tags(messages),
+                    "tools": tools,
+                    "tool_choice": tool_choice,
+                    "temperature": 0,
+                    "response_format": response_format,
+                    "stream": True,
+                    "drop_param": True,
+                },
+                headers={"Authorization": f"Bearer {self.llm.api_key}"},
+                stream=True)
+                response.raise_for_status()
+
+                perf_timing.measure("llm.completion")
+
+            # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
+            except BadRequestError as e:
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
+                ):
+                    yield create_sse_message(
+                        "error",
+                        {
+                            "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
+                        },
+                    )
+                    return
+                raise
+            except Exception:
+                raise
+
+            peek_chunk = (response.json())
+            tools_to_call = peek_chunk.get("tool_calls", None)
+            if not tools_to_call:
+                yield peek_chunk
+
+                for chunk in response.iter_content(chunk_size=None, decode_unicode=True): # Avoid streaming chunks from holmes. send them as they arrive.
+                    yield chunk
+
+                #yield instructions
+                return
+            
+            response_message = Message(**peek_chunk)
+            messages.append(
+                response_message.model_dump(
+                    exclude_defaults=True, exclude_unset=True, exclude_none=True
+                )
+            )
+
+            perf_timing.measure("pre-tool-calls")
+            tools_to_call = response_message.tool_calls
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                futures = []
+                for t in tools_to_call:
+                    futures.append(executor.submit(self._invoke_tool, t))
+                    yield create_sse_message("start_tool_calling", {"tool_name": t.function.name, "id": t.id})
+
+                for future in concurrent.futures.as_completed(futures):
+                    tool_call_result: ToolCallResult = future.result()
+                    tool_call_dict = tool_call_result.as_dict()
+                    messages.append(tool_call_dict)
+                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+                    yield create_sse_message("tool_calling_result", tool_call_dict)
+
+
+
+def create_sse_message(event_type: str, data: dict):
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
