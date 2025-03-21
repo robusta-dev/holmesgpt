@@ -12,8 +12,10 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from holmes.core.tool_calling_llm import Instructions
-from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
+from holmes.utils.global_instructions import (
+    Instructions,
+    add_global_instructions_to_user_prompt,
+)
 
 DEFAULT_TOOL_SIZE = 10000
 
