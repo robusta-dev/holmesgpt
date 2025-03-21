@@ -97,9 +97,7 @@ def fetch_metadata_with_series_api(
     prometheus_url: str, metric_name: str, headers: Dict
 ) -> Dict:
     url = urljoin(prometheus_url, "/api/v1/series")
-    params: Dict = {
-        "match[]": f'{{__name__=~".*{metric_name}.*"}}',
-    }
+    params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
     response = requests.get(
         url, headers=headers, timeout=60, params=params, verify=True
     )
@@ -145,14 +143,10 @@ def fetch_metrics_labels_with_series_api(
             return cached_result
 
     series_url = urljoin(prometheus_url, "/api/v1/series")
-    params: dict = {
-        "match[]": f'{{__name__=~".*{metric_name}.*"}}',
-    }
+    params: dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
     if metrics_labels_time_window_hrs is not None:
-        params["end_time"] = int(time.time())
-        params["start_time"] = params["end_time"] - (
-            metrics_labels_time_window_hrs * 60 * 60
-        )
+        params["end"] = int(time.time())
+        params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
     series_response = requests.get(
         url=series_url, headers=headers, params=params, timeout=60, verify=True
@@ -196,10 +190,8 @@ def fetch_metrics_labels_with_labels_api(
             "match[]": f'{{__name__="{metric_name}"}}',
         }
         if metrics_labels_time_window_hrs is not None:
-            params["end_time"] = int(time.time())
-            params["start_time"] = params["end_time"] - (
-                metrics_labels_time_window_hrs * 60 * 60
-            )
+            params["end"] = int(time.time())
+            params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
         response = requests.get(
             url=url, headers=headers, params=params, timeout=60, verify=True
@@ -237,20 +229,20 @@ def fetch_metrics(
 
     if should_fetch_labels:
         metrics_labels = {}
-        if not should_fetch_labels_with_labels_api:
-            metrics_labels = fetch_metrics_labels_with_series_api(
-                prometheus_url=prometheus_url,
-                cache=cache,
-                metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
-                metric_name=metric_name,
-                headers=headers,
-            )
-        else:
+        if should_fetch_labels_with_labels_api:
             metrics_labels = fetch_metrics_labels_with_labels_api(
                 prometheus_url=prometheus_url,
                 cache=cache,
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
                 metric_names=list(metrics.keys()),
+                headers=headers,
+            )
+        else:
+            metrics_labels = fetch_metrics_labels_with_series_api(
+                prometheus_url=prometheus_url,
+                cache=cache,
+                metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
+                metric_name=metric_name,
                 headers=headers,
             )
 
