@@ -361,8 +361,10 @@ class ToolCallingLLM:
         )
 
         for message in messages:
-            if message["role"] == "tool":
+            if message["role"] == "tool" and len(message["content"]) > tool_size:
                 message["content"] = message["content"][:tool_size]
+                if "token_count" in message:
+                    del message["token_count"]
         return messages
 
     def call_stream(
