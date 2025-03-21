@@ -98,7 +98,9 @@ def fetch_metadata_with_series_api(
 ) -> Dict:
     url = urljoin(prometheus_url, "/api/v1/series")
     params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
-    response = requests.get(url, headers=headers, timeout=60, params=params, verify=True)
+    response = requests.get(
+        url, headers=headers, timeout=60, params=params, verify=True
+    )
     response.raise_for_status()
     metrics = response.json()["data"]
 
@@ -144,9 +146,7 @@ def fetch_metrics_labels_with_series_api(
     params: dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
     if metrics_labels_time_window_hrs is not None:
         params["end"] = int(time.time())
-        params["start"] = params["end"] - (
-            metrics_labels_time_window_hrs * 60 * 60
-        )
+        params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
     series_response = requests.get(
         url=series_url, headers=headers, params=params, timeout=60, verify=True
@@ -191,9 +191,7 @@ def fetch_metrics_labels_with_labels_api(
         }
         if metrics_labels_time_window_hrs is not None:
             params["end"] = int(time.time())
-            params["start"] = params["end"] - (
-                metrics_labels_time_window_hrs * 60 * 60
-            )
+            params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
         response = requests.get(
             url=url, headers=headers, params=params, timeout=60, verify=True
