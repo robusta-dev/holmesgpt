@@ -229,11 +229,16 @@ class SupabaseDal:
             start_timestamp = dt - timedelta(minutes=10)
             end_timestamp = dt + timedelta(minutes=10)
 
-            issue_data["start_timestamp"] = start_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            issue_data["end_timestamp"] = end_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            issue_data["start_timestamp_millis"] = int(start_timestamp.timestamp() * 1000)
+            issue_data["start_timestamp"] = start_timestamp.strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            issue_data["end_timestamp"] = end_timestamp.strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            issue_data["start_timestamp_millis"] = int(
+                start_timestamp.timestamp() * 1000
+            )
             issue_data["end_timestamp_millis"] = int(end_timestamp.timestamp() * 1000)
-
 
         return issue_data
 
