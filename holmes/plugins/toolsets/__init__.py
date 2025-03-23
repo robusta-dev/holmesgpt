@@ -13,7 +13,7 @@ from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoTo
 from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
-from holmes.plugins.toolsets.opensearch import OpenSearchToolset
+from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
