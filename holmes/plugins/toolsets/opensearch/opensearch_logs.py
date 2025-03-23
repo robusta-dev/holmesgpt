@@ -18,6 +18,7 @@ from requests import RequestException
 
 LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 
+
 class OpenSearchLogsConfig(BaseModel):
     opensearch_logs_url: Union[str, None]
     opensearch_auth_header: Union[str, None]
@@ -35,6 +36,7 @@ def add_auth_header(auth_header: Optional[str]) -> Dict[str, Any]:
         results["Authorization"] = auth_header
     return results
 
+
 class GetLogFields(BaseOpenSearchLogsTool):
     def __init__(self, toolset: "OpenSearchLogsToolset"):
         super().__init__(
@@ -48,32 +50,35 @@ class GetLogFields(BaseOpenSearchLogsTool):
     def _invoke(self, params: Dict) -> str:
         try:
             if not self._cache:
-                self._cache = TTLCache(maxsize=5, ttl=self.toolset.config.logs_fields_ttl_seconds)
+                self._cache = TTLCache(
+                    maxsize=5, ttl=self.toolset.config.logs_fields_ttl_seconds
+                )
 
             cached_response = self._cache.get(LOGS_FIELDS_CACHE_KEY, None)
-            if cached_response :
+            if cached_response:
                 logging.debug("logs fields returned from cache")
                 return cached_response
 
             body = {
-              "size": 1,
-              "_source": False,
-              "script_fields": {
-                "all_fields": {
-                  "script": {
-                    "lang": "painless",
-                    "source": "Map fields = new HashMap(); List stack = new ArrayList(); stack.add(['prefix': '', 'obj': params['_source']]); while (!stack.isEmpty()) { Map item = stack.remove(stack.size() - 1); String prefix = item.get('prefix'); Map obj = item.get('obj'); for (entry in obj.entrySet()) { String fullPath = prefix.isEmpty() ? entry.getKey() : prefix + '.' + entry.getKey(); fields.put(fullPath, true); if (entry.getValue() instanceof Map) { stack.add(['prefix': fullPath, 'obj': entry.getValue()]); } } } return fields.keySet();"
-                  }
-                }
-              }
+                "size": 1,
+                "_source": False,
+                "script_fields": {
+                    "all_fields": {
+                        "script": {
+                            "lang": "painless",
+                            "source": "Map fields = new HashMap(); List stack = new ArrayList(); stack.add(['prefix': '', 'obj': params['_source']]); while (!stack.isEmpty()) { Map item = stack.remove(stack.size() - 1); String prefix = item.get('prefix'); Map obj = item.get('obj'); for (entry in obj.entrySet()) { String fullPath = prefix.isEmpty() ? entry.getKey() : prefix + '.' + entry.getKey(); fields.put(fullPath, true); if (entry.getValue() instanceof Map) { stack.add(['prefix': fullPath, 'obj': entry.getValue()]); } } } return fields.keySet();",
+                        }
+                    }
+                },
             }
-            headers = {
-                "Content-Type": "application/json"
-            }
+            headers = {"Content-Type": "application/json"}
             headers.update(add_auth_header(self.toolset.config.opensearch_auth_header))
             logs_response = requests.get(
-                url=self.toolset.config.opensearch_logs_url, timeout=180, verify=True, data=json.dumps(body),
-                headers=headers
+                url=self.toolset.config.opensearch_logs_url,
+                timeout=180,
+                verify=True,
+                data=json.dumps(body),
+                headers=headers,
             )
             logs_response.raise_for_status()
             response = json.dumps(logs_response.json())
@@ -90,7 +95,7 @@ class GetLogFields(BaseOpenSearchLogsTool):
             return f"Unexpected error: {str(e)}"
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'list log documents fields'
+        return "list log documents fields"
 
 
 class LogsSearchQuery(BaseOpenSearchLogsTool):
@@ -101,7 +106,7 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
             parameters={
                 "query": ToolParameter(
                     description="An OpenSearch search query. It should be a stringified json, matching opensearch search syntax. "
-                                "The query must contain a 'range' on the @timestamp field. From a given timestamp, until a given timestamp",
+                    "The query must contain a 'range' on the @timestamp field. From a given timestamp, until a given timestamp",
                     type="string",
                 ),
             },
@@ -114,16 +119,19 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
         try:
             body = json.loads(params.get("query"))
             full_query = body
-            full_query["size"] = int(os.environ.get("OPENSEARCH_LOGS_SEARCH_SIZE", "5000"))
+            full_query["size"] = int(
+                os.environ.get("OPENSEARCH_LOGS_SEARCH_SIZE", "5000")
+            )
             logging.debug(f"opensearch logs search query: {full_query}")
-            headers = {
-                "Content-Type": "application/json"
-            }
+            headers = {"Content-Type": "application/json"}
             headers.update(add_auth_header(self.toolset.config.opensearch_auth_header))
 
             logs_response = requests.get(
-                url=self.toolset.config.opensearch_logs_url, timeout=180, verify=True, data=json.dumps(full_query),
-                headers=headers
+                url=self.toolset.config.opensearch_logs_url,
+                timeout=180,
+                verify=True,
+                data=json.dumps(full_query),
+                headers=headers,
             )
             if logs_response.status_code > 300:
                 err_msg = logs_response.text
@@ -142,6 +150,7 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         return f'search logs: query="{params.get("query")}"'
+
 
 class OpenSearchLogsToolset(Toolset):
     def __init__(self):
@@ -166,7 +175,9 @@ class OpenSearchLogsToolset(Toolset):
         elif not config and os.environ.get("OPENSEARCH_LOGS_URL", None):
             self.config = OpenSearchLogsConfig(
                 opensearch_logs_url=os.environ.get("OPENSEARCH_LOGS_URL"),
-                opensearch_auth_header=os.environ.get("OPENSEARCH_LOGS_AUTH_HEADER", None),
+                opensearch_auth_header=os.environ.get(
+                    "OPENSEARCH_LOGS_AUTH_HEADER", None
+                ),
             )
             return True
         else:

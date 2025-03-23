@@ -6,7 +6,6 @@ import string
 import time
 
 from typing import Any, Dict, List, Union, Optional
-from typing import Any, Union, Optional, Dict
 
 import requests
 from pydantic import BaseModel
@@ -29,6 +28,7 @@ from holmes.plugins.toolsets.utils import (
 from holmes.utils.cache import TTLCache
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
+
 
 class PrometheusConfig(BaseModel):
     prometheus_url: Union[str, None]
@@ -132,11 +132,13 @@ def result_has_data(result: Dict) -> bool:
         return True
     return False
 
+
 def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]:
     results = {}
     if prometheus_auth_header:
         results["Authorization"] = prometheus_auth_header
     return results
+
 
 def fetch_metrics_labels_with_series_api(
     prometheus_url: str,
@@ -283,9 +285,7 @@ class ListPrometheusRules(BasePrometheusTool):
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return "Prometheus is not configured. Prometheus URL is missing"
         if not self._cache and self.toolset.config.rules_cache_duration_seconds:
-            self._cache = TTLCache(
-                self.toolset.config.rules_cache_duration_seconds
-            )
+            self._cache = TTLCache(self.toolset.config.rules_cache_duration_seconds)
         try:
             cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
             if cached_rules:
@@ -297,8 +297,11 @@ class ListPrometheusRules(BasePrometheusTool):
             rules_url = urljoin(prometheus_url, "/api/v1/rules")
 
             rules_response = requests.get(
-                url=rules_url, params=params, timeout=180, verify=True,
-                headers=self.toolset.config.headers
+                url=rules_url,
+                params=params,
+                timeout=180,
+                verify=True,
+                headers=self.toolset.config.headers,
             )
             rules_response.raise_for_status()
             response = json.dumps(rules_response.json()["data"])
@@ -315,7 +318,8 @@ class ListPrometheusRules(BasePrometheusTool):
             return f"Unexpected error: {str(e)}"
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'list available prometheus rules'
+        return "list available prometheus rules"
+
 
 class ListAvailableMetrics(BasePrometheusTool):
     def __init__(self, toolset: "PrometheusToolset"):
@@ -622,10 +626,11 @@ class PrometheusToolset(Toolset):
         )
         self._load_llm_instructions(
             os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "prometheus_instructions.jinja2")
+                os.path.join(
+                    os.path.dirname(__file__), "prometheus_instructions.jinja2"
+                )
             )
         )
-
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
@@ -633,7 +638,9 @@ class PrometheusToolset(Toolset):
         elif not config and os.environ.get("PROMETHEUS_URL", None):
             self.config = PrometheusConfig(
                 prometheus_url=os.environ.get("PROMETHEUS_URL"),
-                headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER", None)),
+                headers=add_prometheus_auth(
+                    os.environ.get("PROMETHEUS_AUTH_HEADER", None)
+                ),
             )
 
             return True

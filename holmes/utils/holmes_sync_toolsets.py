@@ -12,8 +12,12 @@ from holmes.plugins.prompts import load_and_render_prompt
 
 
 def log_toolsets_statuses(toolsets: List[Toolset]):
-    enabled_toolsets = [toolset.name for toolset in toolsets if toolset.get_status().value == "enabled"]
-    disabled_toolsets = [toolset.name for toolset in toolsets if toolset.get_status().value != "enabled"]
+    enabled_toolsets = [
+        toolset.name for toolset in toolsets if toolset.get_status().value == "enabled"
+    ]
+    disabled_toolsets = [
+        toolset.name for toolset in toolsets if toolset.get_status().value != "enabled"
+    ]
     logging.info(f"Enabled toolsets: {enabled_toolsets}")
     logging.info(f"Disabled toolsets: {disabled_toolsets}")
 
