@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 from litellm.types.utils import ModelResponse
 import sentry_sdk
 
-from holmes.core.tools import Tool
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from pydantic import BaseModel
 import litellm
 import os
@@ -45,12 +45,13 @@ class LLM:
     def completion(
         self,
         messages: List[Dict[str, Any]],
-        tools: Optional[List[Tool]] = [],
+        tools: Optional[List[Dict[str, Any]]] = [],
         tool_choice: Optional[Union[str, dict]] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
-    ) -> ModelResponse:
+        stream: Optional[bool] = None,
+    ) -> Union[ModelResponse, CustomStreamWrapper]:
         pass
 
 
@@ -166,13 +167,13 @@ class DefaultLLM(LLM):
     def completion(
         self,
         messages: List[Dict[str, Any]],
-        tools: Optional[List[Tool]] = [],
+        tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, dict]] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
-    ) -> ModelResponse:
-
+        stream: Optional[bool] = None,
+    ) -> Union[ModelResponse, CustomStreamWrapper]:
         tools_args = {}
         if tools and len(tools) > 0 and tool_choice == 'auto':
             tools_args["tools"] = tools
@@ -191,10 +192,13 @@ class DefaultLLM(LLM):
             response_format=response_format,
             drop_params=drop_params,
             thinking=thinking,
+            stream=stream,
             **tools_args
         )
 
         if isinstance(result, ModelResponse):
+            return result
+        elif isinstance(result, CustomStreamWrapper):
             return result
         else:
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")

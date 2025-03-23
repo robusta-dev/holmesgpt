@@ -1,0 +1,10 @@
+Use Tempo when investigating latency or performance issues. Tempo provides traces information for application running on the cluster.
+Assume every application provides tempo traces.
+1. Start by identifying an initial filter to use. This can be a pod name, a deployment name or a service name
+2. Use `fetch_tempo_traces` setting the appropriate query params
+    - Use the min_duration filter to ensure you get traces that trigger the alert when you are investigating a performance issue
+    - If possible, use start and end date to narrow down your search.
+        - Use fetch_finding_by_id if you are provided with a finding/alert id. It will contain details about when the alert was triggered
+    - Use at least one of the following argument to ensure you get relevant traces: `service_name`, `pod_name` or `deployment_name`.
+3. Look at the duration of each span in any single trace and deduct any issues.
+4. ALWAYS fetch the logs for a pod once you identify a span that is taking a long time. There may be an explanation for the slowness in the logs.

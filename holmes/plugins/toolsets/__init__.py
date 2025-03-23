@@ -5,14 +5,14 @@ from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.plugins.toolsets.datetime import DatetimeToolset
-from holmes.plugins.toolsets.opensearch_logs import OpenSearchLogsToolset
-from holmes.plugins.toolsets.opensearch_traces import OpenSearchTracesToolset
+from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
+from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
 from holmes.plugins.toolsets.robusta import RobustaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
-from holmes.plugins.toolsets.prometheus import PrometheusToolset
+from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
 

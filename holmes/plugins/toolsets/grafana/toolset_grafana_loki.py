@@ -7,9 +7,12 @@ from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaTool
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
     format_log,
-    get_param_or_raise,
-    process_timestamps,
 )
+from holmes.plugins.toolsets.utils import (
+    get_param_or_raise,
+    process_timestamps_to_rfc3339,
+)
+
 from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
@@ -91,14 +94,14 @@ class GetLokiLogs(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
-        (start, end) = process_timestamps(
+        (start, end) = process_timestamps_to_rfc3339(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
         query = get_param_or_raise(params, "query")
         logs = execute_loki_query(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
-            loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
+            loki_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
             query=query,
             start=start,
             end=end,
@@ -132,12 +135,12 @@ class GetLokiLogsForResource(Tool):
                     required=True,
                 ),
                 "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the log search period. String in RFC3339 format. Logs with timestamps before this value will be excluded from the results. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
+                    description="The beginning time boundary for the log search period. String in RFC3339 format. If negative, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
                     type="string",
                     required=False,
                 ),
                 "end_timestamp": ToolParameter(
-                    description="The ending time boundary for the log search period. String in RFC3339 format. Logs with timestamps after this value will be excluded from the results. Defaults to NOW()",
+                    description="The ending time boundary for the log search period. String in RFC3339 format. Defaults to NOW()",
                     type="string",
                     required=False,
                 ),
@@ -156,7 +159,7 @@ class GetLokiLogsForResource(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> str:
-        (start, end) = process_timestamps(
+        (start, end) = process_timestamps_to_rfc3339(
             params.get("start_timestamp"), params.get("end_timestamp")
         )
         label = get_resource_label(params, self._toolset.grafana_config)

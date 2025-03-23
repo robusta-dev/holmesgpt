@@ -11,7 +11,6 @@ import yaml
 from holmes.core.tool_calling_llm import (
     ResourceInstructionDocument,
     ResourceInstructions,
-    Instructions,
 )
 from holmes.utils.definitions import RobustaConfig
 from postgrest.types import ReturnMethod
@@ -32,6 +31,8 @@ from holmes.common.env_vars import (
 )
 
 from datetime import datetime, timedelta
+
+from holmes.utils.global_instructions import Instructions
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 

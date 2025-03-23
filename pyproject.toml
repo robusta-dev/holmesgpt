@@ -52,6 +52,8 @@ ruff = "^0.7.3"
 braintrust = "^0.0.168"
 autoevals = "^0.0.103"
 pre-commit = "^4.0.1"
+responses = "^0.23.1"
+freezegun = "^1.5.1"
 
 [build-system]
 requires = ["poetry-core"]
