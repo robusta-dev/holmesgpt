@@ -1,4 +1,7 @@
+{% if 'prometheus/metrics' in enabled_toolsets %}
 Prometheus/PromQL queries
+* ALWAYS call list_prometheus_rules to get the alert definition
+* Use Prometheus to query metrics from the alert promql
 * Use prometheus to execute promql queries with the tools `execute_prometheus_instant_query` and `execute_prometheus_range_query`
 * To create queries, use 'start_timestamp' and 'end_timestamp' as graphs start and end times
 * ALWAYS embed the execution results into your answer
@@ -19,6 +22,7 @@ Prometheus/PromQL queries
 * You can get the current time before executing a prometheus range query
 * When doing queries, always extend the time range, to 15 min before and after the alert start time
 * ALWAYS embed the execution results into your answer
+* ALWAYS embed a Prometheus graph in the response. The graph should visualize data related to the incident.
 * Embed at most 2 graphs
 * When embedding multiple graphs, always add line spacing between them
 For example:
@@ -27,3 +31,4 @@ For example:
 
 <<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "IKtq"}>>
 ```
+{% endif %}

@@ -15,7 +15,6 @@ def investigate_issues(
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 
-
     resource_instructions = dal.get_resource_instructions(
         "alert", investigate_request.context.get("issue_type")
     )

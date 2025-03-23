@@ -225,8 +225,8 @@ class SupabaseDal:
             dt = datetime.fromisoformat(started_at)
 
             # Calculate timestamps
-            start_timestamp = dt - timedelta(minutes=2)
-            end_timestamp = dt + timedelta(minutes=2)
+            start_timestamp = dt - timedelta(minutes=10)
+            end_timestamp = dt + timedelta(minutes=10)
 
             issue_data["start_timestamp"] = start_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             issue_data["end_timestamp"] = end_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")

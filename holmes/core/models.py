@@ -21,7 +21,7 @@ class InvestigateRequest(BaseModel):
     source_instance_id: str = "ApiRequest"
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
-    prompt_template: str = "builtin://alert_investigation.jinja2"
+    prompt_template: str = "builtin://generic_investigation.jinja2"
     sections: Optional[InputSectionsDataType] = None
     # TODO in the future
     # response_handler: ...

@@ -6,6 +6,7 @@ from typing import List, Optional, Dict, Type, Union
 
 import sentry_sdk
 
+from holmes.common.env_vars import TEMPERATURE
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -149,7 +150,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=1,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
@@ -466,6 +467,7 @@ class IssueInvestigator(ToolCallingLLM):
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )
         logging.debug("Rendered user prompt:\n%s", textwrap.indent(user_prompt, "    "))
+
         res = self.prompt_call(
             system_prompt,
             user_prompt,

@@ -285,7 +285,7 @@ class ListPrometheusRules(BasePrometheusTool):
         try:
             cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
             if cached_rules:
-                logging.info("### rules returned from cache")
+                logging.debug("rules returned from cache")
                 return cached_rules
 
             prometheus_url = self.toolset.config.prometheus_url
