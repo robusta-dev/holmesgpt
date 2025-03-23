@@ -370,6 +370,7 @@ class ToolCallingLLM:
         system_prompt: str,
         user_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        sections: Optional[InputSectionsDataType] = None,
         runbooks: List[str] = None,
     ):
         messages = [
@@ -431,18 +432,33 @@ class ToolCallingLLM:
                 raise
 
             response_message = full_response.choices[0].message
+            if response_message and response_format:
+                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                dict_response = json.loads(full_response.to_json())
+                incorrect_tool_call = is_response_an_incorrect_tool_call(
+                    sections, dict_response.get("choices", [{}])[0]
+                )
+
+                if incorrect_tool_call:
+                    logging.warning(
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                    )
+                    # disable structured output going forward and and retry
+                    response_format = None
+                    i -= 1
+                    continue
+
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
                 (text_response, _) = process_response_into_sections(
                     response_message.content
                 )
                 yield create_sse_message("ai_answer", {"answer": text_response})
-                if runbooks:
-                    yield create_sse_message(
-                        "instructions", {"instructions": json.dumps(runbooks)}
-                    )
+                yield create_sse_message(
+                    "instructions", {"instructions": runbooks or []}
+                )
 
-                yield create_sse_message("done")
+                yield create_sse_message("done", {"msg": "done"})
                 return
 
             messages.append(
