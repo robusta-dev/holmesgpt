@@ -73,7 +73,7 @@ METRICS_SUFFIXES_TO_STRIP = ["_bucket", "_count", "_sum"]
 
 
 def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
-    metadata_url = urljoin(prometheus_url, "/api/v1/metadata")
+    metadata_url = urljoin(prometheus_url, "api/v1/metadata")
     metadata_response = requests.get(
         metadata_url, headers=headers, timeout=60, verify=True
     )
@@ -99,7 +99,7 @@ def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
 def fetch_metadata_with_series_api(
     prometheus_url: str, metric_name: str, headers: Dict
 ) -> Dict:
-    url = urljoin(prometheus_url, "/api/v1/series")
+    url = urljoin(prometheus_url, "api/v1/series")
     params: Dict = {
         "match[]": f'{{__name__=~".*{metric_name}.*"}}',
     }
@@ -154,7 +154,7 @@ def fetch_metrics_labels_with_series_api(
         if cached_result:
             return cached_result
 
-    series_url = urljoin(prometheus_url, "/api/v1/series")
+    series_url = urljoin(prometheus_url, "api/v1/series")
     params: dict = {
         "match[]": f'{{__name__=~".*{metric_name}.*"}}',
     }
@@ -201,7 +201,7 @@ def fetch_metrics_labels_with_labels_api(
             if cached_result:
                 metrics_labels[metric_name] = cached_result
 
-        url = urljoin(prometheus_url, "/api/v1/labels")
+        url = urljoin(prometheus_url, "api/v1/labels")
         params: dict = {
             "match[]": f'{{__name__="{metric_name}"}}',
         }
@@ -427,7 +427,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             query = params.get("query", "")
             description = params.get("description", "")
 
-            url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query")
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query")
 
             payload = {"query": query}
 
@@ -529,7 +529,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             return "Prometheus is not configured. Prometheus URL is missing"
 
         try:
-            url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query_range")
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query_range")
 
             query = get_param_or_raise(params, "query")
             (start, end) = process_timestamps_to_rfc3339(
