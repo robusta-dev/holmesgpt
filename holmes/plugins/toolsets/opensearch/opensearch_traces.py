@@ -1,11 +1,10 @@
 import os
 import logging
 
-from typing import Any, Union, Optional, Dict
+from typing import Any, Dict
 
 import requests
 from cachetools import TTLCache
-from pydantic import BaseModel
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -16,25 +15,18 @@ from holmes.core.tools import (
 import json
 from requests import RequestException
 
+from holmes.plugins.toolsets.opensearch.opensearch_utils import (
+    add_auth_header,
+    opensearch_health_check,
+    get_search_url,
+    OpenSearchIndexConfig,
+)
+
 TRACES_FIELDS_CACHE_KEY = "cached_traces_fields"
-
-
-class OpenSearchTracesConfig(BaseModel):
-    opensearch_traces_url: Union[str, None]
-    opensearch_auth_header: Union[str, None]
-    # Setting to None will disable the cache
-    trace_fields_ttl_seconds: Union[int, None] = 14400  # 4 hours
 
 
 class BaseOpenSearchTracesTool(Tool):
     toolset: "OpenSearchTracesToolset"
-
-
-def add_auth_header(auth_header: Optional[str]) -> Dict[str, Any]:
-    results = {}
-    if auth_header:
-        results["Authorization"] = auth_header
-    return results
 
 
 class GetTracesFields(BaseOpenSearchTracesTool):
@@ -51,7 +43,7 @@ class GetTracesFields(BaseOpenSearchTracesTool):
         try:
             if not self._cache:
                 self._cache = TTLCache(
-                    maxsize=5, ttl=self.toolset.config.trace_fields_ttl_seconds
+                    maxsize=5, ttl=self.toolset.config.fields_ttl_seconds
                 )
 
             cached_response = self._cache.get(TRACES_FIELDS_CACHE_KEY, None)
@@ -74,7 +66,7 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             headers = {"Content-Type": "application/json"}
             headers.update(add_auth_header(self.toolset.config.opensearch_auth_header))
             logs_response = requests.get(
-                url=self.toolset.config.opensearch_traces_url,
+                url=get_search_url(self.toolset.config),
                 timeout=180,
                 verify=True,
                 data=json.dumps(body),
@@ -129,7 +121,7 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
             headers.update(add_auth_header(self.toolset.config.opensearch_auth_header))
 
             logs_response = requests.get(
-                url=self.toolset.config.opensearch_traces_url,
+                url=get_search_url(self.toolset.config),
                 timeout=180,
                 verify=True,
                 data=json.dumps(full_query),
@@ -163,8 +155,8 @@ class OpenSearchTracesToolset(Toolset):
         super().__init__(
             name="opensearch/traces",
             description="OpenSearch integration to fetch traces",
-            docs_url="",
-            icon_url="",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch-traces.html",
+            icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 GetTracesFields(toolset=self),
@@ -186,13 +178,23 @@ class OpenSearchTracesToolset(Toolset):
         if not config and not os.environ.get("OPENSEARCH_TRACES_URL", None):
             return False
         elif not config and os.environ.get("OPENSEARCH_TRACES_URL", None):
-            self.config = OpenSearchTracesConfig(
-                opensearch_traces_url=os.environ.get("OPENSEARCH_TRACES_URL"),
+            self.config = OpenSearchIndexConfig(
+                opensearch_url=os.environ.get("OPENSEARCH_TRACES_URL"),
+                index_name=os.environ.get("OPENSEARCH_TRACES_INDEX_NAME"),
                 opensearch_auth_header=os.environ.get(
-                    "OPENSEARCH_LOGS_AUTH_HEADER", None
+                    "OPENSEARCH_TRACES_AUTH_HEADER", None
                 ),
             )
-            return True
+
+            return opensearch_health_check(self.config)
         else:
-            self.config = OpenSearchTracesConfig(**config)
-            return True
+            self.config = OpenSearchIndexConfig(**config)
+            return opensearch_health_check(self.config)
+
+    def get_example_config(self) -> Dict[str, Any]:
+        example_config = OpenSearchIndexConfig(
+            opensearch_url="YOUR OPENSEARCH TRACES URL",
+            index_name="YOUR OPENSEARCH TRACES INDEX NAME",
+            opensearch_auth_header="YOUR OPENSEARCH TRACES AUTH HEADER (Optional)",
+        )
+        return example_config.model_dump()
