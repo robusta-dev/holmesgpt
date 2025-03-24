@@ -1,12 +1,32 @@
 import pytest
 from dateutil import parser
-from holmes.plugins.toolsets.utils import process_timestamps
+from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
+from freezegun import freeze_time
 
 
 class TestProcessTimestamps:
+    @freeze_time("2020-09-14T13:50:40+00:00")
     @pytest.mark.parametrize(
         "start_timestamp, end_timestamp, expected_start, expected_end",
         [
+            (
+                None,
+                None,
+                "2020-09-14T12:50:40+00:00",
+                "2020-09-14T13:50:40+00:00",
+            ),
+            (
+                -7200,
+                0,  # alias for now()
+                "2020-09-14T11:50:40+00:00",
+                "2020-09-14T13:50:40+00:00",
+            ),
+            (
+                -7200,  # always relative to end
+                -1800,  # relative to now() when negative
+                "2020-09-14T11:20:40+00:00",
+                "2020-09-14T13:20:40+00:00",
+            ),
             # Integer timestamps
             (
                 1600000000,
@@ -72,10 +92,12 @@ class TestProcessTimestamps:
             ),
         ],
     )
-    def test_process_timestamps(
+    def test_process_timestamps_to_rfc3339(
         self, start_timestamp, end_timestamp, expected_start, expected_end
     ):
-        result_start, result_end = process_timestamps(start_timestamp, end_timestamp)
+        result_start, result_end = process_timestamps_to_rfc3339(
+            start_timestamp, end_timestamp
+        )
 
         # For time-dependent tests, we allow a small tolerance
         if start_timestamp is None or end_timestamp is None:

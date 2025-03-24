@@ -20,6 +20,7 @@ from pydantic import (
 )
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
+from holmes.plugins.prompts import load_and_render_prompt
 
 
 ToolsetPattern = Union[Literal["*"], List[str]]
@@ -255,6 +256,7 @@ class Toolset(BaseModel):
     )
     config: Optional[Any] = None
     is_default: bool = False
+    llm_instructions: Optional[str] = None
 
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
@@ -362,6 +364,13 @@ class Toolset(BaseModel):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
+    def _load_llm_instructions(self, jinja_template_file_path: str):
+        tool_names = [t.name for t in self.tools]
+        self.llm_instructions = load_and_render_prompt(
+            prompt=f"file://{jinja_template_file_path}",
+            context={"tool_names": tool_names},
+        )
+
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]
@@ -376,9 +385,6 @@ class ToolExecutor:
                 lambda toolset: toolset.get_status() == ToolsetStatusEnum.ENABLED,
                 toolsets,
             )
-        )
-        self.enabled_toolsets_names: set[str] = set(
-            [ts.name for ts in self.enabled_toolsets]
         )
 
         toolsets_by_name: dict[str, Toolset] = {}

@@ -199,7 +199,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.prompt_template,
             context={
                 "alerts": workload_alerts,
-                "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+                "enabled_toolsets": ai.tool_executor.enabled_toolsets,
             },
         )
 
@@ -296,7 +296,6 @@ def chat(chat_request: ChatRequest):
 
         ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
-
         messages = build_chat_messages(
             chat_request.ask,
             chat_request.conversation_history,

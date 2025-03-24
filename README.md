@@ -72,8 +72,8 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 ### See it in Action
 
-<a href="https://www.loom.com/share/4c55f395dbd64ef3b69670eccf961124" target="_blank">
-<img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/4c55f395dbd64ef3b69670eccf961124-db2004995e8d621c-full-play.gif">
+<a href="https://www.loom.com/share/388d98aad1a04823b9ed50d0161a4819?sid=a2a669b4-f092-4067-adcb-c8527fbcaa90" target="_blank">
+<img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/388d98aad1a04823b9ed50d0161a4819-0ced91a0e8f80dcb-full-play.gif">
 </a>
 
 ## Quick Start - Installing HolmesGPT
