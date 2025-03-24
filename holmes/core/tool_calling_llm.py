@@ -3,7 +3,7 @@ import json
 import logging
 import textwrap
 from typing import List, Optional, Dict, Type, Union
-
+from pydantic_core import from_json
 import sentry_sdk
 import requests
 from holmes.core.investigation_structured_output import (
@@ -670,15 +670,17 @@ class IssueInvestigator(ToolCallingLLM):
             except Exception:
                 raise
 
-            peek_chunk = (response.json())
+            it = response.iter_content(chunk_size=None, decode_unicode=True)
+            peek_chunk = from_json(next(it))
             tools_to_call = peek_chunk.get("tool_calls", None)
             if not tools_to_call:
-                yield peek_chunk
-
-                for chunk in response.iter_content(chunk_size=None, decode_unicode=True): # Avoid streaming chunks from holmes. send them as they arrive.
-                    yield chunk
+                yield create_sse_message(peek_chunk.get("event"), peek_chunk.get("data"))
+                for chunk in it:
+                    chunk_j = from_json(chunk, allow_partial=True) # Avoid streaming chunks from holmes. send them as they arrive.
+                    yield create_sse_message(chunk_j.get("event"), chunk_j.get("data"))
 
                 #yield instructions
+                #yield done.
                 return
             
             response_message = Message(**peek_chunk)
