@@ -33,18 +33,18 @@ The following data sources ("toolsets") are built-in. [Add your own](#customizin
 
 | Data Source    | Status         | Description                                                  |
 |----------------|----------------|--------------------------------------------------------------|
-| Kubernetes     | ✅             | Pod logs, K8s events, and resource status (kubectl describe) |
-| Grafana        | ✅             | [Logs (Loki)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html) and [traces (Tempo)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#tempo) |
-| Helm           | ✅             | Release status, chart metadata, and values                   |
-| ArgoCD         | ✅             | Application sync status                                      |
-| AWS RDS        | ✅             | Logs and events                                              |
-| Prometheus     | ✅             | Currently supports investigating alerts; coming soon: automatically write PromQL and show related graphs |
-| Internet       | ✅             | Public runbooks                                              |
-| Confluence     | ✅             | Private runbooks and documentation                           |
-| OpenSearch     | 🟡 Beta        | Query logs and investigate issues with OpenSearch itself (using self-health diagnostics) |
-| NewRelic       | 🟡 Beta        | Investigate alerts, query tracing data                       |
+| [Kubernetes](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html)     | ✅             | Pod logs, K8s events, and resource status (kubectl describe) |
+| [Grafana](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html)        | ✅             | [Logs (Loki)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#loki) and [traces (Tempo)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#tempo) |
+| [Helm](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html)           | ✅             | Release status, chart metadata, and values                   |
+| [ArgoCD](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html)         | ✅             | Application sync status                                      |
+| [AWS RDS](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html)        | ✅             | Logs and events                                              |
+| [Prometheus](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html)     | ✅             | Currently supports investigating alerts; coming soon: automatically write PromQL and show related graphs |
+| [Internet](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html)       | ✅             | Public runbooks                                              |
+| [Confluence](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html)     | ✅             | Private runbooks and documentation                           |
+| [OpenSearch](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html)     | 🟡 Beta        | Query logs and investigate issues with OpenSearch itself (using self-health diagnostics) |
+| NewRelic      | 🟡 Beta        | Investigate alerts, query tracing data                       |
 | Coralogix      | 🟡 Beta        | Logs                                                         |
-| GitHub         | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
+| GitHub        | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
 
 [How to configure datasources with Robusta SaaS](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (docs for CLI coming soon)
 
@@ -72,8 +72,8 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 ### See it in Action
 
-<a href="https://www.loom.com/share/4c55f395dbd64ef3b69670eccf961124" target="_blank">
-<img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/4c55f395dbd64ef3b69670eccf961124-db2004995e8d621c-full-play.gif">
+<a href="https://www.loom.com/share/388d98aad1a04823b9ed50d0161a4819?sid=a2a669b4-f092-4067-adcb-c8527fbcaa90" target="_blank">
+<img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/388d98aad1a04823b9ed50d0161a4819-0ced91a0e8f80dcb-full-play.gif">
 </a>
 
 ## Quick Start - Installing HolmesGPT
