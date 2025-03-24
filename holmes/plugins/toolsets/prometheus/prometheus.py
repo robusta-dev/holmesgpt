@@ -5,7 +5,7 @@ import random
 import string
 import time
 
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Union, Optional, Tuple
 
 import requests
 from pydantic import BaseModel
@@ -29,6 +29,7 @@ from holmes.utils.cache import TTLCache
 
 
 class PrometheusConfig(BaseModel):
+    # URL is optional because it can be set with an env var
     prometheus_url: Union[str, None]
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
@@ -70,7 +71,7 @@ METRICS_SUFFIXES_TO_STRIP = ["_bucket", "_count", "_sum"]
 
 
 def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
-    metadata_url = urljoin(prometheus_url, "/api/v1/metadata")
+    metadata_url = urljoin(prometheus_url, "api/v1/metadata")
     metadata_response = requests.get(
         metadata_url, headers=headers, timeout=60, verify=True
     )
@@ -96,7 +97,7 @@ def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
 def fetch_metadata_with_series_api(
     prometheus_url: str, metric_name: str, headers: Dict
 ) -> Dict:
-    url = urljoin(prometheus_url, "/api/v1/series")
+    url = urljoin(prometheus_url, "api/v1/series")
     params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
     response = requests.get(
         url, headers=headers, timeout=60, params=params, verify=True
@@ -142,7 +143,7 @@ def fetch_metrics_labels_with_series_api(
         if cached_result:
             return cached_result
 
-    series_url = urljoin(prometheus_url, "/api/v1/series")
+    series_url = urljoin(prometheus_url, "api/v1/series")
     params: dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
     if metrics_labels_time_window_hrs is not None:
         params["end"] = int(time.time())
@@ -185,7 +186,7 @@ def fetch_metrics_labels_with_labels_api(
             if cached_result:
                 metrics_labels[metric_name] = cached_result
 
-        url = urljoin(prometheus_url, "/api/v1/labels")
+        url = urljoin(prometheus_url, "api/v1/labels")
         params: dict = {
             "match[]": f'{{__name__="{metric_name}"}}',
         }
@@ -359,7 +360,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             query = params.get("query", "")
             description = params.get("description", "")
 
-            url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query")
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query")
 
             payload = {"query": query}
 
@@ -461,7 +462,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             return "Prometheus is not configured. Prometheus URL is missing"
 
         try:
-            url = urljoin(self.toolset.config.prometheus_url, "/api/v1/query_range")
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query_range")
 
             query = get_param_or_raise(params, "query")
             (start, end) = process_timestamps_to_rfc3339(
@@ -556,14 +557,56 @@ class PrometheusToolset(Toolset):
             ],
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def _is_healthy(self) -> Tuple[bool, str]:
+        if (
+            not hasattr(self, "config")
+            or not self.config
+            or not self.config.prometheus_url
+        ):
+            return (
+                False,
+                f"Toolset {self.name} failed to initialize because prometheus is not configured correctly",
+            )
+
+        url = urljoin(self.config.prometheus_url, "-/healthy")
+        try:
+            response = requests.get(
+                url=url, headers=self.config.headers, timeout=10, verify=True
+            )
+
+            if response.status_code == 200:
+                return True, ""
+            else:
+                return (
+                    False,
+                    f"Failed to connect to Prometheus at {url}: HTTP {response.status_code}",
+                )
+
+        except RequestException as e:
+            return (
+                False,
+                f"Toolset failed to initialize using url={url}. Connection error: {str(e)}",
+            )
+        except Exception as e:
+            return (
+                False,
+                f"Toolset failed to initialize using url={url}. Unexpected error: {str(e)}",
+            )
+
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
-            return False
+            return False, "The toolset is misconfigured. The prometheus_url is missing."
         elif not config and os.environ.get("PROMETHEUS_URL", None):
             self.config = PrometheusConfig(
                 prometheus_url=os.environ.get("PROMETHEUS_URL")
             )
-            return True
+            return self._is_healthy()
         else:
             self.config = PrometheusConfig(**config)
-            return True
+            return self._is_healthy()
+
+    def get_example_config(self):
+        example_config = PrometheusConfig(
+            prometheus_url="http://robusta-kube-prometheus-st-prometheus:9090"
+        )
+        return example_config.model_dump()

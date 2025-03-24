@@ -234,11 +234,16 @@ class InternetBaseToolset(Toolset):
             docs_url=docs_url,
         )
 
-    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         if not config:
-            return True
+            return True, ""
         self.additional_headers = config.get("additional_headers", {})
-        return True
+        return True, ""
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {
+            "additional_headers": {"Authorization": "Basic <base_64_encoded_string>"}
+        }
 
 
 class InternetToolset(InternetBaseToolset):
@@ -256,5 +261,5 @@ class InternetToolset(InternetBaseToolset):
             tags=[
                 ToolsetTag.CORE,
             ],
-            is_default=True,
+            is_default="True",
         )
