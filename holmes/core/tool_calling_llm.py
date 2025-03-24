@@ -15,6 +15,10 @@ from holmes.core.investigation_structured_output import (
     process_response_into_sections,
 )
 from holmes.core.performance_timing import PerformanceTiming
+from holmes.utils.global_instructions import (
+    Instructions,
+    add_global_instructions_to_user_prompt,
+)
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.llm import LLM
@@ -68,10 +72,6 @@ class ResourceInstructionDocument(BaseModel):
     """
 
     url: str
-
-
-class Instructions(BaseModel):
-    instructions: List[str] = []
 
 
 class ResourceInstructions(BaseModel):
@@ -212,7 +212,7 @@ class ToolCallingLLM:
                         user_prompt=post_process_prompt,
                     )
 
-                    perf_timing.end()
+                    perf_timing.end(f"- completed in {i} iterations -")
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -221,7 +221,7 @@ class ToolCallingLLM:
                         messages=messages,
                     )
 
-                perf_timing.end()
+                perf_timing.end(f"- completed in {i} iterations -")
                 return LLMResult(
                     result=text_response,
                     tool_calls=tool_calls,
@@ -574,13 +574,9 @@ class IssueInvestigator(ToolCallingLLM):
 
             user_prompt = f'My instructions to check \n"""{user_prompt}"""'
 
-        if (
-            global_instructions
-            and global_instructions.instructions
-            and len(global_instructions.instructions[0]) > 0
-        ):
-            user_prompt += f"\n\nGlobal Instructions (use only if relevant): {global_instructions.instructions[0]}\n"
-
+        user_prompt = add_global_instructions_to_user_prompt(
+            user_prompt, global_instructions
+        )
         user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
 
         logging.debug(
