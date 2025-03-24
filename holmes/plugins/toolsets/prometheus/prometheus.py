@@ -99,6 +99,7 @@ def fetch_metadata_with_series_api(
 ) -> Dict:
     url = urljoin(prometheus_url, "api/v1/series")
     params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+
     response = requests.get(
         url, headers=headers, timeout=60, params=params, verify=True
     )
@@ -145,6 +146,7 @@ def fetch_metrics_labels_with_series_api(
 
     series_url = urljoin(prometheus_url, "api/v1/series")
     params: dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+
     if metrics_labels_time_window_hrs is not None:
         params["end"] = int(time.time())
         params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
