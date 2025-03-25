@@ -79,7 +79,7 @@ def normalize_datetime(date_str: str) -> str:
         logging.error(f"normalized datetime {date_str} => {normalized_date_time}")
         return normalized_date_time + "Z"
     except Exception:
-        logging.error(f"Failed to normalize datetime {date_str}")
+        logging.error(f"Failed to normalize datetime {date_str}", exc_info=True)
         return date_str
 
 
