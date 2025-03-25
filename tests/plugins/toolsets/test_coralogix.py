@@ -40,4 +40,5 @@ def test_format_logs(raw_logs_result, formatted_logs):
     )
     if not logs_match:
         write_file(Path(actual_file_path_for_debugging), actual_output)
+
     assert logs_match, f"Values mismatch. Run the following command to compare expected with actual: `diff {os.path.join(FIXTURES_DIR, 'formatted_logs.txt')} {actual_file_path_for_debugging}`"

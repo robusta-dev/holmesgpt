@@ -124,7 +124,6 @@ class GetLogs(BaseCoralogixTool):
             api_key=self.toolset.config.api_key,
             query=query,
         )
-        print(f"Fetching coralogix logs {query}")
 
         # Do not print tags if they are repeating the query
         add_namespace_tag = not namespace_name and not pod_name
