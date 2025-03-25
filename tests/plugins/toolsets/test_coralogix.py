@@ -38,6 +38,9 @@ def test_format_logs(raw_logs_result, formatted_logs):
     actual_file_path_for_debugging = os.path.join(
         FIXTURES_DIR, "formatted_logs.txt.actual"
     )
+    print("** actual_output v")
+    print(actual_output)
+    print("** actual_output ^")
     if not logs_match:
         write_file(Path(actual_file_path_for_debugging), actual_output)
 
