@@ -24,7 +24,7 @@ from holmes.core.tools import (
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.github import GitHubSource
-from holmes.plugins.sources.jira import JiraSource
+from holmes.plugins.sources.jira import JiraSource, JiraServiceManagementSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
@@ -38,8 +38,14 @@ from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.utils.definitions import RobustaConfig
 import re
+from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+
+
+class SupportedTicketSources(str, Enum):
+    JIRA_SERVICE_MANAGEMENT = "jira-service-management"
+    PAGERDUTY = "pagerduty"
 
 
 def get_env_replacement(value: str) -> Optional[str]:
@@ -301,7 +307,6 @@ class Config(RobustaBaseConfig):
             for toolset in load_builtin_toolsets(dal)
             if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
         ]
-
         # All built-in toolsets are enabled by default, users can override this in their config
         for toolset in default_toolsets:
             toolset.enabled = True
@@ -316,6 +321,7 @@ class Config(RobustaBaseConfig):
         toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
+
         if toolsets_loaded_from_config:
             toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -323,7 +329,6 @@ class Config(RobustaBaseConfig):
                     toolsets_by_name,
                 )
             )
-
         if self.toolsets:
             loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
             if loaded_toolsets_from_env:
@@ -450,7 +455,7 @@ class Config(RobustaBaseConfig):
             tool_executor, runbook_manager, self.max_steps, self._get_llm()
         )
 
-    def create_jira_source(self) -> JiraSource:
+    def validate_jira_config(self):
         if self.jira_url is None:
             raise ValueError("--jira-url must be specified")
         if not (
@@ -462,7 +467,20 @@ class Config(RobustaBaseConfig):
         if self.jira_api_key is None:
             raise ValueError("--jira-api-key must be specified")
 
+    def create_jira_source(self) -> JiraSource:
+        self.validate_jira_config()
+
         return JiraSource(
+            url=self.jira_url,
+            username=self.jira_username,
+            api_key=self.jira_api_key.get_secret_value(),
+            jql_query=self.jira_query,
+        )
+
+    def create_jira_service_management_source(self) -> JiraServiceManagementSource:
+        self.validate_jira_config()
+
+        return JiraServiceManagementSource(
             url=self.jira_url,
             username=self.jira_username,
             api_key=self.jira_api_key.get_secret_value(),
