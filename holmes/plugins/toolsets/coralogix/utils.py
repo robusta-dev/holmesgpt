@@ -76,9 +76,10 @@ def normalize_datetime(date_str: str) -> str:
         date = datetime.fromisoformat(date_str.rstrip("Z"))
         # Ensure the timestamp has the maximum resolution (nanoseconds)
         normalized_date_time = date.strftime("%Y-%m-%dT%H:%M:%S.%f")
+        logging.error(f"normalized datetime {date_str} => {normalized_date_time}")
         return normalized_date_time + "Z"
     except Exception:
-        logging.debug(f"Failed to normalize timestamp {date_str}")
+        logging.error(f"Failed to normalize datetime {date_str}")
         return date_str
 
 
