@@ -1,7 +1,7 @@
 import os
 import logging
 
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 import requests
 from cachetools import TTLCache
@@ -174,9 +174,9 @@ class OpenSearchTracesToolset(Toolset):
             )
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("OPENSEARCH_TRACES_URL", None):
-            return False
+            return False, "Missing opensearch traces URL. Check your config"
         elif not config and os.environ.get("OPENSEARCH_TRACES_URL", None):
             self.config = OpenSearchIndexConfig(
                 opensearch_url=os.environ.get("OPENSEARCH_TRACES_URL"),

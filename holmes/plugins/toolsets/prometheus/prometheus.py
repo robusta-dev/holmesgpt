@@ -5,7 +5,7 @@ import random
 import string
 import time
 
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Union, Optional, Tuple
 
 import requests
 from pydantic import BaseModel
@@ -31,6 +31,7 @@ PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 
 
 class PrometheusConfig(BaseModel):
+    # URL is optional because it can be set with an env var
     prometheus_url: Union[str, None]
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
@@ -100,9 +101,8 @@ def fetch_metadata_with_series_api(
     prometheus_url: str, metric_name: str, headers: Dict
 ) -> Dict:
     url = urljoin(prometheus_url, "api/v1/series")
-    params: Dict = {
-        "match[]": f'{{__name__=~".*{metric_name}.*"}}',
-    }
+    params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+
     response = requests.get(
         url, headers=headers, timeout=60, params=params, verify=True
     )
@@ -155,14 +155,11 @@ def fetch_metrics_labels_with_series_api(
             return cached_result
 
     series_url = urljoin(prometheus_url, "api/v1/series")
-    params: dict = {
-        "match[]": f'{{__name__=~".*{metric_name}.*"}}',
-    }
+    params: dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+
     if metrics_labels_time_window_hrs is not None:
-        params["end_time"] = int(time.time())
-        params["start_time"] = params["end_time"] - (
-            metrics_labels_time_window_hrs * 60 * 60
-        )
+        params["end"] = int(time.time())
+        params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
     series_response = requests.get(
         url=series_url, headers=headers, params=params, timeout=60, verify=True
@@ -206,10 +203,8 @@ def fetch_metrics_labels_with_labels_api(
             "match[]": f'{{__name__="{metric_name}"}}',
         }
         if metrics_labels_time_window_hrs is not None:
-            params["end_time"] = int(time.time())
-            params["start_time"] = params["end_time"] - (
-                metrics_labels_time_window_hrs * 60 * 60
-            )
+            params["end"] = int(time.time())
+            params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
         response = requests.get(
             url=url, headers=headers, params=params, timeout=60, verify=True
@@ -247,20 +242,20 @@ def fetch_metrics(
 
     if should_fetch_labels:
         metrics_labels = {}
-        if not should_fetch_labels_with_labels_api:
-            metrics_labels = fetch_metrics_labels_with_series_api(
-                prometheus_url=prometheus_url,
-                cache=cache,
-                metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
-                metric_name=metric_name,
-                headers=headers,
-            )
-        else:
+        if should_fetch_labels_with_labels_api:
             metrics_labels = fetch_metrics_labels_with_labels_api(
                 prometheus_url=prometheus_url,
                 cache=cache,
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
                 metric_names=list(metrics.keys()),
+                headers=headers,
+            )
+        else:
+            metrics_labels = fetch_metrics_labels_with_series_api(
+                prometheus_url=prometheus_url,
+                cache=cache,
+                metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
+                metric_name=metric_name,
                 headers=headers,
             )
 
@@ -287,10 +282,11 @@ class ListPrometheusRules(BasePrometheusTool):
         if not self._cache and self.toolset.config.rules_cache_duration_seconds:
             self._cache = TTLCache(self.toolset.config.rules_cache_duration_seconds)
         try:
-            cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
-            if cached_rules:
-                logging.debug("rules returned from cache")
-                return cached_rules
+            if self._cache:
+                cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
+                if cached_rules:
+                    logging.debug("rules returned from cache")
+                    return cached_rules
 
             prometheus_url = self.toolset.config.prometheus_url
 
@@ -305,7 +301,9 @@ class ListPrometheusRules(BasePrometheusTool):
             )
             rules_response.raise_for_status()
             response = json.dumps(rules_response.json()["data"])
-            self._cache.set(PROMETHEUS_RULES_CACHE_KEY, response)
+
+            if self._cache:
+                self._cache.set(PROMETHEUS_RULES_CACHE_KEY, response)
             return response
         except requests.Timeout:
             logging.warn("Timeout while fetching prometheus rules", exc_info=True)
@@ -632,9 +630,12 @@ class PrometheusToolset(Toolset):
             )
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
-            return False
+            return (
+                False,
+                "Prometheus is misconfigured. prometheus_url is required but missing",
+            )
         elif not config and os.environ.get("PROMETHEUS_URL", None):
             self.config = PrometheusConfig(
                 prometheus_url=os.environ.get("PROMETHEUS_URL"),
@@ -643,7 +644,49 @@ class PrometheusToolset(Toolset):
                 ),
             )
 
-            return True
+            return True, ""
         else:
             self.config = PrometheusConfig(**config)
-            return True
+            return self._is_healthy()
+
+    def _is_healthy(self) -> Tuple[bool, str]:
+        if (
+            not hasattr(self, "config")
+            or not self.config
+            or not self.config.prometheus_url
+        ):
+            return (
+                False,
+                f"Toolset {self.name} failed to initialize because prometheus is not configured correctly",
+            )
+
+        url = urljoin(self.config.prometheus_url, "-/healthy")
+        try:
+            response = requests.get(
+                url=url, headers=self.config.headers, timeout=10, verify=True
+            )
+
+            if response.status_code == 200:
+                return True, ""
+            else:
+                return (
+                    False,
+                    f"Failed to connect to Prometheus at {url}: HTTP {response.status_code}",
+                )
+
+        except RequestException as e:
+            return (
+                False,
+                f"Toolset failed to initialize using url={url}. Connection error: {str(e)}",
+            )
+        except Exception as e:
+            return (
+                False,
+                f"Toolset failed to initialize using url={url}. Unexpected error: {str(e)}",
+            )
+
+    def get_example_config(self):
+        example_config = PrometheusConfig(
+            prometheus_url="http://robusta-kube-prometheus-st-prometheus:9090"
+        )
+        return example_config.model_dump()

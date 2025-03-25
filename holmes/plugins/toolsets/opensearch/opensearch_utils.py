@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Tuple, Union
 from urllib.parse import urljoin
 
 import requests
@@ -26,18 +26,19 @@ def get_search_url(config: OpenSearchIndexConfig) -> str:
     return urljoin(config.opensearch_url, f"/{config.index_name}/_search")
 
 
-def opensearch_health_check(config: OpenSearchIndexConfig) -> bool:
+def opensearch_health_check(config: OpenSearchIndexConfig) -> Tuple[bool, str]:
+    url = get_search_url(config)
     try:
         headers = {"Content-Type": "application/json"}
         headers.update(add_auth_header(config.opensearch_auth_header))
         health_response = requests.get(
-            url=get_search_url(config),
+            url=url,
             verify=True,
             data=json.dumps({"size": 1}),
             headers=headers,
         )
         health_response.raise_for_status()
-        return True
-    except Exception:
+        return True, ""
+    except Exception as e:
         logging.info("Failed to initialize opensearch toolset", exc_info=True)
-        return False
+        return False, f"Failed to initialize opensearch toolset. url={url}. {str(e)}"

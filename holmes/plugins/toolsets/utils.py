@@ -5,6 +5,8 @@ import time
 
 ONE_HOUR_IN_SECONDS = 3600
 
+TOOLSET_CONFIG_MISSING_ERROR = "The toolset is missing its configuration"
+
 
 def is_int(val):
     try:
