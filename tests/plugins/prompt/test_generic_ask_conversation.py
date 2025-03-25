@@ -6,7 +6,13 @@ template = "builtin://generic_ask_conversation.jinja2"
 def test_prometheus_prompt_inclusion():
     # Case 1: prometheus/metrics is enabled
     context = {
-        "enabled_toolsets": [{"name": "prometheus/metrics"}, {"name": "other_tool"}]
+        "enabled_toolsets": [
+            {
+                "name": "prometheus/metrics",
+                "llm_instructions": "# Prometheus/PromQL queries Use prometheus to execute promql queries",
+            },
+            {"name": "other_tool"},
+        ]
     }
     rendered = load_and_render_prompt(template, context)
 

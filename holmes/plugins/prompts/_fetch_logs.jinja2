@@ -14,9 +14,16 @@
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.
 * Check both kubectl_logs and kubectl_previous_logs because a pod restart mean kubectl_logs may not have relevant logs
+{%- elif enabled_toolsets | selectattr("name", "equalto", "opensearch/logs") | list -%}
+* ALWAYS, first, use get_logs_fields to understand the documents fields, then base the opensearch query on that. You must filter by the fields names that appears here
+* The search query should always contain the root 'query' element in the search expression
+* if the user wants pod logs, use logs_in_range_search
+* Always build the query with '.keyword' when doing exact match
+* if time range is not specified, get logs for the last hour
 {%- else -%}
 * You have not been given access to tools to fetch kubernetes logs for nodes, pods, services or apps. This is likely a misconfiguration.
 * If you need logs to answer questions or investigate issues, tell the user to configure the documentation and enable one of these toolsets:
 ** 'kubernetes/logs'
 ** 'grafana/loki'
-{%- endif %}
+** 'opensearch/logs'
+{%- endif -%}
