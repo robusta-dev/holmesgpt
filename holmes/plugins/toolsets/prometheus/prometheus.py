@@ -632,7 +632,10 @@ class PrometheusToolset(Toolset):
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
-            return False, "Prometheus is misconfigured. prometheus_url is required but missing"
+            return (
+                False,
+                "Prometheus is misconfigured. prometheus_url is required but missing",
+            )
         elif not config and os.environ.get("PROMETHEUS_URL", None):
             self.config = PrometheusConfig(
                 prometheus_url=os.environ.get("PROMETHEUS_URL"),
@@ -681,7 +684,6 @@ class PrometheusToolset(Toolset):
                 False,
                 f"Toolset failed to initialize using url={url}. Unexpected error: {str(e)}",
             )
-
 
     def get_example_config(self):
         example_config = PrometheusConfig(
