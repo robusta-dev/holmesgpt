@@ -1,10 +1,10 @@
-
 import json
 import logging
 from datetime import datetime
 from typing import Any, Optional, Dict, List
 
 from pydantic import BaseModel
+
 
 def parse_json_lines(raw_text) -> List[Dict[str, Any]]:
     """Parses JSON objects from a raw text response."""
@@ -16,7 +16,10 @@ def parse_json_lines(raw_text) -> List[Dict[str, Any]]:
             logging.error(f"Failed to decode JSON from line: {line}")
     return json_objects
 
-def format_kubernetes_info(kubernetes:Optional[dict[str, str]], add_namespace_tag:bool, add_pod_tag:bool):
+
+def format_kubernetes_info(
+    kubernetes: Optional[dict[str, str]], add_namespace_tag: bool, add_pod_tag: bool
+):
     tags = []
     if kubernetes:
         if add_pod_tag and kubernetes.get("pod_name"):
@@ -24,6 +27,7 @@ def format_kubernetes_info(kubernetes:Optional[dict[str, str]], add_namespace_ta
         if add_namespace_tag and kubernetes.get("namespace_name"):
             tags.append(f'namespace_name="{kubernetes.get("namespace_name")}"')
     return " ".join(tags)
+
 
 """ improves human readability of logs by indenting logs that span multiple lines.
 This is important because lines for a single logs() call on a system may span multiple coralogix log lines.
@@ -52,10 +56,14 @@ this method will print:
 
 
 """
-def indent_multiline_log_message(indent_char_count:int, log_message:str):
-    lines = log_message.replace('\r', '\n').split('\n')
+
+
+def indent_multiline_log_message(indent_char_count: int, log_message: str):
+    lines = log_message.replace("\r", "\n").split("\n")
     log_message = lines.pop(0)
-    while not log_message and len(lines) > 0: # Some log messages start with a line feed or return carriage. Make sure the first line is not empty
+    while (
+        not log_message and len(lines) > 0
+    ):  # Some log messages start with a line feed or return carriage. Make sure the first line is not empty
         log_message = lines.pop(0)
     for new_line in lines:
         if new_line.strip():
@@ -63,7 +71,8 @@ def indent_multiline_log_message(indent_char_count:int, log_message:str):
             log_message += line
     return log_message
 
-def normalize_datetime(date_str:str) -> str:
+
+def normalize_datetime(date_str: str) -> str:
     if not date_str:
         return "UNKNOWN_TIMESTAMP"
 
@@ -76,23 +85,24 @@ def normalize_datetime(date_str:str) -> str:
         logging.debug(f"Failed to normalize timestamp {date_str}")
         return date_str
 
-def extract_logs(json_objects:List[Dict[str, Any]], add_namespace_tag:bool, add_pod_tag:bool) -> str:
+
+def extract_logs(
+    json_objects: List[Dict[str, Any]], add_namespace_tag: bool, add_pod_tag: bool
+) -> str:
     """Extracts timestamp and log values from parsed JSON objects, sorted in ascending order (oldest first)."""
     logs = []
 
     for data in json_objects:
-        if (
-            isinstance(data, dict)
-            and "result" in data
-            and "results" in data["result"]
-        ):
+        if isinstance(data, dict) and "result" in data and "results" in data["result"]:
             for entry in data["result"]["results"]:
                 try:
                     user_data = json.loads(entry.get("userData", "{}"))
                     kubernetes = user_data.get("kubernetes", None)
                     timestamp = normalize_datetime(user_data.get("time"))
                     log_message = user_data.get("log", "")
-                    tags = format_kubernetes_info(kubernetes, add_namespace_tag, add_pod_tag)
+                    tags = format_kubernetes_info(
+                        kubernetes, add_namespace_tag, add_pod_tag
+                    )
                     if log_message:
                         logs.append(
                             (timestamp, log_message, tags)
@@ -112,12 +122,15 @@ def extract_logs(json_objects:List[Dict[str, Any]], add_namespace_tag:bool, add_
         prefix = f"{timestamp} "
         if tags:
             prefix = f"{timestamp} {tags} "
-        log_message = indent_multiline_log_message(indent_char_count=len(prefix), log_message=log_message)
+        log_message = indent_multiline_log_message(
+            indent_char_count=len(prefix), log_message=log_message
+        )
         formatted_logs.append(f"{prefix}{log_message}")
 
     return "\n".join(formatted_logs) if formatted_logs else "No logs found."
 
-def format_logs(raw_logs:str, add_namespace_tag:bool, add_pod_tag:bool) -> str:
+
+def format_logs(raw_logs: str, add_namespace_tag: bool, add_pod_tag: bool) -> str:
     """Processes the HTTP response and extracts only log outputs."""
     try:
         json_objects = parse_json_lines(raw_logs)
@@ -125,7 +138,9 @@ def format_logs(raw_logs:str, add_namespace_tag:bool, add_pod_tag:bool) -> str:
             raise Exception("No valid JSON objects found.")
         return extract_logs(json_objects, add_namespace_tag, add_pod_tag)
     except Exception as e:
-        logging.error(f"Unexpected error in format_logs for a coralogix API response: {str(e)}")
+        logging.error(
+            f"Unexpected error in format_logs for a coralogix API response: {str(e)}"
+        )
         raise e
 
 
@@ -134,10 +149,12 @@ class CoralogixLabelsConfig(BaseModel):
     namespace: str = "kubernetes.namespace_name"
     app: str = "kubernetes.labels.app"
 
+
 class CoralogixConfig(BaseModel):
     base_url: str = "https://ng-api-http.eu2.coralogix.com"
     api_key: str
     labels: CoralogixLabelsConfig = CoralogixLabelsConfig()
+
 
 def get_resource_label(params: Dict, config: CoralogixConfig):
     resource_type = params.get("resource_type", "pod")

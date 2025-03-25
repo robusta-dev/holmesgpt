@@ -10,25 +10,30 @@ from holmes.core.tools import (
 
 from holmes.plugins.toolsets.coralogix.api import execute_query, health_check
 from holmes.plugins.toolsets.coralogix.utils import CoralogixConfig, format_logs
-from holmes.plugins.toolsets.utils import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION, STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION, TOOLSET_CONFIG_MISSING_ERROR, process_timestamps_to_rfc3339
-
+from holmes.plugins.toolsets.utils import (
+    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+    STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
+    TOOLSET_CONFIG_MISSING_ERROR,
+    process_timestamps_to_rfc3339,
+)
 
 
 LOG_LEVEL_TO_SEVERITY = {"DEBUG": 1, "INFO": 2, "WARNING": 3, "ERROR": 4, "CRITICAL": 5}
 DEFAULT_LOG_COUNT = 1000
 DEFAULT_MIN_LOG_LEVEL = "INFO"
 
+
 class BaseCoralogixToolset(Toolset):
     config: Optional[CoralogixConfig] = None
 
     def get_example_config(self):
-            example_config = CoralogixConfig(
-                api_key="<cxuw_...>"
-            )
-            return example_config.model_dump()
+        example_config = CoralogixConfig(api_key="<cxuw_...>")
+        return example_config.model_dump()
+
 
 class BaseCoralogixTool(Tool):
     toolset: BaseCoralogixToolset
+
 
 class GetLogs(BaseCoralogixTool):
     def __init__(self, toolset: BaseCoralogixToolset):
@@ -90,7 +95,9 @@ class GetLogs(BaseCoralogixTool):
 
         query_filters = []
         if namespace_name:
-            query_filters.append(f"{self.toolset.config.labels.namespace}:{namespace_name}")
+            query_filters.append(
+                f"{self.toolset.config.labels.namespace}:{namespace_name}"
+            )
         if pod_name:
             query_filters.append(f"{self.toolset.config.labels.pod}:{pod_name}")
         if app_name:
@@ -115,7 +122,7 @@ class GetLogs(BaseCoralogixTool):
         response = execute_query(
             base_url=self.toolset.config.base_url,
             api_key=self.toolset.config.api_key,
-            query=query
+            query=query,
         )
         print(f"Fetching coralogix logs {query}")
 
@@ -124,7 +131,11 @@ class GetLogs(BaseCoralogixTool):
         add_pod_tag = not pod_name
 
         try:
-            return format_logs(raw_logs=response.text.strip(), add_namespace_tag=add_namespace_tag, add_pod_tag=add_pod_tag)
+            return format_logs(
+                raw_logs=response.text.strip(),
+                add_namespace_tag=add_namespace_tag,
+                add_pod_tag=add_pod_tag,
+            )
         except Exception:
             logging.error(f"Failed to decode JSON response: {response} {response.text}")
             return f"Failed to decode JSON response. Raw response: {response.text}"
@@ -134,7 +145,6 @@ class GetLogs(BaseCoralogixTool):
 
 
 class CoralogixLogsToolset(BaseCoralogixToolset):
-
     def __init__(self):
         super().__init__(
             name="coralogix/logs",
@@ -153,6 +163,8 @@ class CoralogixLogsToolset(BaseCoralogixToolset):
             return False, TOOLSET_CONFIG_MISSING_ERROR
         self.config = CoralogixConfig(**config)
         if self.config.api_key:
-            return health_check(base_url=self.config.base_url, api_key=self.config.api_key)
+            return health_check(
+                base_url=self.config.base_url, api_key=self.config.api_key
+            )
         else:
             return False, "Missing configuration field 'api_key'"
