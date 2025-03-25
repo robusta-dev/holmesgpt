@@ -4,6 +4,9 @@ import os.path
 from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
+from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
+    CoralogixLogsToolset,
+)
 from holmes.plugins.toolsets.datetime import DatetimeToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
@@ -59,6 +62,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         DatetimeToolset(),
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
+        CoralogixLogsToolset(),
     ]
 
     return toolsets

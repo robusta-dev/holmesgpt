@@ -22,6 +22,8 @@ from requests import RequestException
 from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.utils import (
+    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+    STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
@@ -504,12 +506,12 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description="Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to negative one hour (-3600)",
+                    description=STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
