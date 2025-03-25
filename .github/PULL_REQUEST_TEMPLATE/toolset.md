@@ -1,7 +1,7 @@
 
 Checklist for the toolset:
 
-- [ ] Toolset has unit tests where relevamt
+- [ ] Toolset has unit tests where relevant
 - [ ] Toolset has both ask_holmes and investigate evals
 - [ ] Toolset has a documentation PR opened against the [robusta](https://github.com/robusta-dev/robusta) repo
 - [ ] Toolset has the correct is_default flag
