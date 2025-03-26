@@ -2,7 +2,7 @@ import os
 import pytest
 from pathlib import Path
 
-from holmes.plugins.toolsets.coralogix.utils import format_logs
+from holmes.plugins.toolsets.coralogix.utils import format_logs, normalize_datetime
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures", "test_coralogix")
@@ -45,3 +45,29 @@ def test_format_logs(raw_logs_result, formatted_logs):
         write_file(Path(actual_file_path_for_debugging), actual_output)
 
     assert logs_match, f"Values mismatch. Run the following command to compare expected with actual: `diff {os.path.join(FIXTURES_DIR, 'formatted_logs.txt')} {actual_file_path_for_debugging}`"
+
+
+@pytest.mark.parametrize(
+    "input_date,expected_output",
+    [
+        ("", "UNKNOWN_TIMESTAMP"),
+        (None, "UNKNOWN_TIMESTAMP"),
+        # Invalid inputs should be returned as-is
+        ("not a date", "not a date"),
+        ("2023/01/01", "2023/01/01"),
+        ("01-01-2023", "01-01-2023"),
+        ("12:30:45", "12:30:45"),
+        # Basic ISO format
+        ("2023-01-01T12:30:45", "2023-01-01T12:30:45.000000Z"),
+        # With microseconds
+        ("2023-01-01T12:30:45.123456", "2023-01-01T12:30:45.123456Z"),
+        # With Z suffix
+        ("2023-01-01T12:30:45Z", "2023-01-01T12:30:45.000000Z"),
+        ("2023-01-01T12:30:45.123456Z", "2023-01-01T12:30:45.123456Z"),
+        # Truncating microseconds beyond 6 digits
+        ("2023-01-01T12:30:45.1234567", "2023-01-01T12:30:45.123456Z"),
+        ("2023-01-01T12:30:45.1234567890Z", "2023-01-01T12:30:45.123456Z"),
+    ],
+)
+def test_normalize_datetime_valid_inputs(input_date, expected_output):
+    assert normalize_datetime(input_date) == expected_output
