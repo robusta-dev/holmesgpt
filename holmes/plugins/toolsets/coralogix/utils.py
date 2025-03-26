@@ -80,7 +80,7 @@ def normalize_datetime(date_str: str) -> str:
         if len(parts) > 1 and len(parts[1]) > 6:
             date_str_no_z = f"{parts[0]}.{parts[1][:6]}"
 
-        date = datetime.fromisoformat(date_str.rstrip("Z"))
+        date = datetime.fromisoformat(date_str_no_z)
         # Ensure the timestamp has the maximum resolution (nanoseconds)
         normalized_date_time = date.strftime("%Y-%m-%dT%H:%M:%S.%f")
         logging.error(f"normalized datetime {date_str} => {normalized_date_time}")
