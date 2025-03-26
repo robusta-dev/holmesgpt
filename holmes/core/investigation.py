@@ -68,9 +68,16 @@ def get_investigation_context(
     ai = config.create_issue_investigator(dal=dal)
 
     raw_data = investigate_request.model_dump()
-    context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
-    if context:
-        raw_data["extra_context"] = context
+    context = None
+    try:
+        context = dal.get_issue_data(
+            investigate_request.context.get("robusta_issue_id")
+        )
+        if context:
+            raw_data["extra_context"] = context
+    except:
+        logging.exception("failed to fetch issue data.")
+        pass
 
     issue = Issue(
         id=context["id"] if context else "",
