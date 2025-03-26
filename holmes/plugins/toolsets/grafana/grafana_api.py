@@ -1,6 +1,6 @@
 import logging
 import requests
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import backoff
 
 from holmes.plugins.toolsets.grafana.common import headers
@@ -58,14 +58,14 @@ def list_grafana_datasources(
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
     and e.response.status_code < 500,
 )
-def get_health(grafana_url: str, api_key: str) -> bool:
+def get_health(grafana_url: str, api_key: str) -> Tuple[bool, str]:
     url = f"{grafana_url}/api/health"
     try:
         headers_ = headers(api_key=api_key)
 
         response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
         response.raise_for_status()
-        return True
-    except Exception:
+        return True, ""
+    except Exception as e:
         logging.error(f"Failed to fetch grafana health status at {url}", exc_info=True)
-        return False
+        return False, f"Failed to fetch grafana health status at {url}. {str(e)}"

@@ -1,7 +1,7 @@
 import logging
 from pydantic import BaseModel, ConfigDict
 import yaml
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 from holmes.core.tools import (
     Tool,
     ToolParameter,
@@ -9,7 +9,10 @@ from holmes.core.tools import (
     ToolsetTag,
     CallablePrerequisite,
 )
-from holmes.plugins.toolsets.utils import get_param_or_raise
+from holmes.plugins.toolsets.utils import (
+    TOOLSET_CONFIG_MISSING_ERROR,
+    get_param_or_raise,
+)
 from confluent_kafka.admin import (
     AdminClient,
     BrokerMetadata,
@@ -432,10 +435,10 @@ class KafkaToolset(Toolset):
             ],
         )
 
-    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         if not config:
-            return False
-
+            return False, TOOLSET_CONFIG_MISSING_ERROR
+        errors = []
         try:
             kafka_config = KafkaConfig(**config)
 
@@ -460,14 +463,16 @@ class KafkaToolset(Toolset):
                     client = AdminClient(admin_config)
                     self.clients[cluster.name] = client  # Store in dictionary
                 except Exception as e:
-                    logging.error(
+                    message = (
                         f"Failed to set up Kafka client for {cluster.name}: {str(e)}"
                     )
+                    logging.error(message)
+                    errors.append(message)
 
-            return len(self.clients) > 0
-        except Exception:
+            return len(self.clients) > 0, "\n".join(errors)
+        except Exception as e:
             logging.exception("Failed to set up Kafka toolset")
-            return False
+            return False, str(e)
 
     def get_example_config(self) -> Dict[str, Any]:
         example_config = KafkaConfig(

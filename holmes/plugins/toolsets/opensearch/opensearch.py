@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict
 from holmes.core.tools import (
@@ -10,6 +10,8 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from opensearchpy import OpenSearch
+
+from holmes.plugins.toolsets.utils import TOOLSET_CONFIG_MISSING_ERROR
 
 
 class OpenSearchHttpAuth(BaseModel):
@@ -187,13 +189,13 @@ class OpenSearchToolset(Toolset):
             ],
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
-            return False
+            return False, TOOLSET_CONFIG_MISSING_ERROR
 
         try:
             os_config = OpenSearchConfig(**config)
-
+            errors = []
             for cluster in os_config.opensearch_clusters:
                 try:
                     logging.info("Setting up OpenSearch client")
@@ -201,13 +203,15 @@ class OpenSearchToolset(Toolset):
                     client = OpenSearchClient(**cluster_kwargs)
                     if client.client.cluster.health(params={"timeout": 5}):
                         self.clients.append(client)
-                except Exception:
-                    logging.exception("Failed to set up opensearch client")
+                except Exception as e:
+                    message = f"Failed to set up opensearch client {str(cluster.hosts)}. {str(e)}"
+                    logging.exception(message)
+                    errors.append(message)
 
-            return len(self.clients) > 0
-        except Exception:
+            return len(self.clients) > 0, "\n".join(errors)
+        except Exception as e:
             logging.exception("Failed to set up OpenSearch toolset")
-            return False
+            return False, str(e)
 
     def get_example_config(self) -> Dict[str, Any]:
         example_config = OpenSearchConfig(

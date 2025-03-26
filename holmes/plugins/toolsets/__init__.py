@@ -4,7 +4,12 @@ import os.path
 from typing import List, Optional
 
 from holmes.core.supabase_dal import SupabaseDal
+from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
+    CoralogixLogsToolset,
+)
 from holmes.plugins.toolsets.datetime import DatetimeToolset
+from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
+from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
 from holmes.plugins.toolsets.robusta import RobustaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
@@ -15,8 +20,8 @@ from holmes.plugins.toolsets.coralogix import CoralogixToolset
 from holmes.plugins.toolsets.datadog import DatadogToolset
 from holmes.plugins.toolsets.bash import BashToolset
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
+from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
-from holmes.plugins.toolsets.opensearch import OpenSearchToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
 import yaml
@@ -62,6 +67,9 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         DatadogToolset(),
         PrometheusToolset(),
         DatetimeToolset(),
+        OpenSearchLogsToolset(),
+        OpenSearchTracesToolset(),
+        CoralogixLogsToolset(),
         BashToolset(),
     ]
 

@@ -28,7 +28,6 @@ INTERNET_TOOLSET_TIMEOUT_SECONDS = int(
 SELECTORS_TO_REMOVE = [
     "script",
     "style",
-    "meta",
     "link",
     "noscript",
     "header",
@@ -41,7 +40,9 @@ SELECTORS_TO_REMOVE = [
     "menu",
     "sidebar",
     "aside",
-    ".header" ".footer" ".navigation",
+    ".header",
+    ".footer",
+    ".navigation",
     ".nav",
     ".menu",
     ".sidebar",
@@ -55,7 +56,9 @@ SELECTORS_TO_REMOVE = [
     ".social-share",
     ".related-articles",
     ".recommended",
-    "#header" "#footer" "#navigation",
+    "#header",
+    "#footer",
+    "#navigation",
     "#nav",
     "#menu",
     "#sidebar",
@@ -214,7 +217,7 @@ class InternetBaseToolset(Toolset):
         description: str,
         icon_url: str,
         tools: list[Tool],
-        is_default: str,
+        is_default: bool,
         tags: List[ToolsetTag],
         docs_url: Optional[str] = None,
     ):
@@ -231,11 +234,16 @@ class InternetBaseToolset(Toolset):
             docs_url=docs_url,
         )
 
-    def prerequisites_callable(self, config: Dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         if not config:
-            return True
+            return True, ""
         self.additional_headers = config.get("additional_headers", {})
-        return True
+        return True, ""
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {
+            "additional_headers": {"Authorization": "Basic <base_64_encoded_string>"}
+        }
 
 
 class InternetToolset(InternetBaseToolset):

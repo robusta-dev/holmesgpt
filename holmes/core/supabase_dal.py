@@ -11,7 +11,6 @@ import yaml
 from holmes.core.tool_calling_llm import (
     ResourceInstructionDocument,
     ResourceInstructions,
-    Instructions,
 )
 from holmes.utils.definitions import RobustaConfig
 from postgrest.types import ReturnMethod
@@ -32,6 +31,8 @@ from holmes.common.env_vars import (
 )
 
 from datetime import datetime, timedelta
+
+from holmes.utils.global_instructions import Instructions
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
@@ -219,6 +220,27 @@ class SupabaseDal:
         ]
 
         issue_data["evidence"] = data
+
+        # build issue investigation dates
+        started_at = issue_data.get("starts_at")
+        if started_at:
+            dt = datetime.fromisoformat(started_at)
+
+            # Calculate timestamps
+            start_timestamp = dt - timedelta(minutes=10)
+            end_timestamp = dt + timedelta(minutes=10)
+
+            issue_data["start_timestamp"] = start_timestamp.strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            issue_data["end_timestamp"] = end_timestamp.strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            issue_data["start_timestamp_millis"] = int(
+                start_timestamp.timestamp() * 1000
+            )
+            issue_data["end_timestamp_millis"] = int(end_timestamp.timestamp() * 1000)
+
         return issue_data
 
     def get_firing_alerts(self, aggregation_key: Optional[str]) -> Optional[Dict]:

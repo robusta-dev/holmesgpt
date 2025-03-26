@@ -1,5 +1,5 @@
 from holmes.core.tools import ToolsetTag
-from typing import Dict
+from typing import Dict, Any
 from holmes.core.tools import Tool, Toolset
 import datetime
 
@@ -33,3 +33,6 @@ class DatetimeToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
