@@ -354,6 +354,7 @@ class Toolset(BaseModel):
                     return
 
             elif isinstance(prereq, CallablePrerequisite):
+                logging.warning(f"{self.name}")
                 (enabled, error_message) = prereq.callable(self.config)
                 if enabled:
                     self._status = ToolsetStatusEnum.ENABLED

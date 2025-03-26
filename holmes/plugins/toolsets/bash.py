@@ -119,10 +119,13 @@ class BashToolset(Toolset):
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
         if not config:
             logging.error("Missing execution token in configuration.")
-            return False
+            return False, ""
         try:
             self.config = BashToolConfig(**config)
-            return True
+            return True, ""
         except Exception:
             logging.exception("Error loading execution token configuration.")
-            return False
+            return False, ""
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}

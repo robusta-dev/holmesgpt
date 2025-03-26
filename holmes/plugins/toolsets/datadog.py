@@ -1,6 +1,6 @@
 import requests
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -115,13 +115,16 @@ class DatadogToolset(Toolset):
 
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
         if not config:
-            return False
+            return False, ""
 
         try:
             dd_config = DatadogConfig(**config)
             self.dd_api_key = dd_config.dd_api_key
             self.dd_app_key = dd_config.dd_app_key
-            return bool(self.dd_api_key and self.dd_app_key)
+            return bool(self.dd_api_key and self.dd_app_key), ""
         except Exception:
             logging.exception("Failed to set up Datadog toolset")
-            return False
+            return False, ""
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}

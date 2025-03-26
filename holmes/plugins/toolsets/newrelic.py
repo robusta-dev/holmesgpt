@@ -1,7 +1,7 @@
 import requests
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -158,15 +158,24 @@ class NewRelicToolset(Toolset):
             tags=[ToolsetTag.CORE],
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def prerequisites_callable(
+        self, config: dict[str, Any]
+    ) -> tuple[bool, Optional[str]]:
         if not config:
-            return False
+            return False, "No configuration provided"
 
         try:
             nr_config = NewrelicConfig(**config)
             self.nr_account_id = nr_config.nr_account_id
             self.nr_api_key = nr_config.nr_api_key
-            return self.nr_account_id and self.nr_api_key
-        except Exception:
-            logging.exception("Failed to set up new relic toolset")
-            return False
+
+            if not self.nr_account_id or not self.nr_api_key:
+                return False, "New Relic account ID or API key is missing"
+
+            return True, None
+        except Exception as e:
+            logging.exception("Failed to set up New Relic toolset")
+            return False, str(e)
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
