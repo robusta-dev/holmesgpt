@@ -450,15 +450,11 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                (text_response, _) = process_response_into_sections(
+                (text_response, sections) = process_response_into_sections(
                     response_message.content
                 )
-                yield create_sse_message("ai_answer", {"answer": text_response})
-                yield create_sse_message(
-                    "instructions", {"instructions": runbooks or []}
-                )
 
-                yield create_sse_message("done", {"msg": "done"})
+                yield create_sse_message("ai_answer", {"sections": sections or {}, "analysis": text_response, "instructions": runbooks or []})
                 return
 
             messages.append(
