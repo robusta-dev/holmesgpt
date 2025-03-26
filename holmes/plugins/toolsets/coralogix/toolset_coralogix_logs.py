@@ -37,11 +37,11 @@ class BaseCoralogixTool(Tool):
     toolset: BaseCoralogixToolset
 
 
-class GetLogs(BaseCoralogixTool):
+class FetchLogs(BaseCoralogixTool):
     def __init__(self, toolset: BaseCoralogixToolset):
         super().__init__(
-            name="coralogix_get_logs",
-            description="Retrieve logs from Coralogix based on filters",
+            name="coralogix_fetch_logs",
+            description="Retrieve logs from Coralogix",
             parameters={
                 "app_name": ToolParameter(
                     description="The application name to filter logs",
@@ -154,7 +154,7 @@ class CoralogixLogsToolset(BaseCoralogixToolset):
             icon_url="https://www.coralogix.com/wp-content/uploads/2021/02/coralogix-logo-dark.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
-                GetLogs(self),
+                FetchLogs(self),
             ],
             tags=[ToolsetTag.CORE],
         )
