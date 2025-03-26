@@ -44,9 +44,9 @@ class ToolCallResult(BaseModel):
     def as_dict(self):
         return {
             "tool_call_id": self.tool_call_id,
+            "description": self.description,
             "role": "tool",
             "name": self.tool_name,
-            "description": self.description,
             "content": self.result,
         }
 
@@ -421,14 +421,9 @@ class ToolCallingLLM:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
-                    yield create_sse_message(
-                        "error",
-                        {
-                            "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
-                        },
+                    raise Exception(
+                        "The Azure model you chose is not supported. Model version 1106 and higher required."
                     )
-                    return
-                raise
             except Exception:
                 raise
 
