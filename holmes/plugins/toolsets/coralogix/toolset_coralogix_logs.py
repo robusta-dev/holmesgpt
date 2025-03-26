@@ -27,7 +27,9 @@ class BaseCoralogixToolset(Toolset):
     config: Optional[CoralogixConfig] = None
 
     def get_example_config(self):
-        example_config = CoralogixConfig(api_key="<cxuw_...>")
+        example_config = CoralogixConfig(
+            api_key="<cxuw_...>", base_url="https://ng-api-http.eu2.coralogix.com"
+        )
         return example_config.model_dump()
 
 

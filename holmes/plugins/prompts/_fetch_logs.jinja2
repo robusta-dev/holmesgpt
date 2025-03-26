@@ -13,7 +13,7 @@
 * For any logs, including for investigating kubernetes problems, use Coralogix
 * Use the tool fetch_coralogix_logs to get the logs of any kubernetes pod or node
 * Prefer fetching coralogix logs and avoid using kubectl logs commands
-* Before fetching logs through coralogix, use `kubectl` commands to get the namespace and correct name of a resource
+* Before fetching logs through coralogix, use `kubectl` commands to get the correct kubernetes namespace and kubernetes pod name
 * If you have an issue id or finding id, use `fetch_finding_by_id` as it contains time information about the issue (`starts_at`, `updated_at` and `ends_at`).
 ** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
 ** If there are too many logs, or not enough, narrow or widen the timestamps
