@@ -648,25 +648,17 @@ class IssueInvestigator(ToolCallingLLM):
                     "stream": True,
                     "drop_param": True,
                 },
-                headers={"Authorization": f"Bearer {self.llm.api_key}"},
-                stream=True)
+                    headers={"Authorization": f"Bearer {self.llm.api_key}"},
+                    stream=True
+                )
                 response.raise_for_status()
-
-                perf_timing.measure("llm.completion")
 
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
-                    yield create_sse_message(
-                        "error",
-                        {
-                            "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
-                        },
-                    )
-                    return
-                raise
+                    raise Exception("The Azure model you chose is not supported. Model version 1106 and higher required.")
             except Exception:
                 raise
 
@@ -679,11 +671,11 @@ class IssueInvestigator(ToolCallingLLM):
                     chunk_j = from_json(chunk, allow_partial=True) # Avoid streaming chunks from holmes. send them as they arrive.
                     yield create_sse_message(chunk_j.get("event"), chunk_j.get("data"))
 
-                #yield instructions
-                #yield done.
+                perf_timing.measure("llm.completion")
                 return
-            
+
             response_message = Message(**peek_chunk)
+            perf_timing.measure("llm.completion")
             messages.append(
                 response_message.model_dump(
                     exclude_defaults=True, exclude_unset=True, exclude_none=True
