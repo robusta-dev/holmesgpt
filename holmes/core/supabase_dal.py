@@ -126,16 +126,16 @@ class SupabaseDal:
                     token = conf["robusta_sink"].get("token")
                     if not token:
                         raise Exception(
-                            "No robusta token provided to Holmes. "
-                            "Please set a valid Robusta UI token. "
+                            "No robusta token provided to Holmes.\n"
+                            "Please set a valid Robusta UI token.\n "
                             "See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
                         )
                     if "{{" in token:
                         raise ValueError(
-                            "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`). "
-                            "Ensure your Helm chart or environment variables are set correctly. "
+                            "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`).\n "
+                            "Ensure your Helm chart or environment variables are set correctly.\n "
                             "If you store the token in a secret, you must also pass "
-                            "the environment variable ROBUSTA_UI_TOKEN to Holmes. "
+                            "the environment variable ROBUSTA_UI_TOKEN to Holmes.\n "
                             "See https://docs.robusta.dev/master/configuration/ai-analysis.html#configuring-holmesgpt-access-to-saas-data for instructions."
                         )
                     try:
