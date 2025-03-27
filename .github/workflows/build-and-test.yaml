@@ -39,7 +39,20 @@ jobs:
           poetry install --no-root
 
           sudo apt-get install -y binutils
-          pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --hiddenimport litellm.litellm_core_utils.tokenizers --collect-data litellm
+          pyinstaller holmes.py \
+            --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' \
+            --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' \
+            --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' \
+            --add-data 'holmes/plugins/toolsets/coralogix*:holmes/plugins/toolsets/coralogix' \
+            --add-data 'holmes/plugins/toolsets/grafana*:holmes/plugins/toolsets/grafana' \
+            --add-data 'holmes/plugins/toolsets/internet*:holmes/plugins/toolsets/internet' \
+            --add-data 'holmes/plugins/toolsets/opensearch*:holmes/plugins/toolsets/opensearch' \
+            --add-data 'holmes/plugins/toolsets/prometheus*:holmes/plugins/toolsets/prometheus' \
+            --hidden-import=tiktoken_ext.openai_public \
+            --hidden-import=tiktoken_ext \
+            --hiddenimport litellm.llms.tokenizers \
+            --hiddenimport litellm.litellm_core_utils.tokenizers \
+            --collect-data litellm
           ls dist
 
       - name: Run tests
