@@ -453,7 +453,14 @@ class ToolCallingLLM:
                     response_message.content
                 )
 
-                yield create_sse_message("ai_answer", {"sections": sections or {}, "analysis": text_response, "instructions": runbooks or []})
+                yield create_sse_message(
+                    "ai_answer",
+                    {
+                        "sections": sections or {},
+                        "analysis": text_response,
+                        "instructions": runbooks or [],
+                    },
+                )
                 return
 
             messages.append(
