@@ -6,6 +6,7 @@ from typing import List, Optional, Dict, Type, Union
 
 import sentry_sdk
 
+from holmes.common.env_vars import TEMPERATURE
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -157,7 +158,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=0.00000001,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
@@ -362,8 +363,10 @@ class ToolCallingLLM:
         )
 
         for message in messages:
-            if message["role"] == "tool":
+            if message["role"] == "tool" and len(message["content"]) > tool_size:
                 message["content"] = message["content"][:tool_size]
+                if "token_count" in message:
+                    del message["token_count"]
         return messages
 
     def call_stream(

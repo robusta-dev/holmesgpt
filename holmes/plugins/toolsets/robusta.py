@@ -1,8 +1,7 @@
 import yaml
 import logging
 
-from typing import Optional
-from typing_extensions import Dict
+from typing import Optional, Dict, Any
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StaticPrerequisite,
@@ -83,3 +82,6 @@ class RobustaToolset(Toolset):
             ],
             is_default=True,
         )
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}

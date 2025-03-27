@@ -1,3 +1,4 @@
+from typing import Any, Dict
 from unittest.mock import Mock, patch
 import pytest
 import subprocess
@@ -23,9 +24,14 @@ def mock_config():
     return config
 
 
+class SampleToolset(Toolset):
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
+
+
 @pytest.fixture
 def sample_toolset():
-    return Toolset(
+    return SampleToolset(
         name="test-toolset",
         description="Test toolset",
         enabled=True,
@@ -88,7 +94,7 @@ def test_sync_toolsets_with_installation_instructions(
 def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     mock_subprocess_run.return_value = Mock(stdout="success", returncode=0)
 
-    toolset1 = Toolset(
+    toolset1 = SampleToolset(
         name="toolset1",
         description="First toolset",
         enabled=True,
@@ -97,7 +103,7 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     )
     toolset1.check_prerequisites()
 
-    toolset2 = Toolset(
+    toolset2 = SampleToolset(
         name="toolset2",
         description="Second toolset",
         enabled=False,
@@ -129,7 +135,7 @@ def test_sync_toolsets_with_prerequisites_check(
 ):
     mock_subprocess_run.return_value = Mock(stdout="success", returncode=0)
 
-    toolset = Toolset(
+    toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
         enabled=True,
@@ -160,7 +166,7 @@ def test_sync_toolsets_with_failed_prerequisites(
         1, "some-failing-command", "error output"
     )
 
-    toolset = Toolset(
+    toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
         enabled=True,
@@ -194,7 +200,7 @@ def test_sync_toolsets_with_successful_prerequisites(
 ):
     mock_subprocess_run.return_value = Mock(stdout="success\n", returncode=0)
 
-    toolset = Toolset(
+    toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
         enabled=True,
@@ -219,7 +225,7 @@ def test_sync_toolsets_with_successful_prerequisites(
 
 @patch.dict(os.environ, {}, clear=True)
 def test_sync_toolsets_with_missing_env_var_prerequisites(mock_dal, mock_config):
-    toolset = Toolset(
+    toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
         enabled=True,
@@ -251,7 +257,7 @@ def test_sync_toolsets_with_command_output_mismatch(
         stdout="wrong output\n", returncode=0, stderr=""
     )
 
-    toolset = Toolset(
+    toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
         enabled=True,

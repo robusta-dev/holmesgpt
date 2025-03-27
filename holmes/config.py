@@ -113,7 +113,7 @@ def load_toolsets_definitions(
             logging.warning(f"Toolset '{name}' is invalid: {e}")
 
         except Exception:
-            logging.warning("Failed to load toolset: %s", name)
+            logging.warning("Failed to load toolset: %s", name, exc_info=True)
 
     return loaded_toolsets
 
