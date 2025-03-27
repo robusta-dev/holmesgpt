@@ -11,13 +11,21 @@ from holmes.plugins.toolsets.datetime import DatetimeToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
 from holmes.plugins.toolsets.robusta import RobustaToolset
+from holmes.plugins.toolsets.tempo_tool import KfuseTempoToolset
+from holmes.plugins.toolsets.mongo import MongoToolset
+from holmes.plugins.toolsets.redis import RedisToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
+from holmes.plugins.toolsets.prometheus import PrometheusToolset
+from holmes.plugins.toolsets.opensearch import OpenSearchToolset
+from holmes.plugins.toolsets.kubernetes_cpu_throttling import KubernetesCPUThrottlingToolset
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
+from holmes.plugins.toolsets.kafka_connect import KafkaConnectToolset
+
 
 from holmes.core.tools import Toolset, YAMLToolset
 import yaml
@@ -60,9 +68,19 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         KafkaToolset(),
         PrometheusToolset(),
         DatetimeToolset(),
+<<<<<<< HEAD
+        KfuseTempoToolset(),
+        MongoToolset(),
+        RedisToolset(),
+        KubernetesCPUThrottlingToolset(),
+        PrometheusToolset(),
+        KafkaConnectToolset(),
+
+=======
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
         CoralogixLogsToolset(),
+>>>>>>> 1e9d049effcd2d4964590f830ae1d3970f080a80
     ]
 
     return toolsets

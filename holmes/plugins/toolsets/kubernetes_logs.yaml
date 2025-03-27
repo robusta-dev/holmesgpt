@@ -11,32 +11,32 @@ toolsets:
     tools:
       - name: "kubectl_previous_logs"
         description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash. Never give a deployment name or a resource that is not a pod."
-        command: "kubectl logs {{pod_name}} -n {{ namespace }} --previous"
+        command: "kubectl logs {{pod_name}} -n {{ namespace }} --previous| egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
 
       - name: "kubectl_previous_logs_all_containers"
         description: "Run `kubectl logs --previous` on a single Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash."
-        command: "kubectl logs {{pod_name}} -n {{ namespace }} --previous --all-containers"
+        command: "kubectl logs {{pod_name}} -n {{ namespace }} --previous --all-containers | egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
 
       - name: "kubectl_container_previous_logs"
         description: "Run `kubectl logs --previous` on a single container of a Kubernetes pod. Used to fetch logs for a pod that crashed and see logs from before the crash."
-        command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} --previous"
+        command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} --previous | egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
 
       - name: "kubectl_logs"
         description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
-        command: "kubectl logs {{pod_name}} -n {{ namespace }}"
+        command: "kubectl logs {{pod_name}} -n {{ namespace }} | egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
 
       - name: "kubectl_logs_all_containers"
         description: "Run `kubectl logs` on all containers within a single Kubernetes pod."
-        command: "kubectl logs {{pod_name}} -n {{ namespace }} --all-containers"
+        command: "kubectl logs {{pod_name}} -n {{ namespace }} --all-containers | egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
 
       - name: "kubectl_container_logs"
         description: "Run `kubectl logs` on a single container within a Kubernetes pod. This is to get the logs of a specific container in a multi-container pod."
-        command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} "
+        command: "kubectl logs {{pod_name}} -c {{container_name}} -n {{ namespace }} | egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
 
       - name: "kubectl_logs_grep"
         description: "Search for a specific term in the logs of a single Kubernetes pod. Only provide a pod name, not a deployment or other resource."
-        command: "kubectl logs {{ pod_name }} -n {{ namespace }} | grep {{ search_term }}"
+        command: "kubectl logs {{ pod_name }} -n {{ namespace }} | grep {{ search_term }} | egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
 
       - name: "kubectl_logs_all_containers_grep"
         description: "Search for a specific term in the logs of a single Kubernetes pod across all of its containers. Only provide a pod name, not a deployment or other resource."
-        command: "kubectl logs {{pod_name}} -n {{ namespace }} --all-containers | grep {{ search_term }}"
+        command: "kubectl logs {{pod_name}} -n {{ namespace }} --all-containers | grep {{ search_term }}| egrep -v 'dob | first_name | last_name | payer_name | plan_name | patient_plan_id | date_of_attribution | subscriber_responsibility_seq_code | subscriber_first_name | subscriber_middle_name | subscriber_last_name | patient_subscriber_relationship_name | patient_subscriber_id | attribution_start_date | attribution_end_date'"
