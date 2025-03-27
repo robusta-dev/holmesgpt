@@ -1,3 +1,4 @@
+import json
 import logging
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Type, Union
@@ -9,7 +10,7 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from pydantic import BaseModel
 import litellm
 import os
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT
+from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, THINKING
 
 
 def environ_get_safe_int(env_var, default="0"):
@@ -184,9 +185,13 @@ class DefaultLLM(LLM):
         stream: Optional[bool] = None,
     ) -> Union[ModelResponse, CustomStreamWrapper]:
         tools_args = {}
-        if tools and tool_choice:
+        if tools and len(tools) > 0 and tool_choice == "auto":
             tools_args["tools"] = tools
             tools_args["tool_choice"] = tool_choice
+
+        thinking = None
+        if THINKING:  # if model requires 'thinking', load it from env vars
+            thinking = json.loads(THINKING)
 
         result = litellm.completion(
             model=self.model,
@@ -196,6 +201,7 @@ class DefaultLLM(LLM):
             temperature=temperature,
             response_format=response_format,
             drop_params=drop_params,
+            thinking=thinking,
             stream=stream,
             **tools_args,
         )

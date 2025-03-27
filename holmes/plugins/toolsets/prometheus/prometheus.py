@@ -5,7 +5,7 @@ import random
 import string
 import time
 
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Union, Optional, Tuple
 
 import requests
 from pydantic import BaseModel
@@ -22,13 +22,18 @@ from requests import RequestException
 from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.utils import (
+    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+    STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
 from holmes.utils.cache import TTLCache
 
+PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
+
 
 class PrometheusConfig(BaseModel):
+    # URL is optional because it can be set with an env var
     prometheus_url: Union[str, None]
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
@@ -38,6 +43,7 @@ class PrometheusConfig(BaseModel):
     fetch_metadata_with_series_api: bool = False
     tool_calls_return_data: bool = False
     headers: Dict = {}
+    rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
 
 
 class BasePrometheusTool(Tool):
@@ -97,9 +103,8 @@ def fetch_metadata_with_series_api(
     prometheus_url: str, metric_name: str, headers: Dict
 ) -> Dict:
     url = urljoin(prometheus_url, "api/v1/series")
-    params: Dict = {
-        "match[]": f'{{__name__=~".*{metric_name}.*"}}',
-    }
+    params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+
     response = requests.get(
         url, headers=headers, timeout=60, params=params, verify=True
     )
@@ -130,12 +135,19 @@ def result_has_data(result: Dict) -> bool:
     return False
 
 
+def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]:
+    results = {}
+    if prometheus_auth_header:
+        results["Authorization"] = prometheus_auth_header
+    return results
+
+
 def fetch_metrics_labels_with_series_api(
     prometheus_url: str,
+    headers: Dict[str, str],
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
     metric_name: str,
-    headers: Dict,
 ) -> dict:
     """This is a slow query. Takes 5+ seconds to run"""
     cache_key = f"metrics_labels_series_api:{metric_name}"
@@ -145,14 +157,11 @@ def fetch_metrics_labels_with_series_api(
             return cached_result
 
     series_url = urljoin(prometheus_url, "api/v1/series")
-    params: dict = {
-        "match[]": f'{{__name__=~".*{metric_name}.*"}}',
-    }
+    params: dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+
     if metrics_labels_time_window_hrs is not None:
-        params["end_time"] = int(time.time())
-        params["start_time"] = params["end_time"] - (
-            metrics_labels_time_window_hrs * 60 * 60
-        )
+        params["end"] = int(time.time())
+        params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
     series_response = requests.get(
         url=series_url, headers=headers, params=params, timeout=60, verify=True
@@ -196,10 +205,8 @@ def fetch_metrics_labels_with_labels_api(
             "match[]": f'{{__name__="{metric_name}"}}',
         }
         if metrics_labels_time_window_hrs is not None:
-            params["end_time"] = int(time.time())
-            params["start_time"] = params["end_time"] - (
-                metrics_labels_time_window_hrs * 60 * 60
-            )
+            params["end"] = int(time.time())
+            params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
         response = requests.get(
             url=url, headers=headers, params=params, timeout=60, verify=True
@@ -237,20 +244,20 @@ def fetch_metrics(
 
     if should_fetch_labels:
         metrics_labels = {}
-        if not should_fetch_labels_with_labels_api:
-            metrics_labels = fetch_metrics_labels_with_series_api(
-                prometheus_url=prometheus_url,
-                cache=cache,
-                metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
-                metric_name=metric_name,
-                headers=headers,
-            )
-        else:
+        if should_fetch_labels_with_labels_api:
             metrics_labels = fetch_metrics_labels_with_labels_api(
                 prometheus_url=prometheus_url,
                 cache=cache,
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
                 metric_names=list(metrics.keys()),
+                headers=headers,
+            )
+        else:
+            metrics_labels = fetch_metrics_labels_with_series_api(
+                prometheus_url=prometheus_url,
+                cache=cache,
+                metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
+                metric_name=metric_name,
                 headers=headers,
             )
 
@@ -259,6 +266,59 @@ def fetch_metrics(
                 metrics[metric_name]["labels"] = metrics_labels[metric_name]
 
     return metrics
+
+
+class ListPrometheusRules(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
+        super().__init__(
+            name="list_prometheus_rules",
+            description="List all defined prometheus rules. Will show the prometheus rules description, expression and annotations",
+            parameters={},
+            toolset=toolset,
+        )
+        self._cache = None
+
+    def _invoke(self, params: Any) -> str:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
+            return "Prometheus is not configured. Prometheus URL is missing"
+        if not self._cache and self.toolset.config.rules_cache_duration_seconds:
+            self._cache = TTLCache(self.toolset.config.rules_cache_duration_seconds)
+        try:
+            if self._cache:
+                cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
+                if cached_rules:
+                    logging.debug("rules returned from cache")
+                    return cached_rules
+
+            prometheus_url = self.toolset.config.prometheus_url
+
+            rules_url = urljoin(prometheus_url, "/api/v1/rules")
+
+            rules_response = requests.get(
+                url=rules_url,
+                params=params,
+                timeout=180,
+                verify=True,
+                headers=self.toolset.config.headers,
+            )
+            rules_response.raise_for_status()
+            response = json.dumps(rules_response.json()["data"])
+
+            if self._cache:
+                self._cache.set(PROMETHEUS_RULES_CACHE_KEY, response)
+            return response
+        except requests.Timeout:
+            logging.warn("Timeout while fetching prometheus rules", exc_info=True)
+            return "Request timed out while fetching rules"
+        except RequestException as e:
+            logging.warn("Failed to fetch prometheus rules", exc_info=True)
+            return f"Network error while fetching rules: {str(e)}"
+        except Exception as e:
+            logging.warn("Failed to process prometheus rules", exc_info=True)
+            return f"Unexpected error: {str(e)}"
+
+    def get_parameterized_one_liner(self, params) -> str:
+        return "list available prometheus rules"
 
 
 class ListAvailableMetrics(BasePrometheusTool):
@@ -446,12 +506,12 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description="Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to negative one hour (-3600)",
+                    description=STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
@@ -555,6 +615,7 @@ class PrometheusToolset(Toolset):
             icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
+                ListPrometheusRules(toolset=self),
                 ListAvailableMetrics(toolset=self),
                 ExecuteInstantQuery(toolset=self),
                 ExecuteRangeQuery(toolset=self),
@@ -563,15 +624,71 @@ class PrometheusToolset(Toolset):
                 ToolsetTag.CORE,
             ],
         )
+        self._load_llm_instructions(
+            os.path.abspath(
+                os.path.join(
+                    os.path.dirname(__file__), "prometheus_instructions.jinja2"
+                )
+            )
+        )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
-            return False
+            return (
+                False,
+                "Prometheus is misconfigured. prometheus_url is required but missing",
+            )
         elif not config and os.environ.get("PROMETHEUS_URL", None):
             self.config = PrometheusConfig(
-                prometheus_url=os.environ.get("PROMETHEUS_URL")
+                prometheus_url=os.environ.get("PROMETHEUS_URL"),
+                headers=add_prometheus_auth(
+                    os.environ.get("PROMETHEUS_AUTH_HEADER", None)
+                ),
             )
-            return True
+
+            return True, ""
         else:
             self.config = PrometheusConfig(**config)
-            return True
+            return self._is_healthy()
+
+    def _is_healthy(self) -> Tuple[bool, str]:
+        if (
+            not hasattr(self, "config")
+            or not self.config
+            or not self.config.prometheus_url
+        ):
+            return (
+                False,
+                f"Toolset {self.name} failed to initialize because prometheus is not configured correctly",
+            )
+
+        url = urljoin(self.config.prometheus_url, "-/healthy")
+        try:
+            response = requests.get(
+                url=url, headers=self.config.headers, timeout=10, verify=True
+            )
+
+            if response.status_code == 200:
+                return True, ""
+            else:
+                return (
+                    False,
+                    f"Failed to connect to Prometheus at {url}: HTTP {response.status_code}",
+                )
+
+        except RequestException as e:
+            return (
+                False,
+                f"Toolset failed to initialize using url={url}. Connection error: {str(e)}",
+            )
+        except Exception as e:
+            return (
+                False,
+                f"Toolset failed to initialize using url={url}. Unexpected error: {str(e)}",
+            )
+
+    def get_example_config(self):
+        example_config = PrometheusConfig(
+            prometheus_url="http://robusta-kube-prometheus-st-prometheus:9090"
+        )
+        return example_config.model_dump()

@@ -5,6 +5,13 @@ import time
 
 ONE_HOUR_IN_SECONDS = 3600
 
+TOOLSET_CONFIG_MISSING_ERROR = "The toolset is missing its configuration"
+
+STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION = "Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to negative one hour (-3600)"
+STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION = (
+    "End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW"
+)
+
 
 def is_int(val):
     try:
