@@ -41,7 +41,7 @@ class PrometheusConfig(BaseModel):
     metrics_labels_cache_duration_hrs: Union[int, None] = 12
     fetch_labels_with_labels_api: bool = False
     fetch_metadata_with_series_api: bool = False
-    tool_calls_return_data: bool = False
+    tool_calls_return_data: bool = True
     headers: Dict = {}
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
 
