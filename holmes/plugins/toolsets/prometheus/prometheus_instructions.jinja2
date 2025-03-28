@@ -1,3 +1,4 @@
+
 # Prometheus/PromQL queries
 * ALWAYS call list_prometheus_rules to get the alert definition
 * Use Prometheus to query metrics from the alert promql
@@ -24,9 +25,15 @@
 * ALWAYS embed a Prometheus graph in the response. The graph should visualize data related to the incident.
 * Embed at most 2 graphs
 * When embedding multiple graphs, always add line spacing between them
-For example:
-```
-<<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "lBaA"}>>
+    For example:
+    ```
+    <<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "lBaA"}>>
 
-<<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "IKtq"}>>
-```
+    <<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "IKtq"}>>
+    ```
+{%- if config and config.additional_labels and config.additional_labels.keys()|list|length > 0 %}
+* ALWAYS add the following additional labels to ALL PromQL queries:
+{%- for key, value in config.additional_labels.items() %}
+  * {{ key }}="{{ value }}"
+{%- endfor -%}
+{%- endif -%}

@@ -374,7 +374,7 @@ class Toolset(BaseModel):
         tool_names = [t.name for t in self.tools]
         self.llm_instructions = load_and_render_prompt(
             prompt=f"file://{jinja_template_file_path}",
-            context={"tool_names": tool_names},
+            context={"tool_names": tool_names, "config": self.config},
         )
 
 

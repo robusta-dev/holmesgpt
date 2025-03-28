@@ -44,6 +44,7 @@ class PrometheusConfig(BaseModel):
     tool_calls_return_data: bool = True
     headers: Dict = {}
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
+    additional_labels: Optional[Dict[str, str]] = None
 
 
 class BasePrometheusTool(Tool):
@@ -624,6 +625,9 @@ class PrometheusToolset(Toolset):
                 ToolsetTag.CORE,
             ],
         )
+        self._reload_llm_instructions()
+
+    def _reload_llm_instructions(self):
         self._load_llm_instructions(
             os.path.abspath(
                 os.path.join(
@@ -645,10 +649,11 @@ class PrometheusToolset(Toolset):
                     os.environ.get("PROMETHEUS_AUTH_HEADER", None)
                 ),
             )
-
+            self._reload_llm_instructions()
             return True, ""
         else:
             self.config = PrometheusConfig(**config)
+            self._reload_llm_instructions()
             return self._is_healthy()
 
     def _is_healthy(self) -> Tuple[bool, str]:
