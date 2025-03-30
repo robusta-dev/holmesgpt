@@ -192,6 +192,7 @@ class DefaultLLM(LLM):
         thinking = None
         if THINKING:  # if model requires 'thinking', load it from env vars
             thinking = json.loads(THINKING)
+            litellm.modify_params = True
 
         result = litellm.completion(
             model=self.model,
