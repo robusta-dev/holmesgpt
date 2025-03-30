@@ -149,18 +149,20 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
-    ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-        investigation.get_investigation_context(req, dal, config=config)
-    )
-
     try:
+        ai, system_prompt, user_prompt, response_format, sections, runbooks = (
+            investigation.get_investigation_context(req, dal, config=config)
+        )
+
         if ROBUSTA_AI:
             return StreamingResponse(
                 ai.call_stream_robusta(system_prompt, user_prompt, None, runbooks),
                 media_type="text/event-stream",
             )
         return StreamingResponse(
-            ai.call_stream(system_prompt, user_prompt, response_format, runbooks),
+            ai.call_stream(
+                system_prompt, user_prompt, response_format, sections, runbooks
+            ),
             media_type="text/event-stream",
         )
     except AuthenticationError as e:
@@ -301,7 +303,6 @@ def chat(chat_request: ChatRequest):
 
         ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
-
         messages = build_chat_messages(
             chat_request.ask,
             chat_request.conversation_history,

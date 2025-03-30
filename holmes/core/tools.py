@@ -5,7 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from typing import Callable, Dict, List, Literal, Optional, Union, Any
+from typing import Callable, Dict, List, Literal, Optional, Union, Any, Tuple
 from enum import Enum
 from datetime import datetime
 import sentry_sdk
@@ -220,7 +220,7 @@ class StaticPrerequisite(BaseModel):
 
 
 class CallablePrerequisite(BaseModel):
-    callable: Callable[[dict[str, Any]], bool]
+    callable: Callable[[dict[str, Any]], Tuple[bool, str]]
 
 
 class ToolsetCommandPrerequisite(BaseModel):
@@ -354,13 +354,19 @@ class Toolset(BaseModel):
                     return
 
             elif isinstance(prereq, CallablePrerequisite):
-                res = prereq.callable(self.config)
-                if not res:
+                (enabled, error_message) = prereq.callable(self.config)
+                if enabled:
+                    self._status = ToolsetStatusEnum.ENABLED
+                elif not enabled and error_message:
+                    self._status = ToolsetStatusEnum.FAILED
+                    self._error = error_message
+                else:
                     self._status = ToolsetStatusEnum.DISABLED
-                    return
+                return
 
         self._status = ToolsetStatusEnum.ENABLED
 
+    @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
@@ -368,12 +374,15 @@ class Toolset(BaseModel):
         tool_names = [t.name for t in self.tools]
         self.llm_instructions = load_and_render_prompt(
             prompt=f"file://{jinja_template_file_path}",
-            context={"tool_names": tool_names},
+            context={"tool_names": tool_names, "config": self.config},
         )
 
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
 
 
 class ToolExecutor:
@@ -434,6 +443,9 @@ class ToolsetYamlFromConfig(Toolset):
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
 
 
 class ToolsetDBModel(BaseModel):

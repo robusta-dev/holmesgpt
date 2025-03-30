@@ -133,7 +133,9 @@ RUN git config --global core.symlinks false
 # Remove setuptools-65.5.1 installed from python:3.11-slim base image as fix for CVE-2024-6345 until image will be updated
 RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-65.5.1.dist-info
 
-COPY . /app
+COPY ./holmes /app/holmes
+COPY ./server.py /app/server.py
+COPY ./holmes.py /app/holmes.py
 
 ENTRYPOINT ["python", "holmes.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]
