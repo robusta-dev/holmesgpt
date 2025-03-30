@@ -53,8 +53,9 @@ class RobustaToken(BaseModel):
 
 
 class SupabaseDal:
-    def __init__(self):
+    def __init__(self, cluster: str):
         self.enabled = self.__init_config()
+        self.cluster = cluster
         if not self.enabled:
             logging.info(
                 "Not connecting to Robusta platform - robusta token not provided - using ROBUSTA_AI will not be possible"
@@ -181,6 +182,67 @@ class SupabaseDal:
         )
         self.client.postgrest.auth(res.session.access_token)
         return res.user.id
+
+    def get_configuration_changes(
+        self, start_datetime: str, end_datetime: str
+    ) -> Optional[List[Dict]]:
+        if not self.enabled:
+            return []
+
+        try:
+            changes_response = (
+                self.client.table(ISSUES_TABLE)
+                .select("id", "subject_name", "subject_namespace", "description")
+                .eq("account_id", self.account_id)
+                .eq("cluster", self.cluster)
+                .eq("finding_type", "configuration_change")
+                .gte("creation_date", start_datetime)
+                .lte("creation_date", end_datetime)
+                .execute()
+            )
+            if not len(changes_response.data):
+                return None
+
+        except Exception:
+            logging.exception("Supabase error while retrieving change data")
+            return None
+
+        changes_ids = [change["id"] for change in changes_response.data]
+        try:
+            change_data_response = (
+                self.client.table(EVIDENCE_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .in_("issue_id", changes_ids)
+                .execute()
+            )
+            if not len(change_data_response.data):
+                return None
+
+        except Exception:
+            logging.exception("Supabase error while retrieving change content")
+            return None
+
+        changes_data = []
+        change_data_map = {
+            change["issue_id"]: change for change in change_data_response.data
+        }
+
+        for change in changes_response.data:
+            change_content = change_data_map.get(change["id"])
+            if change_content:
+                changes_data.append(
+                    {
+                        "change": change_content["data"],
+                        "evidence_id": change_content["id"],
+                        **change,
+                    }
+                )
+
+        logging.debug(
+            f"Change history for {start_datetime}-{end_datetime}: {changes_data}"
+        )
+        return changes_data
 
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no

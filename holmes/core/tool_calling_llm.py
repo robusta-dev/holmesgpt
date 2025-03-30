@@ -235,6 +235,7 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 futures = []
                 for t in tools_to_call:
+                    logging.debug(f"Tool to call: {t}")
                     futures.append(executor.submit(self._invoke_tool, t))
 
                 for future in concurrent.futures.as_completed(futures):
