@@ -103,9 +103,8 @@ class FetchConfigurationChanges(Tool):
             else:
                 return f"Could not find changes for {params}"
         except Exception as e:
-            logging.error(e)
             msg = f"There was an internal error while fetching changes for {params}. {str(e)}"
-            logging.error(msg)
+            logging.exception(msg)
             return msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:

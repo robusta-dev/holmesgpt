@@ -240,8 +240,9 @@ class SupabaseDal:
                 )
 
         logging.debug(
-            f"Change history for {start_datetime}-{end_datetime}: {changes_data}"
+            "Change history for %s-%s: %s", start_datetime, end_datetime, changes_data
         )
+
         return changes_data
 
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
