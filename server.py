@@ -31,7 +31,7 @@ from holmes.common.env_vars import (
     SENTRY_DSN,
     ENABLE_TELEMETRY,
     SENTRY_TRACES_SAMPLE_RATE,
-    ROBUSTA_AI
+    ROBUSTA_AI,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config

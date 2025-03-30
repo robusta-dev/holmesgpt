@@ -35,7 +35,8 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 from litellm.types.utils import Message
-from holmes.common.env_vars import ( ROBUSTA_API_ENDPOINT )
+from holmes.common.env_vars import ROBUSTA_API_ENDPOINT
+
 
 class ToolCallResult(BaseModel):
     tool_call_id: str
@@ -602,8 +603,6 @@ class IssueInvestigator(ToolCallingLLM):
         res.instructions = runbooks
         return res
 
-
-
     def call_stream_robusta(
         self,
         system_prompt: str,
@@ -642,17 +641,19 @@ class IssueInvestigator(ToolCallingLLM):
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
-                response = requests.post(f"{ROBUSTA_API_ENDPOINT}/chat/completions", json={
-                    "messages": parse_messages_tags(messages),
-                    "tools": tools,
-                    "tool_choice": tool_choice,
-                    "temperature": 0,
-                    "response_format": response_format,
-                    "stream": True,
-                    "drop_param": True,
-                },
+                response = requests.post(
+                    f"{ROBUSTA_API_ENDPOINT}/chat/completions",
+                    json={
+                        "messages": parse_messages_tags(messages),
+                        "tools": tools,
+                        "tool_choice": tool_choice,
+                        "temperature": 0,
+                        "response_format": response_format,
+                        "stream": True,
+                        "drop_param": True,
+                    },
                     headers={"Authorization": f"Bearer {self.llm.api_key}"},
-                    stream=True
+                    stream=True,
                 )
                 response.raise_for_status()
 
@@ -661,7 +662,9 @@ class IssueInvestigator(ToolCallingLLM):
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
-                    raise Exception("The Azure model you chose is not supported. Model version 1106 and higher required.")
+                    raise Exception(
+                        "The Azure model you chose is not supported. Model version 1106 and higher required."
+                    )
             except Exception:
                 raise
 
@@ -669,9 +672,13 @@ class IssueInvestigator(ToolCallingLLM):
             peek_chunk = from_json(next(it))
             tools_to_call = peek_chunk.get("tool_calls", None)
             if not tools_to_call:
-                yield create_sse_message(peek_chunk.get("event"), peek_chunk.get("data"))
+                yield create_sse_message(
+                    peek_chunk.get("event"), peek_chunk.get("data")
+                )
                 for chunk in it:
-                    chunk_j = from_json(chunk, allow_partial=True) # Avoid streaming chunks from holmes. send them as they arrive.
+                    chunk_j = from_json(
+                        chunk, allow_partial=True
+                    )  # Avoid streaming chunks from holmes. send them as they arrive.
                     yield create_sse_message(chunk_j.get("event"), chunk_j.get("data"))
 
                 perf_timing.measure("llm.completion")
@@ -691,7 +698,9 @@ class IssueInvestigator(ToolCallingLLM):
                 futures = []
                 for t in tools_to_call:
                     futures.append(executor.submit(self._invoke_tool, t))
-                    yield create_sse_message("start_tool_calling", {"tool_name": t.function.name, "id": t.id})
+                    yield create_sse_message(
+                        "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
+                    )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
@@ -701,6 +710,5 @@ class IssueInvestigator(ToolCallingLLM):
                     yield create_sse_message("tool_calling_result", tool_call_dict)
 
 
-
-def create_sse_message(event_type: str, data: dict):
+def create_sse_message(event_type: str, data: dict = {}):
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
