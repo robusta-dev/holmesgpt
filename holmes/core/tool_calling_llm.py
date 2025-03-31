@@ -676,10 +676,10 @@ class IssueInvestigator(ToolCallingLLM):
                     peek_chunk.get("event"), peek_chunk.get("data")
                 )
                 for chunk in it:
-                    chunk_j = from_json(
-                        chunk, allow_partial=True
-                    )  # Avoid streaming chunks from holmes. send them as they arrive.
-                    yield create_sse_message(chunk_j.get("event"), chunk_j.get("data"))
+                    chunk_j = from_json(chunk, allow_partial=True)
+                    data = chunk_j.get("data")
+                    data["instructions"] = runbooks or []
+                    yield create_sse_message(chunk_j.get("event"), data)
 
                 perf_timing.measure("llm.completion")
                 return
