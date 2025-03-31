@@ -150,21 +150,24 @@ def investigate_issues(investigate_request: InvestigateRequest):
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
     try:
-        ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-            investigation.get_investigation_context(req, dal, config=config)
-        )
-
         if ROBUSTA_AI:
+            ai, system_prompt, user_prompt, response_format, sections, runbooks = (
+                investigation.get_investigation_context(req, dal, config, False)
+            )
             return StreamingResponse(
                 ai.call_stream_robusta(system_prompt, user_prompt, None, runbooks),
                 media_type="text/event-stream",
             )
-        return StreamingResponse(
-            ai.call_stream(
-                system_prompt, user_prompt, response_format, sections, runbooks
-            ),
-            media_type="text/event-stream",
-        )
+        else:
+            ai, system_prompt, user_prompt, response_format, sections, runbooks = (
+                investigation.get_investigation_context(req, dal, config)
+            )
+            return StreamingResponse(
+                ai.call_stream(
+                    system_prompt, user_prompt, response_format, sections, runbooks
+                ),
+                media_type="text/event-stream",
+            )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:
