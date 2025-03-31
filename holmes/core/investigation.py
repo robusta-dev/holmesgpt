@@ -64,8 +64,10 @@ def investigate_issues(
 
 
 def get_investigation_context(
-    investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config,
-    request_structured_output_from_llm: bool = None
+    investigate_request: InvestigateRequest,
+    dal: SupabaseDal,
+    config: Config,
+    request_structured_output_from_llm: bool = None,
 ):
     load_robusta_api_key(dal=dal, config=config)
     ai = config.create_issue_investigator(dal=dal)
