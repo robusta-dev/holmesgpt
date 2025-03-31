@@ -76,8 +76,8 @@ def init_logging():
 
 
 init_logging()
-dal = SupabaseDal()
 config = Config.load_from_env()
+dal = SupabaseDal(config.cluster_name)
 
 
 @asynccontextmanager
