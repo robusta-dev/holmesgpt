@@ -80,6 +80,7 @@ def handle_issue_conversation(
             "investigation": conversation_request.context.investigation_result.result,
             "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
             "conversation_history": conversation_request.context.conversation_history,
+            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
         }
         system_prompt = load_and_render_prompt(template_path, template_context)
         return system_prompt
@@ -95,6 +96,7 @@ def handle_issue_conversation(
         "investigation": conversation_request.context.investigation_result.result,
         "tools_called_for_investigation": None,
         "conversation_history": conversation_history_without_tools,
+        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
     }
     system_prompt = load_and_render_prompt(template_path, template_context)
     messages_without_tools = [
@@ -138,6 +140,7 @@ def handle_issue_conversation(
         "investigation": conversation_request.context.investigation_result.result,
         "tools_called_for_investigation": truncated_investigation_result_tool_calls,
         "conversation_history": truncated_conversation_history,
+        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
     }
     system_prompt = load_and_render_prompt(template_path, template_context)
     return system_prompt
