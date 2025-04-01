@@ -35,7 +35,10 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 from litellm.types.utils import Message
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT
+from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.core.investigation_structured_output import (
+    parse_markdown_into_sections_from_hash_sign,
+)
 
 
 class ToolCallResult(BaseModel):
@@ -676,11 +679,36 @@ class IssueInvestigator(ToolCallingLLM):
                 yield create_sse_message(
                     peek_chunk.get("event"), peek_chunk.get("data")
                 )
+                buffer = peek_chunk.get("data", "")
+                chunk_counter = 0
+
                 for chunk in it:
-                    chunk_j = from_json(chunk, allow_partial=True)
-                    data = chunk_j.get("data")
-                    data["instructions"] = runbooks or []
-                    yield create_sse_message(chunk_j.get("event"), data)
+                    chunk_counter += 1
+                    buffer += chunk
+
+                    if chunk_counter == STREAM_CHUNKS_PER_PARSE:
+                        chunk_counter = 0
+                        yield create_sse_message(
+                            "ai_answer",
+                            {
+                                "sections": parse_markdown_into_sections_from_hash_sign(
+                                    buffer
+                                )
+                                or {},
+                                "analysis": buffer,
+                                "instructions": runbooks or [],
+                            },
+                        )
+
+                yield create_sse_message(
+                    "ai_answer",
+                    {
+                        "sections": parse_markdown_into_sections_from_hash_sign(buffer)
+                        or {},
+                        "analysis": buffer,
+                        "instructions": runbooks or [],
+                    },
+                )
 
                 perf_timing.measure("llm.completion")
                 return
