@@ -494,7 +494,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
     def __init__(self, toolset: "PrometheusToolset"):
         super().__init__(
             name="execute_prometheus_range_query",
-            description="Execute a PromQL range query",
+            description="Generates a graph and Execute a PromQL range query",
             parameters={
                 "query": ToolParameter(
                     description="The PromQL query",
@@ -521,6 +521,11 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     type="number",
                     required=True,
                 ),
+                "output_type": ToolParameter(
+                    description="The output type is case-sensitive and must be one of the following: Plain, Bytes, Percentage, or CPUUsage.",
+                    type="string",
+                    required=True,
+                ),
             },
             toolset=toolset,
         )
@@ -538,7 +543,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             )
             step = params.get("step", "")
             description = params.get("description", "")
-
+            output_type = params.get("output_type", "Plain")
             payload = {
                 "query": query,
                 "start": start,
@@ -569,6 +574,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     "start": start,
                     "end": end,
                     "step": step,
+                    "output_type": output_type,
                 }
 
                 if self.toolset.config.tool_calls_return_data:
