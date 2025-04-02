@@ -3,7 +3,7 @@ stdout:
 Name:               argocd/demo-app
 Project:            default
 Server:             https://kubernetes.default.svc
-Namespace:          
+Namespace:
 URL:                https://127.0.0.1:40241/applications/demo-app
 Source:
 - Repo:             https://github.com/Arkhaios-AB/devops-demo
