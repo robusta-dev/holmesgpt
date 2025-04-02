@@ -628,13 +628,10 @@ class PrometheusToolset(Toolset):
         self._reload_llm_instructions()
 
     def _reload_llm_instructions(self):
-        self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "prometheus_instructions.jinja2"
-                )
-            )
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "prometheus_instructions.jinja2")
         )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
