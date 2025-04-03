@@ -272,8 +272,7 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
             docs_url="https://grafana.com/oss/tempo/",
             tools=[GetTempoTraces(self), GetTempoTraceById(self), GetTempoTags(self)],
         )
-        self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "toolset_grafana_tempo.jinja2")
-            )
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "toolset_grafana_tempo.jinja2")
         )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
