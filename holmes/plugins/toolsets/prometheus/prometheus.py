@@ -35,6 +35,7 @@ PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 class PrometheusConfig(BaseModel):
     # URL is optional because it can be set with an env var
     prometheus_url: Union[str, None]
+    healthcheck: str = "-/healthy"
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
     # Setting to None will disable the cache
@@ -664,7 +665,7 @@ class PrometheusToolset(Toolset):
                 f"Toolset {self.name} failed to initialize because prometheus is not configured correctly",
             )
 
-        url = urljoin(self.config.prometheus_url, "-/healthy")
+        url = urljoin(self.config.prometheus_url, self.config.healthcheck)
         try:
             response = requests.get(
                 url=url, headers=self.config.headers, timeout=10, verify=True
