@@ -461,7 +461,7 @@ class ToolCallingLLM:
                 )
 
                 yield create_sse_message(
-                    "ai_answer",
+                    "ai_answer_end",
                     {
                         "sections": sections or {},
                         "analysis": text_response,
@@ -701,7 +701,7 @@ class IssueInvestigator(ToolCallingLLM):
                         )
 
                 yield create_sse_message(
-                    "ai_answer",
+                    "ai_answer_end",
                     {
                         "sections": parse_markdown_into_sections_from_hash_sign(buffer)
                         or {},
