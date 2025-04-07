@@ -342,7 +342,10 @@ def build_issue_chat_messages(
 
     return conversation_history
 
-def add_or_update_system_prompt(conversation_history: List[Dict[str, str]], ai: ToolCallingLLM):
+
+def add_or_update_system_prompt(
+    conversation_history: List[Dict[str, str]], ai: ToolCallingLLM
+):
     """Either add the system prompt or replace an existing system prompt.
     As a 'defensive' measure, this code will only replace an existing system prompt if it is the
     first message in the conversation history.
@@ -359,11 +362,19 @@ def add_or_update_system_prompt(conversation_history: List[Dict[str, str]], ai: 
     elif conversation_history[0]["role"] == "system":
         conversation_history[0]["content"] = system_prompt
     else:
-        existing_system_prompt = next((message for message in conversation_history if message.get("role") == "system"), None)
+        existing_system_prompt = next(
+            (
+                message
+                for message in conversation_history
+                if message.get("role") == "system"
+            ),
+            None,
+        )
         if not existing_system_prompt:
             conversation_history.insert(0, {"role": "system", "content": system_prompt})
 
     return conversation_history
+
 
 def build_chat_messages(
     ask: str,
@@ -422,7 +433,9 @@ def build_chat_messages(
     if not conversation_history:
         conversation_history = []
 
-    conversation_history = add_or_update_system_prompt(conversation_history=conversation_history, ai=ai)
+    conversation_history = add_or_update_system_prompt(
+        conversation_history=conversation_history, ai=ai
+    )
 
     ask = add_global_instructions_to_user_prompt(ask, global_instructions)
 
