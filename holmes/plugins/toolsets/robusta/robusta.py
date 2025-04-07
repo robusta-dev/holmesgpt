@@ -1,7 +1,9 @@
+import os
+
 import yaml
 import logging
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StaticPrerequisite,
@@ -12,6 +14,10 @@ from holmes.core.tools import (
 )
 
 PARAM_FINDING_ID = "id"
+START_TIME = "start_datetime"
+END_TIME = "end_datetime"
+NAMESPACE = "namespace"
+WORKLOAD = "workload"
 
 
 class FetchRobustaFinding(Tool):
@@ -59,6 +65,52 @@ class FetchRobustaFinding(Tool):
         return "Fetch metadata and history"
 
 
+class FetchConfigurationChanges(Tool):
+    _dal: Optional[SupabaseDal]
+
+    def __init__(self, dal: Optional[SupabaseDal]):
+        super().__init__(
+            name="fetch_configuration_changes",
+            description="Fetch configuration changes in a given time range. By default, fetch all cluster changes. Can be filtered on a given namespace or a specific workload",
+            parameters={
+                START_TIME: ToolParameter(
+                    description="The starting time boundary for the search period. String in RFC3339 format.",
+                    type="string",
+                    required=True,
+                ),
+                END_TIME: ToolParameter(
+                    description="The starting time boundary for the search period. String in RFC3339 format.",
+                    type="string",
+                    required=True,
+                ),
+            },
+        )
+        self._dal = dal
+
+    def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:
+        if self._dal and self._dal.enabled:
+            return self._dal.get_configuration_changes(
+                start_datetime=params["start_datetime"],
+                end_datetime=params["end_datetime"],
+            )
+        return None
+
+    def _invoke(self, params: Dict) -> str:
+        try:
+            changes = self._fetch_change_history(params)
+            if changes:
+                return yaml.dump(changes)
+            else:
+                return f"Could not find changes for {params}"
+        except Exception as e:
+            msg = f"There was an internal error while fetching changes for {params}. {str(e)}"
+            logging.exception(msg)
+            return msg
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Fetch change history ({str(params)})"
+
+
 class RobustaToolset(Toolset):
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
@@ -76,12 +128,19 @@ class RobustaToolset(Toolset):
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html",
             name="robusta",
             prerequisites=[dal_prereq],
-            tools=[FetchRobustaFinding(dal)],
+            tools=[
+                FetchRobustaFinding(dal),
+                FetchConfigurationChanges(dal),
+            ],
             tags=[
                 ToolsetTag.CORE,
             ],
             is_default=True,
         )
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "robusta_instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

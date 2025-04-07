@@ -22,6 +22,8 @@ from requests import RequestException
 from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.utils import (
+    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+    STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
@@ -40,9 +42,10 @@ class PrometheusConfig(BaseModel):
     metrics_labels_cache_duration_hrs: Union[int, None] = 12
     fetch_labels_with_labels_api: bool = False
     fetch_metadata_with_series_api: bool = False
-    tool_calls_return_data: bool = False
+    tool_calls_return_data: bool = True
     headers: Dict = {}
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
+    additional_labels: Optional[Dict[str, str]] = None
 
 
 class BasePrometheusTool(Tool):
@@ -505,12 +508,12 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description="Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to negative one hour (-3600)",
+                    description=STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
@@ -623,13 +626,13 @@ class PrometheusToolset(Toolset):
                 ToolsetTag.CORE,
             ],
         )
-        self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "prometheus_instructions.jinja2"
-                )
-            )
+        self._reload_llm_instructions()
+
+    def _reload_llm_instructions(self):
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "prometheus_instructions.jinja2")
         )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
@@ -644,10 +647,11 @@ class PrometheusToolset(Toolset):
                     os.environ.get("PROMETHEUS_AUTH_HEADER", None)
                 ),
             )
-
+            self._reload_llm_instructions()
             return True, ""
         else:
             self.config = PrometheusConfig(**config)
+            self._reload_llm_instructions()
             return self._is_healthy()
 
     def _is_healthy(self) -> Tuple[bool, str]:

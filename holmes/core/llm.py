@@ -162,7 +162,17 @@ class DefaultLLM(LLM):
 
     @sentry_sdk.trace
     def count_tokens_for_message(self, messages: list[dict]) -> int:
-        return litellm.token_counter(model=self.model, messages=messages)
+        total_token_count = 0
+        for message in messages:
+            if "token_count" in message and message["token_count"]:
+                total_token_count += message["token_count"]
+            else:
+                token_count = litellm.token_counter(
+                    model=self.model, messages=[message]
+                )
+                message["token_count"] = token_count
+                total_token_count += token_count
+        return total_token_count
 
     def completion(
         self,
@@ -182,6 +192,7 @@ class DefaultLLM(LLM):
         thinking = None
         if THINKING:  # if model requires 'thinking', load it from env vars
             thinking = json.loads(THINKING)
+            litellm.modify_params = True
 
         result = litellm.completion(
             model=self.model,

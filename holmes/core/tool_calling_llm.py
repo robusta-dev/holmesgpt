@@ -45,6 +45,7 @@ class ToolCallResult(BaseModel):
     def as_dict(self):
         return {
             "tool_call_id": self.tool_call_id,
+            "description": self.description,
             "role": "tool",
             "name": self.tool_name,
             "content": self.result,
@@ -234,6 +235,7 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 futures = []
                 for t in tools_to_call:
+                    logging.debug(f"Tool to call: {t}")
                     futures.append(executor.submit(self._invoke_tool, t))
 
                 for future in concurrent.futures.as_completed(futures):
@@ -362,8 +364,10 @@ class ToolCallingLLM:
         )
 
         for message in messages:
-            if message["role"] == "tool":
+            if message["role"] == "tool" and len(message["content"]) > tool_size:
                 message["content"] = message["content"][:tool_size]
+                if "token_count" in message:
+                    del message["token_count"]
         return messages
 
     def call_stream(
@@ -371,6 +375,7 @@ class ToolCallingLLM:
         system_prompt: str,
         user_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        sections: Optional[InputSectionsDataType] = None,
         runbooks: List[str] = None,
     ):
         messages = [
@@ -378,7 +383,6 @@ class ToolCallingLLM:
             {"role": "user", "content": user_prompt},
         ]
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls: List[ToolCallResult] = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
@@ -409,7 +413,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=0.00000001,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     stream=False,
                     drop_params=True,
@@ -421,35 +425,43 @@ class ToolCallingLLM:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
-                    yield json.dumps(
-                        {
-                            "type": "error",
-                            "details": {
-                                "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
-                            },
-                        }
+                    raise Exception(
+                        "The Azure model you chose is not supported. Model version 1106 and higher required."
                     )
-                    return
-                raise
             except Exception:
                 raise
 
             response_message = full_response.choices[0].message
+            if response_message and response_format:
+                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                dict_response = json.loads(full_response.to_json())
+                incorrect_tool_call = is_response_an_incorrect_tool_call(
+                    sections, dict_response.get("choices", [{}])[0]
+                )
+
+                if incorrect_tool_call:
+                    logging.warning(
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                    )
+                    # disable structured output going forward and and retry
+                    response_format = None
+                    i -= 1
+                    continue
+
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                (text_response, _) = process_response_into_sections(
+                (text_response, sections) = process_response_into_sections(
                     response_message.content
                 )
-                yield json.dumps(
-                    {"type": "ai_answer", "details": {"answer": text_response}}
+
+                yield create_sse_message(
+                    "ai_answer",
+                    {
+                        "sections": sections or {},
+                        "analysis": text_response,
+                        "instructions": runbooks or [],
+                    },
                 )
-                if runbooks:
-                    yield json.dumps(
-                        {
-                            "type": "instructions",
-                            "details": {"instructions": json.dumps(runbooks)},
-                        }
-                    )
                 return
 
             messages.append(
@@ -463,22 +475,16 @@ class ToolCallingLLM:
                 futures = []
                 for t in tools_to_call:
                     futures.append(executor.submit(self._invoke_tool, t))
-                    yield json.dumps(
-                        {
-                            "type": "start_tool_calling",
-                            "details": {"tool_name": t.function.name, "id": t.id},
-                        }
+                    yield create_sse_message(
+                        "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result)
                     tool_call_dict = tool_call_result.as_dict()
                     messages.append(tool_call_dict)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield json.dumps(
-                        {"type": "tool_calling_result", "details": tool_call_dict}
-                    )
+                    yield create_sse_message("tool_calling_result", tool_call_dict)
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
@@ -594,3 +600,7 @@ class IssueInvestigator(ToolCallingLLM):
         )
         res.instructions = runbooks
         return res
+
+
+def create_sse_message(event_type: str, data: dict = {}):
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"

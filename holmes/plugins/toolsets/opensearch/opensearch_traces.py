@@ -166,13 +166,12 @@ class OpenSearchTracesToolset(Toolset):
                 ToolsetTag.CORE,
             ],
         )
-        self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "opensearch_traces_instructions.jinja2"
-                )
+        template_file_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__), "opensearch_traces_instructions.jinja2"
             )
         )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("OPENSEARCH_TRACES_URL", None):

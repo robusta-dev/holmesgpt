@@ -9,6 +9,15 @@
 ** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
 ** If there are too many logs, or not enough, narrow or widen the timestamps
 * If you are not provided with time information. Ignore start_timestamp and end_timestamp. Loki will default to the latest logs.
+{%- elif enabled_toolsets | selectattr("name", "equalto", "coralogix/logs") | list -%}
+* For any logs, including for investigating kubernetes problems, use Coralogix
+* Use the tool fetch_coralogix_logs to get the logs of any kubernetes pod or node
+* Prefer fetching coralogix logs and avoid using kubectl logs commands
+* Before fetching logs through coralogix, use `kubectl` commands to get the correct kubernetes namespace and kubernetes pod name
+* If you have an issue id or finding id, use `fetch_finding_by_id` as it contains time information about the issue (`starts_at`, `updated_at` and `ends_at`).
+** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
+** If there are too many logs, or not enough, narrow or widen the timestamps
+* If no logs are found, retry with increasing the start/end time range by one hour.
 {%- elif enabled_toolsets | selectattr("name", "equalto", "kubernetes/logs") | list -%}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream

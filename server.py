@@ -75,8 +75,8 @@ def init_logging():
 
 
 init_logging()
-dal = SupabaseDal()
 config = Config.load_from_env()
+dal = SupabaseDal(config.cluster_name)
 
 
 @asynccontextmanager
@@ -148,13 +148,15 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
-    ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-        investigation.get_investigation_context(req, dal, config=config)
-    )
-
     try:
+        ai, system_prompt, user_prompt, response_format, sections, runbooks = (
+            investigation.get_investigation_context(req, dal, config=config)
+        )
+
         return StreamingResponse(
-            ai.call_stream(system_prompt, user_prompt, response_format, runbooks),
+            ai.call_stream(
+                system_prompt, user_prompt, response_format, sections, runbooks
+            ),
             media_type="text/event-stream",
         )
     except AuthenticationError as e:
