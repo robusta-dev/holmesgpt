@@ -137,11 +137,10 @@ class RobustaToolset(Toolset):
             ],
             is_default=True,
         )
-        self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "robusta_instructions.jinja2")
-            )
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "robusta_instructions.jinja2")
         )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

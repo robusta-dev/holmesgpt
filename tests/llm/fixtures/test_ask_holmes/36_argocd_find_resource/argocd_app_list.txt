@@ -1,0 +1,6 @@
+{"toolset_name":"argocd/core","tool_name":"argocd_app_list","match_params":{}}
+stdout:
+NAME             CLUSTER                         NAMESPACE  PROJECT  STATUS     HEALTH   SYNCPOLICY  CONDITIONS  REPO                                        PATH  TARGET
+argocd/demo-app  https://kubernetes.default.svc             default  OutOfSync  Missing  Manual      <none>      https://github.com/Arkhaios-AB/devops-demo  .     HEAD
+
+stderr:
