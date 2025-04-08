@@ -27,6 +27,7 @@ ToolsetPattern = Union[Literal["*"], List[str]]
 
 
 class StructuredToolResult(BaseModel):
+    schema_version: str = "robusta:v1.0.0"
     status: Union[Literal["success"], Literal["no_data"], Literal["error"]]
     error: Optional[str] = None
     data: Optional[Any] = None
