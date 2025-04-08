@@ -305,6 +305,7 @@ def chat(chat_request: ChatRequest):
         )
 
         llm_call = ai.messages_call(messages=messages)
+
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,

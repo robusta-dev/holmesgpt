@@ -90,15 +90,15 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def invoke(self, params: Dict) -> Tuple[str, Optional[str]]:
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
         return self._invoke(params)
 
     @abstractmethod
-    def _invoke(self, params: Dict) -> str:
-        return ""
+    def _invoke(self, params: Dict) -> Tuple[str, Optional[str]]:
+        return "", None
 
     @abstractmethod
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -142,20 +142,22 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> Tuple[str, Optional[str]]:
         if self.command is not None:
-            raw_output = self.__invoke_command(params)
+            raw_output, error_message = self.__invoke_command(params)
         else:
-            raw_output = self.__invoke_script(params)
+            raw_output, error_message = self.__invoke_script(params)
 
-        if self.additional_instructions:
+        if self.additional_instructions and not error_message:
             logging.info(
                 f"Applying additional instructions: {self.additional_instructions}"
             )
-            return self.__apply_additional_instructions(raw_output)
-        return raw_output
+            return self.__apply_additional_instructions(raw_output), error_message
+        return raw_output, error_message
 
-    def __apply_additional_instructions(self, raw_output: str) -> str:
+    def __apply_additional_instructions(
+        self, raw_output: str
+    ) -> Tuple[str, Optional[str]]:
         try:
             result = subprocess.run(
                 self.additional_instructions,
@@ -198,7 +200,8 @@ class YAMLTool(Tool, BaseModel):
         finally:
             subprocess.run(["rm", temp_script_path])
 
-    def __execute_subprocess(self, cmd) -> str:
+    def __execute_subprocess(self, cmd) -> Tuple[str, Optional[str]]:
+        error_message = None
         try:
             logging.debug(f"Running `{cmd}`")
             result = subprocess.run(
@@ -209,9 +212,12 @@ class YAMLTool(Tool, BaseModel):
                 check=True,
                 stdin=subprocess.DEVNULL,
             )
-            return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+            output = result.stdout + result.stderr
         except subprocess.CalledProcessError as e:
-            return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+            error_message = f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+            output = e.stdout
+
+        return output, error_message
 
 
 class StaticPrerequisite(BaseModel):

@@ -61,7 +61,7 @@ class SaveMockTool(Tool):
         ).model_dump_json()
 
         logging.info(f"Invoking tool {self.unmocked_tool}")
-        output = self.unmocked_tool.invoke(params)
+        output, error_message = self.unmocked_tool.invoke(params)
         output = strip_ansi(output)
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata_json + "\n")
