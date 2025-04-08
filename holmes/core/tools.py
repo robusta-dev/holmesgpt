@@ -370,16 +370,21 @@ class Toolset(BaseModel):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
-    def _load_llm_instructions(self, jinja_template_file_path: str):
+    def _load_llm_instructions(self, jinja_template: str):
         tool_names = [t.name for t in self.tools]
         self.llm_instructions = load_and_render_prompt(
-            prompt=f"file://{jinja_template_file_path}",
+            prompt=jinja_template,
             context={"tool_names": tool_names, "config": self.config},
         )
 
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.llm_instructions:
+            self._load_llm_instructions(self.llm_instructions)
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

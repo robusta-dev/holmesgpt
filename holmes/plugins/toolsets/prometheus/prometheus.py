@@ -35,6 +35,7 @@ PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 class PrometheusConfig(BaseModel):
     # URL is optional because it can be set with an env var
     prometheus_url: Union[str, None]
+    healthcheck: str = "-/healthy"
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
     # Setting to None will disable the cache
@@ -628,13 +629,10 @@ class PrometheusToolset(Toolset):
         self._reload_llm_instructions()
 
     def _reload_llm_instructions(self):
-        self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "prometheus_instructions.jinja2"
-                )
-            )
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "prometheus_instructions.jinja2")
         )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
@@ -667,7 +665,7 @@ class PrometheusToolset(Toolset):
                 f"Toolset {self.name} failed to initialize because prometheus is not configured correctly",
             )
 
-        url = urljoin(self.config.prometheus_url, "-/healthy")
+        url = urljoin(self.config.prometheus_url, self.config.healthcheck)
         try:
             response = requests.get(
                 url=url, headers=self.config.headers, timeout=10, verify=True
