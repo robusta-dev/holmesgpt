@@ -152,10 +152,14 @@ def stream_investigate_issues(req: InvestigateRequest):
     try:
         is_structured_output = not ROBUSTA_AI
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-            investigation.get_investigation_context(req, dal, config, is_structured_output)
+            investigation.get_investigation_context(
+                req, dal, config, is_structured_output
+            )
         )
         return StreamingResponse(
-            ai.call_stream(system_prompt, user_prompt, ROBUSTA_AI, response_format, runbooks),
+            ai.call_stream(
+                system_prompt, user_prompt, ROBUSTA_AI, response_format, runbooks
+            ),
             media_type="text/event-stream",
         )
 
