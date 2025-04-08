@@ -41,6 +41,7 @@ class ToolCallResult(BaseModel):
     description: str
     result: str
     size: Optional[int] = None
+    error_message: Optional[str] = None
 
     def as_dict(self):
         return {
@@ -49,6 +50,7 @@ class ToolCallResult(BaseModel):
             "role": "tool",
             "name": self.tool_name,
             "content": self.result,
+            "error_message": self.error_message,
         }
 
 
@@ -241,16 +243,21 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
                     tool_calls.append(tool_call_result)
+
+                    tool_response = tool_call_result.result
+                    if tool_call_result.error_message:
+                        tool_response = f"Tool execution failed with error: {tool_call_result.error_message}\n\nOutput:\n{tool_response}"
                     messages.append(
                         {
                             "tool_call_id": tool_call_result.tool_call_id,
                             "role": "tool",
                             "name": tool_call_result.tool_name,
-                            "content": tool_call_result.result,
+                            "content": tool_response,
                         }
                     )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
+    #####
     def _invoke_tool(
         self, tool_to_call: ChatCompletionMessageToolCall
     ) -> ToolCallResult:
@@ -278,18 +285,20 @@ class ToolCallingLLM:
 
         tool_response = None
         try:
-            tool_response = tool.invoke(tool_params)
-        except Exception as e:
+            tool_response, error_message = tool.invoke(tool_params)
+        except Exception:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
             )
-            tool_response = f"Tool call failed: {e}"
+            tool_response = f"Tool call failed: {error_message}"
+            error_message = tool_response
 
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
             description=tool.get_parameterized_one_liner(tool_params),
             result=tool_response,
+            error_message=error_message,
         )
 
     @staticmethod
@@ -481,8 +490,20 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
+                    tool_response = tool_call_result.result
+
+                    if tool_call_result.error_message:
+                        tool_response = f"Tool execution failed with error: {tool_call_result.error_message}\n\nOutput:\n{tool_response}"
+
                     tool_call_dict = tool_call_result.as_dict()
-                    messages.append(tool_call_dict)
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_response,
+                        }
+                    )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
                     yield create_sse_message("tool_calling_result", tool_call_dict)
 
