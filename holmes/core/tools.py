@@ -90,7 +90,7 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def invoke(self, params: Dict) -> Tuple[str, Optional[str]]:
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
@@ -98,7 +98,7 @@ class Tool(ABC, BaseModel):
 
     @abstractmethod
     def _invoke(self, params: Dict) -> Tuple[str, Optional[str]]:
-        return ""
+        return "", None
 
     @abstractmethod
     def get_parameterized_one_liner(self, params: Dict) -> str:
