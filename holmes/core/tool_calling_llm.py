@@ -257,7 +257,6 @@ class ToolCallingLLM:
                     )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-    #####
     def _invoke_tool(
         self, tool_to_call: ChatCompletionMessageToolCall
     ) -> ToolCallResult:
