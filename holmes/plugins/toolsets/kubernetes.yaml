@@ -20,11 +20,11 @@ toolsets:
 
       - name: "kubectl_get_by_name"
         description: "Run `kubectl get <kind> <name> --show-labels`"
-        command: "kubectl get --show-labels -o wideget nonexistentresource {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
+        command: "kubectl get --show-labels -o {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_get_by_kind_in_namespace"
         description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace"
-        command: "kubectl hi --show-labels -o wide {{ kind }} -n {{namespace}}"
+        command: "kubectl --show-labels -o wide {{ kind }} -n {{namespace}}"
 
       - name: "kubectl_get_by_kind_in_cluster"
         description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
@@ -36,7 +36,7 @@ toolsets:
 
       - name: "kubectl_get_yaml"
         description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
-        command: "kubectl get -o yaml getnonexistentresource{{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+        command: "kubectl get -o yaml {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_events"
         description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment, 'job'', 'node', etc."
