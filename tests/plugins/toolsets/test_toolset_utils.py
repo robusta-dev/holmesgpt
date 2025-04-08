@@ -96,7 +96,9 @@ class TestProcessTimestamps:
         self, start_timestamp, end_timestamp, expected_start, expected_end
     ):
         result_start, result_end = process_timestamps_to_rfc3339(
-            start_timestamp, end_timestamp
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+            default_time_span_seconds=3600,
         )
 
         # For time-dependent tests, we allow a small tolerance

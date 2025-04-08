@@ -18,6 +18,8 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     query_loki_logs_by_label,
 )
 
+DEFAULT_TIME_SPAN_SECONDS = 3600
+
 
 class GrafanaLokiLabelsConfig(BaseModel):
     pod: str = "pod"
@@ -95,7 +97,9 @@ class GetLokiLogs(Tool):
 
     def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps_to_rfc3339(
-            params.get("start_timestamp"), params.get("end_timestamp")
+            start_timestamp=params.get("start_timestamp"),
+            end_timestamp=params.get("end_timestamp"),
+            default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
         query = get_param_or_raise(params, "query")
         logs = execute_loki_query(
@@ -160,7 +164,9 @@ class GetLokiLogsForResource(Tool):
 
     def _invoke(self, params: Dict) -> str:
         (start, end) = process_timestamps_to_rfc3339(
-            params.get("start_timestamp"), params.get("end_timestamp")
+            start_timestamp=params.get("start_timestamp"),
+            end_timestamp=params.get("end_timestamp"),
+            default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
         label = get_resource_label(params, self._toolset.grafana_config)
         resource_name = get_param_or_raise(params, "resource_name")
