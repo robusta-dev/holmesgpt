@@ -69,7 +69,7 @@ def get_matching_toolsets(
 def format_tool_output(tool_result: Union[str, StructuredToolResult]) -> str:
     if isinstance(tool_result, StructuredToolResult):
         if tool_result.data and isinstance(tool_result.data, str):
-            # SDisplay logs and other string outputs in a way that is readable to humans.
+            # Display logs and other string outputs in a way that is readable to humans.
             # To do this, we extract them from the result and print them as-is below.
             # The metadata is printed on a single line to
             data = tool_result.data
