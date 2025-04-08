@@ -355,7 +355,7 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 (enabled, error_message) = prereq.callable(self.config)
-                if error_message:
+                if not enabled and error_message:
                     logging.warning(
                         f"Failed to enable tool {self.name}: {error_message}"
                     )
