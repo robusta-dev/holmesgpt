@@ -337,12 +337,6 @@ def chat(chat_request: ChatRequest):
                     prompt="List the relevant runbooks and links used. Write a short summary for each",
                     pre_action_notification_text="Looking up and summarizing runbooks and links...",
                 ),
-                FollowUpAction(
-                    id="incidents",
-                    action_label="Incidents",
-                    prompt="List the related incidents",
-                    pre_action_notification_text="Searching for related incidents...",
-                ),
             ]
 
         llm_call = ai.messages_call(messages=messages)
