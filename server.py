@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import os
+from typing import List
 
 import sentry_sdk
 from holmes.utils.cert_utils import add_custom_certificate
@@ -42,6 +43,7 @@ from holmes.core.conversations import (
     build_workload_health_chat_messages,
 )
 from holmes.core.models import (
+    FollowUpAction,
     InvestigationResult,
     ConversationRequest,
     InvestigateRequest,
@@ -294,6 +296,13 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def already_answered(conversation_history: List[dict]) -> bool:
+    for message in conversation_history:
+        if message["role"] == "assistant":
+            return True
+    return False
+
+
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
@@ -307,12 +316,35 @@ def chat(chat_request: ChatRequest):
             ai=ai,
             global_instructions=global_instructions,
         )
+        follow_up_actions = []
+        if not already_answered(chat_request.conversation_history):
+            follow_up_actions = [
+                FollowUpAction(
+                    id="logs",
+                    action_label="Logs",
+                    prompt="Show me the relevant logs",
+                    pre_action_notification_text="Fetching relevant logs...",
+                ),
+                FollowUpAction(
+                    id="graphs",
+                    action_label="Graphs",
+                    prompt="Show me the relevant graphs. Use prometheus and make sure you embed the results with `<< >>` to display a graph",
+                    pre_action_notification_text="Drawing some graphs...",
+                ),
+                FollowUpAction(
+                    id="articles",
+                    action_label="Articles",
+                    prompt="List the relevant runbooks and links used. Write a short summary for each",
+                    pre_action_notification_text="Looking up and summarizing runbooks and links...",
+                ),
+            ]
 
         llm_call = ai.messages_call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
             conversation_history=llm_call.messages,
+            follow_up_actions=follow_up_actions,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
