@@ -25,10 +25,13 @@ from holmes.plugins.prompts import load_and_render_prompt
 
 ToolsetPattern = Union[Literal["*"], List[str]]
 
+class ToolResultStatus(str, Enum):
+  SUCCESS = "success"
+  ERROR = "error"
 
 class StructuredToolResult(BaseModel):
     schema_version: str = "robusta:v1.0.0"
-    status: Union[Literal["success"], Literal["no_data"], Literal["error"]]
+    status: ToolResultStatus
     error: Optional[str] = None
     data: Optional[Any] = None
     url: Optional[str] = None

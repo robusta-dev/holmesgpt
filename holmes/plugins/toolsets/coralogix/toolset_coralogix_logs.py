@@ -3,6 +3,7 @@ from typing import Any, Optional, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
+    ToolResultStatus,
     Tool,
     ToolParameter,
     Toolset,
@@ -103,7 +104,7 @@ class FetchLogs(BaseCoralogixTool):
     def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config:
             return StructuredToolResult(
-                status="success",
+                status=ToolResultStatus.ERROR,
                 error="The coralogix/logs toolset is not configured",
                 data=None,
                 params=params,
@@ -142,7 +143,7 @@ class FetchLogs(BaseCoralogixTool):
                 add_pod_tag=add_pod_tag,
             )
             return StructuredToolResult(
-                status="success" if logs else "no_data",
+                status=ToolResultStatus.SUCCESS if logs else ToolResultStatus.ERROR,
                 error=None if logs else "The query returned no logs",
                 data=logs,
                 query=query_string,
@@ -157,7 +158,7 @@ class FetchLogs(BaseCoralogixTool):
         except Exception:
             logging.error(f"Failed to decode JSON response: {response} {response.text}")
             return StructuredToolResult(
-                status="error",
+                status=ToolResultStatus.ERROR,
                 error="Failed to decode JSON response. Raw response set to data field.",
                 data=response.text,
                 params=params,
