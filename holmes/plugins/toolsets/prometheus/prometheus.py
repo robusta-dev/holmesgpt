@@ -23,18 +23,20 @@ from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.utils import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
-    STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
+    standard_start_datetime_tool_param_description,
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
 from holmes.utils.cache import TTLCache
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
+DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
 class PrometheusConfig(BaseModel):
     # URL is optional because it can be set with an env var
     prometheus_url: Union[str, None]
+    healthcheck: str = "-/healthy"
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
     # Setting to None will disable the cache
@@ -507,7 +509,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description=STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_TIME_SPAN_SECONDS
+                    ),
                     type="string",
                     required=False,
                 ),
@@ -534,7 +538,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
             query = get_param_or_raise(params, "query")
             (start, end) = process_timestamps_to_rfc3339(
-                params.get("start"), params.get("end")
+                start_timestamp=params.get("start"),
+                end_timestamp=params.get("end"),
+                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
             )
             step = params.get("step", "")
             description = params.get("description", "")
@@ -664,7 +670,7 @@ class PrometheusToolset(Toolset):
                 f"Toolset {self.name} failed to initialize because prometheus is not configured correctly",
             )
 
-        url = urljoin(self.config.prometheus_url, "-/healthy")
+        url = urljoin(self.config.prometheus_url, self.config.healthcheck)
         try:
             response = requests.get(
                 url=url, headers=self.config.headers, timeout=10, verify=True

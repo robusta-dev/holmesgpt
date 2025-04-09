@@ -5,90 +5,90 @@ from freezegun import freeze_time
 
 
 class TestProcessTimestamps:
-    @freeze_time("2020-09-14T13:50:40+00:00")
+    @freeze_time("2020-09-14T13:50:40Z")
     @pytest.mark.parametrize(
         "start_timestamp, end_timestamp, expected_start, expected_end",
         [
             (
                 None,
                 None,
-                "2020-09-14T12:50:40+00:00",
-                "2020-09-14T13:50:40+00:00",
+                "2020-09-14T12:50:40Z",
+                "2020-09-14T13:50:40Z",
             ),
             (
                 -7200,
                 0,  # alias for now()
-                "2020-09-14T11:50:40+00:00",
-                "2020-09-14T13:50:40+00:00",
+                "2020-09-14T11:50:40Z",
+                "2020-09-14T13:50:40Z",
             ),
             (
                 -7200,  # always relative to end
                 -1800,  # relative to now() when negative
-                "2020-09-14T11:20:40+00:00",
-                "2020-09-14T13:20:40+00:00",
+                "2020-09-14T11:20:40Z",
+                "2020-09-14T13:20:40Z",
             ),
             # Integer timestamps
             (
                 1600000000,
                 1600003600,
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
             ),
             # RFC3339 formatted timestamps
             (
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
             ),
             # Negative start integer as relative time to Unix
             (
                 -3600,
                 1600003600,
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
             ),
             # Negative start integer as relative time to RFC3339
             (
                 -300,
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T12:21:40+00:00",
-                "2020-09-13T12:26:40+00:00",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T12:21:40Z",
+                "2020-09-13T12:26:40Z",
             ),
             # Auto inversion, Negative end integer as relative time to RFC3339
             (
-                "2020-09-13T12:26:40+00:00",
+                "2020-09-13T12:26:40Z",
                 -300,
-                "2020-09-13T12:21:40+00:00",
-                "2020-09-13T12:26:40+00:00",
+                "2020-09-13T12:21:40Z",
+                "2020-09-13T12:26:40Z",
             ),
             # Auto-inversion if start is after end
             (
                 1600003600,
                 1600000000,
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
             ),
             # String integers
             (
                 "1600000000",
                 "1600003600",
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
             ),
             # Mixed format (RFC3339 + Unix)
             (
-                "2020-09-13T12:26:40+00:00",
+                "2020-09-13T12:26:40Z",
                 1600003600,
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
             ),
             # Mixed format (Unix + RFC3339)
             (
                 1600000000,
-                "2020-09-13T13:26:40+00:00",
-                "2020-09-13T12:26:40+00:00",
-                "2020-09-13T13:26:40+00:00",
+                "2020-09-13T13:26:40Z",
+                "2020-09-13T12:26:40Z",
+                "2020-09-13T13:26:40Z",
             ),
         ],
     )
@@ -96,7 +96,9 @@ class TestProcessTimestamps:
         self, start_timestamp, end_timestamp, expected_start, expected_end
     ):
         result_start, result_end = process_timestamps_to_rfc3339(
-            start_timestamp, end_timestamp
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+            default_time_span_seconds=3600,
         )
 
         # For time-dependent tests, we allow a small tolerance
