@@ -32,6 +32,7 @@ from holmes.common.env_vars import (
     SENTRY_DSN,
     ENABLE_TELEMETRY,
     SENTRY_TRACES_SAMPLE_RATE,
+    ROBUSTA_AI,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
@@ -151,16 +152,19 @@ def investigate_issues(investigate_request: InvestigateRequest):
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
     try:
+        is_structured_output = not ROBUSTA_AI
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-            investigation.get_investigation_context(req, dal, config=config)
+            investigation.get_investigation_context(
+                req, dal, config, is_structured_output
+            )
         )
-
         return StreamingResponse(
             ai.call_stream(
-                system_prompt, user_prompt, response_format, sections, runbooks
+                system_prompt, user_prompt, ROBUSTA_AI, response_format, runbooks
             ),
             media_type="text/event-stream",
         )
+
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:
