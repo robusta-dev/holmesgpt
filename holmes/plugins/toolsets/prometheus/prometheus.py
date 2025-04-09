@@ -523,7 +523,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=True,
                 ),
                 "output_type": ToolParameter(
-                    description="The output type is case-sensitive and must be one of the following: Plain, Bytes, Percentage, or CPUUsage.",
+                    description="Specifies how to interpret the Prometheus result. Use 'Plain' for raw values, 'Bytes' to format byte values, 'Percentage' to scale 0–1 values into 0–100%, or 'CPUUsage' to convert values to cores (e.g., 500 becomes 500m, 2000 becomes 2).",
                     type="string",
                     required=True,
                 ),
