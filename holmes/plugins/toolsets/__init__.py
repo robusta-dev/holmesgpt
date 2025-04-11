@@ -64,7 +64,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
         CoralogixLogsToolset(),
-        RabbitMQToolset()
+        RabbitMQToolset(),
     ]
 
     return toolsets

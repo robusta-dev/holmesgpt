@@ -1,6 +1,6 @@
 import kubernetes
-import os
 from kubernetes.client.rest import ApiException
+
 
 def find_rabbitmq_services():
     """
@@ -32,7 +32,7 @@ def find_rabbitmq_services():
                 print("Successfully loaded K8s config from kube_config.")
             except Exception as e:
                 print(f"Error loading K8s configuration: {e}")
-                return [] # Cannot proceed without config
+                return []  # Cannot proceed without config
 
         # Create an API client
         v1 = kubernetes.client.CoreV1Api()
@@ -46,7 +46,7 @@ def find_rabbitmq_services():
             metadata = svc.metadata
             spec = svc.spec
             ports = spec.ports
-            labels = metadata.labels or {} # Ensure labels is a dict even if None
+            labels = metadata.labels or {}  # Ensure labels is a dict even if None
 
             is_rabbitmq = False
 
@@ -54,36 +54,41 @@ def find_rabbitmq_services():
 
             # 1. Check common labels
             common_labels = {
-                'app': 'rabbitmq',
-                'app.kubernetes.io/name': 'rabbitmq',
-                'app.kubernetes.io/component': 'rabbitmq',
-                'component': 'rabbitmq',
-                'service': 'rabbitmq',
-                'name': 'rabbitmq',
-                'release': 'rabbitmq', # Often used by Helm charts
+                "app": "rabbitmq",
+                "app.kubernetes.io/name": "rabbitmq",
+                "app.kubernetes.io/component": "rabbitmq",
+                "component": "rabbitmq",
+                "service": "rabbitmq",
+                "name": "rabbitmq",
+                "release": "rabbitmq",  # Often used by Helm charts
             }
             for key, value in common_labels.items():
                 if labels.get(key) == value:
                     is_rabbitmq = True
-                    print(f"Found potential RabbitMQ service '{metadata.name}' in namespace '{metadata.namespace}' via label '{key}={value}'")
+                    print(
+                        f"Found potential RabbitMQ service '{metadata.name}' in namespace '{metadata.namespace}' via label '{key}={value}'"
+                    )
                     break
 
             # 2. Check service name (less reliable, but common)
-            if not is_rabbitmq and 'rabbitmq' in metadata.name.lower():
-                 is_rabbitmq = True
-                 print(f"Found potential RabbitMQ service '{metadata.name}' in namespace '{metadata.namespace}' via service name")
-
+            if not is_rabbitmq and "rabbitmq" in metadata.name.lower():
+                is_rabbitmq = True
+                print(
+                    f"Found potential RabbitMQ service '{metadata.name}' in namespace '{metadata.namespace}' via service name"
+                )
 
             # 3. Check for standard RabbitMQ ports (AMQP 5672, Management 15672)
             #    This is a strong indicator, especially if combined with labels/name
             if ports:
                 for port in ports:
                     # Check standard AMQP port number or name
-                    if port.port == 5672 or port.name == 'amqp':
-                         if not is_rabbitmq: # Only print if not already identified
-                              print(f"Found potential RabbitMQ service '{metadata.name}' in namespace '{metadata.namespace}' via port 5672/amqp")
-                         is_rabbitmq = True
-                         break # Found a key port, no need to check others for *identification*
+                    if port.port == 5672 or port.name == "amqp":
+                        if not is_rabbitmq:  # Only print if not already identified
+                            print(
+                                f"Found potential RabbitMQ service '{metadata.name}' in namespace '{metadata.namespace}' via port 5672/amqp"
+                            )
+                        is_rabbitmq = True
+                        break  # Found a key port, no need to check others for *identification*
                     # Optionally check management port
                     # if port.port == 15672 or port.name in ['http', 'management', 'prometheus']:
                     #    is_rabbitmq = True
@@ -95,18 +100,22 @@ def find_rabbitmq_services():
                 service_info = {
                     "name": metadata.name,
                     "namespace": metadata.namespace,
-                    "cluster_ip": spec.cluster_ip if spec.cluster_ip else "N/A (Headless or ExternalName)",
+                    "cluster_ip": spec.cluster_ip
+                    if spec.cluster_ip
+                    else "N/A (Headless or ExternalName)",
                     "ports": [],
-                    "labels": labels
+                    "labels": labels,
                 }
                 if ports:
                     for p in ports:
-                        service_info["ports"].append({
-                            "name": p.name if p.name else "N/A",
-                            "port": p.port,
-                            "protocol": p.protocol,
-                            "targetPort": p.target_port if p.target_port else "N/A"
-                        })
+                        service_info["ports"].append(
+                            {
+                                "name": p.name if p.name else "N/A",
+                                "port": p.port,
+                                "protocol": p.protocol,
+                                "targetPort": p.target_port if p.target_port else "N/A",
+                            }
+                        )
                 discovered_services.append(service_info)
 
     except ApiException as e:
@@ -115,5 +124,7 @@ def find_rabbitmq_services():
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
-    print(f"Finished discovery. Found {len(discovered_services)} potential RabbitMQ services.")
+    print(
+        f"Finished discovery. Found {len(discovered_services)} potential RabbitMQ services."
+    )
     return discovered_services
