@@ -1,0 +1,7 @@
+replicaCount: 3
+metrics:
+  enabled: True
+auth:
+  username: "user"
+  password: "JLaOP-s@*D1s08"
+  updatePassword: true

@@ -38,7 +38,7 @@ class StructuredToolResult(BaseModel):
     data: Optional[Any] = None
     url: Optional[str] = None
     query: Optional[str] = None
-    params: Dict
+    params: Optional[Dict] = None
 
 
 def sanitize(param):
