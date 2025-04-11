@@ -1,0 +1,62 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-partition-b-only
+  namespace: rabbitmq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+      partition: b # Selects rabbitmq-1 and rabbitmq-2
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from pods within the same partition (rabbitmq-1, rabbitmq-2)
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rabbitmq
+          partition: b
+    ports: # Allow standard RabbitMQ ports + Erlang dist
+    - protocol: TCP
+      port: 5672
+    - protocol: TCP
+      port: 15672
+    - protocol: TCP
+      port: 25672
+    - protocol: TCP
+      port: 4369
+  # Allow DNS traffic (essential)
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  egress:
+  # Allow to pods within the same partition (rabbitmq-1, rabbitmq-2)
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rabbitmq
+          partition: b
+    ports: # Allow standard RabbitMQ ports + Erlang dist
+    - protocol: TCP
+      port: 5672
+    - protocol: TCP
+      port: 15672
+    - protocol: TCP
+      port: 25672
+    - protocol: TCP
+      port: 4369
+  # Allow DNS traffic (essential)
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+         matchLabels:
+           k8s-app: kube-dns
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP

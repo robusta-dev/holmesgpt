@@ -1,0 +1,63 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-partition-a-only
+  namespace: rabbitmq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+      partition: a # Selects rabbitmq-0
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from pods within the same partition (itself in this case)
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rabbitmq
+          partition: a
+    ports: # Allow standard RabbitMQ ports + Erlang dist
+    - protocol: TCP
+      port: 5672  # AMQP
+    - protocol: TCP
+      port: 15672 # Management UI
+    - protocol: TCP
+      port: 25672 # Erlang Distribution (Clustering)
+    - protocol: TCP
+      port: 4369  # Erlang Port Mapper Daemon (epmd) - needed for node discovery/lookup
+  # Allow DNS traffic (essential)
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  egress:
+  # Allow to pods within the same partition (itself)
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rabbitmq
+          partition: a
+    ports: # Allow standard RabbitMQ ports + Erlang dist
+    - protocol: TCP
+      port: 5672
+    - protocol: TCP
+      port: 15672
+    - protocol: TCP
+      port: 25672
+    - protocol: TCP
+      port: 4369
+  # Allow DNS traffic (essential)
+  - to:
+    - namespaceSelector: {} # Allow to any namespace...
+      podSelector: # ...that has the k8s-app=kube-dns label
+        matchLabels:
+           k8s-app: kube-dns
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # --- Add any other essential egress/ingress if needed (e.g., metrics) ---

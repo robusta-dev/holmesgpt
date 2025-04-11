@@ -1,0 +1,21 @@
+expected_output:
+  - Split head due to network policy
+before_test: |
+  kubectl create namespace rabbitmq
+  helm install rabbitmq oci://registry-1.docker.io/bitnamicharts/rabbitmq -n rabbitmq -f ../rabbitmq.yaml
+  sleep 30
+  # Label the Pods for Easier Selection
+  kubectl label pod -n rabbitmq rabbitmq-0 partition=a --overwrite
+  kubectl label pod -n rabbitmq rabbitmq-1 partition=b --overwrite
+  kubectl label pod -n rabbitmq rabbitmq-2 partition=b --overwrite
+  sleep 30
+  # Label the Pods for Easier Selection
+  kubectl apply -f netpol-partition-a.yaml -n rabbitmq
+  kubectl apply -f netpol-partition-b.yaml -n rabbitmq
+after_test: |
+  kubectl delete networkpolicy -n rabbitmq allow-partition-a-only
+  kubectl delete networkpolicy -n rabbitmq allow-partition-b-only
+#  helm uninstall rabbitmq -n rabbitmq
+#  kubectl delete namespace rabbitmq
+evaluation:
+  correctness: 1
