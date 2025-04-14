@@ -269,7 +269,7 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
             name="grafana/tempo",
             description="Fetches kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
-            docs_url="https://grafana.com/oss/tempo/",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html",
             tools=[GetTempoTraces(self), GetTempoTraceById(self), GetTempoTags(self)],
         )
         template_file_path = os.path.abspath(

@@ -302,7 +302,7 @@ class GrafanaLokiToolset(BaseGrafanaLokiToolset):
             name="grafana/loki",
             description="Fetches kubernetes pods and node logs from Loki",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
-            docs_url="https://grafana.com/oss/loki/",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html",
             tools=[
                 GetLokiLogsForResource(self),
                 GetLokiLogs(self),
