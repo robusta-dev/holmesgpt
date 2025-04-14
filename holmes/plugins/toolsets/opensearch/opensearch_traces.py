@@ -21,6 +21,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     get_search_url,
     OpenSearchIndexConfig,
 )
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 TRACES_FIELDS_CACHE_KEY = "cached_traces_fields"
 
@@ -39,7 +40,7 @@ class GetTracesFields(BaseOpenSearchTracesTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
             if not self._cache:
                 self._cache = TTLCache(
@@ -49,7 +50,12 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             cached_response = self._cache.get(TRACES_FIELDS_CACHE_KEY, None)
             if cached_response:
                 logging.debug("traces fields returned from cache")
-                return cached_response
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=cached_response,
+                    return_code=0,
+                    params=params,
+                )
 
             body = {
                 "size": 1,
@@ -75,18 +81,38 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             logs_response.raise_for_status()
             response = json.dumps(logs_response.json())
             self._cache[TRACES_FIELDS_CACHE_KEY] = response
-            return response
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=response,
+                return_code=0,
+                params=params,
+            )
         except requests.Timeout:
             logging.warn(
                 "Timeout while fetching opensearch traces fields", exc_info=True
             )
-            return "Request timed out while fetching opensearch traces fields"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Request timed out while fetching opensearch traces fields",
+                return_code=-1,
+                params=params,
+            )
         except RequestException as e:
             logging.warn("Failed to fetch opensearch traces fields", exc_info=True)
-            return f"Network error while opensearch traces fields: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Network error while opensearch traces fields: {str(e)}",
+                return_code=-1,
+                params=params,
+            )
         except Exception as e:
             logging.warn("Failed to process opensearch traces fields", exc_info=True)
-            return f"Unexpected error: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error: {str(e)}",
+                return_code=-1,
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "list traces documents fields"
@@ -108,7 +134,7 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         err_msg = ""
         try:
             body = json.loads(params.get("query"))
@@ -131,20 +157,38 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
                 err_msg = logs_response.text
 
             logs_response.raise_for_status()
-            return json.dumps(logs_response.json())
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=json.dumps(logs_response.json()),
+                return_code=0,
+                params=params,
+            )
         except requests.Timeout:
             logging.warn(
                 "Timeout while fetching opensearch traces search", exc_info=True
             )
-            return (
-                f"Request timed out while fetching opensearch traces search {err_msg}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Request timed out while fetching opensearch traces search {err_msg}",
+                return_code=-1,
+                params=params,
             )
         except RequestException as e:
             logging.warn("Failed to fetch opensearch traces search", exc_info=True)
-            return f"Network error while opensearch traces search {err_msg} : {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Network error while opensearch traces search {err_msg} : {str(e)}",
+                return_code=-1,
+                params=params,
+            )
         except Exception as e:
             logging.warn("Failed to process opensearch traces search ", exc_info=True)
-            return f"Unexpected error {err_msg}: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error {err_msg}: {str(e)}",
+                return_code=-1,
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return f'search traces: query="{params.get("query")}"'

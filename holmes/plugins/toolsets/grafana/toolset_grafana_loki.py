@@ -17,6 +17,7 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
 )
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 DEFAULT_TIME_SPAN_SECONDS = 3600
 
@@ -95,7 +96,7 @@ class GetLokiLogs(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         (start, end) = process_timestamps_to_rfc3339(
             start_timestamp=params.get("start_timestamp"),
             end_timestamp=params.get("end_timestamp"),
@@ -111,7 +112,12 @@ class GetLokiLogs(Tool):
             end=end,
             limit=int(params.get("limit", 5000)),
         )
-        return "\n".join([format_log(log) for log in logs])
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data="\n".join([format_log(log) for log in logs]),
+            return_code=0,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Loki logs ({str(params)})"
@@ -162,7 +168,7 @@ class GetLokiLogsForResource(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         (start, end) = process_timestamps_to_rfc3339(
             start_timestamp=params.get("start_timestamp"),
             end_timestamp=params.get("end_timestamp"),
@@ -184,7 +190,12 @@ class GetLokiLogsForResource(Tool):
             end=end,
             limit=int(params.get("limit", 5000)),
         )
-        return "\n".join([format_log(log) for log in logs])
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data="\n".join([format_log(log) for log in logs]),
+            return_code=0,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Loki logs({str(params)})"

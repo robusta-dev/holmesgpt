@@ -35,6 +35,7 @@ class StructuredToolResult(BaseModel):
     schema_version: str = "robusta:v1.0.0"
     status: ToolResultStatus
     error: Optional[str] = None
+    return_code: Optional[int] = None
     data: Optional[Any] = None
     url: Optional[str] = None
     query: Optional[str] = None
@@ -122,16 +123,17 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def invoke(self, params: Dict) -> StructuredToolResult:
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
         result = self._invoke(params)
-        return format_tool_output(result)
+        # return format_tool_output(result)
+        return result
 
     @abstractmethod
-    def _invoke(self, params: Dict) -> Union[str, StructuredToolResult]:
-        return ""
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        pass
 
     @abstractmethod
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -175,18 +177,28 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         if self.command is not None:
-            raw_output = self.__invoke_command(params)
+            raw_output, return_code, error_message = self.__invoke_command(params)
         else:
-            raw_output = self.__invoke_script(params)
+            raw_output, return_code, error_message = self.__invoke_script(params)
 
-        if self.additional_instructions:
+        if self.additional_instructions and not error_message:
             logging.info(
                 f"Applying additional instructions: {self.additional_instructions}"
             )
-            return self.__apply_additional_instructions(raw_output)
-        return raw_output
+            output_with_instructions = self.__apply_additional_instructions(raw_output)
+        else:
+            output_with_instructions = raw_output
+
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS
+            if return_code == 0
+            else ToolResultStatus.ERROR,
+            error=error_message,
+            return_code=return_code,
+            data=output_with_instructions,
+        )
 
     def __apply_additional_instructions(self, raw_output: str) -> str:
         try:
@@ -242,9 +254,12 @@ class YAMLTool(Tool, BaseModel):
                 check=True,
                 stdin=subprocess.DEVNULL,
             )
-            return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+            output = result.stdout + result.stderr
+            return output.strip(), 0, None
         except subprocess.CalledProcessError as e:
-            return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+            output = e.stdout + e.stderr
+            error_message = f"Command failed with return code {e.returncode}. stdout: {e.stdout.strip()}. stderr: {e.stderr.strip()}"
+            return output.strip(), e.returncode, error_message
 
 
 class StaticPrerequisite(BaseModel):

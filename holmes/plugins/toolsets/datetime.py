@@ -2,6 +2,7 @@ from holmes.core.tools import ToolsetTag
 from typing import Dict, Any
 from holmes.core.tools import Tool, Toolset
 import datetime
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 class CurrentTime(Tool):
@@ -12,9 +13,14 @@ class CurrentTime(Tool):
             parameters={},
         )
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         now = datetime.datetime.now(datetime.timezone.utc)
-        return f"The current UTC date and time are {now}. The current UTC timestamp in seconds is {int(now.timestamp())}."
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=f"The current UTC date and time are {now}. The current UTC timestamp in seconds is {int(now.timestamp())}.",
+            return_code=0,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "fetched current time"

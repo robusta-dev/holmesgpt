@@ -39,6 +39,7 @@ from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
 from holmes.core.investigation_structured_output import (
     parse_markdown_into_sections_from_hash_sign,
 )
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 class ToolCallResult(BaseModel):
@@ -247,12 +248,16 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
                     tool_calls.append(tool_call_result)
+
+                    tool_call_result = tool_call_result.result.data
+                    if tool_call_result.status == ToolResultStatus.ERROR:
+                        tool_call_result = f"Tool execution failed with error: {tool_call_result.error_message}\n\nOutput:\n{tool_call_result.result.data}"
                     messages.append(
                         {
                             "tool_call_id": tool_call_result.tool_call_id,
                             "role": "tool",
                             "name": tool_call_result.tool_name,
-                            "content": tool_call_result.result,
+                            "content": tool_call_result,
                         }
                     )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
@@ -289,7 +294,12 @@ class ToolCallingLLM:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
             )
-            tool_response = f"Tool call failed: {e}"
+            tool_response = StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Tool call failed: {e}",
+                return_code=-1,
+                params=tool_params,
+            )
 
         return ToolCallResult(
             tool_call_id=tool_call_id,
@@ -547,8 +557,20 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
+
+                    tool_response = tool_call_result.result.data
+                    if tool_call_result.status == ToolResultStatus.ERROR:
+                        tool_response = f"Tool execution failed with error: {tool_call_result.error_message}\n\nOutput:\n{tool_response}"
                     tool_call_dict = tool_call_result.as_dict()
-                    messages.append(tool_call_dict)
+
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_response,
+                        }
+                    )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
                     yield create_sse_message("tool_calling_result", tool_call_dict)
 
