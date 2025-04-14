@@ -5,7 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
-from typing import Callable, Dict, List, Literal, Optional, Union, Any
+from typing import Callable, Dict, List, Literal, Optional, Union, Any, Tuple
 from enum import Enum
 from datetime import datetime
 import sentry_sdk
@@ -20,9 +20,25 @@ from pydantic import (
 )
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
+from holmes.plugins.prompts import load_and_render_prompt
 
 
 ToolsetPattern = Union[Literal["*"], List[str]]
+
+
+class ToolResultStatus(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+
+
+class StructuredToolResult(BaseModel):
+    schema_version: str = "robusta:v1.0.0"
+    status: ToolResultStatus
+    error: Optional[str] = None
+    data: Optional[Any] = None
+    url: Optional[str] = None
+    query: Optional[str] = None
+    params: Dict
 
 
 def sanitize(param):
@@ -53,6 +69,23 @@ def get_matching_toolsets(
         regex = re.compile(pat.replace("*", ".*"))
         matching_toolsets.extend([ts for ts in all_toolsets if regex.match(ts.name)])
     return matching_toolsets
+
+
+def format_tool_output(tool_result: Union[str, StructuredToolResult]) -> str:
+    if isinstance(tool_result, StructuredToolResult):
+        if tool_result.data and isinstance(tool_result.data, str):
+            # Display logs and other string outputs in a way that is readable to humans.
+            # To do this, we extract them from the result and print them as-is below.
+            # The metadata is printed on a single line to
+            data = tool_result.data
+            tool_result.data = "The raw tool data is printed below this JSON"
+            result_str = tool_result.model_dump_json(indent=2, exclude_none=True)
+            result_str += f"\n{data}"
+            return result_str
+        else:
+            return tool_result.model_dump_json(indent=2)
+    else:
+        return tool_result
 
 
 class ToolsetStatusEnum(str, Enum):
@@ -93,10 +126,11 @@ class Tool(ABC, BaseModel):
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
-        return self._invoke(params)
+        result = self._invoke(params)
+        return format_tool_output(result)
 
     @abstractmethod
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> Union[str, StructuredToolResult]:
         return ""
 
     @abstractmethod
@@ -219,7 +253,7 @@ class StaticPrerequisite(BaseModel):
 
 
 class CallablePrerequisite(BaseModel):
-    callable: Callable[[dict[str, Any]], bool]
+    callable: Callable[[dict[str, Any]], Tuple[bool, str]]
 
 
 class ToolsetCommandPrerequisite(BaseModel):
@@ -255,6 +289,7 @@ class Toolset(BaseModel):
     )
     config: Optional[Any] = None
     is_default: bool = False
+    llm_instructions: Optional[str] = None
 
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
@@ -352,19 +387,40 @@ class Toolset(BaseModel):
                     return
 
             elif isinstance(prereq, CallablePrerequisite):
-                res = prereq.callable(self.config)
-                if not res:
+                (enabled, error_message) = prereq.callable(self.config)
+                if enabled:
+                    self._status = ToolsetStatusEnum.ENABLED
+                elif not enabled and error_message:
+                    self._status = ToolsetStatusEnum.FAILED
+                    self._error = error_message
+                else:
                     self._status = ToolsetStatusEnum.DISABLED
-                    return
+                return
 
         self._status = ToolsetStatusEnum.ENABLED
 
+    @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def _load_llm_instructions(self, jinja_template: str):
+        tool_names = [t.name for t in self.tools]
+        self.llm_instructions = load_and_render_prompt(
+            prompt=jinja_template,
+            context={"tool_names": tool_names, "config": self.config},
+        )
 
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.llm_instructions:
+            self._load_llm_instructions(self.llm_instructions)
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
 
 
 class ToolExecutor:
@@ -376,9 +432,6 @@ class ToolExecutor:
                 lambda toolset: toolset.get_status() == ToolsetStatusEnum.ENABLED,
                 toolsets,
             )
-        )
-        self.enabled_toolsets_names: set[str] = set(
-            [ts.name for ts in self.enabled_toolsets]
         )
 
         toolsets_by_name: dict[str, Toolset] = {}
@@ -428,6 +481,9 @@ class ToolsetYamlFromConfig(Toolset):
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
 
 
 class ToolsetDBModel(BaseModel):

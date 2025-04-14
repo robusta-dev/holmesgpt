@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
 from holmes.plugins.toolsets import load_builtin_toolsets
@@ -112,6 +112,11 @@ class MockToolWrapper(Tool):
         return self.unmocked_tool.get_parameterized_one_liner(params)
 
 
+class MockToolset(Toolset):
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
+
+
 class MockToolsets:
     unmocked_toolsets: List[Toolset]
     mocked_toolsets: List[Toolset]
@@ -203,11 +208,12 @@ class MockToolsets:
                     mocked_tools.append(wrapped_tool)
 
             if has_mocks or toolset.get_status() == ToolsetStatusEnum.ENABLED:
-                mocked_toolset = Toolset(
+                mocked_toolset = MockToolset(
                     name=toolset.name,
                     prerequisites=toolset.prerequisites,
                     tools=toolset.tools,
                     description=toolset.description,
+                    llm_instructions=toolset.llm_instructions,
                 )
                 mocked_toolset.tools = mocked_tools
                 mocked_toolset._status = ToolsetStatusEnum.ENABLED

@@ -40,7 +40,7 @@ starlette = "^0.40"
 google-api-python-client = "^2.156.0"
 opensearch-py = "^2.8.0"
 backoff = "^2.2.1"
-litellm = "^1.60.2"
+litellm = "1.61.20"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
@@ -52,6 +52,8 @@ ruff = "^0.7.3"
 braintrust = "^0.0.168"
 autoevals = "^0.0.103"
 pre-commit = "^4.0.1"
+responses = "^0.23.1"
+freezegun = "^1.5.1"
 
 [build-system]
 requires = ["poetry-core"]

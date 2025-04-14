@@ -31,3 +31,10 @@ LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
 ENABLE_TELEMETRY = load_bool("ENABLE_TELEMETRY", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
+
+THINKING = os.environ.get("THINKING", "")
+TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
+
+STREAM_CHUNKS_PER_PARSE = int(
+    os.environ.get("STREAM_CHUNKS_PER_PARSE", 80)
+)  # Empirical value with 6~ parsing calls. Consider using larger value if LLM response is long as to reduce markdown to section calls.

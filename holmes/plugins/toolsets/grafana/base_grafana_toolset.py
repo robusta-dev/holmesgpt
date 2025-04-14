@@ -1,5 +1,5 @@
 import logging
-from typing import Any, ClassVar, Type
+from typing import Any, ClassVar, Type, Tuple
 from holmes.core.tools import (
     Tool,
     Toolset,
@@ -8,6 +8,7 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.grafana.common import GrafanaConfig
 from holmes.plugins.toolsets.grafana.grafana_api import get_health
+from holmes.plugins.toolsets.utils import TOOLSET_CONFIG_MISSING_ERROR
 
 
 class BaseGrafanaToolset(Toolset):
@@ -34,21 +35,18 @@ class BaseGrafanaToolset(Toolset):
             enabled=False,
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
             logging.warning(f"Grafana config not provided {self.name}")
-            return False
+            return False, TOOLSET_CONFIG_MISSING_ERROR
 
         try:
             self._grafana_config = self.config_class(**config)
-            is_healthy = get_health(
-                self._grafana_config.url, self._grafana_config.api_key
-            )
-            return is_healthy
+            return get_health(self._grafana_config.url, self._grafana_config.api_key)
 
-        except Exception:
+        except Exception as e:
             logging.exception(f"Failed to set up grafana toolset {self.name}")
-            return False
+            return False, str(e)
 
     def get_example_config(self):
         example_config = GrafanaConfig(

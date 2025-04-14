@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import os
+from typing import List
 
 import sentry_sdk
 from holmes.utils.cert_utils import add_custom_certificate
@@ -20,6 +21,7 @@ import time
 
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from holmes.utils.robusta import load_robusta_api_key
 
 from holmes.common.env_vars import (
@@ -30,6 +32,7 @@ from holmes.common.env_vars import (
     SENTRY_DSN,
     ENABLE_TELEMETRY,
     SENTRY_TRACES_SAMPLE_RATE,
+    ROBUSTA_AI,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
@@ -40,6 +43,7 @@ from holmes.core.conversations import (
     build_workload_health_chat_messages,
 )
 from holmes.core.models import (
+    FollowUpAction,
     InvestigationResult,
     ConversationRequest,
     InvestigateRequest,
@@ -74,8 +78,8 @@ def init_logging():
 
 
 init_logging()
-dal = SupabaseDal()
 config = Config.load_from_env()
+dal = SupabaseDal(config.cluster_name)
 
 
 @asynccontextmanager
@@ -145,6 +149,29 @@ def investigate_issues(investigate_request: InvestigateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/stream/investigate")
+def stream_investigate_issues(req: InvestigateRequest):
+    try:
+        is_structured_output = not ROBUSTA_AI
+        ai, system_prompt, user_prompt, response_format, sections, runbooks = (
+            investigation.get_investigation_context(
+                req, dal, config, is_structured_output
+            )
+        )
+        return StreamingResponse(
+            ai.call_stream(
+                system_prompt, user_prompt, ROBUSTA_AI, response_format, runbooks
+            ),
+            media_type="text/event-stream",
+        )
+
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.exception(f"Error in /api/stream/investigate: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
     load_robusta_api_key(dal=dal, config=config)
@@ -179,7 +206,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.prompt_template,
             context={
                 "alerts": workload_alerts,
-                "enabled_toolsets": ai.tool_executor.enabled_toolsets_names,
+                "enabled_toolsets": ai.tool_executor.enabled_toolsets,
             },
         )
 
@@ -269,6 +296,13 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def already_answered(conversation_history: List[dict]) -> bool:
+    for message in conversation_history:
+        if message["role"] == "assistant":
+            return True
+    return False
+
+
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
@@ -276,19 +310,41 @@ def chat(chat_request: ChatRequest):
 
         ai = config.create_toolcalling_llm(dal=dal)
         global_instructions = dal.get_global_instructions_for_account()
-
         messages = build_chat_messages(
             chat_request.ask,
             chat_request.conversation_history,
             ai=ai,
             global_instructions=global_instructions,
         )
+        follow_up_actions = []
+        if not already_answered(chat_request.conversation_history):
+            follow_up_actions = [
+                FollowUpAction(
+                    id="logs",
+                    action_label="Logs",
+                    prompt="Show me the relevant logs",
+                    pre_action_notification_text="Fetching relevant logs...",
+                ),
+                FollowUpAction(
+                    id="graphs",
+                    action_label="Graphs",
+                    prompt="Show me the relevant graphs. Use prometheus and make sure you embed the results with `<< >>` to display a graph",
+                    pre_action_notification_text="Drawing some graphs...",
+                ),
+                FollowUpAction(
+                    id="articles",
+                    action_label="Articles",
+                    prompt="List the relevant runbooks and links used. Write a short summary for each",
+                    pre_action_notification_text="Looking up and summarizing runbooks and links...",
+                ),
+            ]
 
         llm_call = ai.messages_call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
             conversation_history=llm_call.messages,
+            follow_up_actions=follow_up_actions,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
