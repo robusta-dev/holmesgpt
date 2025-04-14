@@ -116,8 +116,8 @@ class JiraServiceManagementSource(JiraSource):
                 headers={"Accept": "application/json"},
             )
             response.raise_for_status()
-            jira_issue = response.json()
-            description = self.extract_description(jira_issue)
-            return self.convert_to_issue(jira_issue, description)
+            jsm_issue = response.json()
+            description = self.extract_description(jsm_issue)
+            return self.convert_to_issue(jsm_issue, description)
         except requests.RequestException as e:
-            raise ConnectionError(f"Failed to fetch Jira ticket {id}") from e
+            raise ConnectionError(f"Failed to fetch JSM ticket {id}") from e
