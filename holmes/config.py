@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
-from pydantic import FilePath, SecretStr
+from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
 from pydash.arrays import concat
 
 from holmes.core.runbooks import RunbookManager
@@ -508,7 +508,7 @@ class Config(RobustaBaseConfig):
             query=self.github_query,
         )
 
-    def create_pagerduty_source(self) -> OpsGenieSource:
+    def create_pagerduty_source(self) -> PagerDutySource:
         if self.pagerduty_api_key is None:
             raise ValueError("--pagerduty-api-key must be specified")
 
@@ -653,3 +653,95 @@ class Config(RobustaBaseConfig):
     def _get_llm(self) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
         return DefaultLLM(self.model, api_key)
+
+
+class TicketSource(BaseModel):
+    config: Config
+    output_instructions: list[str]
+    source: Union[JiraServiceManagementSource, PagerDutySource]
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class SourceFactory(BaseModel):
+    @staticmethod
+    def create_source(
+        source: SupportedTicketSources,
+        config_file: Optional[str],
+        ticket_url: Optional[str],
+        ticket_username: Optional[str],
+        ticket_api_key: Optional[str],
+        ticket_id: Optional[str],
+    ) -> TicketSource:
+        supported_sources = [s.value for s in SupportedTicketSources]
+        if source not in supported_sources:
+            raise ValueError(
+                f"Source '{source}' is not supported. Supported sources: {', '.join(supported_sources)}"
+            )
+
+        if source == SupportedTicketSources.JIRA_SERVICE_MANAGEMENT:
+            config = Config.load_from_file(
+                config_file=config_file,
+                api_key=None,
+                model=None,
+                max_steps=None,
+                jira_url=ticket_url,
+                jira_username=ticket_username,
+                jira_api_key=ticket_api_key,
+                jira_query=None,
+                custom_toolsets=None,
+                custom_runbooks=None,
+            )
+
+            if not (
+                config.jira_url
+                and config.jira_username
+                and config.jira_api_key
+                and ticket_id
+            ):
+                raise ValueError(
+                    "URL, username, API key, and ticket ID are required for jira-service-management"
+                )
+
+            output_instructions = [
+                "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
+            ]
+            source_instance = config.create_jira_service_management_source()
+            return TicketSource(
+                config=config,
+                output_instructions=output_instructions,
+                source=source_instance,
+            )
+
+        elif source == SupportedTicketSources.PAGERDUTY:
+            config = Config.load_from_file(
+                config_file=config_file,
+                api_key=None,
+                model=None,
+                max_steps=None,
+                pagerduty_api_key=ticket_api_key,
+                pagerduty_user_email=ticket_username,
+                pagerduty_incident_key=None,
+                custom_toolsets=None,
+                custom_runbooks=None,
+            )
+
+            if not (
+                config.pagerduty_user_email and config.pagerduty_api_key and ticket_id
+            ):
+                raise ValueError(
+                    "username, API key, and ticket ID are required for pagerduty"
+                )
+
+            output_instructions = [
+                "All output links/urls must **always** be of this format : \n link text here: http://your.url.here.com\n **never*** use the url the format [link text here](http://your.url.here.com)"
+            ]
+            source_instance = config.create_pagerduty_source()
+            return TicketSource(
+                config=config,
+                output_instructions=output_instructions,
+                source=source_instance,
+            )
+
+        else:
+            raise NotImplementedError(f"Source '{source}' is not yet implemented")
