@@ -49,6 +49,48 @@ class PagerDutySource(SourcePlugin):
         except requests.RequestException as e:
             raise ConnectionError("Failed to fetch data from PagerDuty.") from e
 
+    def fetch_issue(self, id: str) -> Optional[Issue]:
+        """
+        Fetch a single issue from PagerDuty using the incident ID and convert it to an Issue object.
+
+        :param incident_id: The ID of the incident to fetch.
+        :return: An Issue object if found, otherwise None.
+        """
+        logging.info(f"Fetching issue {id} from {self.api_url}")
+
+        headers = {
+            "Authorization": f"Token token={self.api_key}",
+            "Accept": "application/vnd.pagerduty+json;version=2",
+        }
+
+        try:
+            response = requests.get(f"{self.api_url}/incidents/{id}", headers=headers)
+
+            if response.status_code == 404:
+                logging.warning(f"Incident {id} not found.")
+                return None
+
+            if response.status_code != 200:
+                logging.error(
+                    f"Failed to get issue: {response.status_code} {response.text}"
+                )
+                raise Exception(
+                    f"Failed to get issue: {response.status_code} {response.text}"
+                )
+
+            logging.debug(f"Got response: {response.json()}")
+            incident_data = response.json().get("incident")
+
+            if incident_data:
+                return self.convert_to_issue(incident_data)
+            else:
+                logging.warning(f"No incident data found for {id}.")
+                return None
+
+        except requests.RequestException as e:
+            logging.error(f"Connection error while fetching issue {id}: {e}")
+            raise ConnectionError("Failed to fetch data from PagerDuty.") from e
+
     def convert_to_issue(self, source_issue):
         return Issue(
             id=source_issue["id"],
