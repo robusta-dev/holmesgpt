@@ -65,6 +65,58 @@ class FetchRobustaFinding(Tool):
         return "Fetch metadata and history"
 
 
+class FetchResourceRecommendation(Tool):
+    _dal: Optional[SupabaseDal]
+
+    def __init__(self, dal: Optional[SupabaseDal]):
+        super().__init__(
+            name="fetch_resource_recommendation",
+            description="Fetch workload recommendations for resources requests and limits. Returns the current configured resources, as well as recommendation based on actual historical usage.",
+            parameters={
+                "name": ToolParameter(
+                    description="The name of the kubernetes workload.",
+                    type="string",
+                    required=True,
+                ),
+                "namespace": ToolParameter(
+                    description="The namespace of the kubernetes resource.",
+                    type="string",
+                    required=True,
+                ),
+                "kind": ToolParameter(
+                    description="The kind of the kubernetes resource. Must be one of: [Deployment, StatefulSet, DaemonSet, Job].",
+                    type="string",
+                    required=True,
+                ),
+            },
+        )
+        self._dal = dal
+
+    def _resource_recommendation(self, params: Dict) -> Optional[List[Dict]]:
+        if self._dal and self._dal.enabled:
+            return self._dal.get_resource_recommendation(
+                name=params["name"],
+                namespace=params["namespace"],
+                kind=params["kind"],
+            )
+        return None
+
+    def _invoke(self, params: Dict) -> str:
+        try:
+            recommendations = self._resource_recommendation(params)
+            if recommendations:
+                return yaml.dump(recommendations)
+            else:
+                return f"Could not find recommendations for {params}"
+        except Exception as e:
+            msg = f"There was an internal error while fetching recommendations for {params}. {str(e)}"
+            logging.exception(msg)
+            return msg
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Fetch resource recommendation ({str(params)})"
+
+
 class FetchConfigurationChanges(Tool):
     _dal: Optional[SupabaseDal]
 
@@ -131,6 +183,7 @@ class RobustaToolset(Toolset):
             tools=[
                 FetchRobustaFinding(dal),
                 FetchConfigurationChanges(dal),
+                FetchResourceRecommendation(dal),
             ],
             tags=[
                 ToolsetTag.CORE,
