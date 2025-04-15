@@ -4,6 +4,9 @@
 Your primary goal when using these tools is to diagnose RabbitMQ cluster health issues, with a specific focus on detecting
 **network partitions (split-brain scenarios)** and identifying potential causes like resource exhaustion on individual nodes.
 
+*   Use the tools to get the *current* state of the cluster and nodes.
+*   Clearly present the key findings from the tool outputs in your analysis.
+
 ## Workflow for Split-Brain Diagnosis (Phase I)
 1.  **Check Cluster Status:** ALWAYS start by calling `get_rabbitmq_cluster_status`. This is the most important step.
     *   Look for `"network_partitions_detected": true`.
@@ -11,16 +14,13 @@ Your primary goal when using these tools is to diagnose RabbitMQ cluster health 
         the members of different sides of the partition.
     *   Check the `"running"` status of all nodes listed in `"nodes"`.
 2.  **Investigate Affected Nodes:** If a partition is detected, or if any nodes are reported as not running:
-    *   For each node involved in the partition (as identified in `partition_details`) OR reported as not running, call
-        `get_rabbitmq_node_details` using its full `node_name`.
-    *   Analyze the node details: Pay close attention to `mem_alarm`, `disk_free_alarm`, and `fd_alarm` (or `proc_alarm`).
+    *   Analyze the node details: Pay close attention to `mem_alarm` and `disk_free_alarm`.
         Resource exhaustion (memory, disk, file descriptors) is a common reason for nodes becoming unresponsive and causing
         partitions. Also check if `running` is `false`.
 3.  **Synthesize Findings:** Based on the cluster status and node details, describe the situation clearly. For example:
     *   "A network partition is detected in the RabbitMQ cluster '{cluster_name}'. Node 'rabbit@hostA' cannot reach
         ['rabbit@hostB']. Node 'rabbit@hostB' reports a disk space alarm (`disk_free_alarm: true`)."
-    *   "Node 'rabbit@hostC' is reported as not running in the cluster status." (Follow up with `get_rabbitmq_node_details`
-        if possible).
+    *   "Node 'rabbit@hostC' is reported as not running in the cluster status."
 4.  **Recommend Remediation Steps (Based on Docs):**
     *   **CRITICAL:** Refer to the official RabbitMQ documentation for handling partitions:
         *   Partitions: https://www.rabbitmq.com/docs/partitions, recovering: https://www.rabbitmq.com/docs/partitions#recovering
@@ -32,9 +32,3 @@ Your primary goal when using these tools is to diagnose RabbitMQ cluster health 
         disk space issue on that node *before* attempting partition recovery procedures.
     *   Common manual steps often involve deciding on a "winning" partition, restarting nodes in the "losing" partition(s),
         and potentially resetting nodes, but **always defer to the official documentation for the exact commands and strategy.**
-
-
-## General Usage Notes
-*   Use the tools to get the *current* state of the cluster and nodes.
-*   Provide the full `node_name` (e.g., `rabbit@hostname`) when using `get_rabbitmq_node_details`. You can get these names from the `get_rabbitmq_cluster_status` output.
-*   Clearly present the key findings from the tool outputs in your analysis.
