@@ -176,8 +176,8 @@ class GetTempoTraces(Tool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=format_traces_list(traces),
-            return_code=0,
             params=params,
+            invocation=query,
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -230,7 +230,6 @@ class GetTempoTags(Tool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=yaml.dump(data.get("scopes")),
-                return_code=0,
                 params=params,
             )
         except requests.exceptions.RequestException as e:

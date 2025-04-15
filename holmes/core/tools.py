@@ -38,7 +38,7 @@ class StructuredToolResult(BaseModel):
     return_code: Optional[int] = None
     data: Optional[Any] = None
     url: Optional[str] = None
-    query: Optional[str] = None
+    invocation: Optional[str] = None
     params: Dict
 
 
@@ -179,11 +179,11 @@ class YAMLTool(Tool, BaseModel):
 
     def _invoke(self, params) -> StructuredToolResult:
         if self.command is not None:
-            raw_output, return_code, error_message = self.__invoke_command(params)
+            raw_output, return_code, invocation = self.__invoke_command(params)
         else:
-            raw_output, return_code, error_message = self.__invoke_script(params)
+            raw_output, return_code, invocation = self.__invoke_script(params)
 
-        if self.additional_instructions and not error_message:
+        if self.additional_instructions and return_code == 0:
             logging.info(
                 f"Applying additional instructions: {self.additional_instructions}"
             )
@@ -191,14 +191,20 @@ class YAMLTool(Tool, BaseModel):
         else:
             output_with_instructions = raw_output
 
+        error = (
+            None
+            if return_code == 0
+            else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
+        )
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS
             if return_code == 0
             else ToolResultStatus.ERROR,
-            error=error_message,
+            error=error,
             return_code=return_code,
             data=output_with_instructions,
             params=params,
+            invocation=invocation,
         )
 
     def __apply_additional_instructions(self, raw_output: str) -> str:
@@ -219,12 +225,13 @@ class YAMLTool(Tool, BaseModel):
             )
             return f"Error applying additional instructions: {e.stderr}"
 
-    def __invoke_command(self, params) -> str:
+    def __invoke_command(self, params) -> Tuple[str, int, str]:
         context = self._build_context(params)
         command = os.path.expandvars(self.command)
         template = Template(command)
         rendered_command = template.render(context)
-        return self.__execute_subprocess(rendered_command)
+        output, return_code = self.__execute_subprocess(rendered_command)
+        return output, return_code, rendered_command
 
     def __invoke_script(self, params) -> str:
         context = self._build_context(params)
@@ -240,11 +247,12 @@ class YAMLTool(Tool, BaseModel):
         subprocess.run(["chmod", "+x", temp_script_path], check=True)
 
         try:
-            return self.__execute_subprocess(temp_script_path)
+            output, return_code = self.__execute_subprocess(temp_script_path)
         finally:
             subprocess.run(["rm", temp_script_path])
+        return output, return_code, rendered_script
 
-    def __execute_subprocess(self, cmd) -> str:
+    def __execute_subprocess(self, cmd) -> Tuple[str, int]:
         try:
             logging.debug(f"Running `{cmd}`")
             result = subprocess.run(
@@ -252,15 +260,20 @@ class YAMLTool(Tool, BaseModel):
                 shell=True,
                 capture_output=True,
                 text=True,
-                check=True,
+                check=False,  # do not throw error, we just return the error code
                 stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
-            output = result.stdout + result.stderr
-            return output.strip(), 0, None
-        except subprocess.CalledProcessError as e:
-            output = e.stdout + e.stderr
-            error_message = f"Command failed with return code {e.returncode}. stdout: {e.stdout.strip()}. stderr: {e.stderr.strip()}"
-            return output.strip(), e.returncode, error_message
+
+            return result.stdout.strip(), result.returncode
+        except Exception as e:
+            logging.error(
+                f"An unexpected error occurred while running '{cmd}': {e}",
+                exc_info=True,
+            )
+            output = f"Command execution failed with error: {e}"
+            return output, 1
 
 
 class StaticPrerequisite(BaseModel):

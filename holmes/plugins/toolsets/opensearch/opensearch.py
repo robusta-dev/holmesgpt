@@ -97,7 +97,6 @@ class ListShards(BaseOpenSearchTool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=str(shards),
-            return_code=0,
             params=params,
         )
 
@@ -128,7 +127,6 @@ class GetClusterSettings(BaseOpenSearchTool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=str(response),
-            return_code=0,
             params=params,
         )
 
@@ -157,7 +155,6 @@ class GetClusterHealth(BaseOpenSearchTool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=str(health),
-            return_code=0,
             params=params,
         )
 
@@ -179,7 +176,6 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=str(hosts),
-            return_code=0,
             params=params,
         )
 

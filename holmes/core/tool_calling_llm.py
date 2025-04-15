@@ -46,7 +46,7 @@ class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
     description: str
-    result: str
+    result: StructuredToolResult
     size: Optional[int] = None
 
     def as_dict(self):
@@ -249,15 +249,16 @@ class ToolCallingLLM:
                     tool_call_result: ToolCallResult = future.result()
                     tool_calls.append(tool_call_result)
 
-                    tool_call_result = tool_call_result.result.data
-                    if tool_call_result.status == ToolResultStatus.ERROR:
-                        tool_call_result = f"Tool execution failed with error: {tool_call_result.error_message}\n\nOutput:\n{tool_call_result.result.data}"
+                    tool_response = tool_call_result.result.data
+                    if tool_call_result.result.status == ToolResultStatus.ERROR:
+                        tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
+
                     messages.append(
                         {
                             "tool_call_id": tool_call_result.tool_call_id,
                             "role": "tool",
                             "name": tool_call_result.tool_name,
-                            "content": tool_call_result,
+                            "content": tool_response,
                         }
                     )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
@@ -559,8 +560,8 @@ class ToolCallingLLM:
                     tool_call_result: ToolCallResult = future.result()
 
                     tool_response = tool_call_result.result.data
-                    if tool_call_result.status == ToolResultStatus.ERROR:
-                        tool_response = f"Tool execution failed with error: {tool_call_result.error_message}\n\nOutput:\n{tool_response}"
+                    if tool_call_result.result.status == ToolResultStatus.ERROR:
+                        tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
                     tool_call_dict = tool_call_result.as_dict()
 
                     messages.append(

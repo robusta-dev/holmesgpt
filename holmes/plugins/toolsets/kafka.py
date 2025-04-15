@@ -136,7 +136,6 @@ class ListKafkaConsumers(BaseKafkaTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="No admin_client on toolset. This toolset is misconfigured.",
-                    return_code=-1,
                     params=params,
                 )
 
@@ -166,7 +165,6 @@ class ListKafkaConsumers(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=result_text,
-                return_code=0,
                 params=params,
             )
         except Exception as e:
@@ -175,7 +173,6 @@ class ListKafkaConsumers(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
-                return_code=-1,
                 params=params,
             )
 
@@ -212,7 +209,6 @@ class DescribeConsumerGroup(BaseKafkaTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="No admin_client on toolset. This toolset is misconfigured.",
-                    return_code=-1,
                     params=params,
                 )
 
@@ -223,14 +219,12 @@ class DescribeConsumerGroup(BaseKafkaTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=yaml.dump(convert_to_dict(group_metadata)),
-                    return_code=0,
                     params=params,
                 )
             else:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Group not found",
-                    return_code=-1,
                     params=params,
                 )
         except Exception as e:
@@ -239,7 +233,6 @@ class DescribeConsumerGroup(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
-                return_code=-1,
                 params=params,
             )
 
@@ -270,7 +263,6 @@ class ListTopics(BaseKafkaTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="No admin_client on toolset. This toolset is misconfigured.",
-                    return_code=-1,
                     params=params,
                 )
 
@@ -278,7 +270,6 @@ class ListTopics(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=yaml.dump(convert_to_dict(topics)),
-                return_code=0,
                 params=params,
             )
         except Exception as e:
@@ -287,7 +278,6 @@ class ListTopics(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
-                return_code=-1,
                 params=params,
             )
 
@@ -329,7 +319,6 @@ class DescribeTopic(BaseKafkaTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="No admin_client on toolset. This toolset is misconfigured.",
-                    return_code=-1,
                     params=params,
                 )
             config_future = None
@@ -350,7 +339,6 @@ class DescribeTopic(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=yaml.dump(result),
-                return_code=0,
                 params=params,
             )
         except Exception as e:
@@ -359,7 +347,6 @@ class DescribeTopic(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
-                return_code=-1,
                 params=params,
             )
 
@@ -407,7 +394,6 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="No admin_client on toolset. This toolset is misconfigured.",
-                    return_code=-1,
                     params=params,
                 )
 
@@ -452,7 +438,6 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=result_text,
-                return_code=0,
                 params=params,
             )
         except Exception as e:
@@ -463,7 +448,6 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
-                return_code=-1,
                 params=params,
             )
 
@@ -485,7 +469,6 @@ class ListKafkaClusters(BaseKafkaTool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data="Available Kafka Clusters:\n" + "\n".join(cluster_names),
-            return_code=0,
             params=params,
         )
 

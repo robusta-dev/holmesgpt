@@ -287,7 +287,6 @@ class ListPrometheusRules(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
-                return_code=-1,
                 params=params,
             )
         if not self._cache and self.toolset.config.rules_cache_duration_seconds:
@@ -321,7 +320,6 @@ class ListPrometheusRules(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request timed out while fetching rules",
-                return_code=-1,
                 params=params,
             )
         except RequestException as e:
@@ -329,7 +327,6 @@ class ListPrometheusRules(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while fetching rules: {str(e)}",
-                return_code=-1,
                 params=params,
             )
         except Exception as e:
@@ -337,7 +334,6 @@ class ListPrometheusRules(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
-                return_code=-1,
                 params=params,
             )
 
@@ -371,7 +367,6 @@ class ListAvailableMetrics(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
-                return_code=-1,
                 params=params,
             )
         if not self._cache and self.toolset.config.metrics_labels_cache_duration_hrs:
@@ -389,7 +384,6 @@ class ListAvailableMetrics(BasePrometheusTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing.",
-                    return_code=-1,
                     params=params,
                 )
 
@@ -421,7 +415,6 @@ class ListAvailableMetrics(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=table_output,
-                return_code=0,
                 params=params,
             )
 
@@ -430,7 +423,6 @@ class ListAvailableMetrics(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request timed out while fetching metrics",
-                return_code=-1,
                 params=params,
             )
         except RequestException as e:
@@ -438,7 +430,6 @@ class ListAvailableMetrics(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while fetching metrics: {str(e)}",
-                return_code=-1,
                 params=params,
             )
         except Exception as e:
@@ -446,7 +437,6 @@ class ListAvailableMetrics(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
-                return_code=-1,
                 params=params,
             )
 
@@ -479,7 +469,6 @@ class ExecuteInstantQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
-                return_code=-1,
                 params=params,
             )
         try:
@@ -519,7 +508,6 @@ class ExecuteInstantQuery(BasePrometheusTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=data_str,
-                    return_code=0,
                     params=params,
                 )
 
@@ -536,7 +524,6 @@ class ExecuteInstantQuery(BasePrometheusTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Query execution failed. HTTP {response.status_code}: {error_msg}",
-                    return_code=-1,
                     params=params,
                 )
 
@@ -544,7 +531,6 @@ class ExecuteInstantQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
-                return_code=-1,
                 params=params,
             )
 
@@ -553,7 +539,6 @@ class ExecuteInstantQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Connection error to Prometheus: {str(e)}",
-                return_code=-1,
                 params=params,
             )
         except Exception as e:
@@ -561,7 +546,6 @@ class ExecuteInstantQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error executing query: {str(e)}",
-                return_code=-1,
                 params=params,
             )
 
@@ -613,7 +597,6 @@ class ExecuteRangeQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
-                return_code=-1,
                 params=params,
             )
 
@@ -690,7 +673,6 @@ class ExecuteRangeQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
-                return_code=-1,
                 params=params,
             )
 
@@ -699,7 +681,6 @@ class ExecuteRangeQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Connection error to Prometheus: {str(e)}",
-                return_code=-1,
                 params=params,
             )
         except Exception as e:
@@ -707,7 +688,6 @@ class ExecuteRangeQuery(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error executing query: {str(e)}",
-                return_code=-1,
                 params=params,
             )
 

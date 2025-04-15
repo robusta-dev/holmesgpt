@@ -53,7 +53,6 @@ class GetTracesFields(BaseOpenSearchTracesTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=cached_response,
-                    return_code=0,
                     params=params,
                 )
 
@@ -84,7 +83,6 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=response,
-                return_code=0,
                 params=params,
             )
         except requests.Timeout:
@@ -94,7 +92,6 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request timed out while fetching opensearch traces fields",
-                return_code=-1,
                 params=params,
             )
         except RequestException as e:
@@ -102,7 +99,6 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while opensearch traces fields: {str(e)}",
-                return_code=-1,
                 params=params,
             )
         except Exception as e:
@@ -110,7 +106,6 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
-                return_code=-1,
                 params=params,
             )
 
@@ -160,7 +155,6 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=json.dumps(logs_response.json()),
-                return_code=0,
                 params=params,
             )
         except requests.Timeout:
@@ -170,7 +164,6 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Request timed out while fetching opensearch traces search {err_msg}",
-                return_code=-1,
                 params=params,
             )
         except RequestException as e:
@@ -178,7 +171,6 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while opensearch traces search {err_msg} : {str(e)}",
-                return_code=-1,
                 params=params,
             )
         except Exception as e:
@@ -186,7 +178,6 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error {err_msg}: {str(e)}",
-                return_code=-1,
                 params=params,
             )
 

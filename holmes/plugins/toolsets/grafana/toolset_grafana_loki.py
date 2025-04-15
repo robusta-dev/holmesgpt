@@ -115,8 +115,8 @@ class GetLokiLogs(Tool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data="\n".join([format_log(log) for log in logs]),
-            return_code=0,
             params=params,
+            invocation=query,
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -193,7 +193,6 @@ class GetLokiLogsForResource(Tool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data="\n".join([format_log(log) for log in logs]),
-            return_code=0,
             params=params,
         )
 

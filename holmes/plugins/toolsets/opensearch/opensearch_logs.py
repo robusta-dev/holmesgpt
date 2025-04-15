@@ -83,21 +83,18 @@ class GetLogFields(BaseOpenSearchLogsTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=response,
-                return_code=0,
                 params=params,
             )
         except requests.Timeout:
             logging.warn("Timeout while fetching opensearch logs fields", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                return_code=-1,
                 error="Request timed out while fetching opensearch logs fields",
             )
         except RequestException as e:
             logging.warn("Failed to fetch opensearch logs fields", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                return_code=-1,
                 error=f"Network error while opensearch logs fields: {str(e)}",
             )
         except Exception as e:
@@ -105,7 +102,6 @@ class GetLogFields(BaseOpenSearchLogsTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
-                return_code=-1,
             )
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -157,7 +153,6 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=json.dumps(logs_response.json()),
-                return_code=0,
                 params=params,
             )
         except requests.Timeout:
@@ -165,7 +160,6 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Request timed out while fetching opensearch logs search {err_msg}",
-                return_code=-1,
                 params=params,
             )
         except RequestException as e:
@@ -173,7 +167,6 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while opensearch logs search {err_msg} {str(e)}",
-                return_code=-1,
                 params=params,
             )
         except Exception as e:
@@ -181,7 +174,6 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error {err_msg}: {str(e)}",
-                return_code=-1,
                 params=params,
             )
 
