@@ -159,7 +159,9 @@ class MockToolsets:
                 toolset.enabled = definition.enabled
                 toolset.check_prerequisites()
                 if toolset.get_status() != ToolsetStatusEnum.ENABLED:
-                    raise Exception(f"Failed to enable test toolset {toolset.name}: {toolset.get_error()}")
+                    raise Exception(
+                        f"Failed to enable test toolset {toolset.name}: {toolset.get_error()}"
+                    )
             else:
                 toolset.check_prerequisites()
 

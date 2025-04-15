@@ -6,7 +6,7 @@ before_test: |
   helm install rabbitmq oci://registry-1.docker.io/bitnamicharts/rabbitmq -n rabbitmq -f ../rabbitmq.yaml
   # Obtain the password: `kubectl get secret --namespace rabbitmq rabbitmq -o jsonpath="{.data.rabbitmq-password}" | base64 -d`
   #   and set it to `RABBITMQ_PASSWORD` env var
-  
+
   sleep 120
   # Label the Pods for Easier Selection
   python ./isolate_pod.py add

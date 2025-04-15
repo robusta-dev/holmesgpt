@@ -10,9 +10,11 @@ from requests.auth import HTTPBasicAuth
 
 # --- Enums and Pydantic Models (Mostly Unchanged) ---
 
+
 class ClusterConnectionStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
+
 
 class RabbitMQClusterConfig(BaseModel):
     id: str = "rabbitmq"  # must be unique
@@ -26,13 +28,16 @@ class RabbitMQClusterConfig(BaseModel):
     connection_status: Optional[ClusterConnectionStatus] = None
     connection_error: Optional[str] = None
 
+
 class Partition(BaseModel):
     node: str
-    unreachable_nodes: List[str] # Nodes that 'node' cannot reach
+    unreachable_nodes: List[str]  # Nodes that 'node' cannot reach
+
 
 class NodeStatus(BaseModel):
     node: str
-    running: bool # Status as reported by the primary connected node
+    running: bool  # Status as reported by the primary connected node
+
 
 class NodeInfo(BaseModel):
     name: str
@@ -54,12 +59,14 @@ class NodeInfo(BaseModel):
 
 
 class ClusterStatus(BaseModel):
-    nodes: List[NodeStatus] # Overall node running status from primary view
+    nodes: List[NodeStatus]  # Overall node running status from primary view
     network_partitions_detected: bool = False
-    partition_details: List[Partition] # Combined list of detected partitions
-    raw_node_data: List[NodeInfo] # Data from the primary connected node
+    partition_details: List[Partition]  # Combined list of detected partitions
+    raw_node_data: List[NodeInfo]  # Data from the primary connected node
+
 
 # --- Helper Functions (Slight modifications) ---
+
 
 def get_auth(config: RabbitMQClusterConfig) -> Optional[HTTPBasicAuth]:
     if config.username or config.password:
@@ -70,12 +77,14 @@ def get_auth(config: RabbitMQClusterConfig) -> Optional[HTTPBasicAuth]:
     else:
         return None
 
+
 def get_url(base_url: str, endpoint: str) -> str:
     """Constructs a URL using a base and an endpoint."""
     # Ensure base_url ends with '/' for urljoin to work predictably
-    if not base_url.endswith('/'):
-        base_url += '/'
-    return urljoin(base_url, endpoint.lstrip('/'))
+    if not base_url.endswith("/"):
+        base_url += "/"
+    return urljoin(base_url, endpoint.lstrip("/"))
+
 
 @backoff.on_exception(
     backoff.expo,
@@ -108,50 +117,59 @@ def make_request(
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Request failed for {method} {url}: {e}")
-        raise # Re-raise after logging for upstream handling
+        raise  # Re-raise after logging for upstream handling
 
-def node_data_to_node_info(node_data:Dict) -> NodeInfo:
+
+def node_data_to_node_info(node_data: Dict) -> NodeInfo:
     """Converts raw node data dict to NodeInfo model."""
     return NodeInfo(
-        name= node_data.get("name", "unknown"),
-        type= node_data.get("type", "unknown"),
-        running= node_data.get("running", False),
-        mem_used= node_data.get("mem_used"),
-        mem_limit= node_data.get("mem_limit"),
-        mem_alarm= node_data.get("mem_alarm", False),
-        disk_free= node_data.get("disk_free"),
-        disk_free_limit= node_data.get("disk_free_limit"),
-        disk_free_alarm= node_data.get("disk_free_alarm", False),
-        fd_used= node_data.get("fd_used"),
-        fd_total= node_data.get("fd_total"),
-        sockets_used= node_data.get("sockets_used"),
-        sockets_total= node_data.get("sockets_total"),
-        uptime= node_data.get("uptime"),
-        partitions= node_data.get("partitions"), # Keep RabbitMQ's view
+        name=node_data.get("name", "unknown"),
+        type=node_data.get("type", "unknown"),
+        running=node_data.get("running", False),
+        mem_used=node_data.get("mem_used"),
+        mem_limit=node_data.get("mem_limit"),
+        mem_alarm=node_data.get("mem_alarm", False),
+        disk_free=node_data.get("disk_free"),
+        disk_free_limit=node_data.get("disk_free_limit"),
+        disk_free_alarm=node_data.get("disk_free_alarm", False),
+        fd_used=node_data.get("fd_used"),
+        fd_total=node_data.get("fd_total"),
+        sockets_used=node_data.get("sockets_used"),
+        sockets_total=node_data.get("sockets_total"),
+        uptime=node_data.get("uptime"),
+        partitions=node_data.get("partitions"),  # Keep RabbitMQ's view
     )
 
 
-def get_status_from_node(config: RabbitMQClusterConfig, target_node_name: str) -> Optional[List[Dict]]:
+def get_status_from_node(
+    config: RabbitMQClusterConfig, target_node_name: str
+) -> Optional[List[Dict]]:
     """
     Attempts to connect directly to the management API of a specific node.
     Returns the raw node list from that node's perspective, or None on failure.
     """
     try:
         # Extract hostname from node name (e.g., rabbit@hostname -> hostname)
-        parts = target_node_name.split('@')
+        parts = target_node_name.split("@")
         if len(parts) != 2:
-            logging.debug(f"Could not parse hostname from node name: {target_node_name}")
+            logging.debug(
+                f"Could not parse hostname from node name: {target_node_name}"
+            )
             return None
         hostname = parts[1]
 
         # Construct the target node's management URL based on the original config's scheme/port
         parsed_original_url = urlparse(config.management_url)
-        scheme = parsed_original_url.scheme or 'http'
-        port = parsed_original_url.port or (443 if scheme == 'https' else 15672) # Default ports
+        scheme = parsed_original_url.scheme or "http"
+        port = parsed_original_url.port or (
+            443 if scheme == "https" else 15672
+        )  # Default ports
         base_target_url = f"{scheme}://{hostname}:{port}"
 
         target_api_url = get_url(base_target_url, "api/nodes")
-        logging.debug(f"Attempting direct connection to node {target_node_name} via {target_api_url}")
+        logging.debug(
+            f"Attempting direct connection to node {target_node_name} via {target_api_url}"
+        )
 
         # Use the original config for auth, timeout, cert verification etc.
         data = make_request(
@@ -163,23 +181,33 @@ def get_status_from_node(config: RabbitMQClusterConfig, target_node_name: str) -
         if isinstance(data, list):
             return data
         else:
-            logging.debug(f"Unexpected data format received from {target_api_url}: {type(data)}")
+            logging.debug(
+                f"Unexpected data format received from {target_api_url}: {type(data)}"
+            )
             return None
 
     except requests.exceptions.RequestException as e:
-        logging.debug(f"Failed to directly connect to node {target_node_name} via management API: {e}")
+        logging.debug(
+            f"Failed to directly connect to node {target_node_name} via management API: {e}"
+        )
         return None
-    except Exception as e:
-        logging.debug(f"Unexpected error trying to get status from node {target_node_name}", exc_info=True)
+    except Exception:
+        logging.debug(
+            f"Unexpected error trying to get status from node {target_node_name}",
+            exc_info=True,
+        )
         return None
+
 
 # --- Main Logic Function (Updated) ---
 
-def find_node(nodes:List[NodeInfo], node_name:str) -> Optional[NodeInfo]:
+
+def find_node(nodes: List[NodeInfo], node_name: str) -> Optional[NodeInfo]:
     for node in nodes:
         if node.name == node_name:
             return node
     return None
+
 
 def upsert(nodes: List[NodeInfo], new_node_info: NodeInfo):
     found_index = -1
@@ -192,6 +220,7 @@ def upsert(nodes: List[NodeInfo], new_node_info: NodeInfo):
         nodes[found_index] = new_node_info
     else:
         nodes.append(new_node_info)
+
 
 def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
     """
@@ -209,15 +238,17 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
         config.connection_status = ClusterConnectionStatus.SUCCESS
         config.connection_error = None
     except Exception as e:
-        logging.error(f"Failed to get primary cluster status from {config.management_url}: {e}")
+        logging.error(
+            f"Failed to get primary cluster status from {config.management_url}: {e}"
+        )
         config.connection_status = ClusterConnectionStatus.ERROR
         config.connection_error = str(e)
         # Return an empty/error status if the primary connection fails
         return ClusterStatus(
             nodes=[],
-            network_partitions_detected=False, # Cannot determine
+            network_partitions_detected=False,  # Cannot determine
             partition_details=[],
-            raw_node_data=[]
+            raw_node_data=[],
         )
 
     # Process data from the primary connected node
@@ -234,11 +265,18 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
         # Store partitions reported by RabbitMQ itself
         if node_info.partitions:
             # Ensure we don't add duplicates if multiple nodes report the same partition
-            partition_exists = any(p.node == node_info.name and set(p.unreachable_nodes) == set(node_info.partitions) for p in detected_partitions)
+            partition_exists = any(
+                p.node == node_info.name
+                and set(p.unreachable_nodes) == set(node_info.partitions)
+                for p in detected_partitions
+            )
             if not partition_exists:
-                 detected_partitions.append(
-                    Partition(node=node_info.name, unreachable_nodes=list(node_info.partitions))
-                 )
+                detected_partitions.append(
+                    Partition(
+                        node=node_info.name,
+                        unreachable_nodes=list(node_info.partitions),
+                    )
+                )
 
         # Keep track of nodes reported as down for later direct checks
         if not node_info.running:
@@ -247,30 +285,39 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
     # --- Enhanced Partition Detection ---
     artificially_detected_partitions: List[Partition] = []
     for node_name in nodes_reported_down:
-        logging.debug(f"Node {node_name} reported as down by primary. Attempting direct connection.")
+        logging.debug(
+            f"Node {node_name} reported as down by primary. Attempting direct connection."
+        )
         # Try connecting directly to the node reported as down
         direct_nodes_data = get_status_from_node(config, node_name)
         if not direct_nodes_data:
             continue
 
-        direct_nodes = [node_data_to_node_info(node_data) for node_data in direct_nodes_data] 
+        direct_nodes = [
+            node_data_to_node_info(node_data) for node_data in direct_nodes_data
+        ]
 
-
-        logging.debug(f"Direct connection to {node_name} succeeded. Analyzing its cluster view.")
+        logging.debug(
+            f"Direct connection to {node_name} succeeded. Analyzing its cluster view."
+        )
         unreachable_by_this_node: List[str] = []
         this_node = find_node(direct_nodes, node_name)
 
         if not this_node or not this_node.running:
             # Ignore this node if it's not running
-            # if this node reports another node as running that was not considered running before, we ignore that 
+            # if this node reports another node as running that was not considered running before, we ignore that
             # for simplicity as I expect we would get to that node by reaching out directly anyway
-            logging.debug(f"Node {node_name} reported itself as not running upon direct connection.")
+            logging.debug(
+                f"Node {node_name} reported itself as not running upon direct connection."
+            )
             continue
         else:
             # Node is running. Update the primary view with the updated node data
-            logging.info(f"Node {node_name} reported itself as running upon direct connection. Updating primary view.")
+            logging.info(
+                f"Node {node_name} reported itself as running upon direct connection. Updating primary view."
+            )
             upsert(primary_nodes, this_node)
-            
+
         all_node_names_direct_view: Set[str] = set()
 
         for node in direct_nodes:
@@ -278,20 +325,24 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
             if not node.running:
                 unreachable_by_this_node.append(node.name)
 
-
         if unreachable_by_this_node:
             unreachable_nodes_set = set(unreachable_by_this_node)
 
             # Check if this specific partition view is already covered by RabbitMQ's reporting
             is_already_reported = any(
-                partition.node == node_name and set(partition.unreachable_nodes) == unreachable_nodes_set
+                partition.node == node_name
+                and set(partition.unreachable_nodes) == unreachable_nodes_set
                 for partition in detected_partitions
             )
 
             if not is_already_reported:
-                logging.debug(f"Artificially detecting partition: Node {node_name} cannot reach {unreachable_nodes_set}")
+                logging.debug(
+                    f"Artificially detecting partition: Node {node_name} cannot reach {unreachable_nodes_set}"
+                )
                 artificially_detected_partitions.append(
-                    Partition(node=node_name, unreachable_nodes=list(unreachable_nodes_set))
+                    Partition(
+                        node=node_name, unreachable_nodes=list(unreachable_nodes_set)
+                    )
                 )
 
         # Check for nodes present in primary view but MISSING entirely from this node's direct view
@@ -300,23 +351,36 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
             # Combine missing nodes with those reported as down by this node
             combined_unreachable = set(unreachable_by_this_node).union(missing_nodes)
             is_already_reported = any(
-            p.node == node_name and set(p.unreachable_nodes) == combined_unreachable
-            for p in detected_partitions + artificially_detected_partitions # Check against RMQ and our own detections
+                p.node == node_name and set(p.unreachable_nodes) == combined_unreachable
+                for p in detected_partitions
+                + artificially_detected_partitions  # Check against RMQ and our own detections
             )
             if not is_already_reported:
-                logging.debug(f"Artificially detecting partition: Node {node_name} cannot see (missing or down) {combined_unreachable}")
+                logging.debug(
+                    f"Artificially detecting partition: Node {node_name} cannot see (missing or down) {combined_unreachable}"
+                )
                 # Avoid duplicate Partition entries if already added above based only on 'running=False'
-                existing_artificial = next((p for p in artificially_detected_partitions if p.node == node_name), None)
+                existing_artificial = next(
+                    (
+                        p
+                        for p in artificially_detected_partitions
+                        if p.node == node_name
+                    ),
+                    None,
+                )
                 if existing_artificial:
                     existing_artificial.unreachable_nodes = list(combined_unreachable)
                 else:
                     artificially_detected_partitions.append(
-                        Partition(node=node_name, unreachable_nodes=list(combined_unreachable))
+                        Partition(
+                            node=node_name, unreachable_nodes=list(combined_unreachable)
+                        )
                     )
 
-
         else:
-            logging.debug(f"Direct connection to node {node_name} failed. Assuming it's unreachable.")
+            logging.debug(
+                f"Direct connection to node {node_name} failed. Assuming it's unreachable."
+            )
             pass
 
     # Combine RabbitMQ-reported partitions and artificially detected ones
@@ -332,15 +396,16 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
             unique_partitions.append(p)
             seen_partitions.add(partition_key)
 
-
-
-    node_statuses: List[NodeStatus] = [NodeStatus(node=node_info.name, running=node_info.running) for node_info in primary_nodes]
+    node_statuses: List[NodeStatus] = [
+        NodeStatus(node=node_info.name, running=node_info.running)
+        for node_info in primary_nodes
+    ]
 
     cluster_status = ClusterStatus(
-        nodes=node_statuses, # Keep original running status view
+        nodes=node_statuses,  # Keep original running status view
         network_partitions_detected=True if len(unique_partitions) > 0 else False,
         partition_details=unique_partitions,
-        raw_node_data=primary_nodes # Data from the primary node only
+        raw_node_data=primary_nodes,  # Data from the primary node only
     )
 
     return cluster_status

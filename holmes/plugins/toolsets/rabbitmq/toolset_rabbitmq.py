@@ -1,4 +1,3 @@
-
 import os
 import logging
 from typing import Any, List, Optional, Tuple
@@ -16,18 +15,22 @@ from holmes.core.tools import (
 from requests import RequestException
 from urllib.parse import urljoin
 
-from holmes.plugins.toolsets.rabbitmq.api import ClusterConnectionStatus, RabbitMQClusterConfig, get_cluster_status, make_request
+from holmes.plugins.toolsets.rabbitmq.api import (
+    ClusterConnectionStatus,
+    RabbitMQClusterConfig,
+    get_cluster_status,
+    make_request,
+)
 
 
 class RabbitMQConfig(BaseModel):
     clusters: List[RabbitMQClusterConfig]
 
+
 class BaseRabbitMQTool(Tool):
     toolset: "RabbitMQToolset"
 
-    def _get_cluster_config(
-        self, cluster_id: Optional[str]
-    ) -> RabbitMQClusterConfig:
+    def _get_cluster_config(self, cluster_id: Optional[str]) -> RabbitMQClusterConfig:
         if not self.toolset.config:
             raise ValueError("RabbitMQ is not configured.")
         cluster_ids = [c.id for c in self.toolset.config.clusters]
@@ -64,7 +67,11 @@ class ListConfiguredClusters(BaseRabbitMQTool):
             raise ValueError("RabbitMQ is not configured.")
 
         available_clusters = [
-            {"cluster_id": c.id, "management_url": c.management_url, "connection_status": c.connection_status}
+            {
+                "cluster_id": c.id,
+                "management_url": c.management_url,
+                "connection_status": c.connection_status,
+            }
             for c in self.toolset.config.clusters
             if c.connection_status == ClusterConnectionStatus.SUCCESS
         ]
@@ -94,7 +101,9 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             # Fetch node details which include partition info
-            cluster_config = self._get_cluster_config(cluster_id=params.get("cluster_id"))
+            cluster_config = self._get_cluster_config(
+                cluster_id=params.get("cluster_id")
+            )
             result = get_cluster_status(cluster_config)
             return StructuredToolResult(status=ToolResultStatus.SUCCESS, data=result)
 
@@ -163,7 +172,6 @@ class RabbitMQToolset(Toolset):
         return self._check_clusters_config(self.config)
 
     def _check_clusters_config(self, config: RabbitMQConfig) -> Tuple[bool, str]:
-
         errors = []
         for cluster_config in config.clusters:
             url = urljoin(cluster_config.management_url, "api/overview")
@@ -176,12 +184,10 @@ class RabbitMQToolset(Toolset):
                 )
 
                 if data:
-                    cluster_config.connection_status = (
-                        ClusterConnectionStatus.SUCCESS
-                    )
+                    cluster_config.connection_status = ClusterConnectionStatus.SUCCESS
                     self._reload_llm_instructions()
                 else:
-                    error_message = f"Failed to connect to RabbitMQ Management API for cluster with id={cluster_config.id} at {url} for health check: HTTP {response.status_code}. Response: {response.text}"
+                    error_message = f"Failed to connect to RabbitMQ Management API for cluster with id={cluster_config.id} at {url}. No data returned"
                     cluster_config.connection_status = ClusterConnectionStatus.ERROR
                     errors.append(error_message)
 
