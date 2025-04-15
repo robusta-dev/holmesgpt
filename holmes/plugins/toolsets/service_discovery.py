@@ -5,10 +5,19 @@ from kubernetes.client.models.v1_service import V1Service
 import os
 from cachetools import TTLCache
 from typing import List, Optional
+from kubernetes import config
 
 SERVICE_CACHE_TTL_SEC = int(os.environ.get("SERVICE_CACHE_TTL_SEC", 900))
 
 CLUSTER_DOMAIN = os.environ.get("CLUSTER_DOMAIN", "cluster.local")
+
+try:
+    if os.getenv("KUBERNETES_SERVICE_HOST"):
+        config.load_incluster_config()
+    else:
+        config.load_kube_config()
+except config.config_exception.ConfigException as e:
+    logging.warning(f"Running without kube-config! e={e}")
 
 
 def find_service_url(label_selector):
