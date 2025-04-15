@@ -1,0 +1,16 @@
+{"toolset_name":"rabbitmq/core","tool_name":"list_configured_clusters","match_params":{}}
+{
+  "schema_version": "robusta:v1.0.0",
+  "status": "success",
+  "error": null,
+  "data": [
+    {
+      "cluster_id": "rabbitmq",
+      "management_url": "http://localhost:15672",
+      "connection_status": "success"
+    }
+  ],
+  "url": null,
+  "query": null,
+  "params": null
+}

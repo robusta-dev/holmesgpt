@@ -157,7 +157,11 @@ class MockToolsets:
             if definition:
                 toolset.config = definition.config
                 toolset.enabled = definition.enabled
-            toolset.check_prerequisites()
+                toolset.check_prerequisites()
+                if toolset.get_status() != ToolsetStatusEnum.ENABLED:
+                    raise Exception(f"Failed to enable test toolset {toolset.name}: {toolset.get_error()}")
+            else:
+                toolset.check_prerequisites()
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)

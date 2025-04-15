@@ -16,7 +16,7 @@ from holmes.core.tools import (
 from requests import RequestException
 from urllib.parse import urljoin
 
-from holmes.plugins.toolsets.rabbitmq.api import ClusterConnectionStatus, RabbitMQClusterConfig, get_cluster_health_from_management_url, make_request
+from holmes.plugins.toolsets.rabbitmq.api import ClusterConnectionStatus, RabbitMQClusterConfig, get_cluster_status, make_request
 
 
 class RabbitMQConfig(BaseModel):
@@ -50,8 +50,6 @@ class BaseRabbitMQTool(Tool):
         )
 
 
-
-
 class ListConfiguredClusters(BaseRabbitMQTool):
     def __init__(self, toolset: "RabbitMQToolset"):
         super().__init__(
@@ -66,7 +64,7 @@ class ListConfiguredClusters(BaseRabbitMQTool):
             raise ValueError("RabbitMQ is not configured.")
 
         available_clusters = [
-            {"cluster_id": c.id, "management_url": c.management_url}
+            {"cluster_id": c.id, "management_url": c.management_url, "connection_status": c.connection_status}
             for c in self.toolset.config.clusters
             if c.connection_status == ClusterConnectionStatus.SUCCESS
         ]
@@ -97,37 +95,9 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
         try:
             # Fetch node details which include partition info
             cluster_config = self._get_cluster_config(cluster_id=params.get("cluster_id"))
-
-            nodes_data = get_cluster_health_from_management_url(cluster_config)
-
-            # Process data to highlight partitions
-            partitions = []
-            node_statuses = []
-            for node in nodes_data:
-                node_name = node.get("name", "unknown_node")
-                running = node.get("running", False)
-                node_partitions = node.get("partitions", [])
-                if node_partitions:
-                    partitions.append(
-                        {"node": node_name, "unreachable_nodes": node_partitions}
-                    )
-                node_statuses.append({"node": node_name, "running": running})
-
-            result = {
-                "nodes": node_statuses,
-                "network_partitions_detected": bool(partitions),
-                "partition_details": partitions,  # Shows which nodes report partitions
-                "raw_node_data": nodes_data,  # Include raw data for more context if needed by LLM
-            }
+            result = get_cluster_status(cluster_config)
             return StructuredToolResult(status=ToolResultStatus.SUCCESS, data=result)
 
-        except RequestException as e:
-            logging.info("Failed to fetch RabbitMQ cluster status", exc_info=True)
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Network error while fetching RabbitMQ cluster status: {str(e)}",
-                data=None,
-            )
         except Exception as e:
             logging.info("Failed to process RabbitMQ cluster status", exc_info=True)
             return StructuredToolResult(
@@ -199,13 +169,13 @@ class RabbitMQToolset(Toolset):
             url = urljoin(cluster_config.management_url, "api/overview")
 
             try:
-                response = make_request(
+                data = make_request(
                     config=cluster_config,
                     method="GET",
                     url=url,
                 )
 
-                if response.status_code == 200:
+                if data:
                     cluster_config.connection_status = (
                         ClusterConnectionStatus.SUCCESS
                     )
