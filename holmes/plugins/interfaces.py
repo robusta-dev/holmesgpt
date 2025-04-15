@@ -8,6 +8,9 @@ class SourcePlugin:
     def fetch_issues(self) -> List[Issue]:
         raise NotImplementedError()
 
+    def fetch_issue(self, id: str) -> Issue:
+        raise NotImplementedError()
+
     # optional
     def stream_issues(self) -> Iterable[Issue]:
         raise NotImplementedError()
