@@ -198,6 +198,7 @@ class YAMLTool(Tool, BaseModel):
             error=error_message,
             return_code=return_code,
             data=output_with_instructions,
+            params=params,
         )
 
     def __apply_additional_instructions(self, raw_output: str) -> str:

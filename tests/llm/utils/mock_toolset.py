@@ -63,7 +63,11 @@ class SaveMockTool(Tool):
 
         logging.info(f"Invoking tool {self.unmocked_tool}")
         output = self.unmocked_tool.invoke(params)
-        output = strip_ansi(output)
+        if output.status == ToolResultStatus.SUCCESS:
+            output = strip_ansi(output.data)
+        elif output.status == ToolResultStatus.ERROR:
+            output = strip_ansi(output.error)
+
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata_json + "\n")
             f.write(output)
