@@ -62,7 +62,6 @@ class FetchNotion(Tool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=self.parse_notion_content(content),
-            return_code=0,
             params=params,
         )
 

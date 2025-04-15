@@ -270,7 +270,6 @@ class GetTempoTraceById(Tool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=trace_data,
-            return_code=0,
             params=params,
         )
 

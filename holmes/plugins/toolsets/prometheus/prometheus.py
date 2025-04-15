@@ -650,7 +650,6 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=data_str,
-                    return_code=0,
                     params=params,
                 )
 

@@ -18,7 +18,6 @@ class CurrentTime(Tool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=f"The current UTC date and time are {now}. The current UTC timestamp in seconds is {int(now.timestamp())}.",
-            return_code=0,
             params=params,
         )
 

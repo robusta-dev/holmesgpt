@@ -211,7 +211,6 @@ class FetchWebpage(Tool):
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=content,
-            return_code=0,
             params=params,
         )
 
