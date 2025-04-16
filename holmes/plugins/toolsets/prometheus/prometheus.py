@@ -665,7 +665,6 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Query execution failed. HTTP {response.status_code}: {error_msg}",
-                    return_code=-1,
                     params=params,
                 )
 

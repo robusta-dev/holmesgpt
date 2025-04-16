@@ -298,7 +298,6 @@ class ToolCallingLLM:
             tool_response = StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Tool call failed: {e}",
-                return_code=-1,
                 params=tool_params,
             )
 

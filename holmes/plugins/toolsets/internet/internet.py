@@ -198,7 +198,6 @@ class FetchWebpage(Tool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to retrieve content from {url}",
-                return_code=-1,
                 params=params,
             )
 
