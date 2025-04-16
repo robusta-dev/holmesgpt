@@ -124,8 +124,8 @@ class RabbitMQToolset(Toolset):
         super().__init__(
             name="rabbitmq/core",
             description="Provides tools to interact with RabbitMQ Management API for diagnosing cluster health, node status, and specifically network partitions (split-brain).",
-            docs_url="https://www.rabbitmq.com/docs/management.html",  # General Management API docs
-            icon_url="https://cdn.worldvectorlogo.com/logos/rabbitmq.svg",  # Example icon URL
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html",
+            icon_url="https://cdn.worldvectorlogo.com/logos/rabbitmq.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 ListConfiguredClusters(toolset=self),
