@@ -53,3 +53,5 @@ additionalVolumes: []
 additionalVolumeMounts: []
 
 priorityClassName: ""
+
+modelCredentials: {}
