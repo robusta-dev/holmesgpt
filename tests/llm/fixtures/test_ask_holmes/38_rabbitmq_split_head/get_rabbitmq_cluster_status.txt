@@ -1,4 +1,4 @@
-{"toolset_name":"rabbitmq/core","tool_name":"get_rabbitmq_cluster_status","match_params":{"cluster_id":"rabbitmq"}}
+{"toolset_name":"rabbitmq/core","tool_name":"get_rabbitmq_cluster_status"}
 {
   "schema_version": "robusta:v1.0.0",
   "status": "success",
