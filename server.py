@@ -355,7 +355,7 @@ def chat(chat_request: ChatRequest):
 
 @app.get("/api/model")
 def get_model():
-    return {"model_name": config.model}
+    return {"model_name": config.get_models_list()}
 
 
 if __name__ == "__main__":
