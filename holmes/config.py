@@ -9,7 +9,7 @@ from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
 from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
 from pydash.arrays import concat
-
+import json
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
@@ -41,6 +41,46 @@ import re
 from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+MODEL_CREDENTIALS_LOCATION = os.environ.get(
+    "MODEL_CREDENTIALS_LOCATION", "/etc/holmes/config/model_credentials.yaml"
+)
+
+
+def load_yaml_file(path: str, raise_error: bool = True) -> Dict:
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            parsed_yaml = yaml.safe_load(file)
+    except yaml.YAMLError as err:
+        logging.warning(f"Error parsing YAML from {path}: {err}")
+        if raise_error:
+            raise err
+        return {}
+    except FileNotFoundError as err:
+        logging.warning(f"file {path} was not found.")
+        if raise_error:
+            raise err
+        return {}
+    except Exception as err:
+        logging.warning(f"Failed to open file {path}: {err}")
+        if raise_error:
+            raise err
+        return {}
+
+    if not parsed_yaml:
+        message = f"No content found in file: {path}"
+        logging.warning(message)
+        if raise_error:
+            raise ValueError(message)
+        return {}
+
+    if not isinstance(parsed_yaml, dict):
+        message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
+        logging.warning(message)
+        if raise_error:
+            raise ValueError(message)
+        return {}
+
+    return parsed_yaml
 
 
 class SupportedTicketSources(str, Enum):
@@ -127,34 +167,7 @@ def load_toolsets_definitions(
 def parse_toolsets_file(
     path: str, raise_error: bool = True
 ) -> Optional[List[ToolsetYamlFromConfig]]:
-    try:
-        with open(path, "r", encoding="utf-8") as file:
-            parsed_yaml = yaml.safe_load(file)
-    except yaml.YAMLError as err:
-        logging.warning(f"Error parsing YAML from {path}: {err}")
-        if raise_error:
-            raise err
-        return None
-
-    except Exception as err:
-        logging.warning(f"Failed to open toolset file {path}: {err}")
-        if raise_error:
-            raise err
-        return None
-
-    if not parsed_yaml:
-        message = f"No content found in custom toolset file: {path}"
-        logging.warning(message)
-        if raise_error:
-            raise ValueError(message)
-        return None
-
-    if not isinstance(parsed_yaml, dict):
-        message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
-        logging.warning(message)
-        if raise_error:
-            raise ValueError(message)
-        return None
+    parsed_yaml = load_yaml_file(path, raise_error)
 
     toolsets_definitions = parsed_yaml.get("toolsets")
     if not toolsets_definitions:
@@ -173,6 +186,15 @@ def parse_toolsets_file(
         return None
 
     return toolset_config
+
+
+def parse_models_file(path: str):
+    models = load_yaml_file(path, raise_error=False)
+
+    for model, credentials in models.items():
+        credentials = replace_env_vars_values(credentials)
+
+    return models
 
 
 class Config(RobustaBaseConfig):
@@ -233,6 +255,7 @@ class Config(RobustaBaseConfig):
     def model_post_init(self, __context: Any) -> None:
         self._version = get_version()
         self._holmes_info = fetch_holmes_info()
+        self._models_credentials = parse_models_file(MODEL_CREDENTIALS_LOCATION)
 
         if not self.is_latest_version:
             logging.warning(
@@ -424,13 +447,13 @@ class Config(RobustaBaseConfig):
         return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
 
     def create_toolcalling_llm(
-        self, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None, model: Optional[str] = None
     ) -> ToolCallingLLM:
         tool_executor = self.create_tool_executor(dal)
-        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
+        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm(model))
 
     def create_issue_investigator(
-        self, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None, model: str = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
@@ -439,7 +462,7 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_tool_executor(dal)
         return IssueInvestigator(
-            tool_executor, runbook_manager, self.max_steps, self._get_llm()
+            tool_executor, runbook_manager, self.max_steps, self._get_llm(model)
         )
 
     def create_console_issue_investigator(
@@ -650,9 +673,21 @@ class Config(RobustaBaseConfig):
         merged_config.update(cli_options)
         return cls(**merged_config)
 
-    def _get_llm(self) -> LLM:
+    def _get_llm(self, model: Optional[str] = None) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
-        return DefaultLLM(self.model, api_key)
+        model_info = {}
+        if model:
+            model_info = self._models_credentials.get(model, {}).copy()
+            api_key = model_info.pop("api_key", None)
+            self.model = model_info.pop("model")
+
+        return DefaultLLM(self.model, api_key, model_info)
+
+    def get_models_list(self) -> List[str]:
+        if self._models_credentials:
+            return json.dumps(list(self._models_credentials.keys()))
+        else:
+            return json.dumps([self.model])
 
 
 class TicketSource(BaseModel):
