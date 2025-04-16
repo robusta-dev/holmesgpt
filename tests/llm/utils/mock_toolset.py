@@ -103,7 +103,7 @@ class MockToolWrapper(Tool):
             if match:
                 return mock
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         mock = self.find_matching_mock(params)
         if mock:
             return mock.return_value
