@@ -138,7 +138,10 @@ if LOG_PERFORMANCE:
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
         result = investigation.investigate_issues(
-            investigate_request=investigate_request, dal=dal, config=config
+            investigate_request=investigate_request,
+            dal=dal,
+            config=config,
+            model=investigate_request.model,
         )
         return result
 
@@ -200,7 +203,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask, global_instructions
         )
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
 
         system_prompt = load_and_render_prompt(
             request.prompt_template,
@@ -229,16 +232,14 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 @app.post("/api/workload_health_chat")
 def workload_health_conversation(
-    workload_health_chat_request: WorkloadHealthChatRequest,
+    request: WorkloadHealthChatRequest,
 ):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(
-            workload_health_chat_request, ai, global_instructions
-        )
+        messages = build_workload_health_chat_messages(request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -276,7 +277,7 @@ def issue_conversation_deprecated(conversation_request: ConversationRequest):
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(
@@ -308,7 +309,7 @@ def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
         messages = build_chat_messages(
             chat_request.ask,
