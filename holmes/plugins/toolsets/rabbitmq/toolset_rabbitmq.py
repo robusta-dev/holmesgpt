@@ -156,6 +156,7 @@ class RabbitMQToolset(Toolset):
             config = {
                 "clusters": [
                     {
+                        "id": "rabbitmq",
                         "management_url": env_url,
                         "username": env_user,
                         "password": env_pass,
