@@ -71,8 +71,8 @@ spec:
             mountPath: /etc/robusta/config
           - name: custom-toolsets-configmap
             mountPath: /etc/holmes/config
-          - name: model-credentials
-            mountPath: /etc/holmes/config
+          - name: holmes-model-credentials
+            mountPath: /etc/holmes/model
           {{- if .Values.additionalVolumeMounts -}}
           {{ toYaml .Values.additionalVolumeMounts | nindent 10 }}
           {{- end }}
