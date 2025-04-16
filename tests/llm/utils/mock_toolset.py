@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
 from holmes.plugins.toolsets import load_builtin_toolsets
@@ -24,7 +24,7 @@ class MockMetadata(BaseModel):
 
 class ToolMock(MockMetadata):
     source_file: str
-    return_value: Union[str, StructuredToolResult]
+    return_value: StructuredToolResult
 
 
 class SaveMockTool(Tool):
