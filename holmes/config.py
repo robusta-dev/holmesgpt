@@ -680,7 +680,11 @@ class Config(RobustaBaseConfig):
         model_info = {}
         if self._models_credentials:
             # get requested model or the first credentials if no model requested.
-            model_info = self._models_credentials.get(model, {}).copy() if model else next(iter(self._models_credentials.values())).copy()
+            model_info = (
+                self._models_credentials.get(model, {}).copy()
+                if model
+                else next(iter(self._models_credentials.values())).copy()
+            )
             api_key = model_info.pop("api_key", None)
             self.model = model_info.pop("model", None)
 
