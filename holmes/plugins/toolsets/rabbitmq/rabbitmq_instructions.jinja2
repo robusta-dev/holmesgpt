@@ -17,6 +17,9 @@ Your primary goal when using these tools is to diagnose RabbitMQ cluster health 
     *   Analyze the node details: Pay close attention to `mem_alarm` and `disk_free_alarm`.
         Resource exhaustion (memory, disk, file descriptors) is a common reason for nodes becoming unresponsive and causing
         partitions. Also check if `running` is `false`.
+    *   Analyze the status of the kubernetes pods running RabbitMQ. There is typically one kubernetes pod per RabbitMQ node.
+        This can further indicate if a pod is running and if it is healthy or not.
+    *   Fetch the logs of any pod that is either partitioned or marked as not healthy by the RabbitMQ API.
 3.  **Synthesize Findings:** Based on the cluster status and node details, describe the situation clearly. For example:
     *   "A network partition is detected in the RabbitMQ cluster '{cluster_name}'. Node 'rabbit@hostA' cannot reach
         ['rabbit@hostB']. Node 'rabbit@hostB' reports a disk space alarm (`disk_free_alarm: true`)."
