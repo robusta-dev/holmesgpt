@@ -10,3 +10,10 @@ For example:
 * Never add the same change more than once to the output
 * Embed it in with the evidence id and a title describing the change. Use this format:
 << { "type": "diff", "evidence_id": "8a4d1369-0e98-4ff2-b180-699d5ff286ab", "title": "Image change on the DB workload" } >>
+
+# Resource and efficiency recommendations
+* Use fetch_resource_recommendation to get resource recommendations for a given kubernetes workload
+* Resource recommendations contains memory and cpu recommended request and limits for a given workload
+* When asked if a resource can be optimized, or if a resources is over utilized, use the fetch_resource_recommendation tool to answer
+* Right sizing of resources is a key to avoiding performance issues
+* Right sizing of resouces can also lead to cost savings
