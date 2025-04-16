@@ -194,6 +194,8 @@ def parse_models_file(path: str):
     for model, credentials in models.items():
         credentials = replace_env_vars_values(credentials)
 
+    logging.info(f"loaded models: {list(models.keys())}")
+
     return models
 
 
@@ -676,10 +678,11 @@ class Config(RobustaBaseConfig):
     def _get_llm(self, model: Optional[str] = None) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
         model_info = {}
-        if model:
-            model_info = self._models_credentials.get(model, {}).copy()
+        if self._models_credentials:
+            # get requested model or the first credentials if no model requested.
+            model_info = self._models_credentials.get(model, {}).copy() if model else next(iter(self._models_credentials.values())).copy()
             api_key = model_info.pop("api_key", None)
-            self.model = model_info.pop("model")
+            self.model = model_info.pop("model", None)
 
         return DefaultLLM(self.model, api_key, model_info)
 
