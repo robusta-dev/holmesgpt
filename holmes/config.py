@@ -42,7 +42,7 @@ from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 MODEL_CREDENTIALS_LOCATION = os.environ.get(
-    "MODEL_CREDENTIALS_LOCATION", "/etc/holmes/config/model_credentials.yaml"
+    "MODEL_CREDENTIALS_LOCATION", "/etc/holmes/model/model_credentials.yaml"
 )
 
 
