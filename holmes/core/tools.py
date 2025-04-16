@@ -258,7 +258,6 @@ class YAMLTool(Tool, BaseModel):
             result = subprocess.run(
                 cmd,
                 shell=True,
-                capture_output=True,
                 text=True,
                 check=False,  # do not throw error, we just return the error code
                 stdin=subprocess.DEVNULL,
