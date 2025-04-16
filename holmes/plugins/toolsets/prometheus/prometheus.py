@@ -736,7 +736,7 @@ class PrometheusToolset(Toolset):
             if not prometheus_url:
                 return (
                     False,
-                    "Prometheus is misconfigured. prometheus_url is required but missing",
+                    "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
                 )
 
         self.config = PrometheusConfig(
