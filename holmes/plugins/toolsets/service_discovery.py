@@ -3,11 +3,8 @@ from kubernetes import client
 from kubernetes.client import V1ServiceList
 from kubernetes.client.models.v1_service import V1Service
 import os
-from cachetools import TTLCache
 from typing import List, Optional
 from kubernetes import config
-
-SERVICE_CACHE_TTL_SEC = int(os.environ.get("SERVICE_CACHE_TTL_SEC", 900))
 
 CLUSTER_DOMAIN = os.environ.get("CLUSTER_DOMAIN", "cluster.local")
 
@@ -43,22 +40,15 @@ def find_service_url(label_selector):
 
 
 class ServiceDiscovery:
-    cache: TTLCache = TTLCache(maxsize=5, ttl=SERVICE_CACHE_TTL_SEC)
-
     @classmethod
     def find_url(cls, selectors: List[str], error_msg: str) -> Optional[str]:
         """
         Try to autodiscover the url of an in-cluster service
         """
-        cache_key = ",".join(selectors)
-        cached_value = cls.cache.get(cache_key)
-        if cached_value:
-            return cached_value
 
         for label_selector in selectors:
             service_url = find_service_url(label_selector)
             if service_url:
-                cls.cache[cache_key] = service_url
                 return service_url
 
         logging.debug(error_msg)
