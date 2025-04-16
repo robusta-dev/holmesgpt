@@ -60,15 +60,14 @@ class DefaultLLM(LLM):
     api_key: Optional[str]
     base_url: Optional[str]
 
-    def __init__(self, model: str, api_key: Optional[str] = None):
+    def __init__(self, model: str, api_key: Optional[str] = None, args: Dict = {}):
         self.model = model
         self.api_key = api_key
-        self.base_url = None
+        self.base_url = ROBUSTA_API_ENDPOINT if ROBUSTA_AI else None
+        self.args = args
 
-        if ROBUSTA_AI:
-            self.base_url = ROBUSTA_API_ENDPOINT
-
-        self.check_llm(self.model, self.api_key)
+        if not args:
+            self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model: str, api_key: Optional[str]):
         logging.debug(f"Checking LiteLLM model {model}")
@@ -205,6 +204,7 @@ class DefaultLLM(LLM):
             thinking=thinking,
             stream=stream,
             **tools_args,
+            **self.args,
         )
 
         if isinstance(result, ModelResponse):
