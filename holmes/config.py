@@ -343,10 +343,10 @@ class Config(RobustaBaseConfig):
             if toolset.enabled:
                 toolset.check_prerequisites()
 
-        enabled_toolsets = []
+        toolsets = []
         for ts in toolsets_by_name.values():
+            toolsets.append(ts)
             if ts.get_status() == ToolsetStatusEnum.ENABLED:
-                enabled_toolsets.append(ts)
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.DISABLED:
                 logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
@@ -361,11 +361,11 @@ class Config(RobustaBaseConfig):
                     f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value"
                 )
 
-        enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
+        enabled_tools = concat(*[ts.tools for ts in toolsets if ts.get_status() == ToolsetStatusEnum.DISABLED])
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
-        return ToolExecutor(enabled_toolsets)
+        return ToolExecutor(toolsets)
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """

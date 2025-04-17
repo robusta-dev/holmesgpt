@@ -650,7 +650,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "issue": issue,
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
-                "enabled_toolsets": self.tool_executor.enabled_toolsets,
+                "toolsets": self.tool_executor.toolsets,
             },
         )
 

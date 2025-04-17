@@ -292,7 +292,7 @@ def ask(
         allowed_toolsets=allowed_toolsets, dal=None
     )
     template_context = {
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+        "toolsets": ai.tool_executor.toolsets,
     }
     system_prompt = load_and_render_prompt(system_prompt, template_context)
     if echo_request:

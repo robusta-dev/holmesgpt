@@ -1,10 +1,41 @@
-{% if enabled_toolsets|selectattr('llm_instructions')|list -%}
+{%- set enabled_toolsets_with_instructions = [] -%}
+{%- set disabled_toolsets = [] -%}
+
+{%- for toolset in toolsets -%}
+  {%- if toolset.llm_instructions and toolset.get_status().value == "enabled" -%}
+    {%- set _ = enabled_toolsets_with_instructions.append(toolset) -%}
+  {%- elif toolset.get_status().value != "enabled" -%}
+    {%- set _ = disabled_toolsets.append(toolset) -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{% if enabled_toolsets_with_instructions|list -%}
 # Available Toolsets
-{%- for toolset in enabled_toolsets -%}
+{%- for toolset in enabled_toolsets_with_instructions -%}
 {% if toolset.llm_instructions %}
 
 ## {{ toolset.name }}
 {{ toolset.llm_instructions }}
 {%- endif -%}
+{%- endfor -%}
+{%- endif -%}
+
+{% if disabled_toolsets %}
+# Disabled Toolsets
+
+The following toolsets are disabled or failed.
+Ask the user to configure one of these toolset if you need any of the tool in a toolset and can't provide an answer without it.
+If a docs URL is available. Direct the user to it. You can also call fetch_webpage on the URL and desribe to the user how to setup the toolset.
+{% for toolset in disabled_toolsets %}
+* {{ toolset.name }}
+    *  status: {{ toolset.get_status().value }}{%- if toolset.get_error() %}, reason: {{ toolset.get_error() }}{%- endif %}
+    *  description: {{ toolset.description }}
+    {%- if toolset.docs_url %}
+    *  setup instructions: {{ toolset.docs_url }}
+    {%- endif %}
+    *  Tools:
+    {%- for tool in toolset.tools %}
+        *  {{ tool.name }}: {{ tool.description }}
+    {%- endfor -%}
 {%- endfor -%}
 {%- endif -%}
