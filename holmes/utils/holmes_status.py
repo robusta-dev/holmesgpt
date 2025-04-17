@@ -16,7 +16,7 @@ def update_holmes_status_in_db(dal: SupabaseDal, config: Config):
     dal.upsert_holmes_status(
         {
             "cluster_id": config.cluster_name,
-            "model": config.model,
+            "model": config.get_models_list(),
             "version": get_version(),
         }
     )

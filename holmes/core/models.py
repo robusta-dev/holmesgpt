@@ -23,6 +23,7 @@ class InvestigateRequest(BaseModel):
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://generic_investigation.jinja2"
     sections: Optional[InputSectionsDataType] = None
+    model: Optional[str] = None
     # TODO in the future
     # response_handler: ...
 
@@ -87,6 +88,7 @@ class ConversationRequest(BaseModel):
 
 class ChatRequestBaseModel(BaseModel):
     conversation_history: Optional[list[dict]] = None
+    model: Optional[str] = None
 
     # In our setup with litellm, the first message in conversation_history
     # should follow the structure [{"role": "system", "content": ...}],
@@ -123,6 +125,7 @@ class WorkloadHealthRequest(BaseModel):
     include_tool_calls: bool = False
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://kubernetes_workload_ask.jinja2"
+    model: Optional[str] = None
 
 
 class ChatRequest(ChatRequestBaseModel):
