@@ -35,9 +35,10 @@ class StructuredToolResult(BaseModel):
     schema_version: str = "robusta:v1.0.0"
     status: ToolResultStatus
     error: Optional[str] = None
+    return_code: Optional[int] = None
     data: Optional[Any] = None
     url: Optional[str] = None
-    query: Optional[str] = None
+    invocation: Optional[str] = None
     params: Optional[Dict] = None
 
 
@@ -122,16 +123,17 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def invoke(self, params: Dict) -> StructuredToolResult:
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
         result = self._invoke(params)
-        return format_tool_output(result)
+        # return format_tool_output(result)
+        return result
 
     @abstractmethod
-    def _invoke(self, params: Dict) -> Union[str, StructuredToolResult]:
-        return ""
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        pass
 
     @abstractmethod
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -175,18 +177,35 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         if self.command is not None:
-            raw_output = self.__invoke_command(params)
+            raw_output, return_code, invocation = self.__invoke_command(params)
         else:
-            raw_output = self.__invoke_script(params)
+            raw_output, return_code, invocation = self.__invoke_script(params)
 
-        if self.additional_instructions:
+        if self.additional_instructions and return_code == 0:
             logging.info(
                 f"Applying additional instructions: {self.additional_instructions}"
             )
-            return self.__apply_additional_instructions(raw_output)
-        return raw_output
+            output_with_instructions = self.__apply_additional_instructions(raw_output)
+        else:
+            output_with_instructions = raw_output
+
+        error = (
+            None
+            if return_code == 0
+            else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
+        )
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS
+            if return_code == 0
+            else ToolResultStatus.ERROR,
+            error=error,
+            return_code=return_code,
+            data=output_with_instructions,
+            params=params,
+            invocation=invocation,
+        )
 
     def __apply_additional_instructions(self, raw_output: str) -> str:
         try:
@@ -206,12 +225,13 @@ class YAMLTool(Tool, BaseModel):
             )
             return f"Error applying additional instructions: {e.stderr}"
 
-    def __invoke_command(self, params) -> str:
+    def __invoke_command(self, params) -> Tuple[str, int, str]:
         context = self._build_context(params)
         command = os.path.expandvars(self.command)
         template = Template(command)
         rendered_command = template.render(context)
-        return self.__execute_subprocess(rendered_command)
+        output, return_code = self.__execute_subprocess(rendered_command)
+        return output, return_code, rendered_command
 
     def __invoke_script(self, params) -> str:
         context = self._build_context(params)
@@ -227,24 +247,32 @@ class YAMLTool(Tool, BaseModel):
         subprocess.run(["chmod", "+x", temp_script_path], check=True)
 
         try:
-            return self.__execute_subprocess(temp_script_path)
+            output, return_code = self.__execute_subprocess(temp_script_path)
         finally:
             subprocess.run(["rm", temp_script_path])
+        return output, return_code, rendered_script
 
-    def __execute_subprocess(self, cmd) -> str:
+    def __execute_subprocess(self, cmd) -> Tuple[str, int]:
         try:
             logging.debug(f"Running `{cmd}`")
             result = subprocess.run(
                 cmd,
                 shell=True,
-                capture_output=True,
                 text=True,
-                check=True,
+                check=False,  # do not throw error, we just return the error code
                 stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
-            return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-        except subprocess.CalledProcessError as e:
-            return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+
+            return result.stdout.strip(), result.returncode
+        except Exception as e:
+            logging.error(
+                f"An unexpected error occurred while running '{cmd}': {e}",
+                exc_info=True,
+            )
+            output = f"Command execution failed with error: {e}"
+            return output, 1
 
 
 class StaticPrerequisite(BaseModel):

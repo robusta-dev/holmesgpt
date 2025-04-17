@@ -21,6 +21,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     add_auth_header,
     OpenSearchIndexConfig,
 )
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 
@@ -39,7 +40,7 @@ class GetLogFields(BaseOpenSearchLogsTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
             if not self._cache:
                 self._cache = TTLCache(
@@ -79,16 +80,29 @@ class GetLogFields(BaseOpenSearchLogsTool):
             logs_response.raise_for_status()
             response = json.dumps(logs_response.json())
             self._cache[LOGS_FIELDS_CACHE_KEY] = response
-            return response
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=response,
+                params=params,
+            )
         except requests.Timeout:
             logging.warn("Timeout while fetching opensearch logs fields", exc_info=True)
-            return "Request timed out while fetching opensearch logs fields"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Request timed out while fetching opensearch logs fields",
+            )
         except RequestException as e:
             logging.warn("Failed to fetch opensearch logs fields", exc_info=True)
-            return f"Network error while opensearch logs fields: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Network error while opensearch logs fields: {str(e)}",
+            )
         except Exception as e:
             logging.warn("Failed to process opensearch logs fields", exc_info=True)
-            return f"Unexpected error: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error: {str(e)}",
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "list log documents fields"
@@ -110,7 +124,7 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         err_msg = ""
         try:
             body = json.loads(params.get("query"))
@@ -136,16 +150,32 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
                 err_msg = logs_response.text
 
             logs_response.raise_for_status()
-            return json.dumps(logs_response.json())
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=json.dumps(logs_response.json()),
+                params=params,
+            )
         except requests.Timeout:
             logging.warn("Timeout while fetching opensearch logs search", exc_info=True)
-            return f"Request timed out while fetching opensearch logs search {err_msg}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Request timed out while fetching opensearch logs search {err_msg}",
+                params=params,
+            )
         except RequestException as e:
             logging.warn("Failed to fetch opensearch logs search", exc_info=True)
-            return f"Network error while opensearch logs search {err_msg} {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Network error while opensearch logs search {err_msg} {str(e)}",
+                params=params,
+            )
         except Exception as e:
             logging.warn("Failed to process opensearch logs search", exc_info=True)
-            return f"Unexpected error {err_msg}: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error {err_msg}: {str(e)}",
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return f'search logs: query="{params.get("query")}"'
