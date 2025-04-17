@@ -39,7 +39,7 @@ def find_service_url(label_selector):
         )
         return url
     except Exception:
-        logging.exception("Error finding for url")
+        logging.warning("Error finding url")
         return None
 
 
