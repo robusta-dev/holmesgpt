@@ -141,7 +141,7 @@ class MockToolsets:
         self._update()
 
     def _load_toolsets_definitions(self, run_live) -> List[ToolsetYamlFromConfig]:
-        config_path = os.path.join(self.test_case_folder, "config.yaml")
+        config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
         toolsets_definitions = None
         if os.path.isfile(config_path):
             toolsets_definitions = parse_toolsets_file(
