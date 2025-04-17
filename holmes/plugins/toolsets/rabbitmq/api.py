@@ -40,15 +40,15 @@ class NodeStatus(BaseModel):
 
 
 class NodeInfo(BaseModel):
-    name: str
-    type: str
-    running: bool
+    name: Optional[str] = "unknown"
+    type: Optional[str] = "unknown"
+    running: bool = False
     mem_used: Optional[int] = None
     mem_limit: Optional[int] = None
-    mem_alarm: bool
+    mem_alarm: Optional[bool] = None
     disk_free: Optional[int] = None
     disk_free_limit: Optional[int] = None
-    disk_free_alarm: bool
+    disk_free_alarm: Optional[bool] = None
     fd_used: Optional[int] = None
     fd_total: Optional[int] = None
     sockets_used: Optional[int] = None
@@ -122,23 +122,7 @@ def make_request(
 
 def node_data_to_node_info(node_data: Dict) -> NodeInfo:
     """Converts raw node data dict to NodeInfo model."""
-    return NodeInfo(
-        name=node_data.get("name", "unknown"),
-        type=node_data.get("type", "unknown"),
-        running=node_data.get("running", False),
-        mem_used=node_data.get("mem_used"),
-        mem_limit=node_data.get("mem_limit"),
-        mem_alarm=node_data.get("mem_alarm", False),
-        disk_free=node_data.get("disk_free"),
-        disk_free_limit=node_data.get("disk_free_limit"),
-        disk_free_alarm=node_data.get("disk_free_alarm", False),
-        fd_used=node_data.get("fd_used"),
-        fd_total=node_data.get("fd_total"),
-        sockets_used=node_data.get("sockets_used"),
-        sockets_total=node_data.get("sockets_total"),
-        uptime=node_data.get("uptime"),
-        partitions=node_data.get("partitions"),  # Keep RabbitMQ's view
-    )
+    return NodeInfo(**node_data)
 
 
 def get_status_from_node(
