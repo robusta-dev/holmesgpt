@@ -81,6 +81,35 @@ def parse_mock_metadata(text) -> Optional[MockMetadata]:
         return None
 
 
+def parse_structured_json(
+    text: str, metadata: Optional[MockMetadata]
+) -> StructuredToolResult:
+    """
+    Expects the mock metadata to be the first line of the text and be a JSON string.
+    """
+    try:
+        match = re.match(r"^(.*)$", text, re.MULTILINE)
+        first_line = match.group(0)
+        parsed_json = json.loads(first_line)
+        result = StructuredToolResult(**parsed_json)
+        data = text[text.find("\n") + 1 :]  # remove first line
+        result.data = data
+        return result
+    except Exception as e:
+        logging.info(
+            f"Failed to parse mock value as StructuredToolResult: {e}. Using mock value as string"
+        )
+        params = {}
+        if metadata and metadata.match_params:
+            params = metadata.match_params
+        logging.error(e)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=text,
+            params=params,
+        )
+
+
 class MockHelper:
     def __init__(self, test_cases_folder: Path) -> None:
         super().__init__()
@@ -143,22 +172,8 @@ class MockHelper:
 
                 metadata = parse_mock_metadata(mock_text)
                 mock_value = mock_text[mock_text.find("\n") + 1 :]  # remove first line
-                try:
-                    parsed_json = json.loads(mock_value)
-                    tool_structured_result = StructuredToolResult(**parsed_json)
-                except Exception as e:
-                    # TODO: This is a temporary fix to allow the test cases to run.
-                    # should be changed later to pass errors correctly
-                    logging.warning(
-                        f"Failed to parse mock value as StructuredToolResult: {e}. Using mock value as string"
-                    )
-                    params = metadata.match_params or {}
-                    tool_structured_result = StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS,
-                        data=mock_value,
-                        params=params,
-                    )
 
+                tool_structured_result = parse_structured_json(mock_value, metadata)
                 if not metadata:
                     logging.warning(
                         f"Failed to parse metadata from test case file at {str(mock_file_path)}. It will be skipped"
