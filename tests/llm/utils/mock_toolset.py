@@ -7,6 +7,7 @@ import logging
 import re
 import os
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
+from holmes.core.tools import StructuredToolResult
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
 
@@ -23,7 +24,7 @@ class MockMetadata(BaseModel):
 
 class ToolMock(MockMetadata):
     source_file: str
-    return_value: str
+    return_value: StructuredToolResult
 
 
 class SaveMockTool(Tool):
@@ -62,14 +63,15 @@ class SaveMockTool(Tool):
 
         logging.info(f"Invoking tool {self.unmocked_tool}")
         output = self.unmocked_tool.invoke(params)
-        output = strip_ansi(output)
+        content = output.model_dump_json(indent=2)
+
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata_json + "\n")
-            f.write(output)
+            f.write(content)
 
         return output
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         return self._auto_generate_mock_file(params)
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -101,7 +103,7 @@ class MockToolWrapper(Tool):
             if match:
                 return mock
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         mock = self.find_matching_mock(params)
         if mock:
             return mock.return_value

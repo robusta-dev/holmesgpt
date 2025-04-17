@@ -12,6 +12,7 @@ from holmes.core.models import InvestigateRequest
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 def read_file(file_path: Path):
@@ -142,6 +143,22 @@ class MockHelper:
 
                 metadata = parse_mock_metadata(mock_text)
                 mock_value = mock_text[mock_text.find("\n") + 1 :]  # remove first line
+                try:
+                    parsed_json = json.loads(mock_value)
+                    tool_structured_result = StructuredToolResult(**parsed_json)
+                except Exception as e:
+                    # TODO: This is a temporary fix to allow the test cases to run.
+                    # should be changed later to pass errors correctly
+                    logging.warning(
+                        f"Failed to parse mock value as StructuredToolResult: {e}. Using mock value as string"
+                    )
+                    params = metadata.match_params or {}
+                    tool_structured_result = StructuredToolResult(
+                        status=ToolResultStatus.SUCCESS,
+                        data=mock_value,
+                        params=params,
+                    )
+
                 if not metadata:
                     logging.warning(
                         f"Failed to parse metadata from test case file at {str(mock_file_path)}. It will be skipped"
@@ -152,7 +169,7 @@ class MockHelper:
                     toolset_name=metadata.toolset_name,
                     tool_name=metadata.tool_name,
                     match_params=metadata.match_params,
-                    return_value=mock_value,
+                    return_value=tool_structured_result,
                 )
                 logging.info(f"Successfully loaded tool mock {tool_mock}")
                 test_case.tool_mocks.append(tool_mock)
