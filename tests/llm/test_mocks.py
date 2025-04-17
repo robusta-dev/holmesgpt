@@ -14,7 +14,9 @@ def test_mock_tools_match(params):
         "holmes.plugins.toolsets.service_discovery.find_service_url",
         return_value="http://mock-prometheus:9090",
     ):
-        mock = MockToolsets(test_case_folder=tempfile.gettempdir(), generate_mocks=False)
+        mock = MockToolsets(
+            test_case_folder=tempfile.gettempdir(), generate_mocks=False
+        )
         mock.mock_tool(
             ToolMock(
                 source_file="test",
