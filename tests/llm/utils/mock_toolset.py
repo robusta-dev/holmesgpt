@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
@@ -63,11 +64,14 @@ class SaveMockTool(Tool):
 
         logging.info(f"Invoking tool {self.unmocked_tool}")
         output = self.unmocked_tool.invoke(params)
-        content = output.model_dump_json(indent=2)
-
+        content = output.data
+        structured_output_without_data = output.model_dump()
+        structured_output_without_data["data"] = None
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata_json + "\n")
-            f.write(content)
+            f.write(json.dumps(structured_output_without_data) + "\n")
+            if content:
+                f.write(content)
 
         return output
 
@@ -159,7 +163,9 @@ class MockToolsets:
             if definition:
                 toolset.config = definition.config
                 toolset.enabled = definition.enabled
-            toolset.check_prerequisites()
+
+            if toolset.enabled:
+                toolset.check_prerequisites()
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)
