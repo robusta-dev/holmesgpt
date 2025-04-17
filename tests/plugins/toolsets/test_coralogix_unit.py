@@ -2,8 +2,17 @@ import os
 import pytest
 from pathlib import Path
 
-from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import CoralogixLogsToolset, FetchLogs
-from holmes.plugins.toolsets.coralogix.utils import CoralogixConfig, build_coralogix_link_to_logs, format_kubernetes_info, format_logs, normalize_datetime
+from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
+    CoralogixLogsToolset,
+    FetchLogs,
+)
+from holmes.plugins.toolsets.coralogix.utils import (
+    CoralogixConfig,
+    build_coralogix_link_to_logs,
+    format_kubernetes_info,
+    format_logs,
+    normalize_datetime,
+)
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures", "test_coralogix")
@@ -91,6 +100,7 @@ def test_format_logs(raw_logs_result, formatted_logs):
 )
 def test_normalize_datetime_valid_inputs(input_date, expected_output):
     assert normalize_datetime(input_date) == expected_output
+
 
 @pytest.mark.parametrize(
     "params, expected_query_part",

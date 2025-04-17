@@ -1,9 +1,10 @@
-
 import os
 import pytest
 
 from holmes.plugins.toolsets.coralogix.api import health_check
-from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import CoralogixLogsToolset
+from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
+    CoralogixLogsToolset,
+)
 
 
 CORALOGIX_API_KEY = os.environ.get("CORALOGIX_API_KEY", "")
@@ -29,7 +30,9 @@ def test_integration_health_check_api_invalid_key():
     """Tests the health_check function with a known invalid key."""
     ready, message = health_check(domain=CORALOGIX_DOMAIN, api_key="invalid-key")
     assert not ready
-    assert "Failed with status_code=403" in message or "Unauthorized" in message # Check for 4.3 Unauthorized
+    assert (
+        "Failed with status_code=403" in message or "Unauthorized" in message
+    )  # Check for 4.3 Unauthorized
 
 
 @pytest.mark.skipif(SKIP_INTEGRATION_TESTS, reason=INTEGRATION_TEST_SKIP_REASON)
@@ -46,4 +49,3 @@ def test_integration_toolset_prerequisites():
     assert message == ""
     assert toolset.config is not None
     assert toolset.config.api_key == CORALOGIX_API_KEY
-
