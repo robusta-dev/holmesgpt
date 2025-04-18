@@ -1,0 +1,6 @@
+# requires 2 env vars and/or `argocd login`:
+# ARGOCD_AUTH_TOKEN="..."
+# ARGOCD_OPTS="--port-forward --port-forward-namespace argocd --grpc-web"
+toolsets:
+  argocd/core:
+    enabled: True
