@@ -82,7 +82,7 @@ The following toolsets are either disabled or failed to initialize:
     *  description: OpenSearch integration to fetch traces
     *  setup instructions: https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch-traces.html
 * toolset name: coralogix/logs
-    *  status: failed, reason: Failed with status_code=403. 
+    *  status: failed, reason: Failed with status_code=403.
     *  description: Toolset for interacting with Coralogix to fetch logs
     *  setup instructions: https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/coralogix_logs.html
 * toolset name: rabbitmq/core
@@ -106,6 +106,7 @@ If you tools to access rabbitmq and you don't otherwise have access to it:
     *  description: Provides tools to interact with RabbitMQ Management API for diagnosing cluster health, node status, and specifically network partitions (split-brain).
     *  setup instructions: https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html
 """
+
 
 class FetchIntegrationInfo(Tool):
     def __init__(self):
