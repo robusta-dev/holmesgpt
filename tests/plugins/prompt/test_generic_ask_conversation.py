@@ -9,11 +9,7 @@ def test_prometheus_prompt_inclusion():
     # Case 1: prometheus/metrics is enabled
     ts = PrometheusToolset()
     ts._status = ToolsetStatusEnum.ENABLED
-    context = {
-        "toolsets": [
-            ts
-        ]
-    }
+    context = {"toolsets": [ts]}
     rendered = load_and_render_prompt(template, context)
 
     # Check prometheus section is included
