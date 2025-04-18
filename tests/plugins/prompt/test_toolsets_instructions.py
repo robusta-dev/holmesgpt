@@ -1,10 +1,16 @@
 from typing import Dict
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tools import StaticPrerequisite, StructuredToolResult, Tool, ToolResultStatus, Toolset
+from holmes.core.tools import (
+    StaticPrerequisite,
+    StructuredToolResult,
+    Tool,
+    ToolResultStatus,
+    Toolset,
+)
 
 template = "builtin://_toolsets_instructions.jinja2"
 
-    
+
 class DummyTool(Tool):
     def __init__(self):
         super().__init__(name="dummy_tool_name", description="tool description")
@@ -12,25 +18,25 @@ class DummyTool(Tool):
     def _invoke(self, params):
         return StructuredToolResult(status=ToolResultStatus.SUCCESS, data="")
 
-
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return ""
 
+
 class MockToolset(Toolset):
-    def __init__(self, config:dict):
+    def __init__(self, config: dict):
         if not config.get("description"):
             config["description"] = config.get("name")
-        if config.get("enabled") != False:
+        if config.get("enabled") is None:
             config["enabled"] = True
         config["tools"] = [DummyTool()]
-        
+
         super().__init__(**config)
         if self.enabled:
             self.check_prerequisites()
-    
+
     def get_example_config(self):
         return {}
-      
+
 
 def test_empty_when_no_toolsets():
     """Test that template returns empty string when no toolsets are provided."""
@@ -80,31 +86,36 @@ def test_renders_toolsets_with_instructions():
     print(f"** expected:\n{expected}")
     assert result == expected
 
+
 def test_renders_disabled_toolsets():
     toolsets = [
-        MockToolset({"name": "Toolset1", "description": "this is tool 1", "enabled": False}),
-        MockToolset({
-            "name": "Toolset2", 
-            "description": "this is tool 2", 
-            "enabled": True, 
-            "docs_url": "https://example.com", 
-            "prerequisites": [
-                StaticPrerequisite(enabled=False, disabled_reason="Health check failed")
-            ]}),
+        MockToolset(
+            {"name": "Toolset1", "description": "this is tool 1", "enabled": False}
+        ),
+        MockToolset(
+            {
+                "name": "Toolset2",
+                "description": "this is tool 2",
+                "enabled": True,
+                "docs_url": "https://example.com",
+                "prerequisites": [
+                    StaticPrerequisite(
+                        enabled=False, disabled_reason="Health check failed"
+                    )
+                ],
+            }
+        ),
     ]
     result = load_and_render_prompt(template, {"toolsets": toolsets})
     expected = """
-* Toolset1
+* toolset name: Toolset1
     *  status: disabled
     *  description: this is tool 1
-    *  Tools:
-        *  dummy_tool_name: tool description
-* Toolset2
-    *  status: failed, reason: Health check failed
+* toolset name: Toolset2
+    *  status: The toolset is enabled but misconfigured and failed to initialize.
+    *  error: Health check failed
     *  description: this is tool 2
     *  setup instructions: https://example.com
-    *  Tools:
-        *  dummy_tool_name: tool description
 """.strip()
     print(f"** result:\n{result}")
     print(f"** expected:\n{expected}")

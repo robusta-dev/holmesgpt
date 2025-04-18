@@ -156,7 +156,7 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
             mock.mock_tool(tool_mock)
             expected_tools.append(tool_mock.tool_name)
 
-    tool_executor = ToolExecutor(mock.mocked_toolsets)
+    tool_executor = ToolExecutor(mock.mocked_toolsets + mock.unmocked_toolsets)
 
     ai = ToolCallingLLM(
         tool_executor=tool_executor,

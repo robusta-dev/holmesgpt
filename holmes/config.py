@@ -361,7 +361,13 @@ class Config(RobustaBaseConfig):
                     f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value"
                 )
 
-        enabled_tools = concat(*[ts.tools for ts in toolsets if ts.get_status() == ToolsetStatusEnum.DISABLED])
+        enabled_tools = concat(
+            *[
+                ts.tools
+                for ts in toolsets
+                if ts.get_status() == ToolsetStatusEnum.DISABLED
+            ]
+        )
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )

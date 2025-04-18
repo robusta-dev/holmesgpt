@@ -4,7 +4,7 @@
 {%- set opensearch_ts = toolsets | selectattr("name", "equalto", "opensearch/logs") | first -%}
 
 # Logs
-{%- if loki_ts and loki_ts.get_status() == "enabled" -%}
+{% if loki_ts and loki_ts.get_status() == "enabled" -%}
 * For any logs, including for investigating kubernetes problems, use Loki
 * Use the tool fetch_loki_logs_for_resource to get the logs of any kubernetes pod or node
 * Use fetch_loki_logs and build a query for any other logs

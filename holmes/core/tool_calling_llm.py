@@ -139,6 +139,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
+
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -201,11 +202,10 @@ class ToolCallingLLM:
                     max_steps = max_steps + 1
                     continue
 
-            messages.append(
-                response_message.model_dump(
-                    exclude_defaults=True, exclude_unset=True, exclude_none=True
-                )
+            new_message = response_message.model_dump(
+                exclude_defaults=True, exclude_unset=True, exclude_none=True
             )
+            messages.append(new_message)
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
@@ -253,6 +253,7 @@ class ToolCallingLLM:
                     if tool_call_result.result.status == ToolResultStatus.ERROR:
                         tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
 
+                    print(f"** Tool response from {tool_call_result.tool_name}")
                     messages.append(
                         {
                             "tool_call_id": tool_call_result.tool_call_id,
