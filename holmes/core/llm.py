@@ -167,11 +167,26 @@ class DefaultLLM(LLM):
             if "token_count" in message and message["token_count"]:
                 total_token_count += message["token_count"]
             else:
-                token_count = litellm.token_counter(
-                    model=self.model, messages=[message]
-                )
-                message["token_count"] = token_count
-                total_token_count += token_count
+                # message can be counted by this method only if message contains a "content" key
+                if "content" in message:
+                    if isinstance(message["content"], str):
+                        message_to_count = [
+                            {"type": "text", "text": message["content"]}
+                        ]
+                    elif isinstance(message["content"], list):
+                        message_to_count = [
+                            {"type": "text", "text": json.dumps(message["content"])}
+                        ]
+                    elif isinstance(message["content"], dict):
+                        if "type" not in message["content"]:
+                            message_to_count = [
+                                {"type": "text", "text": json.dumps(message["content"])}
+                            ]
+                    token_count = litellm.token_counter(
+                        model=self.model, messages=message_to_count
+                    )
+                    message["token_count"] = token_count
+                    total_token_count += token_count
         return total_token_count
 
     def completion(
