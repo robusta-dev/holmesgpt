@@ -127,7 +127,7 @@ def get_investigation_context(
             "issue": issue,
             "sections": sections,
             "structured_output": request_structured_output_from_llm,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+            "toolsets": ai.tool_executor.toolsets,
         },
     )
 

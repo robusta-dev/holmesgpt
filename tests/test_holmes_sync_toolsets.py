@@ -5,7 +5,15 @@ import subprocess
 import os
 
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
-from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, YAMLTool
+from holmes.core.tools import (
+    Toolset,
+    ToolsetCommandPrerequisite,
+    ToolsetEnvironmentPrerequisite,
+    ToolsetStatusEnum,
+    ToolsetTag,
+    YAMLTool,
+    StaticPrerequisite,
+)
 from holmes.config import Config
 
 
@@ -109,7 +117,9 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
         enabled=False,
         tools=[YAMLTool(name="tool2", description="Tool 2", command="echo 2")],
         tags=[ToolsetTag.CLI],
-        prerequisites=[{"enabled": False, "disabled_reason": "Feature flag disabled"}],
+        prerequisites=[
+            StaticPrerequisite(enabled=False, disabled_reason="Feature flag disabled")
+        ],
     )
     toolset2.check_prerequisites()
 
@@ -126,7 +136,7 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     assert toolsets_data[0]["status"] == ToolsetStatusEnum.ENABLED
 
     assert toolsets_data[1]["toolset_name"] == "toolset2"
-    assert toolsets_data[1]["status"] == ToolsetStatusEnum.DISABLED
+    assert toolsets_data[1]["status"] == ToolsetStatusEnum.FAILED
 
 
 @patch("subprocess.run")
@@ -174,11 +184,7 @@ def test_sync_toolsets_with_failed_prerequisites(
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
-        prerequisites=[
-            {
-                "command": "some-failing-command",
-            }
-        ],
+        prerequisites=[ToolsetCommandPrerequisite(command="some-failing-command")],
     )
     toolset.check_prerequisites()
 
@@ -208,7 +214,11 @@ def test_sync_toolsets_with_successful_prerequisites(
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
-        prerequisites=[{"command": "echo success", "expected_output": "success"}],
+        prerequisites=[
+            ToolsetCommandPrerequisite(
+                command="echo success", expected_output="success"
+            )
+        ],
     )
     toolset.check_prerequisites()
 
@@ -233,7 +243,7 @@ def test_sync_toolsets_with_missing_env_var_prerequisites(mock_dal, mock_config)
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
-        prerequisites=[{"env": ["NONEXISTENT_ENV_VAR"]}],
+        prerequisites=[ToolsetEnvironmentPrerequisite(env=["NONEXISTENT_ENV_VAR"])],
     )
     toolset.check_prerequisites()
 
@@ -266,7 +276,9 @@ def test_sync_toolsets_with_command_output_mismatch(
         ],
         tags=[ToolsetTag.CORE],
         prerequisites=[
-            {"command": "some-command", "expected_output": "expected output"}
+            ToolsetCommandPrerequisite(
+                command="some-command", expected_output="expected output"
+            )
         ],
     )
     toolset.check_prerequisites()

@@ -23,7 +23,7 @@ def test_mock_tools_match(params):
             ),
         )
     )
-    tool_executor = ToolExecutor(mock.mocked_toolsets)
+    tool_executor = ToolExecutor(mock.enabled_toolsets)
     result = tool_executor.invoke("kubectl_describe", params)
 
     assert result.data == "this tool is mocked"
@@ -55,7 +55,7 @@ def test_mock_tools_do_not_match(params):
             ),
         )
     )
-    tool_executor = ToolExecutor(mock.mocked_toolsets)
+    tool_executor = ToolExecutor(mock.enabled_toolsets)
     result = tool_executor.invoke("kubectl_describe", params)
 
     assert result != "this tool is mocked"
@@ -63,5 +63,5 @@ def test_mock_tools_do_not_match(params):
 
 def test_mock_tools_does_not_throws_if_no_match():
     mock = MockToolsets(test_case_folder=tempfile.gettempdir(), generate_mocks=True)
-    tool_executor = ToolExecutor(mock.mocked_toolsets)
+    tool_executor = ToolExecutor(mock.enabled_toolsets)
     tool_executor.invoke("kubectl_describe", {"foo": "bar"})
