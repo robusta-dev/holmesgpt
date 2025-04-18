@@ -8,6 +8,7 @@ from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
 from holmes.core.tools import (
     Toolset,
     ToolsetCommandPrerequisite,
+    ToolsetEnvironmentPrerequisite,
     ToolsetStatusEnum,
     ToolsetTag,
     YAMLTool,
@@ -213,7 +214,11 @@ def test_sync_toolsets_with_successful_prerequisites(
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
-        prerequisites=[{"command": "echo success", "expected_output": "success"}],
+        prerequisites=[
+            ToolsetCommandPrerequisite(
+                command="echo success", expected_output="success"
+            )
+        ],
     )
     toolset.check_prerequisites()
 
@@ -238,7 +243,7 @@ def test_sync_toolsets_with_missing_env_var_prerequisites(mock_dal, mock_config)
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
-        prerequisites=[{"env": ["NONEXISTENT_ENV_VAR"]}],
+        prerequisites=[ToolsetEnvironmentPrerequisite(env=["NONEXISTENT_ENV_VAR"])],
     )
     toolset.check_prerequisites()
 
@@ -271,7 +276,9 @@ def test_sync_toolsets_with_command_output_mismatch(
         ],
         tags=[ToolsetTag.CORE],
         prerequisites=[
-            {"command": "some-command", "expected_output": "expected output"}
+            ToolsetCommandPrerequisite(
+                command="some-command", expected_output="expected output"
+            )
         ],
     )
     toolset.check_prerequisites()
