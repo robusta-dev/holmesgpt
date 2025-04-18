@@ -557,9 +557,7 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    logging.warning(f"tool_call_result={tool_call_result}")
                     tool_response = tool_call_result.result.data
-                    logging.warning(f"tool_response={tool_response}")
                     if tool_call_result.result.status == ToolResultStatus.ERROR:
                         tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
 
@@ -568,14 +566,13 @@ class ToolCallingLLM:
                     if isinstance(tool_response, list):
                         tool_response = json.dumps(tool_response)
 
-                    logging.warning(f"after serializing tool_response={tool_response}")
                     message_to_append = {
                         "tool_call_id": tool_call_result.tool_call_id,
                         "role": "tool",
                         "name": tool_call_result.tool_name,
                         "content": tool_response,
                     }
-                    logging.warning(f"message_to_append={message_to_append}")
+
                     messages.append(message_to_append)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
@@ -585,7 +582,7 @@ class ToolCallingLLM:
                         "name": tool_call_result.tool_name,
                         "result": tool_response,
                     }
-                    logging.warning(f"result_dict={result_dict}")
+
                     yield create_sse_message("tool_calling_result", result_dict)
 
 
