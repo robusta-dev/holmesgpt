@@ -25,8 +25,6 @@ from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.core.tools import Toolset, YAMLToolset
 import yaml
 
-from holmes.plugins.toolsets.toolset_status import IntegrationToolset
-
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -70,7 +68,6 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchTracesToolset(),
         CoralogixLogsToolset(),
         RabbitMQToolset(),
-        IntegrationToolset(),
     ]
 
     return toolsets

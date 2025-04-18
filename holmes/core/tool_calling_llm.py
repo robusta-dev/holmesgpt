@@ -253,7 +253,6 @@ class ToolCallingLLM:
                     if tool_call_result.result.status == ToolResultStatus.ERROR:
                         tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
 
-                    print(f"** Tool response from {tool_call_result.tool_name}")
                     messages.append(
                         {
                             "tool_call_id": tool_call_result.tool_call_id,
