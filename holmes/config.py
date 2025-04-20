@@ -41,8 +41,8 @@ import re
 from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
-MODEL_CREDENTIALS_LOCATION = os.environ.get(
-    "MODEL_CREDENTIALS_LOCATION", "/etc/holmes/model/model_credentials.yaml"
+MODEL_LIST_FILE_LOCATION = os.environ.get(
+    "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
 )
 
 
@@ -191,8 +191,8 @@ def parse_toolsets_file(
 def parse_models_file(path: str):
     models = load_yaml_file(path, raise_error=False)
 
-    for model, credentials in models.items():
-        credentials = replace_env_vars_values(credentials)
+    for model, params in models.items():
+        params = replace_env_vars_values(params)
 
     logging.info(f"loaded models: {list(models.keys())}")
 
@@ -257,7 +257,7 @@ class Config(RobustaBaseConfig):
     def model_post_init(self, __context: Any) -> None:
         self._version = get_version()
         self._holmes_info = fetch_holmes_info()
-        self._models_credentials = parse_models_file(MODEL_CREDENTIALS_LOCATION)
+        self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
 
         if not self.is_latest_version:
             logging.warning(
@@ -678,12 +678,12 @@ class Config(RobustaBaseConfig):
     def _get_llm(self, model_key: Optional[str] = None) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
         model_params = {}
-        if self._models_credentials:
+        if self._model_list:
             # get requested model or the first credentials if no model requested.
             model_params = (
-                self._models_credentials.get(model_key, {}).copy()
+                self._model_list.get(model_key, {}).copy()
                 if model_key
-                else next(iter(self._models_credentials.values())).copy()
+                else next(iter(self._model_list.values())).copy()
             )
             api_key = model_params.pop("api_key", None)
             self.model = model_params.pop("model", None)
@@ -691,8 +691,8 @@ class Config(RobustaBaseConfig):
         return DefaultLLM(self.model, api_key, model_params)
 
     def get_models_list(self) -> List[str]:
-        if self._models_credentials:
-            return json.dumps(list(self._models_credentials.keys()))
+        if self._model_list:
+            return json.dumps(list(self._model_list.keys()))
 
         return json.dumps([self.model])
 
