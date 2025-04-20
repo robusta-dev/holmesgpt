@@ -453,7 +453,6 @@ class ToolCallingLLM:
                             "messages": parse_messages_tags(messages),
                             "tools": tools,
                             "tool_choice": tool_choice,
-                            "temperature": TEMPERATURE,
                             "response_format": response_format,
                             "stream": True,
                             "drop_param": True,
