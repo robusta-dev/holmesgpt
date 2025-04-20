@@ -11,8 +11,6 @@ from pydantic import BaseModel
 import litellm
 import os
 from holmes.common.env_vars import (
-    ROBUSTA_AI,
-    ROBUSTA_API_ENDPOINT,
     THINKING,
     TEMPERATURE,
 )
@@ -64,11 +62,11 @@ class DefaultLLM(LLM):
     model: str
     api_key: Optional[str]
     base_url: Optional[str]
+    args: Dict
 
     def __init__(self, model: str, api_key: Optional[str] = None, args: Dict = {}):
         self.model = model
         self.api_key = api_key
-        self.base_url = ROBUSTA_API_ENDPOINT if ROBUSTA_AI else None
         self.args = args
 
         if not args:
@@ -203,7 +201,6 @@ class DefaultLLM(LLM):
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            base_url=self.base_url,
             temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,

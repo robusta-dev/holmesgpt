@@ -7,6 +7,6 @@ metadata:
 data:
   custom_toolset.yaml: |-
     toolsets: {{ toYaml .Values.toolsets | nindent 6 }}
-  model_list.yaml: |- 
+  model_list.yaml: |-
     {{ .Values.modelList | toYaml | nindent 4 }}
 {{- end }}

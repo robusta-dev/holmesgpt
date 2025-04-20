@@ -35,7 +35,7 @@ from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
 
 from holmes.core.tools import YAMLToolset
-from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
+from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 from holmes.utils.definitions import RobustaConfig
 import re
 from enum import Enum
@@ -194,8 +194,6 @@ def parse_models_file(path: str):
     for model, params in models.items():
         params = replace_env_vars_values(params)
 
-    logging.info(f"loaded models: {list(models.keys())}")
-
     return models
 
 
@@ -258,6 +256,11 @@ class Config(RobustaBaseConfig):
         self._version = get_version()
         self._holmes_info = fetch_holmes_info()
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
+        if ROBUSTA_AI:
+            self._model_list["Robusta"] = {
+                "base_url": ROBUSTA_API_ENDPOINT,
+            }
+        logging.info(f"loaded models: {list(self._model_list.keys())}")
 
         if not self.is_latest_version:
             logging.warning(
@@ -677,6 +680,7 @@ class Config(RobustaBaseConfig):
 
     def _get_llm(self, model_key: Optional[str] = None) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
+        model = self.model
         model_params = {}
         if self._model_list:
             # get requested model or the first credentials if no model requested.
@@ -685,10 +689,10 @@ class Config(RobustaBaseConfig):
                 if model_key
                 else next(iter(self._model_list.values())).copy()
             )
-            api_key = model_params.pop("api_key", None)
-            self.model = model_params.pop("model", None)
+            api_key = model_params.pop("api_key", api_key)
+            model = model_params.pop("model", model)
 
-        return DefaultLLM(self.model, api_key, model_params)
+        return DefaultLLM(model, api_key, model_params)
 
     def get_models_list(self) -> List[str]:
         if self._model_list:
