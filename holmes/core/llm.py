@@ -10,7 +10,7 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from pydantic import BaseModel
 import litellm
 import os
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, THINKING
+from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, THINKING, TEMPERATURE
 
 
 def environ_get_safe_int(env_var, default="0"):
@@ -198,7 +198,7 @@ class DefaultLLM(LLM):
             api_key=self.api_key,
             messages=messages,
             base_url=self.base_url,
-            temperature=temperature,
+            temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,
             thinking=thinking,
