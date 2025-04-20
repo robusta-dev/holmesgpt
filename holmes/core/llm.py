@@ -193,9 +193,10 @@ class DefaultLLM(LLM):
             tools_args["tools"] = tools
             tools_args["tool_choice"] = tool_choice
 
-        thinking = None
-        if THINKING:  # if model requires 'thinking', load it from env vars
-            thinking = json.loads(THINKING)
+        if THINKING:
+            self.args.setdefault("thinking", json.loads(THINKING))
+
+        if self.args.get("thinking", None):
             litellm.modify_params = True
 
         result = litellm.completion(
@@ -206,7 +207,6 @@ class DefaultLLM(LLM):
             temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,
-            thinking=thinking,
             stream=stream,
             **tools_args,
             **self.args,
