@@ -693,8 +693,8 @@ class Config(RobustaBaseConfig):
     def get_models_list(self) -> List[str]:
         if self._models_credentials:
             return json.dumps(list(self._models_credentials.keys()))
-        else:
-            return json.dumps([self.model])
+
+        return json.dumps([self.model])
 
 
 class TicketSource(BaseModel):
