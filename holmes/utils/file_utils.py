@@ -16,7 +16,7 @@ def write_json_file(json_output_file: str, json_ob_to_dump):
         return
 
 
-def load_yaml_file(path: str, raise_error: bool = True) -> Dict:
+def load_yaml_file(path: str, raise_error: bool = True) -> dict:
     try:
         with open(path, "r", encoding="utf-8") as file:
             parsed_yaml = yaml.safe_load(file)
