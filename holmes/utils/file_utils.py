@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import yaml
 
 
 def write_json_file(json_output_file: str, json_ob_to_dump):
@@ -13,3 +14,40 @@ def write_json_file(json_output_file: str, json_ob_to_dump):
     except Exception:
         logging.exception("Failed to create the json file.")
         return
+
+
+def load_yaml_file(path: str, raise_error: bool = True) -> Dict:
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            parsed_yaml = yaml.safe_load(file)
+    except yaml.YAMLError as err:
+        logging.warning(f"Error parsing YAML from {path}: {err}")
+        if raise_error:
+            raise err
+        return {}
+    except FileNotFoundError as err:
+        logging.warning(f"file {path} was not found.")
+        if raise_error:
+            raise err
+        return {}
+    except Exception as err:
+        logging.warning(f"Failed to open file {path}: {err}")
+        if raise_error:
+            raise err
+        return {}
+
+    if not parsed_yaml:
+        message = f"No content found in file: {path}"
+        logging.warning(message)
+        if raise_error:
+            raise ValueError(message)
+        return {}
+
+    if not isinstance(parsed_yaml, dict):
+        message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
+        logging.warning(message)
+        if raise_error:
+            raise ValueError(message)
+        return {}
+
+    return parsed_yaml

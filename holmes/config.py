@@ -3,7 +3,7 @@ import os
 import yaml
 import os.path
 from typing import Any, Dict, List, Optional, Union
-
+from holmes.utils.file_utils import load_yaml_file
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
@@ -44,43 +44,6 @@ DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
     "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
 )
-
-
-def load_yaml_file(path: str, raise_error: bool = True) -> Dict:
-    try:
-        with open(path, "r", encoding="utf-8") as file:
-            parsed_yaml = yaml.safe_load(file)
-    except yaml.YAMLError as err:
-        logging.warning(f"Error parsing YAML from {path}: {err}")
-        if raise_error:
-            raise err
-        return {}
-    except FileNotFoundError as err:
-        logging.warning(f"file {path} was not found.")
-        if raise_error:
-            raise err
-        return {}
-    except Exception as err:
-        logging.warning(f"Failed to open file {path}: {err}")
-        if raise_error:
-            raise err
-        return {}
-
-    if not parsed_yaml:
-        message = f"No content found in file: {path}"
-        logging.warning(message)
-        if raise_error:
-            raise ValueError(message)
-        return {}
-
-    if not isinstance(parsed_yaml, dict):
-        message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
-        logging.warning(message)
-        if raise_error:
-            raise ValueError(message)
-        return {}
-
-    return parsed_yaml
 
 
 class SupportedTicketSources(str, Enum):
