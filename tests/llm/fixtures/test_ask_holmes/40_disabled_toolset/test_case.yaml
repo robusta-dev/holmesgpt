@@ -1,4 +1,4 @@
-user_prompt: "Check rabbitmq's health"
+user_prompt: "Is rabbitmq experiencing a split brain?"
 expected_output:
   - The link https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html should be in the answer
 evaluation:

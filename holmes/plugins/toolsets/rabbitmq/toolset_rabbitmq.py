@@ -87,7 +87,7 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
     def __init__(self, toolset: "RabbitMQToolset"):
         super().__init__(
             name="get_rabbitmq_cluster_status",
-            description="Fetches the overall status of the RabbitMQ cluster, including node information, listeners, and partition details. Crucial for detecting split-brain scenarios (network partitions).",
+            description="Fetches the overall status of the RabbitMQ cluster, including node information, listeners, and partition details. Crucial for detecting split-brain scenarios",
             parameters={
                 "cluster_id": ToolParameter(
                     description="The id of the cluster obtained with list_configured_clusters. Only required if more than one rabbitmq cluster is configured.",

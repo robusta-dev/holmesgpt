@@ -232,11 +232,15 @@ class MockToolsets:
 
         enabled_toolsets = mocked_toolsets
         for toolset in self.configured_toolsets:
-            mocked = next(
-                toolset
-                for mocked_toolset in enabled_toolsets
-                if mocked_toolset.name == toolset.name
-            )
+            mocked = None
+            try:
+                mocked = next(
+                    toolset
+                    for mocked_toolset in enabled_toolsets
+                    if mocked_toolset.name == toolset.name
+                )
+            except StopIteration:
+                pass
             if not mocked:
                 enabled_toolsets.append(toolset)
         self.enabled_toolsets = enabled_toolsets

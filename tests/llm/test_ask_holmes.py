@@ -165,7 +165,7 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
-
+    print(f"** {[t.name for t in mock.enabled_toolsets]}")
     messages = build_chat_messages(ask=chat_request.ask, conversation_history=[], ai=ai)
-
+    print(messages[0]["content"])
     return ai.messages_call(messages=messages)
