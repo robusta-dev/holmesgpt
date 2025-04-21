@@ -365,7 +365,7 @@ class Config(RobustaBaseConfig):
             *[
                 ts.tools
                 for ts in toolsets
-                if ts.get_status() == ToolsetStatusEnum.DISABLED
+                if ts.get_status() == ToolsetStatusEnum.ENABLED
             ]
         )
         logging.debug(
