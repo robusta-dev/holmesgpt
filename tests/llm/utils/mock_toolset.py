@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
@@ -7,6 +8,7 @@ import logging
 import re
 import os
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
+from holmes.core.tools import StructuredToolResult
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
 
@@ -23,7 +25,7 @@ class MockMetadata(BaseModel):
 
 class ToolMock(MockMetadata):
     source_file: str
-    return_value: str
+    return_value: StructuredToolResult
 
 
 class SaveMockTool(Tool):
@@ -62,14 +64,18 @@ class SaveMockTool(Tool):
 
         logging.info(f"Invoking tool {self.unmocked_tool}")
         output = self.unmocked_tool.invoke(params)
-        output = strip_ansi(output)
+        content = output.data
+        structured_output_without_data = output.model_dump()
+        structured_output_without_data["data"] = None
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata_json + "\n")
-            f.write(output)
+            f.write(json.dumps(structured_output_without_data) + "\n")
+            if content:
+                f.write(content)
 
         return output
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         return self._auto_generate_mock_file(params)
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -101,7 +107,7 @@ class MockToolWrapper(Tool):
             if match:
                 return mock
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         mock = self.find_matching_mock(params)
         if mock:
             return mock.return_value
@@ -135,7 +141,7 @@ class MockToolsets:
         self._update()
 
     def _load_toolsets_definitions(self, run_live) -> List[ToolsetYamlFromConfig]:
-        config_path = os.path.join(self.test_case_folder, "config.yaml")
+        config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
         toolsets_definitions = None
         if os.path.isfile(config_path):
             toolsets_definitions = parse_toolsets_file(
@@ -157,7 +163,9 @@ class MockToolsets:
             if definition:
                 toolset.config = definition.config
                 toolset.enabled = definition.enabled
-            toolset.check_prerequisites()
+
+            if toolset.enabled:
+                toolset.check_prerequisites()
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)

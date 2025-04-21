@@ -146,7 +146,7 @@ class FetchLogs(BaseCoralogixTool):
                 status=ToolResultStatus.SUCCESS if logs else ToolResultStatus.ERROR,
                 error=None if logs else "The query returned no logs",
                 data=logs,
-                query=query_string,
+                invocation=query_string,
                 url=build_coralogix_link_to_logs(
                     config=self.toolset.config,
                     lucene_query=query_string,
