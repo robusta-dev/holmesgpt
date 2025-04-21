@@ -209,7 +209,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.prompt_template,
             context={
                 "alerts": workload_alerts,
-                "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+                "toolsets": ai.tool_executor.toolsets,
             },
         )
 

@@ -138,6 +138,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
+
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -199,11 +200,10 @@ class ToolCallingLLM:
                     max_steps = max_steps + 1
                     continue
 
-            messages.append(
-                response_message.model_dump(
-                    exclude_defaults=True, exclude_unset=True, exclude_none=True
-                )
+            new_message = response_message.model_dump(
+                exclude_defaults=True, exclude_unset=True, exclude_none=True
             )
+            messages.append(new_message)
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
@@ -646,7 +646,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "issue": issue,
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
-                "enabled_toolsets": self.tool_executor.enabled_toolsets,
+                "toolsets": self.tool_executor.toolsets,
             },
         )
 

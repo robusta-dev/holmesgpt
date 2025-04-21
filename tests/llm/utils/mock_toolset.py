@@ -125,7 +125,8 @@ class MockToolset(Toolset):
 
 class MockToolsets:
     unmocked_toolsets: List[Toolset]
-    mocked_toolsets: List[Toolset]
+    enabled_toolsets: List[Toolset]
+    configured_toolsets: List[Toolset]
     _mocks: List[ToolMock]
     generate_mocks: bool
     test_case_folder: str
@@ -136,7 +137,8 @@ class MockToolsets:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
         self._mocks = []
-        self.mocked_toolsets = []
+        self.enabled_toolsets = []
+        self.configured_toolsets = []
         self._enable_builtin_toolsets(run_live)
         self._update()
 
@@ -163,9 +165,16 @@ class MockToolsets:
             if definition:
                 toolset.config = definition.config
                 toolset.enabled = definition.enabled
+                self.configured_toolsets.append(toolset)
 
             if toolset.enabled:
-                toolset.check_prerequisites()
+                try:
+                    toolset.check_prerequisites()
+                except Exception:
+                    logging.error(
+                        f"check_prerequisites failed for toolset {toolset.name}.",
+                        exc_info=True,
+                    )
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)
@@ -226,4 +235,18 @@ class MockToolsets:
                 mocked_toolset.tools = mocked_tools
                 mocked_toolset._status = ToolsetStatusEnum.ENABLED
                 mocked_toolsets.append(mocked_toolset)
-        self.mocked_toolsets = mocked_toolsets
+
+        enabled_toolsets = mocked_toolsets
+        for toolset in self.configured_toolsets:
+            mocked = None
+            try:
+                mocked = next(
+                    toolset
+                    for mocked_toolset in enabled_toolsets
+                    if mocked_toolset.name == toolset.name
+                )
+            except StopIteration:
+                pass
+            if not mocked:
+                enabled_toolsets.append(toolset)
+        self.enabled_toolsets = enabled_toolsets
