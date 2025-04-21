@@ -2,8 +2,8 @@ toolsets:
   coralogix/logs:
     enabled: true
     config:
-      api_key: "{{env.CORALOGIX_API_KEY}}"
-      domain: "{{env.CORALOGIX_DOMAIN}}"
-      team_hostname: "{{env.CORALOGIX_TEAM_HOSTNAME}}"
+      api_key: dummy # "{{env.CORALOGIX_API_KEY}}"
+      domain: dummy # "{{env.CORALOGIX_DOMAIN}}"
+      team_hostname: dummy # "{{env.CORALOGIX_TEAM_HOSTNAME}}"
   kubernetes/logs:
     enabled: false

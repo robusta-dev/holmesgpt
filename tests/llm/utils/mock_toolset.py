@@ -168,7 +168,13 @@ class MockToolsets:
                 self.configured_toolsets.append(toolset)
 
             if toolset.enabled:
-                toolset.check_prerequisites()
+                try:
+                    toolset.check_prerequisites()
+                except Exception:
+                    logging.error(
+                        f"check_prerequisites failed for toolset {toolset.name}.",
+                        exc_info=True,
+                    )
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)
