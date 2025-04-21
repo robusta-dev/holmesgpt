@@ -4,7 +4,7 @@
 
 Argocd \- Robusta documentation
 
-[Skip to content](#configuration) 
+[Skip to content](#configuration)
 
 Argocd[Â¶](#argocd)
 ===================
@@ -161,5 +161,4 @@ any of these capabilities when answering questions or investigating issues.
 | argocd\_proj\_get | Retrieves information about an existing project, such as its applications and policies |
 | argocd\_cluster\_list | List all known clusters |
 
-[Back to top](#) 
-
+[Back to top](#)
