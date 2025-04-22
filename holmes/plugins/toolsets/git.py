@@ -157,6 +157,52 @@ class GitToolset(Toolset):
             raise Exception(self._sanitize_error(f"Error creating PR: {resp.text}"))
         return resp.json()["html_url"]
 
+    def get_pr_details(self, pr_number: int) -> Dict[str, Any]:
+        """Get details of a specific PR."""
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = f"https://api.github.com/repos/{self.git_repo}/pulls/{pr_number}"
+        resp = requests.get(url, headers=headers)
+        if resp.status_code != 200:
+            raise Exception(
+                self._sanitize_error(f"Error getting PR details: {resp.text}")
+            )
+        return resp.json()
+
+    def get_pr_branch(self, pr_number: int) -> str:
+        """Get the branch name for a specific PR."""
+        pr_details = self.get_pr_details(pr_number)
+        return pr_details["head"]["ref"]
+
+    def add_commit_to_pr(
+        self, pr_number: int, filepath: str, content: str, message: str
+    ) -> None:
+        """Add a commit to an existing PR's branch."""
+        branch = self.get_pr_branch(pr_number)
+        try:
+            # Get current file content and SHA
+            sha, _ = self.get_file_content(filepath, branch)
+        except Exception:
+            # File might not exist yet, that's okay
+            sha = None
+
+        # Update file
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = f"https://api.github.com/repos/{self.git_repo}/contents/{filepath}"
+        encoded_content = base64.b64encode(content.encode()).decode()
+        data = {
+            "message": message,
+            "content": encoded_content,
+            "branch": branch,
+        }
+        if sha:
+            data["sha"] = sha
+
+        resp = requests.put(url, headers=headers, json=data)
+        if resp.status_code not in (200, 201):
+            raise Exception(
+                self._sanitize_error(f"Error adding commit to PR: {resp.text}")
+            )
+
 
 class GitReadFileWithLineNumbers(Tool):
     toolset: GitToolset
@@ -244,7 +290,7 @@ class GitExecuteChanges(Tool):
     def __init__(self, toolset: GitToolset):
         super().__init__(
             name="git_execute_changes",
-            description="Make changes to a GitHub file and optionally open a PR",
+            description="Make changes to a GitHub file and optionally open a PR or add to existing PR",
             parameters={
                 "line": ToolParameter(
                     description="Line number to change", type="integer", required=True
@@ -264,7 +310,9 @@ class GitExecuteChanges(Tool):
                     description="Whether to open PR", type="boolean", required=True
                 ),
                 "commit_pr": ToolParameter(
-                    description="PR title", type="string", required=True
+                    description="PR title or PR number to add commit to",
+                    type="string",
+                    required=True,
                 ),
                 "dry_run": ToolParameter(
                     description="Dry-run mode", type="boolean", required=True
@@ -287,18 +335,61 @@ class GitExecuteChanges(Tool):
             dry_run = params["dry_run"]
             commit_message = params["commit_message"]
             branch = self.toolset.git_branch
-            pr_name = commit_pr.replace(" ", "_").replace("'", "")
-            branch_name = f"feature/{pr_name}"
 
             # Validate inputs
-            if not commit_pr.strip():
-                return "PR title cannot be empty"
             if not commit_message.strip():
                 return "Commit message cannot be empty"
             if not filename.strip():
                 return "Filename cannot be empty"
             if line < 1:
                 return "Line number must be positive"
+
+            # Check if commit_pr is a PR number (starts with #)
+            if commit_pr.startswith("#"):
+                try:
+                    pr_number = int(commit_pr[1:])
+                    # Get current file content from PR branch
+                    branch = self.toolset.get_pr_branch(pr_number)
+                    sha, content = self.toolset.get_file_content(filename, branch)
+                    content_lines = content.splitlines()
+
+                    # Update content
+                    if command == "insert":
+                        content_lines.insert(line - 1, code)
+                    elif command == "update":
+                        indent = len(content_lines[line - 1]) - len(
+                            content_lines[line - 1].lstrip()
+                        )
+                        content_lines[line - 1] = " " * indent + code
+                    elif command == "remove":
+                        del content_lines[line - 1]
+                    else:
+                        return f"Invalid command: {command}"
+
+                    updated_content = "\n".join(content_lines) + "\n"
+
+                    if dry_run:
+                        return f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}"
+
+                    # Add commit to PR
+                    self.toolset.add_commit_to_pr(
+                        pr_number, filename, updated_content, commit_message
+                    )
+                    return f"Added commit to PR #{pr_number} successfully"
+
+                except ValueError:
+                    return f"Invalid PR number format: {commit_pr}"
+                except Exception as e:
+                    return self.toolset._sanitize_error(
+                        f"Error adding commit to PR: {str(e)}"
+                    )
+
+            # Original PR creation logic
+            pr_name = commit_pr.replace(" ", "_").replace("'", "")
+            branch_name = f"feature/{pr_name}"
+
+            if not commit_pr.strip():
+                return "PR title cannot be empty"
 
             # Check if branch already exists
             if self.toolset.get_branch_ref(branch_name) is not None:
