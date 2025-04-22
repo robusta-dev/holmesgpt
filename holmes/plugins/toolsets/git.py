@@ -37,6 +37,7 @@ class GitToolset(Toolset):
                 GitListFiles(self),
                 GitListOpenPRs(self),
                 GitExecuteChanges(self),
+                GitUpdatePR(self),
             ],
             tags=[ToolsetTag.CORE],
         )
@@ -489,4 +490,114 @@ class GitExecuteChanges(Tool):
             f"command='{params['command']}', code='{params.get('code', '')}', "
             f"open_pr={params['open_pr']}, commit_pr='{params['commit_pr']}', "
             f"dry_run={params['dry_run']}, commit_message='{params['commit_message']}')"
+        )
+
+
+class GitUpdatePR(GitExecuteChanges):
+    """A tool specifically for updating existing PRs that were created by this tool.
+    This tool can only update PRs that were created using the GitExecuteChanges tool,
+    as it relies on the specific branch naming convention used by that tool.
+    """
+
+    def __init__(self, toolset: GitToolset):
+        super().__init__(
+            name="git_update_pr",
+            description="Update an existing PR that was created by this tool. Can only update PRs created using git_execute_changes.",
+            parameters={
+                "line": ToolParameter(
+                    description="Line number to change", type="integer", required=True
+                ),
+                "filename": ToolParameter(
+                    description="Filename (relative path)", type="string", required=True
+                ),
+                "command": ToolParameter(
+                    description="insert/update/remove", type="string", required=True
+                ),
+                "code": ToolParameter(
+                    description="Code to insert or update",
+                    type="string",
+                    required=False,
+                ),
+                "pr_number": ToolParameter(
+                    description="PR number to update", type="integer", required=True
+                ),
+                "dry_run": ToolParameter(
+                    description="Dry-run mode", type="boolean", required=True
+                ),
+                "commit_message": ToolParameter(
+                    description="Commit message", type="string", required=True
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> str:
+        try:
+            line = params["line"]
+            filename = params["filename"]
+            command = params["command"]
+            code = params.get("code", "")
+            pr_number = params["pr_number"]
+            dry_run = params["dry_run"]
+            commit_message = params["commit_message"]
+
+            # Validate inputs
+            if not commit_message.strip():
+                return "Commit message cannot be empty"
+            if not filename.strip():
+                return "Filename cannot be empty"
+            if line < 1:
+                return "Line number must be positive"
+
+            # Get PR details
+            try:
+                pr_details = self.toolset.get_pr_details(pr_number)
+                branch = pr_details["head"]["ref"]
+
+                # Verify this is a PR created by our tool
+                if not branch.startswith("feature/"):
+                    return f"PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
+
+                # Get current file content from PR branch
+                sha, content = self.toolset.get_file_content(filename, branch)
+                content_lines = content.splitlines()
+
+                # Update content
+                if command == "insert":
+                    content_lines.insert(line - 1, code)
+                elif command == "update":
+                    indent = len(content_lines[line - 1]) - len(
+                        content_lines[line - 1].lstrip()
+                    )
+                    content_lines[line - 1] = " " * indent + code
+                elif command == "remove":
+                    del content_lines[line - 1]
+                else:
+                    return f"Invalid command: {command}"
+
+                updated_content = "\n".join(content_lines) + "\n"
+
+                if dry_run:
+                    return f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}"
+
+                # Add commit to PR
+                self.toolset.add_commit_to_pr(
+                    pr_number, filename, updated_content, commit_message
+                )
+                return f"Added commit to PR #{pr_number} successfully"
+
+            except Exception as e:
+                return self.toolset._sanitize_error(f"Error updating PR: {str(e)}")
+
+        except requests.exceptions.RequestException as e:
+            return self.toolset._sanitize_error(f"Network error: {str(e)}")
+        except Exception as e:
+            return self.toolset._sanitize_error(f"Unexpected error: {str(e)}")
+
+    def get_parameterized_one_liner(self, params) -> str:
+        return (
+            f"git update_pr(line={params['line']}, filename='{params['filename']}', "
+            f"command='{params['command']}', code='{params.get('code', '')}', "
+            f"pr_number={params['pr_number']}, dry_run={params['dry_run']}, "
+            f"commit_message='{params['commit_message']}')"
         )
