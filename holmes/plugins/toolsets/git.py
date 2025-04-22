@@ -2,7 +2,7 @@ import base64
 import logging
 import requests
 import os
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, List
 from pydantic import BaseModel
 
 from holmes.core.tools import (
@@ -41,6 +41,12 @@ class GitToolset(Toolset):
             tags=[ToolsetTag.CORE],
         )
 
+    def _sanitize_error(self, error_msg: str) -> str:
+        """Sanitize error messages by removing sensitive information."""
+        if not self.git_credentials:
+            return error_msg
+        return error_msg.replace(self.git_credentials, "[REDACTED]")
+
     def prerequisites_callable(self, config: dict[str, Any]) -> bool:
         try:
             self.git_repo = os.getenv("GIT_REPO") or config.get("git_repo")
@@ -61,6 +67,95 @@ class GitToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def list_open_prs(self) -> List[Dict[str, Any]]:
+        """Helper method to list all open PRs in the repository."""
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = f"https://api.github.com/repos/{self.git_repo}/pulls?state=open"
+        resp = requests.get(url, headers=headers)
+        if resp.status_code != 200:
+            raise Exception(self._sanitize_error(f"Error listing PRs: {resp.text}"))
+        return resp.json()
+
+    def get_branch_ref(self, branch_name: str) -> Optional[str]:
+        """Get the SHA of a branch reference."""
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = (
+            f"https://api.github.com/repos/{self.git_repo}/git/refs/heads/{branch_name}"
+        )
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 404:
+            return None
+        if resp.status_code != 200:
+            raise Exception(
+                self._sanitize_error(f"Error getting branch reference: {resp.text}")
+            )
+        return resp.json()["object"]["sha"]
+
+    def create_branch(self, branch_name: str, base_sha: str) -> None:
+        """Create a new branch from a base SHA."""
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = f"https://api.github.com/repos/{self.git_repo}/git/refs"
+        resp = requests.post(
+            url,
+            headers=headers,
+            json={
+                "ref": f"refs/heads/{branch_name}",
+                "sha": base_sha,
+            },
+        )
+        if resp.status_code not in (200, 201):
+            raise Exception(self._sanitize_error(f"Error creating branch: {resp.text}"))
+
+    def get_file_content(self, filepath: str, branch: str) -> tuple[str, str]:
+        """Get file content and SHA from a specific branch."""
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = f"https://api.github.com/repos/{self.git_repo}/contents/{filepath}?ref={branch}"
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 404:
+            raise Exception(f"File not found: {filepath}")
+        if resp.status_code != 200:
+            raise Exception(self._sanitize_error(f"Error fetching file: {resp.text}"))
+        file_json = resp.json()
+        return file_json["sha"], base64.b64decode(file_json["content"]).decode()
+
+    def update_file(
+        self, filepath: str, branch: str, content: str, sha: str, message: str
+    ) -> None:
+        """Update a file in a specific branch."""
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = f"https://api.github.com/repos/{self.git_repo}/contents/{filepath}"
+        encoded_content = base64.b64encode(content.encode()).decode()
+        resp = requests.put(
+            url,
+            headers=headers,
+            json={
+                "message": message,
+                "content": encoded_content,
+                "branch": branch,
+                "sha": sha,
+            },
+        )
+        if resp.status_code not in (200, 201):
+            raise Exception(self._sanitize_error(f"Error updating file: {resp.text}"))
+
+    def create_pr(self, title: str, head: str, base: str, body: str) -> str:
+        """Create a new pull request."""
+        headers = {"Authorization": f"token {self.git_credentials}"}
+        url = f"https://api.github.com/repos/{self.git_repo}/pulls"
+        resp = requests.post(
+            url,
+            headers=headers,
+            json={
+                "title": title,
+                "body": body,
+                "head": head,
+                "base": base,
+            },
+        )
+        if resp.status_code not in (200, 201):
+            raise Exception(self._sanitize_error(f"Error creating PR: {resp.text}"))
+        return resp.json()["html_url"]
 
 
 class GitReadFileWithLineNumbers(Tool):
@@ -88,7 +183,7 @@ class GitReadFileWithLineNumbers(Tool):
         )
         resp = requests.get(url, headers=headers)
         if resp.status_code != 200:
-            return f"Error fetching file: {resp.text}"
+            return self.toolset._sanitize_error(f"Error fetching file: {resp.text}")
         content = base64.b64decode(resp.json()["content"]).decode().splitlines()
         return "\n".join(f"{i+1}: {line}" for i, line in enumerate(content))
 
@@ -112,7 +207,7 @@ class GitListFiles(Tool):
         url = f"https://api.github.com/repos/{self.toolset.git_repo}/git/trees/{self.toolset.git_branch}?recursive=1"
         resp = requests.get(url, headers=headers)
         if resp.status_code != 200:
-            return f"Error listing files: {resp.text}"
+            return self.toolset._sanitize_error(f"Error listing files: {resp.text}")
         return "\n".join(entry["path"] for entry in resp.json()["tree"])
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -131,15 +226,13 @@ class GitListOpenPRs(Tool):
         )
 
     def _invoke(self, params: Any) -> str:
-        headers = {"Authorization": f"token {self.toolset.git_credentials}"}
-        url = f"https://api.github.com/repos/{self.toolset.git_repo}/pulls?state=open"
-        resp = requests.get(url, headers=headers)
-        if resp.status_code != 200:
-            return f"Error listing PRs: {resp.text}"
-        prs = resp.json()
-        return "\n".join(
-            f"{pr['number']}: {pr['title']} - {pr['html_url']}" for pr in prs
-        )
+        try:
+            prs = self.toolset.list_open_prs()
+            return "\n".join(
+                f"{pr['number']}: {pr['title']} - {pr['html_url']}" for pr in prs
+            )
+        except Exception as e:
+            return self.toolset._sanitize_error(str(e))
 
     def get_parameterized_one_liner(self, params) -> str:
         return "Listing PR's"
@@ -184,99 +277,120 @@ class GitExecuteChanges(Tool):
         )
 
     def _invoke(self, params: Any) -> str:
-        line = params["line"]
-        filename = params["filename"]
-        command = params["command"]
-        code = params.get("code", "")
-        open_pr = params["open_pr"]
-        commit_pr = params["commit_pr"]
-        dry_run = params["dry_run"]
-        commit_message = params["commit_message"]
-        token = self.toolset.git_credentials
-        repo = self.toolset.git_repo
-        branch = self.toolset.git_branch
-        pr_name = commit_pr.replace(" ", "_").replace("'", "")
-        branch_name = f"feature/{pr_name}"
+        try:
+            line = params["line"]
+            filename = params["filename"]
+            command = params["command"]
+            code = params.get("code", "")
+            open_pr = params["open_pr"]
+            commit_pr = params["commit_pr"]
+            dry_run = params["dry_run"]
+            commit_message = params["commit_message"]
+            branch = self.toolset.git_branch
+            pr_name = commit_pr.replace(" ", "_").replace("'", "")
+            branch_name = f"feature/{pr_name}"
 
-        # Step 1: Fetch file content
-        headers = {"Authorization": f"token {token}"}
-        file_url = f"https://api.github.com/repos/{repo}/contents/{filename}"
-        file_resp = requests.get(file_url, headers=headers)
-        if file_resp.status_code != 200:
-            return f"Failed to fetch file content: {file_resp.text}"
+            # Validate inputs
+            if not commit_pr.strip():
+                return "PR title cannot be empty"
+            if not commit_message.strip():
+                return "Commit message cannot be empty"
+            if not filename.strip():
+                return "Filename cannot be empty"
+            if line < 1:
+                return "Line number must be positive"
 
-        file_json = file_resp.json()
-        sha = file_json["sha"]
-        content_lines = base64.b64decode(file_json["content"]).decode().splitlines()
+            # Check if branch already exists
+            if self.toolset.get_branch_ref(branch_name) is not None:
+                return f"Branch {branch_name} already exists. Please use a different PR title or manually delete the existing branch."
 
-        # Step 2: Update content
-        if command == "insert":
-            content_lines.insert(line - 1, code)
-        elif command == "update":
-            indent = len(content_lines[line - 1]) - len(
-                content_lines[line - 1].lstrip()
-            )
-            content_lines[line - 1] = " " * indent + code
-        elif command == "remove":
-            del content_lines[line - 1]
-        else:
-            return f"Invalid command: {command}"
+            # Check if PR with same title exists
+            if open_pr:
+                try:
+                    existing_prs = self.toolset.list_open_prs()
+                    for pr in existing_prs:
+                        if pr["title"].lower() == commit_pr.lower():
+                            return f"PR with title '{commit_pr}' already exists at {pr['html_url']}"
+                except Exception as e:
+                    return self.toolset._sanitize_error(
+                        f"Error checking existing PRs: {str(e)}"
+                    )
 
-        updated_content = "\n".join(content_lines) + "\n"
+            # Get base branch SHA
+            try:
+                base_sha = self.toolset.get_branch_ref(branch)
+                if base_sha is None:
+                    return f"Base branch {branch} not found"
+            except Exception as e:
+                return self.toolset._sanitize_error(
+                    f"Error getting base branch reference: {str(e)}"
+                )
 
-        if dry_run:
-            return f"DRY RUN: Updated content:\n\n{updated_content}"
+            # Get current file content
+            try:
+                sha, content = self.toolset.get_file_content(filename, branch)
+                content_lines = content.splitlines()
+            except Exception as e:
+                return self.toolset._sanitize_error(
+                    f"Error getting file content: {str(e)}"
+                )
 
-        # Step 3: Create new branch
-        ref_url = f"https://api.github.com/repos/{repo}/git/refs/heads/{branch}"
-        ref_resp = requests.get(ref_url, headers=headers)
-        sha_base = ref_resp.json()["object"]["sha"]
+            # Validate line number
+            if line > len(content_lines) + 1:
+                return f"Line number {line} is out of range. File has {len(content_lines)} lines."
 
-        create_branch_url = f"https://api.github.com/repos/{repo}/git/refs"
-        requests.post(
-            create_branch_url,
-            headers=headers,
-            json={
-                "ref": f"refs/heads/{branch_name}",
-                "sha": sha_base,
-            },
-        )
+            # Update content
+            if command == "insert":
+                content_lines.insert(line - 1, code)
+            elif command == "update":
+                indent = len(content_lines[line - 1]) - len(
+                    content_lines[line - 1].lstrip()
+                )
+                content_lines[line - 1] = " " * indent + code
+            elif command == "remove":
+                del content_lines[line - 1]
+            else:
+                return f"Invalid command: {command}"
 
-        # Step 4: Commit updated content
-        update_file_url = f"https://api.github.com/repos/{repo}/contents/{filename}"
-        encoded_content = base64.b64encode(updated_content.encode()).decode()
-        commit_resp = requests.put(
-            update_file_url,
-            headers=headers,
-            json={
-                "message": commit_message,
-                "content": encoded_content,
-                "branch": branch_name,
-                "sha": sha,
-            },
-        )
+            updated_content = "\n".join(content_lines) + "\n"
 
-        if commit_resp.status_code not in (200, 201):
-            return f"Failed to commit file: {commit_resp.text}"
+            if dry_run:
+                return f"DRY RUN: Updated content:\n\n{updated_content}"
 
-        # Step 5: Open PR
-        if open_pr:
-            pr_url = f"https://api.github.com/repos/{repo}/pulls"
-            pr_resp = requests.post(
-                pr_url,
-                headers=headers,
-                json={
-                    "title": commit_pr,
-                    "body": commit_message,
-                    "head": branch_name,
-                    "base": branch,
-                },
-            )
-            if pr_resp.status_code not in (200, 201):
-                return f"Failed to open PR: {pr_resp.text}"
-            return f"PR opened successfully: {pr_resp.json().get('html_url')}"
+            # Create new branch
+            try:
+                self.toolset.create_branch(branch_name, base_sha)
+            except Exception as e:
+                return self.toolset._sanitize_error(f"Error creating branch: {str(e)}")
 
-        return "Change committed successfully, no PR opened."
+            # Update file
+            try:
+                self.toolset.update_file(
+                    filename, branch_name, updated_content, sha, commit_message
+                )
+            except Exception as e:
+                return self.toolset._sanitize_error(
+                    f"Error updating file: {str(e)}. The branch {branch_name} was created but the commit failed. Please manually delete the branch if needed."
+                )
+
+            # Create PR if requested
+            if open_pr:
+                try:
+                    pr_url = self.toolset.create_pr(
+                        commit_pr, branch_name, branch, commit_message
+                    )
+                    return f"PR opened successfully: {pr_url}"
+                except Exception as e:
+                    return self.toolset._sanitize_error(
+                        f"Error creating PR: {str(e)}. The branch {branch_name} was created and committed successfully, but PR creation failed. Please manually create a PR from this branch if needed."
+                    )
+
+            return "Change committed successfully, no PR opened."
+
+        except requests.exceptions.RequestException as e:
+            return self.toolset._sanitize_error(f"Network error: {str(e)}")
+        except Exception as e:
+            return self.toolset._sanitize_error(f"Unexpected error: {str(e)}")
 
     def get_parameterized_one_liner(self, params) -> str:
         return (
