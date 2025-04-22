@@ -10,9 +10,11 @@ from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
 from holmes.plugins.toolsets.datetime import DatetimeToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
-from holmes.plugins.toolsets.robusta import RobustaToolset
+from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
+from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
+
 from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
 from holmes.plugins.toolsets.newrelic import NewRelicToolset
@@ -22,6 +24,7 @@ from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
 from holmes.plugins.toolsets.git import GitToolset
+from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 
 from holmes.core.tools import Toolset, YAMLToolset
 import yaml
@@ -61,6 +64,8 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchToolset(),
         GrafanaLokiToolset(),
         GrafanaTempoToolset(),
+        GrafanaToolset(),
+        NotionToolset(),
         NewRelicToolset(),
         KafkaToolset(),
         DatadogToolset(),
@@ -69,6 +74,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
         CoralogixLogsToolset(),
+        RabbitMQToolset(),
         BashToolset(),
         GitToolset(),
     ]

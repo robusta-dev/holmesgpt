@@ -11,6 +11,7 @@ from holmes.plugins.toolsets.internet.internet import (
     InternetBaseToolset,
     scrape,
 )
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 class FetchNotion(Tool):
@@ -39,7 +40,7 @@ class FetchNotion(Tool):
             return f"https://api.notion.com/v1/blocks/{notion_id}/children"
         return url  # Return original URL if no match is found
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         url: str = params["url"]
 
         # Get headers from the toolset configuration
@@ -51,9 +52,17 @@ class FetchNotion(Tool):
 
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
-            return ""
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to retrieve content from {url}",
+                params=params,
+            )
 
-        return self.parse_notion_content(content)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=self.parse_notion_content(content),
+            params=params,
+        )
 
     def parse_notion_content(self, content: Any) -> str:
         data = json.loads(content)

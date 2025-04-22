@@ -45,7 +45,7 @@ class MockConfig(Config):
             mock.mock_tool(tool_mock)
             expected_tools.append(tool_mock.tool_name)
 
-        return ToolExecutor(mock.mocked_toolsets)
+        return ToolExecutor(mock.enabled_toolsets)
 
 
 def get_test_cases():
@@ -114,7 +114,10 @@ def test_investigate(experiment_name, test_case):
         with eval.start_span(
             name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
         ) as tool_span:
-            tool_span.log(input=tool_call.description, output=tool_call.result)
+            tool_span.log(
+                input=tool_call.description,
+                output=tool_call.result.model_dump_json(indent=2),
+            )
 
     output = result.analysis
 

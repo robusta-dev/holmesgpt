@@ -1,5 +1,6 @@
 import json
 import logging
+import urllib.parse
 from datetime import datetime
 from typing import Any, NamedTuple, Optional, Dict, List
 
@@ -73,7 +74,7 @@ def normalize_datetime(date_str: str) -> str:
         return "UNKNOWN_TIMESTAMP"
 
     try:
-        # older versions of python do not support `Z` appendix nor more than 6 digits of microsecond precision/
+        # older versions of python do not support `Z` appendix nor more than 6 digits of microsecond precision
         date_str_no_z = date_str.rstrip("Z")
 
         parts = date_str_no_z.split(".")
@@ -179,7 +180,8 @@ class CoralogixLabelsConfig(BaseModel):
 
 
 class CoralogixConfig(BaseModel):
-    base_url: str
+    team_hostname: str
+    domain: str
     api_key: str
     labels: CoralogixLabelsConfig = CoralogixLabelsConfig()
 
@@ -192,3 +194,11 @@ def get_resource_label(params: Dict, config: CoralogixConfig):
     else:
         return f'Error: unsupported resource type "{resource_type}". resource_type must be "pod"'
     return label
+
+
+def build_coralogix_link_to_logs(
+    config: CoralogixConfig, lucene_query: str, start: str, end: str
+) -> str:
+    query_param = urllib.parse.quote_plus(lucene_query)
+
+    return f"https://{config.team_hostname}.app.{config.domain}/#/query-new/logs?query={query_param}&querySyntax=dataprime&time=from:{start},to:{end}"

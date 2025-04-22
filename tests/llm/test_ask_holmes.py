@@ -73,7 +73,10 @@ def test_ask_holmes(experiment_name, test_case):
                 with eval.start_span(
                     name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
                 ) as tool_span:
-                    tool_span.log(input=tool_call.description, output=tool_call.result)
+                    tool_span.log(
+                        input=tool_call.description,
+                        output=tool_call.result.model_dump_json(indent=2),
+                    )
     finally:
         after_test(test_case)
 
@@ -153,7 +156,7 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
             mock.mock_tool(tool_mock)
             expected_tools.append(tool_mock.tool_name)
 
-    tool_executor = ToolExecutor(mock.mocked_toolsets)
+    tool_executor = ToolExecutor(mock.enabled_toolsets)
 
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
@@ -162,7 +165,5 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
-
     messages = build_chat_messages(ask=chat_request.ask, conversation_history=[], ai=ai)
-
     return ai.messages_call(messages=messages)

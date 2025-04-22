@@ -1,4 +1,4 @@
-user_prompt: "Was there any 'Peer down' problem reported for network-connector pod?"
+user_prompt: "Was there any 'Peer down' problem reported for network-connector pod in the default namespace?"
 expected_output:
   - The "Peer down" issue was reported in the logs of the `network-connector` pod.
 before_test: kubectl apply -f ./long-log-pod.yaml
