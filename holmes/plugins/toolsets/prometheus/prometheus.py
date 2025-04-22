@@ -23,27 +23,30 @@ from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.utils import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
-    STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
+    standard_start_datetime_tool_param_description,
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
 from holmes.utils.cache import TTLCache
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
+DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
 class PrometheusConfig(BaseModel):
     # URL is optional because it can be set with an env var
     prometheus_url: Union[str, None]
+    healthcheck: str = "-/healthy"
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
     # Setting to None will disable the cache
     metrics_labels_cache_duration_hrs: Union[int, None] = 12
     fetch_labels_with_labels_api: bool = False
     fetch_metadata_with_series_api: bool = False
-    tool_calls_return_data: bool = False
+    tool_calls_return_data: bool = True
     headers: Dict = {}
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
+    additional_labels: Optional[Dict[str, str]] = None
 
 
 class BasePrometheusTool(Tool):
@@ -506,7 +509,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description=STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_TIME_SPAN_SECONDS
+                    ),
                     type="string",
                     required=False,
                 ),
@@ -533,7 +538,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
             query = get_param_or_raise(params, "query")
             (start, end) = process_timestamps_to_rfc3339(
-                params.get("start"), params.get("end")
+                start_timestamp=params.get("start"),
+                end_timestamp=params.get("end"),
+                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
             )
             step = params.get("step", "")
             description = params.get("description", "")
@@ -624,13 +631,13 @@ class PrometheusToolset(Toolset):
                 ToolsetTag.CORE,
             ],
         )
-        self._load_llm_instructions(
-            os.path.abspath(
-                os.path.join(
-                    os.path.dirname(__file__), "prometheus_instructions.jinja2"
-                )
-            )
+        self._reload_llm_instructions()
+
+    def _reload_llm_instructions(self):
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "prometheus_instructions.jinja2")
         )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config and not os.environ.get("PROMETHEUS_URL", None):
@@ -645,10 +652,11 @@ class PrometheusToolset(Toolset):
                     os.environ.get("PROMETHEUS_AUTH_HEADER", None)
                 ),
             )
-
+            self._reload_llm_instructions()
             return True, ""
         else:
             self.config = PrometheusConfig(**config)
+            self._reload_llm_instructions()
             return self._is_healthy()
 
     def _is_healthy(self) -> Tuple[bool, str]:
@@ -662,7 +670,7 @@ class PrometheusToolset(Toolset):
                 f"Toolset {self.name} failed to initialize because prometheus is not configured correctly",
             )
 
-        url = urljoin(self.config.prometheus_url, "-/healthy")
+        url = urljoin(self.config.prometheus_url, self.config.healthcheck)
         try:
             response = requests.get(
                 url=url, headers=self.config.headers, timeout=10, verify=True

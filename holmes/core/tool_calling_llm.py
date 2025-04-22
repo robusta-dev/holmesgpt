@@ -3,8 +3,9 @@ import json
 import logging
 import textwrap
 from typing import List, Optional, Dict, Type, Union
-
+from pydantic_core import from_json
 import sentry_sdk
+import requests
 
 from holmes.common.env_vars import TEMPERATURE
 from holmes.core.investigation_structured_output import (
@@ -33,6 +34,11 @@ from rich.console import Console
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
+from litellm.types.utils import Message
+from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.core.investigation_structured_output import (
+    parse_markdown_into_sections_from_hash_sign,
+)
 
 
 class ToolCallResult(BaseModel):
@@ -45,6 +51,7 @@ class ToolCallResult(BaseModel):
     def as_dict(self):
         return {
             "tool_call_id": self.tool_call_id,
+            "description": self.description,
             "role": "tool",
             "name": self.tool_name,
             "content": self.result,
@@ -234,6 +241,7 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 futures = []
                 for t in tools_to_call:
+                    logging.debug(f"Tool to call: {t}")
                     futures.append(executor.submit(self._invoke_tool, t))
 
                 for future in concurrent.futures.as_completed(futures):
@@ -362,23 +370,58 @@ class ToolCallingLLM:
         )
 
         for message in messages:
-            if message["role"] == "tool":
+            if message["role"] == "tool" and len(message["content"]) > tool_size:
                 message["content"] = message["content"][:tool_size]
+                if "token_count" in message:
+                    del message["token_count"]
         return messages
 
     def call_stream(
         self,
         system_prompt: str,
         user_prompt: Optional[str] = None,
+        stream: bool = False,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        sections: Optional[InputSectionsDataType] = None,
         runbooks: List[str] = None,
     ):
+        def stream_analysis(it, peek_chunk):
+            buffer = peek_chunk.get("data", "")
+            yield create_sse_message(peek_chunk.get("event"), peek_chunk.get("data"))
+            chunk_counter = 0
+
+            for chunk in it:
+                buffer += chunk
+                chunk_counter += 1
+                if chunk_counter == STREAM_CHUNKS_PER_PARSE:
+                    chunk_counter = 0
+                    yield create_sse_message(
+                        "ai_answer",
+                        {
+                            "sections": parse_markdown_into_sections_from_hash_sign(
+                                buffer
+                            )
+                            or {},
+                            "analysis": buffer,
+                            "instructions": runbooks or [],
+                        },
+                    )
+
+            yield create_sse_message(
+                "ai_answer_end",
+                {
+                    "sections": parse_markdown_into_sections_from_hash_sign(buffer)
+                    or {},
+                    "analysis": buffer,
+                    "instructions": runbooks or [],
+                },
+            )
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls: List[ToolCallResult] = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
@@ -405,52 +448,87 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
-                full_response = self.llm.completion(
-                    messages=parse_messages_tags(messages),
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    temperature=0.00000001,
-                    response_format=response_format,
-                    stream=False,
-                    drop_params=True,
-                )
-                perf_timing.measure("llm.completion")
+                if stream:
+                    response = requests.post(
+                        f"{ROBUSTA_API_ENDPOINT}/chat/completions",
+                        json={
+                            "messages": parse_messages_tags(messages),
+                            "tools": tools,
+                            "tool_choice": tool_choice,
+                            "temperature": TEMPERATURE,
+                            "response_format": response_format,
+                            "stream": True,
+                            "drop_param": True,
+                        },
+                        headers={"Authorization": f"Bearer {self.llm.api_key}"},
+                        stream=True,
+                    )
+                    response.raise_for_status()
+                    it = response.iter_content(chunk_size=None, decode_unicode=True)
+                    peek_chunk = from_json(next(it))
+                    tools = peek_chunk.get("tool_calls")
 
+                    if not tools:
+                        yield from stream_analysis(it, peek_chunk)
+                        perf_timing.measure("llm.completion")
+                        return
+
+                    response_message = Message(**peek_chunk)
+                    tools_to_call = response_message.tool_calls
+                else:
+                    full_response = self.llm.completion(
+                        messages=parse_messages_tags(messages),
+                        tools=tools,
+                        tool_choice=tool_choice,
+                        temperature=TEMPERATURE,
+                        response_format=response_format,
+                        stream=False,
+                        drop_params=True,
+                    )
+                    perf_timing.measure("llm.completion")
+
+                    response_message = full_response.choices[0].message
+                    if response_message and response_format:
+                        # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                        dict_response = json.loads(full_response.to_json())
+                        incorrect_tool_call = is_response_an_incorrect_tool_call(
+                            sections, dict_response.get("choices", [{}])[0]
+                        )
+
+                        if incorrect_tool_call:
+                            logging.warning(
+                                "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                            )
+                            # disable structured output going forward and and retry
+                            response_format = None
+                            i -= 1
+                            continue
+
+                    tools_to_call = getattr(response_message, "tool_calls", None)
+                    if not tools_to_call:
+                        (text_response, sections) = process_response_into_sections(
+                            response_message.content
+                        )
+
+                        yield create_sse_message(
+                            "ai_answer_end",
+                            {
+                                "sections": sections or {},
+                                "analysis": text_response,
+                                "instructions": runbooks or [],
+                            },
+                        )
+                        return
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
-                    yield json.dumps(
-                        {
-                            "type": "error",
-                            "details": {
-                                "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
-                            },
-                        }
+                    raise Exception(
+                        "The Azure model you chose is not supported. Model version 1106 and higher required."
                     )
-                    return
-                raise
             except Exception:
                 raise
-
-            response_message = full_response.choices[0].message
-            tools_to_call = getattr(response_message, "tool_calls", None)
-            if not tools_to_call:
-                (text_response, _) = process_response_into_sections(
-                    response_message.content
-                )
-                yield json.dumps(
-                    {"type": "ai_answer", "details": {"answer": text_response}}
-                )
-                if runbooks:
-                    yield json.dumps(
-                        {
-                            "type": "instructions",
-                            "details": {"instructions": json.dumps(runbooks)},
-                        }
-                    )
-                return
 
             messages.append(
                 response_message.model_dump(
@@ -463,22 +541,16 @@ class ToolCallingLLM:
                 futures = []
                 for t in tools_to_call:
                     futures.append(executor.submit(self._invoke_tool, t))
-                    yield json.dumps(
-                        {
-                            "type": "start_tool_calling",
-                            "details": {"tool_name": t.function.name, "id": t.id},
-                        }
+                    yield create_sse_message(
+                        "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result)
                     tool_call_dict = tool_call_result.as_dict()
                     messages.append(tool_call_dict)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield json.dumps(
-                        {"type": "tool_calling_result", "details": tool_call_dict}
-                    )
+                    yield create_sse_message("tool_calling_result", tool_call_dict)
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
@@ -594,3 +666,7 @@ class IssueInvestigator(ToolCallingLLM):
         )
         res.instructions = runbooks
         return res
+
+
+def create_sse_message(event_type: str, data: dict = {}):
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"

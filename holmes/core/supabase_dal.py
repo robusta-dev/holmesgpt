@@ -54,8 +54,9 @@ class RobustaToken(BaseModel):
 
 
 class SupabaseDal:
-    def __init__(self):
+    def __init__(self, cluster: str):
         self.enabled = self.__init_config()
+        self.cluster = cluster
         if not self.enabled:
             logging.info(
                 "Not connecting to Robusta platform - robusta token not provided - using ROBUSTA_AI will not be possible"
@@ -127,16 +128,16 @@ class SupabaseDal:
                     token = conf["robusta_sink"].get("token")
                     if not token:
                         raise Exception(
-                            "No robusta token provided to Holmes. "
-                            "Please set a valid Robusta UI token. "
+                            "No robusta token provided to Holmes.\n"
+                            "Please set a valid Robusta UI token.\n "
                             "See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
                         )
                     if "{{" in token:
                         raise ValueError(
-                            "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`). "
-                            "Ensure your Helm chart or environment variables are set correctly. "
+                            "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`).\n "
+                            "Ensure your Helm chart or environment variables are set correctly.\n "
                             "If you store the token in a secret, you must also pass "
-                            "the environment variable ROBUSTA_UI_TOKEN to Holmes. "
+                            "the environment variable ROBUSTA_UI_TOKEN to Holmes.\n "
                             "See https://docs.robusta.dev/master/configuration/ai-analysis.html#configuring-holmesgpt-access-to-saas-data for instructions."
                         )
                     try:
@@ -182,6 +183,68 @@ class SupabaseDal:
         )
         self.client.postgrest.auth(res.session.access_token)
         return res.user.id
+
+    def get_configuration_changes(
+        self, start_datetime: str, end_datetime: str
+    ) -> Optional[List[Dict]]:
+        if not self.enabled:
+            return []
+
+        try:
+            changes_response = (
+                self.client.table(ISSUES_TABLE)
+                .select("id", "subject_name", "subject_namespace", "description")
+                .eq("account_id", self.account_id)
+                .eq("cluster", self.cluster)
+                .eq("finding_type", "configuration_change")
+                .gte("creation_date", start_datetime)
+                .lte("creation_date", end_datetime)
+                .execute()
+            )
+            if not len(changes_response.data):
+                return None
+
+        except Exception:
+            logging.exception("Supabase error while retrieving change data")
+            return None
+
+        changes_ids = [change["id"] for change in changes_response.data]
+        try:
+            change_data_response = (
+                self.client.table(EVIDENCE_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .in_("issue_id", changes_ids)
+                .execute()
+            )
+            if not len(change_data_response.data):
+                return None
+
+        except Exception:
+            logging.exception("Supabase error while retrieving change content")
+            return None
+
+        changes_data = []
+        change_data_map = {
+            change["issue_id"]: change for change in change_data_response.data
+        }
+
+        for change in changes_response.data:
+            change_content = change_data_map.get(change["id"])
+            if change_content:
+                changes_data.append(
+                    {
+                        "change": change_content["data"],
+                        "evidence_id": change_content["id"],
+                        **change,
+                    }
+                )
+
+        logging.debug(
+            "Change history for %s-%s: %s", start_datetime, end_datetime, changes_data
+        )
+
+        return changes_data
 
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no

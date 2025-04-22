@@ -1,7 +1,9 @@
+import os
+
 import yaml
 import logging
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StaticPrerequisite,
@@ -12,6 +14,10 @@ from holmes.core.tools import (
 )
 
 PARAM_FINDING_ID = "id"
+START_TIME = "start_datetime"
+END_TIME = "end_datetime"
+NAMESPACE = "namespace"
+WORKLOAD = "workload"
 
 
 class FetchRobustaFinding(Tool):
@@ -59,49 +65,50 @@ class FetchRobustaFinding(Tool):
         return "Fetch metadata and history"
 
 
-class FetchRobustaAlerts(Tool):
+class FetchConfigurationChanges(Tool):
     _dal: Optional[SupabaseDal]
 
     def __init__(self, dal: Optional[SupabaseDal]):
         super().__init__(
-            name="fetch_alerts",
-            description="Fetches alerts firing in the enviornment from robusta",
+            name="fetch_configuration_changes",
+            description="Fetch configuration changes in a given time range. By default, fetch all cluster changes. Can be filtered on a given namespace or a specific workload",
             parameters={
-                "alert_name": ToolParameter(
-                    description="The alert name to fetch, if not specified it pulls all alerts",
+                START_TIME: ToolParameter(
+                    description="The starting time boundary for the search period. String in RFC3339 format.",
                     type="string",
-                    required=False,
-                )
+                    required=True,
+                ),
+                END_TIME: ToolParameter(
+                    description="The starting time boundary for the search period. String in RFC3339 format.",
+                    type="string",
+                    required=True,
+                ),
             },
         )
         self._dal = dal
 
-    def _fetch_alert(self, alert_id: Optional[str] = None) -> Optional[Dict]:
+    def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:
         if self._dal and self._dal.enabled:
-            return self._dal.get_firing_alerts(alert_id)
-        else:
-            error = f"Failed to find a alerts named {alert_id}: Holmes' data access layer is not enabled."
-            logging.error(error)
-            return {"error": error}
+            return self._dal.get_configuration_changes(
+                start_datetime=params["start_datetime"],
+                end_datetime=params["end_datetime"],
+            )
+        return None
 
     def _invoke(self, params: Dict) -> str:
-        alert_name = params.get("alert_name", None)
         try:
-            finding = self._fetch_alert(alert_name)
-            if finding:
-                return yaml.dump(finding)
+            changes = self._fetch_change_history(params)
+            if changes:
+                return yaml.dump(changes)
             else:
-                return f"Could not find an alert with name ={alert_name}"
+                return f"Could not find changes for {params}"
         except Exception as e:
-            logging.error(e)
-            logging.error(
-                f"There was an internal error while fetching alerts {alert_name}. {str(e)}"
-            )
-
-        return f"There was an internal error while fetching alerts {alert_name}"
+            msg = f"There was an internal error while fetching changes for {params}. {str(e)}"
+            logging.exception(msg)
+            return msg
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Fetch alert information"
+        return f"Fetch change history ({str(params)})"
 
 
 class RobustaToolset(Toolset):
@@ -121,12 +128,19 @@ class RobustaToolset(Toolset):
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html",
             name="robusta",
             prerequisites=[dal_prereq],
-            tools=[FetchRobustaFinding(dal), FetchRobustaAlerts(dal)],
+            tools=[
+                FetchRobustaFinding(dal),
+                FetchConfigurationChanges(dal),
+            ],
             tags=[
                 ToolsetTag.CORE,
             ],
             is_default=True,
         )
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "robusta_instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

@@ -7,7 +7,11 @@ ONE_HOUR_IN_SECONDS = 3600
 
 TOOLSET_CONFIG_MISSING_ERROR = "The toolset is missing its configuration"
 
-STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION = "Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to negative one hour (-3600)"
+
+def standard_start_datetime_tool_param_description(time_span_seconds: int):
+    return f"Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to -{time_span_seconds}"
+
+
 STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION = (
     "End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW"
 )
@@ -55,7 +59,7 @@ def datetime_to_unix(timestamp_or_datetime_str):
 
 def unix_to_rfc3339(timestamp: int) -> str:
     dt = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
-    return dt.isoformat()
+    return f"{dt.strftime('%Y-%m-%dT%H:%M:%S')}Z"
 
 
 def datetime_to_rfc3339(timestamp):
@@ -66,10 +70,14 @@ def datetime_to_rfc3339(timestamp):
 
 
 def process_timestamps_to_rfc3339(
-    start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
+    start_timestamp: Optional[Union[int, str]],
+    end_timestamp: Optional[Union[int, str]],
+    default_time_span_seconds: int,
 ) -> Tuple[str, str]:
     (start_timestamp, end_timestamp) = process_timestamps_to_int(
-        start_timestamp, end_timestamp
+        start_timestamp,
+        end_timestamp,
+        default_time_span_seconds=default_time_span_seconds,
     )
     start_timestamp = datetime_to_rfc3339(start_timestamp)
     end_timestamp = datetime_to_rfc3339(end_timestamp)
@@ -79,7 +87,7 @@ def process_timestamps_to_rfc3339(
 def process_timestamps_to_int(
     start: Optional[Union[int, str]],
     end: Optional[Union[int, str]],
-    default_time_span_seconds: int = ONE_HOUR_IN_SECONDS,
+    default_time_span_seconds: int,
 ) -> Tuple[int, int]:
     """
     Process and normalize start and end timestamps.
