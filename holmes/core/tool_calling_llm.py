@@ -54,7 +54,7 @@ class ToolCallResult(BaseModel):
             "description": self.description,
             "role": "tool",
             "name": self.tool_name,
-            "content": self.result,
+            "content": self.result.model_dump(),
         }
 
 
@@ -283,12 +283,28 @@ class ToolCallingLLM:
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,
                 description="NA",
-                result="NA",
+                result=StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed to find tool {tool_name}",
+                    params=tool_params,
+                ),
             )
 
         tool_response = None
         try:
             tool_response = tool.invoke(tool_params)
+
+            if not isinstance(tool_response, StructuredToolResult):
+                # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
+                logging.error(
+                    f"Tool {tool.name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
+                )
+                tool_response = StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=tool_response,
+                    params=tool_params,
+                )
+
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -298,7 +314,6 @@ class ToolCallingLLM:
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
-
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
