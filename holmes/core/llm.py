@@ -10,7 +10,10 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from pydantic import BaseModel
 import litellm
 import os
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, THINKING
+from holmes.common.env_vars import (
+    THINKING,
+    TEMPERATURE,
+)
 
 
 def environ_get_safe_int(env_var, default="0"):
@@ -59,16 +62,15 @@ class DefaultLLM(LLM):
     model: str
     api_key: Optional[str]
     base_url: Optional[str]
+    args: Dict
 
-    def __init__(self, model: str, api_key: Optional[str] = None):
+    def __init__(self, model: str, api_key: Optional[str] = None, args: Dict = {}):
         self.model = model
         self.api_key = api_key
-        self.base_url = None
+        self.args = args
 
-        if ROBUSTA_AI:
-            self.base_url = ROBUSTA_API_ENDPOINT
-
-        self.check_llm(self.model, self.api_key)
+        if not args:
+            self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model: str, api_key: Optional[str]):
         logging.debug(f"Checking LiteLLM model {model}")
@@ -204,22 +206,22 @@ class DefaultLLM(LLM):
             tools_args["tools"] = tools
             tools_args["tool_choice"] = tool_choice
 
-        thinking = None
-        if THINKING:  # if model requires 'thinking', load it from env vars
-            thinking = json.loads(THINKING)
+        if THINKING:
+            self.args.setdefault("thinking", json.loads(THINKING))
+
+        if self.args.get("thinking", None):
             litellm.modify_params = True
 
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            base_url=self.base_url,
-            temperature=temperature,
+            temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,
-            thinking=thinking,
             stream=stream,
             **tools_args,
+            **self.args,
         )
 
         if isinstance(result, ModelResponse):

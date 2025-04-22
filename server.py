@@ -32,7 +32,6 @@ from holmes.common.env_vars import (
     SENTRY_DSN,
     ENABLE_TELEMETRY,
     SENTRY_TRACES_SAMPLE_RATE,
-    ROBUSTA_AI,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
@@ -138,7 +137,10 @@ if LOG_PERFORMANCE:
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
         result = investigation.investigate_issues(
-            investigate_request=investigate_request, dal=dal, config=config
+            investigate_request=investigate_request,
+            dal=dal,
+            config=config,
+            model=investigate_request.model,
         )
         return result
 
@@ -152,7 +154,8 @@ def investigate_issues(investigate_request: InvestigateRequest):
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
     try:
-        is_structured_output = not ROBUSTA_AI
+        robusta_ai = req.model == "Robusta"
+        is_structured_output = not robusta_ai
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
             investigation.get_investigation_context(
                 req, dal, config, is_structured_output
@@ -160,7 +163,7 @@ def stream_investigate_issues(req: InvestigateRequest):
         )
         return StreamingResponse(
             ai.call_stream(
-                system_prompt, user_prompt, ROBUSTA_AI, response_format, runbooks
+                system_prompt, user_prompt, robusta_ai, response_format, runbooks
             ),
             media_type="text/event-stream",
         )
@@ -200,13 +203,13 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask, global_instructions
         )
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
 
         system_prompt = load_and_render_prompt(
             request.prompt_template,
             context={
                 "alerts": workload_alerts,
-                "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+                "toolsets": ai.tool_executor.toolsets,
             },
         )
 
@@ -229,16 +232,14 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 @app.post("/api/workload_health_chat")
 def workload_health_conversation(
-    workload_health_chat_request: WorkloadHealthChatRequest,
+    request: WorkloadHealthChatRequest,
 ):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(
-            workload_health_chat_request, ai, global_instructions
-        )
+        messages = build_workload_health_chat_messages(request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -276,7 +277,7 @@ def issue_conversation_deprecated(conversation_request: ConversationRequest):
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(
@@ -308,7 +309,7 @@ def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
         messages = build_chat_messages(
             chat_request.ask,
@@ -355,7 +356,7 @@ def chat(chat_request: ChatRequest):
 
 @app.get("/api/model")
 def get_model():
-    return {"model_name": config.model}
+    return {"model_name": config.get_models_list()}
 
 
 if __name__ == "__main__":

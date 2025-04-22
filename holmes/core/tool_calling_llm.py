@@ -7,7 +7,6 @@ from pydantic_core import from_json
 import sentry_sdk
 import requests
 
-from holmes.common.env_vars import TEMPERATURE
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -139,6 +138,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
+
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -165,7 +165,6 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
@@ -201,11 +200,10 @@ class ToolCallingLLM:
                     max_steps = max_steps + 1
                     continue
 
-            messages.append(
-                response_message.model_dump(
-                    exclude_defaults=True, exclude_unset=True, exclude_none=True
-                )
+            new_message = response_message.model_dump(
+                exclude_defaults=True, exclude_unset=True, exclude_none=True
             )
+            messages.append(new_message)
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
@@ -465,7 +463,6 @@ class ToolCallingLLM:
                             "messages": parse_messages_tags(messages),
                             "tools": tools,
                             "tool_choice": tool_choice,
-                            "temperature": TEMPERATURE,
                             "response_format": response_format,
                             "stream": True,
                             "drop_param": True,
@@ -490,7 +487,6 @@ class ToolCallingLLM:
                         messages=parse_messages_tags(messages),
                         tools=tools,
                         tool_choice=tool_choice,
-                        temperature=TEMPERATURE,
                         response_format=response_format,
                         stream=False,
                         drop_params=True,
@@ -661,7 +657,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "issue": issue,
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
-                "enabled_toolsets": self.tool_executor.enabled_toolsets,
+                "toolsets": self.tool_executor.toolsets,
             },
         )
 

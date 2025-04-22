@@ -156,7 +156,7 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
             mock.mock_tool(tool_mock)
             expected_tools.append(tool_mock.tool_name)
 
-    tool_executor = ToolExecutor(mock.mocked_toolsets)
+    tool_executor = ToolExecutor(mock.enabled_toolsets)
 
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
@@ -165,7 +165,5 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
-
     messages = build_chat_messages(ask=chat_request.ask, conversation_history=[], ai=ai)
-
     return ai.messages_call(messages=messages)

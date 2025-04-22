@@ -411,7 +411,8 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
-                    self._status = ToolsetStatusEnum.DISABLED
+                    self._status = ToolsetStatusEnum.FAILED
+                    self._error = prereq.disabled_reason
                     return
 
             elif isinstance(prereq, CallablePrerequisite):

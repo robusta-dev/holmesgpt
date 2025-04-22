@@ -45,7 +45,7 @@ class MockConfig(Config):
             mock.mock_tool(tool_mock)
             expected_tools.append(tool_mock.tool_name)
 
-        return ToolExecutor(mock.mocked_toolsets)
+        return ToolExecutor(mock.enabled_toolsets)
 
 
 def get_test_cases():
