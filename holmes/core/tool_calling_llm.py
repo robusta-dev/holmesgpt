@@ -553,22 +553,33 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-
                     tool_response = tool_call_result.result.data
                     if tool_call_result.result.status == ToolResultStatus.ERROR:
                         tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
-                    tool_call_dict = tool_call_result.as_dict()
 
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call_result.tool_call_id,
-                            "role": "tool",
-                            "name": tool_call_result.tool_name,
-                            "content": tool_response,
-                        }
-                    )
+                    if isinstance(tool_response, dict):
+                        tool_response = json.dumps(tool_response)
+                    if isinstance(tool_response, list):
+                        tool_response = json.dumps(tool_response)
+
+                    message_to_append = {
+                        "tool_call_id": tool_call_result.tool_call_id,
+                        "role": "tool",
+                        "name": tool_call_result.tool_name,
+                        "content": tool_response,
+                    }
+
+                    messages.append(message_to_append)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield create_sse_message("tool_calling_result", tool_call_dict)
+
+                    result_dict = {
+                        "tool_call_id": tool_call_result.tool_call_id,
+                        "role": "tool",
+                        "name": tool_call_result.tool_name,
+                        "result": tool_response,
+                    }
+
+                    yield create_sse_message("tool_calling_result", result_dict)
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
