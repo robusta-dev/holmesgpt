@@ -24,6 +24,7 @@ class GitToolset(Toolset):
     git_repo: Optional[str] = None
     git_credentials: Optional[str] = None
     git_branch: Optional[str] = None
+    _created_branches: set[str] = set()  # Track branches created by the tool
 
     def __init__(self):
         super().__init__(
@@ -41,6 +42,14 @@ class GitToolset(Toolset):
             ],
             tags=[ToolsetTag.CORE],
         )
+
+    def add_created_branch(self, branch_name: str) -> None:
+        """Add a branch to the list of branches created by the tool."""
+        self._created_branches.add(branch_name)
+
+    def is_created_branch(self, branch_name: str) -> bool:
+        """Check if a branch was created by the tool."""
+        return branch_name in self._created_branches
 
     def _sanitize_error(self, error_msg: str) -> str:
         """Sanitize error messages by removing sensitive information."""
@@ -107,6 +116,7 @@ class GitToolset(Toolset):
         )
         if resp.status_code not in (200, 201):
             raise Exception(self._sanitize_error(f"Error creating branch: {resp.text}"))
+        self.add_created_branch(branch_name)  # Track the created branch
 
     def get_file_content(self, filepath: str, branch: str) -> tuple[str, str]:
         """Get file content and SHA from a specific branch."""
@@ -291,7 +301,7 @@ class GitExecuteChanges(Tool):
     def __init__(self, toolset: GitToolset):
         super().__init__(
             name="git_execute_changes",
-            description="Make changes to a GitHub file and optionally open a PR or add to existing PR",
+            description="Make changes to a GitHub file and optionally open a PR or add to existing PR. This tool requires two steps: first run with dry_run=true to preview changes, then run again with dry_run=false to commit the changes.",
             parameters={
                 "line": ToolParameter(
                     description="Line number to change", type="integer", required=True
@@ -339,11 +349,11 @@ class GitExecuteChanges(Tool):
 
             # Validate inputs
             if not commit_message.strip():
-                return "Commit message cannot be empty"
+                return "Tool call failed to run: Commit message cannot be empty"
             if not filename.strip():
-                return "Filename cannot be empty"
+                return "Tool call failed to run: Filename cannot be empty"
             if line < 1:
-                return "Line number must be positive"
+                return "Tool call failed to run: Line number must be positive"
 
             # Check if commit_pr is a PR number (starts with #)
             if commit_pr.startswith("#"):
@@ -356,16 +366,45 @@ class GitExecuteChanges(Tool):
 
                     # Update content
                     if command == "insert":
-                        content_lines.insert(line - 1, code)
+                        # Get the previous line's indentation
+                        prev_line = content_lines[line - 2] if line > 1 else ""
+                        prev_indent = len(prev_line) - len(prev_line.lstrip())
+
+                        # If previous line ends with colon, add extra indentation
+                        if prev_line.rstrip().endswith(":"):
+                            # Find the next non-empty line to determine proper indentation
+                            next_line_idx = line - 1
+                            while (
+                                next_line_idx < len(content_lines)
+                                and not content_lines[next_line_idx].strip()
+                            ):
+                                next_line_idx += 1
+
+                            if next_line_idx < len(content_lines):
+                                next_line = content_lines[next_line_idx]
+                                next_indent = len(next_line) - len(next_line.lstrip())
+                                # Use the next line's indentation if it's more indented than current
+                                if next_indent > prev_indent:
+                                    indent = next_indent
+                                else:
+                                    indent = prev_indent + 2
+                            else:
+                                indent = prev_indent + 2
+                        else:
+                            indent = prev_indent
+
+                        # Apply indentation to the new line
+                        indented_code = " " * indent + code.lstrip()
+                        content_lines.insert(line - 1, indented_code)
                     elif command == "update":
                         indent = len(content_lines[line - 1]) - len(
                             content_lines[line - 1].lstrip()
                         )
-                        content_lines[line - 1] = " " * indent + code
+                        content_lines[line - 1] = " " * indent + code.lstrip()
                     elif command == "remove":
                         del content_lines[line - 1]
                     else:
-                        return f"Invalid command: {command}"
+                        return f"Tool call failed to run: Invalid command: {command}"
 
                     updated_content = "\n".join(content_lines) + "\n"
 
@@ -379,10 +418,10 @@ class GitExecuteChanges(Tool):
                     return f"Added commit to PR #{pr_number} successfully"
 
                 except ValueError:
-                    return f"Invalid PR number format: {commit_pr}"
+                    return f"Tool call failed to run: Invalid PR number format: {commit_pr}"
                 except Exception as e:
                     return self.toolset._sanitize_error(
-                        f"Error adding commit to PR: {str(e)}"
+                        f"Tool call failed to run: Error adding commit to PR: {str(e)}"
                     )
 
             # Original PR creation logic
@@ -390,32 +429,37 @@ class GitExecuteChanges(Tool):
             branch_name = f"feature/{pr_name}"
 
             if not commit_pr.strip():
-                return "PR title cannot be empty"
+                return "Tool call failed to run: PR title cannot be empty"
 
             # Check if branch already exists
-            if self.toolset.get_branch_ref(branch_name) is not None:
-                return f"Branch {branch_name} already exists. Please use a different PR title or manually delete the existing branch."
+            if self.toolset.get_branch_ref(
+                branch_name
+            ) is not None and not self.toolset.is_created_branch(branch_name):
+                return f"Tool call failed to run: Branch {branch_name} already exists. Please use a different PR title or manually delete the existing branch."
 
             # Check if PR with same title exists
             if open_pr:
                 try:
                     existing_prs = self.toolset.list_open_prs()
                     for pr in existing_prs:
-                        if pr["title"].lower() == commit_pr.lower():
-                            return f"PR with title '{commit_pr}' already exists at {pr['html_url']}"
+                        if (
+                            pr["title"].lower() == commit_pr.lower()
+                            and pr["head"]["ref"] == branch_name
+                        ):
+                            return f"Tool call failed to run: PR with title '{commit_pr}' already exists at {pr['html_url']}"
                 except Exception as e:
                     return self.toolset._sanitize_error(
-                        f"Error checking existing PRs: {str(e)}"
+                        f"Tool call failed to run: Error checking existing PRs: {str(e)}"
                     )
 
             # Get base branch SHA
             try:
                 base_sha = self.toolset.get_branch_ref(branch)
                 if base_sha is None:
-                    return f"Base branch {branch} not found"
+                    return f"Tool call failed to run: Base branch {branch} not found"
             except Exception as e:
                 return self.toolset._sanitize_error(
-                    f"Error getting base branch reference: {str(e)}"
+                    f"Tool call failed to run: Error getting base branch reference: {str(e)}"
                 )
 
             # Get current file content
@@ -424,25 +468,54 @@ class GitExecuteChanges(Tool):
                 content_lines = content.splitlines()
             except Exception as e:
                 return self.toolset._sanitize_error(
-                    f"Error getting file content: {str(e)}"
+                    f"Tool call failed to run: Error getting file content: {str(e)}"
                 )
 
             # Validate line number
             if line > len(content_lines) + 1:
-                return f"Line number {line} is out of range. File has {len(content_lines)} lines."
+                return f"Tool call failed to run: Line number {line} is out of range. File has {len(content_lines)} lines."
 
             # Update content
             if command == "insert":
-                content_lines.insert(line - 1, code)
+                # Get the previous line's indentation
+                prev_line = content_lines[line - 2] if line > 1 else ""
+                prev_indent = len(prev_line) - len(prev_line.lstrip())
+
+                # If previous line ends with colon, add extra indentation
+                if prev_line.rstrip().endswith(":"):
+                    # Find the next non-empty line to determine proper indentation
+                    next_line_idx = line - 1
+                    while (
+                        next_line_idx < len(content_lines)
+                        and not content_lines[next_line_idx].strip()
+                    ):
+                        next_line_idx += 1
+
+                    if next_line_idx < len(content_lines):
+                        next_line = content_lines[next_line_idx]
+                        next_indent = len(next_line) - len(next_line.lstrip())
+                        # Use the next line's indentation if it's more indented than current
+                        if next_indent > prev_indent:
+                            indent = next_indent
+                        else:
+                            indent = prev_indent + 2
+                    else:
+                        indent = prev_indent + 2
+                else:
+                    indent = prev_indent
+
+                # Apply indentation to the new line
+                indented_code = " " * indent + code.lstrip()
+                content_lines.insert(line - 1, indented_code)
             elif command == "update":
                 indent = len(content_lines[line - 1]) - len(
                     content_lines[line - 1].lstrip()
                 )
-                content_lines[line - 1] = " " * indent + code
+                content_lines[line - 1] = " " * indent + code.lstrip()
             elif command == "remove":
                 del content_lines[line - 1]
             else:
-                return f"Invalid command: {command}"
+                return f"Tool call failed to run: Invalid command: {command}"
 
             updated_content = "\n".join(content_lines) + "\n"
 
@@ -453,7 +526,9 @@ class GitExecuteChanges(Tool):
             try:
                 self.toolset.create_branch(branch_name, base_sha)
             except Exception as e:
-                return self.toolset._sanitize_error(f"Error creating branch: {str(e)}")
+                return self.toolset._sanitize_error(
+                    f"Tool call failed to run: Error creating branch: {str(e)}"
+                )
 
             # Update file
             try:
@@ -462,7 +537,7 @@ class GitExecuteChanges(Tool):
                 )
             except Exception as e:
                 return self.toolset._sanitize_error(
-                    f"Error updating file: {str(e)}. The branch {branch_name} was created but the commit failed. Please manually delete the branch if needed."
+                    f"Tool call failed to run: Error updating file: {str(e)}. The branch {branch_name} was created but the commit failed. Please manually delete the branch if needed."
                 )
 
             # Create PR if requested
@@ -474,15 +549,19 @@ class GitExecuteChanges(Tool):
                     return f"PR opened successfully: {pr_url}"
                 except Exception as e:
                     return self.toolset._sanitize_error(
-                        f"Error creating PR: {str(e)}. The branch {branch_name} was created and committed successfully, but PR creation failed. Please manually create a PR from this branch if needed."
+                        f"Tool call failed to run: Error creating PR: {str(e)}. The branch {branch_name} was created and committed successfully, but PR creation failed. Please manually create a PR from this branch if needed."
                     )
 
             return "Change committed successfully, no PR opened."
 
         except requests.exceptions.RequestException as e:
-            return self.toolset._sanitize_error(f"Network error: {str(e)}")
+            return self.toolset._sanitize_error(
+                f"Tool call failed to run: Network error: {str(e)}"
+            )
         except Exception as e:
-            return self.toolset._sanitize_error(f"Unexpected error: {str(e)}")
+            return self.toolset._sanitize_error(
+                f"Tool call failed to run: Unexpected error: {str(e)}"
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return (
@@ -493,11 +572,15 @@ class GitExecuteChanges(Tool):
         )
 
 
-class GitUpdatePR(GitExecuteChanges):
+class GitUpdatePR(Tool):
     """A tool specifically for updating existing PRs that were created by this tool.
     This tool can only update PRs that were created using the GitExecuteChanges tool,
     as it relies on the specific branch naming convention used by that tool.
+    The tool requires two steps: first run with dry_run=true to preview changes,
+    then run again with dry_run=false to commit the changes to the PR.
     """
+
+    toolset: GitToolset
 
     def __init__(self, toolset: GitToolset):
         super().__init__(
@@ -543,11 +626,11 @@ class GitUpdatePR(GitExecuteChanges):
 
             # Validate inputs
             if not commit_message.strip():
-                return "Commit message cannot be empty"
+                return "Tool call failed to run: Commit message cannot be empty"
             if not filename.strip():
-                return "Filename cannot be empty"
+                return "Tool call failed to run: Filename cannot be empty"
             if line < 1:
-                return "Line number must be positive"
+                return "Tool call failed to run: Line number must be positive"
 
             # Get PR details
             try:
@@ -555,8 +638,10 @@ class GitUpdatePR(GitExecuteChanges):
                 branch = pr_details["head"]["ref"]
 
                 # Verify this is a PR created by our tool
-                if not branch.startswith("feature/"):
-                    return f"PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
+                if not branch.startswith(
+                    "feature/"
+                ) or not self.toolset.is_created_branch(branch):
+                    return f"Tool call failed to run: PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
 
                 # Get current file content from PR branch
                 sha, content = self.toolset.get_file_content(filename, branch)
@@ -564,16 +649,45 @@ class GitUpdatePR(GitExecuteChanges):
 
                 # Update content
                 if command == "insert":
-                    content_lines.insert(line - 1, code)
+                    # Get the previous line's indentation
+                    prev_line = content_lines[line - 2] if line > 1 else ""
+                    prev_indent = len(prev_line) - len(prev_line.lstrip())
+
+                    # If previous line ends with colon, add extra indentation
+                    if prev_line.rstrip().endswith(":"):
+                        # Find the next non-empty line to determine proper indentation
+                        next_line_idx = line - 1
+                        while (
+                            next_line_idx < len(content_lines)
+                            and not content_lines[next_line_idx].strip()
+                        ):
+                            next_line_idx += 1
+
+                        if next_line_idx < len(content_lines):
+                            next_line = content_lines[next_line_idx]
+                            next_indent = len(next_line) - len(next_line.lstrip())
+                            # Use the next line's indentation if it's more indented than current
+                            if next_indent > prev_indent:
+                                indent = next_indent
+                            else:
+                                indent = prev_indent + 2
+                        else:
+                            indent = prev_indent + 2
+                    else:
+                        indent = prev_indent
+
+                    # Apply indentation to the new line
+                    indented_code = " " * indent + code.lstrip()
+                    content_lines.insert(line - 1, indented_code)
                 elif command == "update":
                     indent = len(content_lines[line - 1]) - len(
                         content_lines[line - 1].lstrip()
                     )
-                    content_lines[line - 1] = " " * indent + code
+                    content_lines[line - 1] = " " * indent + code.lstrip()
                 elif command == "remove":
                     del content_lines[line - 1]
                 else:
-                    return f"Invalid command: {command}"
+                    return f"Tool call failed to run: Invalid command: {command}"
 
                 updated_content = "\n".join(content_lines) + "\n"
 
@@ -587,12 +701,18 @@ class GitUpdatePR(GitExecuteChanges):
                 return f"Added commit to PR #{pr_number} successfully"
 
             except Exception as e:
-                return self.toolset._sanitize_error(f"Error updating PR: {str(e)}")
+                return self.toolset._sanitize_error(
+                    f"Tool call failed to run: Error updating PR: {str(e)}"
+                )
 
         except requests.exceptions.RequestException as e:
-            return self.toolset._sanitize_error(f"Network error: {str(e)}")
+            return self.toolset._sanitize_error(
+                f"Tool call failed to run: Network error: {str(e)}"
+            )
         except Exception as e:
-            return self.toolset._sanitize_error(f"Unexpected error: {str(e)}")
+            return self.toolset._sanitize_error(
+                f"Tool call failed to run: Unexpected error: {str(e)}"
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return (
