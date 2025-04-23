@@ -53,7 +53,7 @@ class ToolCallResult(BaseModel):
     size: Optional[int] = None
 
     def as_dict(self):
-        # TODO: remove this after FE is ready
+        # TODO: remove this logic after FE is ready
         if isinstance(self.result, StructuredToolResult):
             result = self.result.model_dump()
         else:
@@ -259,8 +259,9 @@ class ToolCallingLLM:
                     tool_response_content = (
                         self._get_formatted_tool_call_response_content(tool_call_result)
                     )
-                    # TODO: remove this after FE is ready
+
                     tool_call_response = tool_call_result.as_dict()
+                    # TODO: remove HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG logic after FE is ready
                     if HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG:
                         tool_call_response["result"] = tool_response_content
 
@@ -620,7 +621,7 @@ class ToolCallingLLM:
                             "tool_call_id": tool_call_result.tool_call_id,
                             "role": "tool",
                             "name": tool_call_result.tool_name,
-                            "result": tool_call_result.result.model_dump(),
+                            "content": tool_call_result.result.model_dump(),
                         }
 
                     yield create_sse_message("tool_calling_result", result_dict)
