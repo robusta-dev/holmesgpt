@@ -39,6 +39,6 @@ STREAM_CHUNKS_PER_PARSE = int(
     os.environ.get("STREAM_CHUNKS_PER_PARSE", 80)
 )  # Empirical value with 6~ parsing calls. Consider using larger value if LLM response is long as to reduce markdown to section calls.
 
-HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG = os.environ.get(
+HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG = load_bool(
     "HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG", True
 )
