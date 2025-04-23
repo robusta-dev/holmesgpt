@@ -16,6 +16,8 @@ from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
 from os import path
+from unittest.mock import patch
+
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -63,22 +65,24 @@ def test_ask_holmes(experiment_name, test_case):
     except Exception as e:
         after_test(test_case)
         raise e
-
-    try:
-        result: LLMResult = ask_holmes(test_case)
-        if result.tool_calls:
-            for tool_call in result.tool_calls:
-                # TODO: mock this instead so span start time & end time will be accurate.
-                # Also to include calls to llm spans
-                with eval.start_span(
-                    name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-                ) as tool_span:
-                    tool_span.log(
-                        input=tool_call.description,
-                        output=tool_call.result.model_dump_json(indent=2),
-                    )
-    finally:
-        after_test(test_case)
+    with patch.dict(
+        os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
+    ):
+        try:
+            result: LLMResult = ask_holmes(test_case)
+            if result.tool_calls:
+                for tool_call in result.tool_calls:
+                    # TODO: mock this instead so span start time & end time will be accurate.
+                    # Also to include calls to llm spans
+                    with eval.start_span(
+                        name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
+                    ) as tool_span:
+                        tool_span.log(
+                            input=tool_call.description,
+                            output=tool_call.result.model_dump_json(indent=2),
+                        )
+        finally:
+            after_test(test_case)
 
     input = test_case.user_prompt
     output = result.result
