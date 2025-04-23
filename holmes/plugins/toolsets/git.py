@@ -25,6 +25,7 @@ class GitToolset(Toolset):
     git_credentials: Optional[str] = None
     git_branch: Optional[str] = None
     _created_branches: set[str] = set()  # Track branches created by the tool
+    _created_prs: set[int] = set()  # Track PRs created by the tool
 
     def __init__(self):
         super().__init__(
@@ -50,6 +51,14 @@ class GitToolset(Toolset):
     def is_created_branch(self, branch_name: str) -> bool:
         """Check if a branch was created by the tool."""
         return branch_name in self._created_branches
+
+    def add_created_pr(self, pr_number: int) -> None:
+        """Add a PR to the list of PRs created by the tool."""
+        self._created_prs.add(pr_number)
+
+    def is_created_pr(self, pr_number: int) -> bool:
+        """Check if a PR was created by the tool."""
+        return pr_number in self._created_prs
 
     def _sanitize_error(self, error_msg: str) -> str:
         """Sanitize error messages by removing sensitive information."""
@@ -166,6 +175,8 @@ class GitToolset(Toolset):
         )
         if resp.status_code not in (200, 201):
             raise Exception(self._sanitize_error(f"Error creating PR: {resp.text}"))
+        pr_number = resp.json()["number"]
+        self.add_created_pr(pr_number)  # Track the created PR
         return resp.json()["html_url"]
 
     def get_pr_details(self, pr_number: int) -> Dict[str, Any]:
@@ -286,7 +297,8 @@ class GitListOpenPRs(Tool):
         try:
             prs = self.toolset.list_open_prs()
             return "\n".join(
-                f"{pr['number']}: {pr['title']} - {pr['html_url']}" for pr in prs
+                f"{pr['number']}: {pr['title']} (branch: {pr['head']['ref']}) - {pr['html_url']}"
+                for pr in prs
             )
         except Exception as e:
             return self.toolset._sanitize_error(str(e))
@@ -355,10 +367,10 @@ class GitExecuteChanges(Tool):
             if line < 1:
                 return "Tool call failed to run: Line number must be positive"
 
-            # Check if commit_pr is a PR number (starts with #)
-            if commit_pr.startswith("#"):
+            # Check if commit_pr is a PR number (starts with # or is just a number)
+            if commit_pr.startswith("#") or commit_pr.isdigit():
                 try:
-                    pr_number = int(commit_pr[1:])
+                    pr_number = int(commit_pr.lstrip("#"))
                     # Get current file content from PR branch
                     branch = self.toolset.get_pr_branch(pr_number)
                     sha, content = self.toolset.get_file_content(filename, branch)
@@ -446,7 +458,71 @@ class GitExecuteChanges(Tool):
                             pr["title"].lower() == commit_pr.lower()
                             and pr["head"]["ref"] == branch_name
                         ):
-                            return f"Tool call failed to run: PR with title '{commit_pr}' already exists at {pr['html_url']}"
+                            # If we find a matching PR, use it instead of creating a new one
+                            pr_number = pr["number"]
+                            if not self.toolset.is_created_pr(pr_number):
+                                return f"Tool call failed to run: PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
+                            # Get current file content from PR branch
+                            branch = self.toolset.get_pr_branch(pr_number)
+                            sha, content = self.toolset.get_file_content(
+                                filename, branch
+                            )
+                            content_lines = content.splitlines()
+
+                            # Update content
+                            if command == "insert":
+                                # Get the previous line's indentation
+                                prev_line = content_lines[line - 2] if line > 1 else ""
+                                prev_indent = len(prev_line) - len(prev_line.lstrip())
+
+                                # If previous line ends with colon, add extra indentation
+                                if prev_line.rstrip().endswith(":"):
+                                    # Find the next non-empty line to determine proper indentation
+                                    next_line_idx = line - 1
+                                    while (
+                                        next_line_idx < len(content_lines)
+                                        and not content_lines[next_line_idx].strip()
+                                    ):
+                                        next_line_idx += 1
+
+                                    if next_line_idx < len(content_lines):
+                                        next_line = content_lines[next_line_idx]
+                                        next_indent = len(next_line) - len(
+                                            next_line.lstrip()
+                                        )
+                                        # Use the next line's indentation if it's more indented than current
+                                        if next_indent > prev_indent:
+                                            indent = next_indent
+                                        else:
+                                            indent = prev_indent + 2
+                                    else:
+                                        indent = prev_indent + 2
+                                else:
+                                    indent = prev_indent
+
+                                # Apply indentation to the new line
+                                indented_code = " " * indent + code.lstrip()
+                                content_lines.insert(line - 1, indented_code)
+                            elif command == "update":
+                                indent = len(content_lines[line - 1]) - len(
+                                    content_lines[line - 1].lstrip()
+                                )
+                                content_lines[line - 1] = " " * indent + code.lstrip()
+                            elif command == "remove":
+                                del content_lines[line - 1]
+                            else:
+                                return f"Tool call failed to run: Invalid command: {command}"
+
+                            updated_content = "\n".join(content_lines) + "\n"
+
+                            if dry_run:
+                                return f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}"
+
+                            # Add commit to PR
+                            self.toolset.add_commit_to_pr(
+                                pr_number, filename, updated_content, commit_message
+                            )
+                            return f"Added commit to PR #{pr_number} successfully"
                 except Exception as e:
                     return self.toolset._sanitize_error(
                         f"Tool call failed to run: Error checking existing PRs: {str(e)}"
@@ -632,16 +708,14 @@ class GitUpdatePR(Tool):
             if line < 1:
                 return "Tool call failed to run: Line number must be positive"
 
+            # Verify this is a PR created by our tool
+            if not self.toolset.is_created_pr(pr_number):
+                return f"Tool call failed to run: PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
+
             # Get PR details
             try:
                 pr_details = self.toolset.get_pr_details(pr_number)
                 branch = pr_details["head"]["ref"]
-
-                # Verify this is a PR created by our tool
-                if not branch.startswith(
-                    "feature/"
-                ) or not self.toolset.is_created_branch(branch):
-                    return f"Tool call failed to run: PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
 
                 # Get current file content from PR branch
                 sha, content = self.toolset.get_file_content(filename, branch)
