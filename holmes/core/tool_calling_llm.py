@@ -34,7 +34,11 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 from litellm.types.utils import Message
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.common.env_vars import (
+    ROBUSTA_API_ENDPOINT,
+    STREAM_CHUNKS_PER_PARSE,
+    HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG,
+)
 from holmes.core.investigation_structured_output import (
     parse_markdown_into_sections_from_hash_sign,
 )
@@ -45,16 +49,22 @@ class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
     description: str
-    result: StructuredToolResult
+    result: Union[StructuredToolResult, str]
     size: Optional[int] = None
 
     def as_dict(self):
+        # TODO: remove this logic after FE is ready
+        if isinstance(self.result, StructuredToolResult):
+            result = self.result.model_dump()
+        else:
+            result = self.result
+
         return {
             "tool_call_id": self.tool_call_id,
+            "tool_name": self.tool_name,
             "description": self.description,
             "role": "tool",
-            "name": self.tool_name,
-            "content": self.result.model_dump(),
+            "result": result,
         }
 
 
@@ -245,21 +255,35 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result)
 
-                    tool_response = tool_call_result.result.data
-                    if tool_call_result.result.status == ToolResultStatus.ERROR:
-                        tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
+                    tool_response_content = (
+                        self._get_formatted_tool_call_response_content(tool_call_result)
+                    )
+
+                    tool_call_response = tool_call_result.as_dict()
+                    # TODO: remove HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG logic after FE is ready
+                    if HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG:
+                        tool_call_response["result"] = tool_response_content
+
+                    tool_calls.append(tool_call_response)
 
                     messages.append(
                         {
                             "tool_call_id": tool_call_result.tool_call_id,
                             "role": "tool",
                             "name": tool_call_result.tool_name,
-                            "content": tool_response,
+                            "content": tool_response_content,
                         }
                     )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+
+    def _get_formatted_tool_call_response_content(
+        self, tool_call_result: ToolCallResult
+    ) -> str:
+        tool_response = tool_call_result.result.data
+        if tool_call_result.result.status == ToolResultStatus.ERROR:
+            tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
+        return tool_response
 
     def _invoke_tool(
         self, tool_to_call: ChatCompletionMessageToolCall
@@ -568,31 +592,37 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_response = tool_call_result.result.data
-                    if tool_call_result.result.status == ToolResultStatus.ERROR:
-                        tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
 
-                    if isinstance(tool_response, dict):
-                        tool_response = json.dumps(tool_response)
-                    if isinstance(tool_response, list):
-                        tool_response = json.dumps(tool_response)
+                    tool_response_content = (
+                        self._get_formatted_tool_call_response_content(tool_call_result)
+                    )
 
                     message_to_append = {
                         "tool_call_id": tool_call_result.tool_call_id,
                         "role": "tool",
                         "name": tool_call_result.tool_name,
-                        "content": tool_response,
+                        "content": tool_response_content,
                     }
 
                     messages.append(message_to_append)
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-                    result_dict = {
-                        "tool_call_id": tool_call_result.tool_call_id,
-                        "role": "tool",
-                        "name": tool_call_result.tool_name,
-                        "result": tool_response,
-                    }
+                    # TODO: remove this after FE is ready
+                    # TODO: fix this on the FE side, so we have either `content` or `result` for both streaming and non-streaming responses
+                    if HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG:
+                        result_dict = {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_response_content,
+                        }
+                    else:
+                        result_dict = {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_call_result.result.model_dump(),
+                        }
 
                     yield create_sse_message("tool_calling_result", result_dict)
 
