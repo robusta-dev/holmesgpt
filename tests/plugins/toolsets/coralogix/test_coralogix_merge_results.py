@@ -5,13 +5,13 @@ from holmes.plugins.toolsets.coralogix.api import (
 from holmes.plugins.toolsets.coralogix.utils import FlattenedLog
 
 
-log1 = FlattenedLog(timestamp="2023-10-26T10:00:00Z", log_message="Log A1", tags="tag1")
-log2 = FlattenedLog(timestamp="2023-10-26T10:01:00Z", log_message="Log A2", tags="tag2")
-log3 = FlattenedLog(timestamp="2023-10-26T09:59:00Z", log_message="Log B1", tags="tag1")
+log1 = FlattenedLog(timestamp="2023-10-26T10:00:00Z", log_message="Log A1")
+log2 = FlattenedLog(timestamp="2023-10-26T10:01:00Z", log_message="Log A2")
+log3 = FlattenedLog(timestamp="2023-10-26T09:59:00Z", log_message="Log B1")
 log4 = FlattenedLog(
-    timestamp="2023-10-26T10:00:00Z", log_message="Log A1", tags="tag1"
+    timestamp="2023-10-26T10:00:00Z", log_message="Log A1"
 )  # Duplicate of log1
-log5 = FlattenedLog(timestamp="2023-10-26T10:00:30Z", log_message="Log C1", tags="tag3")
+log5 = FlattenedLog(timestamp="2023-10-26T10:00:30Z", log_message="Log C1")
 
 # Results without errors
 res_a_ok = CoralogixQueryResult(logs=[log1, log2], http_status=200, error=None)

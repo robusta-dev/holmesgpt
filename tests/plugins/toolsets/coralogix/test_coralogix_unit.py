@@ -10,7 +10,6 @@ from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
 from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,
     build_coralogix_link_to_logs,
-    format_kubernetes_info,
     parse_logs,
     normalize_datetime,
     stringify_flattened_logs,
@@ -65,9 +64,7 @@ def fetch_logs_tool(coralogix_toolset):
 
 
 def test_format_logs(raw_logs_result, formatted_logs):
-    actual_output = stringify_flattened_logs(
-        parse_logs(raw_logs_result, add_namespace_tag=False, add_pod_tag=False)
-    )
+    actual_output = stringify_flattened_logs(parse_logs(raw_logs_result))
     logs_match = actual_output.strip() == formatted_logs.strip()
     actual_file_path_for_debugging = os.path.join(
         FIXTURES_DIR, "formatted_logs.txt.actual"
@@ -107,27 +104,22 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
 @pytest.mark.parametrize(
     "params, expected_query_part",
     [
-        ({}, f"source logs | lucene '' | limit {DEFAULT_LOG_COUNT}"),
-        ({"log_count": 50}, "source logs | lucene '' | limit 50"),
         (
-            {"app_name": "my-app"},
-            f"source logs | lucene 'kubernetes.labels.app:my-app' | limit {DEFAULT_LOG_COUNT}",
+            {"resource_type": "application", "resource_name": "my-app"},
+            f"source logs | lucene 'coralogix.metadata.applicationName:/my-app/' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
-            {"namespace_name": "prod"},
-            f"source logs | lucene 'kubernetes.namespace_name:prod' | limit {DEFAULT_LOG_COUNT}",
+            {"resource_type": "pod", "resource_name": "pod-123"},
+            f"source logs | lucene 'kubernetes.pod_name:/pod-123/' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
-            {"pod_name": "pod-123"},
-            f"source logs | lucene 'kubernetes.pod_name:pod-123' | limit {DEFAULT_LOG_COUNT}",
-        ),
-        (
-            {"app_name": "api", "namespace_name": "dev", "pod_name": "api-abc"},
-            f"source logs | lucene 'kubernetes.namespace_name:dev AND kubernetes.pod_name:api-abc AND kubernetes.labels.app:api' | limit {DEFAULT_LOG_COUNT}",
-        ),
-        (
-            {"app_name": "web", "namespace_name": "staging", "log_count": 20},
-            "source logs | lucene 'kubernetes.namespace_name:staging AND kubernetes.labels.app:web' | limit 20",
+            {
+                "resource_type": "application",
+                "resource_name": "web",
+                "namespace_name": "staging",
+                "log_count": 20,
+            },
+            "source logs | lucene 'kubernetes.namespace_name:staging AND coralogix.metadata.applicationName:/web/' | limit 20",
         ),
     ],
 )
@@ -136,34 +128,6 @@ def test_build_query_string(
 ):
     query = build_query_string(coralogix_config, params)
     assert query == expected_query_part
-
-
-@pytest.mark.parametrize(
-    "kubernetes, add_namespace, add_pod, expected",
-    [
-        (None, True, True, ""),
-        ({}, True, True, ""),
-        ({"pod_name": "p1"}, True, True, 'pod_name="p1"'),
-        ({"namespace_name": "ns1"}, True, True, 'namespace_name="ns1"'),
-        (
-            {"pod_name": "p1", "namespace_name": "ns1"},
-            True,
-            True,
-            'pod_name="p1" namespace_name="ns1"',
-        ),
-        ({"pod_name": "p1", "namespace_name": "ns1"}, False, True, 'pod_name="p1"'),
-        (
-            {"pod_name": "p1", "namespace_name": "ns1"},
-            True,
-            False,
-            'namespace_name="ns1"',
-        ),
-        ({"pod_name": "p1", "namespace_name": "ns1"}, False, False, ""),
-        ({"other_key": "v"}, True, True, ""),
-    ],
-)
-def test_format_kubernetes_info(kubernetes, add_namespace, add_pod, expected):
-    assert format_kubernetes_info(kubernetes, add_namespace, add_pod) == expected
 
 
 def test_build_coralogix_link_to_logs(coralogix_config):
