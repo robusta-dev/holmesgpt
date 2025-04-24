@@ -59,13 +59,14 @@ def build_query_string(config: CoralogixConfig, params: Any) -> str:
     label = get_resource_label(params, config)
 
     namespace_name = params.get("namespace_name", None)
+
     log_count = params.get("log_count", DEFAULT_LOG_COUNT)
 
     query_filters = []
     if namespace_name:
         query_filters.append(f"{config.labels.namespace}:{namespace_name}")
-
     query_filters.append(f"{label}:/{resource_name}/")
+
 
     query_string = " AND ".join(query_filters)
     query_string = f"source logs | lucene '{query_string}' | limit {log_count}"
@@ -103,7 +104,6 @@ def query_logs_for_tier(
             api_key=config.api_key,
             query=query,
         )
-
         http_status = response.status_code
         if http_status == 200:
             logs = parse_logs(raw_logs=response.text.strip())
