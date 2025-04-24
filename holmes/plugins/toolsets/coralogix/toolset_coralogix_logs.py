@@ -47,7 +47,7 @@ class FetchLogs(BaseCoralogixTool):
     def __init__(self, toolset: BaseCoralogixToolset):
         super().__init__(
             name="fetch_coralogix_logs_for_resource",
-            description="Retrieve logs from Coralogix",
+            description="Retrieve logs using coralogix",
             parameters={
                 "resource_type": ToolParameter(
                     description="The type of resource. Can be one of pod, application or subsystem. Defaults to pod.",
