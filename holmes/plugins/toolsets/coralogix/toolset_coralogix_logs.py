@@ -13,11 +13,13 @@ from holmes.plugins.toolsets.coralogix.api import (
     DEFAULT_LOG_COUNT,
     DEFAULT_TIME_SPAN_SECONDS,
     build_query_string,
+    get_start_end,
     health_check,
     query_logs_for_all_tiers,
 )
 from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,
+    build_coralogix_link_to_logs,
     stringify_flattened_logs,
 )
 from holmes.plugins.toolsets.utils import (
@@ -93,13 +95,29 @@ class FetchLogs(BaseCoralogixTool):
             )
 
         logs_data = query_logs_for_all_tiers(config=self.toolset.config, params=params)
+        (start, end) = get_start_end(config=self.toolset.config, params=params)
+        query_string = build_query_string(config=self.toolset.config, params=params)
+
+        url = build_coralogix_link_to_logs(
+            config=self.toolset.config, lucene_query=query_string, start=start, end=end
+        )
+
+        data: str
+        if logs_data.error:
+            data = logs_data.error
+        else:
+            logs = stringify_flattened_logs(logs_data.logs)
+            # Remove link and query from results once the UI and slackbot properly handle the URL from the StructuredToolResult
+            data = f"link: {url}\nquery: {query_string}\n{logs}"
 
         return StructuredToolResult(
             status=ToolResultStatus.ERROR
             if logs_data.error
             else ToolResultStatus.SUCCESS,
             error=logs_data.error,
-            data=None if logs_data.error else stringify_flattened_logs(logs_data.logs),
+            data=data,
+            url=url,
+            invocation=query_string,
             params=params,
         )
 

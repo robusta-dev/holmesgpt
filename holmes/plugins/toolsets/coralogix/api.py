@@ -72,12 +72,17 @@ def build_query_string(config: CoralogixConfig, params: Any) -> str:
     return query_string
 
 
-def build_query(config: CoralogixConfig, params: dict, tier: CoralogixTier):
+def get_start_end(config: CoralogixConfig, params: dict):
     (start, end) = process_timestamps_to_rfc3339(
         start_timestamp=params.get("start"),
         end_timestamp=params.get("end"),
         default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
     )
+    return (start, end)
+
+
+def build_query(config: CoralogixConfig, params: dict, tier: CoralogixTier):
+    (start, end) = get_start_end(config, params)
 
     query_string = build_query_string(config, params)
     return {
