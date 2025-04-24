@@ -2,6 +2,7 @@ import os
 import pytest
 from pathlib import Path
 
+from holmes.plugins.toolsets.coralogix.api import DEFAULT_LOG_COUNT, build_query_string
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
     FetchLogs,
@@ -10,12 +11,13 @@ from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,
     build_coralogix_link_to_logs,
     format_kubernetes_info,
-    format_logs,
+    parse_logs,
     normalize_datetime,
+    stringify_flattened_logs,
 )
 
 THIS_DIR = os.path.dirname(__file__)
-FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures", "test_coralogix")
+FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures")
 
 
 def read_file(file_path: Path):
@@ -63,8 +65,8 @@ def fetch_logs_tool(coralogix_toolset):
 
 
 def test_format_logs(raw_logs_result, formatted_logs):
-    actual_output = format_logs(
-        raw_logs_result, add_namespace_tag=False, add_pod_tag=False
+    actual_output = stringify_flattened_logs(
+        parse_logs(raw_logs_result, add_namespace_tag=False, add_pod_tag=False)
     )
     logs_match = actual_output.strip() == formatted_logs.strip()
     actual_file_path_for_debugging = os.path.join(
@@ -105,23 +107,23 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
 @pytest.mark.parametrize(
     "params, expected_query_part",
     [
-        ({}, "source logs | lucene '' | limit 1000"),
+        ({}, f"source logs | lucene '' | limit {DEFAULT_LOG_COUNT}"),
         ({"log_count": 50}, "source logs | lucene '' | limit 50"),
         (
             {"app_name": "my-app"},
-            "source logs | lucene 'kubernetes.labels.app:my-app' | limit 1000",
+            f"source logs | lucene 'kubernetes.labels.app:my-app' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"namespace_name": "prod"},
-            "source logs | lucene 'kubernetes.namespace_name:prod' | limit 1000",
+            f"source logs | lucene 'kubernetes.namespace_name:prod' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"pod_name": "pod-123"},
-            "source logs | lucene 'kubernetes.pod_name:pod-123' | limit 1000",
+            f"source logs | lucene 'kubernetes.pod_name:pod-123' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"app_name": "api", "namespace_name": "dev", "pod_name": "api-abc"},
-            "source logs | lucene 'kubernetes.namespace_name:dev AND kubernetes.pod_name:api-abc AND kubernetes.labels.app:api' | limit 1000",
+            f"source logs | lucene 'kubernetes.namespace_name:dev AND kubernetes.pod_name:api-abc AND kubernetes.labels.app:api' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"app_name": "web", "namespace_name": "staging", "log_count": 20},
@@ -129,10 +131,10 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
         ),
     ],
 )
-def test_fetch_logs_get_query_string(
+def test_build_query_string(
     fetch_logs_tool, coralogix_config, params, expected_query_part
 ):
-    query = fetch_logs_tool._get_query_string(coralogix_config, params)
+    query = build_query_string(coralogix_config, params)
     assert query == expected_query_part
 
 

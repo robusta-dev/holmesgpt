@@ -1,3 +1,4 @@
+from enum import Enum
 import json
 import logging
 import urllib.parse
@@ -5,6 +6,18 @@ from datetime import datetime
 from typing import Any, NamedTuple, Optional, Dict, List
 
 from pydantic import BaseModel
+
+
+class FlattenedLog(NamedTuple):
+    timestamp: str
+    log_message: str
+    tags: str
+
+
+class CoralogixQueryResult(BaseModel):
+    logs: List[FlattenedLog]
+    http_status: Optional[int]
+    error: Optional[str]
 
 
 def parse_json_lines(raw_text) -> List[Dict[str, Any]]:
@@ -89,12 +102,6 @@ def normalize_datetime(date_str: str) -> str:
         return date_str
 
 
-class FlattenedLog(NamedTuple):
-    timestamp: str
-    log_message: str
-    tags: str
-
-
 def flatten_structured_log_entries(
     log_entries: List[Dict[str, Any]], add_namespace_tag: bool, add_pod_tag: bool
 ) -> List[FlattenedLog]:
@@ -136,9 +143,9 @@ def stringify_flattened_logs(log_entries: List[FlattenedLog]) -> str:
 
 def parse_json_objects(
     json_objects: List[Dict[str, Any]], add_namespace_tag: bool, add_pod_tag: bool
-) -> str:
+) -> List[FlattenedLog]:
     """Extracts timestamp and log values from parsed JSON objects, sorted in ascending order (oldest first)."""
-    logs = []
+    logs: List[FlattenedLog] = []
 
     for data in json_objects:
         if isinstance(data, dict) and "result" in data and "results" in data["result"]:
@@ -156,10 +163,12 @@ def parse_json_objects(
 
     logs.sort(key=lambda x: x[0])
 
-    return stringify_flattened_logs(logs)
+    return logs  # stringify_flattened_logs(logs)
 
 
-def format_logs(raw_logs: str, add_namespace_tag: bool, add_pod_tag: bool) -> str:
+def parse_logs(
+    raw_logs: str, add_namespace_tag: bool, add_pod_tag: bool
+) -> List[FlattenedLog]:
     """Processes the HTTP response and extracts only log outputs."""
     try:
         json_objects = parse_json_lines(raw_logs)
@@ -179,11 +188,22 @@ class CoralogixLabelsConfig(BaseModel):
     app: str = "kubernetes.labels.app"
 
 
+class CoralogixLogsMethodology(str, Enum):
+    FREQUENT_SEARCH_ONLY = "FREQUENT_SEARCH_ONLY"
+    ARCHIVE_ONLY = "ARCHIVE_ONLY"
+    ARCHIVE_FALLBACK = "ARCHIVE_FALLBACK"
+    FREQUENT_SEARCH_FALLBACK = "FREQUENT_SEARCH_FALLBACK"
+    BOTH_FREQUENT_SEARCH_AND_ARCHIVE = "BOTH_FREQUENT_SEARCH_AND_ARCHIVE"
+
+
 class CoralogixConfig(BaseModel):
     team_hostname: str
     domain: str
     api_key: str
     labels: CoralogixLabelsConfig = CoralogixLabelsConfig()
+    logs_retrieval_methodology: CoralogixLogsMethodology = (
+        CoralogixLogsMethodology.ARCHIVE_FALLBACK
+    )
 
 
 def get_resource_label(params: Dict, config: CoralogixConfig):
@@ -202,3 +222,34 @@ def build_coralogix_link_to_logs(
     query_param = urllib.parse.quote_plus(lucene_query)
 
     return f"https://{config.team_hostname}.app.{config.domain}/#/query-new/logs?query={query_param}&querySyntax=dataprime&time=from:{start},to:{end}"
+
+
+def merge_log_results(
+    a: CoralogixQueryResult, b: CoralogixQueryResult
+) -> CoralogixQueryResult:
+    """
+    Merges two CoralogixQueryResult objects, deduplicating logs and sorting them by timestamp.
+
+    """
+    if a.error is None and b.error:
+        return a
+    elif b.error is None and a.error:
+        return b
+    elif a.error and b.error:
+        return a
+
+    combined_logs = a.logs + b.logs
+
+    if not combined_logs:
+        deduplicated_logs_set = set()
+    else:
+        deduplicated_logs_set = set(combined_logs)
+
+    # Assumes timestamps are in a format sortable as strings (e.g., ISO 8601)
+    sorted_logs = sorted(list(deduplicated_logs_set), key=lambda log: log.timestamp)
+
+    return CoralogixQueryResult(
+        logs=sorted_logs,
+        http_status=a.http_status if a.http_status is not None else b.http_status,
+        error=a.error,
+    )
