@@ -67,7 +67,6 @@ def build_query_string(config: CoralogixConfig, params: Any) -> str:
         query_filters.append(f"{config.labels.namespace}:{namespace_name}")
     query_filters.append(f"{label}:/{resource_name}/")
 
-
     query_string = " AND ".join(query_filters)
     query_string = f"source logs | lucene '{query_string}' | limit {log_count}"
     return query_string

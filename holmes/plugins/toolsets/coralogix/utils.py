@@ -172,14 +172,6 @@ class CoralogixLogsMethodology(str, Enum):
     BOTH_FREQUENT_SEARCH_AND_ARCHIVE = "BOTH_FREQUENT_SEARCH_AND_ARCHIVE"
 
 
-class CoralogixLogsMethodology(str, Enum):
-    FREQUENT_SEARCH_ONLY = "FREQUENT_SEARCH_ONLY"
-    ARCHIVE_ONLY = "ARCHIVE_ONLY"
-    ARCHIVE_FALLBACK = "ARCHIVE_FALLBACK"
-    FREQUENT_SEARCH_FALLBACK = "FREQUENT_SEARCH_FALLBACK"
-    BOTH_FREQUENT_SEARCH_AND_ARCHIVE = "BOTH_FREQUENT_SEARCH_AND_ARCHIVE"
-
-
 class CoralogixConfig(BaseModel):
     team_hostname: str
     domain: str
