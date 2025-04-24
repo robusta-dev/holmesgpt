@@ -65,9 +65,9 @@ def fetch_logs_tool(coralogix_toolset):
 
 
 def test_format_logs(raw_logs_result, formatted_logs):
-    actual_output = stringify_flattened_logs(parse_logs(
-        raw_logs_result, add_namespace_tag=False, add_pod_tag=False
-    ))
+    actual_output = stringify_flattened_logs(
+        parse_logs(raw_logs_result, add_namespace_tag=False, add_pod_tag=False)
+    )
     logs_match = actual_output.strip() == formatted_logs.strip()
     actual_file_path_for_debugging = os.path.join(
         FIXTURES_DIR, "formatted_logs.txt.actual"
