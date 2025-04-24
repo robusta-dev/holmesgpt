@@ -2,7 +2,7 @@ import os
 import pytest
 from pathlib import Path
 
-from holmes.plugins.toolsets.coralogix.api import build_query_string
+from holmes.plugins.toolsets.coralogix.api import DEFAULT_LOG_COUNT, build_query_string
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
     FetchLogs,
@@ -107,23 +107,23 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
 @pytest.mark.parametrize(
     "params, expected_query_part",
     [
-        ({}, "source logs | lucene '' | limit 2000"),
+        ({}, f"source logs | lucene '' | limit {DEFAULT_LOG_COUNT}"),
         ({"log_count": 50}, "source logs | lucene '' | limit 50"),
         (
             {"app_name": "my-app"},
-            "source logs | lucene 'kubernetes.labels.app:my-app' | limit 2000",
+            f"source logs | lucene 'kubernetes.labels.app:my-app' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"namespace_name": "prod"},
-            "source logs | lucene 'kubernetes.namespace_name:prod' | limit 2000",
+            f"source logs | lucene 'kubernetes.namespace_name:prod' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"pod_name": "pod-123"},
-            "source logs | lucene 'kubernetes.pod_name:pod-123' | limit 2000",
+            f"source logs | lucene 'kubernetes.pod_name:pod-123' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"app_name": "api", "namespace_name": "dev", "pod_name": "api-abc"},
-            "source logs | lucene 'kubernetes.namespace_name:dev AND kubernetes.pod_name:api-abc AND kubernetes.labels.app:api' | limit 2000",
+            f"source logs | lucene 'kubernetes.namespace_name:dev AND kubernetes.pod_name:api-abc AND kubernetes.labels.app:api' | limit {DEFAULT_LOG_COUNT}",
         ),
         (
             {"app_name": "web", "namespace_name": "staging", "log_count": 20},

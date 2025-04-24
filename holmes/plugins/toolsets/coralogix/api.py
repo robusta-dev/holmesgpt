@@ -16,7 +16,7 @@ from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
 
 
 DEFAULT_TIME_SPAN_SECONDS = 86400
-DEFAULT_LOG_COUNT = 2000
+DEFAULT_LOG_COUNT = 1000
 
 
 class CoralogixTier(str, Enum):
