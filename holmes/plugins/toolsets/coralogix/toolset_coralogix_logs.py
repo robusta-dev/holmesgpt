@@ -44,21 +44,21 @@ class BaseCoralogixTool(Tool):
 class FetchLogs(BaseCoralogixTool):
     def __init__(self, toolset: BaseCoralogixToolset):
         super().__init__(
-            name="fetch_logs",
+            name="fetch_coralogix_logs_for_resource",
             description="Retrieve logs from Coralogix",
             parameters={
-                "app_name": ToolParameter(
-                    description="The application name to filter logs",
+                "resource_type": ToolParameter(
+                    description="The type of resource. Can be one of pod, application or subsystem. Defaults to pod.",
                     type="string",
                     required=False,
+                ),
+                "resource_name": ToolParameter(
+                    description='Regular expression to match the resource name. This can be a regular expression. For example "<pod-name>.*" will match any pod name starting with "<pod-name>"',
+                    type="string",
+                    required=True,
                 ),
                 "namespace_name": ToolParameter(
                     description="The Kubernetes namespace to filter logs",
-                    type="string",
-                    required=False,
-                ),
-                "pod_name": ToolParameter(
-                    description="The specific pod name to filter logs",
                     type="string",
                     required=False,
                 ),

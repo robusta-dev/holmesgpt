@@ -11,7 +11,6 @@ from pydantic import BaseModel
 class FlattenedLog(NamedTuple):
     timestamp: str
     log_message: str
-    tags: str
 
 
 class CoralogixQueryResult(BaseModel):
@@ -29,18 +28,6 @@ def parse_json_lines(raw_text) -> List[Dict[str, Any]]:
         except json.JSONDecodeError:
             logging.error(f"Failed to decode JSON from line: {line}")
     return json_objects
-
-
-def format_kubernetes_info(
-    kubernetes: Optional[dict[str, str]], add_namespace_tag: bool, add_pod_tag: bool
-):
-    tags = []
-    if kubernetes:
-        if add_pod_tag and kubernetes.get("pod_name"):
-            tags.append(f'pod_name="{kubernetes.get("pod_name")}"')
-        if add_namespace_tag and kubernetes.get("namespace_name"):
-            tags.append(f'namespace_name="{kubernetes.get("namespace_name")}"')
-    return " ".join(tags)
 
 
 def indent_multiline_log_message(indent_char_count: int, log_message: str):
@@ -103,21 +90,17 @@ def normalize_datetime(date_str: str) -> str:
 
 
 def flatten_structured_log_entries(
-    log_entries: List[Dict[str, Any]], add_namespace_tag: bool, add_pod_tag: bool
+    log_entries: List[Dict[str, Any]],
 ) -> List[FlattenedLog]:
     flattened_logs = []
     for log_entry in log_entries:
         try:
             user_data = json.loads(log_entry.get("userData", "{}"))
-            kubernetes = user_data.get("kubernetes", None)
             timestamp = normalize_datetime(user_data.get("time"))
             log_message = user_data.get("log", "")
-            tags = format_kubernetes_info(kubernetes, add_namespace_tag, add_pod_tag)
             if log_message:
                 flattened_logs.append(
-                    FlattenedLog(
-                        timestamp=timestamp, log_message=log_message, tags=tags
-                    )
+                    FlattenedLog(timestamp=timestamp, log_message=log_message)
                 )  # Store as tuple for sorting
 
         except json.JSONDecodeError:
@@ -131,8 +114,6 @@ def stringify_flattened_logs(log_entries: List[FlattenedLog]) -> str:
     formatted_logs = []
     for entry in log_entries:
         prefix = f"{entry.timestamp} "
-        if entry.tags:
-            prefix = f"{entry.timestamp} {entry.tags} "
         log_message = indent_multiline_log_message(
             indent_char_count=len(prefix), log_message=entry.log_message
         )
@@ -141,18 +122,14 @@ def stringify_flattened_logs(log_entries: List[FlattenedLog]) -> str:
     return "\n".join(formatted_logs) if formatted_logs else "No logs found."
 
 
-def parse_json_objects(
-    json_objects: List[Dict[str, Any]], add_namespace_tag: bool, add_pod_tag: bool
-) -> List[FlattenedLog]:
+def parse_json_objects(json_objects: List[Dict[str, Any]]) -> List[FlattenedLog]:
     """Extracts timestamp and log values from parsed JSON objects, sorted in ascending order (oldest first)."""
     logs: List[FlattenedLog] = []
 
     for data in json_objects:
         if isinstance(data, dict) and "result" in data and "results" in data["result"]:
             logs += flatten_structured_log_entries(
-                log_entries=data["result"]["results"],
-                add_namespace_tag=add_namespace_tag,
-                add_pod_tag=add_pod_tag,
+                log_entries=data["result"]["results"]
             )
         elif isinstance(data, dict) and data.get("warning"):
             logging.info(
@@ -166,15 +143,13 @@ def parse_json_objects(
     return logs  # stringify_flattened_logs(logs)
 
 
-def parse_logs(
-    raw_logs: str, add_namespace_tag: bool, add_pod_tag: bool
-) -> List[FlattenedLog]:
+def parse_logs(raw_logs: str) -> List[FlattenedLog]:
     """Processes the HTTP response and extracts only log outputs."""
     try:
         json_objects = parse_json_lines(raw_logs)
         if not json_objects:
             raise Exception("No valid JSON objects found.")
-        return parse_json_objects(json_objects, add_namespace_tag, add_pod_tag)
+        return parse_json_objects(json_objects)
     except Exception as e:
         logging.error(
             f"Unexpected error in format_logs for a coralogix API response: {str(e)}"
@@ -185,7 +160,8 @@ def parse_logs(
 class CoralogixLabelsConfig(BaseModel):
     pod: str = "kubernetes.pod_name"
     namespace: str = "kubernetes.namespace_name"
-    app: str = "kubernetes.labels.app"
+    application: str = "coralogix.metadata.applicationName"
+    subsystem: str = "coralogix.metadata.subsystemName"
 
 
 class CoralogixLogsMethodology(str, Enum):
@@ -211,8 +187,12 @@ def get_resource_label(params: Dict, config: CoralogixConfig):
     label = None
     if resource_type == "pod":
         label = config.labels.pod
+    elif resource_type == "application":
+        label = config.labels.application
+    elif resource_type == "subsystem":
+        label = config.labels.subsystem
     else:
-        return f'Error: unsupported resource type "{resource_type}". resource_type must be "pod"'
+        return f'Error: unsupported resource type "{resource_type}". resource_type must be one of pod, application or subsystem'
     return label
 
 

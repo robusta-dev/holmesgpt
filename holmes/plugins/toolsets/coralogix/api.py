@@ -8,11 +8,15 @@ import requests
 from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,
     CoralogixQueryResult,
+    get_resource_label,
     merge_log_results,
     parse_logs,
     CoralogixLogsMethodology,
 )
-from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
+from holmes.plugins.toolsets.utils import (
+    get_param_or_raise,
+    process_timestamps_to_rfc3339,
+)
 
 
 DEFAULT_TIME_SPAN_SECONDS = 86400
@@ -51,18 +55,17 @@ def health_check(domain: str, api_key: str) -> Tuple[bool, str]:
 
 
 def build_query_string(config: CoralogixConfig, params: Any) -> str:
-    app_name = params.get("app_name", None)
+    resource_name = get_param_or_raise(params, "resource_name")
+    label = get_resource_label(params, config)
+
     namespace_name = params.get("namespace_name", None)
-    pod_name = params.get("pod_name", None)
     log_count = params.get("log_count", DEFAULT_LOG_COUNT)
 
     query_filters = []
     if namespace_name:
         query_filters.append(f"{config.labels.namespace}:{namespace_name}")
-    if pod_name:
-        query_filters.append(f"{config.labels.pod}:{pod_name}")
-    if app_name:
-        query_filters.append(f"{config.labels.app}:{app_name}")
+
+    query_filters.append(f"{label}:/{resource_name}/")
 
     query_string = " AND ".join(query_filters)
     query_string = f"source logs | lucene '{query_string}' | limit {log_count}"
@@ -101,18 +104,9 @@ def query_logs_for_tier(
             query=query,
         )
 
-        # Do not print tags if they are repeating the query
-        namespace_name = params.get("namespace_name", None)
-        pod_name = params.get("pod_name", None)
-        add_namespace_tag = not namespace_name and not pod_name
-        add_pod_tag = not pod_name
         http_status = response.status_code
         if http_status == 200:
-            logs = parse_logs(
-                raw_logs=response.text.strip(),
-                add_namespace_tag=add_namespace_tag,
-                add_pod_tag=add_pod_tag,
-            )
+            logs = parse_logs(raw_logs=response.text.strip())
             return CoralogixQueryResult(logs=logs, http_status=http_status, error=None)
         else:
             return CoralogixQueryResult(
