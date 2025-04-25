@@ -468,7 +468,6 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
-
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
