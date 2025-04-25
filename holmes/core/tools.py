@@ -29,6 +29,7 @@ ToolsetPattern = Union[Literal["*"], List[str]]
 class ToolResultStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
+    NO_DATA = "no_data"
 
 
 class StructuredToolResult(BaseModel):
@@ -177,6 +178,13 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
+    def _get_status(self, return_code: int, raw_output: str) -> ToolResultStatus:
+        if return_code != 0:
+            return ToolResultStatus.ERROR
+        if raw_output == "":
+            return ToolResultStatus.NO_DATA
+        return ToolResultStatus.SUCCESS
+
     def _invoke(self, params) -> StructuredToolResult:
         if self.command is not None:
             raw_output, return_code, invocation = self.__invoke_command(params)
@@ -196,10 +204,10 @@ class YAMLTool(Tool, BaseModel):
             if return_code == 0
             else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
         )
+        status = self._get_status(return_code, raw_output)
+
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS
-            if return_code == 0
-            else ToolResultStatus.ERROR,
+            status=status,
             error=error,
             return_code=return_code,
             data=output_with_instructions,
