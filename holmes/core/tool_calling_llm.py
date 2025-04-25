@@ -46,6 +46,16 @@ from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     tool_response = tool_result.data
+    if isinstance(tool_result.data, str):
+        tool_response = tool_result.data
+    else:
+        try:
+            if isinstance(tool_result.data, BaseModel):
+                tool_response = tool_result.data.model_dump_json(indent=2)
+            else:
+                tool_response = json.dumps(tool_result.data, indent=2)
+        except Exception:
+            tool_response = str(tool_result.data)
     if tool_result.status == ToolResultStatus.ERROR:
         tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
     return tool_response
