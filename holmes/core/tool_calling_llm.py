@@ -256,7 +256,7 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_response_content = (
+                    tool_response_content: str = (
                         self._get_formatted_tool_call_response_content(tool_call_result)
                     )
 
@@ -280,9 +280,25 @@ class ToolCallingLLM:
     def _get_formatted_tool_call_response_content(
         self, tool_call_result: ToolCallResult
     ) -> str:
-        tool_response = tool_call_result.result.data
-        if tool_call_result.result.status == ToolResultStatus.ERROR:
-            tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
+        tool_response = ""
+
+        if isinstance(tool_call_result.result, str):
+            tool_response = tool_call_result.result
+        else:
+            try:
+                if isinstance(tool_call_result.result.data, str):
+                    tool_response = tool_call_result.result.data
+                elif isinstance(tool_call_result.result.data, BaseModel):
+                    tool_response = tool_call_result.result.data.model_dump_json(
+                        indent=2
+                    )
+                else:
+                    tool_response = json.dumps(tool_call_result.result.data, indent=2)
+            except Exception:
+                tool_response = str(tool_call_result.result.data)
+
+            if tool_call_result.result.status == ToolResultStatus.ERROR:
+                tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
         return tool_response
 
     def _invoke_tool(
@@ -472,7 +488,6 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
-
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
