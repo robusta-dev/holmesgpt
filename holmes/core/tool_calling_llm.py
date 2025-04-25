@@ -288,10 +288,6 @@ class ToolCallingLLM:
             try:
                 if isinstance(tool_call_result.result.data, str):
                     tool_response = tool_call_result.result.data
-                elif isinstance(tool_call_result.result.data, dict) or isinstance(
-                    tool_call_result.result.data, list
-                ):
-                    tool_response = json.dumps(tool_call_result.result.data, indent=2)
                 elif isinstance(tool_call_result.result.data, BaseModel):
                     tool_response = tool_call_result.result.data.model_dump_json(
                         indent=2
@@ -301,8 +297,8 @@ class ToolCallingLLM:
             except Exception:
                 tool_response = str(tool_call_result.result.data)
 
-        if tool_call_result.result.status == ToolResultStatus.ERROR:
-            tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
+            if tool_call_result.result.status == ToolResultStatus.ERROR:
+                tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
         return tool_response
 
     def _invoke_tool(
