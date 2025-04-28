@@ -34,7 +34,11 @@ from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
 from holmes.core.tools import ToolExecutor
 from litellm.types.utils import Message
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.common.env_vars import (
+    ROBUSTA_API_ENDPOINT,
+    STREAM_CHUNKS_PER_PARSE,
+    HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG,
+)
 from holmes.core.investigation_structured_output import (
     parse_markdown_into_sections_from_hash_sign,
 )
@@ -45,16 +49,22 @@ class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
     description: str
-    result: StructuredToolResult
+    result: Union[StructuredToolResult, str]
     size: Optional[int] = None
 
     def as_dict(self):
+        # TODO: remove this logic after FE is ready
+        if isinstance(self.result, StructuredToolResult):
+            result = self.result.model_dump()
+        else:
+            result = self.result
+
         return {
             "tool_call_id": self.tool_call_id,
+            "tool_name": self.tool_name,
             "description": self.description,
             "role": "tool",
-            "name": self.tool_name,
-            "content": self.result,
+            "result": result,
         }
 
 
@@ -245,21 +255,51 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result)
 
-                    tool_response = tool_call_result.result.data
-                    if tool_call_result.result.status == ToolResultStatus.ERROR:
-                        tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
+                    tool_response_content: str = (
+                        self._get_formatted_tool_call_response_content(tool_call_result)
+                    )
+
+                    tool_call_response = tool_call_result.as_dict()
+                    # TODO: remove HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG logic after FE is ready
+                    if HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG:
+                        tool_call_response["result"] = tool_response_content
+
+                    tool_calls.append(tool_call_response)
 
                     messages.append(
                         {
                             "tool_call_id": tool_call_result.tool_call_id,
                             "role": "tool",
                             "name": tool_call_result.tool_name,
-                            "content": tool_response,
+                            "content": tool_response_content,
                         }
                     )
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+
+    def _get_formatted_tool_call_response_content(
+        self, tool_call_result: ToolCallResult
+    ) -> str:
+        tool_response = ""
+
+        if isinstance(tool_call_result.result, str):
+            tool_response = tool_call_result.result
+        else:
+            try:
+                if isinstance(tool_call_result.result.data, str):
+                    tool_response = tool_call_result.result.data
+                elif isinstance(tool_call_result.result.data, BaseModel):
+                    tool_response = tool_call_result.result.data.model_dump_json(
+                        indent=2
+                    )
+                else:
+                    tool_response = json.dumps(tool_call_result.result.data, indent=2)
+            except Exception:
+                tool_response = str(tool_call_result.result.data)
+
+            if tool_call_result.result.status == ToolResultStatus.ERROR:
+                tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
+        return tool_response
 
     def _invoke_tool(
         self, tool_to_call: ChatCompletionMessageToolCall
@@ -283,12 +323,28 @@ class ToolCallingLLM:
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,
                 description="NA",
-                result="NA",
+                result=StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed to find tool {tool_name}",
+                    params=tool_params,
+                ),
             )
 
         tool_response = None
         try:
             tool_response = tool.invoke(tool_params)
+
+            if not isinstance(tool_response, StructuredToolResult):
+                # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
+                logging.error(
+                    f"Tool {tool.name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
+                )
+                tool_response = StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=tool_response,
+                    params=tool_params,
+                )
+
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -298,7 +354,6 @@ class ToolCallingLLM:
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
-
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -433,7 +488,6 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
-
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -554,21 +608,38 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_response = tool_call_result.result.data
-                    if tool_call_result.result.status == ToolResultStatus.ERROR:
-                        tool_response = f"{tool_call_result.result.error or 'Tool execution failed'}:\n\n{tool_call_result.result.data or ''}".strip()
-                    tool_call_dict = tool_call_result.as_dict()
+                    tool_response_content = (
+                        self._get_formatted_tool_call_response_content(tool_call_result)
+                    )
 
-                    messages.append(
-                        {
+                    message_to_append = {
+                        "tool_call_id": tool_call_result.tool_call_id,
+                        "role": "tool",
+                        "name": tool_call_result.tool_name,
+                        "content": tool_response_content,
+                    }
+
+                    messages.append(message_to_append)
+                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+
+                    # TODO: remove this after FE is ready
+                    # TODO: fix this on the FE side, so we have either `content` or `result` for both streaming and non-streaming responses
+                    if HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG:
+                        result_dict = {
                             "tool_call_id": tool_call_result.tool_call_id,
                             "role": "tool",
                             "name": tool_call_result.tool_name,
-                            "content": tool_response,
+                            "content": tool_response_content,
                         }
-                    )
-                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield create_sse_message("tool_calling_result", tool_call_dict)
+                    else:
+                        result_dict = {
+                            "tool_call_id": tool_call_result.tool_call_id,
+                            "role": "tool",
+                            "name": tool_call_result.tool_name,
+                            "content": tool_call_result.result.model_dump(),
+                        }
+
+                    yield create_sse_message("tool_calling_result", result_dict)
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py

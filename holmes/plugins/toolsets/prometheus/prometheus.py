@@ -296,7 +296,12 @@ class ListPrometheusRules(BasePrometheusTool):
                 cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
                 if cached_rules:
                     logging.debug("rules returned from cache")
-                    return cached_rules
+
+                    return StructuredToolResult(
+                        status=ToolResultStatus.SUCCESS,
+                        data=cached_rules,
+                        params=params,
+                    )
 
             prometheus_url = self.toolset.config.prometheus_url
 
@@ -310,27 +315,31 @@ class ListPrometheusRules(BasePrometheusTool):
                 headers=self.toolset.config.headers,
             )
             rules_response.raise_for_status()
-            response = json.dumps(rules_response.json()["data"])
+            data = rules_response.json()["data"]
 
             if self._cache:
-                self._cache.set(PROMETHEUS_RULES_CACHE_KEY, response)
-            return response
+                self._cache.set(PROMETHEUS_RULES_CACHE_KEY, data)
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=data,
+                params=params,
+            )
         except requests.Timeout:
-            logging.warn("Timeout while fetching prometheus rules", exc_info=True)
+            logging.warning("Timeout while fetching prometheus rules", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request timed out while fetching rules",
                 params=params,
             )
         except RequestException as e:
-            logging.warn("Failed to fetch prometheus rules", exc_info=True)
+            logging.warning("Failed to fetch prometheus rules", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while fetching rules: {str(e)}",
                 params=params,
             )
         except Exception as e:
-            logging.warn("Failed to process prometheus rules", exc_info=True)
+            logging.warning("Failed to process prometheus rules", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",

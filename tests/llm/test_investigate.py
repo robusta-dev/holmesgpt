@@ -23,6 +23,7 @@ from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
 from os import path
 from braintrust.span_types import SpanTypeAttribute
+from unittest.mock import patch
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -104,9 +105,12 @@ def test_investigate(experiment_name, test_case):
     if not investigate_request.sections:
         investigate_request.sections = DEFAULT_SECTIONS
 
-    result = investigate_issues(
-        investigate_request=investigate_request, config=config, dal=mock_dal
-    )
+    with patch.dict(
+        os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
+    ):
+        result = investigate_issues(
+            investigate_request=investigate_request, config=config, dal=mock_dal
+        )
     assert result, "No result returned by investigate_issues()"
     for tool_call in result.tool_calls:
         # TODO: mock this instead so span start time & end time will be accurate.
@@ -114,10 +118,14 @@ def test_investigate(experiment_name, test_case):
         with eval.start_span(
             name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
         ) as tool_span:
-            tool_span.log(
-                input=tool_call.description,
-                output=tool_call.result.model_dump_json(indent=2),
-            )
+            # TODO: remove this after FE is ready
+            if isinstance(tool_call.result, dict):
+                tool_span.log(
+                    input=tool_call.description,
+                    output=tool_call.result.model_dump_json(indent=2),
+                )
+            else:
+                tool_span.log(input=tool_call.description, output=tool_call.result)
 
     output = result.analysis
 

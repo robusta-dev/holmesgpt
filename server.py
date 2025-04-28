@@ -1,6 +1,6 @@
 # ruff: noqa: E402
 import os
-from typing import List
+from typing import List, Optional
 
 import sentry_sdk
 from holmes.utils.cert_utils import add_custom_certificate
@@ -297,7 +297,10 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def already_answered(conversation_history: List[dict]) -> bool:
+def already_answered(conversation_history: Optional[List[dict]]) -> bool:
+    if conversation_history is None:
+        return False
+
     for message in conversation_history:
         if message["role"] == "assistant":
             return True

@@ -17,6 +17,7 @@ from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
 from os import path
 
+
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
 )
@@ -73,10 +74,16 @@ def test_ask_holmes(experiment_name, test_case):
                 with eval.start_span(
                     name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
                 ) as tool_span:
-                    tool_span.log(
-                        input=tool_call.description,
-                        output=tool_call.result.model_dump_json(indent=2),
-                    )
+                    if isinstance(tool_call.result, dict):
+                        tool_span.log(
+                            input=tool_call.description,
+                            output=tool_call.result.model_dump_json(indent=2),
+                        )
+                    else:
+                        tool_span.log(
+                            input=tool_call.description,
+                            output=tool_call.result,
+                        )
     finally:
         after_test(test_case)
 
