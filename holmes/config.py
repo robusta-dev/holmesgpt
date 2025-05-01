@@ -653,22 +653,6 @@ class Config(RobustaBaseConfig):
         return cls(**merged_config)
 
     def _get_llm(self, model_key: Optional[str] = None) -> LLM:
-        api_key = self.api_key.get_secret_value() if self.api_key else None
-        model = self.model
-        model_params = {}
-        if self._model_list:
-            # get requested model or the first credentials if no model requested.
-            model_params = (
-                self._model_list.get(model_key, {}).copy()
-                if model_key
-                else next(iter(self._model_list.values())).copy()
-            )
-            api_key = model_params.pop("api_key", api_key)
-            model = model_params.pop("model", model)
-
-        return DefaultLLM(model, api_key, model_params)
-
-    def _get_llm(self, model_key: Optional[str] = None) -> LLM:
         selected_model: Optional[str] = None
         selected_api_key: Optional[str] = (
             self.api_key.get_secret_value() if self.api_key else None
