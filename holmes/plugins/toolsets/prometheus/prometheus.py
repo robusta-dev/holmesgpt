@@ -20,7 +20,7 @@ import json
 from requests import RequestException
 
 from urllib.parse import urljoin
-
+from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
 from holmes.plugins.toolsets.utils import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
     standard_start_datetime_tool_param_description,
@@ -36,7 +36,7 @@ DEFAULT_TIME_SPAN_SECONDS = 3600
 
 class PrometheusConfig(BaseModel):
     # URL is optional because it can be set with an env var
-    prometheus_url: Union[str, None]
+    prometheus_url: Optional[str]
     healthcheck: str = "-/healthy"
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
@@ -734,24 +734,34 @@ class PrometheusToolset(Toolset):
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if not config and not os.environ.get("PROMETHEUS_URL", None):
-            return (
-                False,
-                "Prometheus is misconfigured. prometheus_url is required but missing",
-            )
-        elif not config and os.environ.get("PROMETHEUS_URL", None):
-            self.config = PrometheusConfig(
-                prometheus_url=os.environ.get("PROMETHEUS_URL"),
-                headers=add_prometheus_auth(
-                    os.environ.get("PROMETHEUS_AUTH_HEADER", None)
-                ),
-            )
-            self._reload_llm_instructions()
-            return True, ""
-        else:
+        if config:
             self.config = PrometheusConfig(**config)
             self._reload_llm_instructions()
             return self._is_healthy()
+
+        prometheus_url = os.environ.get("PROMETHEUS_URL")
+        if not prometheus_url:
+            prometheus_url = self.auto_detect_prometheus_url()
+            if not prometheus_url:
+                return (
+                    False,
+                    "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
+                )
+
+        self.config = PrometheusConfig(
+            prometheus_url=prometheus_url,
+            headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
+        )
+        logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
+        self._reload_llm_instructions()
+        return True, ""
+
+    def auto_detect_prometheus_url(self) -> Optional[str]:
+        url: Optional[str] = PrometheusDiscovery.find_prometheus_url()
+        if not url:
+            url = PrometheusDiscovery.find_vm_url()
+
+        return url
 
     def _is_healthy(self) -> Tuple[bool, str]:
         if (
