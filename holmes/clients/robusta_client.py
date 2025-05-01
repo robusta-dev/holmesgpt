@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict
 from holmes.common.env_vars import ROBUSTA_API_ENDPOINT
 
 HOLMES_GET_INFO_URL = f"{ROBUSTA_API_ENDPOINT}/api/holmes/get_info"
-ROBUSTA_AI_INFO_URL = f"{ROBUSTA_API_ENDPOINT}/api/ai/info"
 TIMEOUT = 2
 
 
