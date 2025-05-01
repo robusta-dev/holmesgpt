@@ -224,10 +224,7 @@ class Config(RobustaBaseConfig):
         self._version = get_version()
         self._holmes_info = fetch_holmes_info()
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
-        # if ROBUSTA_AI:
-        #       self._model_list["Robusta"] = {
-        #        "base_url": ROBUSTA_API_ENDPOINT,
-        #    }
+
         logging.info(f"loaded models: {list(self._model_list.keys())}")
 
         if not self.is_latest_version:
