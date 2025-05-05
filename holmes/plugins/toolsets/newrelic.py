@@ -155,6 +155,7 @@ class NewRelicToolset(Toolset):
                 GetLogs(self),
                 GetTraces(self),
             ],
+            experimental=True,
             tags=[ToolsetTag.CORE],
         )
 

@@ -41,6 +41,7 @@ class GitToolset(Toolset):
                 GitExecuteChanges(self),
                 GitUpdatePR(self),
             ],
+            experimental=True,
             tags=[ToolsetTag.CORE],
         )
 

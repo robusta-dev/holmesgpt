@@ -110,6 +110,7 @@ class DatadogToolset(Toolset):
             tools=[
                 GetLogs(self),
             ],
+            experimental=True,
             tags=[ToolsetTag.CORE],
         )
 
