@@ -44,6 +44,7 @@ litellm = "1.66.0"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
+kubernetes = "^32.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
