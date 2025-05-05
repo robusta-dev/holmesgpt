@@ -71,8 +71,6 @@ spec:
             mountPath: /etc/robusta/config
           - name: custom-toolsets-configmap
             mountPath: /etc/holmes/config
-          - name: holmes-config-secret
-            mountPath: /root/.holmes/
           {{- if .Values.additionalVolumeMounts -}}
           {{ toYaml .Values.additionalVolumeMounts | nindent 10 }}
           {{- end }}
@@ -94,10 +92,6 @@ spec:
         - name: custom-toolsets-configmap
           configMap:
             name: custom-toolsets-configmap
-            optional: true
-        - name: holmes-config-secret
-          secret:
-            secretName: holmes-config-secret
             optional: true
         {{- if .Values.additionalVolumes -}}
         {{ toYaml .Values.additionalVolumes | nindent 8 }}

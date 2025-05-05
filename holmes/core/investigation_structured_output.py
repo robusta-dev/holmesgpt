@@ -16,8 +16,6 @@ PARSE_INVESTIGATION_MARKDOWN_INTO_STRUCTURED_SECTIONS = load_bool(
 
 InputSectionsDataType = Dict[str, str]
 
-InputSectionsDataType = Dict[str, str]
-
 DEFAULT_SECTIONS: InputSectionsDataType = {
     "Alert Explanation": '1-2 sentences explaining the alert itself - note don\'t say "The alert indicates a warning event related to a Kubernetes pod doing blah" rather just say "The pod XYZ did blah" because that is what the user actually cares about',
     "Key Findings": "What you checked and found",
