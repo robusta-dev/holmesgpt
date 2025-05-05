@@ -4,6 +4,7 @@ import requests
 import os
 from typing import Any, Optional, Dict, List
 from pydantic import BaseModel
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 from holmes.core.tools import (
     Toolset,
@@ -244,17 +245,33 @@ class GitReadFileWithLineNumbers(Tool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         filepath = params["filepath"]
-        headers = {"Authorization": f"token {self.toolset.git_credentials}"}
-        url = (
-            f"https://api.github.com/repos/{self.toolset.git_repo}/contents/{filepath}"
-        )
-        resp = requests.get(url, headers=headers)
-        if resp.status_code != 200:
-            return self.toolset._sanitize_error(f"Error fetching file: {resp.text}")
-        content = base64.b64decode(resp.json()["content"]).decode().splitlines()
-        return "\n".join(f"{i+1}: {line}" for i, line in enumerate(content))
+        try:
+            headers = {"Authorization": f"token {self.toolset.git_credentials}"}
+            url = f"https://api.github.com/repos/{self.toolset.git_repo}/contents/{filepath}"
+            resp = requests.get(url, headers=headers)
+            if resp.status_code != 200:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    data=self.toolset._sanitize_error(
+                        f"Error fetching file: {resp.text}"
+                    ),
+                    params=params,
+                )
+            content = base64.b64decode(resp.json()["content"]).decode().splitlines()
+            numbered = "\n".join(f"{i+1}: {line}" for i, line in enumerate(content))
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=numbered,
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=self.toolset._sanitize_error(str(e)),
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "Reading git files"
@@ -271,13 +288,31 @@ class GitListFiles(Tool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
-        headers = {"Authorization": f"token {self.toolset.git_credentials}"}
-        url = f"https://api.github.com/repos/{self.toolset.git_repo}/git/trees/{self.toolset.git_branch}?recursive=1"
-        resp = requests.get(url, headers=headers)
-        if resp.status_code != 200:
-            return self.toolset._sanitize_error(f"Error listing files: {resp.text}")
-        return "\n".join(entry["path"] for entry in resp.json()["tree"])
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        try:
+            headers = {"Authorization": f"token {self.toolset.git_credentials}"}
+            url = f"https://api.github.com/repos/{self.toolset.git_repo}/git/trees/{self.toolset.git_branch}?recursive=1"
+            resp = requests.get(url, headers=headers)
+            if resp.status_code != 200:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    data=self.toolset._sanitize_error(
+                        f"Error listing files: {resp.text}"
+                    ),
+                    params=params,
+                )
+            paths = [entry["path"] for entry in resp.json()["tree"]]
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=paths,
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=self.toolset._sanitize_error(str(e)),
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "listing git files"
@@ -294,15 +329,29 @@ class GitListOpenPRs(Tool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             prs = self.toolset.list_open_prs()
-            return "\n".join(
-                f"{pr['number']}: {pr['title']} (branch: {pr['head']['ref']}) - {pr['html_url']}"
+            formatted = [
+                {
+                    "number": pr["number"],
+                    "title": pr["title"],
+                    "branch": pr["head"]["ref"],
+                    "url": pr["html_url"],
+                }
                 for pr in prs
+            ]
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=formatted,
+                params=params,
             )
         except Exception as e:
-            return self.toolset._sanitize_error(str(e))
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=self.toolset._sanitize_error(str(e)),
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "Listing PR's"
@@ -348,7 +397,39 @@ class GitExecuteChanges(Tool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        def error(msg: str) -> StructuredToolResult:
+            return StructuredToolResult(
+                ToolResultStatus.ERROR, self.toolset._sanitize_error(msg), params
+            )
+
+        def success(msg: Any) -> StructuredToolResult:
+            return StructuredToolResult(ToolResultStatus.SUCCESS, msg, params)
+
+        def modify_lines(lines: List[str]) -> List[str]:
+            nonlocal command, line, code
+            if command == "insert":
+                prev_line = lines[line - 2] if line > 1 else ""
+                prev_indent = len(prev_line) - len(prev_line.lstrip())
+                indent = (
+                    prev_indent + 2 if prev_line.rstrip().endswith(":") else prev_indent
+                )
+                for i in range(line - 1, len(lines)):
+                    if lines[i].strip():
+                        next_indent = len(lines[i]) - len(lines[i].lstrip())
+                        if next_indent > prev_indent:
+                            indent = next_indent
+                        break
+                lines.insert(line - 1, " " * indent + code.lstrip())
+            elif command == "update":
+                indent = len(lines[line - 1]) - len(lines[line - 1].lstrip())
+                lines[line - 1] = " " * indent + code.lstrip()
+            elif command == "remove":
+                del lines[line - 1]
+            else:
+                raise ValueError(f"Invalid command: {command}")
+            return lines
+
         try:
             line = params["line"]
             filename = params["filename"]
@@ -360,285 +441,122 @@ class GitExecuteChanges(Tool):
             commit_message = params["commit_message"]
             branch = self.toolset.git_branch
 
-            # Validate inputs
             if not commit_message.strip():
-                return "Tool call failed to run: Commit message cannot be empty"
+                return error("Commit message cannot be empty")
             if not filename.strip():
-                return "Tool call failed to run: Filename cannot be empty"
+                return error("Filename cannot be empty")
             if line < 1:
-                return "Tool call failed to run: Line number must be positive"
+                return error("Line number must be positive")
 
-            # Check if commit_pr is a PR number (starts with # or is just a number)
+            # Handle updating an existing PR
             if commit_pr.startswith("#") or commit_pr.isdigit():
                 try:
                     pr_number = int(commit_pr.lstrip("#"))
-                    # Get current file content from PR branch
                     branch = self.toolset.get_pr_branch(pr_number)
                     sha, content = self.toolset.get_file_content(filename, branch)
-                    content_lines = content.splitlines()
-
-                    # Update content
-                    if command == "insert":
-                        # Get the previous line's indentation
-                        prev_line = content_lines[line - 2] if line > 1 else ""
-                        prev_indent = len(prev_line) - len(prev_line.lstrip())
-
-                        # If previous line ends with colon, add extra indentation
-                        if prev_line.rstrip().endswith(":"):
-                            # Find the next non-empty line to determine proper indentation
-                            next_line_idx = line - 1
-                            while (
-                                next_line_idx < len(content_lines)
-                                and not content_lines[next_line_idx].strip()
-                            ):
-                                next_line_idx += 1
-
-                            if next_line_idx < len(content_lines):
-                                next_line = content_lines[next_line_idx]
-                                next_indent = len(next_line) - len(next_line.lstrip())
-                                # Use the next line's indentation if it's more indented than current
-                                if next_indent > prev_indent:
-                                    indent = next_indent
-                                else:
-                                    indent = prev_indent + 2
-                            else:
-                                indent = prev_indent + 2
-                        else:
-                            indent = prev_indent
-
-                        # Apply indentation to the new line
-                        indented_code = " " * indent + code.lstrip()
-                        content_lines.insert(line - 1, indented_code)
-                    elif command == "update":
-                        indent = len(content_lines[line - 1]) - len(
-                            content_lines[line - 1].lstrip()
-                        )
-                        content_lines[line - 1] = " " * indent + code.lstrip()
-                    elif command == "remove":
-                        del content_lines[line - 1]
-                    else:
-                        return f"Tool call failed to run: Invalid command: {command}"
-
-                    updated_content = "\n".join(content_lines) + "\n"
-
+                    updated_lines = modify_lines(content.splitlines())
+                    updated_content = "\n".join(updated_lines) + "\n"
                     if dry_run:
-                        return f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}"
-
-                    # Add commit to PR
+                        return success(
+                            f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}"
+                        )
                     self.toolset.add_commit_to_pr(
                         pr_number, filename, updated_content, commit_message
                     )
-                    return f"Added commit to PR #{pr_number} successfully"
-
-                except ValueError:
-                    return f"Tool call failed to run: Invalid PR number format: {commit_pr}"
+                    return success(f"Added commit to PR #{pr_number} successfully")
                 except Exception as e:
-                    return self.toolset._sanitize_error(
-                        f"Tool call failed to run: Error adding commit to PR: {str(e)}"
-                    )
+                    return error(f"Error updating PR: {e}")
 
-            # Original PR creation logic
+            # Handle creating a new PR
             pr_name = commit_pr.replace(" ", "_").replace("'", "")
             branch_name = f"feature/{pr_name}"
-
             if not commit_pr.strip():
-                return "Tool call failed to run: PR title cannot be empty"
+                return error("PR title cannot be empty")
 
-            # Check if branch already exists
             if self.toolset.get_branch_ref(
                 branch_name
-            ) is not None and not self.toolset.is_created_branch(branch_name):
-                return f"Tool call failed to run: Branch {branch_name} already exists. Please use a different PR title or manually delete the existing branch."
+            ) and not self.toolset.is_created_branch(branch_name):
+                return error(
+                    f"Branch {branch_name} already exists. Please use a different PR title or manually delete it."
+                )
 
-            # Check if PR with same title exists
+            # Reuse existing PR if matched
             if open_pr:
                 try:
-                    existing_prs = self.toolset.list_open_prs()
-                    for pr in existing_prs:
+                    for pr in self.toolset.list_open_prs():
                         if (
                             pr["title"].lower() == commit_pr.lower()
                             and pr["head"]["ref"] == branch_name
                         ):
-                            # If we find a matching PR, use it instead of creating a new one
-                            pr_number = pr["number"]
-                            if not self.toolset.is_created_pr(pr_number):
-                                return f"Tool call failed to run: PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
-                            # Get current file content from PR branch
-                            branch = self.toolset.get_pr_branch(pr_number)
+                            if not self.toolset.is_created_pr(pr["number"]):
+                                return error(
+                                    f"PR #{pr['number']} was not created by this tool."
+                                )
+                            branch = self.toolset.get_pr_branch(pr["number"])
                             sha, content = self.toolset.get_file_content(
                                 filename, branch
                             )
-                            content_lines = content.splitlines()
-
-                            # Update content
-                            if command == "insert":
-                                # Get the previous line's indentation
-                                prev_line = content_lines[line - 2] if line > 1 else ""
-                                prev_indent = len(prev_line) - len(prev_line.lstrip())
-
-                                # If previous line ends with colon, add extra indentation
-                                if prev_line.rstrip().endswith(":"):
-                                    # Find the next non-empty line to determine proper indentation
-                                    next_line_idx = line - 1
-                                    while (
-                                        next_line_idx < len(content_lines)
-                                        and not content_lines[next_line_idx].strip()
-                                    ):
-                                        next_line_idx += 1
-
-                                    if next_line_idx < len(content_lines):
-                                        next_line = content_lines[next_line_idx]
-                                        next_indent = len(next_line) - len(
-                                            next_line.lstrip()
-                                        )
-                                        # Use the next line's indentation if it's more indented than current
-                                        if next_indent > prev_indent:
-                                            indent = next_indent
-                                        else:
-                                            indent = prev_indent + 2
-                                    else:
-                                        indent = prev_indent + 2
-                                else:
-                                    indent = prev_indent
-
-                                # Apply indentation to the new line
-                                indented_code = " " * indent + code.lstrip()
-                                content_lines.insert(line - 1, indented_code)
-                            elif command == "update":
-                                indent = len(content_lines[line - 1]) - len(
-                                    content_lines[line - 1].lstrip()
-                                )
-                                content_lines[line - 1] = " " * indent + code.lstrip()
-                            elif command == "remove":
-                                del content_lines[line - 1]
-                            else:
-                                return f"Tool call failed to run: Invalid command: {command}"
-
-                            updated_content = "\n".join(content_lines) + "\n"
-
+                            updated_lines = modify_lines(content.splitlines())
+                            updated_content = "\n".join(updated_lines) + "\n"
                             if dry_run:
-                                return f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}"
-
-                            # Add commit to PR
+                                return success(
+                                    f"DRY RUN: Updated content for PR #{pr['number']}:\n\n{updated_content}"
+                                )
                             self.toolset.add_commit_to_pr(
-                                pr_number, filename, updated_content, commit_message
+                                pr["number"], filename, updated_content, commit_message
                             )
-                            return f"Added commit to PR #{pr_number} successfully"
+                            return success(
+                                f"Added commit to PR #{pr['number']} successfully"
+                            )
                 except Exception as e:
-                    return self.toolset._sanitize_error(
-                        f"Tool call failed to run: Error checking existing PRs: {str(e)}"
-                    )
+                    return error(f"Error checking existing PRs: {e}")
 
-            # Get base branch SHA
             try:
                 base_sha = self.toolset.get_branch_ref(branch)
-                if base_sha is None:
-                    return f"Tool call failed to run: Base branch {branch} not found"
+                if not base_sha:
+                    return error(f"Base branch {branch} not found")
             except Exception as e:
-                return self.toolset._sanitize_error(
-                    f"Tool call failed to run: Error getting base branch reference: {str(e)}"
-                )
+                return error(f"Error getting base branch reference: {e}")
 
-            # Get current file content
             try:
                 sha, content = self.toolset.get_file_content(filename, branch)
-                content_lines = content.splitlines()
+                lines = content.splitlines()
             except Exception as e:
-                return self.toolset._sanitize_error(
-                    f"Tool call failed to run: Error getting file content: {str(e)}"
+                return error(f"Error getting file content: {e}")
+
+            if line > len(lines) + 1:
+                return error(
+                    f"Line number {line} is out of range. File has {len(lines)} lines."
                 )
 
-            # Validate line number
-            if line > len(content_lines) + 1:
-                return f"Tool call failed to run: Line number {line} is out of range. File has {len(content_lines)} lines."
-
-            # Update content
-            if command == "insert":
-                # Get the previous line's indentation
-                prev_line = content_lines[line - 2] if line > 1 else ""
-                prev_indent = len(prev_line) - len(prev_line.lstrip())
-
-                # If previous line ends with colon, add extra indentation
-                if prev_line.rstrip().endswith(":"):
-                    # Find the next non-empty line to determine proper indentation
-                    next_line_idx = line - 1
-                    while (
-                        next_line_idx < len(content_lines)
-                        and not content_lines[next_line_idx].strip()
-                    ):
-                        next_line_idx += 1
-
-                    if next_line_idx < len(content_lines):
-                        next_line = content_lines[next_line_idx]
-                        next_indent = len(next_line) - len(next_line.lstrip())
-                        # Use the next line's indentation if it's more indented than current
-                        if next_indent > prev_indent:
-                            indent = next_indent
-                        else:
-                            indent = prev_indent + 2
-                    else:
-                        indent = prev_indent + 2
-                else:
-                    indent = prev_indent
-
-                # Apply indentation to the new line
-                indented_code = " " * indent + code.lstrip()
-                content_lines.insert(line - 1, indented_code)
-            elif command == "update":
-                indent = len(content_lines[line - 1]) - len(
-                    content_lines[line - 1].lstrip()
-                )
-                content_lines[line - 1] = " " * indent + code.lstrip()
-            elif command == "remove":
-                del content_lines[line - 1]
-            else:
-                return f"Tool call failed to run: Invalid command: {command}"
-
-            updated_content = "\n".join(content_lines) + "\n"
+            updated_lines = modify_lines(lines)
+            updated_content = "\n".join(updated_lines) + "\n"
 
             if dry_run:
-                return f"DRY RUN: Updated content:\n\n{updated_content}"
+                return success(f"DRY RUN: Updated content:\n\n{updated_content}")
 
-            # Create new branch
             try:
                 self.toolset.create_branch(branch_name, base_sha)
-            except Exception as e:
-                return self.toolset._sanitize_error(
-                    f"Tool call failed to run: Error creating branch: {str(e)}"
-                )
-
-            # Update file
-            try:
                 self.toolset.update_file(
                     filename, branch_name, updated_content, sha, commit_message
                 )
             except Exception as e:
-                return self.toolset._sanitize_error(
-                    f"Tool call failed to run: Error updating file: {str(e)}. The branch {branch_name} was created but the commit failed. Please manually delete the branch if needed."
-                )
+                return error(f"Error during branch creation or file update: {e}")
 
-            # Create PR if requested
             if open_pr:
                 try:
                     pr_url = self.toolset.create_pr(
                         commit_pr, branch_name, branch, commit_message
                     )
-                    return f"PR opened successfully: {pr_url}"
+                    return success(f"PR opened successfully: {pr_url}")
                 except Exception as e:
-                    return self.toolset._sanitize_error(
-                        f"Tool call failed to run: Error creating PR: {str(e)}. The branch {branch_name} was created and committed successfully, but PR creation failed. Please manually create a PR from this branch if needed."
+                    return error(
+                        f"PR creation failed. Branch created and committed successfully. Error: {e}"
                     )
 
-            return "Change committed successfully, no PR opened."
-
-        except requests.exceptions.RequestException as e:
-            return self.toolset._sanitize_error(
-                f"Tool call failed to run: Network error: {str(e)}"
-            )
+            return success("Change committed successfully, no PR opened.")
         except Exception as e:
-            return self.toolset._sanitize_error(
-                f"Tool call failed to run: Unexpected error: {str(e)}"
-            )
+            return error(f"Unexpected error: {e}")
 
     def get_parameterized_one_liner(self, params) -> str:
         return (

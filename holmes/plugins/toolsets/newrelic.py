@@ -1,5 +1,4 @@
 import requests
-import json
 import logging
 from typing import Any, Optional, Dict
 from holmes.core.tools import (
@@ -10,6 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from pydantic import BaseModel
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 class BaseNewRelicTool(Tool):
@@ -36,7 +36,21 @@ class GetLogs(BaseNewRelicTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        def success(msg: Any) -> StructuredToolResult:
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=msg,
+                params=params,
+            )
+
+        def error(msg: str) -> StructuredToolResult:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=msg,
+                params=params,
+            )
+
         app = params.get("app")
         since = params.get("since")
 
@@ -60,13 +74,19 @@ class GetLogs(BaseNewRelicTool):
             "Api-Key": self.toolset.nr_api_key,
         }
 
-        response = requests.post(url, headers=headers, json=query)
-        logging.info(f"Getting new relic logs for app {app} since {since}")
-        if response.status_code == 200:
-            data = response.json()
-            return json.dumps(data, indent=2)
-        else:
-            return f"Failed to fetch logs. Status code: {response.status_code}\n{response.text}"
+        try:
+            logging.info(f"Getting New Relic logs for app {app} since {since}")
+            response = requests.post(url, headers=headers, json=query)
+
+            if response.status_code == 200:
+                return success(response.json())
+            else:
+                return error(
+                    f"Failed to fetch logs. Status code: {response.status_code}\n{response.text}"
+                )
+        except Exception as e:
+            logging.exception("Exception while fetching logs")
+            return error(f"Error while fetching logs: {str(e)}")
 
     def get_parameterized_one_liner(self, params) -> str:
         return f"newrelic GetLogs(app='{params.get('app')}', since='{params.get('since')}')"
@@ -92,7 +112,21 @@ class GetTraces(BaseNewRelicTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        def success(msg: Any) -> StructuredToolResult:
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=msg,
+                params=params,
+            )
+
+        def error(msg: str) -> StructuredToolResult:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=msg,
+                params=params,
+            )
+
         duration = params.get("duration")
         trace_id = params.get("trace_id")
 
@@ -121,13 +155,19 @@ class GetTraces(BaseNewRelicTool):
             "Api-Key": self.toolset.nr_api_key,
         }
 
-        response = requests.post(url, headers=headers, json=query)
-        logging.info(f"Getting newrelic traces longer than {duration}s")
-        if response.status_code == 200:
-            data = response.json()
-            return json.dumps(data, indent=2)
-        else:
-            return f"Failed to fetch traces. Status code: {response.status_code}\n{response.text}"
+        try:
+            logging.info(f"Getting New Relic traces with duration > {duration}s")
+            response = requests.post(url, headers=headers, json=query)
+
+            if response.status_code == 200:
+                return success(response.json())
+            else:
+                return error(
+                    f"Failed to fetch traces. Status code: {response.status_code}\n{response.text}"
+                )
+        except Exception as e:
+            logging.exception("Exception while fetching traces")
+            return error(f"Error while fetching traces: {str(e)}")
 
     def get_parameterized_one_liner(self, params) -> str:
         if "trace_id" in params and params["trace_id"]:
