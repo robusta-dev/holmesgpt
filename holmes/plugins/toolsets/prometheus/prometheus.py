@@ -20,7 +20,7 @@ import json
 from requests import RequestException
 
 from urllib.parse import urljoin
-
+from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
 from holmes.plugins.toolsets.utils import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
     standard_start_datetime_tool_param_description,
@@ -28,6 +28,7 @@ from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
 )
 from holmes.utils.cache import TTLCache
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 DEFAULT_TIME_SPAN_SECONDS = 3600
@@ -35,7 +36,7 @@ DEFAULT_TIME_SPAN_SECONDS = 3600
 
 class PrometheusConfig(BaseModel):
     # URL is optional because it can be set with an env var
-    prometheus_url: Union[str, None]
+    prometheus_url: Optional[str]
     healthcheck: str = "-/healthy"
     # Setting to None will remove the time window from the request for labels
     metrics_labels_time_window_hrs: Union[int, None] = 48
@@ -281,9 +282,13 @@ class ListPrometheusRules(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
-            return "Prometheus is not configured. Prometheus URL is missing"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
         if not self._cache and self.toolset.config.rules_cache_duration_seconds:
             self._cache = TTLCache(self.toolset.config.rules_cache_duration_seconds)
         try:
@@ -291,7 +296,12 @@ class ListPrometheusRules(BasePrometheusTool):
                 cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
                 if cached_rules:
                     logging.debug("rules returned from cache")
-                    return cached_rules
+
+                    return StructuredToolResult(
+                        status=ToolResultStatus.SUCCESS,
+                        data=cached_rules,
+                        params=params,
+                    )
 
             prometheus_url = self.toolset.config.prometheus_url
 
@@ -305,20 +315,36 @@ class ListPrometheusRules(BasePrometheusTool):
                 headers=self.toolset.config.headers,
             )
             rules_response.raise_for_status()
-            response = json.dumps(rules_response.json()["data"])
+            data = rules_response.json()["data"]
 
             if self._cache:
-                self._cache.set(PROMETHEUS_RULES_CACHE_KEY, response)
-            return response
+                self._cache.set(PROMETHEUS_RULES_CACHE_KEY, data)
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=data,
+                params=params,
+            )
         except requests.Timeout:
-            logging.warn("Timeout while fetching prometheus rules", exc_info=True)
-            return "Request timed out while fetching rules"
+            logging.warning("Timeout while fetching prometheus rules", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Request timed out while fetching rules",
+                params=params,
+            )
         except RequestException as e:
-            logging.warn("Failed to fetch prometheus rules", exc_info=True)
-            return f"Network error while fetching rules: {str(e)}"
+            logging.warning("Failed to fetch prometheus rules", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Network error while fetching rules: {str(e)}",
+                params=params,
+            )
         except Exception as e:
-            logging.warn("Failed to process prometheus rules", exc_info=True)
-            return f"Unexpected error: {str(e)}"
+            logging.warning("Failed to process prometheus rules", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error: {str(e)}",
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "list available prometheus rules"
@@ -345,9 +371,13 @@ class ListAvailableMetrics(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
-            return "Prometheus is not configured. Prometheus URL is missing"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
         if not self._cache and self.toolset.config.metrics_labels_cache_duration_hrs:
             self._cache = TTLCache(
                 self.toolset.config.metrics_labels_cache_duration_hrs * 3600
@@ -360,7 +390,11 @@ class ListAvailableMetrics(BasePrometheusTool):
 
             name_filter = params.get("name_filter")
             if not name_filter:
-                return "Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing."
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing.",
+                    params=params,
+                )
 
             metrics = fetch_metrics(
                 prometheus_url=prometheus_url,
@@ -387,17 +421,33 @@ class ListAvailableMetrics(BasePrometheusTool):
                 )
 
             table_output = "\n".join(output)
-            return table_output
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=table_output,
+                params=params,
+            )
 
         except requests.Timeout:
             logging.warn("Timeout while fetching prometheus metrics", exc_info=True)
-            return "Request timed out while fetching metrics"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Request timed out while fetching metrics",
+                params=params,
+            )
         except RequestException as e:
             logging.warn("Failed to fetch prometheus metrics", exc_info=True)
-            return f"Network error while fetching metrics: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Network error while fetching metrics: {str(e)}",
+                params=params,
+            )
         except Exception as e:
             logging.warn("Failed to process prometheus metrics", exc_info=True)
-            return f"Unexpected error: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error: {str(e)}",
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return f'list available prometheus metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
@@ -423,9 +473,13 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
-            return "Prometheus is not configured. Prometheus URL is missing"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
         try:
             query = params.get("query", "")
             description = params.get("description", "")
@@ -460,7 +514,11 @@ class ExecuteInstantQuery(BasePrometheusTool):
                     response_data["data"] = data.get("data")
 
                 data_str = json.dumps(response_data, indent=2)
-                return data_str
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=data_str,
+                    params=params,
+                )
 
             # Handle known Prometheus error status codes
             error_msg = "Unknown error occurred"
@@ -472,19 +530,33 @@ class ExecuteInstantQuery(BasePrometheusTool):
                     )
                 except json.JSONDecodeError:
                     pass
-                return (
-                    f"Query execution failed. HTTP {response.status_code}: {error_msg}"
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Query execution failed. HTTP {response.status_code}: {error_msg}",
+                    params=params,
                 )
 
             # For other status codes, just return the status code and content
-            return f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
+                params=params,
+            )
 
         except RequestException as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
-            return f"Connection error to Prometheus: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Connection error to Prometheus: {str(e)}",
+                params=params,
+            )
         except Exception as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
-            return f"Unexpected error executing query: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error executing query: {str(e)}",
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         query = params.get("query")
@@ -529,9 +601,13 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
-            return "Prometheus is not configured. Prometheus URL is missing"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
 
         try:
             url = urljoin(self.toolset.config.prometheus_url, "api/v1/query_range")
@@ -580,7 +656,11 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 if self.toolset.config.tool_calls_return_data:
                     response_data["data"] = data.get("data")
                 data_str = json.dumps(response_data, indent=2)
-                return data_str
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=data_str,
+                    params=params,
+                )
 
             error_msg = "Unknown error occurred"
             if response.status_code in [400, 429]:
@@ -591,18 +671,32 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     )
                 except json.JSONDecodeError:
                     pass
-                return (
-                    f"Query execution failed. HTTP {response.status_code}: {error_msg}"
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Query execution failed. HTTP {response.status_code}: {error_msg}",
+                    params=params,
                 )
 
-            return f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
+                params=params,
+            )
 
         except RequestException as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
-            return f"Connection error to Prometheus: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Connection error to Prometheus: {str(e)}",
+                params=params,
+            )
         except Exception as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
-            return f"Unexpected error executing query: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Unexpected error executing query: {str(e)}",
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         query = params.get("query")
@@ -640,24 +734,34 @@ class PrometheusToolset(Toolset):
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if not config and not os.environ.get("PROMETHEUS_URL", None):
-            return (
-                False,
-                "Prometheus is misconfigured. prometheus_url is required but missing",
-            )
-        elif not config and os.environ.get("PROMETHEUS_URL", None):
-            self.config = PrometheusConfig(
-                prometheus_url=os.environ.get("PROMETHEUS_URL"),
-                headers=add_prometheus_auth(
-                    os.environ.get("PROMETHEUS_AUTH_HEADER", None)
-                ),
-            )
-            self._reload_llm_instructions()
-            return True, ""
-        else:
+        if config:
             self.config = PrometheusConfig(**config)
             self._reload_llm_instructions()
             return self._is_healthy()
+
+        prometheus_url = os.environ.get("PROMETHEUS_URL")
+        if not prometheus_url:
+            prometheus_url = self.auto_detect_prometheus_url()
+            if not prometheus_url:
+                return (
+                    False,
+                    "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
+                )
+
+        self.config = PrometheusConfig(
+            prometheus_url=prometheus_url,
+            headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
+        )
+        logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
+        self._reload_llm_instructions()
+        return True, ""
+
+    def auto_detect_prometheus_url(self) -> Optional[str]:
+        url: Optional[str] = PrometheusDiscovery.find_prometheus_url()
+        if not url:
+            url = PrometheusDiscovery.find_vm_url()
+
+        return url
 
     def _is_healthy(self) -> Tuple[bool, str]:
         if (

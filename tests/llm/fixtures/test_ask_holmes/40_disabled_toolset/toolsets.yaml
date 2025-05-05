@@ -1,0 +1,3 @@
+toolsets:
+  rabbitmq/core: # ensure this toolset is in the prompt
+    enabled: false

@@ -43,6 +43,8 @@ RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
 HOLMES_STATUS_TABLE = "HolmesStatus"
 HOLMES_TOOLSET = "HolmesToolsStatus"
+SCANS_META_TABLE = "ScansMeta"
+SCANS_RESULTS_TABLE = "ScansResults"
 
 
 class RobustaToken(BaseModel):
@@ -183,6 +185,43 @@ class SupabaseDal:
         )
         self.client.postgrest.auth(res.session.access_token)
         return res.user.id
+
+    def get_resource_recommendation(
+        self, name: str, namespace: str, kind
+    ) -> Optional[List[Dict]]:
+        if not self.enabled:
+            return []
+
+        try:
+            scans_meta_response = (
+                self.client.table(SCANS_META_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .eq("cluster_id", self.cluster)
+                .eq("latest", True)
+                .execute()
+            )
+            if not len(scans_meta_response.data):
+                return None
+
+            scans_results_response = (
+                self.client.table(SCANS_RESULTS_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .eq("cluster_id", self.cluster)
+                .eq("scan_id", scans_meta_response.data[0]["scan_id"])
+                .eq("name", name)
+                .eq("namespace", namespace)
+                .eq("kind", kind)
+                .execute()
+            )
+            if not len(scans_results_response.data):
+                return None
+
+            return scans_results_response.data
+        except Exception:
+            logging.exception("Supabase error while retrieving efficiency data")
+            return None
 
     def get_configuration_changes(
         self, start_datetime: str, end_datetime: str

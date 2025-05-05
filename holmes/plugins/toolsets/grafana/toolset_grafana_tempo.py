@@ -24,6 +24,7 @@ from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 
@@ -124,7 +125,7 @@ class GetTempoTraces(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         grafana_url = self._toolset.grafana_config.url
         api_key = self._toolset.grafana_config.api_key
         tempo_datasource_uid = self._toolset.grafana_config.grafana_datasource_uid
@@ -174,7 +175,12 @@ class GetTempoTraces(Tool):
             end=end,
             limit=params.get("limit", 50),
         )
-        return format_traces_list(traces)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=format_traces_list(traces),
+            params=params,
+            invocation=query,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Tempo traces with min_duration={params.get('min_duration')} ({str(params)})"
@@ -200,7 +206,7 @@ class GetTempoTags(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         grafana_url = self._toolset.grafana_config.url
         api_key = self._toolset.grafana_config.api_key
         tempo_datasource_uid = self._toolset.grafana_config.grafana_datasource_uid
@@ -223,7 +229,11 @@ class GetTempoTags(Tool):
             )
             response.raise_for_status()  # Raise an error for non-2xx responses
             data = response.json()
-            return yaml.dump(data.get("scopes"))
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(data.get("scopes")),
+                params=params,
+            )
         except requests.exceptions.RequestException as e:
             raise Exception(
                 f"Failed to retrieve trace by ID after retries: {e} \n for URL: {url}"
@@ -301,7 +311,7 @@ class GetTempoTraceById(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         labels_mapping = self._toolset.grafana_config.labels
         labels = list(labels_mapping.model_dump().values())
 
@@ -312,7 +322,11 @@ class GetTempoTraceById(Tool):
             trace_id=get_param_or_raise(params, "trace_id"),
             key_labels=labels,
         )
-        return trace_data
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=trace_data,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Tempo trace with trace_id={params.get('trace_id')} ({str(params)})"

@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
@@ -7,6 +8,7 @@ import logging
 import re
 import os
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
+from holmes.core.tools import StructuredToolResult
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
 
@@ -23,7 +25,7 @@ class MockMetadata(BaseModel):
 
 class ToolMock(MockMetadata):
     source_file: str
-    return_value: str
+    return_value: StructuredToolResult
 
 
 class SaveMockTool(Tool):
@@ -62,14 +64,18 @@ class SaveMockTool(Tool):
 
         logging.info(f"Invoking tool {self.unmocked_tool}")
         output = self.unmocked_tool.invoke(params)
-        output = strip_ansi(output)
+        content = output.data
+        structured_output_without_data = output.model_dump()
+        structured_output_without_data["data"] = None
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata_json + "\n")
-            f.write(output)
+            f.write(json.dumps(structured_output_without_data) + "\n")
+            if content:
+                f.write(content)
 
         return output
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         return self._auto_generate_mock_file(params)
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -101,7 +107,7 @@ class MockToolWrapper(Tool):
             if match:
                 return mock
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         mock = self.find_matching_mock(params)
         if mock:
             return mock.return_value
@@ -119,7 +125,8 @@ class MockToolset(Toolset):
 
 class MockToolsets:
     unmocked_toolsets: List[Toolset]
-    mocked_toolsets: List[Toolset]
+    enabled_toolsets: List[Toolset]
+    configured_toolsets: List[Toolset]
     _mocks: List[ToolMock]
     generate_mocks: bool
     test_case_folder: str
@@ -130,12 +137,13 @@ class MockToolsets:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
         self._mocks = []
-        self.mocked_toolsets = []
+        self.enabled_toolsets = []
+        self.configured_toolsets = []
         self._enable_builtin_toolsets(run_live)
         self._update()
 
     def _load_toolsets_definitions(self, run_live) -> List[ToolsetYamlFromConfig]:
-        config_path = os.path.join(self.test_case_folder, "config.yaml")
+        config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
         toolsets_definitions = None
         if os.path.isfile(config_path):
             toolsets_definitions = parse_toolsets_file(
@@ -157,7 +165,16 @@ class MockToolsets:
             if definition:
                 toolset.config = definition.config
                 toolset.enabled = definition.enabled
-            toolset.check_prerequisites()
+                self.configured_toolsets.append(toolset)
+
+            if toolset.enabled:
+                try:
+                    toolset.check_prerequisites()
+                except Exception:
+                    logging.error(
+                        f"check_prerequisites failed for toolset {toolset.name}.",
+                        exc_info=True,
+                    )
 
     def mock_tool(self, tool_mock: ToolMock):
         self._mocks.append(tool_mock)
@@ -218,4 +235,18 @@ class MockToolsets:
                 mocked_toolset.tools = mocked_tools
                 mocked_toolset._status = ToolsetStatusEnum.ENABLED
                 mocked_toolsets.append(mocked_toolset)
-        self.mocked_toolsets = mocked_toolsets
+
+        enabled_toolsets = mocked_toolsets
+        for toolset in self.configured_toolsets:
+            mocked = None
+            try:
+                mocked = next(
+                    toolset
+                    for mocked_toolset in enabled_toolsets
+                    if mocked_toolset.name == toolset.name
+                )
+            except StopIteration:
+                pass
+            if not mocked:
+                enabled_toolsets.append(toolset)
+        self.enabled_toolsets = enabled_toolsets

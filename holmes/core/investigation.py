@@ -19,7 +19,10 @@ from holmes.plugins.prompts import load_and_render_prompt
 
 
 def investigate_issues(
-    investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config
+    investigate_request: InvestigateRequest,
+    dal: SupabaseDal,
+    config: Config,
+    model: str = None,
 ):
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
@@ -33,7 +36,7 @@ def investigate_issues(
     if context:
         raw_data["extra_context"] = context
 
-    ai = config.create_issue_investigator(dal=dal)
+    ai = config.create_issue_investigator(dal=dal, model=model)
 
     issue = Issue(
         id=context["id"] if context else "",
@@ -70,7 +73,7 @@ def get_investigation_context(
     request_structured_output_from_llm: bool = None,
 ):
     load_robusta_api_key(dal=dal, config=config)
-    ai = config.create_issue_investigator(dal=dal)
+    ai = config.create_issue_investigator(dal=dal, model=investigate_request.model)
 
     raw_data = investigate_request.model_dump()
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
@@ -127,7 +130,7 @@ def get_investigation_context(
             "issue": issue,
             "sections": sections,
             "structured_output": request_structured_output_from_llm,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+            "toolsets": ai.tool_executor.toolsets,
         },
     )
 

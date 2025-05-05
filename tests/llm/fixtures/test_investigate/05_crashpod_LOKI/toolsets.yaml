@@ -1,0 +1,6 @@
+toolsets:
+  grafana/loki:
+    config:
+      api_key: "{{env.GRAFANA_API_KEY}}"
+      url: "{{env.GRAFANA_URL}}"
+      grafana_datasource_uid: "{{env.GRAFANA_DATASOURCE_UID}}"
