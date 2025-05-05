@@ -725,7 +725,7 @@ class IssueInvestigator(ToolCallingLLM):
             docPrompts = []
             for document in instructions.documents:
                 docPrompts.append(
-                    f"* fetch information from this runbook URL: {document.url}\n"
+                    f"* fetch information from this URL: {document.url}\n"
                 )
             runbooks.extend(docPrompts)
 
