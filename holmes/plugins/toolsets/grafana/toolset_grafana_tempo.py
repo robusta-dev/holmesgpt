@@ -8,8 +8,6 @@ from holmes.core.tools import (
     Tool,
     ToolParameter,
 )
-import logging
-from urllib.parse import quote
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.tempo_api import (
     query_tempo_trace_by_id,
@@ -169,8 +167,8 @@ class GetTempoTraces(Tool):
         traces = query_tempo_traces(
             grafana_url=grafana_url,
             api_key=api_key,
-            tempo_datasource_id=tempo_datasource_uid,
-            tempo_query=query,
+            tempo_datasource_uid=tempo_datasource_uid,
+            query=query,
             start=start,
             end=end,
             limit=params.get("limit", 50),
@@ -241,59 +239,6 @@ class GetTempoTags(Tool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Tempo tags ({str(params)})"
-
-
-class GetTempoTracesByQuery(Tool):
-    def __init__(self, toolset: BaseGrafanaToolset):
-        super().__init__(
-            name="fetch_tempo_traces_by_query",
-            description="""Queries tempo with a custom query string within a given time range.""",
-            parameters={
-                "tempo_query": ToolParameter(
-                    description='The Tempo query string to filter traces, e.g., \'{resource.service.name="service-name" || span.http.code="200"}\'',
-                    type="string",
-                    required=True,
-                ),
-                "start_timestamp": ToolParameter(
-                    description="The beginning time boundary for the trace search period. Epoch in seconds. Traces before this will be excluded.",
-                    type="string",
-                    required=False,
-                ),
-                "end_timestamp": ToolParameter(
-                    description="The ending time boundary for the trace search period. Epoch in seconds. Defaults to NOW().",
-                    type="string",
-                    required=False,
-                ),
-                "limit": ToolParameter(
-                    description="Maximum number of traces to return.",
-                    type="string",
-                    required=False,
-                ),
-            },
-        )
-        self._toolset = toolset
-
-    def _invoke(self, params: Dict) -> str:
-        start, end = process_timestamps_to_int(
-            params.get("start_timestamp"), params.get("end_timestamp")
-        )
-        tempo_query = quote(get_param_or_raise(params, "tempo_query"), safe="")
-        logging.warning(f"Tempo query _{tempo_query}_")
-        traces = query_tempo_traces(
-            grafana_url=self._toolset._grafana_config.url,
-            api_key=self._toolset._grafana_config.api_key,
-            tempo_datasource_id=self._toolset._grafana_config.grafana_datasource_uid,
-            tempo_query=get_param_or_raise(params, "tempo_query"),
-            start=start,
-            end=end,
-            limit=int(
-                params.get("limit", 50)
-            ),  # Default to 50 if limit is not provided
-        )
-        return yaml.dump(traces)
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo traces with query={params.get('tempo_query')} ({str(params)})"
 
 
 class GetTempoTraceById(Tool):
