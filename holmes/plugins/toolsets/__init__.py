@@ -58,7 +58,6 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
     toolsets: list[Toolset] = [
         InternetToolset(),
-        NotionToolset(),
         RobustaToolset(dal),
         OpenSearchToolset(),
         GrafanaLokiToolset(),

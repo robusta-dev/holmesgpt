@@ -202,8 +202,6 @@ class DescribeConsumerGroup(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         group_id = params["group_id"]
-        kafka_cluster_name = params["kafka_cluster_name"]
-        client = self.get_kafka_client(kafka_cluster_name)
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
@@ -314,8 +312,6 @@ class DescribeTopic(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         topic_name = params["topic_name"]
-        kafka_cluster_name = params["kafka_cluster_name"]
-        client = self.get_kafka_client(kafka_cluster_name)
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
@@ -391,8 +387,6 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         topic_name = params["topic_name"]
-        kafka_cluster_name = params["kafka_cluster_name"]
-        client = self.get_kafka_client(kafka_cluster_name)
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
