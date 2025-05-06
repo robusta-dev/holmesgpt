@@ -1,9 +1,11 @@
 import json
 import logging
-from typing import List, Literal, Optional, Dict, Any, Tuple
+import os
+from typing import List, Literal, Optional, Dict, Any, Tuple, cast
 from urllib.parse import urljoin
 
 import requests
+from holmes.core.tools import Toolset
 from pydantic import BaseModel
 
 
@@ -15,6 +17,39 @@ class OpenSearchIndexConfig(BaseModel):
     fields_ttl_seconds: Optional[int] = 14400  # 4 hours
     # If True, use script-based field discovery instead of getMappings API
     use_script_for_fields_discovery: bool = False
+
+
+class BaseOpenSearchToolset(Toolset):
+
+    def get_example_config(self) -> Dict[str, Any]:
+        example_config = OpenSearchIndexConfig(
+            opensearch_url="YOUR OPENSEARCH LOGS URL",
+            index_pattern="YOUR OPENSEARCH LOGS INDEX NAME",
+            opensearch_auth_header="YOUR OPENSEARCH LOGS AUTH HEADER (Optional)",
+        )
+        return example_config.model_dump()
+
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        env_url = os.environ.get("OPENSEARCH_LOGS_URL", None)
+        env_index_pattern = os.environ.get("OPENSEARCH_LOGS_INDEX_NAME", "*")
+        if not config and not env_url:
+            return False, "Missing opensearch traces URL. Check your config"
+        elif not config and env_url:
+            self.config = OpenSearchIndexConfig(
+                opensearch_url=env_url,
+                index_pattern=env_index_pattern,
+                opensearch_auth_header=os.environ.get(
+                    "OPENSEARCH_LOGS_AUTH_HEADER", None
+                ),
+            )
+            return opensearch_health_check(self.config)
+        else:
+            self.config = OpenSearchIndexConfig(**config)
+            return opensearch_health_check(self.config)
+
+    @property
+    def opensearch_config(self) -> OpenSearchIndexConfig:
+        return cast(OpenSearchIndexConfig, self.config)
 
 
 def add_auth_header(auth_header: Optional[str]) -> Dict[str, Any]:
