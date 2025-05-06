@@ -17,6 +17,7 @@ from requests import RequestException
 from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.opensearch.opensearch_utils import (
+    format_logs,
     opensearch_health_check,
     add_auth_header,
     OpenSearchIndexConfig,
@@ -29,7 +30,6 @@ LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 class BaseOpenSearchLogsTool(Tool):
     toolset: "OpenSearchLogsToolset"
 
-
 class GetLogFields(BaseOpenSearchLogsTool):
     def __init__(self, toolset: "OpenSearchLogsToolset"):
         super().__init__(
@@ -41,6 +41,11 @@ class GetLogFields(BaseOpenSearchLogsTool):
         self._cache = None
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        if not self.toolset.config:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                params=params,
+            )
         try:
             if not self._cache:
                 self._cache = TTLCache(
@@ -50,7 +55,11 @@ class GetLogFields(BaseOpenSearchLogsTool):
             cached_response = self._cache.get(LOGS_FIELDS_CACHE_KEY, None)
             if cached_response:
                 logging.debug("logs fields returned from cache")
-                return cached_response
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=cached_response,
+                    params=params,
+                )
 
             body = {
                 "size": 1,
@@ -77,28 +86,37 @@ class GetLogFields(BaseOpenSearchLogsTool):
                 data=json.dumps(body),
                 headers=headers,
             )
-            logs_response.raise_for_status()
-            response = json.dumps(logs_response.json())
-            self._cache[LOGS_FIELDS_CACHE_KEY] = response
-            return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=response,
-                params=params,
-            )
+            if logs_response.status_code == 200:
+                response = json.dumps(logs_response.json(), indent=2)
+                self._cache[LOGS_FIELDS_CACHE_KEY] = response
+
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=response,
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    return_code=logs_response.status_code,
+                    error=logs_response.text,
+                    params=params,
+                )
+
         except requests.Timeout:
-            logging.warn("Timeout while fetching opensearch logs fields", exc_info=True)
+            logging.warning("Timeout while fetching opensearch logs fields", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request timed out while fetching opensearch logs fields",
             )
         except RequestException as e:
-            logging.warn("Failed to fetch opensearch logs fields", exc_info=True)
+            logging.warning("Failed to fetch opensearch logs fields", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while opensearch logs fields: {str(e)}",
             )
         except Exception as e:
-            logging.warn("Failed to process opensearch logs fields", exc_info=True)
+            logging.warning("Failed to process opensearch logs fields", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
@@ -111,7 +129,7 @@ class GetLogFields(BaseOpenSearchLogsTool):
 class LogsSearchQuery(BaseOpenSearchLogsTool):
     def __init__(self, toolset: "OpenSearchLogsToolset"):
         super().__init__(
-            name="logs_in_range_search",
+            name="fetch_opensearch_logs",
             description="Get logs in a specified time range for an opensearch query",
             parameters={
                 "query": ToolParameter(
@@ -125,6 +143,12 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
         self._cache = None
 
     def _invoke(self, params: Any) -> StructuredToolResult:
+
+        if not self.toolset.config:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                params=params,
+            )
         err_msg = ""
         try:
             body = json.loads(params.get("query"))
@@ -146,31 +170,38 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
                 data=json.dumps(full_query),
                 headers=headers,
             )
-            if logs_response.status_code > 300:
-                err_msg = logs_response.text
 
-            logs_response.raise_for_status()
-            return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=json.dumps(logs_response.json()),
-                params=params,
-            )
+            if logs_response.status_code == 200:
+                response = logs_response.json()
+                logs = format_logs(logs=response["hits"], format_type="simplified")
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=logs,
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    return_code=logs_response.status_code,
+                    error=logs_response.text,
+                    params=params,
+                )
         except requests.Timeout:
-            logging.warn("Timeout while fetching opensearch logs search", exc_info=True)
+            logging.warning("Timeout while fetching opensearch logs search", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Request timed out while fetching opensearch logs search {err_msg}",
                 params=params,
             )
         except RequestException as e:
-            logging.warn("Failed to fetch opensearch logs search", exc_info=True)
+            logging.warning("Failed to fetch opensearch logs search", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while opensearch logs search {err_msg} {str(e)}",
                 params=params,
             )
         except Exception as e:
-            logging.warn("Failed to process opensearch logs search", exc_info=True)
+            logging.warning("Failed to process opensearch logs search", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error {err_msg}: {str(e)}",
@@ -199,12 +230,14 @@ class OpenSearchLogsToolset(Toolset):
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if not config and not os.environ.get("OPENSEARCH_LOGS_URL", None):
+        env_url = os.environ.get("OPENSEARCH_LOGS_URL", None)
+        env_index_pattern = os.environ.get("OPENSEARCH_LOGS_INDEX_NAME", "*")
+        if not config and not env_url:
             return False, "Missing opensearch traces URL. Check your config"
-        elif not config and os.environ.get("OPENSEARCH_LOGS_URL", None):
+        elif not config and env_url:
             self.config = OpenSearchIndexConfig(
-                opensearch_url=os.environ.get("OPENSEARCH_LOGS_URL"),
-                index_name=os.environ.get("OPENSEARCH_LOGS_INDEX_NAME"),
+                opensearch_url=env_url,
+                index_pattern=env_index_pattern,
                 opensearch_auth_header=os.environ.get(
                     "OPENSEARCH_LOGS_AUTH_HEADER", None
                 ),
@@ -217,7 +250,7 @@ class OpenSearchLogsToolset(Toolset):
     def get_example_config(self) -> Dict[str, Any]:
         example_config = OpenSearchIndexConfig(
             opensearch_url="YOUR OPENSEARCH LOGS URL",
-            index_name="YOUR OPENSEARCH LOGS INDEX NAME",
+            index_pattern="YOUR OPENSEARCH LOGS INDEX NAME",
             opensearch_auth_header="YOUR OPENSEARCH LOGS AUTH HEADER (Optional)",
         )
         return example_config.model_dump()
