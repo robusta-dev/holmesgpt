@@ -108,10 +108,10 @@ def test_format_logs_invalid_input_items():
     assert "_index" in lines_json[0]
     assert "_id" in lines_json[0]
     assert "_source" in lines_json[0]
-    
+
     # Current implementation formats non-dict items as-is rather than skipping
     assert lines_json[1] == '"not_a_dictionary"'
-    assert lines_json[2] == 'null'
+    assert lines_json[2] == "null"
     # The following entries might be formatted as-is without error messages
     assert "no_source_hit" in lines_json[3]
     assert "bad_source_hit" in lines_json[4]
