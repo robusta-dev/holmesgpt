@@ -90,6 +90,7 @@ class ToolCallResult(BaseModel):
         return {
             "tool_call_id": self.tool_call_id,
             "role": "tool",
+            "description": self.description,
             "name": self.tool_name,
             "result": self.result.model_dump(),
         }
