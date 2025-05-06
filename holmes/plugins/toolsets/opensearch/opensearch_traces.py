@@ -174,7 +174,9 @@ class TracesSearchQuery(Tool):
                 params=params,
             )
         except Exception as e:
-            logging.warning("Failed to process opensearch traces search ", exc_info=True)
+            logging.warning(
+                "Failed to process opensearch traces search ", exc_info=True
+            )
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error {err_msg}: {str(e)}",

@@ -20,7 +20,6 @@ class OpenSearchIndexConfig(BaseModel):
 
 
 class BaseOpenSearchToolset(Toolset):
-
     def get_example_config(self) -> Dict[str, Any]:
         example_config = OpenSearchIndexConfig(
             opensearch_url="YOUR OPENSEARCH LOGS URL",

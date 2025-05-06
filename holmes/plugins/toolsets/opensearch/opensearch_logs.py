@@ -25,7 +25,6 @@ from holmes.core.tools import StructuredToolResult, ToolResultStatus
 LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 
 
-
 class GetLogFields(Tool):
     def __init__(self, toolset: "OpenSearchLogsToolset"):
         super().__init__(
