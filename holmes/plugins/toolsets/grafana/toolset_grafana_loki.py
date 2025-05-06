@@ -107,6 +107,7 @@ class GetLokiLogs(Tool):
         logs = execute_loki_query(
             grafana_url=self._toolset._grafana_config.url,
             api_key=self._toolset._grafana_config.api_key,
+            headers=self._toolset._grafana_config.headers,
             loki_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
             query=query,
             start=start,
@@ -181,6 +182,7 @@ class GetLokiLogsForResource(Tool):
         logs = query_loki_logs_by_label(
             grafana_url=self._toolset.grafana_config.url,
             api_key=self._toolset.grafana_config.api_key,
+            headers=self._toolset.grafana_config.headers,
             loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
             filter_regexp=params.get("logs_filter"),
             namespace=get_param_or_raise(params, "namespace"),
@@ -207,11 +209,6 @@ class BuildLokiLogURL(Tool):
             name="build_loki_log_url",
             description="Builds a Loki log query URL for either a pod or an app label.",
             parameters={
-                "namespace": ToolParameter(
-                    description="The namespace of the pod or app.",
-                    type="string",
-                    required=True,
-                ),
                 "identifier": ToolParameter(
                     description="The name of the pod or app to filter logs for.",
                     type="string",
@@ -238,7 +235,6 @@ class BuildLokiLogURL(Tool):
 
     def _build_query_params(
         self,
-        namespace: str,
         identifier: str,
         resource_type: str,
         start_time: str,
@@ -288,18 +284,23 @@ class BuildLokiLogURL(Tool):
 
         return expected_query_string
 
-    def _invoke(self, params: Dict) -> str:
-        namespace = params.get("namespace")
-        identifier = params.get("identifier")
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        identifier = get_param_or_raise(params, "identifier")
         resource_type = params.get("resource_type")
         start_time = params.get("start_time", "now-6h")
         end_time = params.get("end_time", "now")
 
         if resource_type not in ["pod", "app"]:
-            return "Error: resource_type must be either 'pod' or 'app'."
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Error: resource_type must be either 'pod' or 'app'.",
+            )
 
-        return self._build_query_params(
-            namespace, identifier, resource_type, start_time, end_time
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=self._build_query_params(
+                identifier, resource_type, start_time, end_time
+            ),
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:

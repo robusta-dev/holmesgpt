@@ -99,6 +99,10 @@ You can also provide files as context:
 holmes ask "summarize the key points in this document" -f ./mydocument.txt
 ```
 
+You can also load the prompt from a file using the `--prompt-file` option:
+```bash
+holmes ask --prompt-file ~/long-prompt.txt
+
 Enter interactive mode to ask follow-up questions:
 ```bash
 holmes ask "what pods are unhealthy and why?" --interactive
