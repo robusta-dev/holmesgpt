@@ -309,7 +309,9 @@ def ask(
             raise typer.BadParameter(f"Prompt file not found: {prompt_file}")
         with prompt_file.open("r") as f:
             prompt = f.read()
-        console.print(f"[bold yellow]Loaded prompt from file {prompt_file}[/bold yellow]")
+        console.print(
+            f"[bold yellow]Loaded prompt from file {prompt_file}[/bold yellow]"
+        )
     elif not prompt:
         raise typer.BadParameter(
             "Either the 'prompt' argument or the --prompt-file option must be provided."
