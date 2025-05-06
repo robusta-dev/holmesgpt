@@ -45,7 +45,7 @@ class FetchRobustaFinding(Tool):
             logging.error(error)
             return {"error": error}
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         finding_id = params[PARAM_FINDING_ID]
         try:
             finding = self._fetch_finding(finding_id)
@@ -113,7 +113,7 @@ class FetchResourceRecommendation(Tool):
             )
         return None
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
             recommendations = self._resource_recommendation(params)
             if recommendations:

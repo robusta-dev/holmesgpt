@@ -2,12 +2,14 @@ import requests
 from typing import Dict, List, Optional
 import backoff
 
+from holmes.plugins.toolsets.grafana.common import build_headers
 from holmes.plugins.toolsets.grafana.trace_parser import process_trace
 
 
 def execute_tempo_query_with_retry(
     grafana_url: str,
-    api_key: str,
+    api_key: Optional[str],
+    headers: Optional[Dict[str, str]],
     tempo_datasource_uid: str,
     query_params: dict,
     retries: int = 3,
@@ -37,11 +39,7 @@ def execute_tempo_query_with_retry(
     def make_request():
         response = requests.post(
             url,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
+            headers=build_headers(api_key=api_key, additional_headers=headers),
             json=query_params,
             timeout=timeout,  # Set timeout for the request
         )
@@ -56,7 +54,8 @@ def execute_tempo_query_with_retry(
 
 def query_tempo_traces(
     grafana_url: str,
-    api_key: str,
+    api_key: Optional[str],
+    headers: Optional[Dict[str, str]],
     tempo_datasource_uid: str,
     query: Optional[str],
     start: int,
@@ -85,14 +84,19 @@ def query_tempo_traces(
     if query:
         query_params["q"] = query
     data = execute_tempo_query_with_retry(
-        grafana_url, api_key, tempo_datasource_uid, query_params
+        grafana_url=grafana_url,
+        api_key=api_key,
+        headers=headers,
+        tempo_datasource_uid=tempo_datasource_uid,
+        query_params=query_params,
     )
     return data
 
 
 def query_tempo_trace_by_id(
     grafana_url: str,
-    api_key: str,
+    api_key: Optional[str],
+    headers: Optional[Dict[str, str]],
     tempo_datasource_uid: str,
     trace_id: str,
     key_labels: List[str],
@@ -123,10 +127,7 @@ def query_tempo_trace_by_id(
     def make_request():
         response = requests.get(
             url,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Accept": "application/json",
-            },
+            headers=build_headers(api_key=api_key, additional_headers=headers),
             timeout=timeout,
         )
         response.raise_for_status()
