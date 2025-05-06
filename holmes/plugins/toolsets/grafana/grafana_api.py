@@ -3,7 +3,7 @@ import requests
 from typing import Any, Dict, List, Optional, Tuple
 import backoff
 
-from holmes.plugins.toolsets.grafana.common import headers
+from holmes.plugins.toolsets.grafana.common import build_headers
 
 
 @backoff.on_exception(
@@ -14,7 +14,7 @@ from holmes.plugins.toolsets.grafana.common import headers
     and e.response.status_code < 500,
 )
 def list_grafana_datasources(
-    grafana_url: str, api_key: str, datasource_type: Optional[str] = None
+    grafana_url: str, api_key: Optional[str], datasource_type: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     List all configured datasources from a Grafana instance with retry and backoff.
@@ -27,7 +27,7 @@ def list_grafana_datasources(
     """
     try:
         url = f"{grafana_url}/api/datasources"
-        headers_ = headers(api_key=api_key)
+        headers_ = build_headers(api_key=api_key, additional_headers=None)
 
         logging.info(f"Fetching datasources from: {url}")
         response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
@@ -61,7 +61,7 @@ def list_grafana_datasources(
 def get_health(grafana_url: str, api_key: str) -> Tuple[bool, str]:
     url = f"{grafana_url}/api/health"
     try:
-        headers_ = headers(api_key=api_key)
+        headers_ = build_headers(api_key=api_key, additional_headers=None)
 
         response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
         response.raise_for_status()

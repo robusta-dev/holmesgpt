@@ -20,6 +20,7 @@ GRAFANA_DATASOURCE_UID = os.environ.get("GRAFANA_DATASOURCE_UID", "")
 def test_grafana_query_loki_logs_by_pod():
     config = GrafanaLokiConfig(
         api_key=GRAFANA_API_KEY,
+        headers=None,
         url=GRAFANA_URL,
         grafana_datasource_uid=GRAFANA_DATASOURCE_UID,
     )
