@@ -80,6 +80,14 @@ def opensearch_health_check(config: OpenSearchIndexConfig) -> Tuple[bool, str]:
         return False, f"Failed to initialize opensearch toolset. url={url}. {str(e)}"
 
 
+def format_log_to_json(log_line: Any) -> str:
+    try:
+        return json.dumps(log_line)
+    except Exception:
+        # Handle potential serialization errors (e.g., non-serializable objects)
+        return str(log_line)
+
+
 def format_logs(
     logs: List[Dict[str, Any]],
     format_type: Literal["simplified", "json"] = "simplified",
@@ -154,44 +162,17 @@ def format_logs(
                 and max_message_length is not None
                 and len(message) > max_message_length
             ):
-                print(f'truncating "{message}" to "{message[:max_message_length]}"')
                 message = message[:max_message_length] + "..."
 
             if message:
                 formatted_lines.append(f"{timestamp} {level} {message}")
+            else:
+                # fallback displaying the logs line as-is
+                formatted_lines.append(format_log_to_json(hit))
 
     elif format_type == "json":
         for hit in logs:
-            # Ensure hit is a dictionary
-            if not isinstance(hit, dict):
-                formatted_lines.append(
-                    f"Skipping invalid log entry (not a dict): {type(hit)}"
-                )
-                continue
-
-            target_data = hit.get("_source") if include_source_in_json else hit
-            if include_source_in_json and not isinstance(target_data, dict):
-                # If we expected _source and it's bad, note it
-                formatted_lines.append(
-                    f"Skipping log entry with invalid or missing '_source' for JSON: {hit.get('_id', 'N/A')}"
-                )
-                continue
-            elif not isinstance(target_data, dict):
-                # If we are dumping the whole hit and it's not a dict (unlikely but safe)
-                formatted_lines.append(
-                    f"Skipping invalid log entry (not a dict) for JSON: {type(target_data)}"
-                )
-                continue
-
-            try:
-                # Use compact JSON separators for conciseness
-                json_string = json.dumps(target_data, separators=(",", ":"))
-                formatted_lines.append(json_string)
-            except TypeError as e:
-                # Handle potential serialization errors (e.g., non-serializable objects)
-                formatted_lines.append(
-                    f"Error serializing log to JSON for ID {hit.get('_id', 'N/A')}: {e}"
-                )
+            formatted_lines.append(format_log_to_json(hit))
 
     else:
         # Should not happen with Literal typing, but good practice

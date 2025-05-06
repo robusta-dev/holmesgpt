@@ -285,7 +285,10 @@ class LogsSearchQuery(Tool):
 
             if logs_response.status_code == 200:
                 response = logs_response.json()
-                logs = format_logs(logs=response["hits"], format_type="simplified")
+                logs = format_logs(
+                    logs=response.get("hits", {}).get("hits", []),
+                    format_type="simplified",
+                )
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=logs,
@@ -323,7 +326,7 @@ class LogsSearchQuery(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'search logs: query="{params.get("query")}"'
+        return f'search logs: {params.get("query")}'
 
 
 class OpenSearchLogsToolset(BaseOpenSearchToolset):
