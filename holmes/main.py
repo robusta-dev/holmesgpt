@@ -29,8 +29,8 @@ from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import (
-    LLMResult, 
-    ResourceInstructionDocument, 
+    LLMResult,
+    ResourceInstructionDocument,
     ToolCallingLLM,
 )
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
