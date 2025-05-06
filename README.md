@@ -94,6 +94,11 @@ For advanced use cases, you can [import HolmesGPT as a Python library](docs/pyth
 holmes ask "what pods are unhealthy and why?"
 ```
 
+You can also load the prompt from a file using the `--prompt-file` option:
+```bash
+holmes ask --prompt-file ~/long-prompt.txt
+```
+
 Also supported:
 
 <details>
