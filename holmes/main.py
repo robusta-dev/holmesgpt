@@ -441,7 +441,6 @@ def run_interactive_loop(
         )
     )
     for _ in range(limit):
-        # while True:
         try:
             follow_up_prompt = typer.prompt("Follow-up question")
             if follow_up_prompt.lower() in ["exit", "quit"]:
