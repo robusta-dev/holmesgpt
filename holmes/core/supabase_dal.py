@@ -37,7 +37,6 @@ from holmes.utils.global_instructions import Instructions
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
 ISSUES_TABLE = "Issues"
-GROUPEDISSUES_TABLE = "GroupedIssues"
 EVIDENCE_TABLE = "Evidence"
 RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
@@ -344,24 +343,6 @@ class SupabaseDal:
             issue_data["end_timestamp_millis"] = int(end_timestamp.timestamp() * 1000)
 
         return issue_data
-
-    def get_firing_alerts(self, aggregation_key: Optional[str]) -> Optional[Dict]:
-        if not self.enabled:  # store not initialized
-            return None
-        try:
-            query = (
-                self.client.table(GROUPEDISSUES_TABLE)
-                .select("*")
-                .is_("ends_at", None)
-                .filter("account_id", "eq", self.account_id)
-            )
-            if aggregation_key:
-                query.filter("aggregation_key", "eq", aggregation_key)
-            return query.execute()
-
-        except Exception:  # e.g. invalid id format
-            logging.exception("Supabase error while retrieving issue data")
-            return None
 
     def get_resource_instructions(
         self, type: str, name: Optional[str]

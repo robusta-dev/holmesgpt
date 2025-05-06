@@ -199,61 +199,6 @@ class FetchConfigurationChanges(Tool):
         return f"Fetch change history ({str(params)})"
 
 
-class FetchRobustaAlerts(Tool):
-    _dal: Optional[SupabaseDal]
-
-    def __init__(self, dal: Optional[SupabaseDal]):
-        super().__init__(
-            name="fetch_alerts",
-            description="Fetches alerts firing in the environment from Robusta.",
-            parameters={
-                "alert_name": ToolParameter(
-                    description="The alert name to fetch; if not specified, pulls all alerts.",
-                    type="string",
-                    required=False,
-                )
-            },
-        )
-        self._dal = dal
-
-    def _fetch_alert(self, alert_id: Optional[str] = None) -> Optional[Dict]:
-        if self._dal and self._dal.enabled:
-            return self._dal.get_firing_alerts(alert_id)
-        else:
-            error = f"Failed to find alerts named {alert_id}: Holmes' data access layer is not enabled."
-            logging.error(error)
-            return {"error": error}
-
-    def _invoke(self, params: Dict) -> StructuredToolResult:
-        alert_name = params.get("alert_name", None)
-        try:
-            alerts = self._fetch_alert(alert_name)
-            if alerts:
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=alerts,
-                    params=params,
-                )
-            else:
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=f"Could not find an alert with name = {alert_name}",
-                    params=params,
-                )
-        except Exception as e:
-            logging.error(e)
-            msg = f"There was an internal error while fetching alerts {alert_name}. {str(e)}"
-            logging.error(msg)
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data=msg,
-                params=params,
-            )
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Fetch live alert information"
-
-
 class RobustaToolset(Toolset):
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
@@ -275,7 +220,6 @@ class RobustaToolset(Toolset):
                 FetchRobustaFinding(dal),
                 FetchConfigurationChanges(dal),
                 FetchResourceRecommendation(dal),
-                FetchRobustaAlerts(dal),
             ],
             tags=[
                 ToolsetTag.CORE,
