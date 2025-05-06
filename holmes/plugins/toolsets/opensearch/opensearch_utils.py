@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Literal, Optional, Dict, Any, Tuple, Union
+from typing import List, Literal, Optional, Dict, Any, Tuple
 from urllib.parse import urljoin
 
 import requests
@@ -13,6 +13,8 @@ class OpenSearchIndexConfig(BaseModel):
     opensearch_auth_header: Optional[str] = None
     # Setting to None will disable the cache
     fields_ttl_seconds: Optional[int] = 14400  # 4 hours
+    # If True, use script-based field discovery instead of getMappings API
+    use_script_for_fields_discovery: bool = False
 
 
 def add_auth_header(auth_header: Optional[str]) -> Dict[str, Any]:
@@ -23,7 +25,7 @@ def add_auth_header(auth_header: Optional[str]) -> Dict[str, Any]:
 
 
 def get_search_url(config: OpenSearchIndexConfig) -> str:
-    return urljoin(config.opensearch_url, f"/{config.index_name}/_search")
+    return urljoin(config.opensearch_url, f"/{config.index_pattern}/_search")
 
 
 def opensearch_health_check(config: OpenSearchIndexConfig) -> Tuple[bool, str]:
@@ -50,8 +52,8 @@ def format_logs(
     timestamp_field: str = "@timestamp",
     level_field: str = "log.level",
     message_field: str = "message",
-    max_message_length: Optional[int] = 2000, # Limit message length for conciseness
-    include_source_in_json: bool = True # Control if _source or the whole hit is used for JSON
+    max_message_length: Optional[int] = 2000,  # Limit message length for conciseness
+    include_source_in_json: bool = True,  # Control if _source or the whole hit is used for JSON
 ) -> str:
     """
     Formats a list of OpenSearch log hits for display, prioritizing conciseness.
@@ -94,12 +96,16 @@ def format_logs(
         for hit in logs:
             # Ensure hit is a dictionary and has _source
             if not isinstance(hit, dict):
-                formatted_lines.append(f"Skipping invalid log entry (not a dict): {type(hit)}")
+                formatted_lines.append(
+                    f"Skipping invalid log entry (not a dict): {type(hit)}"
+                )
                 continue
             source = hit.get("_source")
             if not isinstance(source, dict):
-                 formatted_lines.append(f"Skipping log entry with invalid or missing '_source': {hit.get('_id', 'N/A')}")
-                 continue
+                formatted_lines.append(
+                    f"Skipping log entry with invalid or missing '_source': {hit.get('_id', 'N/A')}"
+                )
+                continue
 
             # Safely get fields using .get() with a default
             timestamp = source.get(timestamp_field, "N/A")
@@ -108,9 +114,13 @@ def format_logs(
 
             # Ensure message is a string and truncate if necessary
             if message and not isinstance(message, str):
-                message = str(message) # Convert non-strings
-            if message and max_message_length is not None and len(message) > max_message_length:
-                print(f"truncating \"{message}\" to \"{message[:max_message_length]}\"")
+                message = str(message)  # Convert non-strings
+            if (
+                message
+                and max_message_length is not None
+                and len(message) > max_message_length
+            ):
+                print(f'truncating "{message}" to "{message[:max_message_length]}"')
                 message = message[:max_message_length] + "..."
 
             if message:
@@ -118,20 +128,26 @@ def format_logs(
 
     elif format_type == "json":
         for hit in logs:
-             # Ensure hit is a dictionary
+            # Ensure hit is a dictionary
             if not isinstance(hit, dict):
-                formatted_lines.append(f"Skipping invalid log entry (not a dict): {type(hit)}")
+                formatted_lines.append(
+                    f"Skipping invalid log entry (not a dict): {type(hit)}"
+                )
                 continue
 
             target_data = hit.get("_source") if include_source_in_json else hit
             if include_source_in_json and not isinstance(target_data, dict):
-                 # If we expected _source and it's bad, note it
-                 formatted_lines.append(f"Skipping log entry with invalid or missing '_source' for JSON: {hit.get('_id', 'N/A')}")
-                 continue
+                # If we expected _source and it's bad, note it
+                formatted_lines.append(
+                    f"Skipping log entry with invalid or missing '_source' for JSON: {hit.get('_id', 'N/A')}"
+                )
+                continue
             elif not isinstance(target_data, dict):
-                 # If we are dumping the whole hit and it's not a dict (unlikely but safe)
-                 formatted_lines.append(f"Skipping invalid log entry (not a dict) for JSON: {type(target_data)}")
-                 continue
+                # If we are dumping the whole hit and it's not a dict (unlikely but safe)
+                formatted_lines.append(
+                    f"Skipping invalid log entry (not a dict) for JSON: {type(target_data)}"
+                )
+                continue
 
             try:
                 # Use compact JSON separators for conciseness
@@ -139,7 +155,9 @@ def format_logs(
                 formatted_lines.append(json_string)
             except TypeError as e:
                 # Handle potential serialization errors (e.g., non-serializable objects)
-                formatted_lines.append(f"Error serializing log to JSON for ID {hit.get('_id', 'N/A')}: {e}")
+                formatted_lines.append(
+                    f"Error serializing log to JSON for ID {hit.get('_id', 'N/A')}: {e}"
+                )
 
     else:
         # Should not happen with Literal typing, but good practice

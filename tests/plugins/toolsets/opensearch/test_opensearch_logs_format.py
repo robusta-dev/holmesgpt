@@ -14,10 +14,16 @@ SAMPLE_HITS = [
             "logtag": "F",
             "message": "** ALERTMANAGER_HEADERS={'Content-type': 'application/json', 'X-Scope-Org-Id': '1|2|3|4'}",
             "time": "2025-05-05T12:22:16.745685103Z",
-            "docker": {"container_id": "4bd5b29e14c6586b07ae8b862d51702c9da997e3c921ad6caeb1983bec8201b4"},
-            "kubernetes": {"container_name": "runner", "namespace_name": "default", "pod_name": "robusta-runner-796c867f59-wbkpn"},
+            "docker": {
+                "container_id": "4bd5b29e14c6586b07ae8b862d51702c9da997e3c921ad6caeb1983bec8201b4"
+            },
+            "kubernetes": {
+                "container_name": "runner",
+                "namespace_name": "default",
+                "pod_name": "robusta-runner-796c867f59-wbkpn",
+            },
             "@timestamp": "2025-05-05T12:22:16.745685103+00:00",
-        }
+        },
     },
     {
         "_index": "fluentd-2025.05.05",
@@ -28,11 +34,17 @@ SAMPLE_HITS = [
             "logtag": "F",
             "message": "\u001b[32m2025-05-05 12:25:16.990 INFO     discovered service with label-selector: `app=kube-prometheus-stack-alertmanager` at url: `http://robusta-kube-prometheus-st-alertmanager.default.svc.cluster.local:9093`\u001b[0m",
             "time": "2025-05-05T12:25:16.990851385Z",
-            "docker": {"container_id": "4bd5b29e14c6586b07ae8b862d51702c9da997e3c921ad6caeb1983bec8201b4"},
-            "kubernetes": {"container_name": "runner", "namespace_name": "default", "pod_name": "robusta-runner-796c867f59-wbkpn"},
+            "docker": {
+                "container_id": "4bd5b29e14c6586b07ae8b862d51702c9da997e3c921ad6caeb1983bec8201b4"
+            },
+            "kubernetes": {
+                "container_name": "runner",
+                "namespace_name": "default",
+                "pod_name": "robusta-runner-796c867f59-wbkpn",
+            },
             "@timestamp": "2025-05-05T12:25:16.990851385+00:00",
-            "log.level": "INFO" # Add a level field for testing
-        }
+            "log.level": "INFO",  # Add a level field for testing
+        },
     },
     {
         "_index": "fluentd-2025.05.05",
@@ -42,77 +54,105 @@ SAMPLE_HITS = [
             "stream": "stdout",
             # Missing @timestamp, message, log.level
             "time": "2025-05-05T12:30:00.000000000Z",
-        }
+        },
     },
-     {
+    {
         "_index": "fluentd-2025.05.05",
         "_id": "non_string_msg_id",
         "_score": 5.0,
         "_source": {
             "@timestamp": "2025-05-05T12:31:00.000000000+00:00",
             "log.level": "WARN",
-            "message": 12345 # Non-string message
-        }
-    }
+            "message": 12345,  # Non-string message
+        },
+    },
 ]
 
 # --- Test Cases ---
+
 
 def test_format_logs_empty_input():
     assert format_logs([]) == ""
     assert format_logs(None) == ""
 
+
 def test_format_logs_invalid_input_items():
     invalid_logs = [
-        SAMPLE_HITS[0], # Valid item
+        SAMPLE_HITS[0],  # Valid item
         "not_a_dictionary",
         None,
-        {"_id": "no_source_hit"}, # Hit without _source
-        {"_id": "bad_source_hit", "_source": "not_a_dict_source"}
+        {"_id": "no_source_hit"},  # Hit without _source
+        {"_id": "bad_source_hit", "_source": "not_a_dict_source"},
     ]
     output = format_logs(invalid_logs, format_type="simplified")
-    lines = output.split('\n')
+    lines = output.split("\n")
     assert len(lines) == 5
-    assert lines[0].startswith("2025-05-05T12:22:16.745685103+00:00 N/A ** ALERTMANAGER_HEADERS") # First is valid
+    assert lines[0].startswith(
+        "2025-05-05T12:22:16.745685103+00:00 N/A ** ALERTMANAGER_HEADERS"
+    )  # First is valid
     assert "Skipping invalid log entry (not a dict): <class 'str'>" in lines[1]
     assert "Skipping invalid log entry (not a dict): <class 'NoneType'>" in lines[2]
-    assert "Skipping log entry with invalid or missing '_source': no_source_hit" in lines[3]
-    assert "Skipping log entry with invalid or missing '_source': bad_source_hit" in lines[4]
+    assert (
+        "Skipping log entry with invalid or missing '_source': no_source_hit"
+        in lines[3]
+    )
+    assert (
+        "Skipping log entry with invalid or missing '_source': bad_source_hit"
+        in lines[4]
+    )
 
     output_json = format_logs(invalid_logs, format_type="json")
-    lines_json = output_json.split('\n')
+    lines_json = output_json.split("\n")
     assert len(lines_json) == 5
-    assert lines_json[0].startswith('{"stream":"stdout",') # First is valid json
+    assert lines_json[0].startswith('{"stream":"stdout",')  # First is valid json
     assert "Skipping invalid log entry (not a dict): <class 'str'>" in lines_json[1]
-    assert "Skipping invalid log entry (not a dict): <class 'NoneType'>" in lines_json[2]
-    assert "Skipping log entry with invalid or missing '_source' for JSON: no_source_hit" in lines_json[3]
-    assert "Skipping log entry with invalid or missing '_source' for JSON: bad_source_hit" in lines_json[4]
+    assert (
+        "Skipping invalid log entry (not a dict): <class 'NoneType'>" in lines_json[2]
+    )
+    assert (
+        "Skipping log entry with invalid or missing '_source' for JSON: no_source_hit"
+        in lines_json[3]
+    )
+    assert (
+        "Skipping log entry with invalid or missing '_source' for JSON: bad_source_hit"
+        in lines_json[4]
+    )
+
 
 def test_format_logs_simplified_default():
     output = format_logs(SAMPLE_HITS, format_type="simplified")
-    lines = output.split('\n')
+    lines = output.split("\n")
     assert len(lines) == 3
     # Note: Default level_field 'log.level' is missing in first hit, present in second
-    assert lines[0] == "2025-05-05T12:22:16.745685103+00:00 N/A ** ALERTMANAGER_HEADERS={'Content-type': 'application/json', 'X-Scope-Org-Id': '1|2|3|4'}"
-    assert lines[1].startswith("2025-05-05T12:25:16.990851385+00:00 INFO \u001b[32m2025-05-05 12:25:16.990 INFO")
-    assert lines[2] == "2025-05-05T12:31:00.000000000+00:00 WARN 12345" # Non-string message converted
+    assert (
+        lines[0]
+        == "2025-05-05T12:22:16.745685103+00:00 N/A ** ALERTMANAGER_HEADERS={'Content-type': 'application/json', 'X-Scope-Org-Id': '1|2|3|4'}"
+    )
+    assert lines[1].startswith(
+        "2025-05-05T12:25:16.990851385+00:00 INFO \u001b[32m2025-05-05 12:25:16.990 INFO"
+    )
+    assert (
+        lines[2] == "2025-05-05T12:31:00.000000000+00:00 WARN 12345"
+    )  # Non-string message converted
+
 
 def test_format_logs_simplified_custom_fields():
     output = format_logs(
         SAMPLE_HITS,
         format_type="simplified",
         timestamp_field="time",
-        level_field="stream", # Use stream as level for testing
-        message_field="logtag"  # Use logtag as message for testing
+        level_field="stream",  # Use stream as level for testing
+        message_field="logtag",  # Use logtag as message for testing
     )
-    lines = output.split('\n')
+    lines = output.split("\n")
     assert len(lines) == 2
     assert lines[0] == "2025-05-05T12:22:16.745685103Z stdout F"
     assert lines[1] == "2025-05-05T12:25:16.990851385Z stderr F"
 
+
 def test_format_logs_simplified_truncation():
     output = format_logs(SAMPLE_HITS, format_type="simplified", max_message_length=20)
-    lines = output.split('\n')
+    lines = output.split("\n")
     print("** OUTPUT:")
     print(output)
     assert len(lines) == 3
@@ -120,37 +160,42 @@ def test_format_logs_simplified_truncation():
     assert lines[1].endswith("2025-05-05 12:2...")
     assert lines[2].endswith(" 12345")
 
+
 def test_format_logs_simplified_no_truncation():
     output = format_logs(SAMPLE_HITS, format_type="simplified", max_message_length=None)
     print("** OUTPUT:")
     print(output)
-    lines = output.split('\n')
+    lines = output.split("\n")
     assert len(lines) == 3
     # Check end of first message without truncation/ellipsis
     assert lines[0].endswith("Org-Id': '1|2|3|4'}")
     # Check end of second message
     assert lines[1].endswith("local:9093`\u001b[0m")
 
+
 def test_format_logs_json_source_only_default():
-    output = format_logs(SAMPLE_HITS, format_type="json") # include_source_in_json=True is default
-    lines = output.split('\n')
+    output = format_logs(
+        SAMPLE_HITS, format_type="json"
+    )  # include_source_in_json=True is default
+    lines = output.split("\n")
     assert len(lines) == 4
     for i, line in enumerate(lines):
         try:
             data = json.loads(line)
             # Check it's the source dict, not the full hit
-            assert data == SAMPLE_HITS[i]['_source']
+            assert data == SAMPLE_HITS[i]["_source"]
             # Check for compact separators (no spaces after comma or colon)
             assert '": "' not in line
             assert '", "' not in line
         except json.JSONDecodeError:
             pytest.fail(f"Line {i+1} is not valid JSON: {line}")
         except KeyError:
-             pytest.fail(f"SAMPLE_HITS[{i}] seems malformed, missing '_source'")
+            pytest.fail(f"SAMPLE_HITS[{i}] seems malformed, missing '_source'")
+
 
 def test_format_logs_json_full_hit():
     output = format_logs(SAMPLE_HITS, format_type="json", include_source_in_json=False)
-    lines = output.split('\n')
+    lines = output.split("\n")
     assert len(lines) == 4
     for i, line in enumerate(lines):
         try:
@@ -166,6 +211,7 @@ def test_format_logs_json_full_hit():
         except json.JSONDecodeError:
             pytest.fail(f"Line {i+1} is not valid JSON: {line}")
 
+
 def test_format_logs_invalid_format_type():
     with pytest.raises(ValueError, match="Invalid format_type"):
-        format_logs(SAMPLE_HITS, format_type="xml") # type: ignore
+        format_logs(SAMPLE_HITS, format_type="xml")  # type: ignore

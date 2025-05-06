@@ -30,6 +30,7 @@ LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 class BaseOpenSearchLogsTool(Tool):
     toolset: "OpenSearchLogsToolset"
 
+
 class GetLogFields(BaseOpenSearchLogsTool):
     def __init__(self, toolset: "OpenSearchLogsToolset"):
         super().__init__(
@@ -61,50 +62,19 @@ class GetLogFields(BaseOpenSearchLogsTool):
                     params=params,
                 )
 
-            body = {
-                "size": 1,
-                "_source": False,
-                "script_fields": {
-                    "all_fields": {
-                        "script": {
-                            "lang": "painless",
-                            "source": "Map fields = new HashMap(); List stack = new ArrayList(); stack.add(['prefix': '', 'obj': params['_source']]); while (!stack.isEmpty()) { Map item = stack.remove(stack.size() - 1); String prefix = item.get('prefix'); Map obj = item.get('obj'); for (entry in obj.entrySet()) { String fullPath = prefix.isEmpty() ? entry.getKey() : prefix + '.' + entry.getKey(); fields.put(fullPath, true); if (entry.getValue() instanceof Map) { stack.add(['prefix': fullPath, 'obj': entry.getValue()]); } } } return fields.keySet();",
-                        }
-                    }
-                },
-            }
             headers = {"Content-Type": "application/json"}
             headers.update(add_auth_header(self.toolset.config.opensearch_auth_header))
-            url = urljoin(
-                self.toolset.config.opensearch_url,
-                f"/{self.toolset.config.index_name}/_search",
-            )
-            logs_response = requests.get(
-                url=url,
-                timeout=180,
-                verify=True,
-                data=json.dumps(body),
-                headers=headers,
-            )
-            if logs_response.status_code == 200:
-                response = json.dumps(logs_response.json(), indent=2)
-                self._cache[LOGS_FIELDS_CACHE_KEY] = response
 
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=response,
-                    params=params,
-                )
+            # Use script-based field discovery if configured, otherwise use getMappings API
+            if self.toolset.config.use_script_for_fields_discovery:
+                return self._get_fields_using_script(headers, params)
             else:
-                return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    return_code=logs_response.status_code,
-                    error=logs_response.text,
-                    params=params,
-                )
+                return self._get_fields_using_mappings(headers, params)
 
         except requests.Timeout:
-            logging.warning("Timeout while fetching opensearch logs fields", exc_info=True)
+            logging.warning(
+                "Timeout while fetching opensearch logs fields", exc_info=True
+            )
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request timed out while fetching opensearch logs fields",
@@ -121,6 +91,149 @@ class GetLogFields(BaseOpenSearchLogsTool):
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
             )
+
+    def _get_fields_using_script(
+        self, headers: Dict, params: Dict
+    ) -> StructuredToolResult:
+        """Use the script-based approach to get fields (original implementation)"""
+        body = {
+            "size": 1,
+            "_source": False,
+            "script_fields": {
+                "all_fields": {
+                    "script": {
+                        "lang": "painless",
+                        "source": "Map fields = new HashMap(); List stack = new ArrayList(); stack.add(['prefix': '', 'obj': params['_source']]); while (!stack.isEmpty()) { Map item = stack.remove(stack.size() - 1); String prefix = item.get('prefix'); Map obj = item.get('obj'); for (entry in obj.entrySet()) { String fullPath = prefix.isEmpty() ? entry.getKey() : prefix + '.' + entry.getKey(); fields.put(fullPath, true); if (entry.getValue() instanceof Map) { stack.add(['prefix': fullPath, 'obj': entry.getValue()]); } } } return fields.keySet();",
+                    }
+                }
+            },
+        }
+
+        url = urljoin(
+            self.toolset.config.opensearch_url,
+            f"/{self.toolset.config.index_pattern}/_search",
+        )
+        logs_response = requests.get(
+            url=url,
+            timeout=180,
+            verify=True,
+            data=json.dumps(body),
+            headers=headers,
+        )
+
+        if logs_response.status_code == 200:
+            response = json.dumps(logs_response.json(), indent=2)
+            self._cache[LOGS_FIELDS_CACHE_KEY] = response
+
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=response,
+                params=params,
+            )
+        else:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                return_code=logs_response.status_code,
+                error=logs_response.text,
+                params=params,
+            )
+
+    def _get_fields_using_mappings(
+        self, headers: Dict, params: Dict
+    ) -> StructuredToolResult:
+        """Use the OpenSearch getMappings API to retrieve fields (new implementation)"""
+        url = urljoin(
+            self.toolset.config.opensearch_url,
+            f"/{self.toolset.config.index_pattern}/_mapping",
+        )
+
+        mapping_response = requests.get(
+            url=url,
+            timeout=180,
+            verify=True,
+            headers=headers,
+        )
+
+        if mapping_response.status_code == 200:
+            mapping_data = mapping_response.json()
+
+            # Extract field names, types, and indexes from mapping response
+            field_details = {}  # Dictionary to store field details
+
+            # Process all indices in the response
+            for index_name, index_data in mapping_data.items():
+                mappings = index_data.get("mappings", {})
+                properties = mappings.get("properties", {})
+
+                # Extract fields and add them to the dict with their types and indices
+                self._extract_fields_from_properties(
+                    properties, "", field_details, index_name
+                )
+
+            # Format the response - fields with their types and indexes that use them
+            formatted_fields = []
+            for field_name, details in field_details.items():
+                formatted_fields.append(
+                    {
+                        "name": field_name,
+                        "type": details["type"],
+                        "indexes": sorted(details["indexes"]),
+                    }
+                )
+
+            # Sort fields by name for consistent output
+            formatted_fields.sort(key=lambda x: x["name"])
+
+            response = json.dumps({"fields": formatted_fields}, indent=2)
+            self._cache[LOGS_FIELDS_CACHE_KEY] = response
+
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=response,
+                params=params,
+            )
+        else:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                return_code=mapping_response.status_code,
+                error=mapping_response.text,
+                params=params,
+            )
+
+    def _extract_fields_from_properties(
+        self, properties: Dict, prefix: str, field_details: Dict, index_name: str
+    ) -> None:
+        """
+        Recursively extract field names, types, and indexes from the properties section of the mapping
+
+        Args:
+            properties: Properties dictionary from the mapping
+            prefix: Current field path prefix
+            field_details: Dictionary to store field details in the format {field_name: {"type": type, "indexes": [index1, index2, ...]}}
+            index_name: Name of the current index being processed
+        """
+        for field_name, field_config in properties.items():
+            full_path = f"{prefix}{field_name}" if prefix else field_name
+
+            # Get field type - OpenSearch has "type" at the root level of field_config
+            field_type = field_config.get(
+                "type", "object"
+            )  # Default to "object" if type not specified
+
+            # Add or update field details
+            if full_path not in field_details:
+                field_details[full_path] = {"type": field_type, "indexes": [index_name]}
+            else:
+                # Field already exists, add this index to the list
+                field_details[full_path]["indexes"].append(index_name)
+                # We assume the type is the same across indexes
+
+            # Handle nested fields
+            nested_properties = field_config.get("properties", {})
+            if nested_properties:
+                self._extract_fields_from_properties(
+                    nested_properties, f"{full_path}.", field_details, index_name
+                )
 
     def get_parameterized_one_liner(self, params) -> str:
         return "list log documents fields"
@@ -143,7 +256,6 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
         self._cache = None
 
     def _invoke(self, params: Any) -> StructuredToolResult:
-
         if not self.toolset.config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -187,7 +299,9 @@ class LogsSearchQuery(BaseOpenSearchLogsTool):
                     params=params,
                 )
         except requests.Timeout:
-            logging.warning("Timeout while fetching opensearch logs search", exc_info=True)
+            logging.warning(
+                "Timeout while fetching opensearch logs search", exc_info=True
+            )
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Request timed out while fetching opensearch logs search {err_msg}",
