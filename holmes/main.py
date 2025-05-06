@@ -28,7 +28,7 @@ from holmes.config import Config, SupportedTicketSources, SourceFactory
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument
+from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument, ToolCallingLLM
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
@@ -242,7 +242,15 @@ def handle_result(
 # TODO: add streaming output
 @app.command()
 def ask(
-    prompt: str = typer.Argument(help="What to ask the LLM (user prompt)"),
+    prompt: Optional[str] = typer.Argument(
+        None, help="What to ask the LLM (user prompt)"
+    ),
+    prompt_file: Optional[Path] = typer.Option(
+        None,
+        "--prompt-file",
+        "-pf",
+        help="File containing the prompt to ask the LLM (overrides the prompt argument if provided)",
+    ),
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
@@ -295,6 +303,18 @@ def ask(
         "toolsets": ai.tool_executor.toolsets,
     }
     system_prompt = load_and_render_prompt(system_prompt, template_context)
+
+    if prompt_file:
+        if not prompt_file.is_file():
+            raise typer.BadParameter(f"Prompt file not found: {prompt_file}")
+        with prompt_file.open("r") as f:
+            prompt = f.read()
+        console.print(f"[bold yellow]Loaded prompt from file {prompt_file}[/bold yellow]")
+    elif not prompt:
+        raise typer.BadParameter(
+            "Either the 'prompt' argument or the --prompt-file option must be provided."
+        )
+
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
     for path in include_file:
