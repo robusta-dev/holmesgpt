@@ -28,7 +28,11 @@ from holmes.config import Config, SupportedTicketSources, SourceFactory
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import LLMResult, ResourceInstructionDocument, ToolCallingLLM
+from holmes.core.tool_calling_llm import (
+    LLMResult, 
+    ResourceInstructionDocument, 
+    ToolCallingLLM,
+)
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes import get_version
 
@@ -281,14 +285,14 @@ def _pre_check_and_clarify(
             console.print()
             console.print(Rule("[dim]Your input below[/dim]"))
 
-            user_answers = typer.prompt(
-                "Please provide the requested information"
-            )
+            user_answers = typer.prompt("Please provide the requested information")
             # Add user's answers to messages
             # Format the response to indicate it's an answer to the previous questions
             formatted_answer = f"Here is the information you requested:\n{user_answers}"
             messages.append({"role": "user", "content": formatted_answer})
-            console.print("[bold green]Thanks! Proceeding with investigation...[/bold green]")
+            console.print(
+                "[bold green]Thanks! Proceeding with investigation...[/bold green]"
+            )
             console.print(Rule())
 
     except Exception as e:
@@ -479,9 +483,7 @@ def run_interactive_loop(
             if destination == DestinationType.CLI:
                 if show_tool_output and response.tool_calls:
                     for tool_call in response.tool_calls:
-                        console.print(
-                            "[bold magenta]Used Tool:[/bold magenta]", end=""
-                        )
+                        console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
                         console.print(
                             f"{tool_call.description}. Output=\n{tool_call.result}",
                             markup=False,
