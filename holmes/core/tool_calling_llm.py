@@ -78,21 +78,27 @@ class ToolCallResult(BaseModel):
         }
 
     def as_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
         return {
             "tool_call_id": self.tool_call_id,
             "tool_name": self.tool_name,
             "description": self.description,
             "role": "tool",
-            "result": self.result.model_dump(),
+            "result": result_dump,
         }
 
     def as_streaming_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
         return {
             "tool_call_id": self.tool_call_id,
             "role": "tool",
             "description": self.description,
             "name": self.tool_name,
-            "result": self.result.model_dump(),
+            "result": result_dump,
         }
 
 

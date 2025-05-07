@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Literal, Optional, Union, Any, Tuple
 from enum import Enum
 from datetime import datetime
 import sentry_sdk
-
+import json
 from jinja2 import Template
 from pydantic import (
     BaseModel,
@@ -41,6 +41,21 @@ class StructuredToolResult(BaseModel):
     url: Optional[str] = None
     invocation: Optional[str] = None
     params: Optional[Dict] = None
+
+    def get_stringified_data(self) -> str:
+        if self.data is None:
+            return ""
+
+        if isinstance(self.data, str):
+            return self.data
+        else:
+            try:
+                if isinstance(self.data, BaseModel):
+                    return self.data.model_dump_json(indent=2)
+                else:
+                    return json.dumps(self.data, indent=2)
+            except Exception:
+                return str(self.data)
 
 
 def sanitize(param):
