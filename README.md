@@ -94,9 +94,20 @@ For advanced use cases, you can [import HolmesGPT as a Python library](docs/pyth
 holmes ask "what pods are unhealthy and why?"
 ```
 
+You can also provide files as context:
+```bash
+holmes ask "summarize the key points in this document" -f ./mydocument.txt
+```
+
 You can also load the prompt from a file using the `--prompt-file` option:
 ```bash
 holmes ask --prompt-file ~/long-prompt.txt
+
+Enter interactive mode to ask follow-up questions:
+```bash
+holmes ask "what pods are unhealthy and why?" --interactive
+# or
+holmes ask "what pods are unhealthy and why?" -i
 ```
 
 Also supported:
