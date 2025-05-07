@@ -501,9 +501,16 @@ class ToolExecutor:
                     )
                 self.tools_by_name[tool.name] = tool
 
-    def invoke(self, tool_name: str, params: Dict) -> str:
+    def invoke(self, tool_name: str, params: Dict) -> StructuredToolResult:
         tool = self.get_tool_by_name(tool_name)
-        return tool.invoke(params) if tool else ""
+        return (
+            tool.invoke(params)
+            if tool
+            else StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Could not find tool named {tool_name}",
+            )
+        )
 
     def get_tool_by_name(self, name: str) -> Optional[Tool]:
         if name in self.tools_by_name:
