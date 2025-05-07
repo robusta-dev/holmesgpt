@@ -34,7 +34,7 @@ The following data sources ("toolsets") are built-in. [Add your own](#customizin
 | Data Source    | Status         | Description                                                  |
 |----------------|----------------|--------------------------------------------------------------|
 | [Kubernetes](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html)     | ✅             | Pod logs, K8s events, and resource status (kubectl describe) |
-| [Grafana](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html)        | ✅             | [Logs (Loki)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#loki) and [traces (Tempo)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html#tempo) |
+| Grafana       | ✅             | [Logs (Loki)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html) and [traces (Tempo)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html) |
 | [Helm](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html)           | ✅             | Release status, chart metadata, and values                   |
 | [ArgoCD](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html)         | ✅             | Application sync status                                      |
 | [AWS RDS](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html)        | ✅             | Logs and events                                              |
@@ -92,6 +92,22 @@ For advanced use cases, you can [import HolmesGPT as a Python library](docs/pyth
 
 ```bash
 holmes ask "what pods are unhealthy and why?"
+```
+
+You can also provide files as context:
+```bash
+holmes ask "summarize the key points in this document" -f ./mydocument.txt
+```
+
+You can also load the prompt from a file using the `--prompt-file` option:
+```bash
+holmes ask --prompt-file ~/long-prompt.txt
+
+Enter interactive mode to ask follow-up questions:
+```bash
+holmes ask "what pods are unhealthy and why?" --interactive
+# or
+holmes ask "what pods are unhealthy and why?" -i
 ```
 
 Also supported:

@@ -40,6 +40,8 @@ toolsets:
     enabled: true
   internet:
     enabled: true
+  prometheus/metrics:
+    enabled: true
 
 
 resources:
@@ -53,3 +55,5 @@ additionalVolumes: []
 additionalVolumeMounts: []
 
 priorityClassName: ""
+
+modelList: {}

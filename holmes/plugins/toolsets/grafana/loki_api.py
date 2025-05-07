@@ -2,7 +2,7 @@ import requests
 from typing import Dict, List, Optional, Union
 import backoff
 
-from holmes.plugins.toolsets.grafana.common import headers
+from holmes.plugins.toolsets.grafana.common import build_headers
 
 
 def parse_loki_response(results: List[Dict]) -> List[Dict]:
@@ -35,7 +35,8 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
 )
 def execute_loki_query(
     grafana_url: str,
-    api_key: str,
+    api_key: Optional[str],
+    headers: Optional[Dict[str, str]],
     loki_datasource_uid: str,
     query: str,
     start: Union[int, str],
@@ -45,7 +46,11 @@ def execute_loki_query(
     params = {"query": query, "limit": limit, "start": start, "end": end}
     try:
         url = f"{grafana_url}/api/datasources/proxy/uid/{loki_datasource_uid}/loki/api/v1/query_range"
-        response = requests.get(url, headers=headers(api_key=api_key), params=params)
+        response = requests.get(
+            url,
+            headers=build_headers(api_key=api_key, additional_headers=headers),
+            params=params,
+        )
         response.raise_for_status()
 
         result = response.json()
@@ -59,7 +64,8 @@ def execute_loki_query(
 
 def query_loki_logs_by_label(
     grafana_url: str,
-    api_key: str,
+    api_key: Optional[str],
+    headers: Optional[Dict[str, str]],
     loki_datasource_uid: str,
     namespace: str,
     label_value: str,
@@ -76,6 +82,7 @@ def query_loki_logs_by_label(
     return execute_loki_query(
         grafana_url=grafana_url,
         api_key=api_key,
+        headers=headers,
         loki_datasource_uid=loki_datasource_uid,
         query=query,
         start=start,

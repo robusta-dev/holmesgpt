@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import os
+from typing import List, Optional
 
 import sentry_sdk
 from holmes.utils.cert_utils import add_custom_certificate
@@ -41,6 +42,7 @@ from holmes.core.conversations import (
     build_workload_health_chat_messages,
 )
 from holmes.core.models import (
+    FollowUpAction,
     InvestigationResult,
     ConversationRequest,
     InvestigateRequest,
@@ -135,7 +137,10 @@ if LOG_PERFORMANCE:
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
         result = investigation.investigate_issues(
-            investigate_request=investigate_request, dal=dal, config=config
+            investigate_request=investigate_request,
+            dal=dal,
+            config=config,
+            model=investigate_request.model,
         )
         return result
 
@@ -149,16 +154,20 @@ def investigate_issues(investigate_request: InvestigateRequest):
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
     try:
+        robusta_ai = req.model == "Robusta"
+        is_structured_output = not robusta_ai
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-            investigation.get_investigation_context(req, dal, config=config)
+            investigation.get_investigation_context(
+                req, dal, config, is_structured_output
+            )
         )
-
         return StreamingResponse(
             ai.call_stream(
-                system_prompt, user_prompt, response_format, sections, runbooks
+                system_prompt, user_prompt, robusta_ai, response_format, runbooks
             ),
             media_type="text/event-stream",
         )
+
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:
@@ -194,13 +203,13 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask, global_instructions
         )
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
 
         system_prompt = load_and_render_prompt(
             request.prompt_template,
             context={
                 "alerts": workload_alerts,
-                "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+                "toolsets": ai.tool_executor.toolsets,
             },
         )
 
@@ -223,16 +232,14 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 @app.post("/api/workload_health_chat")
 def workload_health_conversation(
-    workload_health_chat_request: WorkloadHealthChatRequest,
+    request: WorkloadHealthChatRequest,
 ):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(
-            workload_health_chat_request, ai, global_instructions
-        )
+        messages = build_workload_health_chat_messages(request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -270,7 +277,7 @@ def issue_conversation_deprecated(conversation_request: ConversationRequest):
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(
@@ -290,12 +297,22 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def already_answered(conversation_history: Optional[List[dict]]) -> bool:
+    if conversation_history is None:
+        return False
+
+    for message in conversation_history:
+        if message["role"] == "assistant":
+            return True
+    return False
+
+
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
         messages = build_chat_messages(
             chat_request.ask,
@@ -303,12 +320,35 @@ def chat(chat_request: ChatRequest):
             ai=ai,
             global_instructions=global_instructions,
         )
+        follow_up_actions = []
+        if not already_answered(chat_request.conversation_history):
+            follow_up_actions = [
+                FollowUpAction(
+                    id="logs",
+                    action_label="Logs",
+                    prompt="Show me the relevant logs",
+                    pre_action_notification_text="Fetching relevant logs...",
+                ),
+                FollowUpAction(
+                    id="graphs",
+                    action_label="Graphs",
+                    prompt="Show me the relevant graphs. Use prometheus and make sure you embed the results with `<< >>` to display a graph",
+                    pre_action_notification_text="Drawing some graphs...",
+                ),
+                FollowUpAction(
+                    id="articles",
+                    action_label="Articles",
+                    prompt="List the relevant runbooks and links used. Write a short summary for each",
+                    pre_action_notification_text="Looking up and summarizing runbooks and links...",
+                ),
+            ]
 
         llm_call = ai.messages_call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
             conversation_history=llm_call.messages,
+            follow_up_actions=follow_up_actions,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
@@ -319,7 +359,7 @@ def chat(chat_request: ChatRequest):
 
 @app.get("/api/model")
 def get_model():
-    return {"model_name": config.model}
+    return {"model_name": config.get_models_list()}
 
 
 if __name__ == "__main__":

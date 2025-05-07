@@ -12,6 +12,7 @@ from holmes.core.tools import (
 from opensearchpy import OpenSearch
 
 from holmes.plugins.toolsets.utils import TOOLSET_CONFIG_MISSING_ERROR
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 class OpenSearchHttpAuth(BaseModel):
@@ -90,10 +91,14 @@ class ListShards(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         shards = client.client.cat.shards()
-        return str(shards)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=str(shards),
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"opensearch ListShards({params.get('host')})"
@@ -114,12 +119,16 @@ class GetClusterSettings(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host"))
         response = client.client.cluster.get_settings(
             include_defaults=True, flat_settings=True
         )
-        return str(response)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=str(response),
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params) -> str:
         return f"opensearch GetClusterSettings({params.get('host')})"
@@ -140,10 +149,14 @@ class GetClusterHealth(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         health = client.client.cluster.health()
-        return str(health)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=str(health),
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params) -> str:
         return f"opensearch GetClusterSettings({params.get('host')})"
@@ -158,9 +171,13 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         hosts = [host for client in self.toolset.clients for host in client.hosts]
-        return str(hosts)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=str(hosts),
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return "opensearch ListOpenSearchHosts()"

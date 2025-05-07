@@ -117,5 +117,5 @@ def test_fetch_webpage():
     fetch_webpage_tool = tool_executor.get_tool_by_name("fetch_webpage")
     assert fetch_webpage_tool
     actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
-    print(actual_output)
-    assert actual_output.strip() == EXPECTED_TEST_RESULT
+    print(actual_output.data)
+    assert actual_output.data.strip() == EXPECTED_TEST_RESULT

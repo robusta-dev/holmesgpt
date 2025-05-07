@@ -26,6 +26,22 @@ from holmes.plugins.prompts import load_and_render_prompt
 ToolsetPattern = Union[Literal["*"], List[str]]
 
 
+class ToolResultStatus(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+
+
+class StructuredToolResult(BaseModel):
+    schema_version: str = "robusta:v1.0.0"
+    status: ToolResultStatus
+    error: Optional[str] = None
+    return_code: Optional[int] = None
+    data: Optional[Any] = None
+    url: Optional[str] = None
+    invocation: Optional[str] = None
+    params: Optional[Dict] = None
+
+
 def sanitize(param):
     # allow empty strings to be unquoted - useful for optional params
     # it is up to the user to ensure that the command they are using is ok with empty strings
@@ -54,6 +70,23 @@ def get_matching_toolsets(
         regex = re.compile(pat.replace("*", ".*"))
         matching_toolsets.extend([ts for ts in all_toolsets if regex.match(ts.name)])
     return matching_toolsets
+
+
+def format_tool_output(tool_result: Union[str, StructuredToolResult]) -> str:
+    if isinstance(tool_result, StructuredToolResult):
+        if tool_result.data and isinstance(tool_result.data, str):
+            # Display logs and other string outputs in a way that is readable to humans.
+            # To do this, we extract them from the result and print them as-is below.
+            # The metadata is printed on a single line to
+            data = tool_result.data
+            tool_result.data = "The raw tool data is printed below this JSON"
+            result_str = tool_result.model_dump_json(indent=2, exclude_none=True)
+            result_str += f"\n{data}"
+            return result_str
+        else:
+            return tool_result.model_dump_json(indent=2)
+    else:
+        return tool_result
 
 
 class ToolsetStatusEnum(str, Enum):
@@ -90,15 +123,17 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def invoke(self, params: Dict) -> StructuredToolResult:
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
-        return self._invoke(params)
+        result = self._invoke(params)
+        # return format_tool_output(result)
+        return result
 
     @abstractmethod
-    def _invoke(self, params: Dict) -> str:
-        return ""
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        pass
 
     @abstractmethod
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -142,18 +177,35 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _invoke(self, params) -> str:
+    def _invoke(self, params) -> StructuredToolResult:
         if self.command is not None:
-            raw_output = self.__invoke_command(params)
+            raw_output, return_code, invocation = self.__invoke_command(params)
         else:
-            raw_output = self.__invoke_script(params)
+            raw_output, return_code, invocation = self.__invoke_script(params)
 
-        if self.additional_instructions:
+        if self.additional_instructions and return_code == 0:
             logging.info(
                 f"Applying additional instructions: {self.additional_instructions}"
             )
-            return self.__apply_additional_instructions(raw_output)
-        return raw_output
+            output_with_instructions = self.__apply_additional_instructions(raw_output)
+        else:
+            output_with_instructions = raw_output
+
+        error = (
+            None
+            if return_code == 0
+            else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
+        )
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS
+            if return_code == 0
+            else ToolResultStatus.ERROR,
+            error=error,
+            return_code=return_code,
+            data=output_with_instructions,
+            params=params,
+            invocation=invocation,
+        )
 
     def __apply_additional_instructions(self, raw_output: str) -> str:
         try:
@@ -173,12 +225,13 @@ class YAMLTool(Tool, BaseModel):
             )
             return f"Error applying additional instructions: {e.stderr}"
 
-    def __invoke_command(self, params) -> str:
+    def __invoke_command(self, params) -> Tuple[str, int, str]:
         context = self._build_context(params)
         command = os.path.expandvars(self.command)
         template = Template(command)
         rendered_command = template.render(context)
-        return self.__execute_subprocess(rendered_command)
+        output, return_code = self.__execute_subprocess(rendered_command)
+        return output, return_code, rendered_command
 
     def __invoke_script(self, params) -> str:
         context = self._build_context(params)
@@ -194,24 +247,32 @@ class YAMLTool(Tool, BaseModel):
         subprocess.run(["chmod", "+x", temp_script_path], check=True)
 
         try:
-            return self.__execute_subprocess(temp_script_path)
+            output, return_code = self.__execute_subprocess(temp_script_path)
         finally:
             subprocess.run(["rm", temp_script_path])
+        return output, return_code, rendered_script
 
-    def __execute_subprocess(self, cmd) -> str:
+    def __execute_subprocess(self, cmd) -> Tuple[str, int]:
         try:
             logging.debug(f"Running `{cmd}`")
             result = subprocess.run(
                 cmd,
                 shell=True,
-                capture_output=True,
                 text=True,
-                check=True,
+                check=False,  # do not throw error, we just return the error code
                 stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
-            return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-        except subprocess.CalledProcessError as e:
-            return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+
+            return result.stdout.strip(), result.returncode
+        except Exception as e:
+            logging.error(
+                f"An unexpected error occurred while running '{cmd}': {e}",
+                exc_info=True,
+            )
+            output = f"Command execution failed with error: {e}"
+            return output, 1
 
 
 class StaticPrerequisite(BaseModel):
@@ -350,7 +411,8 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
-                    self._status = ToolsetStatusEnum.DISABLED
+                    self._status = ToolsetStatusEnum.FAILED
+                    self._error = prereq.disabled_reason
                     return
 
             elif isinstance(prereq, CallablePrerequisite):
@@ -420,9 +482,16 @@ class ToolExecutor:
                     )
                 self.tools_by_name[tool.name] = tool
 
-    def invoke(self, tool_name: str, params: Dict) -> str:
+    def invoke(self, tool_name: str, params: Dict) -> StructuredToolResult:
         tool = self.get_tool_by_name(tool_name)
-        return tool.invoke(params) if tool else ""
+        return (
+            tool.invoke(params)
+            if tool
+            else StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Could not find tool named {tool_name}",
+            )
+        )
 
     def get_tool_by_name(self, name: str) -> Optional[Tool]:
         if name in self.tools_by_name:

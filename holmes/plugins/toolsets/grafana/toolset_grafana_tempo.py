@@ -20,8 +20,10 @@ from holmes.plugins.toolsets.utils import (
 )
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
+    build_headers,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 
@@ -122,9 +124,10 @@ class GetTempoTraces(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         grafana_url = self._toolset.grafana_config.url
         api_key = self._toolset.grafana_config.api_key
+        headers = self._toolset.grafana_config.headers
         tempo_datasource_uid = self._toolset.grafana_config.grafana_datasource_uid
         labels = self._toolset.grafana_config.labels
 
@@ -132,10 +135,16 @@ class GetTempoTraces(Tool):
             params, ["service_name", "pod_name", "deployment_name"]
         )
         if invalid_params_error:
-            return invalid_params_error
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=invalid_params_error,
+                params=params,
+            )
 
         start, end = process_timestamps_to_int(
-            params.get("start_datetime"), params.get("end_datetime")
+            params.get("start_datetime"),
+            params.get("end_datetime"),
+            default_time_span_seconds=3600,
         )
 
         prefix = ""
@@ -166,13 +175,19 @@ class GetTempoTraces(Tool):
         traces = query_tempo_traces(
             grafana_url=grafana_url,
             api_key=api_key,
+            headers=headers,
             tempo_datasource_uid=tempo_datasource_uid,
             query=query,
             start=start,
             end=end,
             limit=params.get("limit", 50),
         )
-        return format_traces_list(traces)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=format_traces_list(traces),
+            params=params,
+            invocation=query,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Tempo traces with min_duration={params.get('min_duration')} ({str(params)})"
@@ -198,9 +213,10 @@ class GetTempoTags(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         grafana_url = self._toolset.grafana_config.url
         api_key = self._toolset.grafana_config.api_key
+        headers = self._toolset.grafana_config.headers
         tempo_datasource_uid = self._toolset.grafana_config.grafana_datasource_uid
         start, end = process_timestamps_to_int(
             start=params.get("start_datetime"),
@@ -213,15 +229,16 @@ class GetTempoTags(Tool):
         try:
             response = requests.get(
                 url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Accept": "application/json",
-                },
+                headers=build_headers(api_key=api_key, additional_headers=headers),
                 timeout=60,
             )
             response.raise_for_status()  # Raise an error for non-2xx responses
             data = response.json()
-            return yaml.dump(data.get("scopes"))
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(data.get("scopes")),
+                params=params,
+            )
         except requests.exceptions.RequestException as e:
             raise Exception(
                 f"Failed to retrieve trace by ID after retries: {e} \n for URL: {url}"
@@ -246,18 +263,23 @@ class GetTempoTraceById(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> StructuredToolResult:
         labels_mapping = self._toolset.grafana_config.labels
         labels = list(labels_mapping.model_dump().values())
 
         trace_data = query_tempo_trace_by_id(
             grafana_url=self._toolset.grafana_config.url,
             api_key=self._toolset.grafana_config.api_key,
+            headers=self._toolset.grafana_config.headers,
             tempo_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
             trace_id=get_param_or_raise(params, "trace_id"),
             key_labels=labels,
         )
-        return trace_data
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=trace_data,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Fetched Tempo trace with trace_id={params.get('trace_id')} ({str(params)})"
@@ -269,7 +291,7 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
             name="grafana/tempo",
             description="Fetches kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
-            docs_url="https://grafana.com/oss/tempo/",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html",
             tools=[GetTempoTraces(self), GetTempoTraceById(self), GetTempoTags(self)],
         )
         template_file_path = os.path.abspath(

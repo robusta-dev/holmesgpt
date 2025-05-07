@@ -19,7 +19,10 @@ from holmes.plugins.prompts import load_and_render_prompt
 
 
 def investigate_issues(
-    investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config
+    investigate_request: InvestigateRequest,
+    dal: SupabaseDal,
+    config: Config,
+    model: str = None,
 ):
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
@@ -33,7 +36,7 @@ def investigate_issues(
     if context:
         raw_data["extra_context"] = context
 
-    ai = config.create_issue_investigator(dal=dal)
+    ai = config.create_issue_investigator(dal=dal, model=model)
 
     issue = Issue(
         id=context["id"] if context else "",
@@ -64,10 +67,13 @@ def investigate_issues(
 
 
 def get_investigation_context(
-    investigate_request: InvestigateRequest, dal: SupabaseDal, config: Config
+    investigate_request: InvestigateRequest,
+    dal: SupabaseDal,
+    config: Config,
+    request_structured_output_from_llm: bool = None,
 ):
     load_robusta_api_key(dal=dal, config=config)
-    ai = config.create_issue_investigator(dal=dal)
+    ai = config.create_issue_investigator(dal=dal, model=investigate_request.model)
 
     raw_data = investigate_request.model_dump()
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
@@ -98,11 +104,11 @@ def get_investigation_context(
     # This section is about setting vars to request the LLM to return structured output.
     # It does not mean that Holmes will not return structured sections for investigation as it is
     # capable of splitting the markdown into sections
-    request_structured_output_from_llm = True
+    if request_structured_output_from_llm is None:
+        request_structured_output_from_llm = REQUEST_STRUCTURED_OUTPUT_FROM_LLM
     response_format = None
     sections = investigate_request.sections
-    if not sections or len(sections) == 0:
-        # If no sections are passed, we will not ask the LLM for structured output
+    if not sections:
         sections = DEFAULT_SECTIONS
         request_structured_output_from_llm = False
         logging.info(
@@ -110,9 +116,6 @@ def get_investigation_context(
         )
     elif ai.llm.model and ai.llm.model.startswith("bedrock"):
         # Structured output does not work well with Bedrock Anthropic Sonnet 3.5 through litellm
-        request_structured_output_from_llm = False
-
-    if not REQUEST_STRUCTURED_OUTPUT_FROM_LLM:
         request_structured_output_from_llm = False
 
     if request_structured_output_from_llm:
@@ -127,7 +130,7 @@ def get_investigation_context(
             "issue": issue,
             "sections": sections,
             "structured_output": request_structured_output_from_llm,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+            "toolsets": ai.tool_executor.toolsets,
         },
     )
 

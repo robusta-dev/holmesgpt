@@ -3,13 +3,13 @@ import os
 import yaml
 import os.path
 from typing import Any, Dict, List, Optional, Union
-
+from holmes.utils.file_utils import load_yaml_file
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
-from pydantic import FilePath, SecretStr
+from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
 from pydash.arrays import concat
-
+import json
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
@@ -24,7 +24,7 @@ from holmes.core.tools import (
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.github import GitHubSource
-from holmes.plugins.sources.jira import JiraSource
+from holmes.plugins.sources.jira import JiraSource, JiraServiceManagementSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
@@ -35,11 +35,20 @@ from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
 
 from holmes.core.tools import YAMLToolset
-from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
+from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 from holmes.utils.definitions import RobustaConfig
 import re
+from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+MODEL_LIST_FILE_LOCATION = os.environ.get(
+    "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
+)
+
+
+class SupportedTicketSources(str, Enum):
+    JIRA_SERVICE_MANAGEMENT = "jira-service-management"
+    PAGERDUTY = "pagerduty"
 
 
 def get_env_replacement(value: str) -> Optional[str]:
@@ -121,34 +130,7 @@ def load_toolsets_definitions(
 def parse_toolsets_file(
     path: str, raise_error: bool = True
 ) -> Optional[List[ToolsetYamlFromConfig]]:
-    try:
-        with open(path, "r", encoding="utf-8") as file:
-            parsed_yaml = yaml.safe_load(file)
-    except yaml.YAMLError as err:
-        logging.warning(f"Error parsing YAML from {path}: {err}")
-        if raise_error:
-            raise err
-        return None
-
-    except Exception as err:
-        logging.warning(f"Failed to open toolset file {path}: {err}")
-        if raise_error:
-            raise err
-        return None
-
-    if not parsed_yaml:
-        message = f"No content found in custom toolset file: {path}"
-        logging.warning(message)
-        if raise_error:
-            raise ValueError(message)
-        return None
-
-    if not isinstance(parsed_yaml, dict):
-        message = f"Invalid format: YAML file {path} does not contain a dictionary at the root."
-        logging.warning(message)
-        if raise_error:
-            raise ValueError(message)
-        return None
+    parsed_yaml = load_yaml_file(path, raise_error)
 
     toolsets_definitions = parsed_yaml.get("toolsets")
     if not toolsets_definitions:
@@ -167,6 +149,15 @@ def parse_toolsets_file(
         return None
 
     return toolset_config
+
+
+def parse_models_file(path: str):
+    models = load_yaml_file(path, raise_error=False)
+
+    for model, params in models.items():
+        params = replace_env_vars_values(params)
+
+    return models
 
 
 class Config(RobustaBaseConfig):
@@ -227,6 +218,12 @@ class Config(RobustaBaseConfig):
     def model_post_init(self, __context: Any) -> None:
         self._version = get_version()
         self._holmes_info = fetch_holmes_info()
+        self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
+        if ROBUSTA_AI:
+            self._model_list["Robusta"] = {
+                "base_url": ROBUSTA_API_ENDPOINT,
+            }
+        logging.info(f"loaded models: {list(self._model_list.keys())}")
 
         if not self.is_latest_version:
             logging.warning(
@@ -301,7 +298,6 @@ class Config(RobustaBaseConfig):
             for toolset in load_builtin_toolsets(dal)
             if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
         ]
-
         # All built-in toolsets are enabled by default, users can override this in their config
         for toolset in default_toolsets:
             toolset.enabled = True
@@ -316,6 +312,7 @@ class Config(RobustaBaseConfig):
         toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
+
         if toolsets_loaded_from_config:
             toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
@@ -323,7 +320,6 @@ class Config(RobustaBaseConfig):
                     toolsets_by_name,
                 )
             )
-
         if self.toolsets:
             loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
             if loaded_toolsets_from_env:
@@ -338,10 +334,10 @@ class Config(RobustaBaseConfig):
             if toolset.enabled:
                 toolset.check_prerequisites()
 
-        enabled_toolsets = []
+        toolsets = []
         for ts in toolsets_by_name.values():
+            toolsets.append(ts)
             if ts.get_status() == ToolsetStatusEnum.ENABLED:
-                enabled_toolsets.append(ts)
                 logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
             elif ts.get_status() == ToolsetStatusEnum.DISABLED:
                 logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
@@ -356,11 +352,17 @@ class Config(RobustaBaseConfig):
                     f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value"
                 )
 
-        enabled_tools = concat(*[ts.tools for ts in enabled_toolsets])
+        enabled_tools = concat(
+            *[
+                ts.tools
+                for ts in toolsets
+                if ts.get_status() == ToolsetStatusEnum.ENABLED
+            ]
+        )
         logging.debug(
             f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
         )
-        return ToolExecutor(enabled_toolsets)
+        return ToolExecutor(toolsets)
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """
@@ -419,13 +421,13 @@ class Config(RobustaBaseConfig):
         return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
 
     def create_toolcalling_llm(
-        self, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None, model: Optional[str] = None
     ) -> ToolCallingLLM:
         tool_executor = self.create_tool_executor(dal)
-        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
+        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm(model))
 
     def create_issue_investigator(
-        self, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None, model: str = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
@@ -434,7 +436,7 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_tool_executor(dal)
         return IssueInvestigator(
-            tool_executor, runbook_manager, self.max_steps, self._get_llm()
+            tool_executor, runbook_manager, self.max_steps, self._get_llm(model)
         )
 
     def create_console_issue_investigator(
@@ -450,7 +452,7 @@ class Config(RobustaBaseConfig):
             tool_executor, runbook_manager, self.max_steps, self._get_llm()
         )
 
-    def create_jira_source(self) -> JiraSource:
+    def validate_jira_config(self):
         if self.jira_url is None:
             raise ValueError("--jira-url must be specified")
         if not (
@@ -462,7 +464,20 @@ class Config(RobustaBaseConfig):
         if self.jira_api_key is None:
             raise ValueError("--jira-api-key must be specified")
 
+    def create_jira_source(self) -> JiraSource:
+        self.validate_jira_config()
+
         return JiraSource(
+            url=self.jira_url,
+            username=self.jira_username,
+            api_key=self.jira_api_key.get_secret_value(),
+            jql_query=self.jira_query,
+        )
+
+    def create_jira_service_management_source(self) -> JiraServiceManagementSource:
+        self.validate_jira_config()
+
+        return JiraServiceManagementSource(
             url=self.jira_url,
             username=self.jira_username,
             api_key=self.jira_api_key.get_secret_value(),
@@ -490,7 +505,7 @@ class Config(RobustaBaseConfig):
             query=self.github_query,
         )
 
-    def create_pagerduty_source(self) -> OpsGenieSource:
+    def create_pagerduty_source(self) -> PagerDutySource:
         if self.pagerduty_api_key is None:
             raise ValueError("--pagerduty-api-key must be specified")
 
@@ -632,6 +647,116 @@ class Config(RobustaBaseConfig):
         merged_config.update(cli_options)
         return cls(**merged_config)
 
-    def _get_llm(self) -> LLM:
+    def _get_llm(self, model_key: Optional[str] = None) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
-        return DefaultLLM(self.model, api_key)
+        model = self.model
+        model_params = {}
+        if self._model_list:
+            # get requested model or the first credentials if no model requested.
+            model_params = (
+                self._model_list.get(model_key, {}).copy()
+                if model_key
+                else next(iter(self._model_list.values())).copy()
+            )
+            api_key = model_params.pop("api_key", api_key)
+            model = model_params.pop("model", model)
+
+        return DefaultLLM(model, api_key, model_params)
+
+    def get_models_list(self) -> List[str]:
+        if self._model_list:
+            return json.dumps(list(self._model_list.keys()))
+
+        return json.dumps([self.model])
+
+
+class TicketSource(BaseModel):
+    config: Config
+    output_instructions: list[str]
+    source: Union[JiraServiceManagementSource, PagerDutySource]
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class SourceFactory(BaseModel):
+    @staticmethod
+    def create_source(
+        source: SupportedTicketSources,
+        config_file: Optional[str],
+        ticket_url: Optional[str],
+        ticket_username: Optional[str],
+        ticket_api_key: Optional[str],
+        ticket_id: Optional[str],
+    ) -> TicketSource:
+        supported_sources = [s.value for s in SupportedTicketSources]
+        if source not in supported_sources:
+            raise ValueError(
+                f"Source '{source}' is not supported. Supported sources: {', '.join(supported_sources)}"
+            )
+
+        if source == SupportedTicketSources.JIRA_SERVICE_MANAGEMENT:
+            config = Config.load_from_file(
+                config_file=config_file,
+                api_key=None,
+                model=None,
+                max_steps=None,
+                jira_url=ticket_url,
+                jira_username=ticket_username,
+                jira_api_key=ticket_api_key,
+                jira_query=None,
+                custom_toolsets=None,
+                custom_runbooks=None,
+            )
+
+            if not (
+                config.jira_url
+                and config.jira_username
+                and config.jira_api_key
+                and ticket_id
+            ):
+                raise ValueError(
+                    "URL, username, API key, and ticket ID are required for jira-service-management"
+                )
+
+            output_instructions = [
+                "All output links/urls must **always** be of this format : [link text here|http://your.url.here.com] and **never*** the format [link text here](http://your.url.here.com)"
+            ]
+            source_instance = config.create_jira_service_management_source()
+            return TicketSource(
+                config=config,
+                output_instructions=output_instructions,
+                source=source_instance,
+            )
+
+        elif source == SupportedTicketSources.PAGERDUTY:
+            config = Config.load_from_file(
+                config_file=config_file,
+                api_key=None,
+                model=None,
+                max_steps=None,
+                pagerduty_api_key=ticket_api_key,
+                pagerduty_user_email=ticket_username,
+                pagerduty_incident_key=None,
+                custom_toolsets=None,
+                custom_runbooks=None,
+            )
+
+            if not (
+                config.pagerduty_user_email and config.pagerduty_api_key and ticket_id
+            ):
+                raise ValueError(
+                    "username, API key, and ticket ID are required for pagerduty"
+                )
+
+            output_instructions = [
+                "All output links/urls must **always** be of this format : \n link text here: http://your.url.here.com\n **never*** use the url the format [link text here](http://your.url.here.com)"
+            ]
+            source_instance = config.create_pagerduty_source()
+            return TicketSource(
+                config=config,
+                output_instructions=output_instructions,
+                source=source_instance,
+            )
+
+        else:
+            raise NotImplementedError(f"Source '{source}' is not yet implemented")

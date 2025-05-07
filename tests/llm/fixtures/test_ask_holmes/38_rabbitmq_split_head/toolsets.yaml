@@ -1,0 +1,8 @@
+toolsets:
+  rabbitmq/core:
+    config:
+      clusters:
+        - id: rabbitmq
+          username: user
+          password: "{{env.RABBITMQ_PASSWORD}}"
+          management_url: http://localhost:15672
