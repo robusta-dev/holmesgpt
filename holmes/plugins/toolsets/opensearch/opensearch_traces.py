@@ -1,7 +1,7 @@
 import os
 import logging
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 import requests
 from cachetools import TTLCache
@@ -9,52 +9,47 @@ from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
     ToolParameter,
-    Toolset,
     ToolsetTag,
 )
 import json
 from requests import RequestException
 
 from holmes.plugins.toolsets.opensearch.opensearch_utils import (
+    BaseOpenSearchToolset,
     add_auth_header,
-    opensearch_health_check,
     get_search_url,
-    OpenSearchIndexConfig,
 )
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 TRACES_FIELDS_CACHE_KEY = "cached_traces_fields"
 
 
-class BaseOpenSearchTracesTool(Tool):
-    toolset: "OpenSearchTracesToolset"
-
-
-class GetTracesFields(BaseOpenSearchTracesTool):
-    def __init__(self, toolset: "OpenSearchTracesToolset"):
+class GetTracesFields(Tool):
+    def __init__(self, toolset: BaseOpenSearchToolset):
         super().__init__(
             name="get_traces_fields",
             description="Get all the fields in the traces documents",
             parameters={},
-            toolset=toolset,
         )
+        self._toolset = toolset
         self._cache = None
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
-            if not self._cache:
+            if not self._cache and self._toolset.opensearch_config.fields_ttl_seconds:
                 self._cache = TTLCache(
-                    maxsize=5, ttl=self.toolset.config.fields_ttl_seconds
+                    maxsize=5, ttl=self._toolset.opensearch_config.fields_ttl_seconds
                 )
 
-            cached_response = self._cache.get(TRACES_FIELDS_CACHE_KEY, None)
-            if cached_response:
-                logging.debug("traces fields returned from cache")
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=cached_response,
-                    params=params,
-                )
+            if self._cache:
+                cached_response = self._cache.get(TRACES_FIELDS_CACHE_KEY, None)
+                if cached_response:
+                    logging.debug("traces fields returned from cache")
+                    return StructuredToolResult(
+                        status=ToolResultStatus.SUCCESS,
+                        data=cached_response,
+                        params=params,
+                    )
 
             body = {
                 "size": 1,
@@ -69,9 +64,11 @@ class GetTracesFields(BaseOpenSearchTracesTool):
                 },
             }
             headers = {"Content-Type": "application/json"}
-            headers.update(add_auth_header(self.toolset.config.opensearch_auth_header))
+            headers.update(
+                add_auth_header(self._toolset.opensearch_config.opensearch_auth_header)
+            )
             logs_response = requests.get(
-                url=get_search_url(self.toolset.config),
+                url=get_search_url(self._toolset.opensearch_config),
                 timeout=180,
                 verify=True,
                 data=json.dumps(body),
@@ -79,14 +76,15 @@ class GetTracesFields(BaseOpenSearchTracesTool):
             )
             logs_response.raise_for_status()
             response = json.dumps(logs_response.json())
-            self._cache[TRACES_FIELDS_CACHE_KEY] = response
+            if self._cache:
+                self._cache[TRACES_FIELDS_CACHE_KEY] = response
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=response,
                 params=params,
             )
         except requests.Timeout:
-            logging.warn(
+            logging.warning(
                 "Timeout while fetching opensearch traces fields", exc_info=True
             )
             return StructuredToolResult(
@@ -95,14 +93,14 @@ class GetTracesFields(BaseOpenSearchTracesTool):
                 params=params,
             )
         except RequestException as e:
-            logging.warn("Failed to fetch opensearch traces fields", exc_info=True)
+            logging.warning("Failed to fetch opensearch traces fields", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while opensearch traces fields: {str(e)}",
                 params=params,
             )
         except Exception as e:
-            logging.warn("Failed to process opensearch traces fields", exc_info=True)
+            logging.warning("Failed to process opensearch traces fields", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
@@ -113,7 +111,7 @@ class GetTracesFields(BaseOpenSearchTracesTool):
         return "list traces documents fields"
 
 
-class TracesSearchQuery(BaseOpenSearchTracesTool):
+class TracesSearchQuery(Tool):
     def __init__(self, toolset: "OpenSearchTracesToolset"):
         super().__init__(
             name="traces_in_range_search",
@@ -125,8 +123,8 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
                     type="string",
                 ),
             },
-            toolset=toolset,
         )
+        self._toolset = toolset
         self._cache = None
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -139,10 +137,12 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
             )
             logging.debug(f"opensearch traces search query: {full_query}")
             headers = {"Content-Type": "application/json"}
-            headers.update(add_auth_header(self.toolset.config.opensearch_auth_header))
+            headers.update(
+                add_auth_header(self._toolset.opensearch_config.opensearch_auth_header)
+            )
 
             logs_response = requests.get(
-                url=get_search_url(self.toolset.config),
+                url=get_search_url(self._toolset.opensearch_config),
                 timeout=180,
                 verify=True,
                 data=json.dumps(full_query),
@@ -158,7 +158,7 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
                 params=params,
             )
         except requests.Timeout:
-            logging.warn(
+            logging.warning(
                 "Timeout while fetching opensearch traces search", exc_info=True
             )
             return StructuredToolResult(
@@ -167,14 +167,16 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
                 params=params,
             )
         except RequestException as e:
-            logging.warn("Failed to fetch opensearch traces search", exc_info=True)
+            logging.warning("Failed to fetch opensearch traces search", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Network error while opensearch traces search {err_msg} : {str(e)}",
                 params=params,
             )
         except Exception as e:
-            logging.warn("Failed to process opensearch traces search ", exc_info=True)
+            logging.warning(
+                "Failed to process opensearch traces search ", exc_info=True
+            )
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error {err_msg}: {str(e)}",
@@ -185,7 +187,7 @@ class TracesSearchQuery(BaseOpenSearchTracesTool):
         return f'search traces: query="{params.get("query")}"'
 
 
-class OpenSearchTracesToolset(Toolset):
+class OpenSearchTracesToolset(BaseOpenSearchToolset):
     def __init__(self):
         super().__init__(
             name="opensearch/traces",
@@ -207,28 +209,3 @@ class OpenSearchTracesToolset(Toolset):
             )
         )
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
-
-    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if not config and not os.environ.get("OPENSEARCH_TRACES_URL", None):
-            return False, "Missing opensearch traces URL. Check your config"
-        elif not config and os.environ.get("OPENSEARCH_TRACES_URL", None):
-            self.config = OpenSearchIndexConfig(
-                opensearch_url=os.environ.get("OPENSEARCH_TRACES_URL"),
-                index_name=os.environ.get("OPENSEARCH_TRACES_INDEX_NAME"),
-                opensearch_auth_header=os.environ.get(
-                    "OPENSEARCH_TRACES_AUTH_HEADER", None
-                ),
-            )
-
-            return opensearch_health_check(self.config)
-        else:
-            self.config = OpenSearchIndexConfig(**config)
-            return opensearch_health_check(self.config)
-
-    def get_example_config(self) -> Dict[str, Any]:
-        example_config = OpenSearchIndexConfig(
-            opensearch_url="YOUR OPENSEARCH TRACES URL",
-            index_name="YOUR OPENSEARCH TRACES INDEX NAME",
-            opensearch_auth_header="YOUR OPENSEARCH TRACES AUTH HEADER (Optional)",
-        )
-        return example_config.model_dump()

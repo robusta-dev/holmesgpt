@@ -6,7 +6,10 @@ toolsets:
     prerequisites:
       - command: "az aks --help"
       - command: "kubectl version --client"
-
+      - env:
+          - RESOURCE_GROUP_NAME
+          - CLUSTER_NAME
+          - SUBSCRIPTION_ID
     tools:
       - name: "cloud_provider"
         description: "Fetches the cloud provider of the kubernetes cluster, determined by the providerID of the nodes"
@@ -15,39 +18,39 @@ toolsets:
           kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.providerID}{"\n"}{end}'
       - name: "aks_show_cluster"
         description: "Fetches the configuration of a specific AKS cluster"
-        user_description: "get AKS cluster {{ CLUSTER_NAME }} under resource group {{RESOURCE_GROUP_NAME}} in subscription {{SUBSCRIPTION_ID}}"
+        user_description: "get AKS cluster ${CLUSTER_NAME}  under resource group ${RESOURCE_GROUP_NAME} in subscription ${SUBSCRIPTION_ID}"
         command: |
-          az aks show --resource-group {{RESOURCE_GROUP_NAME}} --name {{CLUSTER_NAME}} --subscription {{SUBSCRIPTION_ID}}
+          az aks show --resource-group ${RESOURCE_GROUP_NAME} --name ${CLUSTER_NAME} --subscription ${SUBSCRIPTION_ID}
       - name: "aks_list_clusters"
         description: "Lists all AKS clusters under a subscription"
-        user_description: "list AKS clusters under subscription {{ SUBSCRIPTION_ID }}"
+        user_description: "list AKS clusters under subscription ${SUBSCRIPTION_ID}"
         command: |
-          az aks list --subscription {{ SUBSCRIPTION_ID }}
+          az aks list --subscription ${SUBSCRIPTION_ID}
       - name: "aks_list_clusters_by_rg"
         description: "Lists all AKS clusters under a specific resource group"
-        user_description: "list AKS clusters in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
+        user_description: "list AKS clusters in resource group ${RESOURCE_GROUP_NAME} under subscription ${SUBSCRIPTION_ID}"
         command: |
-          az aks list --resource-group {{ RESOURCE_GROUP_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+          az aks list --resource-group ${RESOURCE_GROUP_NAME} --subscription ${SUBSCRIPTION_ID}
       - name: "aks_list_node_pools"
         description: "Lists node pools in an AKS cluster"
-        user_description: "list node pools for AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }}"
+        user_description: "list node pools for AKS cluster ${CLUSTER_NAME}  under resource group ${RESOURCE_GROUP_NAME}"
         command: |
-          az aks nodepool list --resource-group {{ RESOURCE_GROUP_NAME }} --cluster-name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+          az aks nodepool list --resource-group ${RESOURCE_GROUP_NAME} --cluster-name ${CLUSTER_NAME}  --subscription ${SUBSCRIPTION_ID}
       - name: "aks_show_node_pool"
         description: "Shows details of a specific node pool in an AKS cluster"
-        user_description: "get node pool {{ NODE_POOL_NAME }} in AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }}"
+        user_description: "get node pool {{ NODE_POOL_NAME }} in AKS cluster ${CLUSTER_NAME}  under resource group ${RESOURCE_GROUP_NAME}"
         command: |
-          az aks nodepool show --resource-group {{ RESOURCE_GROUP_NAME }} --cluster-name {{ CLUSTER_NAME }} --name {{ NODE_POOL_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+          az aks nodepool show --resource-group ${RESOURCE_GROUP_NAME} --cluster-name ${CLUSTER_NAME}  --name {{ NODE_POOL_NAME }} --subscription ${SUBSCRIPTION_ID}
       - name: "aks_list_versions"
         description: "Lists supported Kubernetes versions in a region"
         user_description: "list supported Kubernetes versions for region {{ LOCATION }}"
         command: |
-          az aks get-versions --location {{ LOCATION }} --subscription {{ SUBSCRIPTION_ID }}
+          az aks get-versions --location {{ LOCATION }} --subscription ${SUBSCRIPTION_ID}
       - name: "aks_get_credentials"
         description: "Downloads kubeconfig file for an AKS cluster"
-        user_description: "get kubeconfig credentials for AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }}"
+        user_description: "get kubeconfig credentials for AKS cluster ${CLUSTER_NAME}  under resource group ${RESOURCE_GROUP_NAME}"
         command: |
-          az aks get-credentials --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+          az aks get-credentials --resource-group ${RESOURCE_GROUP_NAME} --name ${CLUSTER_NAME}  --subscription ${SUBSCRIPTION_ID}
       - name: "aks_list_addons"
         description: "Lists all available AKS addons"
         user_description: "list available addons for AKS in region {{ LOCATION }}"
