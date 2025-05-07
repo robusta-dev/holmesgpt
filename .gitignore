@@ -166,3 +166,5 @@ pyrightconfig.json
 evals_report.txt
 
 config_toolsets.yaml
+
+**/.claude/settings.local.json
