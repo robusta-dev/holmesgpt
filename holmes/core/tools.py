@@ -295,7 +295,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
+    experimental: bool = False
     enabled: bool = False
     name: str
     description: str
