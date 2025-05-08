@@ -6,7 +6,9 @@ from holmes.core.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
+    ensure_grafana_uid_or_return_error_result,
     format_log,
+    get_base_url,
 )
 from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
@@ -104,11 +106,11 @@ class GetLokiLogs(Tool):
             default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
         query = get_param_or_raise(params, "query")
+        base_url = get_base_url(self._toolset._grafana_config)
         logs = execute_loki_query(
-            grafana_url=self._toolset._grafana_config.url,
+            base_url=base_url,
             api_key=self._toolset._grafana_config.api_key,
             headers=self._toolset._grafana_config.headers,
-            loki_datasource_uid=self._toolset._grafana_config.grafana_datasource_uid,
             query=query,
             start=start,
             end=end,
@@ -179,11 +181,11 @@ class GetLokiLogsForResource(Tool):
         label = get_resource_label(params, self._toolset.grafana_config)
         resource_name = get_param_or_raise(params, "resource_name")
 
+        base_url = get_base_url(self._toolset.grafana_config)
         logs = query_loki_logs_by_label(
-            grafana_url=self._toolset.grafana_config.url,
+            base_url=base_url,
             api_key=self._toolset.grafana_config.api_key,
             headers=self._toolset.grafana_config.headers,
-            loki_datasource_uid=self._toolset.grafana_config.grafana_datasource_uid,
             filter_regexp=params.get("logs_filter"),
             namespace=get_param_or_raise(params, "namespace"),
             namespace_search_key=self._toolset.grafana_config.labels.namespace,
@@ -241,7 +243,6 @@ class BuildLokiLogURL(Tool):
         end_time: str,
     ) -> str:
         label_key = "pod" if resource_type == "pod" else "app"
-
         # Correct JSON structure to match the expected URL format
         expected_query_params = {
             "schemaVersion": 1,
@@ -289,6 +290,12 @@ class BuildLokiLogURL(Tool):
         resource_type = params.get("resource_type")
         start_time = params.get("start_time", "now-6h")
         end_time = params.get("end_time", "now")
+
+        error_result = ensure_grafana_uid_or_return_error_result(
+            self._toolset._grafana_config
+        )
+        if error_result:
+            return error_result
 
         if resource_type not in ["pod", "app"]:
             return StructuredToolResult(

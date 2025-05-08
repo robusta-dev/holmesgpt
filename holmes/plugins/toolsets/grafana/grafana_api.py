@@ -1,9 +1,13 @@
 import logging
 import requests
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Tuple
 import backoff
 
-from holmes.plugins.toolsets.grafana.common import build_headers
+from holmes.plugins.toolsets.grafana.common import (
+    GrafanaConfig,
+    build_headers,
+    get_base_url,
+)
 
 
 @backoff.on_exception(
@@ -13,55 +17,13 @@ from holmes.plugins.toolsets.grafana.common import build_headers
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
     and e.response.status_code < 500,
 )
-def list_grafana_datasources(
-    grafana_url: str, api_key: Optional[str], datasource_type: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """
-    List all configured datasources from a Grafana instance with retry and backoff.
+def get_health(config: GrafanaConfig) -> Tuple[bool, str]:
+    base_url = get_base_url(config)
 
-    Args:
-        source_name: Optional. Filter for datasources matching this type.
-
-    Returns:
-        List of datasource configurations.
-    """
+    # Both loki and tempo provide the same /ready api
+    url = f"{base_url}/ready"
     try:
-        url = f"{grafana_url}/api/datasources"
-        headers_ = build_headers(api_key=api_key, additional_headers=None)
-
-        logging.info(f"Fetching datasources from: {url}")
-        response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
-        response.raise_for_status()
-
-        datasources = response.json()
-        if not datasource_type:
-            return datasources
-
-        relevant_datasources = [
-            ds for ds in datasources if ds["type"].lower() == datasource_type.lower()
-        ]
-
-        for ds in relevant_datasources:
-            logging.info(
-                f"Found datasource: {ds['name']} (type: {ds['type']}, id: {ds['id']})"
-            )
-
-        return relevant_datasources
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Failed to list datasources: {str(e)}")
-
-
-@backoff.on_exception(
-    backoff.expo,  # Exponential backoff
-    requests.exceptions.RequestException,  # Retry on request exceptions
-    max_tries=5,  # Maximum retries
-    giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
-    and e.response.status_code < 500,
-)
-def get_health(grafana_url: str, api_key: str) -> Tuple[bool, str]:
-    url = f"{grafana_url}/api/health"
-    try:
-        headers_ = build_headers(api_key=api_key, additional_headers=None)
+        headers_ = build_headers(api_key=config.api_key, additional_headers=None)
 
         response = requests.get(url, headers=headers_, timeout=10)  # Added timeout
         response.raise_for_status()
