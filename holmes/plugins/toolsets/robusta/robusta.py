@@ -57,7 +57,7 @@ class FetchRobustaFinding(Tool):
                 )
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=ToolResultStatus.NO_DATA,
                     data=f"Could not find a finding with finding_id={finding_id}",
                     params=params,
                 )
@@ -124,7 +124,7 @@ class FetchResourceRecommendation(Tool):
                 )
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=ToolResultStatus.NO_DATA,
                     data=f"Could not find recommendations for {params}",
                     params=params,
                 )
@@ -182,7 +182,7 @@ class FetchConfigurationChanges(Tool):
                 )
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=ToolResultStatus.NO_DATA,
                     data=f"Could not find changes for {params}",
                     params=params,
                 )
