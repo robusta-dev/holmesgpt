@@ -1,0 +1,207 @@
+from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
+import logging
+from typing import Dict, Optional, Tuple
+
+from pydantic import BaseModel
+
+from holmes.core.tools import (
+    StructuredToolResult,
+    Tool,
+    ToolParameter,
+    Toolset,
+)
+
+# Default values for log fetching
+DEFAULT_LOG_LIMIT = 2000
+DEFAULT_TIME_SPAN_SECONDS = 3600
+
+
+class LoggingLabelsConfig(BaseModel):
+    """Common label mapping configuration for all logging backends"""
+
+    pod: str
+    namespace: str
+
+
+class LoggingConfig(BaseModel):
+    """Base configuration for all logging backends"""
+
+    labels: LoggingLabelsConfig
+    # Common parameters like timeouts, defaults, etc.
+
+
+class BaseLoggingToolset(Toolset, ABC):
+    """Base class for all logging toolsets"""
+
+    @abstractmethod
+    def fetch_logs(
+        self,
+        namespace: str,
+        pod_name: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        filter_pattern: Optional[str] = None,
+        limit: int = DEFAULT_LOG_LIMIT,
+    ) -> StructuredToolResult:
+        """Implementation specific pod log fetching"""
+        pass
+
+
+class LoggingTool(Tool):
+    """Common tool for fetching pod logs across different logging backends"""
+
+    def __init__(self, toolset: BaseLoggingToolset):
+        super().__init__(
+            name="fetch_logs",
+            description="Fetch logs for a Kubernetes pod",
+            parameters={
+                "pod_name": ToolParameter(
+                    description="The exact pod name", type="string", required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Kubernetes namespace", type="string", required=True
+                ),
+                "start_time": ToolParameter(
+                    description="Start time for logs. Can be an RFC3339 formatted timestamp (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
+                    type="string",
+                    required=False,
+                ),
+                "end_time": ToolParameter(
+                    description="End time for logs. Must be an RFC3339 formatted timestamp (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
+                    type="string",
+                    required=False,
+                ),
+                "limit": ToolParameter(
+                    description=f"Maximum number of logs to return. Defaults to {DEFAULT_LOG_LIMIT}",
+                    type="integer",
+                    required=False,
+                ),
+                "filter": ToolParameter(
+                    description="Optional filter to apply to logs (regex pattern)",
+                    type="string",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        """
+        Process parameters and delegate to the toolset-specific implementation
+        """
+        namespace = params.get("namespace")
+        pod_name = params.get("pod_name")
+        start_time = params.get("start_time")
+        end_time = params.get("end_time")
+        filter_pattern = params.get("filter")
+        limit = params.get("limit", DEFAULT_LOG_LIMIT)
+
+        return self._toolset.fetch_logs(
+            namespace=namespace,
+            pod_name=pod_name,
+            start_time=start_time,
+            end_time=end_time,
+            filter_pattern=filter_pattern,
+            limit=limit,
+        )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        """Generate a one-line description of this tool invocation"""
+        namespace = params.get("namespace", "unknown-namespace")
+        pod_name = params.get("pod_name", "unknown-pod")
+        filter_desc = (
+            f" with filter '{params.get('filter')}'" if params.get("filter") else ""
+        )
+        return f"Fetching logs for pod {pod_name} in namespace {namespace}{filter_desc}"
+
+
+def process_time_parameters(
+    start_time: Optional[str],
+    end_time: Optional[str],
+    default_span_seconds: int = DEFAULT_TIME_SPAN_SECONDS,
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Convert time parameters to standard RFC3339 format
+
+    Args:
+        start_time: Either RFC3339 timestamp or negative integer (seconds before end)
+        end_time: RFC3339 timestamp or None (defaults to now)
+        default_span_seconds: Default time span if start_time not provided
+
+    Returns:
+        Tuple of (start_time, end_time) both in RFC3339 format or None
+    """
+    # Process end time first (as start might depend on it)
+    now = datetime.utcnow()
+
+    # Handle end_time
+    processed_end_time = None
+    if end_time:
+        try:
+            # Check if it's already in RFC3339 format
+            processed_end_time = end_time
+            datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            # If not a valid RFC3339, log the error and use current time
+            logging.warning(f"Invalid end_time format: {end_time}, using current time")
+            processed_end_time = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        # Default to current time
+        processed_end_time = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Handle start_time
+    processed_start_time = None
+    if start_time:
+        try:
+            # Check if it's a negative integer (relative time)
+            if isinstance(start_time, int) or (
+                isinstance(start_time, str)
+                and start_time.startswith("-")
+                and start_time[1:].isdigit()
+            ):
+                # Convert to seconds before end_time
+                seconds_before = abs(int(start_time))
+
+                # Parse end_time
+                if processed_end_time:
+                    end_datetime = datetime.fromisoformat(
+                        processed_end_time.replace("Z", "+00:00")
+                    )
+                else:
+                    end_datetime = now
+
+                # Calculate start_time
+                start_datetime = end_datetime - timedelta(seconds=seconds_before)
+                processed_start_time = start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+            else:
+                # Assume it's RFC3339
+                processed_start_time = start_time
+                datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            # If not a valid format, use default
+            logging.warning(
+                f"Invalid start_time format: {start_time}, using default time span"
+            )
+            if processed_end_time:
+                end_datetime = datetime.fromisoformat(
+                    processed_end_time.replace("Z", "+00:00")
+                )
+            else:
+                end_datetime = now
+
+            start_datetime = end_datetime - timedelta(seconds=default_span_seconds)
+            processed_start_time = start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        # Default to default_span_seconds before end_time
+        if processed_end_time:
+            end_datetime = datetime.fromisoformat(
+                processed_end_time.replace("Z", "+00:00")
+            )
+        else:
+            end_datetime = now
+
+        start_datetime = end_datetime - timedelta(seconds=default_span_seconds)
+        processed_start_time = start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    return processed_start_time, processed_end_time
