@@ -1,7 +1,7 @@
 import os
 import os.path
 from pathlib import Path
-from typing import List, Optional, Pattern
+from typing import List, Optional, Pattern, Union
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -33,7 +33,7 @@ class ListOfRunbooks(BaseModel):
     runbooks: List[Runbook]
 
 
-def load_runbooks_from_file(path: str | Path) -> List[Runbook]:
+def load_runbooks_from_file(path: Union[str, Path]) -> List[Runbook]:
     data: ListOfRunbooks = load_model_from_file(ListOfRunbooks, file_path=path)  # type: ignore
     for runbook in data.runbooks:
         runbook.set_path(path)  # type: ignore

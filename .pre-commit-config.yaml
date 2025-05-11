@@ -24,4 +24,4 @@ repos:
     hooks:
       - id: mypy
         pass_filenames: false
-        args: [., --python-version=3.12]
+        args: [., --python-version=3.9]

@@ -1,6 +1,6 @@
 import html
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from urllib.parse import parse_qs, unquote, urlparse
 from pydantic import BaseModel, computed_field
 
@@ -23,7 +23,7 @@ class PrometheusAlert(BaseModel):
 
     @computed_field  # type: ignore
     @property
-    def duration(self) -> timedelta | str:
+    def duration(self) -> Union[timedelta, str]:
         if self.endsAt.year == 1:
             return "Ongoing"
         else:
