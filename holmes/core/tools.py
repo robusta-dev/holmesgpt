@@ -151,7 +151,7 @@ class YAMLTool(Tool, BaseModel):
     def __infer_parameters(self):
         # Find parameters that appear inside self.command or self.script but weren't declared in parameters
         template = self.command or self.script
-        inferred_params = re.findall(r"\{\{\s*(\w+)\s*\}\}", template)
+        inferred_params = re.findall(r"\{\{\s*([\w]+)[\.\|]?.*?\s*\}\}", template)
         # TODO: if filters were used in template, take only the variable name
         # Regular expression to match Jinja2 placeholders with or without filters
         # inferred_params = re.findall(r'\{\{\s*(\w+)(\s*\|\s*[^}]+)?\s*\}\}', self.command)
@@ -417,6 +417,10 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 (enabled, error_message) = prereq.callable(self.config)
+                if not enabled and error_message:
+                    logging.warning(
+                        f"Failed to enable tool {self.name}: {error_message}"
+                    )
                 if enabled:
                     self._status = ToolsetStatusEnum.ENABLED
                 elif not enabled and error_message:
@@ -478,9 +482,16 @@ class ToolExecutor:
                     )
                 self.tools_by_name[tool.name] = tool
 
-    def invoke(self, tool_name: str, params: Dict) -> str:
+    def invoke(self, tool_name: str, params: Dict) -> StructuredToolResult:
         tool = self.get_tool_by_name(tool_name)
-        return tool.invoke(params) if tool else ""
+        return (
+            tool.invoke(params)
+            if tool
+            else StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Could not find tool named {tool_name}",
+            )
+        )
 
     def get_tool_by_name(self, name: str) -> Optional[Tool]:
         if name in self.tools_by_name:
