@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 from typing import Dict, List, Optional
 import backoff
 

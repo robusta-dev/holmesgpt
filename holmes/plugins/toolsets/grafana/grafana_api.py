@@ -1,5 +1,5 @@
 import logging
-import requests
+import requests  # type: ignore
 from typing import Any, Dict, List, Optional, Tuple
 import backoff
 
@@ -58,7 +58,7 @@ def list_grafana_datasources(
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
     and e.response.status_code < 500,
 )
-def get_health(grafana_url: str, api_key: str) -> Tuple[bool, str]:
+def get_health(grafana_url: str, api_key: Optional[str]) -> Tuple[bool, str]:
     url = f"{grafana_url}/api/health"
     try:
         headers_ = build_headers(api_key=api_key, additional_headers=None)

@@ -2,7 +2,7 @@ from datetime import datetime
 import logging
 from typing import Any, List
 
-import yaml
+import yaml  # type: ignore
 
 
 from holmes.config import Config

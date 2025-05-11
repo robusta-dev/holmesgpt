@@ -169,7 +169,7 @@ class YAMLTool(Tool, BaseModel):
             template = Template(self.user_description)
         else:
             cmd_or_script = self.command or self.script
-            template = Template(cmd_or_script)
+            template = Template(cmd_or_script)  # type: ignore
         return template.render(params)
 
     def _build_context(self, params):
@@ -181,7 +181,7 @@ class YAMLTool(Tool, BaseModel):
         if self.command is not None:
             raw_output, return_code, invocation = self.__invoke_command(params)
         else:
-            raw_output, return_code, invocation = self.__invoke_script(params)
+            raw_output, return_code, invocation = self.__invoke_script(params)  # type: ignore
 
         if self.additional_instructions and return_code == 0:
             logging.info(
@@ -210,7 +210,7 @@ class YAMLTool(Tool, BaseModel):
     def __apply_additional_instructions(self, raw_output: str) -> str:
         try:
             result = subprocess.run(
-                self.additional_instructions,
+                self.additional_instructions,  # type: ignore
                 input=raw_output,
                 shell=True,
                 text=True,
@@ -227,16 +227,16 @@ class YAMLTool(Tool, BaseModel):
 
     def __invoke_command(self, params) -> Tuple[str, int, str]:
         context = self._build_context(params)
-        command = os.path.expandvars(self.command)
-        template = Template(command)
+        command = os.path.expandvars(self.command)  # type: ignore
+        template = Template(command)  # type: ignore
         rendered_command = template.render(context)
         output, return_code = self.__execute_subprocess(rendered_command)
         return output, return_code, rendered_command
 
     def __invoke_script(self, params) -> str:
         context = self._build_context(params)
-        script = os.path.expandvars(self.script)
-        template = Template(script)
+        script = os.path.expandvars(self.script)  # type: ignore
+        template = Template(script)  # type: ignore
         rendered_script = template.render(context)
 
         with tempfile.NamedTemporaryFile(
@@ -250,7 +250,7 @@ class YAMLTool(Tool, BaseModel):
             output, return_code = self.__execute_subprocess(temp_script_path)
         finally:
             subprocess.run(["rm", temp_script_path])
-        return output, return_code, rendered_script
+        return output, return_code, rendered_script  # type: ignore
 
     def __execute_subprocess(self, cmd) -> Tuple[str, int]:
         try:
@@ -286,7 +286,7 @@ class CallablePrerequisite(BaseModel):
 
 class ToolsetCommandPrerequisite(BaseModel):
     command: str  # must complete successfully (error code 0) for prereq to be satisfied
-    expected_output: str = None  # optional
+    expected_output: Optional[str] = None  # optional
 
 
 class ToolsetEnvironmentPrerequisite(BaseModel):
@@ -329,7 +329,8 @@ class Toolset(BaseModel):
         if they are not None.
         """
         for field, value in override.model_dump(
-            exclude_unset=True, exclude=("name")
+            exclude_unset=True,
+            exclude=("name"),  # type: ignore
         ).items():
             if field in self.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
@@ -445,7 +446,7 @@ class Toolset(BaseModel):
 
 
 class YAMLToolset(Toolset):
-    tools: List[YAMLTool]
+    tools: List[YAMLTool]  # type: ignore
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -514,9 +515,9 @@ class ToolsetYamlFromConfig(Toolset):
             ToolsetCommandPrerequisite,
             ToolsetEnvironmentPrerequisite,
         ]
-    ] = []
-    tools: Optional[List[YAMLTool]] = []
-    description: Optional[str] = None
+    ] = []  # type: ignore
+    tools: Optional[List[YAMLTool]] = []  # type: ignore
+    description: Optional[str] = None  # type: ignore
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None

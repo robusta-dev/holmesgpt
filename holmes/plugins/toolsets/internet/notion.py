@@ -28,8 +28,8 @@ class FetchNotion(Tool):
                     required=True,
                 ),
             },
-            toolset=toolset,
         )
+        self.toolset = toolset
 
     def convert_notion_url(self, url):
         if "api.notion.com" in url:
