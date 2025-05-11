@@ -182,8 +182,8 @@ class FetchWebpage(Tool):
                     required=True,
                 ),
             },
+            toolset=toolset,  # type: ignore
         )
-        self.toolset = toolset
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         url: str = params["url"]

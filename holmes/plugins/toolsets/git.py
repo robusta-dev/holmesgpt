@@ -242,8 +242,8 @@ class GitReadFileWithLineNumbers(Tool):
                     required=True,
                 ),
             },
+            toolset=toolset,  # type: ignore
         )
-        self.toolset = toolset
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         filepath = params["filepath"]
@@ -285,8 +285,8 @@ class GitListFiles(Tool):
             name="git_list_files",
             description="Lists all files and directories in the remote Git repository.",
             parameters={},
+            toolset=toolset,  # type: ignore
         )
-        self.toolset = toolset
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -326,8 +326,8 @@ class GitListOpenPRs(Tool):
             name="git_list_open_prs",
             description="Lists all open pull requests (PRs) in the remote Git repository.",
             parameters={},
+            toolset=toolset,  # type: ignore
         )
-        self.toolset = toolset
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -394,8 +394,8 @@ class GitExecuteChanges(Tool):
                     description="Commit message", type="string", required=True
                 ),
             },
+            toolset=toolset,  # type: ignore
         )
-        self.toolset = toolset
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         def error(msg: str) -> StructuredToolResult:
@@ -615,8 +615,8 @@ class GitUpdatePR(Tool):
                     description="Commit message", type="string", required=True
                 ),
             },
+            toolset=toolset,  # type: ignore
         )
-        self.toolset = toolset
 
     def _invoke(self, params: Any) -> str:  # type: ignore
         try:
