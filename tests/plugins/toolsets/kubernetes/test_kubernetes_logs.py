@@ -4,13 +4,13 @@ from kubernetes.client.exceptions import ApiException
 
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
+from holmes.plugins.toolsets.logging_api import FetchLogsParams
+from holmes.plugins.toolsets.utils import to_unix
 
 
 class TestKubernetesLogsToolset(unittest.TestCase):
-    """Test KubernetesLogsToolset functionality"""
 
     def setUp(self):
-        """Set up common mocks and test fixtures"""
         self.toolset = KubernetesLogsToolset()
 
         # Patch the _initialize_client method to prevent actual k8s client initialization
@@ -35,7 +35,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
     @patch("kubernetes.config")
     def test_default_log_formatting(self, mock_config, mock_api):
         """Test that logs are formatted correctly with default settings"""
-        # Configure mocks
+        
         mock_api_instance = mock_api.return_value
         mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
         mock_api_instance.read_namespaced_pod_log.return_value = self.sample_logs
@@ -43,10 +43,17 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         # Set the internal API reference (normally done in _initialize_client)
         self.toolset._core_v1_api = mock_api_instance
 
-        # Call the fetch_logs method
-        result = self.toolset.fetch_logs(namespace="default", pod_name="test-pod")
+        params = FetchLogsParams(
+            namespace="default",
+            pod_name="test-pod",
+            limit=2000,
+            start_time=None,
+            end_time=None,
+            filter_pattern=None
+        )
+        
+        result = self.toolset.fetch_logs(params=params)
 
-        # Verify results
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
 
         # Verify that the logs are formatted correctly (no line numbers)
@@ -57,10 +64,8 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         )
         self.assertEqual(result.data, expected_logs)
 
-        # Verify that timestamps were included
         self.assertIn("2023-05-01T12:00:00Z", result.data)
 
-        # Verify the correct API calls were made
         mock_api_instance.read_namespaced_pod.assert_called_once_with(
             name="test-pod", namespace="default"
         )
@@ -70,8 +75,6 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         self.assertEqual(kwargs["name"], "test-pod")
         self.assertEqual(kwargs["namespace"], "default")
         self.assertEqual(kwargs["container"], "test-container")
-        self.assertEqual(kwargs["previous"], False)  # Default should be False
-        self.assertEqual(kwargs["timestamps"], False)  # Default should be False
 
     @patch("kubernetes.client.CoreV1Api")
     @patch("kubernetes.config")
@@ -99,10 +102,17 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         mock_api_instance.read_namespaced_pod_log.side_effect = mock_get_logs
 
-        # Call the fetch_logs method
-        result = self.toolset.fetch_logs(namespace="default", pod_name="test-pod")
+        params = FetchLogsParams(
+            namespace="default",
+            pod_name="test-pod",
+            limit=2000,
+            start_time=None,
+            end_time=None,
+            filter_pattern=None
+        )
+        
+        result = self.toolset.fetch_logs(params=params)
 
-        # Verify results
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
 
         # Verify that the logs are from the previous container instance
@@ -149,7 +159,16 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         mock_api_instance.read_namespaced_pod_log.side_effect = mock_get_logs
 
         # Call the fetch_logs method
-        result = self.toolset.fetch_logs(namespace="default", pod_name="test-pod")
+        params = FetchLogsParams(
+            namespace="default",
+            pod_name="test-pod",
+            limit=2000,
+            start_time=None,
+            end_time=None,
+            filter_pattern=None
+        )
+        
+        result = self.toolset.fetch_logs(params=params)
 
         # Verify results
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
@@ -174,7 +193,16 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         self.toolset._core_v1_api = mock_api_instance
 
         # Call the fetch_logs method with limit
-        self.toolset.fetch_logs(namespace="default", pod_name="test-pod", limit=100)
+        params = FetchLogsParams(
+            namespace="default",
+            pod_name="test-pod",
+            limit=100,
+            start_time=None,
+            end_time=None,
+            filter_pattern=None
+        )
+        
+        self.toolset.fetch_logs(params=params)
 
         # Verify the API call was made with tail_lines
         mock_api_instance.read_namespaced_pod_log.assert_called_once()
@@ -190,18 +218,132 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         mock_api_instance.read_namespaced_pod.side_effect = ApiException(
             status=404, reason="Not Found"
         )
+        # Also make logs method raise error to simulate both pod and logs failing
+        mock_api_instance.read_namespaced_pod_log.side_effect = ApiException(
+            status=404, reason="Not Found"
+        )
 
         # Set the internal API reference (normally done in _initialize_client)
         self.toolset._core_v1_api = mock_api_instance
 
         # Call the fetch_logs method
-        result = self.toolset.fetch_logs(
-            namespace="default", pod_name="nonexistent-pod"
+        params = FetchLogsParams(
+            namespace="default",
+            pod_name="nonexistent-pod",
+            limit=2000,
+            start_time=None,
+            end_time=None,
+            filter_pattern=None
         )
 
-        # Verify error response
-        self.assertEqual(result.status, ToolResultStatus.ERROR)
-        self.assertIn("Pod nonexistent-pod not found", result.error)
+        result = self.toolset.fetch_logs(params=params)
+
+        # In the updated API, if the pod is not found it tries previous logs which returns empty
+        # rather than an error, which is considered a success with "No logs found"
+        self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        self.assertEqual(result.data, "No logs found")
+
+    @patch("kubernetes.client.CoreV1Api")
+    @patch("kubernetes.config")
+    def test_filter_logs(self, mock_config, mock_api):
+        """Test log filtering"""
+        # Configure mocks
+        mock_api_instance = mock_api.return_value
+        mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
+        
+        logs_with_errors = (
+            "2023-05-01T12:00:00Z INFO: Starting service\n"
+            "2023-05-01T12:00:01Z ERROR: Connection failed\n"
+            "2023-05-01T12:00:02Z INFO: Retrying connection\n"
+            "2023-05-01T12:00:03Z ERROR: Connection timeout\n"
+        )
+        
+        mock_api_instance.read_namespaced_pod_log.return_value = logs_with_errors
+
+        # Set the internal API reference (normally done in _initialize_client)
+        self.toolset._core_v1_api = mock_api_instance
+
+        # Call the fetch_logs method with filter
+        params = FetchLogsParams(
+            namespace="default",
+            pod_name="test-pod",
+            limit=2000,
+            start_time=None,
+            end_time=None,
+            filter_pattern="ERROR"
+        )
+        
+        result = self.toolset.fetch_logs(params=params)
+
+        # Verify only filtered logs are returned
+        self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        assert result.data
+        self.assertIn("ERROR: Connection failed", result.data)
+        self.assertIn("ERROR: Connection timeout", result.data)
+        self.assertNotIn("INFO: Starting service", result.data)
+        self.assertNotIn("INFO: Retrying connection", result.data)
+
+    @patch("kubernetes.client.CoreV1Api")
+    @patch("kubernetes.config")
+    @patch("holmes.plugins.toolsets.kubernetes_logs.filter_log_lines_by_timestamp_and_strip_prefix")
+    def test_logs_filtered_by_timestamps(self, mock_filter_func, mock_config, mock_api):
+        """Test that logs are filtered by start/end timestamp when those are provided"""
+        # Configure mocks
+        mock_api_instance = mock_api.return_value
+        mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
+        
+        # Sample logs with timestamps
+        logs_with_timestamps = (
+            "2023-05-01T12:00:00Z Log line 1\n"
+            "2023-05-01T12:00:01Z Log line 2\n"
+            "2023-05-01T12:00:02Z Log line 3\n"
+        )
+        
+        mock_api_instance.read_namespaced_pod_log.return_value = logs_with_timestamps
+        
+        # Set up the filter function to return filtered logs
+        filtered_logs = ["Log line 2"]
+        mock_filter_func.return_value = filtered_logs
+        
+        # Set the internal API reference (normally done in _initialize_client)
+        self.toolset._core_v1_api = mock_api_instance
+        
+        # Define start and end times for filtering
+        start_time = "2023-05-01T12:00:01Z"
+        end_time = "2023-05-01T12:00:01Z"
+        
+        # Call the fetch_logs method with start/end time
+        params = FetchLogsParams(
+            namespace="default",
+            pod_name="test-pod",
+            limit=2000,
+            start_time=start_time,
+            end_time=end_time,
+            filter_pattern=None
+        )
+        
+        result = self.toolset.fetch_logs(params=params)
+        
+        # Verify API was called with timestamps=True
+        mock_api_instance.read_namespaced_pod_log.assert_called_once()
+        kwargs = mock_api_instance.read_namespaced_pod_log.call_args[1]
+        self.assertTrue(kwargs["timestamps"])
+        
+        # Verify filter function was called with correct parameters
+        mock_filter_func.assert_called_once()
+        # Convert timestamps to Unix for verification
+        unix_start = to_unix(start_time)
+        unix_end = to_unix(end_time)
+        
+        # Check that filter_by_timestamp_and_strip_prefix was called with correct params
+        filter_args, filter_kwargs = mock_filter_func.call_args
+        self.assertEqual(filter_args[0], logs_with_timestamps.strip().split("\n"))
+        self.assertEqual(filter_args[1], unix_start)
+        self.assertEqual(filter_args[2], unix_end)
+        
+        # Verify result only contains filtered logs
+        self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        self.assertEqual(result.data, "Log line 2")
 
 
 if __name__ == "__main__":

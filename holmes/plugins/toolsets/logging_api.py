@@ -11,6 +11,7 @@ from holmes.core.tools import (
     ToolParameter,
     Toolset,
 )
+from holmes.plugins.toolsets.utils import get_param_or_raise
 
 # Default values for log fetching
 DEFAULT_LOG_LIMIT = 2000
@@ -31,20 +32,20 @@ class LoggingConfig(BaseModel):
     # Common parameters like timeouts, defaults, etc.
 
 
+class FetchLogsParams(BaseModel):
+    namespace: str
+    pod_name: str
+    start_time: Optional[str]
+    end_time: Optional[str]
+    filter_pattern: Optional[str]
+    limit: int
+
+
 class BaseLoggingToolset(Toolset, ABC):
     """Base class for all logging toolsets"""
 
     @abstractmethod
-    def fetch_logs(
-        self,
-        namespace: str,
-        pod_name: str,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        filter_pattern: Optional[str] = None,
-        limit: int = DEFAULT_LOG_LIMIT,
-    ) -> StructuredToolResult:
-        """Implementation specific pod log fetching"""
+    def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
         pass
 
 
@@ -89,23 +90,17 @@ class LoggingTool(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
-        """
-        Process parameters and delegate to the toolset-specific implementation
-        """
-        namespace = params.get("namespace")
-        pod_name = params.get("pod_name")
-        start_time = params.get("start_time")
-        end_time = params.get("end_time")
-        filter_pattern = params.get("filter")
-        limit = params.get("limit", DEFAULT_LOG_LIMIT)
+        structured_params = FetchLogsParams(
+            namespace=get_param_or_raise(params, "namespace"),
+            pod_name=get_param_or_raise(params, "pod_name"),
+            start_time=params.get("start_time"),
+            end_time=params.get("end_time"),
+            filter_pattern=params.get("filter"),
+            limit=params.get("limit", DEFAULT_LOG_LIMIT),
+        )
 
         return self._toolset.fetch_logs(
-            namespace=namespace,
-            pod_name=pod_name,
-            start_time=start_time,
-            end_time=end_time,
-            filter_pattern=filter_pattern,
-            limit=limit,
+            params=structured_params,
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:

@@ -5,6 +5,7 @@ from holmes.core.tools import (
     ToolResultStatus,
     Tool,
     ToolParameter,
+    Toolset,
     ToolsetTag,
 )
 
@@ -28,13 +29,12 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
 )
 from holmes.plugins.toolsets.logging_api import (
-    BaseLoggingToolset,
     LoggingTool,
     DEFAULT_LOG_LIMIT,
 )
 
 
-class BaseCoralogixToolset(BaseLoggingToolset):
+class BaseCoralogixToolset(Toolset):
     config: Optional[CoralogixConfig] = None
 
     def get_example_config(self):

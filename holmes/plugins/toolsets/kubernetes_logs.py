@@ -1,9 +1,10 @@
 import logging
 import re
 from typing import Dict, Optional, List, Any, Tuple
-
+from datetime import datetime
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
+from pydantic import BaseModel
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -13,10 +14,14 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.logging_api import (
     BaseLoggingToolset,
+    FetchLogsParams,
     LoggingTool,
-    DEFAULT_LOG_LIMIT,
-    process_time_parameters,
 )
+from holmes.plugins.toolsets.utils import process_timestamps_to_int
+
+
+class Pod(BaseModel):
+    containers: list[str]
 
 
 class KubernetesLogsToolset(BaseLoggingToolset):
@@ -40,6 +45,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
     def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         """Verify Kubernetes client can connect to the cluster"""
         try:
+            # TODO: support API KEY / BearerToken
             # Try to load the kubeconfig and access the API
             self._initialize_client()
             self._api_client.call_api(
@@ -54,13 +60,12 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             return False, f"Kubernetes client initialization error: {str(e)}"
 
     def get_example_config(self):
+        # TODO: implement
         return {}
 
     def _initialize_client(self):
-        """Initialize the Kubernetes API client if not already initialized"""
         if not self._api_client:
             try:
-                # Load either in-cluster config or kubeconfig file
                 try:
                     config.load_incluster_config()
                 except config.ConfigException:
@@ -68,98 +73,36 @@ class KubernetesLogsToolset(BaseLoggingToolset):
 
                 self._api_client = client.ApiClient()
                 self._core_v1_api = client.CoreV1Api(self._api_client)
-            except Exception as e:
-                logging.error(f"Failed to initialize Kubernetes client: {e}")
+            except Exception:
+                logging.error("Failed to initialize Kubernetes client", exc_info=True)
                 raise
 
-    def fetch_logs(
-        self,
-        namespace: str,
-        pod_name: str,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        filter_pattern: Optional[str] = None,
-        limit: int = DEFAULT_LOG_LIMIT,
-    ) -> StructuredToolResult:
-        if not namespace or not pod_name:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error="Missing required parameters: namespace and pod_name",
-            )
-
+    def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
         try:
             self._initialize_client()
 
-            pod = self._get_pod(namespace, pod_name)
-            if not pod:
-                return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Pod {pod_name} not found in namespace {namespace}",
-                )
-
-            # Get container names
-            containers = [container.name for container in pod.spec.containers]
-            if not containers:
-                return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Pod {pod_name} has no containers",
-                )
-
-            # Process time parameters
-            processed_start_time, processed_end_time = process_time_parameters(
-                start_time, end_time
-            )
-
-            # Kubernetes API doesn't directly support complex time-based filtering,
-            # so we'll fetch all logs and do any additional filtering ourselves
-
+            pod = self._find_pod(params.namespace, params.pod_name)
             all_logs = []
+            if not pod or not pod.containers:
+                all_logs = self._fetch_pod_logs(params=params, previous=True)
+            else:
+                # Kubernetes API doesn't directly support complex time-based filtering,
+                # so we'll fetch all logs and do any additional filtering ourselves
 
-            # Fetch logs for each container, try current logs first then previous if none found
-            for container_name in containers:
-                container_logs = []
-
-                # Try to get current logs first
-                current_logs = self._fetch_container_logs(
-                    namespace,
-                    pod_name,
-                    container_name,
-                    previous=False,
-                    timestamp=False,  # We don't include timestamps by default
-                    # Pass limit as tail_lines to match kubectl behavior
-                    tail_lines=limit if limit and limit > 0 else None,
+                all_logs = self._fetch_pod_logs(
+                    params=params, containers=pod.containers, previous=False
                 )
 
-                # If no current logs found, try to get logs from previous container
-                if not current_logs:
-                    container_logs = self._fetch_container_logs(
-                        namespace,
-                        pod_name,
-                        container_name,
-                        previous=True,
-                        timestamp=False,
-                        # Pass limit as tail_lines to match kubectl behavior
-                        tail_lines=limit if limit and limit > 0 else None,
+                if not all_logs:
+                    all_logs = self._fetch_pod_logs(
+                        params=params, containers=pod.containers, previous=True
                     )
-                else:
-                    container_logs = current_logs
 
-                # Add container name prefix only for multi-container pods
-                # This matches kubectl behavior
-                if len(containers) > 1:
-                    container_logs = [
-                        f"{container_name}: {log}" for log in container_logs
-                    ]
+            if params.filter_pattern:
+                all_logs = self._filter_logs(all_logs, params.filter_pattern)
 
-                all_logs.extend(container_logs)
-
-            # Filter by pattern if provided
-            if filter_pattern:
-                all_logs = self._filter_logs(all_logs, filter_pattern)
-
-            # Apply limit
-            if limit and limit < len(all_logs):
-                all_logs = all_logs[-limit:]
+            if params.limit and params.limit < len(all_logs):
+                all_logs = all_logs[-params.limit :]
 
             # Format output
             formatted_logs = self._format_logs(all_logs)
@@ -167,15 +110,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=formatted_logs,
-                params={
-                    "namespace": namespace,
-                    "pod_name": pod_name,
-                    "containers": containers,
-                    "start_time": processed_start_time,
-                    "end_time": processed_end_time,
-                    "filter": filter_pattern,
-                    "limit": limit,
-                },
+                params=params.model_dump(),
             )
         except ApiException as e:
             return StructuredToolResult(
@@ -183,62 +118,109 @@ class KubernetesLogsToolset(BaseLoggingToolset):
                 error=f"Kubernetes API error: {str(e)}",
             )
         except Exception as e:
-            logging.exception(f"Error fetching logs for pod {pod_name}")
+            logging.exception(f"Error fetching logs for pod {params.pod_name}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error fetching logs: {str(e)}",
             )
 
-    def _get_pod(self, namespace: str, pod_name: str):
-        """Get pod details"""
+    def _find_pod(self, namespace: str, pod_name: str) -> Optional[Pod]:
+        if not self._core_v1_api:
+            return None
         try:
-            return self._core_v1_api.read_namespaced_pod(
+            pod: Any = self._core_v1_api.read_namespaced_pod(
                 name=pod_name, namespace=namespace
             )
+            return Pod(containers=[container.name for container in pod.spec.containers])
         except ApiException as e:
             if e.status == 404:
-                # Pod not found
                 return None
             else:
-                # Other API error
                 raise
         except Exception:
-            logging.exception(f"Error getting pod {pod_name}")
+            logging.exception(f"Error getting pod {pod_name}", exc_info=True)
             raise
 
-    def _fetch_container_logs(
+    def _fetch_pod_logs(
         self,
-        namespace: str,
-        pod_name: str,
-        container_name: str,
+        params: FetchLogsParams,
+        containers: Optional[List[str]] = None,
         previous: bool = False,
-        timestamp: bool = False,
-        since_time: Optional[str] = None,
-        tail_lines: Optional[int] = None,
+    ) -> List[Any]:
+        pod_logs = []
+        if containers:
+            # Fetch logs for each container, try current logs first then previous if none found
+            for container_name in containers:
+                container_logs = self._fetch_logs(
+                    params=params,
+                    container_name=container_name,
+                    previous=previous,
+                )
+
+                # Add container name prefix only for multi-container pods
+                # This matches kubectl behavior
+                if len(containers) > 1:
+                    container_logs = [
+                        f"{container_name}: {log}" for log in container_logs
+                    ]
+                pod_logs.extend(container_logs)
+        else:
+            pod_logs = self._fetch_logs(
+                params=params,
+                previous=previous,
+            )
+
+        return pod_logs
+
+    def _fetch_logs(
+        self,
+        params: FetchLogsParams,
+        container_name: Optional[str] = None,
+        previous: bool = False,
     ) -> List[str]:
         """Fetch logs for a specific container in a pod"""
+        if not self._core_v1_api:
+            return []
         try:
-            # Build parameters the way kubectl would
-            params = {
-                "name": pod_name,
-                "namespace": namespace,
-                "container": container_name,
+            filter_by_timestamps = False
+            if params.start_time or params.end_time:
+                filter_by_timestamps = True
+
+            query_params = {
+                "name": params.pod_name,
+                "namespace": params.namespace,
                 "previous": previous,
-                "timestamps": timestamp,
+                "timestamps": filter_by_timestamps,
             }
 
+            if container_name:
+                query_params["container"] = container_name
+
             # Add optional parameters if provided
-            if since_time:
-                params["since_seconds"] = since_time
+            if params.start_time:
+                query_params["since_seconds"] = params.start_time
 
-            if tail_lines is not None:
-                params["tail_lines"] = tail_lines
+            if params.limit > 0:
+                query_params["tail_lines"] = params.limit
 
-            logs = self._core_v1_api.read_namespaced_pod_log(**params)
+            logs = self._core_v1_api.read_namespaced_pod_log(**query_params)
 
             if logs:
                 # Split logs by newline but filter out empty lines
-                return [line for line in logs.strip().split("\n") if line]
+                logs = [line for line in logs.strip().split("\n") if line]
+
+                if filter_by_timestamps:
+                    start, end = process_timestamps_to_int(
+                        start=params.start_time,
+                        end=params.end_time,
+                        default_time_span_seconds=3600,
+                    )
+                    return filter_log_lines_by_timestamp_and_strip_prefix(
+                        logs=logs, start_unix_timestamp=start, end_unix_timestamp=end
+                    )
+                else:
+                    return logs
+
             return []
         except ApiException as e:
             if e.status == 400 and "previous terminated container" in str(e).lower():
@@ -271,3 +253,42 @@ class KubernetesLogsToolset(BaseLoggingToolset):
 
         # Simple join without line numbers to match kubectl logs format
         return "\n".join([log for log in logs if log.strip()])
+
+
+def filter_log_lines_by_timestamp_and_strip_prefix(
+    logs: List[str], start_unix_timestamp: int, end_unix_timestamp: int
+) -> List[str]:
+    """
+    Filters log lines based on their leading ISO 8601 timestamp, keeping lines
+    within the specified start and end Unix timestamps (inclusive). Returns the
+    filtered lines *without* the leading timestamp prefix.
+    """
+    # match ISO 8601 format (YYYY-MM-DDTHH:MM:SS[.fffffffff]Z)
+    timestamp_pattern = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z)")
+    filtered_lines_content: List[str] = []
+
+    for line in logs:
+        if not isinstance(line, str):
+            filtered_lines_content.append(line)
+            continue
+
+        match = timestamp_pattern.match(line)
+        if match:
+            timestamp_str = match.group(0)  # Get the matched timestamp string
+            try:
+                parseable_ts_str = timestamp_str[:-1] + "+00:00"
+                dt_obj = datetime.fromisoformat(parseable_ts_str)
+
+                log_unix_ts = int(dt_obj.timestamp())
+
+                if start_unix_timestamp <= log_unix_ts <= end_unix_timestamp:
+                    prefix_length = len(timestamp_str)
+                    line_content = line[prefix_length:]
+                    line_content = line_content.lstrip()
+                    filtered_lines_content.append(line_content)
+
+            except ValueError:
+                filtered_lines_content.append(line)
+                continue
+
+    return filtered_lines_content
