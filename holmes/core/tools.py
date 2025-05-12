@@ -167,7 +167,7 @@ class YAMLTool(Tool, BaseModel):
     def __infer_parameters(self):
         # Find parameters that appear inside self.command or self.script but weren't declared in parameters
         template = self.command or self.script
-        inferred_params = re.findall(r"\{\{\s*(\w+)\s*\}\}", template)
+        inferred_params = re.findall(r"\{\{\s*([\w]+)[\.\|]?.*?\s*\}\}", template)
         # TODO: if filters were used in template, take only the variable name
         # Regular expression to match Jinja2 placeholders with or without filters
         # inferred_params = re.findall(r'\{\{\s*(\w+)(\s*\|\s*[^}]+)?\s*\}\}', self.command)
@@ -318,7 +318,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
+    experimental: bool = False
     enabled: bool = False
     name: str
     description: str
@@ -440,6 +440,10 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 (enabled, error_message) = prereq.callable(self.config)
+                if not enabled and error_message:
+                    logging.warning(
+                        f"Failed to enable tool {self.name}: {error_message}"
+                    )
                 if enabled:
                     self._status = ToolsetStatusEnum.ENABLED
                 elif not enabled and error_message:
