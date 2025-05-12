@@ -57,7 +57,7 @@ class LoggingTool(Tool):
             description="Fetch logs for a Kubernetes pod",
             parameters={
                 "pod_name": ToolParameter(
-                    description="The exact pod name", type="string", required=True
+                    description="The exact kubernetes pod name", type="string", required=True
                 ),
                 "namespace": ToolParameter(
                     description="Kubernetes namespace", type="string", required=True
