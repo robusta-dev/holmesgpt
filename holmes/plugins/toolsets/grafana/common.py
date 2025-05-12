@@ -63,3 +63,5 @@ def ensure_grafana_uid_or_return_error_result(
             status=ToolResultStatus.ERROR,
             error="This tool only works when the toolset is configued ",
         )
+
+    return None
