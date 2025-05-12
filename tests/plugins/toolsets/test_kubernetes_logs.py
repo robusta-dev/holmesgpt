@@ -14,7 +14,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         self.toolset = KubernetesLogsToolset()
 
         # Patch the _initialize_client method to prevent actual k8s client initialization
-        patcher = patch.object(self.toolset, '_initialize_client')
+        patcher = patch.object(self.toolset, "_initialize_client")
         self.mock_initialize = patcher.start()
         self.addCleanup(patcher.stop)
 
