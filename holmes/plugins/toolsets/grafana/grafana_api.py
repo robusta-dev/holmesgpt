@@ -1,5 +1,5 @@
 import logging
-import requests # type: ignore
+import requests  # type: ignore
 from typing import Tuple
 import backoff
 
@@ -17,7 +17,6 @@ from holmes.plugins.toolsets.grafana.common import (
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
     and e.response.status_code < 500,
 )
-
 def get_health(config: GrafanaConfig) -> Tuple[bool, str]:
     base_url = get_base_url(config)
 
