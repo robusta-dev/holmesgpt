@@ -13,6 +13,11 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         """Set up common mocks and test fixtures"""
         self.toolset = KubernetesLogsToolset()
 
+        # Patch the _initialize_client method to prevent actual k8s client initialization
+        patcher = patch.object(self.toolset, '_initialize_client')
+        self.mock_initialize = patcher.start()
+        self.addCleanup(patcher.stop)
+
         # Create mock for read_namespaced_pod
         self.mock_pod = MagicMock()
         self.mock_container = MagicMock()
@@ -34,6 +39,9 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         mock_api_instance = mock_api.return_value
         mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
         mock_api_instance.read_namespaced_pod_log.return_value = self.sample_logs
+
+        # Set the internal API reference (normally done in _initialize_client)
+        self.toolset._core_v1_api = mock_api_instance
 
         # Call the fetch_logs method
         result = self.toolset.fetch_logs(namespace="default", pod_name="test-pod")
@@ -73,6 +81,9 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         mock_api_instance = mock_api.return_value
         mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
 
+        # Set the internal API reference (normally done in _initialize_client)
+        self.toolset._core_v1_api = mock_api_instance
+
         # Configure read_namespaced_pod_log to return empty for current logs
         # and non-empty for previous logs
         previous_logs = (
@@ -110,6 +121,9 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         """Test logs from multi-container pod"""
         # Configure mocks with multiple containers
         mock_api_instance = mock_api.return_value
+
+        # Set the internal API reference (normally done in _initialize_client)
+        self.toolset._core_v1_api = mock_api_instance
 
         # Create a pod with multiple containers
         mock_pod = MagicMock()
@@ -156,6 +170,9 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
         mock_api_instance.read_namespaced_pod_log.return_value = self.sample_logs
 
+        # Set the internal API reference (normally done in _initialize_client)
+        self.toolset._core_v1_api = mock_api_instance
+
         # Call the fetch_logs method with limit
         self.toolset.fetch_logs(namespace="default", pod_name="test-pod", limit=100)
 
@@ -173,6 +190,9 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         mock_api_instance.read_namespaced_pod.side_effect = ApiException(
             status=404, reason="Not Found"
         )
+
+        # Set the internal API reference (normally done in _initialize_client)
+        self.toolset._core_v1_api = mock_api_instance
 
         # Call the fetch_logs method
         result = self.toolset.fetch_logs(
