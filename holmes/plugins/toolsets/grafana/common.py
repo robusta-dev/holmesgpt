@@ -59,7 +59,7 @@ def ensure_grafana_uid_or_return_error_result(
     config: GrafanaConfig,
 ) -> Optional[StructuredToolResult]:
     if not config.grafana_datasource_uid:
-        StructuredToolResult(
+        return StructuredToolResult(
             status=ToolResultStatus.ERROR,
             error="This tool only works when the toolset is configued ",
         )
