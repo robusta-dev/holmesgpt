@@ -401,15 +401,13 @@ class GitExecuteChanges(Tool):
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=self.toolset._sanitize_error(msg),
+                data=self.toolset._sanitize_error(msg),
                 params=params,
             )
 
         def success(msg: Any) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=msg,
-                params=params,
+                status=ToolResultStatus.SUCCESS, data=msg, params=params
             )
 
         def modify_lines(lines: List[str]) -> List[str]:
