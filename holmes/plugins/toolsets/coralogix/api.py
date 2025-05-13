@@ -3,7 +3,7 @@ import logging
 from typing import Any, Tuple
 from urllib.parse import urljoin
 
-import requests
+import requests  # type: ignore
 
 from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,

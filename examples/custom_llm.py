@@ -18,7 +18,7 @@ class MyCustomLLM(LLM):
     def count_tokens_for_message(self, messages: list[dict]) -> int:
         return 1
 
-    def completion(
+    def completion(  # type: ignore
         self,
         messages: List[Dict[str, Any]],
         tools: Optional[List[Tool]] = [],

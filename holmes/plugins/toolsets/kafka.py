@@ -1,6 +1,6 @@
 import logging
 from pydantic import BaseModel, ConfigDict
-import yaml
+import yaml  # type: ignore
 from typing import Any, Dict, List, Optional, Union, Tuple
 from holmes.core.tools import (
     Tool,
@@ -67,9 +67,9 @@ def convert_to_dict(obj: Any) -> Union[str, Dict]:
                 if isinstance(value, dict):
                     result[key] = {k: convert_to_dict(v) for k, v in value.items()}
                 elif isinstance(value, list):
-                    result[key] = [convert_to_dict(item) for item in value]
+                    result[key] = [convert_to_dict(item) for item in value]  # type: ignore
                 else:
-                    result[key] = convert_to_dict(value)
+                    result[key] = convert_to_dict(value)  # type: ignore
         return result
     if isinstance(obj, TopicPartition):
         return str(obj)
@@ -401,7 +401,7 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             groups: ListConsumerGroupsResult = groups_future.result()
 
             consumer_groups = []
-            group_ids_to_evaluate = []
+            group_ids_to_evaluate: list[str] = []
             if groups.valid:
                 group_ids_to_evaluate = group_ids_to_evaluate + [
                     group.group_id for group in groups.valid

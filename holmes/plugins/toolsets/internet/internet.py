@@ -3,7 +3,7 @@ import os
 import logging
 from typing import Any, Optional, Tuple, Dict, List
 
-from requests import RequestException, Timeout
+from requests import RequestException, Timeout  # type: ignore
 from holmes.core.tools import (
     Tool,
     ToolParameter,
@@ -14,7 +14,7 @@ from holmes.core.tools import (
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 
-import requests
+import requests  # type: ignore
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
@@ -127,9 +127,9 @@ def cleanup(soup: BeautifulSoup):
             element.decompose()
 
     for tag in soup.find_all(True):
-        for attr in list(tag.attrs):
+        for attr in list(tag.attrs):  # type: ignore
             if attr != "href":
-                tag.attrs.pop(attr, None)
+                tag.attrs.pop(attr, None)  # type: ignore
 
     return soup
 
@@ -182,7 +182,7 @@ class FetchWebpage(Tool):
                     required=True,
                 ),
             },
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def _invoke(self, params: Any) -> StructuredToolResult:

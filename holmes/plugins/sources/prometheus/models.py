@@ -1,6 +1,6 @@
 import html
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from urllib.parse import parse_qs, unquote, urlparse
 from pydantic import BaseModel, computed_field
 
@@ -13,29 +13,29 @@ class PrometheusAlert(BaseModel):
     annotations: Dict[str, str]
     startsAt: datetime
     endsAt: datetime
-    generatorURL: str = None
+    generatorURL: Optional[str] = None
     fingerprint: str
 
-    @computed_field
+    @computed_field  # type: ignore
     @property
     def unique_id(self) -> str:
         return f"{self.name}-{self.fingerprint}-{self.startsAt}"
 
-    @computed_field
+    @computed_field  # type: ignore
     @property
-    def duration(self) -> timedelta:
+    def duration(self) -> Union[timedelta, str]:
         if self.endsAt.year == 1:
             return "Ongoing"
         else:
             duration = self.endsAt - self.startsAt
             return duration
 
-    @computed_field
+    @computed_field  # type: ignore
     @property
     def name(self) -> str:
         return self.labels["alertname"]
 
-    @computed_field
+    @computed_field  # type: ignore
     @property
     def definition(self) -> str:
         """
