@@ -11,6 +11,7 @@ from typing import (
     ClassVar,
     Dict,
     List,
+    Literal,
     Optional,
     Type,
     Union,
