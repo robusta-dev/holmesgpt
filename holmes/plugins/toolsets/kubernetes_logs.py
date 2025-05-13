@@ -1,7 +1,6 @@
 import logging
 import re
 from typing import Dict, Optional, List, Any, Tuple
-from datetime import datetime
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 from pydantic import BaseModel
@@ -17,7 +16,7 @@ from holmes.plugins.toolsets.logging_api import (
     FetchLogsParams,
     LoggingTool,
 )
-from holmes.plugins.toolsets.utils import process_timestamps_to_int
+from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix
 
 
 class Pod(BaseModel):
@@ -268,17 +267,11 @@ def filter_log_lines_by_timestamp_and_strip_prefix(
 
         match = timestamp_pattern.match(line)
         if match:
-            # Line has a timestamp
-            timestamp_str = match.group(0)  # Get the matched timestamp string
+            timestamp_str = match.group(0)
             try:
-                # Convert to Python datetime for comparison
-                parseable_ts_str = timestamp_str[:-1] + "+00:00"
-                dt_obj = datetime.fromisoformat(parseable_ts_str)
-                log_unix_ts = int(dt_obj.timestamp())
+                log_unix_ts = to_unix(timestamp_str)
 
-                # Include if timestamp is within range
                 if start_unix_timestamp <= log_unix_ts <= end_unix_timestamp:
-                    # Strip the timestamp prefix and any leading whitespace
                     prefix_length = len(timestamp_str)
                     line_content = line[prefix_length:].lstrip()
                     filtered_lines_content.append(line_content)
