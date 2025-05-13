@@ -21,16 +21,10 @@ toolsets:
           kubectl describe node {{ NODE_NAME }}
 
       - name: "check_kubelet_logs"
-        description: "Fetches kubelet logs from a specific node in the AKS cluster."
-        user_description: "get kubelet logs for node {{ NODE_NAME }}"
+        description: "Fetches kubelet logs from a specific node in the AKS cluster using Azure CLI VMSS run command."
+        user_description: "get kubelet logs for node {{ NODE_NAME }} in the AKS cluster"
         command: |
-          kubectl debug node/{{ NODE_NAME }} --image=mcr.microsoft.com/aks/fundamental/base-ubuntu:v0.0.11 -- bash -c 'journalctl -u kubelet'
-      
-      - name: "check_control_plane_connectivity"
-        description: "Verifies if the node can communicate with the control plane."
-        user_description: "check control plane connectivity for node {{ NODE_NAME }}"
-        command: |
-          kubectl debug node/{{ NODE_NAME }} --image=mcr.microsoft.com/aks/fundamental/base-ubuntu:v0.0.11 -- bash -c 'ping <control-plane-ip>'
+          az vmss run-command invoke --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ VMSS_NAME }} --command-id RunShellScript --instance-id {{ NODE_INSTANCE_ID }} --scripts 'journalctl -u kubelet'
 
       - name: "check_vmss_health"
         description: "Checks the health of the Virtual Machine Scale Set (VMSS) instance for the node."
