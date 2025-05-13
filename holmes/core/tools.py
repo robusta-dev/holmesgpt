@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Literal, Optional, Union, Any, Tuple
 from enum import Enum
 from datetime import datetime
 import sentry_sdk
-
+import json
 from jinja2 import Template
 from pydantic import (
     BaseModel,
@@ -29,6 +29,7 @@ ToolsetPattern = Union[Literal["*"], List[str]]
 class ToolResultStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
+    NO_DATA = "no_data"
 
 
 class StructuredToolResult(BaseModel):
@@ -40,6 +41,21 @@ class StructuredToolResult(BaseModel):
     url: Optional[str] = None
     invocation: Optional[str] = None
     params: Optional[Dict] = None
+
+    def get_stringified_data(self) -> str:
+        if self.data is None:
+            return ""
+
+        if isinstance(self.data, str):
+            return self.data
+        else:
+            try:
+                if isinstance(self.data, BaseModel):
+                    return self.data.model_dump_json(indent=2)
+                else:
+                    return json.dumps(self.data, indent=2)
+            except Exception:
+                return str(self.data)
 
 
 def sanitize(param):
@@ -177,6 +193,13 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
+    def _get_status(self, return_code: int, raw_output: str) -> ToolResultStatus:
+        if return_code != 0:
+            return ToolResultStatus.ERROR
+        if raw_output == "":
+            return ToolResultStatus.NO_DATA
+        return ToolResultStatus.SUCCESS
+
     def _invoke(self, params) -> StructuredToolResult:
         if self.command is not None:
             raw_output, return_code, invocation = self.__invoke_command(params)
@@ -196,10 +219,10 @@ class YAMLTool(Tool, BaseModel):
             if return_code == 0
             else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
         )
+        status = self._get_status(return_code, raw_output)
+
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS
-            if return_code == 0
-            else ToolResultStatus.ERROR,
+            status=status,
             error=error,
             return_code=return_code,
             data=output_with_instructions,
@@ -295,7 +318,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
+    experimental: bool = False
     enabled: bool = False
     name: str
     description: str

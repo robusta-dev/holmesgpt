@@ -43,6 +43,9 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
     db_toolsets = []
     updated_at = datetime.now().isoformat()
     for toolset in tool_executor.toolsets:
+        # hiding disabled experimental toolsets from the docs
+        if toolset.experimental and not toolset.enabled:
+            continue
         if not toolset.installation_instructions:
             instructions = render_default_installation_instructions_for_toolset(toolset)
             toolset.installation_instructions = instructions
