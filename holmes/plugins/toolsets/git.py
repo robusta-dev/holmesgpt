@@ -400,11 +400,15 @@ class GitExecuteChanges(Tool):
     def _invoke(self, params: Any) -> StructuredToolResult:
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
-                ToolResultStatus.ERROR, self.toolset._sanitize_error(msg), params
+                status=ToolResultStatus.ERROR,
+                data=self.toolset._sanitize_error(msg),
+                params=params,
             )
 
         def success(msg: Any) -> StructuredToolResult:
-            return StructuredToolResult(ToolResultStatus.SUCCESS, msg, params)
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS, data=msg, params=params
+            )
 
         def modify_lines(lines: List[str]) -> List[str]:
             nonlocal command, line, code
