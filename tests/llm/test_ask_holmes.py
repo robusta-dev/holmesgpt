@@ -7,7 +7,7 @@ from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
-from holmes.core.tools import ToolExecutor, ToolResultStatus
+from holmes.core.tools import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
@@ -76,11 +76,7 @@ def test_ask_holmes(experiment_name, test_case):
                 )
                 if span:
                     metadata = tool_call.result.model_dump()
-                    tool_output = (
-                        tool_call.result.data
-                        if tool_call.result.status == ToolResultStatus.SUCCESS
-                        else tool_call.result.error
-                    )
+                    tool_output = tool_call.result.data
                     del metadata["data"]
                     span.log(
                         input=tool_call.description,

@@ -115,17 +115,17 @@ def test_investigate(experiment_name, test_case):
     for tool_call in result.tool_calls:
         # TODO: mock this instead so span start time & end time will be accurate.
         # Also to include calls to llm spans
-        with eval.start_span(
-            name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-        ) as tool_span:
-            # TODO: remove this after FE is ready
-            if isinstance(tool_call.result, dict):
-                tool_span.log(
-                    input=tool_call.description,
-                    output=tool_call.result.model_dump_json(indent=2),
-                )
-            else:
-                tool_span.log(input=tool_call.description, output=tool_call.result)
+        span = eval.start_span(name=tool_call.tool_name, type=SpanTypeAttribute.TOOL)
+        if span:
+            metadata = tool_call.result.model_dump()
+            tool_output = tool_call.result.data
+            del metadata["data"]
+            span.log(
+                input=tool_call.description,
+                output=tool_output,
+                metadata=metadata,
+            )
+            span.end()
 
     output = result.analysis
 
