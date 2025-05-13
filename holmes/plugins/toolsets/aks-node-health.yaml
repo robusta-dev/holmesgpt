@@ -24,13 +24,13 @@ toolsets:
         description: "Fetches kubelet logs from a specific node in the AKS cluster."
         user_description: "get kubelet logs for node {{ NODE_NAME }}"
         command: |
-          ssh {{ NODE_NAME }} 'journalctl -u kubelet'
-
+          kubectl debug node/{{ NODE_NAME }} --image=mcr.microsoft.com/aks/fundamental/base-ubuntu:v0.0.11 -- bash -c 'journalctl -u kubelet'
+      
       - name: "check_control_plane_connectivity"
         description: "Verifies if the node can communicate with the control plane."
         user_description: "check control plane connectivity for node {{ NODE_NAME }}"
         command: |
-          kubectl exec {{ NODE_NAME }} -- ping <control-plane-ip>
+          kubectl debug node/{{ NODE_NAME }} --image=mcr.microsoft.com/aks/fundamental/base-ubuntu:v0.0.11 -- bash -c 'ping <control-plane-ip>'
 
       - name: "check_vmss_health"
         description: "Checks the health of the Virtual Machine Scale Set (VMSS) instance for the node."
@@ -44,6 +44,24 @@ toolsets:
         command: |
           az monitor activity-log list --resource-group {{ RESOURCE_GROUP_NAME }}
 
+      - name: "check_top_resource_consuming_pods"
+        description: "Checks for the top resource-consuming pods on a specific node."
+        user_description: "get the top resource-consuming pods on node {{ NODE_NAME }}"
+        command: |
+          kubectl top pod --all-namespaces --sort-by=cpu | grep {{ NODE_NAME }}
+
+      - name: "check_network_outbound"
+        description: "Checks the outbound network connectivity for an AKS cluster."
+        user_description: "check outbound network connectivity for AKS cluster {{ CLUSTER_NAME }} in resource group {{ RESOURCE_GROUP }}"
+        command: |
+          az aks check-network outbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
+
+      - name: "check_network_inbound"
+        description: "Checks the inbound network connectivity for an AKS cluster."
+        user_description: "check inbound network connectivity for AKS cluster {{ CLUSTER_NAME }} in resource group {{ RESOURCE_GROUP }}"
+        command: |
+          az aks check-network inbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
+      
       - name: "restart_node"
         description: "Restarts a specific node in the AKS cluster."
         user_description: "restart node {{ NODE_NAME }} in the AKS cluster"
