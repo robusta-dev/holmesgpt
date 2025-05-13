@@ -261,27 +261,32 @@ def filter_log_lines_by_timestamp_and_strip_prefix(
     filtered_lines_content: List[str] = []
 
     for line in logs:
+        # Non-string entries are passed through as-is
         if not isinstance(line, str):
             filtered_lines_content.append(line)
             continue
 
         match = timestamp_pattern.match(line)
         if match:
+            # Line has a timestamp
             timestamp_str = match.group(0)  # Get the matched timestamp string
             try:
+                # Convert to Python datetime for comparison
                 parseable_ts_str = timestamp_str[:-1] + "+00:00"
                 dt_obj = datetime.fromisoformat(parseable_ts_str)
-
                 log_unix_ts = int(dt_obj.timestamp())
 
+                # Include if timestamp is within range
                 if start_unix_timestamp <= log_unix_ts <= end_unix_timestamp:
+                    # Strip the timestamp prefix and any leading whitespace
                     prefix_length = len(timestamp_str)
-                    line_content = line[prefix_length:]
-                    line_content = line_content.lstrip()
+                    line_content = line[prefix_length:].lstrip()
                     filtered_lines_content.append(line_content)
-
             except ValueError:
+                # For invalid timestamp formats (when regex matches but date parsing fails)
+                # keep the original line - this is important for testing and consistency
                 filtered_lines_content.append(line)
-                continue
+        else:
+            filtered_lines_content.append(line)
 
     return filtered_lines_content

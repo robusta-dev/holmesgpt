@@ -39,11 +39,13 @@ EXPECTED_T2_T5 = [
     "Log also at start boundary (high precision)",
     "Log inside range",
     "Log at end boundary",
+    "Plain message without timestamp",
     "Another log inside range",
 ]
 
 EXPECTED_T4_ONLY = [
     "Log inside range",
+    "Plain message without timestamp",
     "Another log inside range",
 ]
 
@@ -64,14 +66,14 @@ EXPECTED_T4_ONLY = [
             LOGS_BASIC,
             T1_UNIX - 10,  # 10 seconds before T1
             T1_UNIX - 5,  # 5 seconds before T1
-            [],
+            ["Plain message without timestamp"],
         ),
         (
             "range_after_all",
             LOGS_BASIC,
             T6_UNIX + 5,  # 5 seconds after T6
             T6_UNIX + 10,  # 10 seconds after T6
-            [],
+            ["Plain message without timestamp"],
         ),
         (
             "full_range_covering_all",
@@ -85,6 +87,7 @@ EXPECTED_T4_ONLY = [
                 "Log inside range",
                 "Log at end boundary",
                 "Log after range",
+                "Plain message without timestamp",
                 "Another log inside range",
             ],
         ),
@@ -94,7 +97,7 @@ EXPECTED_T4_ONLY = [
             ["INFO: Starting process", "WARN: Low disk space"],
             T1_UNIX,
             T6_UNIX,
-            [],  # Lines without prefix are skipped
+            ["INFO: Starting process", "WARN: Low disk space"],
         ),
         (
             "logs_with_leading_whitespace_after_ts",
@@ -105,7 +108,7 @@ EXPECTED_T4_ONLY = [
         ),
         ("log_with_no_subseconds", [f"{T4} Message"], T4_UNIX, T4_UNIX, ["Message"]),
     ],
-    ids=[  # Optional: Provides clearer names for parametrized tests in output
+    ids=[
         "basic_range",
         "narrow_range",
         "range_before_all",
@@ -121,6 +124,8 @@ def test_filtering_scenarios(test_name, logs_input, start_ts, end_ts, expected_o
     result = filter_log_lines_by_timestamp_and_strip_prefix(
         logs_input, start_ts, end_ts
     )
+    print(f"EXPECTED:\n{expected_output}")
+    print(f"ACTUAL:\n{result}")
     assert result == expected_output
 
 
@@ -141,10 +146,13 @@ def test_non_string_input_handling():
         None,
         "Another valid log",
         12345,
+        "Line without timestamp",
     ]
     result = filter_log_lines_by_timestamp_and_strip_prefix(
         logs_mixed, start_ts, end_ts
     )
+    print(f"EXPECTED:\n{expected}")
+    print(f"ACTUAL:\n{result}")
     assert result == expected
 
 
