@@ -42,7 +42,7 @@ class BaseGrafanaToolset(Toolset):
 
         try:
             self._grafana_config = self.config_class(**config)
-            return get_health(self._grafana_config.url, self._grafana_config.api_key)
+            return get_health(self._grafana_config)
 
         except Exception as e:
             logging.exception(f"Failed to set up grafana toolset {self.name}")
