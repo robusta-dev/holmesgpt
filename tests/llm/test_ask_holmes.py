@@ -142,22 +142,22 @@ def test_ask_holmes(experiment_name, test_case):
         tools_called = []
         for tool_call in result.tool_calls:
             tools_called.append(tool_call.tool_name)
-            span = eval.start_span(
-                name=tool_call.tool_name, type=SpanTypeAttribute.FUNCTION
-            )
-            if span:
-                metadata = tool_call.result.model_dump()
-                tool_output = (
-                    tool_call.result.data
-                    if tool_call.result.status == ToolResultStatus.SUCCESS
-                    else tool_call.result.error
-                )
-                del metadata["data"]
-                span.log(
-                    output=tool_output,
-                    metadata=metadata,
-                )
-                span.end()
+            # span = eval.start_span(
+            #     name=tool_call.tool_name, type=SpanTypeAttribute.FUNCTION
+            # )
+            # if span:
+            #     metadata = tool_call.result.model_dump()
+            #     tool_output = (
+            #         tool_call.result.data
+            #         if tool_call.result.status == ToolResultStatus.SUCCESS
+            #         else tool_call.result.error
+            #     )
+            #     del metadata["data"]
+            #     span.log(
+            #         output=tool_output,
+            #         metadata=metadata,
+            #     )
+            #     span.end()
     else:
         tools_called = "None"
     print(f"\n** TOOLS CALLED **\n{tools_called}")
