@@ -9,6 +9,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 from holmes.utils.robusta import load_robusta_api_key
 
+
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -23,7 +24,7 @@ def investigate_issues(
     dal: SupabaseDal,
     config: Config,
     model: str = None,
-):
+) -> InvestigationResult:
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 

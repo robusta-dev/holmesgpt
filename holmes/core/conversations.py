@@ -3,9 +3,6 @@ from typing import Dict, List, Optional
 import sentry_sdk
 
 from holmes.core.models import (
-    ConversationRequest,
-    HolmesConversationHistory,
-    ConversationInvestigationResult,
     ToolCallConversationResult,
     IssueChatRequest,
     WorkloadHealthChatRequest,
@@ -58,92 +55,6 @@ def truncate_tool_messages(conversation_history: list, tool_size: int) -> None:
     for message in conversation_history:
         if message.get("role") == "tool":
             message["content"] = message["content"][:tool_size]
-
-
-# handle_issue_conversation is a method for older api /api/conversation which does not support conversation history
-def handle_issue_conversation(
-    conversation_request: ConversationRequest, ai: ToolCallingLLM
-) -> str:
-    template_path = "builtin://generic_ask_for_issue_conversation.jinja2"
-
-    number_of_tools = len(
-        conversation_request.context.investigation_result.tools
-    ) + sum(
-        [
-            len(history.answer.tools)
-            for history in conversation_request.context.conversation_history
-        ]
-    )
-
-    if number_of_tools == 0:
-        template_context = {
-            "investigation": conversation_request.context.investigation_result.result,
-            "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
-            "conversation_history": conversation_request.context.conversation_history,
-            "toolsets": ai.tool_executor.toolsets,
-        }
-        system_prompt = load_and_render_prompt(template_path, template_context)
-        return system_prompt
-
-    conversation_history_without_tools = [
-        HolmesConversationHistory(
-            ask=history.ask,
-            answer=ConversationInvestigationResult(analysis=history.answer.analysis),
-        )
-        for history in conversation_request.context.conversation_history
-    ]
-    template_context = {
-        "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": None,
-        "conversation_history": conversation_history_without_tools,
-        "toolsets": ai.tool_executor.toolsets,
-    }
-    system_prompt = load_and_render_prompt(template_path, template_context)
-    messages_without_tools = [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": conversation_request.user_prompt,
-        },
-    ]
-
-    tool_size = calculate_tool_size(ai, messages_without_tools, number_of_tools)
-
-    truncated_conversation_history = [
-        HolmesConversationHistory(
-            ask=history.ask,
-            answer=ConversationInvestigationResult(
-                analysis=history.answer.analysis,
-                tools=[
-                    ToolCallConversationResult(
-                        name=tool.name,
-                        description=tool.description,
-                        output=tool.output[:tool_size],
-                    )
-                    for tool in history.answer.tools
-                ],
-            ),
-        )
-        for history in conversation_request.context.conversation_history
-    ]
-    truncated_investigation_result_tool_calls = [
-        ToolCallConversationResult(
-            name=tool.name, description=tool.description, output=tool.output[:tool_size]
-        )
-        for tool in conversation_request.context.investigation_result.tools
-    ]
-
-    template_context = {
-        "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": truncated_investigation_result_tool_calls,
-        "conversation_history": truncated_conversation_history,
-        "toolsets": ai.tool_executor.toolsets,
-    }
-    system_prompt = load_and_render_prompt(template_path, template_context)
-    return system_prompt
 
 
 def build_issue_chat_messages(
