@@ -7,7 +7,7 @@ from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
-from holmes.core.tools import ToolExecutor
+from holmes.core.tools import ToolExecutor, ToolResultStatus
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
@@ -137,8 +137,27 @@ def test_ask_holmes(experiment_name, test_case):
             id=test_case.id,
             scores=scores,
         )
+
     if result.tool_calls:
-        tools_called = [t.tool_name for t in result.tool_calls]
+        tools_called = []
+        for tool_call in result.tool_calls:
+            tools_called.append(tool_call.tool_name)
+            span = eval.start_span(
+                name=tool_call.tool_name, type=SpanTypeAttribute.FUNCTION
+            )
+            if span:
+                metadata = tool_call.result.model_dump()
+                tool_output = (
+                    tool_call.result.data
+                    if tool_call.result.status == ToolResultStatus.SUCCESS
+                    else tool_call.result.error
+                )
+                del metadata["data"]
+                span.log(
+                    output=tool_output,
+                    metadata=metadata,
+                )
+                span.end()
     else:
         tools_called = "None"
     print(f"\n** TOOLS CALLED **\n{tools_called}")
