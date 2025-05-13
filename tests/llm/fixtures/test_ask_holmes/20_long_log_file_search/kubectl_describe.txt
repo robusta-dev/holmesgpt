@@ -21,7 +21,7 @@ Containers:
     Host Port:     <none>
     Command:
       /bin/sh start.sh
-      
+
     State:          Running
       Started:      Tue, 13 May 2025 08:55:42 +0200
     Ready:          True
@@ -31,11 +31,11 @@ Containers:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-68pv5 (ro)
 Conditions:
   Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       True 
-  ContainersReady             True 
-  PodScheduled                True 
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
 Volumes:
   kube-api-access-68pv5:
     Type:                    Projected (a volume that contains injected data from multiple sources)
