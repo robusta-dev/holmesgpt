@@ -1,0 +1,69 @@
+toolsets:
+  aks/node-health:
+    description: "Set of tools to troubleshoot AKS node health issues"
+    tags:
+      - cli
+    prerequisites:
+      - command: "az aks --help"
+      - command: "kubectl version --client"
+
+    tools:
+      - name: "check_node_status"
+        description: "Checks the status of all nodes in the AKS cluster."
+        user_description: "get the status of all nodes in the AKS cluster"
+        command: |
+          kubectl get nodes
+
+      - name: "describe_node"
+        description: "Describes a specific node in the AKS cluster to inspect its conditions."
+        user_description: "describe node {{ NODE_NAME }} in the AKS cluster"
+        command: |
+          kubectl describe node {{ NODE_NAME }}
+
+      - name: "check_kubelet_logs"
+        description: "Fetches kubelet logs from a specific node in the AKS cluster using Azure CLI VMSS run command."
+        user_description: "get kubelet logs for node {{ NODE_NAME }} in the AKS cluster"
+        command: |
+          az vmss run-command invoke --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ VMSS_NAME }} --command-id RunShellScript --instance-id {{ NODE_INSTANCE_ID }} --scripts 'journalctl -u kubelet'
+
+      - name: "check_vmss_health"
+        description: "Checks the health of the Virtual Machine Scale Set (VMSS) instance for the node."
+        user_description: "check VMSS health for node {{ NODE_NAME }} in resource group {{ RESOURCE_GROUP_NAME }}"
+        command: |
+          az vmss list-instances --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ VMSS_NAME }}
+
+      - name: "review_activity_log"
+        description: "Reviews the Azure Activity Log for recent changes affecting the node."
+        user_description: "review Azure Activity Log for resource group {{ RESOURCE_GROUP_NAME }}"
+        command: |
+          az monitor activity-log list --resource-group {{ RESOURCE_GROUP_NAME }}
+
+      - name: "check_top_resource_consuming_pods"
+        description: "Checks for the top resource-consuming pods on a specific node."
+        user_description: "get the top resource-consuming pods on node {{ NODE_NAME }}"
+        command: |
+          kubectl top pod --all-namespaces --sort-by=cpu | grep {{ NODE_NAME }}
+
+      - name: "check_network_outbound"
+        description: "Checks the outbound network connectivity for an AKS cluster."
+        user_description: "check outbound network connectivity for AKS cluster {{ CLUSTER_NAME }} in resource group {{ RESOURCE_GROUP }}"
+        command: |
+          az aks check-network outbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
+
+      - name: "check_network_inbound"
+        description: "Checks the inbound network connectivity for an AKS cluster."
+        user_description: "check inbound network connectivity for AKS cluster {{ CLUSTER_NAME }} in resource group {{ RESOURCE_GROUP }}"
+        command: |
+          az aks check-network inbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
+      
+      - name: "restart_node"
+        description: "Restarts a specific node in the AKS cluster."
+        user_description: "restart node {{ NODE_NAME }} in the AKS cluster"
+        command: |
+          az vm restart --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ NODE_NAME }}
+
+      - name: "reimage_node"
+        description: "Reimages a specific node in the AKS cluster."
+        user_description: "reimage node {{ NODE_NAME }} in the AKS cluster"
+        command: |
+          az vmss reimage --resource-group {{ RESOURCE_GROUP_NAME }} --instance-id {{ NODE_INSTANCE_ID }}

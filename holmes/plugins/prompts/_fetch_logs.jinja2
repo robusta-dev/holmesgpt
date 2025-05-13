@@ -29,9 +29,9 @@
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.
 * Check both kubectl_logs and kubectl_previous_logs because a pod restart mean kubectl_logs may not have relevant logs
 {%- elif opensearch_ts and opensearch_ts.get_status() == "enabled" -%}
-* ALWAYS, first, use get_logs_fields to understand the documents fields, then base the opensearch query on that. You must filter by the fields names that appears here
+* ALWAYS, first, use describe_opensearch_logs_fields to understand the documents fields, then base the opensearch query on that. You must filter by the fields names that appears here
 * The search query should always contain the root 'query' element in the search expression
-* if the user wants pod logs, use logs_in_range_search
+* if the user wants pod logs, use fetch_opensearch_logs
 * Always build the query with '.keyword' when doing exact match
 * if time range is not specified, get logs for the last hour
 {%- else -%}
