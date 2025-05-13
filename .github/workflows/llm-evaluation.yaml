@@ -12,10 +12,6 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        python-version: []
-
     runs-on: ubuntu-latest
 
     steps:
