@@ -14,17 +14,17 @@ jobs:
   build:
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: []
 
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.12
 
       - name: Install Python dependencies and build
         # if you change something here, you must also change it in .github/workflows/build-binaries-and-brew.yaml
