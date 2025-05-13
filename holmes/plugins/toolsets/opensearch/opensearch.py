@@ -186,6 +186,7 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
 
 class OpenSearchToolset(Toolset):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    config_class = OpenSearchConfig
     clients: List[OpenSearchClient] = []
 
     def __init__(self):

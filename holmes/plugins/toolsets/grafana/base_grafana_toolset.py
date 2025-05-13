@@ -1,4 +1,11 @@
 import logging
+from typing import Any, Tuple
+from holmes.core.tools import (
+    Tool,
+    Toolset,
+    ToolsetTag,
+    CallablePrerequisite,
+)
 from typing import Any, ClassVar, Tuple, Type
 
 from holmes.core.tools import CallablePrerequisite, Tool, Toolset, ToolsetTag
@@ -8,7 +15,7 @@ from holmes.plugins.toolsets.grafana.grafana_api import get_health
 
 
 class BaseGrafanaToolset(Toolset):
-    config_class: ClassVar[Type[GrafanaConfig]] = GrafanaConfig
+    config_class = GrafanaConfig
 
     def __init__(
         self,

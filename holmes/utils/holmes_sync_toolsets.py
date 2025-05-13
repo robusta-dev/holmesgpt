@@ -45,9 +45,15 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
         # hiding disabled experimental toolsets from the docs
         if toolset.experimental and not toolset.enabled:
             continue
+
         if not toolset.installation_instructions:
             instructions = render_default_installation_instructions_for_toolset(toolset)
             toolset.installation_instructions = instructions
+
+        schema = (
+            toolset.config_class.model_json_schema() if toolset.config_class else None
+        )
+
         db_toolsets.append(
             ToolsetDBModel(
                 **toolset.model_dump(exclude_none=True),
@@ -55,6 +61,8 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
                 cluster_id=config.cluster_name,
                 account_id=dal.account_id,
                 updated_at=updated_at,
+                config_schema=schema,
+                version=toolset.version,
             ).model_dump()
         )
     dal.sync_toolsets(db_toolsets, config.cluster_name)

@@ -5,7 +5,19 @@ import re
 import shlex
 import subprocess
 import tempfile
-from abc import ABC, abstractmethod
+from typing import (
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Type,
+    Union,
+    Any,
+    Tuple,
+)
+from enum import Enum
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -300,6 +312,9 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    config_class: ClassVar[Optional[Type[BaseModel]]] = None
+    version: ClassVar[Optional[str]] = None
+
     experimental: bool = False
 
     enabled: bool = False
@@ -547,3 +562,5 @@ class ToolsetDBModel(BaseModel):
     docs_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     updated_at: str = Field(default_factory=datetime.now().isoformat)
+    version: Optional[str] = None
+    config_schema: Optional[Dict[str, Any]] = None
