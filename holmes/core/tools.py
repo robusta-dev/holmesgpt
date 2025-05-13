@@ -564,3 +564,4 @@ class ToolsetDBModel(BaseModel):
     updated_at: str = Field(default_factory=datetime.now().isoformat)
     version: Optional[str] = None
     config_schema: Optional[Dict[str, Any]] = None
+    is_default: bool

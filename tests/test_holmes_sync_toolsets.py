@@ -4,6 +4,7 @@ from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import BaseModel
 
 from holmes.config import Config
 from holmes.core.tools import (
@@ -33,6 +34,10 @@ def mock_config():
     config = Mock(spec=Config)
     config.cluster_name = "test-cluster"
     return config
+
+
+class SampleConfig(BaseModel):
+    param: str
 
 
 class SampleToolset(Toolset):
@@ -70,6 +75,9 @@ def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
     assert toolset_data["description"] == "Test toolset"
     assert toolset_data["status"] == ToolsetStatusEnum.DISABLED
     assert isinstance(toolset_data["updated_at"], str)
+    assert toolset_data["is_default"] is False
+    assert toolset_data["config_schema"] is None
+    assert toolset_data["version"] is None
 
 
 def test_sync_toolsets_no_cluster_name(mock_dal):
@@ -388,3 +396,26 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
     assert success2_data is not None
     assert success2_data["status"] == ToolsetStatusEnum.ENABLED
     assert success2_data["error"] is None
+
+
+def test_sync_toolsets_with_config_schema(mock_dal, mock_config, sample_toolset):
+    SampleToolset.config_class = SampleConfig
+    SampleToolset.version = "1.0.0"
+    sample_toolset.is_default = True
+    mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
+
+    holmes_sync_toolsets_status(mock_dal, mock_config)
+
+    mock_dal.sync_toolsets.assert_called_once()
+    call_args = mock_dal.sync_toolsets.call_args[0]
+
+    assert len(call_args[0]) == 1
+    toolset_data = call_args[0][0]
+
+    assert toolset_data["is_default"] is True
+
+    config_schema = toolset_data["config_schema"]
+    assert config_schema is not None
+    assert config_schema["type"] == "object"
+    assert config_schema["title"] == "SampleConfig"
+    assert toolset_data["version"] == "1.0.0"
