@@ -1,6 +1,8 @@
 import pytest
 
-from holmes.plugins.toolsets.kubernetes_logs import filter_log_lines_by_timestamp_and_strip_prefix
+from holmes.plugins.toolsets.kubernetes_logs import (
+    filter_log_lines_by_timestamp_and_strip_prefix,
+)
 from holmes.plugins.toolsets.utils import to_unix
 
 # Helper timestamps for clarity in tests
@@ -14,7 +16,7 @@ T6 = "2024-01-15T10:00:04Z"
 # Convert helper timestamps to Unix
 T1_UNIX = to_unix(T1)
 T2_UNIX = to_unix(T2)
-T3_UNIX = to_unix(T3) # Same second as T2
+T3_UNIX = to_unix(T3)  # Same second as T2
 T4_UNIX = to_unix(T4)
 T5_UNIX = to_unix(T5)
 T6_UNIX = to_unix(T6)
@@ -22,13 +24,13 @@ T6_UNIX = to_unix(T6)
 # Test data using these timestamps
 LOGS_BASIC = [
     f"{T1} Log before range",
-    f"{T2}  Log at start boundary (subsecond)", # Note leading space after timestamp
+    f"{T2}  Log at start boundary (subsecond)",  # Note leading space after timestamp
     f"{T3} Log also at start boundary (high precision)",
     f"{T4} Log inside range",
     f"{T5} Log at end boundary",
     f"{T6} Log after range",
     "Plain message without timestamp",
-    f"{T4} Another log inside range", # Duplicate time, different message
+    f"{T4} Another log inside range",  # Duplicate time, different message
 ]
 
 # Expected results for specific ranges (stripping timestamp and leading space)
@@ -45,43 +47,38 @@ EXPECTED_T4_ONLY = [
     "Another log inside range",
 ]
 
+
 @pytest.mark.parametrize(
     "test_name, logs_input, start_ts, end_ts, expected_output",
     [
         (
             "basic_range",
             LOGS_BASIC,
-            T2_UNIX, # Includes T2 and T3 because they round to the same Unix second
+            T2_UNIX,  # Includes T2 and T3 because they round to the same Unix second
             T5_UNIX,
-            EXPECTED_T2_T5
+            EXPECTED_T2_T5,
         ),
-        (
-            "narrow_range",
-            LOGS_BASIC,
-            T4_UNIX,
-            T4_UNIX,
-            EXPECTED_T4_ONLY
-        ),
+        ("narrow_range", LOGS_BASIC, T4_UNIX, T4_UNIX, EXPECTED_T4_ONLY),
         (
             "range_before_all",
             LOGS_BASIC,
-            T1_UNIX - 10, # 10 seconds before T1
+            T1_UNIX - 10,  # 10 seconds before T1
             T1_UNIX - 5,  # 5 seconds before T1
-            []
+            [],
         ),
         (
             "range_after_all",
             LOGS_BASIC,
             T6_UNIX + 5,  # 5 seconds after T6
-            T6_UNIX + 10, # 10 seconds after T6
-            []
+            T6_UNIX + 10,  # 10 seconds after T6
+            [],
         ),
         (
             "full_range_covering_all",
             LOGS_BASIC,
             T1_UNIX,
             T6_UNIX,
-            [ # Expected: All logs with timestamps, stripped
+            [  # Expected: All logs with timestamps, stripped
                 "Log before range",
                 "Log at start boundary (subsecond)",
                 "Log also at start boundary (high precision)",
@@ -89,39 +86,26 @@ EXPECTED_T4_ONLY = [
                 "Log at end boundary",
                 "Log after range",
                 "Another log inside range",
-            ]
+            ],
         ),
-        (
-            "empty_log_list",
-            [],
-            T1_UNIX,
-            T6_UNIX,
-            []
-        ),
+        ("empty_log_list", [], T1_UNIX, T6_UNIX, []),
         (
             "logs_with_only_no_prefix",
             ["INFO: Starting process", "WARN: Low disk space"],
             T1_UNIX,
             T6_UNIX,
-            [] # Lines without prefix are skipped
+            [],  # Lines without prefix are skipped
         ),
         (
             "logs_with_leading_whitespace_after_ts",
-             [f"{T4}   Notice the three spaces here"], # 3 spaces
-             T4_UNIX,
-             T4_UNIX,
-             ["Notice the three spaces here"] # Spaces should be stripped
+            [f"{T4}   Notice the three spaces here"],  # 3 spaces
+            T4_UNIX,
+            T4_UNIX,
+            ["Notice the three spaces here"],  # Spaces should be stripped
         ),
-         (
-            "log_with_no_subseconds",
-             [f"{T4} Message"],
-             T4_UNIX,
-             T4_UNIX,
-             ["Message"]
-        ),
-
+        ("log_with_no_subseconds", [f"{T4} Message"], T4_UNIX, T4_UNIX, ["Message"]),
     ],
-    ids=[ # Optional: Provides clearer names for parametrized tests in output
+    ids=[  # Optional: Provides clearer names for parametrized tests in output
         "basic_range",
         "narrow_range",
         "range_before_all",
@@ -131,32 +115,38 @@ EXPECTED_T4_ONLY = [
         "logs_with_only_no_prefix",
         "leading_whitespace_handling",
         "no_subseconds_handling",
-    ]
+    ],
 )
 def test_filtering_scenarios(test_name, logs_input, start_ts, end_ts, expected_output):
-    result = filter_log_lines_by_timestamp_and_strip_prefix(logs_input, start_ts, end_ts)
+    result = filter_log_lines_by_timestamp_and_strip_prefix(
+        logs_input, start_ts, end_ts
+    )
     assert result == expected_output
+
 
 def test_non_string_input_handling():
     logs_mixed = [
         f"{T4} Valid log line",
-        None, # Non-string item
+        None,  # Non-string item
         f"{T5} Another valid log",
-        12345, # Another non-string
+        12345,  # Another non-string
         "Line without timestamp",
-        f"{T6} Log outside range"
+        f"{T6} Log outside range",
     ]
     start_ts = T4_UNIX
     end_ts = T5_UNIX
-    
+
     expected = [
         "Valid log line",
         None,
         "Another valid log",
         12345,
     ]
-    result = filter_log_lines_by_timestamp_and_strip_prefix(logs_mixed, start_ts, end_ts)
+    result = filter_log_lines_by_timestamp_and_strip_prefix(
+        logs_mixed, start_ts, end_ts
+    )
     assert result == expected
+
 
 def test_parsing_error_handling():
     """
@@ -176,8 +166,8 @@ def test_parsing_error_handling():
 
     logs_with_bad_parse = [
         f"{T4} Good log 1",
-        invalid_date_log, # This should cause ValueError in fromisoformat
-        f"{T5} Good log 2"
+        invalid_date_log,  # This should cause ValueError in fromisoformat
+        f"{T5} Good log 2",
     ]
     start_ts = T4_UNIX
     end_ts = T5_UNIX
@@ -186,9 +176,11 @@ def test_parsing_error_handling():
     # because of the `except ValueError: filtered_lines_content.append(line)`
     expected = [
         "Good log 1",
-        invalid_date_log, # The original line is kept on parse error
+        invalid_date_log,  # The original line is kept on parse error
         "Good log 2",
     ]
 
-    result = filter_log_lines_by_timestamp_and_strip_prefix(logs_with_bad_parse, start_ts, end_ts)
+    result = filter_log_lines_by_timestamp_and_strip_prefix(
+        logs_with_bad_parse, start_ts, end_ts
+    )
     assert result == expected

@@ -84,19 +84,16 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             pod = self._find_pod(params.namespace, params.pod_name)
             all_logs = []
             if not pod or not pod.containers:
-                all_logs = self._fetch_pod_logs(params=params, previous=True)
-            else:
-                # Kubernetes API doesn't directly support complex time-based filtering,
-                # so we'll fetch all logs and do any additional filtering ourselves
-
                 all_logs = self._fetch_pod_logs(
+                    params=params, previous=True
+                ) + self._fetch_pod_logs(params=params, previous=False)
+            else:
+                all_logs = self._fetch_pod_logs(
+                    params=params, containers=pod.containers, previous=True
+                )
+                all_logs = all_logs + self._fetch_pod_logs(
                     params=params, containers=pod.containers, previous=False
                 )
-
-                if not all_logs:
-                    all_logs = self._fetch_pod_logs(
-                        params=params, containers=pod.containers, previous=True
-                    )
 
             if params.filter_pattern:
                 all_logs = self._filter_logs(all_logs, params.filter_pattern)
@@ -200,9 +197,6 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             if params.start_time:
                 query_params["since_seconds"] = params.start_time
 
-            if params.limit > 0:
-                query_params["tail_lines"] = params.limit
-
             logs = self._core_v1_api.read_namespaced_pod_log(**query_params)
 
             if logs:
@@ -224,7 +218,6 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             return []
         except ApiException as e:
             if e.status == 400 and "previous terminated container" in str(e).lower():
-                # Normal error when no previous logs exist
                 return []
             elif e.status != 404:  # Ignore 404 errors for previous logs
                 logging.warning(

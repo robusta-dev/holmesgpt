@@ -11,5 +11,69 @@ npm info start microservices-demo-front-end@0.0.1
 
 Using the redis based session manager
 App now running in production mode on port 8079
+Received login request
+{"user":{"firstName":"Eve","lastName":"Berger","username":"Eve_Berger","id":"57a98d98e4b00679b4a830af","_links":{"addresses":{"href":"http://user/customers/57a98d98e4b00679b4a830af/addresses"},"cards":{"href":"http://user/customers/57a98d98e4b00679b4a830af/cards"},"customer":{"href":"http://user/customers/57a98d98e4b00679b4a830af"},"self":{"href":"http://user/customers/57a98d98e4b00679b4a830af"}}}}
+
+57a98d98e4b00679b4a830af
+Merging carts for customer id: 57a98d98e4b00679b4a830af and session id: h5-AzLJN-4SBfU2AaULNRc3F_6PPHoK-
+Carts merged.
+Sent cookies.
+GET /login 200 29.738 ms - 13
+Request received with body: {}
+Received response: "{\"timestamp\":1737712066708,\"status\":500,\"error\":\"Internal Server Error\",\"exception\":\"org.springframework.data.mongodb.UncategorizedMongoDbException\",\"message\":\"Query failed with error code 352 and error message 'Unsupported OP_QUERY command: find. The client driver may require an upgrade. For more details see https://dochub.mongodb.org/core/legacy-opcode-removal' on server orders-db:27017; nested exception is com.mongodb.MongoQueryException: Query failed with error code 352 and error message 'Unsupported OP_QUERY command: find. The client driver may require an upgrade. For more details see https://dochub.mongodb.org/core/legacy-opcode-removal' on server orders-db:27017\",\"path\":\"/orders/search/customerId\"}"
+/usr/src/app/api/orders/index.js:31
+            callback(null, JSON.parse(body)._embedded.customerOrders);
+                                                     ^
+
+TypeError: Cannot read property 'customerOrders' of undefined
+    at Request._callback (/usr/src/app/api/orders/index.js:31:54)
+    at Request.self.callback (/usr/src/app/node_modules/request/request.js:188:22)
+    at emitTwo (events.js:87:13)
+    at Request.emit (events.js:172:7)
+    at Request.<anonymous> (/usr/src/app/node_modules/request/request.js:1171:10)
+    at emitOne (events.js:77:13)
+    at Request.emit (events.js:169:7)
+    at IncomingMessage.<anonymous> (/usr/src/app/node_modules/request/request.js:1091:12)
+    at IncomingMessage.g (events.js:260:16)
+    at emitNone (events.js:72:20)
+
+npm info microservices-demo-front-end@0.0.1 Failed to exec start script
+npm ERR! Linux 6.1.0-30-amd64
+npm ERR! argv "/usr/local/bin/node" "/usr/local/bin/npm" "start"
+npm ERR! node v4.8.0
+npm ERR! npm  v2.15.11
+npm ERR! code ELIFECYCLE
+npm ERR! microservices-demo-front-end@0.0.1 start: `node server.js`
+npm ERR! Exit status 1
+npm ERR!
+npm ERR! Failed at the microservices-demo-front-end@0.0.1 start script 'node server.js'.
+npm ERR! This is most likely a problem with the microservices-demo-front-end package,
+npm ERR! not with npm itself.
+npm ERR! Tell the author that this fails on your system:
+npm ERR!     node server.js
+npm ERR! You can get information on how to open an issue for this project with:
+npm ERR!     npm bugs microservices-demo-front-end
+npm ERR! Or if that isn't available, you can get their info via:
+npm ERR!
+npm ERR!     npm owner ls microservices-demo-front-end
+npm ERR! There is likely additional logging output above.
+npm ERR! Linux 6.1.0-30-amd64
+npm ERR! argv "/usr/local/bin/node" "/usr/local/bin/npm" "start"
+npm ERR! node v4.8.0
+npm ERR! npm  v2.15.11
+npm ERR! path npm-debug.log.896050243
+npm ERR! code EROFS
+npm ERR! errno -30
+npm ERR! syscall open
+
+npm ERR! rofs EROFS: read-only file system, open 'npm-debug.log.896050243'
+npm ERR! rofs This is most likely not a problem with npm itself
+npm ERR! rofs and is related to the file system being read-only.
+npm ERR! rofs
+npm ERR! rofs Often virtualized file systems, or other file systems
+npm ERR! rofs that don't support symlinks, give this error.
+
+npm ERR! Please include the following file with any support request:
+npm ERR!     /usr/src/app/npm-debug.log
 
 stderr:

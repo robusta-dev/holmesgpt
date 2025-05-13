@@ -184,7 +184,7 @@ def test_investigate(experiment_name, test_case):
             name="Context", type=SpanTypeAttribute.SCORE
         ) as context_span:
             context_eval = evaluate_context_usage(
-                input=input, output=output, context_items=test_case.retrieval_context
+                context_items=test_case.retrieval_context, output=output, input=input
             )
             scores["context"] = context_eval.score
             context_span.log(

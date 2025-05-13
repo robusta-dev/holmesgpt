@@ -46,7 +46,7 @@ def evaluate_context_usage(
     prompt_prefix = """
 # CONTEXT
 
-- {{context}}
+- {{expected}}
 
 # QUESTION
 
@@ -62,7 +62,7 @@ Then evaluate which of the following statement matches the closest and return th
 
 A. No item mentioned in the CONTEXT is mentioned in the ANSWER
 B. Less than half of items present in the CONTEXT are mentioned in the ANSWER
-C. More than half of items present iEvaluate which of the following descibes the OUTPUT best and return the related letter:n the CONTEXT are mentioned in the ANSWER
+C. More than half of items present in the CONTEXT are mentioned in the ANSWER
 D. All items present in the CONTEXT are mentioned in the ANSWER
     """
 

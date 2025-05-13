@@ -38,7 +38,7 @@ class FetchLogsParams(BaseModel):
     start_time: Optional[str]
     end_time: Optional[str]
     filter_pattern: Optional[str]
-    limit: int
+    limit: Optional[int]
 
 
 class BaseLoggingToolset(Toolset, ABC):
@@ -76,7 +76,7 @@ class LoggingTool(Tool):
                     required=False,
                 ),
                 "limit": ToolParameter(
-                    description=f"Maximum number of logs to return. Defaults to {DEFAULT_LOG_LIMIT}",
+                    description="Maximum number of logs to return",
                     type="integer",
                     required=False,
                 ),
@@ -96,7 +96,7 @@ class LoggingTool(Tool):
             start_time=params.get("start_time"),
             end_time=params.get("end_time"),
             filter_pattern=params.get("filter"),
-            limit=params.get("limit", DEFAULT_LOG_LIMIT),
+            limit=params.get("limit"),
         )
 
         return self._toolset.fetch_logs(

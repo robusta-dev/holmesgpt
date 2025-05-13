@@ -1,13 +1,13 @@
-{"toolset_name":"kubernetes/logs","tool_name":"fetch_logs","match_params":{"pod_name":"meme-deployment-74db7bc95c-qn84d","namespace":"default"}}
-stdout:
- * Serving Flask app 'main'
+{"toolset_name":"kubernetes/logs","tool_name":"fetch_logs","match_params":{"namespace":"default","pod_name":"meme-deployment-74db7bc95c-m68w2"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": null, "invocation": null, "params": {"namespace": "default", "pod_name": "meme-deployment-74db7bc95c-m68w2", "start_time": null, "end_time": null, "filter_pattern": null, "limit": 2000}}
+* Serving Flask app 'main'
  * Debug mode: off
-WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
- * Running on http://10.244.0.54:5000
-Press CTRL+C to quit
-[2025-01-24 11:51:19,361] ERROR in app: Exception on / [GET]
+ * Running on http://10.244.1.49:5000
+[33mPress CTRL+C to quit[0m
+[2025-05-13 07:32:08,876] ERROR in app: Exception on / [GET]
 Traceback (most recent call last):
   File "/usr/local/lib/python3.10/site-packages/urllib3/connection.py", line 196, in _new_conn
     sock = connection.create_connection(
@@ -15,10 +15,8 @@ Traceback (most recent call last):
     for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
   File "/usr/local/lib/python3.10/socket.py", line 955, in getaddrinfo
     for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
-socket.gaierror: [Errno -5] No address associated with hostname
-
+socket.gaierror: [Errno -2] Name or service not known
 The above exception was the direct cause of the following exception:
-
 Traceback (most recent call last):
   File "/usr/local/lib/python3.10/site-packages/urllib3/connectionpool.py", line 789, in urlopen
     response = self._make_request(
@@ -32,10 +30,8 @@ Traceback (most recent call last):
     self.sock = sock = self._new_conn()
   File "/usr/local/lib/python3.10/site-packages/urllib3/connection.py", line 203, in _new_conn
     raise NameResolutionError(self.host, self, e) from e
-urllib3.exceptions.NameResolutionError: <urllib3.connection.HTTPSConnection object at 0x7fb6165fbfa0>: Failed to resolve 'memcom' ([Errno -5] No address associated with hostname)
-
+urllib3.exceptions.NameResolutionError: <urllib3.connection.HTTPSConnection object at 0x7f98a1896830>: Failed to resolve 'memcom' ([Errno -2] Name or service not known)
 The above exception was the direct cause of the following exception:
-
 Traceback (most recent call last):
   File "/usr/local/lib/python3.10/site-packages/requests/adapters.py", line 667, in send
     resp = conn.urlopen(
@@ -43,10 +39,8 @@ Traceback (most recent call last):
     retries = retries.increment(
   File "/usr/local/lib/python3.10/site-packages/urllib3/util/retry.py", line 519, in increment
     raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
-urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='memcom', port=443): Max retries exceeded with url: /gimme/ProgrrHumor (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fb6165fbfa0>: Failed to resolve 'memcom' ([Errno -5] No address associated with hostname)"))
-
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='memcom', port=443): Max retries exceeded with url: /gimme/ProgrrHumor (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7f98a1896830>: Failed to resolve 'memcom' ([Errno -2] Name or service not known)"))
 During handling of the above exception, another exception occurred:
-
 Traceback (most recent call last):
   File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1473, in wsgi_app
     response = self.full_dispatch_request()
@@ -68,7 +62,5 @@ Traceback (most recent call last):
     r = adapter.send(request, **kwargs)
   File "/usr/local/lib/python3.10/site-packages/requests/adapters.py", line 700, in send
     raise ConnectionError(e, request=request)
-requests.exceptions.ConnectionError: HTTPSConnectionPool(host='memcom', port=443): Max retries exceeded with url: /gimme/ProgrrHumor (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fb6165fbfa0>: Failed to resolve 'memcom' ([Errno -5] No address associated with hostname)"))
-10.244.0.55 - - [24/Jan/2025 11:51:19] "GET / HTTP/1.1" 500 -
-
-stderr:
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='memcom', port=443): Max retries exceeded with url: /gimme/ProgrrHumor (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7f98a1896830>: Failed to resolve 'memcom' ([Errno -2] Name or service not known)"))
+10.244.1.50 - - [13/May/2025 07:32:08] "[35m[1mGET / HTTP/1.1[0m" 500 -
