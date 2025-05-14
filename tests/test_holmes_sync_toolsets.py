@@ -77,9 +77,10 @@ def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
     assert toolset_data["description"] == "Test toolset"
     assert toolset_data["status"] == ToolsetStatusEnum.DISABLED
     assert isinstance(toolset_data["updated_at"], str)
-    assert toolset_data["is_default"] is False
-    assert toolset_data["config_schema"] is None
-    assert toolset_data["version"] is None
+
+    # Backward compatibility
+    for key in ["is_default", "config_schema", "version"]:
+        assert key not in toolset_data
 
     # Backward compatibility
     for key in ["is_default", "config_schema", "version", "is_configured_locally"]:
