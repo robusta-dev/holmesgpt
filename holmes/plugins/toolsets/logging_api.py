@@ -35,10 +35,10 @@ class LoggingConfig(BaseModel):
 class FetchLogsParams(BaseModel):
     namespace: str
     pod_name: str
-    start_time: Optional[str]
-    end_time: Optional[str]
-    filter_pattern: Optional[str]
-    limit: Optional[int]
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    filter_pattern: Optional[str] = None
+    limit: Optional[int] = None
 
 
 class BaseLoggingToolset(Toolset, ABC):
@@ -99,9 +99,11 @@ class LoggingTool(Tool):
             limit=params.get("limit"),
         )
 
-        return self._toolset.fetch_logs(
+        result = self._toolset.fetch_logs(
             params=structured_params,
         )
+
+        return result
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         """Generate a one-line description of this tool invocation"""

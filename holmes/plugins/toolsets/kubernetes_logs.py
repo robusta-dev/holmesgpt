@@ -144,7 +144,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         previous: bool = False,
     ) -> List[Any]:
         pod_logs = []
-        if containers:
+        if containers and len(containers) > 1:
             # Fetch logs for each container, try current logs first then previous if none found
             for container_name in containers:
                 container_logs = self._fetch_logs(
@@ -155,12 +155,10 @@ class KubernetesLogsToolset(BaseLoggingToolset):
 
                 # Add container name prefix only for multi-container pods
                 # This matches kubectl behavior
-                if len(containers) > 1:
-                    container_logs = [
-                        f"{container_name}: {log}" for log in container_logs
-                    ]
+                container_logs = [f"{container_name}: {log}" for log in container_logs]
                 pod_logs.extend(container_logs)
-        else:
+
+        if not pod_logs:
             pod_logs = self._fetch_logs(
                 params=params,
                 previous=previous,
@@ -192,10 +190,6 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             if container_name:
                 query_params["container"] = container_name
 
-            # Add optional parameters if provided
-            if params.start_time:
-                query_params["since_seconds"] = params.start_time
-
             logs = self._core_v1_api.read_namespaced_pod_log(**query_params)
 
             if logs:
@@ -221,6 +215,10 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             elif e.status != 404:  # Ignore 404 errors for previous logs
                 logging.warning(
                     f"API error fetching logs for container {container_name}: {str(e)}"
+                )
+            else:
+                logging.warning(
+                    f"Error fetching logs for container {container_name}: {str(e)}"
                 )
             return []
         except Exception as e:
