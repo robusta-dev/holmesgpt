@@ -12,7 +12,7 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
-from requests import RequestException
+from requests import RequestException  # type: ignore
 from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.rabbitmq.api import (

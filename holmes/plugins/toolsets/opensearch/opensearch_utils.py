@@ -4,7 +4,7 @@ import os
 from typing import List, Literal, Optional, Dict, Any, Tuple, cast
 from urllib.parse import urljoin
 
-import requests
+import requests  # type: ignore
 from holmes.core.tools import Toolset
 from pydantic import BaseModel
 

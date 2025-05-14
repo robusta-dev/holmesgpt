@@ -28,7 +28,7 @@ class FetchNotion(Tool):
                     required=True,
                 ),
             },
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def convert_notion_url(self, url):

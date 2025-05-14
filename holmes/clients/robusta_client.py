@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-import requests
+import requests  # type: ignore
 from pydantic import BaseModel, ConfigDict
 from holmes.common.env_vars import ROBUSTA_API_ENDPOINT
 
