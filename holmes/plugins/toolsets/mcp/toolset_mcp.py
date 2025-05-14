@@ -50,7 +50,7 @@ class MCPTool(Tool):
                 )
 
     @classmethod
-    def create(cls, url: str, tool: MCP_Tool, headers: dict = None):
+    def create(cls, url: str, tool: MCP_Tool, headers: Optional[dict] = None):
         parameters = cls.parse_input_schema(tool.inputSchema)
         return cls(
             url=url,
@@ -82,7 +82,7 @@ class MCPTool(Tool):
 
 class MCPToolset(Toolset):
     url: str
-    headers: dict = None
+    headers: Optional[dict] = None
     tools: List[MCPTool] = []
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
@@ -99,7 +99,7 @@ class MCPToolset(Toolset):
         return self
 
     # used as a CallablePrerequisite, config added for that case.
-    def init_server_tools(self, config: dict[str, Any] = None) -> Tuple[bool, str]:
+    def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
         try:
             tools_result = asyncio.run(self._get_server_tools())
             self.tools = [
