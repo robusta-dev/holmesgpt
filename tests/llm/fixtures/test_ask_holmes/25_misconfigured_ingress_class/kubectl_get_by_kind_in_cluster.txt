@@ -1,0 +1,3 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_cluster","match_params":{"kind":"ingressclass"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get -A --show-labels -o wide ingressclass", "params": {"kind": "ingressclass"}}
+No resources found

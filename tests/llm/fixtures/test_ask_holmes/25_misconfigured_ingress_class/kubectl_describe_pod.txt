@@ -1,0 +1,56 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"my-http-app-deployment-75cdcff8b4-kmj67","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe pod my-http-app-deployment-75cdcff8b4-kmj67 -n default", "params": {"kind": "pod", "name": "my-http-app-deployment-75cdcff8b4-kmj67", "namespace": "default"}}
+Name:             my-http-app-deployment-75cdcff8b4-kmj67
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             kind-double-node-worker/172.18.0.2
+Start Time:       Wed, 14 May 2025 13:55:34 +0200
+Labels:           app=my-http-app
+                  pod-template-hash=75cdcff8b4
+Annotations:      <none>
+Status:           Running
+IP:               10.244.1.53
+IPs:
+  IP:           10.244.1.53
+Controlled By:  ReplicaSet/my-http-app-deployment-75cdcff8b4
+Containers:
+  my-http-app:
+    Container ID:   containerd://d43da185701aabb19ebaf6850f6f3899e656facee74672fb1258c3411773c3e0
+    Image:          nginx
+    Image ID:       docker.io/library/nginx@sha256:c15da6c91de8d2f436196f3a768483ad32c258ed4e1beb3d367a27ed67253e66
+    Port:           8080/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Wed, 14 May 2025 13:55:44 +0200
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-w6pj9 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  kube-api-access-w6pj9:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  10m   default-scheduler  Successfully assigned default/my-http-app-deployment-75cdcff8b4-kmj67 to kind-double-node-worker
+  Normal  Pulling    10m   kubelet            Pulling image "nginx"
+  Normal  Pulled     10m   kubelet            Successfully pulled image "nginx" in 10.136s (10.136s including waiting). Image size: 72404038 bytes.
+  Normal  Created    10m   kubelet            Created container my-http-app
+  Normal  Started    10m   kubelet            Started container my-http-app
