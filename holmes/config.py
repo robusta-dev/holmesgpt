@@ -683,7 +683,13 @@ class Config(RobustaBaseConfig):
                 "robusta_ai_model_name",
                 ROBUSTA_AI_MODEL_NAME_BACKOFF,
             )
-            selected_api_key = self.api_key.get_secret_value() if self.api_key else None
+            if not self.api_key:
+                raise ValueError(
+                    "ROBUSTA_AI is enabled but no API key is configured. "
+                    "Call `load_robusta_api_key()` before requesting an LLM instance "
+                    "or set the API key via the CLI / env var."
+                )
+            selected_api_key = self.api_key.get_secret_value()
             selected_params = {"base_url": ROBUSTA_API_ENDPOINT}
         else:
             raise ValueError(
