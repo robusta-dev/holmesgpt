@@ -86,17 +86,27 @@ class SaveMockTool(Tool):
             span = self._parent_span.start_span(
                 name=self.name, type=SpanTypeAttribute.TOOL
             )
-        result = self._auto_generate_mock_file(params)
-        metadata = result.model_dump()
-        tool_output = result.data
-        del metadata["data"]
-        if span:
-            span.log(
-                input=params,
-                output=tool_output,
-                metadata=metadata,
-            )
-            span.end()
+        try:
+            result = self._auto_generate_mock_file(params)
+            metadata = result.model_dump()
+            tool_output = result.data
+            del metadata["data"]
+            if span:
+                span.log(
+                    input=params,
+                    output=tool_output,
+                    metadata=metadata,
+                )
+        except Exception as e:
+            if span:
+                span.log(
+                    input=params,
+                    output=str(e),
+                )
+            raise
+        finally:
+            if span:
+                span.end()
         return result
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -136,23 +146,34 @@ class MockToolWrapper(Tool):
             span = self._parent_span.start_span(
                 name=self.name, type=SpanTypeAttribute.TOOL
             )
-        mock = self.find_matching_mock(params)
-        result = None
-        if mock:
-            result = mock.return_value
-        else:
-            result = self._unmocked_tool.invoke(params)
 
-        if span:
-            metadata = result.model_dump()
-            tool_output = result.data
-            del metadata["data"]
-            span.log(
-                input=params,
-                output=tool_output,
-                metadata=metadata,
-            )
-            span.end()
+        try:
+            mock = self.find_matching_mock(params)
+            result = None
+            if mock:
+                result = mock.return_value
+            else:
+                result = self._unmocked_tool.invoke(params)
+
+            if span:
+                metadata = result.model_dump()
+                tool_output = result.data
+                del metadata["data"]
+                span.log(
+                    input=params,
+                    output=tool_output,
+                    metadata=metadata,
+                )
+        except Exception as e:
+            if span:
+                span.log(
+                    input=params,
+                    output=str(e),
+                )
+            raise
+        finally:
+            if span:
+                span.end()
         return result
 
     def get_parameterized_one_liner(self, params) -> str:
