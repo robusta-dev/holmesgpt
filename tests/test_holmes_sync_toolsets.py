@@ -399,23 +399,22 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
 
 
 def test_sync_toolsets_with_config_schema(mock_dal, mock_config, sample_toolset):
-    SampleToolset.config_class = SampleConfig
-    SampleToolset.version = "1.0.0"
-    sample_toolset.is_default = True
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
+    with patch.multiple(SampleToolset, config_class=SampleConfig, version="1.0.0"):
+        sample_toolset.is_default = True
+        mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
 
-    holmes_sync_toolsets_status(mock_dal, mock_config)
+        holmes_sync_toolsets_status(mock_dal, mock_config)
 
-    mock_dal.sync_toolsets.assert_called_once()
-    call_args = mock_dal.sync_toolsets.call_args[0]
+        mock_dal.sync_toolsets.assert_called_once()
+        call_args = mock_dal.sync_toolsets.call_args[0]
 
-    assert len(call_args[0]) == 1
-    toolset_data = call_args[0][0]
+        assert len(call_args[0]) == 1
+        toolset_data = call_args[0][0]
 
-    assert toolset_data["is_default"] is True
+        assert toolset_data["is_default"] is True
 
-    config_schema = toolset_data["config_schema"]
-    assert config_schema is not None
-    assert config_schema["type"] == "object"
-    assert config_schema["title"] == "SampleConfig"
-    assert toolset_data["version"] == "1.0.0"
+        config_schema = toolset_data["config_schema"]
+        assert config_schema is not None
+        assert config_schema["type"] == "object"
+        assert config_schema["title"] == "SampleConfig"
+        assert toolset_data["version"] == "1.0.0"
