@@ -170,13 +170,9 @@ class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
-    model: Optional[str] = "gpt-4o"
+    model: Optional[str] = None
     max_steps: int = 10
     cluster_name: Optional[str] = None
-
-    robusta_ai_model: Optional[str] = (
-        "gpt-4o"  # this model was hardcoded in the Robusta
-    )
 
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None

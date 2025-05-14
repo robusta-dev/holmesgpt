@@ -40,5 +40,6 @@ STREAM_CHUNKS_PER_PARSE = int(
 )  # Empirical value with 6~ parsing calls. Consider using larger value if LLM response is long as to reduce markdown to section calls.
 
 ROBUSTA_AI_MODEL_NAME_BACKOFF = os.environ.get(
-    "ROBUSTA_AI_MODEL_NAME_BACKOFF", "gpt-4o"
+    "ROBUSTA_AI_MODEL_NAME_BACKOFF",
+    "gpt-4o",
 )
