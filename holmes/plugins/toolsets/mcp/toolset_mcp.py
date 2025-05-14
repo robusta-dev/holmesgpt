@@ -94,7 +94,7 @@ class MCPToolset(Toolset):
         return v
 
     @model_validator(mode="after")
-    def gset_tools_prerequisites(self):
+    def set_tools_prerequisites(self):
         self.prerequisites = [CallablePrerequisite(callable=self.init_server_tools)]
         return self
 
@@ -108,6 +108,7 @@ class MCPToolset(Toolset):
             ]
             return (True, "")
         except Exception as e:
+            # using e.args, the asyncio wrapper could stack another exception this helps printing them all.
             return (
                 False,
                 f"Failed to load mcp server {self.name} {self.url} tools: {str(e.args)}",
