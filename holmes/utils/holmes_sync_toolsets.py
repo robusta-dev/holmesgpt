@@ -4,6 +4,8 @@ from typing import Any, List
 
 import yaml  # type: ignore
 
+
+from holmes.common.env_vars import ENABLE_HOLMES_TOOLSETS_FROM_SAAS
 from holmes.config import Config
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetDBModel
@@ -54,17 +56,25 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
             toolset.config_class.model_json_schema() if toolset.config_class else None
         )
 
-        db_toolsets.append(
-            ToolsetDBModel(
-                **toolset.model_dump(exclude_none=True),
-                toolset_name=toolset.name,
-                cluster_id=config.cluster_name,
-                account_id=dal.account_id,
-                updated_at=updated_at,
-                config_schema=schema,
-                version=toolset.version,
-            ).model_dump()
+        toolset_model = ToolsetDBModel(
+            **toolset.model_dump(exclude_none=True),
+            toolset_name=toolset.name,
+            cluster_id=config.cluster_name,
+            account_id=dal.account_id,
+            status=toolset.get_status(),
+            error=toolset.get_error(),
+            updated_at=updated_at,
+            config_schema=schema,
+            version=toolset.version,
         )
+        exclude = (
+            None
+            if ENABLE_HOLMES_TOOLSETS_FROM_SAAS
+            else ["config_schema", "version", "is_default"]
+        )
+        toolset_data = toolset_model.model_dump(exclude=exclude)
+        db_toolsets.append(toolset_data)
+
     dal.sync_toolsets(db_toolsets, config.cluster_name)
     log_toolsets_statuses(tool_executor.toolsets)
 

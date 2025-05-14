@@ -75,9 +75,10 @@ def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
     assert toolset_data["description"] == "Test toolset"
     assert toolset_data["status"] == ToolsetStatusEnum.DISABLED
     assert isinstance(toolset_data["updated_at"], str)
-    assert toolset_data["is_default"] is False
-    assert toolset_data["config_schema"] is None
-    assert toolset_data["version"] is None
+
+    # Backward compatibility
+    for key in ["is_default", "config_schema", "version"]:
+        assert key not in toolset_data
 
 
 def test_sync_toolsets_no_cluster_name(mock_dal):
@@ -399,7 +400,11 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
 
 
 def test_sync_toolsets_with_config_schema(mock_dal, mock_config, sample_toolset):
-    with patch.multiple(SampleToolset, config_class=SampleConfig, version="1.0.0"):
+    with patch.multiple(
+        SampleToolset, config_class=SampleConfig, version="1.0.0"
+    ), patch(
+        "holmes.utils.holmes_sync_toolsets.ENABLE_HOLMES_TOOLSETS_FROM_SAAS", True
+    ):
         sample_toolset.is_default = True
         mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
 
