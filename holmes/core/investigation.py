@@ -9,7 +9,6 @@ from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 from holmes.utils.robusta import load_robusta_api_key
-from typing import Optional
 
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
@@ -26,7 +25,6 @@ def investigate_issues(
     config: Config,
     model: Optional[str] = None,
 ) -> InvestigationResult:
-
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 
