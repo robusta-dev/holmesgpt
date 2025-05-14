@@ -9,6 +9,7 @@ import re
 import os
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from holmes.core.tools import StructuredToolResult
+from braintrust import Span, SpanTypeAttribute
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
 
@@ -30,8 +31,7 @@ class ToolMock(MockMetadata):
 
 class SaveMockTool(Tool):
     """
-    Tool that raises an exception if invoked.
-    It is used to fail tests if not all invoked tool calls are mocked. This ensures stable test conditions
+    Tool that saves the result of the tool call to file if invoked.
     """
 
     toolset_name: str
@@ -39,7 +39,11 @@ class SaveMockTool(Tool):
     test_case_folder: str
 
     def __init__(
-        self, unmocked_tool: Tool, test_case_folder: str, toolset_name: str = "Unknown"
+        self,
+        unmocked_tool: Tool,
+        test_case_folder: str,
+        parent_span: Span,
+        toolset_name: str = "Unknown",
     ):
         super().__init__(
             name=unmocked_tool.name,
@@ -49,6 +53,7 @@ class SaveMockTool(Tool):
             toolset_name=toolset_name,
             unmocked_tool=unmocked_tool,
             test_case_folder=test_case_folder,
+            parent_span=parent_span,
         )
 
     def _get_mock_file_path(self):
@@ -76,7 +81,19 @@ class SaveMockTool(Tool):
         return output
 
     def _invoke(self, params) -> StructuredToolResult:
-        return self._auto_generate_mock_file(params)
+        with self._parent_span.start_span(
+            name=self.name, type=SpanTypeAttribute.TOOL
+        ) as span:
+            result = self._auto_generate_mock_file(params)
+            metadata = result.model_dump()
+            tool_output = result.data
+            del metadata["data"]
+            span.log(
+                input=params,
+                output=tool_output,
+                metadata=metadata,
+            )
+            return result
 
     def get_parameterized_one_liner(self, params) -> str:
         return self.unmocked_tool.get_parameterized_one_liner(params)
@@ -85,8 +102,9 @@ class SaveMockTool(Tool):
 class MockToolWrapper(Tool):
     unmocked_tool: Tool
     mocks: List[ToolMock] = []
+    _parent_span: Span
 
-    def __init__(self, unmocked_tool: Tool):
+    def __init__(self, unmocked_tool: Tool, parent_span: Span):
         super().__init__(
             name=unmocked_tool.name,
             description=unmocked_tool.description,
@@ -94,6 +112,7 @@ class MockToolWrapper(Tool):
             user_description=unmocked_tool.user_description,
             unmocked_tool=unmocked_tool,
         )
+        self._parent_span = parent_span
 
     def find_matching_mock(self, params: Dict) -> Optional[ToolMock]:
         for mock in self.mocks:
@@ -108,11 +127,25 @@ class MockToolWrapper(Tool):
                 return mock
 
     def _invoke(self, params) -> StructuredToolResult:
-        mock = self.find_matching_mock(params)
-        if mock:
-            return mock.return_value
-        else:
-            return self.unmocked_tool.invoke(params)
+        with self._parent_span.start_span(
+            name=self.name, type=SpanTypeAttribute.TOOL
+        ) as span:
+            mock = self.find_matching_mock(params)
+            result = None
+            if mock:
+                result = mock.return_value
+            else:
+                result = self.unmocked_tool.invoke(params)
+
+            metadata = result.model_dump()
+            tool_output = result.data
+            del metadata["data"]
+            span.log(
+                input=params,
+                output=tool_output,
+                metadata=metadata,
+            )
+            return result
 
     def get_parameterized_one_liner(self, params) -> str:
         return self.unmocked_tool.get_parameterized_one_liner(params)
@@ -132,10 +165,15 @@ class MockToolsets:
     test_case_folder: str
 
     def __init__(
-        self, test_case_folder: str, generate_mocks: bool = True, run_live: bool = False
+        self,
+        test_case_folder: str,
+        parent_span: Span,
+        generate_mocks: bool = True,
+        run_live: bool = False,
     ) -> None:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
+        self._parent_span = parent_span
         self._mocks = []
         self.enabled_toolsets = []
         self.configured_toolsets = []
@@ -190,14 +228,13 @@ class MockToolsets:
                 found_mocks.append(tool_mock)
         return found_mocks
 
-    def _wrap_tool_with_exception_if_required(
-        self, tool: Tool, toolset_name: str
-    ) -> Tool:
+    def _wrap_tool(self, tool: Tool, toolset_name: str) -> Tool:
         if self.generate_mocks:
             return SaveMockTool(
                 unmocked_tool=tool,
                 toolset_name=toolset_name,
                 test_case_folder=self.test_case_folder,
+                parent_span=self._parent_span,
             )
         else:
             return tool
@@ -212,13 +249,13 @@ class MockToolsets:
                 mocks = self._find_mocks_for_tool(
                     toolset_name=toolset.name, tool_name=tool.name
                 )
-                wrapped_tool = self._wrap_tool_with_exception_if_required(
-                    tool=tool, toolset_name=toolset.name
-                )
+                wrapped_tool = self._wrap_tool(tool=tool, toolset_name=toolset.name)
 
                 if len(mocks) > 0:
                     has_mocks = True
-                    mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
+                    mock_tool = MockToolWrapper(
+                        unmocked_tool=wrapped_tool, parent_span=self._parent_span
+                    )
                     mock_tool.mocks = mocks
                     mocked_tools.append(mock_tool)
                 else:

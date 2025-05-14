@@ -13,7 +13,7 @@ from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correct
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
-from braintrust.span_types import SpanTypeAttribute
+from braintrust import Span
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
 from os import path
 
@@ -66,24 +66,24 @@ def test_ask_holmes(experiment_name, test_case):
         raise e
 
     try:
-        result: LLMResult = ask_holmes(test_case)
-        if result.tool_calls:
-            for tool_call in result.tool_calls:
-                # TODO: mock this instead so span start time & end time will be accurate.
-                # Also to include calls to llm spans
-                span = eval.start_span(
-                    name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-                )
-                if span:
-                    metadata = tool_call.result.model_dump()
-                    tool_output = tool_call.result.data
-                    del metadata["data"]
-                    span.log(
-                        input=tool_call.description,
-                        output=tool_output,
-                        metadata=metadata,
-                    )
-                    span.end()
+        result: LLMResult = ask_holmes(test_case, eval)
+        # if result.tool_calls:
+        #     for tool_call in result.tool_calls:
+        #         # TODO: mock this instead so span start time & end time will be accurate.
+        #         # Also to include calls to llm spans
+        #         span = eval.start_span(
+        #             name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
+        #         )
+        #         if span:
+        #             metadata = tool_call.result.model_dump()
+        #             tool_output = tool_call.result.data
+        #             del metadata["data"]
+        #             span.log(
+        #                 input=tool_call.description,
+        #                 output=tool_output,
+        #                 metadata=metadata,
+        #             )
+        #             span.end()
     finally:
         after_test(test_case)
 
@@ -98,36 +98,23 @@ def test_ask_holmes(experiment_name, test_case):
 
     debug_expected = "\n-  ".join(expected)
     print(f"** EXPECTED **\n-  {debug_expected}")
-    with eval.start_span(
-        name="Correctness", type=SpanTypeAttribute.SCORE
-    ) as correctness_span:
-        correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected
-        )
-        print(
-            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-        )
-        scores["correctness"] = correctness_eval.score
-        correctness_span.log(
-            scores={
-                "correctness": correctness_eval.score,
-            },
-            metadata=correctness_eval.metadata,
-        )
+
+    correctness_eval = evaluate_correctness(
+        output=output, expected_elements=expected, parent_span=eval
+    )
+    print(
+        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
+    )
+    scores["correctness"] = correctness_eval.score
+
     if len(test_case.retrieval_context) > 0:
-        with eval.start_span(
-            name="Context", type=SpanTypeAttribute.SCORE
-        ) as context_span:
-            context_eval = evaluate_context_usage(
-                output=output, context_items=test_case.retrieval_context, input=input
-            )
-            scores["context"] = context_eval.score
-            context_span.log(
-                scores={
-                    "context": context_eval.score,
-                },
-                metadata=context_eval.metadata,
-            )
+        context_eval = evaluate_context_usage(
+            output=output,
+            context_items=test_case.retrieval_context,
+            input=input,
+            parent_span=eval,
+        )
+        scores["context"] = context_eval.score
 
     if bt_helper and eval:
         bt_helper.end_evaluation(
@@ -152,12 +139,13 @@ def test_ask_holmes(experiment_name, test_case):
         assert scores.get("correctness", 0) >= test_case.evaluation.correctness
 
 
-def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
+def ask_holmes(test_case: AskHolmesTestCase, eval: Span) -> LLMResult:
     run_live = load_bool("RUN_LIVE", False)
     mock = MockToolsets(
         generate_mocks=test_case.generate_mocks,
         test_case_folder=test_case.folder,
         run_live=run_live,
+        parent_span=eval,
     )
 
     expected_tools = []
