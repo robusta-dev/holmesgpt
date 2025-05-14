@@ -96,6 +96,7 @@ class SaveMockTool(Tool):
                 output=tool_output,
                 metadata=metadata,
             )
+            span.end()
         return result
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -151,6 +152,7 @@ class MockToolWrapper(Tool):
                 output=tool_output,
                 metadata=metadata,
             )
+            span.end()
         return result
 
     def get_parameterized_one_liner(self, params) -> str:
