@@ -41,5 +41,5 @@ STREAM_CHUNKS_PER_PARSE = int(
 
 ROBUSTA_AI_MODEL_NAME_BACKOFF = os.environ.get(
     "ROBUSTA_AI_MODEL_NAME_BACKOFF",
-    "gpt-4o",
+    "gpt-4o",  # default model for Robusta AI as of now
 )
