@@ -1,5 +1,3 @@
 {"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"job","keyword":"get-data"}}
-stdout:
-default     get-data                                       Failed     0/1           3m22s      3m22s   curl-container         curlimages/curl:latest   batch.kubernetes.io/controller-uid=8028495e-626c-4097-b241-bd2d22d19539   batch.kubernetes.io/controller-uid=8028495e-626c-4097-b241-bd2d22d19539,batch.kubernetes.io/job-name=get-data,controller-uid=8028495e-626c-4097-b241-bd2d22d19539,job-name=get-data
-
-stderr:
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get -A --show-labels -o wide job | grep get-data", "params": {"kind": "job", "keyword": "get-data"}}
+default      get-data                         Failed     0/1           2m29s      2m29s   curl-container   curlimages/curl:latest                          batch.kubernetes.io/controller-uid=cbc2f520-0201-479a-bb99-bae554d29cf1   batch.kubernetes.io/controller-uid=cbc2f520-0201-479a-bb99-bae554d29cf1,batch.kubernetes.io/job-name=get-data,controller-uid=cbc2f520-0201-479a-bb99-bae554d29cf1,job-name=get-data
