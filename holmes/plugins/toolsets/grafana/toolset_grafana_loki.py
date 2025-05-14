@@ -46,6 +46,7 @@ def get_resource_label(params: Dict, config: GrafanaLokiConfig):
 
 class BaseGrafanaLokiToolset(BaseGrafanaToolset):
     config_class = GrafanaLokiConfig
+    version = "0.0.1"
 
     def get_example_config(self):
         example_config = GrafanaLokiConfig(
