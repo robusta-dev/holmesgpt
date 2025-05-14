@@ -5,8 +5,8 @@ from urllib.parse import urljoin, urlparse
 
 import backoff
 from pydantic import BaseModel
-import requests
-from requests.auth import HTTPBasicAuth
+import requests  # type: ignore
+from requests.auth import HTTPBasicAuth  # type: ignore
 
 # --- Enums and Pydantic Models (Mostly Unchanged) ---
 
@@ -243,6 +243,9 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
 
     for node_data in raw_nodes_data:
         node_info = node_data_to_node_info(node_data)
+        if not node_info.name:
+            continue
+
         primary_nodes.append(node_info)
         all_node_names_primary_view.add(node_info.name)
 
@@ -305,9 +308,9 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
         all_node_names_direct_view: Set[str] = set()
 
         for node in direct_nodes:
-            all_node_names_direct_view.add(node.name)
+            all_node_names_direct_view.add(node.name)  # type: ignore
             if not node.running:
-                unreachable_by_this_node.append(node.name)
+                unreachable_by_this_node.append(node.name)  # type: ignore
 
         if unreachable_by_this_node:
             unreachable_nodes_set = set(unreachable_by_this_node)
@@ -381,7 +384,7 @@ def get_cluster_status(config: RabbitMQClusterConfig) -> ClusterStatus:
             seen_partitions.add(partition_key)
 
     node_statuses: List[NodeStatus] = [
-        NodeStatus(node=node_info.name, running=node_info.running)
+        NodeStatus(node=node_info.name, running=node_info.running)  # type: ignore
         for node_info in primary_nodes
     ]
 

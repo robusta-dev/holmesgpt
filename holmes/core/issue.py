@@ -29,7 +29,7 @@ class Issue(BaseModel):
     url: Optional[str] = None
 
     # Raw object from the source - e.g. a dict from the source's API
-    raw: dict = None
+    raw: Optional[dict] = None
 
     # these fields are all optional and used for visual presentation of the issue
     # there may not be a 1:1 mapping between source fields and these fields, which is OK

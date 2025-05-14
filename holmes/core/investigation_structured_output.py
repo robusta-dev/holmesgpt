@@ -202,10 +202,10 @@ def parse_json_sections(
                     value
                 )  # force to strings. We only expect markdown and don't want to give anything but a string to the UI
             else:
-                sections[key] = value
+                sections[key] = value  # type: ignore
         if sections:
             combined = combine_sections(sections)
-            return (combined, sections)
+            return (combined, sections)  # type: ignore
 
     return (response, None)
 

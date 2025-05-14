@@ -1,7 +1,7 @@
 import json
 import os
 import logging
-import yaml
+import yaml  # type: ignore
 
 
 def write_json_file(json_output_file: str, json_ob_to_dump):

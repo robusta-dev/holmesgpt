@@ -121,7 +121,7 @@ def build_issue_chat_messages(
             user_prompt, global_instructions
         )
 
-        number_of_tools_for_investigation = len(tools_for_investigation)
+        number_of_tools_for_investigation = len(tools_for_investigation)  # type: ignore
         if number_of_tools_for_investigation == 0:
             system_prompt = load_and_render_prompt(
                 template_path,
@@ -173,7 +173,7 @@ def build_issue_chat_messages(
                 description=tool.description,
                 output=tool.output[:tool_size],
             )
-            for tool in tools_for_investigation
+            for tool in tools_for_investigation  # type: ignore
         ]
 
         truncated_template_context = {
@@ -206,7 +206,7 @@ def build_issue_chat_messages(
             "content": user_prompt,
         }
     )
-    number_of_tools = len(tools_for_investigation) + len(
+    number_of_tools = len(tools_for_investigation) + len(  # type: ignore
         [message for message in conversation_history if message.get("role") == "tool"]
     )
 
@@ -235,7 +235,7 @@ def build_issue_chat_messages(
         ToolCallConversationResult(
             name=tool.name, description=tool.description, output=tool.output[:tool_size]
         )
-        for tool in tools_for_investigation
+        for tool in tools_for_investigation  # type: ignore
     ]
 
     template_context = {
@@ -350,27 +350,29 @@ def build_chat_messages(
 
     ask = add_global_instructions_to_user_prompt(ask, global_instructions)
 
-    conversation_history.append(
+    conversation_history.append(  # type: ignore
         {
             "role": "user",
             "content": ask,
         },
     )
     number_of_tools = len(
-        [message for message in conversation_history if message.get("role") == "tool"]
+        [message for message in conversation_history if message.get("role") == "tool"]  # type: ignore
     )
     if number_of_tools == 0:
-        return conversation_history
+        return conversation_history  # type: ignore
 
     conversation_history_without_tools = [
-        message for message in conversation_history if message.get("role") != "tool"
+        message
+        for message in conversation_history  # type: ignore
+        if message.get("role") != "tool"  # type: ignore
     ]
 
     tool_size = calculate_tool_size(
         ai, conversation_history_without_tools, number_of_tools
     )
-    truncate_tool_messages(conversation_history, tool_size)
-    return conversation_history
+    truncate_tool_messages(conversation_history, tool_size)  # type: ignore
+    return conversation_history  # type: ignore
 
 
 def build_workload_health_chat_messages(
@@ -439,7 +441,7 @@ def build_workload_health_chat_messages(
             user_prompt, global_instructions
         )
 
-        number_of_tools_for_workload = len(tools_for_workload)
+        number_of_tools_for_workload = len(tools_for_workload)  # type: ignore
         if number_of_tools_for_workload == 0:
             system_prompt = load_and_render_prompt(
                 template_path,
@@ -491,7 +493,7 @@ def build_workload_health_chat_messages(
                 description=tool.description,
                 output=tool.output[:tool_size],
             )
-            for tool in tools_for_workload
+            for tool in tools_for_workload  # type: ignore
         ]
 
         truncated_template_context = {
@@ -524,7 +526,7 @@ def build_workload_health_chat_messages(
             "content": user_prompt,
         }
     )
-    number_of_tools = len(tools_for_workload) + len(
+    number_of_tools = len(tools_for_workload) + len(  # type: ignore
         [message for message in conversation_history if message.get("role") == "tool"]
     )
 
@@ -553,7 +555,7 @@ def build_workload_health_chat_messages(
         ToolCallConversationResult(
             name=tool.name, description=tool.description, output=tool.output[:tool_size]
         )
-        for tool in tools_for_workload
+        for tool in tools_for_workload  # type: ignore
     ]
 
     template_context = {
