@@ -48,6 +48,7 @@ def test_parse_mcp_tool():
     )
 
     tool = MCPTool.create("url", mcp_tool)
+    assert tool.description == "desc"
 
 
 def test_mcpserver_unreachable():
