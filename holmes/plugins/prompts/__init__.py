@@ -1,5 +1,6 @@
 import os
 import os.path
+from typing import Optional
 from jinja2 import Environment, FileSystemLoader
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -22,7 +23,7 @@ def load_prompt(prompt: str) -> str:
     return open(path).read()
 
 
-def load_and_render_prompt(prompt: str, context: dict = None) -> str:
+def load_and_render_prompt(prompt: str, context: Optional[dict] = None) -> str:
     """
     prompt is in the format 'builtin://' or 'file://' or a regular string
     see load_prompt() for details

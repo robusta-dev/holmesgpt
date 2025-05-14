@@ -1,6 +1,6 @@
 import base64
 import logging
-import requests
+import requests  # type: ignore
 import os
 from typing import Any, Optional, Dict, List, Tuple
 from pydantic import BaseModel
@@ -245,7 +245,7 @@ class GitReadFileWithLineNumbers(Tool):
                     required=True,
                 ),
             },
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -288,7 +288,7 @@ class GitListFiles(Tool):
             name="git_list_files",
             description="Lists all files and directories in the remote Git repository.",
             parameters={},
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -329,7 +329,7 @@ class GitListOpenPRs(Tool):
             name="git_list_open_prs",
             description="Lists all open pull requests (PRs) in the remote Git repository.",
             parameters={},
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -397,7 +397,7 @@ class GitExecuteChanges(Tool):
                     description="Commit message", type="string", required=True
                 ),
             },
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -414,7 +414,7 @@ class GitExecuteChanges(Tool):
             )
 
         def modify_lines(lines: List[str]) -> List[str]:
-            nonlocal command, line, code
+            nonlocal command, line, code  # type: ignore
             if command == "insert":
                 prev_line = lines[line - 2] if line > 1 else ""
                 prev_indent = len(prev_line) - len(prev_line.lstrip())
@@ -519,14 +519,14 @@ class GitExecuteChanges(Tool):
                     return error(f"Error checking existing PRs: {e}")
 
             try:
-                base_sha = self.toolset.get_branch_ref(branch)
+                base_sha = self.toolset.get_branch_ref(branch)  # type: ignore
                 if not base_sha:
                     return error(f"Base branch {branch} not found")
             except Exception as e:
                 return error(f"Error getting base branch reference: {e}")
 
             try:
-                sha, content = self.toolset.get_file_content(filename, branch)
+                sha, content = self.toolset.get_file_content(filename, branch)  # type: ignore
                 lines = content.splitlines()
             except Exception as e:
                 return error(f"Error getting file content: {e}")
@@ -553,7 +553,10 @@ class GitExecuteChanges(Tool):
             if open_pr:
                 try:
                     pr_url = self.toolset.create_pr(
-                        commit_pr, branch_name, branch, commit_message
+                        commit_pr,
+                        branch_name,
+                        branch,  # type: ignore
+                        commit_message,  # type: ignore
                     )
                     return success(f"PR opened successfully: {pr_url}")
                 except Exception as e:
@@ -613,7 +616,7 @@ class GitUpdatePR(Tool):
                     description="Commit message", type="string", required=True
                 ),
             },
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def _invoke(self, params: Any) -> StructuredToolResult:

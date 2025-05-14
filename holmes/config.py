@@ -1,6 +1,6 @@
 import logging
 import os
-import yaml
+import yaml  # type: ignore
 import os.path
 from typing import Any, Dict, List, Optional, Union
 from holmes.utils.file_utils import load_yaml_file
@@ -165,7 +165,7 @@ class Config(RobustaBaseConfig):
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
     model: Optional[str] = "gpt-4o"
-    max_steps: Optional[int] = 10
+    max_steps: int = 10
     cluster_name: Optional[str] = None
 
     alertmanager_url: Optional[str] = None
@@ -184,7 +184,7 @@ class Config(RobustaBaseConfig):
     github_owner: Optional[str] = None
     github_pat: Optional[SecretStr] = None
     github_repository: Optional[str] = None
-    github_query: Optional[str] = ""
+    github_query: str = ""
 
     slack_token: Optional[SecretStr] = None
     slack_channel: Optional[str] = None
@@ -209,7 +209,7 @@ class Config(RobustaBaseConfig):
 
     @property
     def is_latest_version(self) -> bool:
-        if self._holmes_info and self._holmes_info.latest_version:
+        if self._holmes_info and self._holmes_info.latest_version and self._version:
             return self._version.startswith(self._holmes_info.latest_version)
 
         # We couldn't resolve version, assume we are running the latest version
@@ -225,7 +225,7 @@ class Config(RobustaBaseConfig):
             }
         logging.info(f"loaded models: {list(self._model_list.keys())}")
 
-        if not self.is_latest_version:
+        if not self.is_latest_version and self._holmes_info:
             logging.warning(
                 "You are running version %s of holmes, but the latest version is %s. Please update to the latest version.",
                 self._version,
@@ -306,7 +306,8 @@ class Config(RobustaBaseConfig):
             matching_toolsets = default_toolsets
         else:
             matching_toolsets = get_matching_toolsets(
-                default_toolsets, allowed_toolsets.split(",")
+                default_toolsets,
+                allowed_toolsets.split(","),  # type: ignore
             )
 
         toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
@@ -383,7 +384,7 @@ class Config(RobustaBaseConfig):
 
         toolsets_loaded_from_config = self.load_custom_toolsets_config()
         if toolsets_loaded_from_config:
-            toolsets_by_name: Dict[str, Toolset] = (
+            toolsets_by_name = (
                 self.merge_and_override_bultin_toolsets_with_toolsets_config(
                     toolsets_loaded_from_config,
                     toolsets_by_name,
@@ -427,7 +428,7 @@ class Config(RobustaBaseConfig):
         return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm(model))
 
     def create_issue_investigator(
-        self, dal: Optional[SupabaseDal] = None, model: str = None
+        self, dal: Optional[SupabaseDal] = None, model: Optional[str] = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
@@ -468,24 +469,24 @@ class Config(RobustaBaseConfig):
         self.validate_jira_config()
 
         return JiraSource(
-            url=self.jira_url,
-            username=self.jira_username,
-            api_key=self.jira_api_key.get_secret_value(),
-            jql_query=self.jira_query,
+            url=self.jira_url,  # type: ignore
+            username=self.jira_username,  # type: ignore
+            api_key=self.jira_api_key.get_secret_value(),  # type: ignore
+            jql_query=self.jira_query,  # type: ignore
         )
 
     def create_jira_service_management_source(self) -> JiraServiceManagementSource:
         self.validate_jira_config()
 
         return JiraServiceManagementSource(
-            url=self.jira_url,
-            username=self.jira_username,
-            api_key=self.jira_api_key.get_secret_value(),
-            jql_query=self.jira_query,
+            url=self.jira_url,  # type: ignore
+            username=self.jira_username,  # type: ignore
+            api_key=self.jira_api_key.get_secret_value(),  # type: ignore
+            jql_query=self.jira_query,  # type: ignore
         )
 
     def create_github_source(self) -> GitHubSource:
-        if not (
+        if not self.github_url or not (
             self.github_url.startswith("http://")
             or self.github_url.startswith("https://")
         ):
@@ -511,7 +512,7 @@ class Config(RobustaBaseConfig):
 
         return PagerDutySource(
             api_key=self.pagerduty_api_key.get_secret_value(),
-            user_email=self.pagerduty_user_email,
+            user_email=self.pagerduty_user_email,  # type: ignore
             incident_key=self.pagerduty_incident_key,
         )
 
@@ -521,7 +522,7 @@ class Config(RobustaBaseConfig):
 
         return OpsGenieSource(
             api_key=self.opsgenie_api_key.get_secret_value(),
-            query=self.opsgenie_query,
+            query=self.opsgenie_query,  # type: ignore
             team_integration_key=(
                 self.opsgenie_team_integration_key.get_secret_value()
                 if self.opsgenie_team_integration_key
@@ -531,11 +532,10 @@ class Config(RobustaBaseConfig):
 
     def create_alertmanager_source(self) -> AlertManagerSource:
         return AlertManagerSource(
-            url=self.alertmanager_url,
+            url=self.alertmanager_url,  # type: ignore
             username=self.alertmanager_username,
-            password=self.alertmanager_password,
-            alertname_filter=self.alertmanager_alertname,
-            label_filter=self.alertmanager_label,
+            alertname_filter=self.alertmanager_alertname,  # type: ignore
+            label_filter=self.alertmanager_label,  # type: ignore
             filepath=self.alertmanager_file,
         )
 
@@ -596,14 +596,15 @@ class Config(RobustaBaseConfig):
     def merge_and_override_bultin_toolsets_with_toolsets_config(
         self,
         toolsets_loaded_from_config: list[ToolsetYamlFromConfig],
-        default_toolsets_by_name: dict[str, YAMLToolset],
+        default_toolsets_by_name: dict[str, Toolset],
     ) -> dict[str, Toolset]:
         """
         Merges and overrides default_toolsets_by_name with custom
         config from /etc/holmes/config/custom_toolset.yaml
         """
         toolsets_with_updated_statuses: Dict[str, YAMLToolset] = {
-            toolset.name: toolset for toolset in default_toolsets_by_name.values()
+            toolset.name: toolset  # type: ignore
+            for toolset in default_toolsets_by_name.values()  # type: ignore
         }
 
         for toolset in toolsets_loaded_from_config:
@@ -620,7 +621,7 @@ class Config(RobustaBaseConfig):
                         f"Toolset '{toolset.name}' is invalid: {error} ", exc_info=True
                     )
 
-        return toolsets_with_updated_statuses
+        return toolsets_with_updated_statuses  # type: ignore
 
     @classmethod
     def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
@@ -661,13 +662,13 @@ class Config(RobustaBaseConfig):
             api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
 
-        return DefaultLLM(model, api_key, model_params)
+        return DefaultLLM(model, api_key, model_params)  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:
-            return json.dumps(list(self._model_list.keys()))
+            return json.dumps(list(self._model_list.keys()))  # type: ignore
 
-        return json.dumps([self.model])
+        return json.dumps([self.model])  # type: ignore
 
 
 class TicketSource(BaseModel):
@@ -751,7 +752,7 @@ class SourceFactory(BaseModel):
             output_instructions = [
                 "All output links/urls must **always** be of this format : \n link text here: http://your.url.here.com\n **never*** use the url the format [link text here](http://your.url.here.com)"
             ]
-            source_instance = config.create_pagerduty_source()
+            source_instance = config.create_pagerduty_source()  # type: ignore
             return TicketSource(
                 config=config,
                 output_instructions=output_instructions,

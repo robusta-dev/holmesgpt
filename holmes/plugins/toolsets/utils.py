@@ -1,6 +1,6 @@
 import datetime
 from typing import Dict, Optional, Tuple, Union
-from dateutil import parser
+from dateutil import parser  # type: ignore
 import time
 
 ONE_HOUR_IN_SECONDS = 3600
@@ -79,9 +79,9 @@ def process_timestamps_to_rfc3339(
         end_timestamp,
         default_time_span_seconds=default_time_span_seconds,
     )
-    start_timestamp = datetime_to_rfc3339(start_timestamp)
-    end_timestamp = datetime_to_rfc3339(end_timestamp)
-    return (start_timestamp, end_timestamp)
+    parsed_start_timestamp = datetime_to_rfc3339(start_timestamp)
+    parsed_end_timestamp = datetime_to_rfc3339(end_timestamp)
+    return (parsed_start_timestamp, parsed_end_timestamp)
 
 
 def process_timestamps_to_int(
@@ -130,7 +130,7 @@ def process_timestamps_to_int(
     if isinstance(start, int) and isinstance(end, int) and start > end:
         start, end = end, start
 
-    return (start, end)
+    return (start, end)  # type: ignore
 
 
 def get_param_or_raise(dict: Dict, param: str) -> str:

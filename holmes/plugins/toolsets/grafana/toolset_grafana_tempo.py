@@ -1,8 +1,8 @@
 import os
-import yaml
+import yaml  # type: ignore
 from typing import Any, Dict, List, cast
 from pydantic import BaseModel
-import requests
+import requests  # type: ignore
 from holmes.common.env_vars import load_bool
 from holmes.core.tools import (
     Tool,

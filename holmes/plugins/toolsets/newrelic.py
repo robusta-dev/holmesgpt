@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 import logging
 from typing import Any, Optional, Dict
 from holmes.core.tools import (

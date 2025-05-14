@@ -88,8 +88,8 @@ def suppress_noisy_logs():
     warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
 
 
-def init_logging(verbose_flags: List[bool] = None):
-    verbosity = cli_flags_to_verbosity(verbose_flags)
+def init_logging(verbose_flags: Optional[List[bool]] = None):
+    verbosity = cli_flags_to_verbosity(verbose_flags)  # type: ignore
 
     if verbosity == Verbosity.VERY_VERBOSE:
         logging.basicConfig(
@@ -233,7 +233,7 @@ def handle_result(
                 )
 
         console.print("[bold green]AI:[/bold green]", end=" ")
-        console.print(Markdown(result.result))
+        console.print(Markdown(result.result))  # type: ignore
         if add_separator:
             console.print(Rule())
 
@@ -270,7 +270,7 @@ def _pre_check_and_clarify(
         pre_check_response = ai.llm.completion(
             messages=pre_check_messages, temperature=0.2
         )
-        clarification_request = pre_check_response.choices[0].message.content.strip()
+        clarification_request = pre_check_response.choices[0].message.content.strip()  # type: ignore
         logging.debug(f"Pre-check response: {clarification_request}")
 
         if clarification_request and not clarification_request.upper().startswith("OK"):
@@ -319,7 +319,7 @@ def ask(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     max_steps: Optional[int] = opt_max_steps,
@@ -366,7 +366,7 @@ def ask(
     """
     Ask any question and answer using available tools
     """
-    console = init_logging(verbose)
+    console = init_logging(verbose)  # type: ignore
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -378,13 +378,14 @@ def ask(
     )
 
     ai = config.create_console_toolcalling_llm(
-        allowed_toolsets=allowed_toolsets, dal=None
+        allowed_toolsets=allowed_toolsets,  # type: ignore
+        dal=None,  # type: ignore
     )
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
     }
 
-    system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)
+    system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)  # type: ignore
 
     if prompt_file:
         if not prompt_file.is_file():
@@ -403,7 +404,7 @@ def ask(
 
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + initial_user_prompt)
-    for path in include_file:
+    for path in include_file:  # type: ignore
         f = path.open("r")
         initial_user_prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
@@ -417,7 +418,7 @@ def ask(
         messages = _pre_check_and_clarify(ai, initial_user_prompt, console, messages)
 
     response = ai.call(messages, post_processing_prompt)
-    messages = response.messages  # Update messages with the full history
+    messages = response.messages  # type: ignore # Update messages with the full history
 
     if json_output_file:
         # Save only the first response to the JSON file if not interactive
@@ -437,7 +438,13 @@ def ask(
         source_instance_id=socket.gethostname(),
     )
     handle_result(
-        response, console, destination, config, issue, show_tool_output, False
+        response,
+        console,
+        destination,  # type: ignore
+        config,
+        issue,
+        show_tool_output,
+        False,  # type: ignore
     )
 
     # Interactive loop
@@ -445,7 +452,7 @@ def ask(
         run_interactive_loop(
             ai,
             console,
-            destination,
+            destination,  # type: ignore
             messages,
             post_processing_prompt,
             show_tool_output,
@@ -536,7 +543,7 @@ def alertmanager(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
@@ -573,7 +580,7 @@ def alertmanager(
         custom_runbooks=custom_runbooks,
     )
 
-    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)  # type: ignore
 
     source = config.create_alertmanager_source()
 
@@ -604,13 +611,13 @@ def alertmanager(
         )
         result = ai.investigate(
             issue=issue,
-            prompt=system_prompt,
+            prompt=system_prompt,  # type: ignore
             console=console,
             instructions=None,
             post_processing_prompt=post_processing_prompt,
         )
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
-        handle_result(result, console, destination, config, issue, False, True)
+        handle_result(result, console, destination, config, issue, False, True)  # type: ignore
 
     if json_output_file:
         write_json_file(json_output_file, results)
@@ -629,13 +636,13 @@ def generate_alertmanager_tests(
         None,
         help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)",
     ),
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     verbose: Optional[List[bool]] = opt_verbose,
 ):
     """
     Connect to alertmanager and dump all alerts as either a json file or curl commands to simulate the alert (depending on --output flag)
     """
-    console = init_logging(verbose)
+    console = init_logging(verbose)  # type: ignore
     config = Config.load_from_file(
         config_file,
         alertmanager_url=alertmanager_url,
@@ -674,7 +681,7 @@ def jira(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
@@ -703,7 +710,7 @@ def jira(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)  # type: ignore
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()
@@ -722,7 +729,7 @@ def jira(
         )
         result = ai.investigate(
             issue=issue,
-            prompt=system_prompt,
+            prompt=system_prompt,  # type: ignore
             console=console,
             instructions=None,
             post_processing_prompt=post_processing_prompt,
@@ -730,7 +737,7 @@ def jira(
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
-        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
+        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")  # type: ignore
         console.print(Rule())
         if update:
             source.write_back_result(issue.id, result)
@@ -774,7 +781,7 @@ def ticket(
         None,
         help="ticket ID to investigate (e.g., 'KAN-1')",
     ),
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_ticket.jinja2", help=system_prompt_help
@@ -802,7 +809,7 @@ def ticket(
         return
 
     try:
-        issue_to_investigate = ticket_source.source.fetch_issue(id=ticket_id)
+        issue_to_investigate = ticket_source.source.fetch_issue(id=ticket_id)  # type: ignore
         if issue_to_investigate is None:
             raise Exception(f"Issue {ticket_id} Not found")
     except Exception as e:
@@ -813,7 +820,7 @@ def ticket(
         return
 
     system_prompt = load_and_render_prompt(
-        prompt=system_prompt,
+        prompt=system_prompt,  # type: ignore
         context={
             "source": source,
             "output_instructions": ticket_source.output_instructions,
@@ -821,7 +828,7 @@ def ticket(
     )
 
     ai = ticket_source.config.create_console_issue_investigator(
-        allowed_toolsets=allowed_toolsets
+        allowed_toolsets=allowed_toolsets  # type: ignore
     )
     console.print(
         f"[bold yellow]Analyzing ticket: {issue_to_investigate.name}...[/bold yellow]"
@@ -837,7 +844,7 @@ def ticket(
     console.print(
         f"[bold green]AI analysis of {issue_to_investigate.url} {prompt}[/bold green]"
     )
-    console.print(result.result.replace("\n", "\n\n"), style="bold green")
+    console.print(result.result.replace("\n", "\n\n"), style="bold green")  # type: ignore
     console.print(Rule())
 
     ticket_source.source.write_back_result(issue_to_investigate.id, result)
@@ -869,7 +876,7 @@ def github(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
@@ -884,7 +891,7 @@ def github(
     """
     Investigate a GitHub issue
     """
-    console = init_logging(verbose)
+    console = init_logging(verbose)  # type: ignore
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -898,7 +905,7 @@ def github(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets)  # type: ignore
     source = config.create_github_source()
     try:
         issues = source.fetch_issues()
@@ -916,7 +923,7 @@ def github(
 
         result = ai.investigate(
             issue=issue,
-            prompt=system_prompt,
+            prompt=system_prompt,  # type: ignore
             console=console,
             instructions=None,
             post_processing_prompt=post_processing_prompt,
@@ -924,7 +931,7 @@ def github(
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
-        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
+        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")  # type: ignore
         console.print(Rule())
         if update:
             source.write_back_result(issue.id, result)
@@ -955,7 +962,7 @@ def pagerduty(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
@@ -983,7 +990,7 @@ def pagerduty(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets)  # type: ignore
     source = config.create_pagerduty_source()
     try:
         issues = source.fetch_issues()
@@ -1003,7 +1010,7 @@ def pagerduty(
 
         result = ai.investigate(
             issue=issue,
-            prompt=system_prompt,
+            prompt=system_prompt,  # type: ignore
             console=console,
             instructions=None,
             post_processing_prompt=post_processing_prompt,
@@ -1011,7 +1018,7 @@ def pagerduty(
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
-        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
+        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")  # type: ignore
         console.print(Rule())
         if update:
             source.write_back_result(issue.id, result)
@@ -1042,7 +1049,7 @@ def opsgenie(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,
+    config_file: Optional[str] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
@@ -1058,7 +1065,7 @@ def opsgenie(
     """
     Investigate an OpsGenie alert
     """
-    console = init_logging(verbose)
+    console = init_logging(verbose)  # type: ignore
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -1070,7 +1077,7 @@ def opsgenie(
         custom_toolsets=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)
+    ai = config.create_console_issue_investigator(allowed_toolsets)  # type: ignore
     source = config.create_opsgenie_source()
     try:
         issues = source.fetch_issues()
@@ -1087,7 +1094,7 @@ def opsgenie(
         )
         result = ai.investigate(
             issue=issue,
-            prompt=system_prompt,
+            prompt=system_prompt,  # type: ignore
             console=console,
             instructions=None,
             post_processing_prompt=post_processing_prompt,
@@ -1095,7 +1102,7 @@ def opsgenie(
 
         console.print(Rule())
         console.print(f"[bold green]AI analysis of {issue.url}[/bold green]")
-        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")
+        console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")  # type: ignore
         console.print(Rule())
         if update:
             source.write_back_result(issue.id, result)

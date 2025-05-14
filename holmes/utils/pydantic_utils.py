@@ -1,8 +1,8 @@
 import sys
-from typing import Any, Dict, List, Tuple, Type, Union, Annotated
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, Annotated
 
 import typer
-from benedict import benedict
+from benedict import benedict  # type: ignore
 from pydantic import BaseModel, ValidationError, BeforeValidator, ConfigDict
 
 from holmes.plugins.prompts import load_prompt
@@ -29,13 +29,15 @@ def loc_to_dot_sep(loc: Tuple[Union[str, int], ...]) -> str:
 
 
 def convert_errors(e: ValidationError) -> List[Dict[str, Any]]:
-    new_errors: List[Dict[str, Any]] = e.errors()
+    new_errors: List[Dict[str, Any]] = e.errors()  # type: ignore
     for error in new_errors:
         error["loc"] = loc_to_dot_sep(error["loc"])
     return new_errors
 
 
-def load_model_from_file(model: Type[BaseModel], file_path: str, yaml_path: str = None):
+def load_model_from_file(
+    model: Type[BaseModel], file_path: str, yaml_path: Optional[str] = None
+):
     try:
         contents = benedict(file_path, format="yaml")
         if yaml_path is not None:
