@@ -37,16 +37,13 @@ from holmes.config import Config
 from holmes.core.conversations import (
     build_chat_messages,
     build_issue_chat_messages,
-    handle_issue_conversation,
     build_workload_health_chat_messages,
 )
 from holmes.core.models import (
     FollowUpAction,
     InvestigationResult,
-    ConversationRequest,
     InvestigateRequest,
     WorkloadHealthRequest,
-    ConversationInvestigationResponse,
     ChatRequest,
     ChatResponse,
     IssueChatRequest,
@@ -251,25 +248,6 @@ def workload_health_conversation(
     except Exception as e:
         logging.error(f"Error in /api/workload_health_chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# older api that does not support conversation history
-@app.post("/api/conversation")
-def issue_conversation_deprecated(conversation_request: ConversationRequest):
-    try:
-        config.load_robusta_api_key(dal=dal)
-        ai = config.create_toolcalling_llm(dal=dal)
-
-        system_prompt = handle_issue_conversation(conversation_request, ai)
-
-        investigation = ai.prompt_call(system_prompt, conversation_request.user_prompt)
-
-        return ConversationInvestigationResponse(
-            analysis=investigation.result,
-            tool_calls=investigation.tool_calls,
-        )
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=e.message)
 
 
 @app.post("/api/issue_chat")

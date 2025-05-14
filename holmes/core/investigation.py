@@ -23,7 +23,7 @@ def investigate_issues(
     dal: SupabaseDal,
     config: Config,
     model: Optional[str] = None,
-):
+) -> InvestigationResult:
     config.load_robusta_api_key(dal=dal)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 
