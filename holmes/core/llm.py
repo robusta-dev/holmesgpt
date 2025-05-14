@@ -30,7 +30,7 @@ OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 class LLM:
     @abstractmethod
     def __init__(self):
-        self.model: str
+        self.model: str  # type: ignore
 
     @abstractmethod
     def get_context_window_size(self) -> int:
@@ -93,16 +93,16 @@ class DefaultLLM(LLM):
             if api_key:
                 os.environ["WATSONX_APIKEY"] = api_key
             if "WATSONX_URL" not in os.environ:
-                model_requirements["missing_keys"].append("WATSONX_URL")
+                model_requirements["missing_keys"].append("WATSONX_URL")  # type: ignore
                 model_requirements["keys_in_environment"] = False
             if "WATSONX_APIKEY" not in os.environ and "WATSONX_TOKEN" not in os.environ:
-                model_requirements["missing_keys"].extend(
+                model_requirements["missing_keys"].extend(  # type: ignore
                     ["WATSONX_APIKEY", "WATSONX_TOKEN"]
                 )
                 model_requirements["keys_in_environment"] = False
             # WATSONX_PROJECT_ID is required because we don't let user pass it to completion call directly
             if "WATSONX_PROJECT_ID" not in os.environ:
-                model_requirements["missing_keys"].append("WATSONX_PROJECT_ID")
+                model_requirements["missing_keys"].append("WATSONX_PROJECT_ID")  # type: ignore
                 model_requirements["keys_in_environment"] = False
             # https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces
             # using custom watsonx deployments might require to set WATSONX_DEPLOYMENT_SPACE_ID env
@@ -206,7 +206,7 @@ class DefaultLLM(LLM):
         tools_args = {}
         if tools and len(tools) > 0 and tool_choice == "auto":
             tools_args["tools"] = tools
-            tools_args["tool_choice"] = tool_choice
+            tools_args["tool_choice"] = tool_choice  # type: ignore
 
         if THINKING:
             self.args.setdefault("thinking", json.loads(THINKING))

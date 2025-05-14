@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from typing import Optional
-import requests
+import requests  # type: ignore
 from pydantic import BaseModel, ConfigDict
 from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, ROBUSTA_AI_MODEL_NAME_BACKOFF
 

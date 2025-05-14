@@ -66,3 +66,5 @@ def get_version() -> str:
             pass
 
         return "dev-version"
+
+    return "unknown-version"

@@ -1,6 +1,6 @@
-import requests
+import requests  # type: ignore
 import logging
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -133,7 +133,7 @@ class DatadogToolset(Toolset):
             tags=[ToolsetTag.CORE],
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
             return False, ""
 

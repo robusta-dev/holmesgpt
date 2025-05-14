@@ -1,10 +1,10 @@
 import logging
-from kubernetes import client
-from kubernetes.client import V1ServiceList
-from kubernetes.client.models.v1_service import V1Service
+from kubernetes import client  # type: ignore
+from kubernetes.client import V1ServiceList  # type: ignore
+from kubernetes.client.models.v1_service import V1Service  # type: ignore
 import os
 from typing import List, Optional
-from kubernetes import config
+from kubernetes import config  # type: ignore
 
 CLUSTER_DOMAIN = os.environ.get("CLUSTER_DOMAIN", "cluster.local")
 

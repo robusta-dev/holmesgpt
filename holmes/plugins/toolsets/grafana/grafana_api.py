@@ -1,5 +1,5 @@
 import logging
-import requests
+import requests  # type: ignore
 from typing import Tuple
 import backoff
 

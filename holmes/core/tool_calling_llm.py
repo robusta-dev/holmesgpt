@@ -5,7 +5,7 @@ import textwrap
 from typing import List, Optional, Dict, Type, Union
 from pydantic_core import from_json
 import sentry_sdk
-import requests
+import requests  # type: ignore
 
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
@@ -168,7 +168,7 @@ class ToolCallingLLM:
         return self.call(messages, post_process_prompt, response_format)
 
     @sentry_sdk.trace
-    def call(
+    def call(  # type: ignore
         self,
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
@@ -177,7 +177,7 @@ class ToolCallingLLM:
         sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls = []
+        tool_calls = []  # type: ignore
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
@@ -212,7 +212,7 @@ class ToolCallingLLM:
                     response_format=response_format,
                     drop_params=True,
                 )
-                logging.debug(f"got response {full_response.to_json()}")
+                logging.debug(f"got response {full_response.to_json()}")  # type: ignore
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -225,12 +225,12 @@ class ToolCallingLLM:
                     )
                 else:
                     raise
-            response = full_response.choices[0]
+            response = full_response.choices[0]  # type: ignore
 
-            response_message = response.message
+            response_message = response.message  # type: ignore
             if response_message and response_format:
                 # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
-                dict_response = json.loads(full_response.to_json())
+                dict_response = json.loads(full_response.to_json())  # type: ignore
                 incorrect_tool_call = is_response_an_incorrect_tool_call(
                     sections, dict_response.get("choices", [{}])[0]
                 )
@@ -393,7 +393,7 @@ class ToolCallingLLM:
             ]
             full_response = self.llm.completion(messages=messages, temperature=0)
             logging.debug(f"Post processing response {full_response}")
-            return full_response.choices[0].message.content
+            return full_response.choices[0].message.content  # type: ignore
         except Exception:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
@@ -443,7 +443,7 @@ class ToolCallingLLM:
         stream: bool = False,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
-        runbooks: List[str] = None,
+        runbooks: Optional[List[str]] = None,
     ):
         def stream_analysis(it, peek_chunk):
             buffer = peek_chunk.get("data", "")
@@ -493,7 +493,7 @@ class ToolCallingLLM:
             tools = [] if i == self.max_steps - 1 else tools
             tool_choice = None if tools == [] else "auto"
 
-            total_tokens = self.llm.count_tokens_for_message(messages)
+            total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
@@ -511,14 +511,14 @@ class ToolCallingLLM:
                     response = requests.post(
                         f"{ROBUSTA_API_ENDPOINT}/chat/completions",
                         json={
-                            "messages": parse_messages_tags(messages),
+                            "messages": parse_messages_tags(messages),  # type: ignore
                             "tools": tools,
                             "tool_choice": tool_choice,
                             "response_format": response_format,
                             "stream": True,
                             "drop_param": True,
                         },
-                        headers={"Authorization": f"Bearer {self.llm.api_key}"},
+                        headers={"Authorization": f"Bearer {self.llm.api_key}"},  # type: ignore
                         stream=True,
                     )
                     response.raise_for_status()
@@ -535,7 +535,7 @@ class ToolCallingLLM:
                     tools_to_call = response_message.tool_calls
                 else:
                     full_response = self.llm.completion(
-                        messages=parse_messages_tags(messages),
+                        messages=parse_messages_tags(messages),  # type: ignore
                         tools=tools,
                         tool_choice=tool_choice,
                         response_format=response_format,
@@ -544,10 +544,10 @@ class ToolCallingLLM:
                     )
                     perf_timing.measure("llm.completion")
 
-                    response_message = full_response.choices[0].message
+                    response_message = full_response.choices[0].message  # type: ignore
                     if response_message and response_format:
                         # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
-                        dict_response = json.loads(full_response.to_json())
+                        dict_response = json.loads(full_response.to_json())  # type: ignore
                         incorrect_tool_call = is_response_an_incorrect_tool_call(
                             sections, dict_response.get("choices", [{}])[0]
                         )
@@ -563,7 +563,7 @@ class ToolCallingLLM:
 
                     tools_to_call = getattr(response_message, "tool_calls", None)
                     if not tools_to_call:
-                        (text_response, sections) = process_response_into_sections(
+                        (text_response, sections) = process_response_into_sections(  # type: ignore
                             response_message.content
                         )
 
@@ -596,8 +596,8 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:
-                    futures.append(executor.submit(self._invoke_tool, t))
+                for t in tools_to_call:  # type: ignore
+                    futures.append(executor.submit(self._invoke_tool, t))  # type: ignore
                     yield create_sse_message(
                         "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
