@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple, List
+from typing import Any, Optional, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
@@ -21,16 +21,11 @@ from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,
     build_coralogix_link_to_logs,
     stringify_flattened_logs,
-    FlattenedLog,
 )
 from holmes.plugins.toolsets.utils import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
     TOOLSET_CONFIG_MISSING_ERROR,
     standard_start_datetime_tool_param_description,
-)
-from holmes.plugins.toolsets.logging_api import (
-    LoggingTool,
-    DEFAULT_LOG_LIMIT,
 )
 
 
@@ -143,7 +138,6 @@ class CoralogixLogsToolset(BaseCoralogixToolset):
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 FetchLogs(self),
-                LoggingTool(self),
             ],
             tags=[ToolsetTag.CORE],
         )
@@ -156,84 +150,3 @@ class CoralogixLogsToolset(BaseCoralogixToolset):
             return health_check(domain=self.config.domain, api_key=self.config.api_key)
         else:
             return False, "Missing configuration field 'api_key'"
-
-    def fetch_logs(
-        self,
-        namespace: str,
-        pod_name: str,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        filter_pattern: Optional[str] = None,
-        limit: int = DEFAULT_LOG_LIMIT,
-    ) -> StructuredToolResult:
-        """Implementation of the fetch_logs method required by BaseLoggingToolset"""
-        if not self.config:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error="The coralogix/logs toolset is not configured",
-                data=None,
-            )
-
-        # Create params dict for Coralogix API
-        params = {
-            "resource_type": "pod",
-            "resource_name": pod_name,
-            "namespace_name": namespace,
-            "start": start_time,
-            "end": end_time,
-            "log_count": limit,
-        }
-
-        # If filter pattern is provided, add it to the query
-        # Note: Coralogix API doesn't directly support filtering in the same way as Kubernetes
-        # For now we'll rely on client-side filtering if needed
-
-        logs_data = query_logs_for_all_tiers(config=self.config, params=params)
-        (start, end) = get_start_end(config=self.config, params=params)
-        query_string = build_query_string(config=self.config, params=params)
-
-        url = build_coralogix_link_to_logs(
-            config=self.config, lucene_query=query_string, start=start, end=end
-        )
-
-        if logs_data.error:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=logs_data.error,
-            )
-
-        # Apply filter pattern if provided
-        filtered_logs: List[FlattenedLog] = logs_data.logs
-        if filter_pattern and filtered_logs:
-            import re
-
-            try:
-                regex = re.compile(filter_pattern)
-                filtered_logs = [
-                    log for log in filtered_logs if regex.search(log.log_message)
-                ]
-            except re.error:
-                # If regex is invalid, return unfiltered logs with a warning
-                pass
-
-        # Apply limit
-        if limit and limit < len(filtered_logs):
-            filtered_logs = filtered_logs[-limit:]  # Get the most recent logs
-
-        # Format the logs
-        formatted_logs = stringify_flattened_logs(filtered_logs)
-
-        return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
-            data=formatted_logs,
-            url=url,
-            invocation=query_string,
-            params={
-                "namespace": namespace,
-                "pod_name": pod_name,
-                "start_time": start,
-                "end_time": end,
-                "filter": filter_pattern,
-                "limit": limit,
-            },
-        )
