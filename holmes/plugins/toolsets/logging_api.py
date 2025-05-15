@@ -18,17 +18,10 @@ DEFAULT_LOG_LIMIT = 2000
 DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
-class LoggingLabelsConfig(BaseModel):
-    """Common label mapping configuration for all logging backends"""
-
-    pod: Optional[str] = None
-    namespace: Optional[str] = None
-
-
 class LoggingConfig(BaseModel):
     """Base configuration for all logging backends"""
 
-    labels: Optional[LoggingLabelsConfig] = None
+    pass
 
 
 class FetchLogsParams(BaseModel):
