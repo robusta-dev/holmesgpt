@@ -213,16 +213,13 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         except ApiException as e:
             if e.status == 400 and "previous terminated container" in str(e).lower():
                 return []
-            elif e.status != 404:  # Ignore 404 errors for previous logs
+            elif e.status == 404:
+                return []
+            else:
                 logging.warning(
                     f"API error fetching logs. params={query_params}. Error: {str(e)}"
                 )
-            else:
-                logging.warning(
-                    f"Error fetching logs. params={query_params}. Error: {str(e)}"
-                )
-                raise
-            return []
+                raise e
         except Exception as e:
             logging.error(
                 f"Error fetching logs. params={query_params}. Error: {str(e)}"
