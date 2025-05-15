@@ -56,9 +56,7 @@ def load_toolsets_from_file(
     return file_toolsets
 
 
-def load_python_toolsets(
-    dal: Optional[SupabaseDal], use_legacy_k8s_logs: bool = False
-) -> List[Toolset]:
+def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
     toolsets: list[Toolset] = [
         InternetToolset(),
