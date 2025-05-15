@@ -1,12 +1,13 @@
 import json
 import logging
-from typing import Optional, Any
+import os
+from typing import Optional, Any, cast
 from urllib.parse import urljoin
 
 from pydantic import BaseModel
 import requests  # type: ignore
 
-from holmes.plugins.toolsets.logging_api import LoggingConfig
+from holmes.core.tools import Toolset
 
 
 class OpenSearchLoggingLabelsConfig(BaseModel):
@@ -17,10 +18,13 @@ class OpenSearchLoggingLabelsConfig(BaseModel):
     log_level: str = "log.level"
 
 
-class OpenSearchLoggingConfig(LoggingConfig):
+class BaseOpenSearchConfig(BaseModel):
     opensearch_url: str
     index_pattern: str
     opensearch_auth_header: Optional[str] = None
+
+
+class OpenSearchLoggingConfig(BaseOpenSearchConfig):
     # If True, use script-based field discovery instead of getMappings API
     use_script_for_fields_discovery: bool = False
     labels: OpenSearchLoggingLabelsConfig = OpenSearchLoggingLabelsConfig()
@@ -151,3 +155,35 @@ def build_query(
         must_constraints.append({"regexp": {message_field: filter_pattern}})
 
     return query
+
+
+class BaseOpenSearchToolset(Toolset):
+    def get_example_config(self) -> dict[str, Any]:
+        example_config = BaseOpenSearchConfig(
+            opensearch_url="YOUR OPENSEARCH LOGS URL",
+            index_pattern="YOUR OPENSEARCH LOGS INDEX NAME",
+            opensearch_auth_header="YOUR OPENSEARCH LOGS AUTH HEADER (Optional)",
+        )
+        return example_config.model_dump()
+
+    def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
+        env_url = os.environ.get("OPENSEARCH_LOGS_URL", None)
+        env_index_pattern = os.environ.get("OPENSEARCH_LOGS_INDEX_NAME", "*")
+        if not config and not env_url:
+            return False, "Missing opensearch traces URL. Check your config"
+        elif not config and env_url:
+            self.config = BaseOpenSearchConfig(
+                opensearch_url=env_url,
+                index_pattern=env_index_pattern,
+                opensearch_auth_header=os.environ.get(
+                    "OPENSEARCH_LOGS_AUTH_HEADER", None
+                ),
+            )
+            return opensearch_health_check(self.config)
+        else:
+            self.config = BaseOpenSearchConfig(**config)
+            return opensearch_health_check(self.config)
+
+    @property
+    def opensearch_config(self) -> BaseOpenSearchConfig:
+        return cast(BaseOpenSearchConfig, self.config)
