@@ -720,7 +720,7 @@ class GitUpdatePR(Tool):
                     pr_number, filename, updated_content, commit_message
                 )
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=ToolResultStatus.SUCCESS,
                     error=f"Added commit to PR #{pr_number} successfully",
                 )
 

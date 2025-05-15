@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Optional
 from autoevals import LLMClassifier
 import os
 from braintrust import Span, SpanTypeAttribute
@@ -7,7 +7,7 @@ classifier_model = os.environ.get("CLASSIFIER_MODEL", "gpt-4o")
 
 
 def evaluate_context_usage(
-    context_items: List[str],
+    context_items: list[str],
     output: Optional[str],
     input: Optional[str],
     parent_span: Span,
@@ -59,7 +59,7 @@ D. All items present in the CONTEXT are mentioned in the ANSWER
 
 
 def evaluate_correctness(
-    expected_elements: List[str], output: Optional[str], parent_span: Span
+    expected_elements: list[str], output: Optional[str], parent_span: Span
 ):
     with parent_span.start_span(
         name="Correctness", type=SpanTypeAttribute.SCORE
@@ -115,7 +115,7 @@ def evaluate_correctness(
 
 
 def evaluate_sections(
-    sections: Dict[str, bool], output: Optional[str], parent_span: Span
+    sections: dict[str, bool], output: Optional[str], parent_span: Span
 ):
     with parent_span.start_span(name="Sections", type=SpanTypeAttribute.SCORE) as span:
         expected_sections = [

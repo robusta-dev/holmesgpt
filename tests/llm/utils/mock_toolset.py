@@ -1,5 +1,6 @@
 import json
 from typing import Any, Dict, List, Optional
+
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
 from holmes.plugins.toolsets import load_builtin_toolsets
@@ -113,10 +114,8 @@ class SaveMockTool(Tool):
         return self._unmocked_tool.get_parameterized_one_liner(params)
 
 
-class MockToolWrapper(Tool):
-    _unmocked_tool: Tool
+class MockToolWrapper(Tool, BaseModel):
     mocks: List[ToolMock] = []
-    _parent_span: Optional[Span] = None
 
     def __init__(self, unmocked_tool: Tool, parent_span: Optional[Span]):
         super().__init__(
@@ -125,8 +124,8 @@ class MockToolWrapper(Tool):
             parameters=unmocked_tool.parameters,
             user_description=unmocked_tool.user_description,
         )
-        self._unmocked_tool = unmocked_tool
-        self._parent_span = parent_span
+        self._unmocked_tool: Tool = unmocked_tool
+        self._parent_span: Optional[Span] = parent_span
 
     def find_matching_mock(self, params: Dict) -> Optional[ToolMock]:
         for mock in self.mocks:

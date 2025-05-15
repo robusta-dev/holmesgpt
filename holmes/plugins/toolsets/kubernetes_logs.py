@@ -14,6 +14,7 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.logging_api import (
     BaseLoggingToolset,
     FetchLogsParams,
+    LoggingConfig,
     LoggingTool,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix
@@ -59,8 +60,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             return False, f"Kubernetes client initialization error: {str(e)}"
 
     def get_example_config(self):
-        # TODO: implement
-        return {}
+        return LoggingConfig().model_dump()
 
     def _initialize_client(self):
         if not self._api_client:
@@ -175,17 +175,18 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         """Fetch logs for a specific container in a pod"""
         if not self._core_v1_api:
             return []
+
+        query_params = {
+            "name": params.pod_name,
+            "namespace": params.namespace,
+            "previous": previous,
+        }
         try:
             filter_by_timestamps = False
             if params.start_time or params.end_time:
                 filter_by_timestamps = True
 
-            query_params = {
-                "name": params.pod_name,
-                "namespace": params.namespace,
-                "previous": previous,
-                "timestamps": filter_by_timestamps,
-            }
+            query_params["timestamps"] = filter_by_timestamps
 
             if container_name:
                 query_params["container"] = container_name
@@ -214,18 +215,19 @@ class KubernetesLogsToolset(BaseLoggingToolset):
                 return []
             elif e.status != 404:  # Ignore 404 errors for previous logs
                 logging.warning(
-                    f"API error fetching logs for container {container_name}: {str(e)}"
+                    f"API error fetching logs. params={query_params}. Error: {str(e)}"
                 )
             else:
                 logging.warning(
-                    f"Error fetching logs for container {container_name}: {str(e)}"
+                    f"Error fetching logs. params={query_params}. Error: {str(e)}"
                 )
+                raise
             return []
         except Exception as e:
-            logging.warning(
-                f"Error fetching logs for container {container_name}: {str(e)}"
+            logging.error(
+                f"Error fetching logs. params={query_params}. Error: {str(e)}"
             )
-            return []
+            raise
 
     def _filter_logs(self, logs: List[str], pattern: str) -> List[str]:
         """Filter logs by regex pattern"""
@@ -254,7 +256,9 @@ def filter_log_lines_by_timestamp_and_strip_prefix(
     filtered lines *without* the leading timestamp prefix.
     """
     # match ISO 8601 format (YYYY-MM-DDTHH:MM:SS[.fffffffff]Z)
-    timestamp_pattern = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z)")
+    timestamp_pattern = re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))"
+    )
     filtered_lines_content: List[str] = []
 
     for line in logs:

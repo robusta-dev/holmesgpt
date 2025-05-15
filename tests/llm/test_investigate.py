@@ -30,16 +30,16 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase, eval: Span):
+    def __init__(self, test_case: InvestigateTestCase, parent_span: Span):
         super().__init__()
         self._test_case = test_case
-        self._eval = eval
+        self._parent_span = parent_span
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         mock = MockToolsets(
             generate_mocks=self._test_case.generate_mocks,
             test_case_folder=self._test_case.folder,
-            parent_span=self._eval,
+            parent_span=self._parent_span,
         )
 
         expected_tools = []
@@ -84,9 +84,9 @@ def test_investigate(experiment_name, test_case):
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
     )
-    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
-    config = MockConfig(test_case, eval)
+    config = MockConfig(test_case, eval_span)
     config.model = os.environ.get("MODEL", "gpt-4o")
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
@@ -113,20 +113,6 @@ def test_investigate(experiment_name, test_case):
             investigate_request=investigate_request, config=config, dal=mock_dal
         )
     assert result, "No result returned by investigate_issues()"
-    # for tool_call in result.tool_calls:
-    #     # TODO: mock this instead so span start time & end time will be accurate.
-    #     # Also to include calls to llm spans
-    #     span = eval.start_span(name=tool_call.tool_name, type=SpanTypeAttribute.TOOL)
-    #     if span:
-    #         metadata = tool_call.result.model_dump()
-    #         tool_output = tool_call.result.data
-    #         del metadata["data"]
-    #         span.log(
-    #             input=tool_call.description,
-    #             output=tool_output,
-    #             metadata=metadata,
-    #         )
-    #         span.end()
 
     output = result.analysis
 
@@ -136,7 +122,7 @@ def test_investigate(experiment_name, test_case):
 
     print(f"** EXPECTED **\n-  {debug_expected}")
     correctness_eval = evaluate_correctness(
-        output=output, expected_elements=expected, parent_span=eval
+        output=output, expected_elements=expected, parent_span=eval_span
     )
     print(
         f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
@@ -148,7 +134,7 @@ def test_investigate(experiment_name, test_case):
             key: bool(value) for key, value in test_case.expected_sections.items()
         }
         sections_eval = evaluate_sections(
-            sections=sections, output=output, parent_span=eval
+            sections=sections, output=output, parent_span=eval_span
         )
         scores["sections"] = sections_eval.score
 
@@ -157,11 +143,11 @@ def test_investigate(experiment_name, test_case):
             context_items=test_case.retrieval_context,
             output=output,
             input=input,
-            parent_span=eval,
+            parent_span=eval_span,
         )
         scores["context"] = context_eval.score
 
-    if bt_helper and eval:
+    if bt_helper and eval_span:
         bt_helper.end_evaluation(
             input=input,
             output=output or "",

@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 from pydantic import BaseModel
-
+from datetime import timezone
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
@@ -21,15 +21,14 @@ DEFAULT_TIME_SPAN_SECONDS = 3600
 class LoggingLabelsConfig(BaseModel):
     """Common label mapping configuration for all logging backends"""
 
-    pod: str
-    namespace: str
+    pod: Optional[str] = None
+    namespace: Optional[str] = None
 
 
 class LoggingConfig(BaseModel):
     """Base configuration for all logging backends"""
 
-    labels: LoggingLabelsConfig
-    # Common parameters like timeouts, defaults, etc.
+    labels: Optional[LoggingLabelsConfig] = None
 
 
 class FetchLogsParams(BaseModel):
@@ -89,7 +88,7 @@ class LoggingTool(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(self, params: dict) -> StructuredToolResult:
         structured_params = FetchLogsParams(
             namespace=get_param_or_raise(params, "namespace"),
             pod_name=get_param_or_raise(params, "pod_name"),
@@ -105,7 +104,7 @@ class LoggingTool(Tool):
 
         return result
 
-    def get_parameterized_one_liner(self, params: Dict) -> str:
+    def get_parameterized_one_liner(self, params: dict) -> str:
         """Generate a one-line description of this tool invocation"""
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
@@ -119,7 +118,7 @@ def process_time_parameters(
     start_time: Optional[str],
     end_time: Optional[str],
     default_span_seconds: int = DEFAULT_TIME_SPAN_SECONDS,
-) -> Tuple[Optional[str], Optional[str]]:
+) -> tuple[Optional[str], Optional[str]]:
     """
     Convert time parameters to standard RFC3339 format
 
@@ -132,7 +131,7 @@ def process_time_parameters(
         Tuple of (start_time, end_time) both in RFC3339 format or None
     """
     # Process end time first (as start might depend on it)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Handle end_time
     processed_end_time = None

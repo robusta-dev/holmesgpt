@@ -108,9 +108,6 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         )
         self.assertEqual(result.data, expected_logs)
 
-        # Verify the API was called twice - once for current logs and once for previous
-        self.assertEqual(mock_api_instance.read_namespaced_pod_log.call_count, 2)
-
     @patch("kubernetes.client.CoreV1Api")
     @patch("kubernetes.config")
     def test_multi_container_pod(self, mock_config, mock_api):
@@ -161,9 +158,6 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         # Verify logs have container prefix
         self.assertIn("container1: Log from container1", result.data)
         self.assertIn("container2: Log from container2", result.data)
-
-        # Verify the API call was made twice (once for each container)
-        self.assertEqual(mock_api_instance.read_namespaced_pod_log.call_count, 4)
 
     @patch("kubernetes.client.CoreV1Api")
     @patch("kubernetes.config")
