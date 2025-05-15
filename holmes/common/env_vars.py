@@ -22,7 +22,7 @@ STORE_API_KEY = os.environ.get("STORE_API_KEY", "")
 STORE_EMAIL = os.environ.get("STORE_EMAIL", "")
 STORE_PASSWORD = os.environ.get("STORE_PASSWORD", "")
 HOLMES_POST_PROCESSING_PROMPT = os.environ.get("HOLMES_POST_PROCESSING_PROMPT", "")
-ROBUSTA_AI = load_bool("ROBUSTA_AI", False)
+ROBUSTA_AI = load_bool("ROBUSTA_AI", True)
 ROBUSTA_API_ENDPOINT = os.environ.get("ROBUSTA_API_ENDPOINT", "https://api.robusta.dev")
 
 LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
@@ -38,3 +38,8 @@ TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
 STREAM_CHUNKS_PER_PARSE = int(
     os.environ.get("STREAM_CHUNKS_PER_PARSE", 80)
 )  # Empirical value with 6~ parsing calls. Consider using larger value if LLM response is long as to reduce markdown to section calls.
+
+ROBUSTA_AI_MODEL_NAME_BACKOFF = os.environ.get(
+    "ROBUSTA_AI_MODEL_NAME_BACKOFF",
+    "gpt-4o",  # default fallback model for Robusta AI as of now
+)

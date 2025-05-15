@@ -69,6 +69,9 @@ class GitToolset(Toolset):
         return error_msg.replace(self.git_credentials, "[REDACTED]")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        if not config and not (os.getenv("GIT_REPO") and os.getenv("GIT_CREDENTIALS")):
+            return False, "Missing one or more required Git configuration values."
+
         try:
             self.git_repo = os.getenv("GIT_REPO") or config.get("git_repo")
             self.git_credentials = os.getenv("GIT_CREDENTIALS") or config.get(
@@ -80,7 +83,7 @@ class GitToolset(Toolset):
 
             if not all([self.git_repo, self.git_credentials, self.git_branch]):
                 logging.error("Missing one or more required Git configuration values.")
-                return False, ""
+                return False, "Missing one or more required Git configuration values."
             return True, ""
         except Exception:
             logging.exception("GitHub prerequisites failed.")
