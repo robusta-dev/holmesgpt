@@ -1,12 +1,12 @@
 import logging
 import re
-from typing import Dict, Optional, List, Any, Tuple
+from typing import Optional, List, Any, Tuple
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 from pydantic import BaseModel
 
 from holmes.core.tools import (
-    CallablePrerequisite,
+    StaticPrerequisite,
     StructuredToolResult,
     ToolResultStatus,
     ToolsetTag,
@@ -28,12 +28,17 @@ class KubernetesLogsToolset(BaseLoggingToolset):
     """Implementation of the unified logging API for Kubernetes logs using the official Python client"""
 
     def __init__(self):
+
+        prerequisite = StaticPrerequisite(
+            enabled=False,
+            disabled_reason="Initializing"
+        )
         super().__init__(
             name="kubernetes/logs",
             description="Read Kubernetes pod logs using a unified API",
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#logs",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
-            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            prerequisites=[prerequisite],
             tools=[
                 LoggingTool(self),
             ],
@@ -41,13 +46,16 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         )
         self._api_client = None
         self._core_v1_api = None
+        self._initialize_client()
+        enabled, disabled_reason = self.health_check()
+        prerequisite.enabled = enabled
+        prerequisite.disabled_reason = disabled_reason
 
-    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
+    def health_check(self) -> Tuple[bool, str]:
         """Verify Kubernetes client can connect to the cluster"""
         try:
             # TODO: support API KEY / BearerToken
             # Try to load the kubeconfig and access the API
-            self._initialize_client()
             self._api_client.call_api(
                 "/version",
                 "GET",
@@ -63,23 +71,20 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         return LoggingConfig().model_dump()
 
     def _initialize_client(self):
-        if not self._api_client:
+        try:
             try:
-                try:
-                    config.load_incluster_config()
-                except config.ConfigException:
-                    config.load_kube_config()
+                config.load_incluster_config()
+            except config.ConfigException:
+                config.load_kube_config()
 
-                self._api_client = client.ApiClient()
-                self._core_v1_api = client.CoreV1Api(self._api_client)
-            except Exception:
-                logging.error("Failed to initialize Kubernetes client", exc_info=True)
-                raise
+            self._api_client = client.ApiClient()
+            self._core_v1_api = client.CoreV1Api(self._api_client)
+        except Exception:
+            logging.error("Failed to initialize Kubernetes client", exc_info=True)
+            raise
 
     def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
         try:
-            self._initialize_client()
-
             pod = self._find_pod(params.namespace, params.pod_name)
             all_logs = []
             if not pod or not pod.containers:
@@ -100,11 +105,10 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             if params.limit and params.limit < len(all_logs):
                 all_logs = all_logs[-params.limit :]
 
-            # Format output
             formatted_logs = self._format_logs(all_logs)
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=ToolResultStatus.SUCCESS if formatted_logs else ToolResultStatus.NO_DATA,
                 data=formatted_logs,
                 params=params.model_dump(),
             )
@@ -122,6 +126,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
 
     def _find_pod(self, namespace: str, pod_name: str) -> Optional[Pod]:
         if not self._core_v1_api:
+            logging.warning(f"Toolset {self.name} failed to initialize.")
             return None
         try:
             pod: Any = self._core_v1_api.read_namespaced_pod(
@@ -159,6 +164,8 @@ class KubernetesLogsToolset(BaseLoggingToolset):
                 pod_logs.extend(container_logs)
 
         if not pod_logs:
+            # Previous pods may have had different containers
+            # fall back to fetching the 'default' pod logs in a attempt to be as resilient as possible
             pod_logs = self._fetch_logs(
                 params=params,
                 previous=previous,
@@ -174,6 +181,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
     ) -> List[str]:
         """Fetch logs for a specific container in a pod"""
         if not self._core_v1_api:
+            logging.warning(f"Toolset {self.name} failed to initialize.")
             return []
 
         query_params = {
@@ -230,11 +238,6 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         return [log for log in logs if match in log]
 
     def _format_logs(self, logs: List[str]) -> str:
-        """Format logs for output"""
-        if not logs:
-            return "No logs found"
-
-        # Simple join without line numbers to match kubectl logs format
         return "\n".join([log for log in logs if log.strip()])
 
 
@@ -253,9 +256,9 @@ def filter_log_lines_by_timestamp_and_strip_prefix(
     filtered_lines_content: List[str] = []
 
     for line in logs:
-        # Non-string entries are passed through as-is
         if not isinstance(line, str):
-            filtered_lines_content.append(line)
+            # defensive code given logs are from an external API
+            filtered_lines_content.append(str(line))
             continue
 
         match = timestamp_pattern.match(line)

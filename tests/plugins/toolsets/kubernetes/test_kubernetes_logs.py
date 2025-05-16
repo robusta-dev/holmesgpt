@@ -191,8 +191,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         # In the updated API, if the pod is not found it tries previous logs which returns empty
         # rather than an error, which is considered a success with "No logs found"
-        self.assertEqual(result.status, ToolResultStatus.SUCCESS)
-        self.assertEqual(result.data, "No logs found")
+        self.assertEqual(result.status, ToolResultStatus.NO_DATA)
 
     @patch("kubernetes.client.CoreV1Api")
     @patch("kubernetes.config")
@@ -237,3 +236,4 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
