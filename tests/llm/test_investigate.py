@@ -154,6 +154,7 @@ def test_investigate(experiment_name, test_case):
             expected=str(expected),
             id=test_case.id,
             scores=scores,
+            prompt=None,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")

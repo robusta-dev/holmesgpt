@@ -100,12 +100,18 @@ def test_ask_holmes(experiment_name, test_case):
         scores["context"] = context_eval.score
 
     if bt_helper and eval_span:
+        prompt = (
+            result.messages[0]["content"]
+            if result.messages and len(result.messages) > 0
+            else result.prompt
+        )
         bt_helper.end_evaluation(
             input=input,
             output=output or "",
             expected=str(expected),
             id=test_case.id,
             scores=scores,
+            prompt=prompt,
         )
 
     if result.tool_calls:
