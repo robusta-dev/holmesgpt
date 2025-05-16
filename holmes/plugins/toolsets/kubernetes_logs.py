@@ -77,7 +77,6 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             self._core_v1_api = client.CoreV1Api(self._api_client)
         except Exception:
             logging.error("Failed to initialize Kubernetes client", exc_info=True)
-            raise
 
     def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
         try:
