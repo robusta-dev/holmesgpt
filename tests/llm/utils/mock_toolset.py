@@ -180,8 +180,17 @@ class MockToolWrapper(Tool, BaseModel):
 
 
 class MockToolset(Toolset):
+    def get_status(self):
+        return ToolsetStatusEnum.ENABLED
+
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def fetch_logs(self):
+        # Temporary placeholder to ensure the mocked version of logging toolset is considered a 'new' version
+        # Which will ensure the correct logs prompt is present
+        # it is safe to remove once all logs toolsets have been migrated
+        pass
 
 
 class MockToolsets:
@@ -298,7 +307,6 @@ class MockToolsets:
                     llm_instructions=toolset.llm_instructions,
                 )
                 mocked_toolset.tools = mocked_tools
-                mocked_toolset._status = ToolsetStatusEnum.ENABLED
                 mocked_toolsets.append(mocked_toolset)
 
         enabled_toolsets = mocked_toolsets

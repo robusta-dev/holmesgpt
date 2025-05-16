@@ -721,7 +721,7 @@ class GitUpdatePR(Tool):
                 )
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
-                    error=f"Added commit to PR #{pr_number} successfully",
+                    data=f"Added commit to PR #{pr_number} successfully",
                 )
 
             except Exception as e:
