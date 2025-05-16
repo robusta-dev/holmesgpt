@@ -330,6 +330,8 @@ class LogsSearchQuery(Tool):
 
 
 class OpenSearchLogsToolset(BaseOpenSearchToolset):
+    version = "0.0.1"
+
     def __init__(self):
         super().__init__(
             name="opensearch/logs",

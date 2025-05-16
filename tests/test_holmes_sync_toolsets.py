@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 import subprocess
 import os
+from pydantic import BaseModel
 
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
 from holmes.core.tools import (
@@ -30,6 +31,10 @@ def mock_config():
     config = Mock(spec=Config)
     config.cluster_name = "test-cluster"
     return config
+
+
+class SampleConfig(BaseModel):
+    param: str
 
 
 class SampleToolset(Toolset):
@@ -67,6 +72,10 @@ def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
     assert toolset_data["description"] == "Test toolset"
     assert toolset_data["status"] == ToolsetStatusEnum.DISABLED
     assert isinstance(toolset_data["updated_at"], str)
+
+    # Backward compatibility
+    for key in ["is_default", "config_schema", "version"]:
+        assert key not in toolset_data
 
 
 def test_sync_toolsets_no_cluster_name(mock_dal):
@@ -293,3 +302,29 @@ def test_sync_toolsets_with_command_output_mismatch(
     assert toolset_data["status"] == ToolsetStatusEnum.FAILED
     assert toolset_data["error"] is not None
     assert "Prerequisites check gave wrong output" in toolset_data["error"]
+
+
+def test_sync_toolsets_with_config_schema(mock_dal, mock_config, sample_toolset):
+    with patch.multiple(
+        SampleToolset, config_class=SampleConfig, version="1.0.0"
+    ), patch(
+        "holmes.utils.holmes_sync_toolsets.ENABLE_HOLMES_TOOLSETS_FROM_SAAS", True
+    ):
+        sample_toolset.is_default = True
+        mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
+
+        holmes_sync_toolsets_status(mock_dal, mock_config)
+
+        mock_dal.sync_toolsets.assert_called_once()
+        call_args = mock_dal.sync_toolsets.call_args[0]
+
+        assert len(call_args[0]) == 1
+        toolset_data = call_args[0][0]
+
+        assert toolset_data["is_default"] is True
+
+        config_schema = toolset_data["config_schema"]
+        assert config_schema is not None
+        assert config_schema["type"] == "object"
+        assert config_schema["title"] == "SampleConfig"
+        assert toolset_data["version"] == "1.0.0"
