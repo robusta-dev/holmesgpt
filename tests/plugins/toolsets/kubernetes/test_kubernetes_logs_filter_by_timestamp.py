@@ -143,9 +143,9 @@ def test_non_string_input_handling():
 
     expected = [
         "Valid log line",
-        'None',
+        "None",
         "Another valid log",
-        '12345',
+        "12345",
         "Line without timestamp",
     ]
     result = filter_log_lines_by_timestamp_and_strip_prefix(
