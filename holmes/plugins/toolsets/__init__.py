@@ -77,7 +77,6 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         RabbitMQToolset(),
         GitToolset(),
     ]
-
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
 
