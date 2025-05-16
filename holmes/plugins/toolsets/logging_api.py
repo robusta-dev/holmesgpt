@@ -18,17 +18,10 @@ DEFAULT_LOG_LIMIT = 2000
 DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
-class LoggingLabelsConfig(BaseModel):
-    """Common label mapping configuration for all logging backends"""
-
-    pod: Optional[str] = None
-    namespace: Optional[str] = None
-
-
 class LoggingConfig(BaseModel):
     """Base configuration for all logging backends"""
 
-    labels: Optional[LoggingLabelsConfig] = None
+    pass
 
 
 class FetchLogsParams(BaseModel):
@@ -36,7 +29,7 @@ class FetchLogsParams(BaseModel):
     pod_name: str
     start_time: Optional[str] = None
     end_time: Optional[str] = None
-    filter_pattern: Optional[str] = None
+    match: Optional[str] = None
     limit: Optional[int] = None
 
 
@@ -79,8 +72,8 @@ class LoggingTool(Tool):
                     type="integer",
                     required=False,
                 ),
-                "filter": ToolParameter(
-                    description="Optional filter to apply to logs (regex pattern)",
+                "match": ToolParameter(
+                    description="An optional keyword or sentence to match the logs against",
                     type="string",
                     required=False,
                 ),
@@ -94,7 +87,7 @@ class LoggingTool(Tool):
             pod_name=get_param_or_raise(params, "pod_name"),
             start_time=params.get("start_time"),
             end_time=params.get("end_time"),
-            filter_pattern=params.get("filter"),
+            match=params.get("match"),
             limit=params.get("limit"),
         )
 
@@ -108,10 +101,7 @@ class LoggingTool(Tool):
         """Generate a one-line description of this tool invocation"""
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
-        filter_desc = (
-            f" with filter '{params.get('filter')}'" if params.get("filter") else ""
-        )
-        return f"Fetching logs for pod {pod_name} in namespace {namespace}{filter_desc}"
+        return f"Fetching logs for pod {pod_name} in namespace {namespace}"
 
 
 def process_time_parameters(

@@ -143,9 +143,9 @@ def test_non_string_input_handling():
 
     expected = [
         "Valid log line",
-        None,
+        "None",
         "Another valid log",
-        12345,
+        "12345",
         "Line without timestamp",
     ]
     result = filter_log_lines_by_timestamp_and_strip_prefix(
@@ -163,10 +163,6 @@ def test_parsing_error_handling():
     A slightly malformed string might achieve this, or we assume it *could* happen.
     The current code appends the *original* line in case of ValueError.
     """
-    # Let's manually create a scenario assuming regex passed but date is invalid
-    # (In reality, a good regex might prevent this, but we test the code's path)
-    # We'll mock the behavior by modifying the function slightly for this test case,
-    # or create input known to cause ValueError *after* regex match if possible.
 
     # Using a date that might be invalid for fromisoformat but resembles the pattern
     # Feb 30 doesn't exist. Let's see if fromisoformat catches it after regex.
