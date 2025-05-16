@@ -94,8 +94,8 @@ class KubernetesLogsToolset(BaseLoggingToolset):
                     params=params, containers=pod.containers, previous=False
                 )
 
-            if params.filter_pattern:
-                all_logs = self._filter_logs(all_logs, params.filter_pattern)
+            if params.match:
+                all_logs = self._filter_logs(all_logs, params.match)
 
             if params.limit and params.limit < len(all_logs):
                 all_logs = all_logs[-params.limit :]
@@ -226,14 +226,8 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             )
             raise
 
-    def _filter_logs(self, logs: List[str], pattern: str) -> List[str]:
-        """Filter logs by regex pattern"""
-        try:
-            regex = re.compile(pattern)
-            return [log for log in logs if regex.search(log)]
-        except re.error as e:
-            logging.warning(f"Invalid regex pattern: {pattern}, error: {str(e)}")
-            return logs  # Return unfiltered logs on regex error
+    def _filter_logs(self, logs: List[str], match: str) -> List[str]:
+        return [log for log in logs if match in log]
 
     def _format_logs(self, logs: List[str]) -> str:
         """Format logs for output"""

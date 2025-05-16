@@ -109,6 +109,7 @@ class BraintrustEvalHelper:
         expected: str,
         id: str,
         scores: dict[str, Any],
+        prompt: Optional[str],
     ):
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")
@@ -119,6 +120,7 @@ class BraintrustEvalHelper:
             expected=expected,
             dataset_record_id=id,
             scores=scores,
+            metadata=prompt,
         )
         self._root_span.end()
         self.experiment.flush()

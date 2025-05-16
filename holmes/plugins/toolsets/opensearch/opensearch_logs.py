@@ -77,9 +77,12 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
             )
 
         try:
-            start_time, end_time = process_time_parameters(
-                params.start_time, params.end_time
-            )
+            start_time = None
+            end_time = None
+            if params.start_time or params.end_time:
+                start_time, end_time = process_time_parameters(
+                    params.start_time, params.end_time
+                )
 
             query = build_query(
                 config=self.opensearch_config,
@@ -87,7 +90,7 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
                 pod_name=params.pod_name,
                 start_time=start_time,
                 end_time=end_time,
-                filter_pattern=params.filter_pattern,
+                match=params.match,
                 limit=params.limit,
             )
 
@@ -100,7 +103,7 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
                 self.opensearch_config.opensearch_url,
                 f"/{self.opensearch_config.index_pattern}/_search",
             )
-
+            print(json.dumps(query))
             logs_response = requests.get(
                 url=url,
                 timeout=180,
@@ -108,6 +111,7 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
                 data=json.dumps(query),
                 headers=headers,
             )
+            print(json.dumps(logs_response.json()))
 
             if logs_response.status_code == 200:
                 response = logs_response.json()

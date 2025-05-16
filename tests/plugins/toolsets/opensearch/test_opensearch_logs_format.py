@@ -1,7 +1,16 @@
-import pytest
-import json
+from holmes.plugins.toolsets.opensearch.opensearch_utils import (
+    OpenSearchLoggingConfig,
+    OpenSearchLoggingLabelsConfig,
+    format_logs,
+)
 
-from holmes.plugins.toolsets.opensearch.opensearch_utils import format_logs
+
+config = OpenSearchLoggingConfig(
+    opensearch_url="",
+    opensearch_auth_header="",
+    index_pattern="*",
+    labels=OpenSearchLoggingLabelsConfig(log_level="stream"),
+)
 
 # Sample data derived from the provided query result
 SAMPLE_HITS = [
@@ -72,8 +81,8 @@ SAMPLE_HITS = [
 
 
 def test_format_logs_empty_input():
-    assert format_logs([]) == ""
-    assert format_logs(None) == ""
+    assert format_logs([], config) == ""
+    assert format_logs(None, config) == ""
 
 
 def test_format_logs_invalid_input_items():
@@ -84,7 +93,7 @@ def test_format_logs_invalid_input_items():
         {"_id": "no_source_hit"},  # Hit without _source
         {"_id": "bad_source_hit", "_source": "not_a_dict_source"},
     ]
-    output = format_logs(invalid_logs, format_type="simplified")
+    output = format_logs(invalid_logs, config)
     lines = output.split("\n")
     assert len(lines) == 5
     assert lines[0].startswith(
@@ -101,24 +110,9 @@ def test_format_logs_invalid_input_items():
         in lines[4]
     )
 
-    output_json = format_logs(invalid_logs, format_type="json")
-    lines_json = output_json.split("\n")
-    assert len(lines_json) == 5
-    # The current implementation just formats the full hit, not just the _source
-    assert "_index" in lines_json[0]
-    assert "_id" in lines_json[0]
-    assert "_source" in lines_json[0]
-
-    # Current implementation formats non-dict items as-is rather than skipping
-    assert lines_json[1] == '"not_a_dictionary"'
-    assert lines_json[2] == "null"
-    # The following entries might be formatted as-is without error messages
-    assert "no_source_hit" in lines_json[3]
-    assert "bad_source_hit" in lines_json[4]
-
 
 def test_format_logs_simplified_default():
-    output = format_logs(SAMPLE_HITS, format_type="simplified")
+    output = format_logs(SAMPLE_HITS, config)
     lines = output.split("\n")
     # Current implementation includes a fallback for missing message field
     assert len(lines) == 4
@@ -138,13 +132,7 @@ def test_format_logs_simplified_default():
 
 
 def test_format_logs_simplified_custom_fields():
-    output = format_logs(
-        SAMPLE_HITS,
-        format_type="simplified",
-        timestamp_field="time",
-        level_field="stream",  # Use stream as level for testing
-        message_field="logtag",  # Use logtag as message for testing
-    )
+    output = format_logs(SAMPLE_HITS, config)
     lines = output.split("\n")
     # Only the first two entries have time, stream, and logtag fields
     assert len(lines) >= 2
@@ -154,7 +142,7 @@ def test_format_logs_simplified_custom_fields():
 
 
 def test_format_logs_simplified_truncation():
-    output = format_logs(SAMPLE_HITS, format_type="simplified", max_message_length=20)
+    output = format_logs(SAMPLE_HITS, config)
     lines = output.split("\n")
     print("** OUTPUT:")
     print(output)
@@ -168,7 +156,7 @@ def test_format_logs_simplified_truncation():
 
 
 def test_format_logs_simplified_no_truncation():
-    output = format_logs(SAMPLE_HITS, format_type="simplified", max_message_length=None)
+    output = format_logs(SAMPLE_HITS, config)
     print("** OUTPUT:")
     print(output)
     lines = output.split("\n")
@@ -182,45 +170,3 @@ def test_format_logs_simplified_no_truncation():
     assert '{"_index": "fluentd-2025.05.05"' in lines[2]
     # Fourth line has the non-string message
     assert "12345" in lines[3]
-
-
-def test_format_logs_json_source_only_default():
-    output = format_logs(
-        SAMPLE_HITS, format_type="json"
-    )  # include_source_in_json=True is default
-    lines = output.split("\n")
-    assert len(lines) == 4
-    for i, line in enumerate(lines):
-        try:
-            data = json.loads(line)
-            # The current implementation outputs the full hit, not just _source
-            # So we need to verify that all keys from the original hit are present
-            for key in SAMPLE_HITS[i].keys():
-                assert key in data
-        except json.JSONDecodeError:
-            pytest.fail(f"Line {i+1} is not valid JSON: {line}")
-        except KeyError:
-            pytest.fail(f"SAMPLE_HITS[{i}] seems malformed, missing expected key")
-
-
-def test_format_logs_json_full_hit():
-    output = format_logs(SAMPLE_HITS, format_type="json", include_source_in_json=False)
-    lines = output.split("\n")
-    assert len(lines) == 4
-    for i, line in enumerate(lines):
-        try:
-            data = json.loads(line)
-            # The current implementation always outputs the full hit
-            # So we need to verify that all keys from the original hit are present
-            for key in SAMPLE_HITS[i].keys():
-                assert key in data
-            assert "_index" in data
-            assert "_id" in data
-            assert "_source" in data
-        except json.JSONDecodeError:
-            pytest.fail(f"Line {i+1} is not valid JSON: {line}")
-
-
-def test_format_logs_invalid_format_type():
-    with pytest.raises(ValueError, match="Invalid format_type"):
-        format_logs(SAMPLE_HITS, format_type="xml")  # type: ignore

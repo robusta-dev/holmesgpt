@@ -11,8 +11,8 @@ from holmes.core.tools import Toolset
 
 
 class OpenSearchLoggingLabelsConfig(BaseModel):
-    pod: str = "kubernetes.pod.name"
-    namespace: str = "kubernetes.namespace"
+    pod: str = "kubernetes.pod_name"
+    namespace: str = "kubernetes.namespace_name"
     timestamp: str = "@timestamp"
     message: str = "message"
     log_level: str = "log.level"
@@ -119,7 +119,7 @@ def build_query(
     pod_name: str,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
-    filter_pattern: Optional[str] = None,
+    match: Optional[str] = None,
     limit: Optional[int] = None,
 ) -> dict[str, Any]:
     size = limit if limit else 5000
@@ -129,7 +129,7 @@ def build_query(
     timestamp_field = config.labels.timestamp
     message_field = config.labels.message
 
-    must_constraints = [
+    must_constraints: list[dict] = [
         {"term": {f"{pod_field}.keyword": pod_name}},
         {"term": {f"{namespace_field}.keyword": namespace}},
     ]
@@ -151,8 +151,8 @@ def build_query(
         must_constraints.append(range_query)
 
     # Add message filter if provided
-    if filter_pattern:
-        must_constraints.append({"regexp": {message_field: filter_pattern}})
+    if match:
+        must_constraints.append({"match_phrase": {message_field: match}})
 
     return query
 
