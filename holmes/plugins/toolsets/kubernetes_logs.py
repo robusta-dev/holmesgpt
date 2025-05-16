@@ -71,6 +71,9 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             try:
                 config.load_incluster_config()
             except config.ConfigException:
+                logging.debug(
+                    f"_initialize_client for {self.name} toolset falling back to loading kube_config"
+                )
                 config.load_kube_config()
 
             self._api_client = client.ApiClient()
