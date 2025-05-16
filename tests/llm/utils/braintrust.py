@@ -114,13 +114,19 @@ class BraintrustEvalHelper:
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")
 
+        formatted_input = input
+        if prompt:
+            formatted_input = (
+                prompt
+                + "\n\n-------------------------------------------------------\n\n"
+                + input
+            )
         self._root_span.log(
-            input=input,
+            input=formatted_input,
             output=output,
             expected=expected,
             dataset_record_id=id,
             scores=scores,
-            metadata=prompt,
         )
         self._root_span.end()
         self.experiment.flush()
