@@ -69,6 +69,9 @@ class GitToolset(Toolset):
         return error_msg.replace(self.git_credentials, "[REDACTED]")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        if not config and not (os.getenv("GIT_REPO") and os.getenv("GIT_CREDENTIALS")):
+            return False, "Missing one or more required Git configuration values."
+
         try:
             self.git_repo = os.getenv("GIT_REPO") or config.get("git_repo")
             self.git_credentials = os.getenv("GIT_CREDENTIALS") or config.get(
@@ -80,7 +83,7 @@ class GitToolset(Toolset):
 
             if not all([self.git_repo, self.git_credentials, self.git_branch]):
                 logging.error("Missing one or more required Git configuration values.")
-                return False, ""
+                return False, "Missing one or more required Git configuration values."
             return True, ""
         except Exception:
             logging.exception("GitHub prerequisites failed.")
@@ -616,7 +619,7 @@ class GitUpdatePR(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> str:  # type: ignore
+    def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             line = params["line"]
             filename = params["filename"]
@@ -628,15 +631,27 @@ class GitUpdatePR(Tool):
 
             # Validate inputs
             if not commit_message.strip():
-                return "Tool call failed to run: Commit message cannot be empty"
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Tool call failed to run: Commit message cannot be empty",
+                )
             if not filename.strip():
-                return "Tool call failed to run: Filename cannot be empty"
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Tool call failed to run: Filename cannot be empty",
+                )
             if line < 1:
-                return "Tool call failed to run: Line number must be positive"
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Tool call failed to run: Line number must be positive",
+                )
 
             # Verify this is a PR created by our tool
             if not self.toolset.is_created_pr(pr_number):
-                return f"Tool call failed to run: PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated."
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Tool call failed to run: PR #{pr_number} was not created by this tool. Only PRs created using git_execute_changes can be updated.",
+                )
 
             # Get PR details
             try:
@@ -687,31 +702,49 @@ class GitUpdatePR(Tool):
                 elif command == "remove":
                     del content_lines[line - 1]
                 else:
-                    return f"Tool call failed to run: Invalid command: {command}"
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error=f"Tool call failed to run: Invalid command: {command}",
+                    )
 
                 updated_content = "\n".join(content_lines) + "\n"
 
                 if dry_run:
-                    return f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}"
+                    return StructuredToolResult(
+                        status=ToolResultStatus.SUCCESS,
+                        data=f"DRY RUN: Updated content for PR #{pr_number}:\n\n{updated_content}",
+                    )
 
                 # Add commit to PR
                 self.toolset.add_commit_to_pr(
                     pr_number, filename, updated_content, commit_message
                 )
-                return f"Added commit to PR #{pr_number} successfully"
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=f"Added commit to PR #{pr_number} successfully",
+                )
 
             except Exception as e:
-                return self.toolset._sanitize_error(
-                    f"Tool call failed to run: Error updating PR: {str(e)}"
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=self.toolset._sanitize_error(
+                        f"Tool call failed to run: Error updating PR: {str(e)}"
+                    ),
                 )
 
         except requests.exceptions.RequestException as e:
-            return self.toolset._sanitize_error(
-                f"Tool call failed to run: Network error: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=self.toolset._sanitize_error(
+                    f"Tool call failed to run: Network error: {str(e)}"
+                ),
             )
         except Exception as e:
-            return self.toolset._sanitize_error(
-                f"Tool call failed to run: Unexpected error: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=self.toolset._sanitize_error(
+                    f"Tool call failed to run: Unexpected error: {str(e)}"
+                ),
             )
 
     def get_parameterized_one_liner(self, params) -> str:
