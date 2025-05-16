@@ -1,5 +1,0 @@
-{"toolset_name":"grafana/loki","tool_name":"fetch_loki_logs_for_resource","match_params":{"namespace":"default","resource_name":"network-connector.*","logs_filter":"Peer down"}}
-2025-03-05T09:02:06Z Peer down
-2025-03-05T08:58:29Z Peer down
-2025-03-05T08:57:49Z Peer down
-2025-03-05T09:00:51Z Peer down

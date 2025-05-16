@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs_all_containers_grep","match_params":{"namespace":"default","pod_name":"network-connector","search_term":"Peer down"}}
-stdout:
-Peer down
-
-stderr:
