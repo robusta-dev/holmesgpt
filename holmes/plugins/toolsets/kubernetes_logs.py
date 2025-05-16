@@ -28,11 +28,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
     """Implementation of the unified logging API for Kubernetes logs using the official Python client"""
 
     def __init__(self):
-
-        prerequisite = StaticPrerequisite(
-            enabled=False,
-            disabled_reason="Initializing"
-        )
+        prerequisite = StaticPrerequisite(enabled=False, disabled_reason="Initializing")
         super().__init__(
             name="kubernetes/logs",
             description="Read Kubernetes pod logs using a unified API",
@@ -108,7 +104,9 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             formatted_logs = self._format_logs(all_logs)
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS if formatted_logs else ToolResultStatus.NO_DATA,
+                status=ToolResultStatus.SUCCESS
+                if formatted_logs
+                else ToolResultStatus.NO_DATA,
                 data=formatted_logs,
                 params=params.model_dump(),
             )
