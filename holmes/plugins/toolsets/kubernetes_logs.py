@@ -48,9 +48,9 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         prerequisite.disabled_reason = disabled_reason
 
     def health_check(self) -> Tuple[bool, str]:
-        """Verify Kubernetes client can connect to the cluster"""
+        if self._api_client is None:
+            return False, "Kubernetes client not initialized"
         try:
-            # TODO: support API KEY / BearerToken
             # Try to load the kubeconfig and access the API
             self._api_client.call_api(
                 "/version",
