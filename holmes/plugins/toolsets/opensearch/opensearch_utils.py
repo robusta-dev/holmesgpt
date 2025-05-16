@@ -84,15 +84,11 @@ def format_logs(
     for hit in logs:
         # Ensure hit is a dictionary and has _source
         if not isinstance(hit, dict):
-            formatted_lines.append(
-                f"Skipping invalid log entry (not a dict): {type(hit)}"
-            )
+            formatted_lines.append(format_log_to_json(hit))
             continue
         source = hit.get("_source")
         if not isinstance(source, dict):
-            formatted_lines.append(
-                f"Skipping log entry with invalid or missing '_source': {hit.get('_id', 'N/A')}"
-            )
+            formatted_lines.append(format_log_to_json(hit))
             continue
 
         # Safely get fields using .get() with a default
@@ -100,7 +96,7 @@ def format_logs(
         level = source.get(level_field, "N/A")
         message = source.get(message_field, None)
 
-        # Ensure message is a string and truncate if necessary
+        # Ensure message is a string
         if message and not isinstance(message, str):
             message = str(message)  # Convert non-strings
 

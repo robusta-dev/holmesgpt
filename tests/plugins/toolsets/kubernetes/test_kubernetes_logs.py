@@ -47,12 +47,13 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            filter_pattern=None,
+            match=None,
         )
 
         result = self.toolset.fetch_logs(params=params)
 
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        assert result.data
 
         # Verify that the logs are formatted correctly (no line numbers)
         expected_logs = (
@@ -94,7 +95,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            filter_pattern=None,
+            match=None,
         )
 
         result = self.toolset.fetch_logs(params=params)
@@ -145,7 +146,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            filter_pattern=None,
+            match=None,
         )
 
         result = self.toolset.fetch_logs(params=params)
@@ -183,7 +184,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            filter_pattern=None,
+            match=None,
         )
 
         result = self.toolset.fetch_logs(params=params)
@@ -220,7 +221,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            filter_pattern="ERROR",
+            match="ERROR",
         )
 
         result = self.toolset.fetch_logs(params=params)

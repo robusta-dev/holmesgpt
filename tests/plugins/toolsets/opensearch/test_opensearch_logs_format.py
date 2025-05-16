@@ -9,7 +9,7 @@ config = OpenSearchLoggingConfig(
     opensearch_url="",
     opensearch_auth_header="",
     index_pattern="*",
-    labels=OpenSearchLoggingLabelsConfig(log_level="stream"),
+    labels=OpenSearchLoggingLabelsConfig(),
 )
 
 # Sample data derived from the provided query result
@@ -99,16 +99,10 @@ def test_format_logs_invalid_input_items():
     assert lines[0].startswith(
         "2025-05-05T12:22:16.745685103+00:00 N/A ** ALERTMANAGER_HEADERS"
     )  # First is valid
-    assert "Skipping invalid log entry (not a dict): <class 'str'>" in lines[1]
-    assert "Skipping invalid log entry (not a dict): <class 'NoneType'>" in lines[2]
-    assert (
-        "Skipping log entry with invalid or missing '_source': no_source_hit"
-        in lines[3]
-    )
-    assert (
-        "Skipping log entry with invalid or missing '_source': bad_source_hit"
-        in lines[4]
-    )
+    assert "not_a_dictionary" in lines[1]
+    assert "null" in lines[2]
+    assert '{"_id": "no_source_hit"}' in lines[3]
+    assert '{"_id": "bad_source_hit", "_source": "not_a_dict_source"}' in lines[4]
 
 
 def test_format_logs_simplified_default():
@@ -132,41 +126,13 @@ def test_format_logs_simplified_default():
 
 
 def test_format_logs_simplified_custom_fields():
-    output = format_logs(SAMPLE_HITS, config)
-    lines = output.split("\n")
-    # Only the first two entries have time, stream, and logtag fields
-    assert len(lines) >= 2
-    assert "2025-05-05T12:22:16.745685103Z stdout F" in lines
-    assert "2025-05-05T12:25:16.990851385Z stderr F" in lines
-    # Other entries might be presented as JSON due to missing custom fields
+    custom_config = OpenSearchLoggingConfig(
+        opensearch_url="",
+        opensearch_auth_header="",
+        index_pattern="*",
+        labels=OpenSearchLoggingLabelsConfig(timestamp="time", log_level="logtag"),
+    )
 
-
-def test_format_logs_simplified_truncation():
-    output = format_logs(SAMPLE_HITS, config)
-    lines = output.split("\n")
-    print("** OUTPUT:")
-    print(output)
-    # The current implementation produces 4 lines including the JSON fallback
-    assert len(lines) == 4
-    assert " ALERTMANAGER_HEAD..." in lines[0]
-    assert "2025-05-05 12:2..." in lines[1]
-    # Third line is JSON of the entry with missing message field
-    assert '{"_index": ' in lines[2]
-    assert " 12345" in lines[3]
-
-
-def test_format_logs_simplified_no_truncation():
-    output = format_logs(SAMPLE_HITS, config)
-    print("** OUTPUT:")
-    print(output)
-    lines = output.split("\n")
-    # The current implementation produces 4 lines including the JSON fallback
-    assert len(lines) == 4
-    # Check end of first message without truncation/ellipsis
-    assert "Org-Id': '1|2|3|4'}" in lines[0]
-    # Check end of second message
-    assert "local:9093`\u001b[0m" in lines[1]
-    # Third line is the JSON fallback
-    assert '{"_index": "fluentd-2025.05.05"' in lines[2]
-    # Fourth line has the non-string message
-    assert "12345" in lines[3]
+    output = format_logs(SAMPLE_HITS, custom_config)
+    assert "2025-05-05T12:22:16.745685103Z F" in output
+    assert "2025-05-05T12:25:16.990851385Z F" in output

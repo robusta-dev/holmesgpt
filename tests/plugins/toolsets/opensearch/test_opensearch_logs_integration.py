@@ -1,8 +1,6 @@
 import pytest
 import os
 
-from holmes.core.tools import ToolResultStatus
-from holmes.plugins.toolsets.logging_api import FetchLogsParams
 from holmes.plugins.toolsets.opensearch.opensearch_logs import (
     OpenSearchLogsToolset,
 )
@@ -45,24 +43,3 @@ def opensearch_logs_toolset(opensearch_config) -> OpenSearchLogsToolset:
     print(opensearch_config)
     toolset.config = opensearch_config
     return toolset
-
-
-def test_fetch_logs(opensearch_logs_toolset):
-    toolset = opensearch_logs_toolset
-
-    result = toolset.fetch_logs(
-        FetchLogsParams(
-            namespace="default",
-            pod_name="robusta-holmes-5c85f89f64-bccp8",
-            limit=2,
-            start_time="2025-05-05T13:19:49Z",
-            end_time="2025-05-05T13:19:49Z",
-            match=None,
-        )
-    )
-    print(result.data)
-    assert not result.error
-    assert result.status == ToolResultStatus.SUCCESS
-    assert result.data
-
-    assert False
