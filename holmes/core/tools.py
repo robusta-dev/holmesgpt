@@ -115,6 +115,7 @@ class ToolsetTag(str, Enum):
     CORE = "core"
     CLUSTER = "cluster"
     CLI = "cli"
+    MCP = "mcp"
 
 
 class ToolParameter(BaseModel):
@@ -545,6 +546,8 @@ class ToolsetYamlFromConfig(Toolset):
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+    url: Optional[str] = None  # MCP toolset
+    headers: Optional[Dict] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
