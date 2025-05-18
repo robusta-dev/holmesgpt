@@ -20,7 +20,7 @@ from typing import Tuple
 
 class MCPTool(Tool):
     url: str
-    headers: Optional[dict] = None
+    headers: Optional[Dict[str, str]] = None
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -50,7 +50,7 @@ class MCPTool(Tool):
                 )
 
     @classmethod
-    def create(cls, url: str, tool: MCP_Tool, headers: Optional[dict] = None):
+    def create(cls, url: str, tool: MCP_Tool, headers: Optional[Dict[str, str]] = None):
         parameters = cls.parse_input_schema(tool.inputSchema)
         return cls(
             url=url,
@@ -82,7 +82,7 @@ class MCPTool(Tool):
 
 class MCPToolset(Toolset):
     url: str
-    headers: Optional[dict] = None
+    headers: Optional[Dict[str, str]] = None
     tools: List[MCPTool] = Field(default_factory=list)
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
