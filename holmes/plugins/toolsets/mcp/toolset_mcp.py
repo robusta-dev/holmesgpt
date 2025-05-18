@@ -14,7 +14,7 @@ from mcp.client.sse import sse_client
 from mcp.types import Tool as MCP_Tool
 
 import asyncio
-from pydantic import field_validator, model_validator
+from pydantic import field_validator, model_validator, Field
 from typing import Tuple
 
 
@@ -30,7 +30,7 @@ class MCPTool(Tool):
                 status=ToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
-                invocation="",
+                invocation=f"MCPtool {self.name} with params {params}",
             )
 
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
@@ -83,7 +83,7 @@ class MCPTool(Tool):
 class MCPToolset(Toolset):
     url: str
     headers: Optional[dict] = None
-    tools: List[MCPTool] = []
+    tools: List[MCPTool] = Field(default_factory=list)
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
     @field_validator("url")
