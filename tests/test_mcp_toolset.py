@@ -2,7 +2,7 @@ from holmes.core.tools import (
     ToolParameter,
 )
 from mcp.types import ListToolsResult, Tool
-from holmes.plugins.toolsets.mcp.toolset_mcp import MCPToolset, MCPTool
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset, MCPTool
 
 
 def test_parse_mcp_tool_input_schema_conversion():
@@ -52,7 +52,7 @@ def test_parse_mcp_tool():
 
 
 def test_mcpserver_unreachable():
-    mcp_toolset = MCPToolset(
+    mcp_toolset = RemoteMCPToolset(
         url="http://0.0.0.0:3009",
         name="test_mcp",
         description="",
@@ -64,7 +64,7 @@ def test_mcpserver_unreachable():
 
 
 def test_mcpserver_1tool(monkeypatch):
-    mcp_toolset = MCPToolset(
+    mcp_toolset = RemoteMCPToolset(
         url="http://0.0.0.0/3005",
         name="test_mcp",
         description="demo mcp with 2 simple functions",

@@ -80,7 +80,7 @@ class MCPTool(Tool):
         return f"Call mcp server {self.url} tool {self.name} with params {str(params)}"
 
 
-class MCPToolset(Toolset):
+class RemoteMCPToolset(Toolset):
     url: AnyUrl
     headers: Optional[Dict[str, str]] = None
     tools: List[MCPTool] = Field(default_factory=list)
