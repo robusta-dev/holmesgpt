@@ -22,7 +22,6 @@ import time
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from holmes.utils.robusta import load_robusta_api_key
 
 from holmes.common.env_vars import (
     HOLMES_HOST,
@@ -174,7 +173,7 @@ def stream_investigate_issues(req: InvestigateRequest):
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
-    load_robusta_api_key(dal=dal, config=config)
+    config.load_robusta_api_key(dal=dal)
     try:
         resource = request.resource
         workload_alerts: list[str] = []
@@ -232,7 +231,7 @@ def workload_health_conversation(
     request: WorkloadHealthChatRequest,
 ):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -254,7 +253,7 @@ def workload_health_conversation(
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -288,7 +287,7 @@ def already_answered(conversation_history: Optional[List[dict]]) -> bool:
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
 
         ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
