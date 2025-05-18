@@ -21,6 +21,7 @@ from pydantic import (
     UrlConstraints,
 )
 from typing import Tuple, Annotated
+import logging
 
 
 class MCPTool(Tool):
@@ -104,6 +105,9 @@ class RemoteMCPToolset(Toolset):
                 MCPTool.create(str(self.url), tool, self.headers)
                 for tool in tools_result.tools
             ]
+
+            if not self.tools:
+                logging.warning(f"mcp server {self.name} loaded 0 tools.")
             return (True, "")
         except Exception as e:
             # using e.args, the asyncio wrapper could stack another exception this helps printing them all.
