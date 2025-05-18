@@ -53,7 +53,7 @@ def test_parse_mcp_tool():
 
 def test_mcpserver_unreachable():
     mcp_toolset = MCPToolset(
-        url="http://0.0.0.0/3009",
+        url="http://0.0.0.0:3009",
         name="test_mcp",
         description="",
     )
