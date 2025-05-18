@@ -78,3 +78,24 @@ def test_mcpserver_1tool(monkeypatch):
     monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
     mcp_toolset.init_server_tools(config=None)
     assert len(list(mcp_toolset.tools)) == 1
+
+
+def test_mcpserver_headers(monkeypatch):
+    mcp_toolset = RemoteMCPToolset(
+        url="http://0.0.0.0/3005",
+        name="test_mcp",
+        description="demo mcp with 2 simple functions",
+        config={"headers": {"header1": "test1", "header2": "test2"}},
+    )
+
+    assert mcp_toolset.get_headers().get("header1") == "test1"
+
+
+def test_mcpserver_no_headers():
+    mcp_toolset1 = RemoteMCPToolset(
+        url="http://0.0.0.0/3005",
+        name="test_mcp",
+        description="demo mcp with 2 simple functions",
+    )
+
+    assert mcp_toolset1.get_headers() is None

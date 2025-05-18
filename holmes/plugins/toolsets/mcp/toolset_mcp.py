@@ -83,12 +83,14 @@ class MCPTool(Tool):
 
 class RemoteMCPToolset(Toolset):
     url: AnyUrl
-    headers: Optional[Dict[str, str]] = None
     tools: List[MCPTool] = Field(default_factory=list)
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
     def model_post_init(self, __context: Any) -> None:
         self.prerequisites = [CallablePrerequisite(callable=self.init_server_tools)]
+
+    def get_headers(self) -> Optional[Dict[str, str]]:
+        return self.config and self.config.get("headers")
 
     @field_validator("url", mode="before")
     def append_sse_if_missing(cls, v):
@@ -101,7 +103,7 @@ class RemoteMCPToolset(Toolset):
         try:
             tools_result = asyncio.run(self._get_server_tools())
             self.tools = [
-                MCPTool.create(str(self.url), tool, self.headers)
+                MCPTool.create(str(self.url), tool, self.get_headers())
                 for tool in tools_result.tools
             ]
 
@@ -116,7 +118,7 @@ class RemoteMCPToolset(Toolset):
             )
 
     async def _get_server_tools(self):
-        async with sse_client(str(self.url), headers=self.headers) as (
+        async with sse_client(str(self.url), headers=self.get_headers()) as (
             read_stream,
             write_stream,
         ):
