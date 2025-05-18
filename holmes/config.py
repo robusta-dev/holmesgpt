@@ -30,6 +30,7 @@ from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
 from holmes.plugins.toolsets import load_builtin_toolsets
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
@@ -612,9 +613,15 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
-                    validated_toolset = YAMLToolset(
-                        **toolset.model_dump(exclude_none=True)
-                    )
+                    tags = toolset.tags
+                    if ToolsetTag.MCP in tags:
+                        validated_toolset = RemoteMCPToolset(
+                            **toolset.model_dump(exclude_none=True)
+                        )
+                    else:
+                        validated_toolset = YAMLToolset(
+                            **toolset.model_dump(exclude_none=True)
+                        )
                     toolsets_with_updated_statuses[toolset.name] = validated_toolset
                 except Exception as error:
                     logging.error(
