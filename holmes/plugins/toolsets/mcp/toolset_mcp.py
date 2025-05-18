@@ -14,7 +14,7 @@ from mcp.client.sse import sse_client
 from mcp.types import Tool as MCP_Tool
 
 import asyncio
-from pydantic import field_validator, model_validator, Field
+from pydantic import field_validator, model_validator, Field, AnyUrl
 from typing import Tuple
 
 
@@ -81,7 +81,7 @@ class MCPTool(Tool):
 
 
 class MCPToolset(Toolset):
-    url: str
+    url: AnyUrl
     headers: Optional[Dict[str, str]] = None
     tools: List[MCPTool] = Field(default_factory=list)
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
