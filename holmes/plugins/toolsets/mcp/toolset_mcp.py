@@ -92,10 +92,8 @@ class RemoteMCPToolset(Toolset):
     tools: List[MCPTool] = Field(default_factory=list)
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
-    @model_validator(mode="after")
-    def set_tools_prerequisites(self):
+    def model_post_init(self, __context: Any) -> None:
         self.prerequisites = [CallablePrerequisite(callable=self.init_server_tools)]
-        return self
 
     # used as a CallablePrerequisite, config added for that case.
     def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
