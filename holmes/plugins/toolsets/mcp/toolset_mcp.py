@@ -111,7 +111,7 @@ class RemoteMCPToolset(Toolset):
             # using e.args, the asyncio wrapper could stack another exception this helps printing them all.
             return (
                 False,
-                f"Failed to load mcp server {self.name} {self.url} tools: {str(e.args)}",
+                f"Failed to load mcp server {self.name} {self.url} {str(e.args)}",
             )
 
     async def _get_server_tools(self):
