@@ -14,13 +14,8 @@ from mcp.client.sse import sse_client
 from mcp.types import Tool as MCP_Tool
 
 import asyncio
-from pydantic import (
-    model_validator,
-    Field,
-    AnyUrl,
-    UrlConstraints,
-)
-from typing import Tuple, Annotated
+from pydantic import Field, AnyUrl, field_validator
+from typing import Tuple
 import logging
 
 
@@ -87,7 +82,7 @@ class MCPTool(Tool):
 
 
 class RemoteMCPToolset(Toolset):
-    url: AnyUrl = Annotated[AnyUrl, UrlConstraints(default_path="/sse")]
+    url: AnyUrl
     headers: Optional[Dict[str, str]] = None
     tools: List[MCPTool] = Field(default_factory=list)
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
@@ -95,8 +90,14 @@ class RemoteMCPToolset(Toolset):
     def model_post_init(self, __context: Any) -> None:
         self.prerequisites = [CallablePrerequisite(callable=self.init_server_tools)]
 
+    @field_validator("url", mode="before")
+    def append_sse_if_missing(cls, v):
+        if isinstance(v, str) and not v.rstrip("/").endswith("/sse"):
+            v = v.rstrip("/") + "/sse"
+        return v
+
     # used as a CallablePrerequisite, config added for that case.
-    def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
+    def init_server_tools(self, config: dict[str, Any] = None) -> Tuple[bool, str]:
         try:
             tools_result = asyncio.run(self._get_server_tools())
             self.tools = [
