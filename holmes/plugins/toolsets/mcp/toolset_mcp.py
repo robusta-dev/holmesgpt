@@ -97,7 +97,7 @@ class RemoteMCPToolset(Toolset):
         return v
 
     # used as a CallablePrerequisite, config added for that case.
-    def init_server_tools(self, config: dict[str, Any] = None) -> Tuple[bool, str]:
+    def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
         try:
             tools_result = asyncio.run(self._get_server_tools())
             self.tools = [
