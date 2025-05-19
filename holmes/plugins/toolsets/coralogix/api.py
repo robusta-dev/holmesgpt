@@ -75,7 +75,9 @@ def get_start_end(params: FetchPodLogsParams):
     return (start, end)
 
 
-def build_query(config: CoralogixConfig, params: FetchPodLogsParams, tier: CoralogixTier):
+def build_query(
+    config: CoralogixConfig, params: FetchPodLogsParams, tier: CoralogixTier
+):
     (start, end) = get_start_end(params)
 
     query_string = build_query_string(config, params)
