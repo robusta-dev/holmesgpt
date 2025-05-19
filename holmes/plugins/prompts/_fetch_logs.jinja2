@@ -1,7 +1,7 @@
 {%- set loki_ts = toolsets | selectattr("name", "equalto", "grafana/loki") | first -%}
 {%- set coralogix_ts = toolsets | selectattr("name", "equalto", "coralogix/logs") | first -%}
-{%- set k8s_base_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | selectattr("fetch_logs", "defined") | first -%}
-{%- set k8s_yaml_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | rejectattr("fetch_logs", "defined") | first -%}
+{%- set k8s_base_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | selectattr("fetch_pod_logs", "defined") | first -%}
+{%- set k8s_yaml_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | rejectattr("fetch_pod_logs", "defined") | first -%}
 {%- set opensearch_ts = toolsets | selectattr("name", "equalto", "opensearch/logs") | first -%}
 
 # Logs

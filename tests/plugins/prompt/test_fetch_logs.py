@@ -35,7 +35,7 @@ def test_kubernetes_python_toolset():
         "builtin://_fetch_logs.jinja2", {"toolsets": [toolset]}
     )
     print(f"** PROMPT:\n{prompt}")
-    assert "Use the tool `fetch_logs` to access an application's logs" in prompt
+    assert "Use the tool `fetch_pod_logs` to access an application's logs" in prompt
 
 
 def test_opensearch_toolset():
@@ -46,4 +46,4 @@ def test_opensearch_toolset():
         "builtin://_fetch_logs.jinja2", {"toolsets": [toolset]}
     )
     print(f"** PROMPT:\n{prompt}")
-    assert "Use the tool `fetch_logs` to access an application's logs" in prompt
+    assert "Use the tool `fetch_pod_logs` to access an application's logs" in prompt
