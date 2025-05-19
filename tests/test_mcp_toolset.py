@@ -2,7 +2,7 @@ from holmes.core.tools import (
     ToolParameter,
 )
 from mcp.types import ListToolsResult, Tool
-from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset, MCPTool
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset, RemoteMCPTool
 
 
 def test_parse_mcp_tool():
@@ -34,7 +34,7 @@ def test_parse_mcp_tool():
         "limit_price": ToolParameter(type="number", required=False),
     }
 
-    tool = MCPTool.create("url", mcp_tool)
+    tool = RemoteMCPTool.create("url", mcp_tool)
     assert tool.parameters == expected_schema
     assert tool.description == "desc"
 
