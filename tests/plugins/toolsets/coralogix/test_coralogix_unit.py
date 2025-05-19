@@ -101,7 +101,7 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
     [
         (
             {"namespace": "application", "pod_name": "my-app"},
-            f"source logs | lucene 'kubernetes.namespace_name:application AND kubernetes.pod_name:my-app' | limit {DEFAULT_LOG_COUNT}",
+            f'source logs | lucene \'kubernetes.namespace_name:"application" AND kubernetes.pod_name:"my-app"\' | limit {DEFAULT_LOG_COUNT}',
         ),
         (
             {
@@ -109,7 +109,16 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
                 "namespace": "staging",
                 "limit": 20,
             },
-            "source logs | lucene 'kubernetes.namespace_name:staging AND kubernetes.pod_name:web' | limit 20",
+            'source logs | lucene \'kubernetes.namespace_name:"staging" AND kubernetes.pod_name:"web"\' | limit 20',
+        ),
+        (
+            {
+                "pod_name": "web",
+                "namespace": "staging",
+                "limit": 30,
+                "match": "foo bar",
+            },
+            'source logs | lucene \'kubernetes.namespace_name:"staging" AND kubernetes.pod_name:"web" AND log:"foo bar"\' | limit 30',
         ),
     ],
 )

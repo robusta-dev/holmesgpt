@@ -19,7 +19,7 @@ from holmes.plugins.toolsets.utils import (
 
 
 DEFAULT_TIME_SPAN_SECONDS = 86400
-DEFAULT_LOG_COUNT = 2000 # Coralogix's default is 2000
+DEFAULT_LOG_COUNT = 2000  # Coralogix's default is 2000
 
 
 class CoralogixTier(str, Enum):
@@ -55,8 +55,11 @@ def health_check(domain: str, api_key: str) -> Tuple[bool, str]:
 
 def build_query_string(config: CoralogixConfig, params: FetchLogsParams) -> str:
     query_filters = []
-    query_filters.append(f"{config.labels.namespace}:{params.namespace}")
-    query_filters.append(f"{config.labels.pod}:{params.pod_name}")
+    query_filters.append(f'{config.labels.namespace}:"{params.namespace}"')
+    query_filters.append(f'{config.labels.pod}:"{params.pod_name}"')
+
+    if params.match:
+        query_filters.append(f'{config.labels.log_message}:"{params.match}"')
 
     query_string = " AND ".join(query_filters)
     query_string = f"source logs | lucene '{query_string}' | limit {params.limit or DEFAULT_LOG_COUNT}"
