@@ -12,6 +12,7 @@ from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
 
 from mcp.types import Tool as MCP_Tool
+from mcp.types import CallToolResult
 
 import asyncio
 from pydantic import Field, AnyUrl, field_validator
@@ -29,7 +30,7 @@ class RemoteMCPTool(Tool):
         except Exception as e:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=str(e),
+                error=str(e.args),
                 params=params,
                 invocation=f"MCPtool {self.name} with params {params}",
             )
@@ -38,16 +39,18 @@ class RemoteMCPTool(Tool):
         async with sse_client(self.url) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 _ = await session.initialize()
-                tool_result = await session.call_tool(self.name, params)
+                tool_result: CallToolResult = await session.call_tool(self.name, params)
 
                 merged_text = " ".join(
                     c.text for c in tool_result.content if c.type == "text"
                 )
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=ToolResultStatus.ERROR
+                    if tool_result.isError
+                    else ToolResultStatus.SUCCESS,
                     data=merged_text,
                     params=params,
-                    invocation="",
+                    invocation=f"MCPtool {self.name} with params {params}",
                 )
 
     @classmethod
