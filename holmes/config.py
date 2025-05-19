@@ -613,8 +613,7 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
-                    tags = toolset.tags
-                    if ToolsetTag.MCP in tags:
+                    if toolset.url:
                         validated_toolset = RemoteMCPToolset(
                             **toolset.model_dump(exclude_none=True)
                         )

@@ -115,7 +115,6 @@ class ToolsetTag(str, Enum):
     CORE = "core"
     CLUSTER = "cluster"
     CLI = "cli"
-    MCP = "mcp"
 
 
 class ToolParameter(BaseModel):
