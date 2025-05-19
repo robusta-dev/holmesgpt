@@ -24,7 +24,7 @@ class LoggingConfig(BaseModel):
     pass
 
 
-class FetchLogsParams(BaseModel):
+class FetchPodLogsParams(BaseModel):
     namespace: str
     pod_name: str
     start_time: Optional[str] = None
@@ -33,20 +33,20 @@ class FetchLogsParams(BaseModel):
     limit: Optional[int] = None
 
 
-class BaseLoggingToolset(Toolset, ABC):
+class BasePodLoggingToolset(Toolset, ABC):
     """Base class for all logging toolsets"""
 
     @abstractmethod
-    def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
+    def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         pass
 
 
-class LoggingTool(Tool):
+class PodLoggingTool(Tool):
     """Common tool for fetching pod logs across different logging backends"""
 
-    def __init__(self, toolset: BaseLoggingToolset):
+    def __init__(self, toolset: BasePodLoggingToolset):
         super().__init__(
-            name="fetch_logs",
+            name="fetch_pod_logs",
             description="Fetch logs for a Kubernetes pod",
             parameters={
                 "pod_name": ToolParameter(
@@ -82,7 +82,7 @@ class LoggingTool(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: dict) -> StructuredToolResult:
-        structured_params = FetchLogsParams(
+        structured_params = FetchPodLogsParams(
             namespace=get_param_or_raise(params, "namespace"),
             pod_name=get_param_or_raise(params, "pod_name"),
             start_time=params.get("start_time"),
@@ -91,7 +91,7 @@ class LoggingTool(Tool):
             limit=params.get("limit"),
         )
 
-        result = self._toolset.fetch_logs(
+        result = self._toolset.fetch_pod_logs(
             params=structured_params,
         )
 

@@ -186,7 +186,7 @@ class MockToolset(Toolset):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
-    def fetch_logs(self):
+    def fetch_pod_logs(self):
         # Temporary placeholder to ensure the mocked version of logging toolset is considered a 'new' version
         # Which will ensure the correct logs prompt is present
         # it is safe to remove once all logs toolsets have been migrated

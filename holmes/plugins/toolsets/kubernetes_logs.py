@@ -12,10 +12,10 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.logging_api import (
-    BaseLoggingToolset,
-    FetchLogsParams,
+    BasePodLoggingToolset,
+    FetchPodLogsParams,
     LoggingConfig,
-    LoggingTool,
+    PodLoggingTool,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix
 
@@ -24,7 +24,7 @@ class Pod(BaseModel):
     containers: list[str]
 
 
-class KubernetesLogsToolset(BaseLoggingToolset):
+class KubernetesLogsToolset(BasePodLoggingToolset):
     """Implementation of the unified logging API for Kubernetes logs using the official Python client"""
 
     def __init__(self):
@@ -36,7 +36,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
             prerequisites=[prerequisite],
             tools=[
-                LoggingTool(self),
+                PodLoggingTool(self),
             ],
             tags=[ToolsetTag.CORE],
         )
@@ -81,7 +81,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         except Exception:
             logging.error("Failed to initialize Kubernetes client", exc_info=True)
 
-    def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
+    def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         try:
             pod = self._find_pod(params.namespace, params.pod_name)
             all_logs = []
@@ -144,7 +144,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
 
     def _fetch_pod_logs(
         self,
-        params: FetchLogsParams,
+        params: FetchPodLogsParams,
         containers: Optional[List[str]] = None,
         previous: bool = False,
     ) -> List[Any]:
@@ -152,7 +152,7 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         if containers and len(containers) > 1:
             # Fetch logs for each container, try current logs first then previous if none found
             for container_name in containers:
-                container_logs = self._fetch_logs(
+                container_logs = self._fetch_logs_from_kubernetes(
                     params=params,
                     container_name=container_name,
                     previous=previous,
@@ -166,16 +166,16 @@ class KubernetesLogsToolset(BaseLoggingToolset):
         if not pod_logs:
             # Previous pods may have had different containers
             # fall back to fetching the 'default' pod logs in a attempt to be as resilient as possible
-            pod_logs = self._fetch_logs(
+            pod_logs = self._fetch_logs_from_kubernetes(
                 params=params,
                 previous=previous,
             )
 
         return pod_logs
 
-    def _fetch_logs(
+    def _fetch_logs_from_kubernetes(
         self,
-        params: FetchLogsParams,
+        params: FetchPodLogsParams,
         container_name: Optional[str] = None,
         previous: bool = False,
     ) -> List[str]:

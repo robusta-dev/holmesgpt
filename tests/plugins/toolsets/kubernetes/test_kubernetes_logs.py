@@ -4,7 +4,7 @@ from kubernetes.client.exceptions import ApiException
 
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
-from holmes.plugins.toolsets.logging_api import FetchLogsParams
+from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
 
 
 class TestKubernetesLogsToolset(unittest.TestCase):
@@ -41,7 +41,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         # Set the internal API reference (normally done in _initialize_client)
         self.toolset._core_v1_api = mock_api_instance
 
-        params = FetchLogsParams(
+        params = FetchPodLogsParams(
             namespace="default",
             pod_name="test-pod",
             limit=2000,
@@ -50,7 +50,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             match=None,
         )
 
-        result = self.toolset.fetch_logs(params=params)
+        result = self.toolset.fetch_pod_logs(params=params)
 
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
         assert result.data
@@ -89,7 +89,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         mock_api_instance.read_namespaced_pod_log.side_effect = mock_get_logs
 
-        params = FetchLogsParams(
+        params = FetchPodLogsParams(
             namespace="default",
             pod_name="test-pod",
             limit=2000,
@@ -98,7 +98,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             match=None,
         )
 
-        result = self.toolset.fetch_logs(params=params)
+        result = self.toolset.fetch_pod_logs(params=params)
 
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
 
@@ -139,8 +139,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         mock_api_instance.read_namespaced_pod_log.side_effect = mock_get_logs
 
-        # Call the fetch_logs method
-        params = FetchLogsParams(
+        params = FetchPodLogsParams(
             namespace="default",
             pod_name="test-pod",
             limit=2000,
@@ -149,7 +148,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             match=None,
         )
 
-        result = self.toolset.fetch_logs(params=params)
+        result = self.toolset.fetch_pod_logs(params=params)
 
         # Verify results
         assert result
@@ -177,8 +176,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         # Set the internal API reference (normally done in _initialize_client)
         self.toolset._core_v1_api = mock_api_instance
 
-        # Call the fetch_logs method
-        params = FetchLogsParams(
+        params = FetchPodLogsParams(
             namespace="default",
             pod_name="nonexistent-pod",
             limit=2000,
@@ -187,7 +185,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             match=None,
         )
 
-        result = self.toolset.fetch_logs(params=params)
+        result = self.toolset.fetch_pod_logs(params=params)
 
         # In the updated API, if the pod is not found it tries previous logs which returns empty
         # rather than an error, which is considered a success with "No logs found"
@@ -213,8 +211,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         # Set the internal API reference (normally done in _initialize_client)
         self.toolset._core_v1_api = mock_api_instance
 
-        # Call the fetch_logs method with filter
-        params = FetchLogsParams(
+        params = FetchPodLogsParams(
             namespace="default",
             pod_name="test-pod",
             limit=2000,
@@ -223,7 +220,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             match="ERROR",
         )
 
-        result = self.toolset.fetch_logs(params=params)
+        result = self.toolset.fetch_pod_logs(params=params)
 
         # Verify only filtered logs are returned
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
