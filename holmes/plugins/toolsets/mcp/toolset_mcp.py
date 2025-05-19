@@ -19,7 +19,7 @@ from typing import Tuple
 import logging
 
 
-class MCPTool(Tool):
+class RemoteMCPTool(Tool):
     url: str
     headers: Optional[Dict[str, str]] = None
 
@@ -83,7 +83,7 @@ class MCPTool(Tool):
 
 class RemoteMCPToolset(Toolset):
     url: AnyUrl
-    tools: List[MCPTool] = Field(default_factory=list)
+    tools: List[RemoteMCPTool] = Field(default_factory=list)
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
     def model_post_init(self, __context: Any) -> None:
@@ -103,7 +103,7 @@ class RemoteMCPToolset(Toolset):
         try:
             tools_result = asyncio.run(self._get_server_tools())
             self.tools = [
-                MCPTool.create(str(self.url), tool, self.get_headers())
+                RemoteMCPTool.create(str(self.url), tool, self.get_headers())
                 for tool in tools_result.tools
             ]
 
