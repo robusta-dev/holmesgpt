@@ -19,7 +19,7 @@ from holmes.plugins.toolsets.utils import (
 
 
 DEFAULT_TIME_SPAN_SECONDS = 86400
-DEFAULT_LOG_COUNT = 2000
+DEFAULT_LOG_COUNT = 2000 # Coralogix's default is 2000
 
 
 class CoralogixTier(str, Enum):
