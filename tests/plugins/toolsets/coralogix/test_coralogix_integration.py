@@ -12,7 +12,7 @@ from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
 from holmes.plugins.toolsets.coralogix.utils import CoralogixConfig
-from holmes.plugins.toolsets.logging_api import FetchLogsParams
+from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
 
 
 REQUIRED_ENV_VARS = [
@@ -89,8 +89,8 @@ def test_integration_toolset_prerequisites(coralogix_config):
 
 
 def test_basic_query(coralogix_logs_toolset):
-    result = coralogix_logs_toolset.fetch_logs(
-        FetchLogsParams(namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME)
+    result = coralogix_logs_toolset.fetch_pod_logs(
+        FetchPodLogsParams(namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME)
     )
     print(result.data)
     assert result.status == ToolResultStatus.SUCCESS, result.error
@@ -99,8 +99,8 @@ def test_basic_query(coralogix_logs_toolset):
 
 
 def test_search_term(coralogix_logs_toolset):
-    result = coralogix_logs_toolset.fetch_logs(
-        FetchLogsParams(
+    result = coralogix_logs_toolset.fetch_pod_logs(
+        FetchPodLogsParams(
             namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME, match=TEST_SEARCH_TERM
         )
     )
@@ -115,8 +115,8 @@ def test_search_term(coralogix_logs_toolset):
 
 
 def test_search_term_with_dates(coralogix_logs_toolset):
-    result = coralogix_logs_toolset.fetch_logs(
-        FetchLogsParams(
+    result = coralogix_logs_toolset.fetch_pod_logs(
+        FetchPodLogsParams(
             namespace=TEST_NAMESPACE,
             pod_name=TEST_POD_NAME,
             match=TEST_SEARCH_TERM,

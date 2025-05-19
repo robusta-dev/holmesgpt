@@ -13,7 +13,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     normalize_datetime,
     stringify_flattened_logs,
 )
-from holmes.plugins.toolsets.logging_api import FetchLogsParams
+from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures")
@@ -123,7 +123,7 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
     ],
 )
 def test_build_query_string(coralogix_config, params, expected_query_part):
-    query = build_query_string(coralogix_config, FetchLogsParams(**params))
+    query = build_query_string(coralogix_config, FetchPodLogsParams(**params))
     print(f"** EXPECTED: {expected_query_part}")
     print(f"** ACTUAL: {query}")
     assert query == expected_query_part

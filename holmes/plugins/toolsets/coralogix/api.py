@@ -12,7 +12,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     parse_logs,
     CoralogixLogsMethodology,
 )
-from holmes.plugins.toolsets.logging_api import FetchLogsParams
+from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
 )
@@ -53,7 +53,7 @@ def health_check(domain: str, api_key: str) -> Tuple[bool, str]:
         return False, f"Failed with status_code={response.status_code}. {response.text}"
 
 
-def build_query_string(config: CoralogixConfig, params: FetchLogsParams) -> str:
+def build_query_string(config: CoralogixConfig, params: FetchPodLogsParams) -> str:
     query_filters = []
     query_filters.append(f'{config.labels.namespace}:"{params.namespace}"')
     query_filters.append(f'{config.labels.pod}:"{params.pod_name}"')
@@ -66,7 +66,7 @@ def build_query_string(config: CoralogixConfig, params: FetchLogsParams) -> str:
     return query_string
 
 
-def get_start_end(params: FetchLogsParams):
+def get_start_end(params: FetchPodLogsParams):
     (start, end) = process_timestamps_to_rfc3339(
         start_timestamp=params.start_time,
         end_timestamp=params.end_time,
@@ -75,7 +75,7 @@ def get_start_end(params: FetchLogsParams):
     return (start, end)
 
 
-def build_query(config: CoralogixConfig, params: FetchLogsParams, tier: CoralogixTier):
+def build_query(config: CoralogixConfig, params: FetchPodLogsParams, tier: CoralogixTier):
     (start, end) = get_start_end(params)
 
     query_string = build_query_string(config, params)
@@ -91,7 +91,7 @@ def build_query(config: CoralogixConfig, params: FetchLogsParams, tier: Coralogi
 
 
 def query_logs_for_tier(
-    config: CoralogixConfig, params: FetchLogsParams, tier: CoralogixTier
+    config: CoralogixConfig, params: FetchPodLogsParams, tier: CoralogixTier
 ) -> CoralogixQueryResult:
     http_status = None
     try:
@@ -116,7 +116,7 @@ def query_logs_for_tier(
 
 
 def query_logs_for_all_tiers(
-    config: CoralogixConfig, params: FetchLogsParams
+    config: CoralogixConfig, params: FetchPodLogsParams
 ) -> CoralogixQueryResult:
     methodology = config.logs_retrieval_methodology
     result: CoralogixQueryResult

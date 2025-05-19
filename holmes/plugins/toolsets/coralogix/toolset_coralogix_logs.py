@@ -18,16 +18,16 @@ from holmes.plugins.toolsets.coralogix.utils import (
     stringify_flattened_logs,
 )
 from holmes.plugins.toolsets.logging_api import (
-    BaseLoggingToolset,
-    FetchLogsParams,
-    LoggingTool,
+    BasePodLoggingToolset,
+    FetchPodLogsParams,
+    PodLoggingTool,
 )
 from holmes.plugins.toolsets.utils import (
     TOOLSET_CONFIG_MISSING_ERROR,
 )
 
 
-class CoralogixLogsToolset(BaseLoggingToolset):
+class CoralogixLogsToolset(BasePodLoggingToolset):
     def __init__(self):
         super().__init__(
             name="coralogix/logs",
@@ -36,7 +36,7 @@ class CoralogixLogsToolset(BaseLoggingToolset):
             icon_url="https://avatars.githubusercontent.com/u/35295744?s=200&v=4",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
-                LoggingTool(self),
+                PodLoggingTool(self),
             ],
             tags=[ToolsetTag.CORE],
         )
@@ -60,7 +60,7 @@ class CoralogixLogsToolset(BaseLoggingToolset):
     def coralogix_config(self) -> Optional[CoralogixConfig]:
         return self.config
 
-    def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
+    def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         if not self.coralogix_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
