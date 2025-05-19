@@ -96,9 +96,7 @@ def test_format_logs_invalid_input_items():
     output = format_logs(invalid_logs, config)
     lines = output.split("\n")
     assert len(lines) == 5
-    assert lines[0].startswith(
-        "2025-05-05T12:22:16.745685103+00:00 N/A ** ALERTMANAGER_HEADERS"
-    )  # First is valid
+    assert lines[0].startswith("N/A ** ALERTMANAGER_HEADERS")  # First is valid
     assert "not_a_dictionary" in lines[1]
     assert "null" in lines[2]
     assert '{"_id": "no_source_hit"}' in lines[3]
@@ -113,16 +111,12 @@ def test_format_logs_simplified_default():
     # Note: Default level_field 'log.level' is missing in first hit, present in second
     assert (
         lines[0]
-        == "2025-05-05T12:22:16.745685103+00:00 N/A ** ALERTMANAGER_HEADERS={'Content-type': 'application/json', 'X-Scope-Org-Id': '1|2|3|4'}"
+        == "N/A ** ALERTMANAGER_HEADERS={'Content-type': 'application/json', 'X-Scope-Org-Id': '1|2|3|4'}"
     )
-    assert lines[1].startswith(
-        "2025-05-05T12:25:16.990851385+00:00 INFO \u001b[32m2025-05-05 12:25:16.990 INFO"
-    )
+    assert lines[1].startswith("INFO \u001b[32m2025-05-05 12:25:16.990 INFO")
     # Third entry has missing fields and is presented as JSON
     assert '{"_index": "fluentd-2025.05.05"' in lines[2]
-    assert (
-        lines[3] == "2025-05-05T12:31:00.000000000+00:00 WARN 12345"
-    )  # Non-string message converted
+    assert lines[3] == "WARN 12345"  # Non-string message converted
 
 
 def test_format_logs_simplified_custom_fields():
@@ -134,5 +128,4 @@ def test_format_logs_simplified_custom_fields():
     )
 
     output = format_logs(SAMPLE_HITS, custom_config)
-    assert "2025-05-05T12:22:16.745685103Z F" in output
-    assert "2025-05-05T12:25:16.990851385Z F" in output
+    assert "F ** ALERTMANAGER_HEADERS" in output

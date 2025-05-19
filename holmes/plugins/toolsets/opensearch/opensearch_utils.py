@@ -75,7 +75,6 @@ def format_logs(
         return ""
 
     # Get field names from config or use defaults
-    timestamp_field = config.labels.timestamp
     level_field = config.labels.log_level
     message_field = config.labels.message
 
@@ -92,7 +91,6 @@ def format_logs(
             continue
 
         # Safely get fields using .get() with a default
-        timestamp = source.get(timestamp_field, "N/A")
         level = source.get(level_field, "N/A")
         message = source.get(message_field, None)
 
@@ -101,7 +99,7 @@ def format_logs(
             message = str(message)  # Convert non-strings
 
         if message:
-            formatted_lines.append(f"{timestamp} {level} {message}")
+            formatted_lines.append(f"{level} {message}")
         else:
             # fallback displaying the logs line as-is
             formatted_lines.append(format_log_to_json(hit))

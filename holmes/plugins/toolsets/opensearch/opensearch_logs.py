@@ -103,7 +103,6 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
                 self.opensearch_config.opensearch_url,
                 f"/{self.opensearch_config.index_pattern}/_search",
             )
-            print(json.dumps(query))
             logs_response = requests.get(
                 url=url,
                 timeout=180,
@@ -111,7 +110,6 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
                 data=json.dumps(query),
                 headers=headers,
             )
-            print(json.dumps(logs_response.json()))
 
             if logs_response.status_code == 200:
                 response = logs_response.json()
