@@ -7,7 +7,7 @@ import pytest
 import os
 
 from holmes.core.tools import ToolResultStatus
-from holmes.plugins.toolsets.logging_api import FetchLogsParams
+from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.opensearch.opensearch_logs import (
     OpenSearchLogsToolset,
 )
@@ -60,7 +60,8 @@ def opensearch_config() -> OpenSearchLoggingConfig:
 def opensearch_logs_toolset(opensearch_config) -> OpenSearchLogsToolset:
     """Create an OpenSearchLogsToolset with the test configuration"""
     toolset = OpenSearchLogsToolset()
-    toolset.config = opensearch_config
+    ok, reason = toolset.prerequisites_callable(opensearch_config.model_dump())
+    assert ok, reason
     return toolset
 
 
@@ -70,8 +71,8 @@ def test_health_check(opensearch_config):
 
 
 def test_basic_query(opensearch_logs_toolset):
-    result = opensearch_logs_toolset.fetch_logs(
-        FetchLogsParams(namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME)
+    result = opensearch_logs_toolset.fetch_pod_logs(
+        FetchPodLogsParams(namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME)
     )
 
     assert result.status == ToolResultStatus.SUCCESS, result.error
@@ -80,8 +81,8 @@ def test_basic_query(opensearch_logs_toolset):
 
 
 def test_search_term(opensearch_logs_toolset):
-    result = opensearch_logs_toolset.fetch_logs(
-        FetchLogsParams(
+    result = opensearch_logs_toolset.fetch_pod_logs(
+        FetchPodLogsParams(
             namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME, match=TEST_SEARCH_TERM
         )
     )
@@ -93,8 +94,8 @@ def test_search_term(opensearch_logs_toolset):
 
 
 def test_search_term_with_dates(opensearch_logs_toolset):
-    result = opensearch_logs_toolset.fetch_logs(
-        FetchLogsParams(
+    result = opensearch_logs_toolset.fetch_pod_logs(
+        FetchPodLogsParams(
             namespace=TEST_NAMESPACE,
             pod_name=TEST_POD_NAME,
             match=TEST_SEARCH_TERM,

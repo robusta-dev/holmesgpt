@@ -1,5 +1,4 @@
 import logging
-import json
 from typing import Any, Dict, Optional, Tuple
 
 import requests  # type: ignore
@@ -13,9 +12,9 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.logging_api import (
-    BaseLoggingToolset,
-    FetchLogsParams,
-    LoggingTool,
+    BasePodLoggingToolset,
+    FetchPodLogsParams,
+    PodLoggingTool,
     process_time_parameters,
 )
 from holmes.plugins.toolsets.opensearch.opensearch_utils import (
@@ -29,7 +28,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_utils import (
 LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 
 
-class OpenSearchLogsToolset(BaseLoggingToolset):
+class OpenSearchLogsToolset(BasePodLoggingToolset):
     """Implementation of the unified logging API for OpenSearch logs"""
 
     def __init__(self):
@@ -40,7 +39,7 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
             icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
-                LoggingTool(self),
+                PodLoggingTool(self),
             ],
             tags=[
                 ToolsetTag.CORE,
@@ -67,8 +66,7 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
     def opensearch_config(self) -> Optional[OpenSearchLoggingConfig]:
         return self.config
 
-    def fetch_logs(self, params: FetchLogsParams) -> StructuredToolResult:
-        """Fetch logs for a pod from OpenSearch"""
+    def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         if not self.opensearch_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -107,7 +105,7 @@ class OpenSearchLogsToolset(BaseLoggingToolset):
                 url=url,
                 timeout=180,
                 verify=True,
-                data=json.dumps(query),
+                json=query,
                 headers=headers,
             )
 

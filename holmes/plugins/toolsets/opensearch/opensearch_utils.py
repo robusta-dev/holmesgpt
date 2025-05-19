@@ -37,11 +37,11 @@ def add_auth_header(auth_header: Optional[str]) -> dict[str, Any]:
     return results
 
 
-def get_search_url(config: OpenSearchLoggingConfig) -> str:
+def get_search_url(config: BaseOpenSearchConfig) -> str:
     return urljoin(config.opensearch_url, f"/{config.index_pattern}/_search")
 
 
-def opensearch_health_check(config: OpenSearchLoggingConfig) -> tuple[bool, str]:
+def opensearch_health_check(config: BaseOpenSearchConfig) -> tuple[bool, str]:
     url = get_search_url(config)
     try:
         headers = {"Content-Type": "application/json"}

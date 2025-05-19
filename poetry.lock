@@ -907,20 +907,6 @@ doc = ["sphinx (>=7.1.2,<7.2)", "sphinx-autodoc-typehints", "sphinx_rtd_theme"]
 test = ["coverage[toml]", "ddt (>=1.1.1,!=1.4.3)", "mock", "mypy", "pre-commit", "pytest (>=7.3.1)", "pytest-cov", "pytest-instafail", "pytest-mock", "pytest-sugar", "typing-extensions"]
 
 [[package]]
-name = "google"
-version = "3.0.0"
-description = "Python bindings to the Google search engine."
-optional = false
-python-versions = "*"
-files = [
-    {file = "google-3.0.0-py2.py3-none-any.whl", hash = "sha256:889cf695f84e4ae2c55fbc0cfdaf4c1e729417fa52ab1db0485202ba173e4935"},
-    {file = "google-3.0.0.tar.gz", hash = "sha256:143530122ee5130509ad5e989f0512f7cb218b2d4eddbafbad40fd10e8d8ccbe"},
-]
-
-[package.dependencies]
-beautifulsoup4 = "*"
-
-[[package]]
 name = "google-api-core"
 version = "2.24.2"
 description = "Google API client core library"
@@ -1005,26 +991,6 @@ files = [
 [package.dependencies]
 google-auth = "*"
 httplib2 = ">=0.19.0"
-
-[[package]]
-name = "google-genai"
-version = "1.15.0"
-description = "GenAI Python SDK"
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "google_genai-1.15.0-py3-none-any.whl", hash = "sha256:6d7f149cc735038b680722bed495004720514c234e2a445ab2f27967955071dd"},
-    {file = "google_genai-1.15.0.tar.gz", hash = "sha256:118bb26960d6343cd64f1aeb5c2b02144a36ad06716d0d1eb1fa3e0904db51f1"},
-]
-
-[package.dependencies]
-anyio = ">=4.8.0,<5.0.0"
-google-auth = ">=2.14.1,<3.0.0"
-httpx = ">=0.28.1,<1.0.0"
-pydantic = ">=2.0.0,<3.0.0"
-requests = ">=2.28.1,<3.0.0"
-typing-extensions = ">=4.11.0,<5.0.0"
-websockets = ">=13.0.0,<15.1.0"
 
 [[package]]
 name = "googleapis-common-protos"
@@ -3854,4 +3820,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "4d754907821aac3dfdb00702ba51b53e30440306830876fdd5b4b5c5c9ab4a2d"
+content-hash = "af48afab0b52fa3e4ab6de5a03d3d80daa465647d81b192ec94770547d99ebec"
