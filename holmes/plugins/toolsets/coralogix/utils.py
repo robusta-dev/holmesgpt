@@ -160,8 +160,6 @@ def parse_logs(raw_logs: str) -> List[FlattenedLog]:
 class CoralogixLabelsConfig(BaseModel):
     pod: str = "kubernetes.pod_name"
     namespace: str = "kubernetes.namespace_name"
-    application: str = "coralogix.metadata.applicationName"
-    subsystem: str = "coralogix.metadata.subsystemName"
 
 
 class CoralogixLogsMethodology(str, Enum):
@@ -180,20 +178,6 @@ class CoralogixConfig(BaseModel):
     logs_retrieval_methodology: CoralogixLogsMethodology = (
         CoralogixLogsMethodology.ARCHIVE_FALLBACK
     )
-
-
-def get_resource_label(params: Dict, config: CoralogixConfig):
-    resource_type = params.get("resource_type", "pod")
-    label = None
-    if resource_type == "pod":
-        label = config.labels.pod
-    elif resource_type == "application":
-        label = config.labels.application
-    elif resource_type == "subsystem":
-        label = config.labels.subsystem
-    else:
-        return f'Error: unsupported resource type "{resource_type}". resource_type must be one of pod, application or subsystem'
-    return label
 
 
 def build_coralogix_link_to_logs(
