@@ -5,13 +5,13 @@ from typing import Optional
 
 from pydantic import BaseModel
 from datetime import timezone
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
     Toolset,
 )
-from holmes.plugins.toolsets.utils import get_param_or_raise
+from holmes.core.tools.tools_utils import get_param_or_raise
 
 # Default values for log fetching
 DEFAULT_LOG_LIMIT = 2000

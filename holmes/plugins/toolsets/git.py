@@ -4,9 +4,9 @@ import requests  # type: ignore
 import os
 from typing import Any, Optional, Dict, List, Tuple
 from pydantic import BaseModel
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     Toolset,
     Tool,
     ToolParameter,

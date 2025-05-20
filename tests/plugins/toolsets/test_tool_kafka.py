@@ -4,7 +4,7 @@ import pytest
 import random
 import string
 from confluent_kafka.admin import NewTopic
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.kafka import (
     KafkaToolset,
     ListKafkaConsumers,

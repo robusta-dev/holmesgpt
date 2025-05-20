@@ -5,19 +5,19 @@ from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 from pydantic import BaseModel
 
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     StaticPrerequisite,
     StructuredToolResult,
     ToolResultStatus,
     ToolsetTag,
 )
-from holmes.plugins.toolsets.logging_api import (
+from holmes.core.tools.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
     LoggingConfig,
     PodLoggingTool,
 )
-from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix
+from holmes.core.tools.tools_utils import process_timestamps_to_int, to_unix
 
 
 class Pod(BaseModel):

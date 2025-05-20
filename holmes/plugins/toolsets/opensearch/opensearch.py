@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     CallablePrerequisite,
     Tool,
     ToolParameter,
@@ -11,8 +11,8 @@ from holmes.core.tools import (
 )
 from opensearchpy import OpenSearch
 
-from holmes.plugins.toolsets.utils import TOOLSET_CONFIG_MISSING_ERROR
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools_utils import TOOLSET_CONFIG_MISSING_ERROR
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 class OpenSearchHttpAuth(BaseModel):

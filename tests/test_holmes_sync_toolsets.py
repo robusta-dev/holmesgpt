@@ -5,7 +5,7 @@ import subprocess
 import os
 
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     Toolset,
     ToolsetCommandPrerequisite,
     ToolsetEnvironmentPrerequisite,

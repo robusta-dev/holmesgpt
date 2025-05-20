@@ -4,7 +4,7 @@ import logging
 from typing import Any, Optional, Tuple, Dict, List
 
 from requests import RequestException, Timeout  # type: ignore
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     Tool,
     ToolParameter,
     Toolset,
@@ -15,7 +15,7 @@ from markdownify import markdownify
 from bs4 import BeautifulSoup
 
 import requests  # type: ignore
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 # TODO: change and make it holmes

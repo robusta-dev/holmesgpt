@@ -12,7 +12,7 @@ from holmes.core.models import InvestigateRequest
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 def read_file(file_path: Path):

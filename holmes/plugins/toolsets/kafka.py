@@ -2,14 +2,14 @@ import logging
 from pydantic import BaseModel, ConfigDict
 import yaml  # type: ignore
 from typing import Any, Dict, List, Optional, Union, Tuple
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     Tool,
     ToolParameter,
     Toolset,
     ToolsetTag,
     CallablePrerequisite,
 )
-from holmes.plugins.toolsets.utils import (
+from holmes.core.tools.tools_utils import (
     TOOLSET_CONFIG_MISSING_ERROR,
     get_param_or_raise,
 )
@@ -29,7 +29,7 @@ from confluent_kafka.admin import (
     TopicMetadata,
     _TopicPartition as TopicPartition,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 class KafkaClusterConfig(BaseModel):

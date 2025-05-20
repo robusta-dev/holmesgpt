@@ -2,7 +2,8 @@ from typing import Any, Dict, List, Optional, Type, Union
 from holmes.core.llm import LLM
 from litellm.types.utils import ModelResponse
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from holmes.core.tools import Tool, ToolExecutor
+from holmes.core.tools.tools import Tool
+from holmes.core.tools.tool_executor import ToolExecutor
 from holmes.plugins.toolsets import load_builtin_toolsets
 from pydantic import BaseModel
 from holmes.plugins.prompts import load_and_render_prompt

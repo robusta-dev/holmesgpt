@@ -2,7 +2,7 @@ import json
 import pytest
 from pydantic import BaseModel
 
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 from holmes.core.tool_calling_llm import format_tool_result_data, ToolCallResult
 

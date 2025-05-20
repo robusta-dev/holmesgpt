@@ -9,7 +9,7 @@ import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import ToolExecutor
+from holmes.core.tools.tool_executor import ToolExecutor
 from tests.llm.utils.classifiers import (
     evaluate_context_usage,
     evaluate_correctness,

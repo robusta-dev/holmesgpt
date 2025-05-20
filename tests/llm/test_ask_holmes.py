@@ -7,7 +7,7 @@ from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
-from holmes.core.tools import ToolExecutor
+from holmes.core.tools.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test

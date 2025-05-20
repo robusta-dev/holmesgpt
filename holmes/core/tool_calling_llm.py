@@ -32,7 +32,7 @@ from rich.console import Console
 
 from holmes.core.issue import Issue
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tools import ToolExecutor
+from holmes.core.tools.tool_executor import ToolExecutor
 from litellm.types.utils import Message
 from holmes.common.env_vars import (
     ROBUSTA_API_ENDPOINT,
@@ -41,7 +41,7 @@ from holmes.common.env_vars import (
 from holmes.core.investigation_structured_output import (
     parse_markdown_into_sections_from_hash_sign,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:

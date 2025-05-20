@@ -1,8 +1,8 @@
-from holmes.core.tools import ToolsetTag
+from holmes.core.tools.tools import ToolsetTag
 from typing import Dict, Any
-from holmes.core.tools import Tool, Toolset
+from holmes.core.tools.tools import Tool, Toolset
 import datetime
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 class CurrentTime(Tool):

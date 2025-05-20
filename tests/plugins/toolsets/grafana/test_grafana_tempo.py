@@ -2,7 +2,7 @@ import json
 import os
 from holmes.plugins.toolsets.grafana.grafana_api import get_health
 import pytest
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     GrafanaTempoConfig,
     GrafanaTempoToolset,

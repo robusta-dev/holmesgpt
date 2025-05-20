@@ -1,4 +1,4 @@
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools.tools import ToolsetStatusEnum
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 

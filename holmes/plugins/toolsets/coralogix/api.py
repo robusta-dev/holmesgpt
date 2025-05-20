@@ -13,7 +13,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     parse_logs,
     CoralogixLogsMethodology,
 )
-from holmes.plugins.toolsets.utils import (
+from holmes.core.tools.tools_utils import (
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )

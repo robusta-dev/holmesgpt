@@ -5,7 +5,8 @@ from pydantic import BaseModel
 import pytest
 from pathlib import Path
 
-from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
+from holmes.core.tools.tools import ToolsetStatusEnum
+from holmes.core.tools.tool_executor import ToolExecutor
 from holmes.plugins.toolsets.internet.internet import InternetToolset, html_to_markdown
 
 THIS_DIR = os.path.dirname(__file__)

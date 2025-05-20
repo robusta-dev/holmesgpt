@@ -1,6 +1,6 @@
 import json
 import pytest
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.internet.notion import NotionToolset, FetchNotion
 
 

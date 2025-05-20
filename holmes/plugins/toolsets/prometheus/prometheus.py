@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Union, Optional, Tuple
 
 import requests  # type: ignore
 from pydantic import BaseModel
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     CallablePrerequisite,
     Tool,
     ToolParameter,
@@ -21,14 +21,14 @@ from requests import RequestException
 
 from urllib.parse import urljoin
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
-from holmes.plugins.toolsets.utils import (
+from holmes.core.tools.tools_utils import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
     standard_start_datetime_tool_param_description,
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
 from holmes.utils.cache import TTLCache
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 DEFAULT_TIME_SPAN_SECONDS = 3600

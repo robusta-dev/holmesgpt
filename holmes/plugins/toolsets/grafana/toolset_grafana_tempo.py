@@ -4,7 +4,7 @@ from typing import Any, Dict, List, cast
 from pydantic import BaseModel
 import requests  # type: ignore
 from holmes.common.env_vars import load_bool
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     Tool,
     ToolParameter,
 )
@@ -13,7 +13,7 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
     query_tempo_trace_by_id,
     query_tempo_traces,
 )
-from holmes.plugins.toolsets.utils import (
+from holmes.core.tools.tools_utils import (
     get_param_or_raise,
     process_timestamps_to_int,
     ONE_HOUR_IN_SECONDS,
@@ -24,7 +24,7 @@ from holmes.plugins.toolsets.grafana.common import (
     get_base_url,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 

@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from pydantic import BaseModel
 import datetime
 
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 class GrafanaConfig(BaseModel):

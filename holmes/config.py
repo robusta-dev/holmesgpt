@@ -12,8 +12,9 @@ from pydash.arrays import concat
 import json
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
-from holmes.core.tools import (
+from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
+from holmes.core.tools.tool_executor import ToolExecutor
+from holmes.core.tools.tools import (
     Toolset,
     ToolsetPattern,
     ToolsetYamlFromConfig,
@@ -34,7 +35,7 @@ from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
 
-from holmes.core.tools import YAMLToolset
+from holmes.core.tools.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 from holmes.utils.definitions import RobustaConfig
 import re

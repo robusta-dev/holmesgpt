@@ -5,7 +5,7 @@ from typing import List, Literal, Optional, Dict, Any, Tuple, cast
 from urllib.parse import urljoin
 
 import requests  # type: ignore
-from holmes.core.tools import Toolset
+from holmes.core.tools.tools import Toolset
 from pydantic import BaseModel
 
 

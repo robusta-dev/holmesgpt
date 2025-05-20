@@ -1,6 +1,6 @@
 from typing import Dict
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     StaticPrerequisite,
     StructuredToolResult,
     Tool,

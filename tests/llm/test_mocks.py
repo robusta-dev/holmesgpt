@@ -1,4 +1,5 @@
-from holmes.core.tools import ToolExecutor, StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tool_executor import ToolExecutor
 from tests.llm.utils.mock_toolset import MockToolsets, ToolMock
 import pytest
 import tempfile

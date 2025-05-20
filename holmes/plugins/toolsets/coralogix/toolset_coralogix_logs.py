@@ -1,5 +1,5 @@
 from typing import Any, Optional, Tuple
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     ToolResultStatus,
@@ -22,7 +22,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     build_coralogix_link_to_logs,
     stringify_flattened_logs,
 )
-from holmes.plugins.toolsets.utils import (
+from holmes.core.tools.tools_utils import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
     TOOLSET_CONFIG_MISSING_ERROR,
     standard_start_datetime_tool_param_description,

@@ -2,7 +2,7 @@ import re
 import logging
 import json
 from typing import Any, Dict
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     Tool,
     ToolParameter,
     ToolsetTag,
@@ -11,7 +11,7 @@ from holmes.plugins.toolsets.internet.internet import (
     InternetBaseToolset,
     scrape,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 class FetchNotion(Tool):

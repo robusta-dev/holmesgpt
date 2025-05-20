@@ -1,6 +1,6 @@
 import logging
 from typing import Any, ClassVar, Type, Tuple
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     Tool,
     Toolset,
     ToolsetTag,
@@ -8,7 +8,7 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.grafana.common import GrafanaConfig
 from holmes.plugins.toolsets.grafana.grafana_api import get_health
-from holmes.plugins.toolsets.utils import TOOLSET_CONFIG_MISSING_ERROR
+from holmes.core.tools.tools_utils import TOOLSET_CONFIG_MISSING_ERROR
 
 
 class BaseGrafanaToolset(Toolset):

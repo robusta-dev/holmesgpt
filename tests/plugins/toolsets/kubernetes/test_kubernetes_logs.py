@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import patch, MagicMock
 from kubernetes.client.exceptions import ApiException
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools.tools import ToolResultStatus
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.core.tools.logging_api import FetchPodLogsParams
 
 
 class TestKubernetesLogsToolset(unittest.TestCase):

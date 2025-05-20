@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, cast
 from pydantic import BaseModel
 from urllib.parse import urlencode
-from holmes.core.tools import Tool, ToolParameter
+from holmes.core.tools.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
@@ -10,7 +10,7 @@ from holmes.plugins.toolsets.grafana.common import (
     format_log,
     get_base_url,
 )
-from holmes.plugins.toolsets.utils import (
+from holmes.core.tools.tools_utils import (
     get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
@@ -19,7 +19,7 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
     query_loki_logs_by_label,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 import json
 
 DEFAULT_TIME_SPAN_SECONDS = 3600

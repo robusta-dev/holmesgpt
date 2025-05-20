@@ -3,7 +3,7 @@ import logging
 from typing import Any, List, Optional, Tuple
 
 from pydantic import BaseModel
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,

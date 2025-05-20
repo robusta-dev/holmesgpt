@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 import requests  # type: ignore
 from cachetools import TTLCache  # type: ignore
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     CallablePrerequisite,
     Tool,
     ToolParameter,
@@ -20,7 +20,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     format_logs,
     add_auth_header,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 

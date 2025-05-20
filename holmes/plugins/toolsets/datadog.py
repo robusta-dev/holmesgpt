@@ -1,7 +1,7 @@
 import requests  # type: ignore
 import logging
 from typing import Any, Optional, Dict, Tuple
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     CallablePrerequisite,
     Tool,
     ToolParameter,
@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from pydantic import BaseModel
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 
 class BaseDatadogTool(Tool):

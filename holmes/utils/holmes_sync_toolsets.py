@@ -7,7 +7,7 @@ import yaml  # type: ignore
 
 from holmes.config import Config
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import Toolset, ToolsetDBModel
+from holmes.core.tools.tools import Toolset, ToolsetDBModel
 from holmes.plugins.prompts import load_and_render_prompt
 
 

@@ -1,6 +1,6 @@
 import pytest
 from dateutil import parser
-from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
+from holmes.core.tools.tools_utils import process_timestamps_to_rfc3339
 from freezegun import freeze_time
 
 

@@ -27,7 +27,7 @@ from holmes.plugins.toolsets.kafka import KafkaToolset
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.git import GitToolset
 
-from holmes.core.tools import Toolset, YAMLToolset
+from holmes.core.tools.tools import Toolset, YAMLToolset
 import yaml  # type: ignore
 
 

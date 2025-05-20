@@ -1,6 +1,6 @@
 from typing import Dict, List
 from urllib.parse import urlencode, urljoin
-from holmes.core.tools import Tool, ToolParameter
+from holmes.core.tools.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 import requests  # type: ignore
 import logging

@@ -2,7 +2,7 @@ import pytest
 import json
 import os
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools.tools import ToolResultStatus
 from holmes.plugins.toolsets.opensearch.opensearch_logs import (
     GetLogFields,
     OpenSearchLogsToolset,

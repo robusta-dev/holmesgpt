@@ -4,14 +4,14 @@ import logging
 
 from typing import Optional, Dict, Any, List
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import (
+from holmes.core.tools.tools import (
     StaticPrerequisite,
     Tool,
     ToolParameter,
     Toolset,
     ToolsetTag,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools.tools import StructuredToolResult, ToolResultStatus
 
 PARAM_FINDING_ID = "id"
 START_TIME = "start_datetime"

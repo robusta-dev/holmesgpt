@@ -2,14 +2,19 @@ import json
 from typing import Any, Dict, List, Optional
 
 from holmes.config import parse_toolsets_file
-from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
+from holmes.core.tools.tools import (
+    Tool,
+    Toolset,
+    ToolsetStatusEnum,
+    ToolsetYamlFromConfig,
+)
 from holmes.plugins.toolsets import load_builtin_toolsets
 from pydantic import BaseModel
 import logging
 import re
 import os
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
-from holmes.core.tools import StructuredToolResult
+from holmes.core.tools.tools import StructuredToolResult
 from braintrust import Span, SpanTypeAttribute
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")

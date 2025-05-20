@@ -3,7 +3,7 @@ import pytest
 from holmes.plugins.toolsets.kubernetes_logs import (
     filter_log_lines_by_timestamp_and_strip_prefix,
 )
-from holmes.plugins.toolsets.utils import to_unix
+from holmes.core.tools.tools_utils import to_unix
 
 # Helper timestamps for clarity in tests
 T1 = "2024-01-15T10:00:00Z"
