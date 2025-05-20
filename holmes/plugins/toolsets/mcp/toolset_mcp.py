@@ -36,7 +36,7 @@ class RemoteMCPTool(Tool):
             )
 
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
-        async with sse_client(self.url) as (read_stream, write_stream):
+        async with sse_client(self.url, self.headers) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 _ = await session.initialize()
                 tool_result: CallToolResult = await session.call_tool(self.name, params)
