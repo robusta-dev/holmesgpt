@@ -77,6 +77,7 @@ def test_basic_query(opensearch_logs_toolset):
 
     assert result.status == ToolResultStatus.SUCCESS, result.error
     assert not result.error
+    print(result.data)
     assert TEST_SEARCH_TERM in result.data
 
 
@@ -89,6 +90,7 @@ def test_search_term(opensearch_logs_toolset):
 
     assert result.status == ToolResultStatus.SUCCESS, result.error
     assert not result.error
+    print(result.data)
     for line in result.data.split("\n"):
         assert TEST_SEARCH_TERM in line, line
 

@@ -15,7 +15,6 @@ class OpenSearchLoggingLabelsConfig(BaseModel):
     namespace: str = "kubernetes.namespace_name"
     timestamp: str = "@timestamp"
     message: str = "message"
-    log_level: str = "log.level"
 
 
 class BaseOpenSearchConfig(BaseModel):
@@ -25,8 +24,6 @@ class BaseOpenSearchConfig(BaseModel):
 
 
 class OpenSearchLoggingConfig(BaseOpenSearchConfig):
-    # If True, use script-based field discovery instead of getMappings API
-    use_script_for_fields_discovery: bool = False
     labels: OpenSearchLoggingLabelsConfig = OpenSearchLoggingLabelsConfig()
 
 
@@ -75,7 +72,6 @@ def format_logs(
         return ""
 
     # Get field names from config or use defaults
-    level_field = config.labels.log_level
     message_field = config.labels.message
 
     formatted_lines = []
@@ -90,16 +86,13 @@ def format_logs(
             formatted_lines.append(format_log_to_json(hit))
             continue
 
-        # Safely get fields using .get() with a default
-        level = source.get(level_field, "N/A")
         message = source.get(message_field, None)
 
-        # Ensure message is a string
         if message and not isinstance(message, str):
             message = str(message)  # Convert non-strings
 
         if message:
-            formatted_lines.append(f"{level} {message}")
+            formatted_lines.append(message)
         else:
             # fallback displaying the logs line as-is
             formatted_lines.append(format_log_to_json(hit))
