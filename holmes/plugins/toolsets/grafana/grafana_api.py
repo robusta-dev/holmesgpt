@@ -17,7 +17,7 @@ from holmes.plugins.toolsets.grafana.common import (
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
     and e.response.status_code < 500,
 )
-def get_health(config: GrafanaConfig) -> Tuple[bool, str]:
+def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
     base_url = get_base_url(config)
 
     # Both loki and tempo provide the same /ready api

@@ -107,7 +107,7 @@ def process_timestamps_to_int(
 
     # If no start provided, default to one hour before end
     if not start:
-        start = -1 * default_time_span_seconds
+        start = -1 * abs(default_time_span_seconds)
 
     start = datetime_to_unix(start)
     end = datetime_to_unix(end)

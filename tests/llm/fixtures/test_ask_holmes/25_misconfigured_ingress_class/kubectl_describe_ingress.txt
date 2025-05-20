@@ -1,0 +1,15 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"ingress","name":"my-http-ingress","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe ingress my-http-ingress -n default", "params": {"kind": "ingress", "name": "my-http-ingress", "namespace": "default"}}
+Name:             my-http-ingress
+Labels:           <none>
+Namespace:        default
+Address:
+Ingress Class:    example-ingress-class
+Default backend:  <default>
+Rules:
+  Host             Path  Backends
+  ----             ----  --------
+  app.example.com
+                   /   my-http-service:80 (10.244.1.53:8080)
+Annotations:       <none>
+Events:            <none>

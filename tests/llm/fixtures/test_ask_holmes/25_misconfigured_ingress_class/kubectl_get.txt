@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_name","match_params":{"kind":"service","name":"my-http-app","namespace":"default"}}
-Command `kubectl get --show-labels -o wide service my-http-app -n default` failed with return code 1
-stdout:
-
-stderr:
-Error from server (NotFound): services "my-http-app" not found

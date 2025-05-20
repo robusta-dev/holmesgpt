@@ -1,8 +1,8 @@
 {"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"deployment","name":"meme-deployment","namespace":"default"}}
-stdout:
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe deployment meme-deployment -n default", "params": {"kind": "deployment", "name": "meme-deployment", "namespace": "default"}}
 Name:                   meme-deployment
 Namespace:              default
-CreationTimestamp:      Fri, 24 Jan 2025 12:50:37 +0100
+CreationTimestamp:      Tue, 13 May 2025 09:31:56 +0200
 Labels:                 app=meme-app
 Annotations:            deployment.kubernetes.io/revision: 1
 Selector:               app=meme-app
@@ -32,8 +32,6 @@ Conditions:
 OldReplicaSets:  <none>
 NewReplicaSet:   meme-deployment-74db7bc95c (2/2 replicas created)
 Events:
-  Type    Reason             Age   From                   Message
-  ----    ------             ----  ----                   -------
-  Normal  ScalingReplicaSet  95s   deployment-controller  Scaled up replica set meme-deployment-74db7bc95c to 2
-
-stderr:
+  Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  2m50s  deployment-controller  Scaled up replica set meme-deployment-74db7bc95c to 2
