@@ -5,9 +5,7 @@ HolmesGPT is an open-source project that uses AI and Large Language Models (LLMs
 for community participation.
 
 ## Code of Conduct
-All participants must adhere to our [Code of Conduct](#) in every interaction related to the project.
-
-(TODO: Link to the Code of Conduct will be added here.)
+All participants must adhere to the CNCF [Code of Conduct](https://github.com/cncf/foundation/blob/main/code-of-conduct.md) in every interaction related to the project.
 
 ## Roles and Responsibilities
 
