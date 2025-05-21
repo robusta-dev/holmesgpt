@@ -62,7 +62,7 @@ When evaluating a maintainer nomination, the following criteria should be consid
 ## Code Changes
 All code changes must go through the **Pull Request (PR)** process:
 
-- PRs must be approved (via GitHub) by at least one other member of the GitHub team with expertise in the relevant area before being merged
+- PRs must be approved (via GitHub) by at least one other maintainer
 - We do not hold formal votes on every change, but merged PRs must reflect the same level of consensus as a formal vote
 - If a PR is merged without sufficient community support, it must be reverted until the matter is resolved through discussion
 - If consensus cannot be reached, any team member may call for a formal vote in the PR or via a related issue, following governance rules
