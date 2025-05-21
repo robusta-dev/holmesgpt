@@ -545,6 +545,7 @@ class ToolsetYamlFromConfig(Toolset):
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+    url: Optional[str] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
