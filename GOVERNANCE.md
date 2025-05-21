@@ -66,6 +66,9 @@ All code changes must go through the **Pull Request (PR)** process:
 - If consensus cannot be reached, any team member may call for a formal vote in the PR or via a related issue, following governance rules
 - If a change is very large or involves significant architectural decisions, we strongly recommend opening an issue first and presenting the proposed design for discussion and review before submitting a PR
 
+## Releases
+Releases must be approved by at least two maintainers.
+
 ## Non-Code Changes
 Changes that are not made through pull requests—such as governance updates, policy shifts, or project-wide decisions—are handled through GitHub issues.
 
