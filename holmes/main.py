@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import os
+from holmes.core.prompt import append_file_to_user_prompt
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -405,8 +406,7 @@ def ask(
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + initial_user_prompt)
     for path in include_file:  # type: ignore
-        f = path.open("r")
-        initial_user_prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
+        initial_user_prompt = append_file_to_user_prompt(initial_user_prompt, path)
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
     messages = [
