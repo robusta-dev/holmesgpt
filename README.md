@@ -165,7 +165,7 @@ You can install HolmesGPT in one of the follow three methods:
         </tr>
       </table>
     </td>
-   
+
   </tr>
 </table>
 
