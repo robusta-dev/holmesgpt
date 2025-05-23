@@ -153,7 +153,7 @@ You can install HolmesGPT in one of the follow three methods. Pick which ever wo
         <tr>
           <td align="center" width="120">
             <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-              <img src="images/logo.png" alt="Robusta SaaS" width="50"><br>
+              <img src="images/integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
               <strong>Robusta SaaS</strong>
             </a>
           </td>
