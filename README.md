@@ -82,90 +82,95 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 Choose the installation method that works best for your environment:
 
-### Local CLI Installation
-
-Run HolmesGPT on your local machine with these options:
-
-<table>
-  <tr>
-      <td align="center" width="120">
-      <a href="docs/installation.md#brew-maclinux">
-        <img src="images/integration_logos/brew_logo.png" alt="Brew" width="50"><br>
-        <strong>Brew(Mac/Linux)</strong>
-      </a>
+<table width="100%">
+  <tr valign="top">
+    <td width="50%">
+      <h3>Local CLI Installation</h3>
+      <p>Run HolmesGPT on your local machine with these options:</p>
+      <table>
+        <tr>
+          <td align="center" width="120">
+            <a href="docs/installation.md#brew-maclinux">
+              <img src="images/integration_logos/brew_logo.png" alt="Brew" width="50"><br>
+              <strong>Brew(Mac/Linux)</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#pip-and-pipx">
+              <img src="images/integration_logos/pipx_logo.png" alt="pip" width="50"><br>
+              <strong>pip/pipx</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#docker-container">
+              <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
+              <strong>Docker</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
     </td>
-    <td align="center" width="120">
-      <a href="docs/installation.md#pip-and-pipx">
-        <img src="images/integration_logos/pipx_logo.png" alt="pip" width="50"><br>
-        <strong>pip/pipx</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/installation.md#docker-container">
-        <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
-        <strong>Docker</strong>
-      </a>
-    </td>
-  </tr>
-</table>
-
-### From Source
-
-Build HolmesGPT from source code:
-
-<table>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/installation.md#from-source-python-poetry">
-        <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
-        <strong>Python Poetry</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/installation.md#from-source-docker">
-        <img src="images/integration_logos/docker_logo.png" alt="Docker Build" width="50"><br>
-        <strong>Docker Build</strong>
-      </a>
-    </td>
-  </tr>
-</table>
-
-### In-Cluster Installation
-
-Install HolmesGPT in your Kubernetes cluster:
-
-<table>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/installation.md#in-cluster-installation-recommended">
-        <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
-        <strong>Helm Chart</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-        <img src="images/logo.png" alt="Robusta SaaS" width="50"><br>
-        <strong>Robusta SaaS</strong>
-      </a>
+    <td width="50%">
+      <h3>From Source</h3>
+      <p>Build HolmesGPT from source code:</p>
+      <table>
+        <tr>
+          <td align="center" width="120">
+            <a href="docs/installation.md#from-source-python-poetry">
+              <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
+              <strong>Python Poetry</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#from-source-docker">
+              <img src="images/integration_logos/docker_logo.png" alt="Docker Build" width="50"><br>
+              <strong>Docker Build</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
-</table>
-
-### Other Options
-
-<table>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/k9s.md">
-        <img src="images/integration_logos/k9s_logo.png" alt="K9s Plugin" width="50"><br>
-        <strong>K9s Plugin</strong>
-      </a>
+  <tr valign="top">
+    <td width="50%">
+      <h3>In-Cluster Installation</h3>
+      <p>Install HolmesGPT in your Kubernetes cluster:</p>
+      <table>
+        <tr>
+          <td align="center" width="120">
+            <a href="docs/installation.md#in-cluster-installation-recommended">
+              <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
+              <strong>Helm Chart</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
+              <img src="images/logo.png" alt="Robusta SaaS" width="50"><br>
+              <strong>Robusta SaaS</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
     </td>
-    <td align="center" width="120">
-      <a href="docs/python.md">
-        <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
-        <strong>Python Package</strong>
-      </a>
+    <td width="50%">
+      <h3>Other Options</h3>
+      <p>Additional ways to use HolmesGPT:</p>
+      <table>
+        <tr>
+          <td align="center" width="120">
+            <a href="docs/k9s.md">
+              <img src="images/integration_logos/k9s_logo.png" alt="K9s Plugin" width="50"><br>
+              <strong>K9s Plugin</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/python.md">
+              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
+              <strong>Python Package</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
 </table>
@@ -199,7 +204,7 @@ HolmesGPT works with the following LLM providers, click on your provider for ins
     <td align="center" width="120">
       <a href="docs/api-keys.md#google-vertex-ai">
         <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
-        <strong>Vertex AI</strong>
+        <strong>Google Vertex AI</strong>
       </a>
     </td>
   </tr>

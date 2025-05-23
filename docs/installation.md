@@ -1,6 +1,6 @@
 # Installing HolmesGPT
 
-## In-Cluster Installation (Recommended) {#in-cluster-installation-recommended}
+## In-Cluster Installation (Recommended)
 
 If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package so you can:
 
