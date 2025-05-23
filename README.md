@@ -86,7 +86,6 @@ Choose the installation method that works best for your environment:
   <tr valign="top">
     <td width="50%">
       <h3>Local CLI Installation</h3>
-      <p>Run HolmesGPT on your local machine with these options:</p>
       <table>
         <tr>
           <td align="center" width="120">
@@ -111,8 +110,7 @@ Choose the installation method that works best for your environment:
       </table>
     </td>
     <td width="50%">
-      <h3>From Source</h3>
-      <p>Build HolmesGPT from source code:</p>
+      <h3>From Source Code</h3>
       <table>
         <tr>
           <td align="center" width="120">
@@ -134,7 +132,6 @@ Choose the installation method that works best for your environment:
   <tr valign="top">
     <td width="50%">
       <h3>In-Cluster Installation</h3>
-      <p>Install HolmesGPT in your Kubernetes cluster:</p>
       <table>
         <tr>
           <td align="center" width="120">
@@ -145,7 +142,7 @@ Choose the installation method that works best for your environment:
           </td>
           <td align="center" width="120">
             <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-              <img src="images/logo.png" alt="Robusta SaaS" width="50"><br>
+              <img src="images/integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
               <strong>Robusta SaaS</strong>
             </a>
           </td>
@@ -154,7 +151,6 @@ Choose the installation method that works best for your environment:
     </td>
     <td width="50%">
       <h3>Other Options</h3>
-      <p>Additional ways to use HolmesGPT:</p>
       <table>
         <tr>
           <td align="center" width="120">
