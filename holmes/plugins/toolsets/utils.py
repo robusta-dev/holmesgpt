@@ -40,6 +40,11 @@ def to_unix(timestamp_str: str) -> int:
     return int(dt.timestamp())
 
 
+def to_unix_ms(timestamp_str: str) -> int:
+    dt = parser.parse(timestamp_str)
+    return int(dt.timestamp() * 1000)
+
+
 def unix_nano_to_rfc3339(unix_nano: int) -> str:
     unix_seconds = unix_nano / 1_000_000_000
 
