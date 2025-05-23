@@ -80,7 +80,7 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 ## Installation Options
 
-You can install HolmesGPT in one of the follow three methods. Pick which ever works best for your environment:
+You can install HolmesGPT in one of the following three methods:
 
 1. **Standalone**: Run HolmesGPT from your terminal as a cli tool. Typically installed with **Homebrew or Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
 2. **Web UIs and TUIs**: HolmesGPT is embedded in several third party tools, like **Robusta SaaS** and **K9s** (as a plugin).
