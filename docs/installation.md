@@ -2,9 +2,9 @@
 
 You can install HolmesGPT in one of the follow three methods:
 
-1. **Standalone**: Run HolmesGPT from your terminal as a CLI tool. Typically installed with **Homebrew or Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
-2. **Web UIs and TUIs**: HolmesGPT is embedded in several third-party tools, like **Robusta SaaS** and **K9s** (as a plugin).
-3. **API**: Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and Python SDK, as well as Helm chart to deploy the HTTP server on Kubernetes.
+1. [Standalone](#standalone): Run HolmesGPT from your terminal as a CLI tool. Typically installed with [Homebrew](#brew-maclinux) or [Pip/Pipx](#pip-and-pipx). Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
+2. [Web UIs and TUIs](#web-uis-and-tuis): HolmesGPT is embedded in several third-party tools, like [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and [K9s](./k9s.md) (as a plugin).
+3. [API](#api): Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and [Python SDK](./python.md), as well as [Helm chart](../helm/) to deploy the HTTP server on Kubernetes.
 
 
 ## Standalone
