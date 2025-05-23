@@ -159,7 +159,7 @@ holmes ask "what pods are unhealthy and why?" --model=openai/<MODEL_NAME> --api-
 
 In particular, note that [vLLM does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869), whereas [llama-cpp does support it](https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#function-calling).
 
-## Additional LLM Configuration:
+## Additional LLM Configuration
 
 ### Trusting custom Certificate Authority (CA) certificate
 

@@ -177,9 +177,9 @@ Choose the installation method that works best for your environment:
 
 For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend install HolmesGPT SaaS or CLI (see above) to learn your way around.
 
-## Configure LLM API-Key
+## Supported LLM Providers
 
-HolmesGPT works with the following LLM providers, click on your provider for instructions:
+Select your LLM provider to see how to set up your API Key.
 
 <table>
   <tr>
