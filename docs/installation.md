@@ -1,6 +1,6 @@
 # Installing HolmesGPT
 
-## In-Cluster Installation (Recommended)
+## In-Cluster Installation (Recommended) {#in-cluster-installation-recommended}
 
 If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package so you can:
 
@@ -14,8 +14,7 @@ If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github
 
 You can install Holmes as a CLI tool and run it on your local machine:
 
-<details>
-  <summary>Brew (Mac/Linux)</summary>
+### Brew (Mac/Linux)
 
 1. Add our tap:
 
@@ -48,11 +47,9 @@ kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/
 ```sh
 holmes ask "what is wrong with the user-profile-import pod?"
 ```
-</details>
 
 
-<details>
-<summary>Docker Container</summary>
+### Docker Container
 
 You can run HolmesGPT via a prebuilt Docker container:
 
@@ -68,11 +65,7 @@ docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.
 
 Don't forget to setup [Setup an API key](./api-keys.md) first.
 
-</details>
-
-<details>
-
-<summary>Pip and Pipx</summary>
+### Pip and Pipx
 
 You can install HolmesGPT from source with pip or pipx. Pipx is recommended, as it prevents dependency conflicts.
 
@@ -102,11 +95,7 @@ When new versions of HolmesGPT are released, you can upgrade HolmesGPT with pipx
 pipx upgrade holmesgpt
 ```
 
-</details>
-
-<details>
-
-<summary>From Source (Python Poetry)</summary>
+### From Source (Python Poetry)
 
 First [install poetry (the python package manager)](https://python-poetry.org/docs/#installing-with-the-official-installer)
 
@@ -121,10 +110,8 @@ poetry install --no-root
 ```
 poetry run python3 holmes.py ask "what pods are unhealthy and why?"
 ```
-</details>
 
-<details>
-<summary>From Source (Docker)</summary>
+### From Source (Docker)
 
 Clone the project from github, [setup an API key](./api-keys.md), and then run:
 
@@ -133,13 +120,9 @@ cd holmesgpt
 docker build -t holmes . -f Dockerfile.dev
 docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
-</details>
 
-<details>
-<summary>Python API</summary>
+### Python API
 
 You can use Holmes as a library and pass in your own LLM implementation. This is particularly useful if LiteLLM or the default Holmes implementation does not suit you.
 
 See an example implementation [here](examples/custom_llm.py).
-
-</details>

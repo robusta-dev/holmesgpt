@@ -8,8 +8,7 @@ The most popular LLM provider is OpenAI, but you can use most [LiteLLM-compatibl
 
 **Instructions for popular LLMs:**
 
-<details>
-<summary>OpenAI</summary>
+## OpenAI
 
 To work with OpenAI's GPT 3.5 or GPT-4 models you need a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key).
 
@@ -23,10 +22,27 @@ holmes ask --api-key="..." "what pods are crashing in my cluster and why?"
 
 If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment variable or save the API key in a HolmesGPT config file.
 
-</details>
+## Anthropic
 
-<details>
-<summary>Azure OpenAI</summary>
+To use Anthropic's Claude models, you need an [Anthropic API key](https://console.anthropic.com/keys).
+
+Set the `ANTHROPIC_API_KEY` environment variable and specify the model:
+
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+holmes ask "what pods are unhealthy and why?" --model="anthropic/claude-3-opus-20240229"
+```
+
+You can also pass the API key directly via the CLI:
+
+```bash
+holmes ask "what pods are unhealthy and why?" --model="anthropic/claude-3-opus-20240229" --api-key="your-anthropic-api-key"
+```
+
+Available models include `claude-3-opus-20240229`, `claude-3-sonnet-20240229`, and `claude-3-haiku-20240307`.
+
+
+## Azure OpenAI
 
 To work with Azure AI, you need an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource) and to set the following environment variables:
 
@@ -41,10 +57,8 @@ holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --
 ```
 
 Refer [LiteLLM Azure docs ↗](https://litellm.vercel.app/docs/providers/azure) for more details.
-</details>
 
-<details>
-<summary>AWS Bedrock</summary>
+## AWS Bedrock
 
 Before running the below command you must run `pip install boto3>=1.28.57` and set the following environment variables:
 
@@ -72,10 +86,9 @@ aws bedrock list-foundation-models --region=us-east-1
 Note that different models are available in different regions. For example, Claude Opus is only available in us-west-2.
 
 Refer to [LiteLLM Bedrock docs ↗](https://litellm.vercel.app/docs/providers/bedrock) for more details.
-</details>
 
-<details>
-<summary>Using Ollama</summary>
+## Ollama
+
 Ollama is supported, but buggy. We recommend using other models if you can, until Ollama tool-calling capabilities improve.
 Specifically, Ollama often calls tools with non-existent or missing parameters.
 
@@ -94,10 +107,7 @@ export OPENAI_API_BASE="http://localhost:11434/v1"
 export OPENAI_API_KEY=123
 holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
 ```
-
-</details>
-<details>
-<summary>Gemini/Google AI Studio</summary>
+## Gemini
 
 To use Gemini, set the `GEMINI_API_KEY` environment variable as follows:
 
@@ -113,9 +123,7 @@ holmes ask "what pods are unhealthy and why?" --model=gemini/<MODEL_NAME>
 
 Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini/gemini-1.5-flash`, etc.
 
-</details>
-<details>
-<summary>Vertex AI Gemini</summary>
+## Google Vertex AI 
 
 To use Vertex AI with Gemini models, set the following environment variables:
 
@@ -133,10 +141,7 @@ poetry run python holmes.py ask "what pods are unhealthy and why?" --model "vert
 
 Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini-2.0-flash-exp`, etc.
 Ensure you have the correct project, location, and credentials for accessing the desired Vertex AI model.
-
-</details>
-<details>
-<summary>Using other OpenAI-compatible models</summary>
+## Other OpenAI-compatible models
 
 You will need an LLM with support for function-calling (tool-calling).
 
@@ -153,11 +158,8 @@ holmes ask "what pods are unhealthy and why?" --model=openai/<MODEL_NAME> --api-
 
 In particular, note that [vLLM does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869), whereas [llama-cpp does support it](https://github.com/abetlen/llama-cpp-python?tab=readme-ov-file#function-calling).
 
-</details>
+## Additional LLM Configuration:
 
-**Additional LLM Configuration:**
+### Trusting custom Certificate Authority (CA) certificate
 
-<details>
-<summary>Trusting custom Certificate Authority (CA) certificate</summary>
 If your llm provider url uses a certificate from a custom CA, in order to trust it, base-64 encode the certificate, and store it in an environment variable named <b>CERTIFICATE</b>
-</details>

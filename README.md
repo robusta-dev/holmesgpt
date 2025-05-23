@@ -82,59 +82,6 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 Choose the installation method that works best for your environment:
 
-
-## Supported LLM Providers
-
-HolmesGPT works with the following LLM providers:
-
-<table>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#openai">
-        <img src="images/integration_logos/openai_logo.png" alt="OpenAI" width="50"><br>
-        <strong>OpenAI</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#anthropic">
-        <img src="images/integration_logos/anthropic_logo.png" alt="Anthropic" width="50"><br>
-        <strong>Anthropic</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#aws-bedrock">
-        <img src="images/integration_logos/aws_bedrock_logo.png" alt="AWS Bedrock" width="50"><br>
-        <strong>AWS Bedrock</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#google-vertex-ai">
-        <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
-        <strong>Vertex AI</strong>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#gemini">
-        <img src="images/integration_logos/gemini_logo.png" alt="Gemini" width="50"><br>
-        <strong>Gemini</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#ollama">
-        <img src="images/integration_logos/ollama_logo.png" alt="Ollama" width="50"><br>
-        <strong>Ollama</strong>
-      </a>
-    </td>
-  </tr>
-</table>
-
-
-## Installation Options
-
-Choose the installation method that works best for your environment:
-
 ### Local CLI Installation
 
 Run HolmesGPT on your local machine with these options:
@@ -225,7 +172,7 @@ Install HolmesGPT in your Kubernetes cluster:
 
 For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend install HolmesGPT SaaS or CLI (see above) to learn your way around.
 
-## Configure LLM Providers
+## Configure LLM API-Key
 
 HolmesGPT works with the following LLM providers, click on your provider for instructions:
 
