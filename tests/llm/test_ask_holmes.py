@@ -138,7 +138,7 @@ def test_ask_holmes(experiment_name, test_case):
             scores=scores,
         )
     if result.tool_calls:
-        tools_called = [t.tool_name for t in result.tool_calls]
+        tools_called = [tc.description for tc in result.tool_calls]
     else:
         tools_called = "None"
     print(f"\n** TOOLS CALLED **\n{tools_called}")
