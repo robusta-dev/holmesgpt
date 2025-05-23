@@ -115,7 +115,10 @@ def test_ask_holmes(experiment_name, test_case):
         )
 
     if result.tool_calls:
-        tools_called = [tc.tool_name for tc in result.tool_calls]
+        tools_called = [
+            {"name": tc.tool_name, "params": tc.result.params}
+            for tc in result.tool_calls
+        ]
     else:
         tools_called = "None"
     print(f"\n** TOOLS CALLED **\n{tools_called}")
@@ -150,5 +153,7 @@ def ask_holmes(test_case: AskHolmesTestCase, parent_span: Span) -> LLMResult:
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
-    messages = build_chat_messages(ask=chat_request.ask, conversation_history=[], ai=ai)
+    messages = build_chat_messages(
+        ask=chat_request.ask, conversation_history=test_case.conversation_history, ai=ai
+    )
     return ai.messages_call(messages=messages)

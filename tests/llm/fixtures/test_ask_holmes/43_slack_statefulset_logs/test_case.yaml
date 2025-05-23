@@ -1,0 +1,5 @@
+user_prompt: "Fetch the logs of this stateful set from the past 3 hours"
+expected_output: "alertmanager running without issues"
+evaluation:
+  correctness: 1
+generate_mocks: True
