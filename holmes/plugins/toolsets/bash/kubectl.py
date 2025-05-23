@@ -1,8 +1,14 @@
 import subprocess
 from typing import Dict, Any
 
-from holmes.core.tools import StructuredToolResult, Tool, ToolParameter, ToolResultStatus, Toolset, ToolsetTag
-
+from holmes.core.tools import (
+    StructuredToolResult,
+    Tool,
+    ToolParameter,
+    ToolResultStatus,
+    Toolset,
+    ToolsetTag,
+)
 
 
 class RunBashCommand(Tool):
@@ -49,7 +55,6 @@ class RunBashCommand(Tool):
                 params=params,
             )
 
-
         try:
             # Using shell=True with the command passed to 'bash -c' for explicit shell execution.
             # This is generally safer than passing command_str directly to shell=True if command_str
@@ -60,12 +65,12 @@ class RunBashCommand(Tool):
             # For simplicity and directness matching "run any bash command":
             process = subprocess.run(
                 command_str,
-                shell=True, # Allows shell features like pipes, wildcards, etc.
-                executable='/bin/bash', # Explicitly use bash
+                shell=True,  # Allows shell features like pipes, wildcards, etc.
+                executable="/bin/bash",  # Explicitly use bash
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                check=False, # We handle the return code manually
+                check=False,  # We handle the return code manually
             )
 
             result_data = (
@@ -75,13 +80,17 @@ class RunBashCommand(Tool):
                 f"Stderr:\n{process.stderr.strip()}"
             )
 
-            status = ToolResultStatus.SUCCESS if process.returncode == 0 else ToolResultStatus.ERROR
+            status = (
+                ToolResultStatus.SUCCESS
+                if process.returncode == 0
+                else ToolResultStatus.ERROR
+            )
 
             return StructuredToolResult(
                 status=status,
                 data=result_data,
                 params=params,
-                return_code=process.returncode
+                return_code=process.returncode,
             )
         except subprocess.TimeoutExpired:
             return StructuredToolResult(
@@ -93,7 +102,7 @@ class RunBashCommand(Tool):
             # This might occur if /bin/bash is not found, or if shell=False and command is not found
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                data=f"Error: Bash executable or command not found. Ensure bash is installed and the command is valid.",
+                data="Error: Bash executable or command not found. Ensure bash is installed and the command is valid.",
                 params=params,
             )
         except Exception as e:
@@ -113,25 +122,23 @@ class KubectlExecutorToolset(Toolset):
     def __init__(self):
         super().__init__(
             name="kubectl/bash",
-            enabled=True, # Default state; can be overridden by global config.
+            enabled=True,  # Default state; can be overridden by global config.
             description=(
                 "Toolset for executing arbitrary bash commands on the system where Holmes is running. "
                 "WARNING: This toolset provides powerful capabilities and should be "
                 "enabled and used with extreme caution due to significant security risks. "
                 "Ensure that only trusted users have access to this tool."
             ),
-            docs_url="", # TODO: Add relevant documentation URL if available
-            icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png", # Example Bash icon
+            docs_url="",  # TODO: Add relevant documentation URL if available
+            icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
             prerequisites=[],
             tools=[RunBashCommand()],
             # Using CORE as per the provided example's structure.
             # In a real system, a more specific tag like 'SYSTEM_COMMANDS' or 'DANGEROUS' might be appropriate
             # if the ToolsetTag system supports custom tags or has more granular options.
             tags=[ToolsetTag.CORE],
-            is_default=True, # CRITICAL: This toolset should NOT be enabled by default for security reasons.
+            is_default=True,  # CRITICAL: This toolset should NOT be enabled by default for security reasons.
         )
 
     def get_example_config(self) -> Dict[str, Any]:
-        return {
-            "enabled": False
-        }
+        return {"enabled": False}
