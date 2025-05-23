@@ -1,5 +1,5 @@
 import logging
-from typing import Any, ClassVar, Type, Tuple
+from typing import Any, Tuple
 from holmes.core.tools import (
     Tool,
     Toolset,
@@ -12,7 +12,7 @@ from holmes.plugins.toolsets.utils import TOOLSET_CONFIG_MISSING_ERROR
 
 
 class BaseGrafanaToolset(Toolset):
-    config_class: ClassVar[Type[GrafanaConfig]] = GrafanaConfig
+    config_class = GrafanaConfig
 
     def __init__(
         self,
