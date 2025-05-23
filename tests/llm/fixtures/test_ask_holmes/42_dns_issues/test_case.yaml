@@ -1,5 +1,5 @@
 user_prompt: "detect why the k8s pod client under namespace test-ns cannot resolve dns"
-expected_output: | 
+expected_output: |
   The answer should show the the investigation roughly went through the following steps.
   - Check CoreDNS/kube-dns Pods
   - Examine DNS Service
