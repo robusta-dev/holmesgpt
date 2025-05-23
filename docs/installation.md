@@ -1,15 +1,13 @@
 # Installing HolmesGPT
 
-You can install HolmesGPT in one of the follow three methods. Pick which ever works best for your environment:
+You can install HolmesGPT in one of the follow three methods:
 
 1. **Standalone**: Run HolmesGPT from your terminal as a CLI tool. Typically installed with **Homebrew or Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
-2. **Web UIs and TUIs**: HolmesGPT is embedded in several third party tools, like **Robusta SaaS** and **K9s** (as a plugin).
+2. **Web UIs and TUIs**: HolmesGPT is embedded in several third-party tools, like **Robusta SaaS** and **K9s** (as a plugin).
 3. **API**: Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and Python SDK, as well as Helm chart to deploy the HTTP server on Kubernetes.
 
 
 ## Standalone
-
-You can install Holmes as a CLI tool and run it on your local machine:
 
 ### Brew (Mac/Linux)
 
@@ -60,7 +58,7 @@ Here is an example, that mounts relevant config files so that HolmesGPT can use 
 docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
 ```
 
-Don't forget to setup [Setup an API key](./api-keys.md) first.
+Don't forget to [Setup an API key](./api-keys.md) first.
 
 ### Pip and Pipx
 
