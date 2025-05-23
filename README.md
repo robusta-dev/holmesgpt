@@ -80,24 +80,29 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 ## Installation Options
 
-Choose the installation method that works best for your environment:
+You can install HolmesGPT in one of the follow three methods. Pick which ever works best for your environment:
+
+1. **Standalone CLI**: Install HolmesGPT using **Brew, Pip/Pipx, Docker** and more and run from your terminal. 
+2. **API**: Expose an HTTP endpoint using using **Helm** or **Python API**. Used by clients like Robusta SaaS or custom clients.
+3. **3rd Party Integrations & Bundles**: Extend HolmesGPT with a UI/TUI using **Robusta SaaS** or **K9s** integrations.
+
 
 <table width="100%">
   <tr valign="top">
-    <td width="50%">
-      <h3>Local CLI Installation</h3>
+    <td>
+      <h3>Standalone</h3>
       <table>
         <tr>
           <td align="center" width="120">
             <a href="docs/installation.md#brew-maclinux">
               <img src="images/integration_logos/brew_logo.png" alt="Brew" width="50"><br>
-              <strong>Brew(Mac/Linux)</strong>
+              <strong>Brew</strong>
             </a>
           </td>
           <td align="center" width="120">
             <a href="docs/installation.md#pip-and-pipx">
-              <img src="images/integration_logos/pipx_logo.png" alt="pip" width="50"><br>
-              <strong>pip/pipx</strong>
+              <img src="images/integration_logos/pipx_logo.png" alt="pipx" width="50"><br>
+              <strong>Pipx</strong>
             </a>
           </td>
           <td align="center" width="120">
@@ -106,23 +111,16 @@ Choose the installation method that works best for your environment:
               <strong>Docker</strong>
             </a>
           </td>
-        </tr>
-      </table>
-    </td>
-    <td width="50%">
-      <h3>From Source Code</h3>
-      <table>
-        <tr>
-          <td align="center" width="120">
-            <a href="docs/installation.md#from-source-python-poetry">
-              <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
-              <strong>Python Poetry</strong>
-            </a>
-          </td>
           <td align="center" width="120">
             <a href="docs/installation.md#from-source-docker">
               <img src="images/integration_logos/docker_logo.png" alt="Docker Build" width="50"><br>
               <strong>Docker Build</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#from-source-python-poetry">
+              <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
+              <strong>Poetry</strong>
             </a>
           </td>
         </tr>
@@ -131,7 +129,7 @@ Choose the installation method that works best for your environment:
   </tr>
   <tr valign="top">
     <td width="50%">
-      <h3>In-Cluster Installation</h3>
+      <h3>API</h3>
       <table>
         <tr>
           <td align="center" width="120">
@@ -141,28 +139,28 @@ Choose the installation method that works best for your environment:
             </a>
           </td>
           <td align="center" width="120">
-            <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-              <img src="images/integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
-              <strong>Robusta SaaS</strong>
+            <a href="docs/python.md">
+              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
+              <strong>Python API</strong>
             </a>
           </td>
         </tr>
       </table>
     </td>
     <td width="50%">
-      <h3>Other Options</h3>
+      <h3>3rd Party Integrations and Bundles</h3>
       <table>
         <tr>
+          <td align="center" width="120">
+            <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
+              <img src="images//integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
+              <strong>Robusta SaaS</strong>
+            </a>
+          </td>
           <td align="center" width="120">
             <a href="docs/k9s.md">
               <img src="images/integration_logos/k9s_logo.png" alt="K9s Plugin" width="50"><br>
               <strong>K9s Plugin</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/python.md">
-              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
-              <strong>Python Package</strong>
             </a>
           </td>
         </tr>
@@ -171,7 +169,7 @@ Choose the installation method that works best for your environment:
   </tr>
 </table>
 
-For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend install HolmesGPT SaaS or CLI (see above) to learn your way around.
+For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend installing HolmesGPT SaaS or CLI (see above) to learn your way around.
 
 ## Supported LLM Providers
 
