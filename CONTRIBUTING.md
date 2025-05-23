@@ -4,7 +4,7 @@
 
 ### Code of Conduct
 
-Please make sure to read and observe our [Code of Conduct](https://github.com/robusta-dev/holmesgpt?tab=coc-ov-file).
+Please make sure to read and observe our [Code of Conduct](https://github.com/robusta-dev/holmesgpt?tab=coc-ov-file) and [Governance](./GOVERNANCE.md) docs.
 
 ### Install requirements
 - Python `3.11`
