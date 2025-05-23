@@ -424,33 +424,18 @@ class Toolset(BaseModel):
                         self._error = "Prerequisites check gave wrong output"
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED
-                    logging.debug(
-                        f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
-                    )
-                    self._error = f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
-                    logging.info(
-                        f"Disabling toolset {toolset_description}: {self._error}"
-                    )
-                    return
+                    self._error = f"Prerequisites check `{prereq}` failed with errorcode {e.returncode}: {str(e)}"
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
                         self._status = ToolsetStatusEnum.FAILED
                         self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
-                        logging.info(
-                            f"Disabling toolset {toolset_description}: {self._error}"
-                        )
-                        return
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.FAILED
                     self._error = prereq.disabled_reason
-                    logging.info(
-                        f"Disabling toolset {toolset_description}: {self._error}"
-                    )
-                    return
 
             elif isinstance(prereq, CallablePrerequisite):
                 (enabled, error_message) = prereq.callable(self.config)
