@@ -1,8 +1,8 @@
 import logging
 from typing import List, Optional
 
-import requests
-from requests.auth import HTTPBasicAuth
+import requests  # type: ignore
+from requests.auth import HTTPBasicAuth  # type: ignore
 
 from holmes.core.issue import Issue
 from holmes.core.tool_calling_llm import LLMResult

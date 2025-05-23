@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 from typing import Dict, List, Optional
 import backoff
 
@@ -7,10 +7,9 @@ from holmes.plugins.toolsets.grafana.trace_parser import process_trace
 
 
 def execute_tempo_query_with_retry(
-    grafana_url: str,
+    base_url: str,
     api_key: Optional[str],
     headers: Optional[Dict[str, str]],
-    tempo_datasource_uid: str,
     query_params: dict,
     retries: int = 3,
     timeout: int = 5,
@@ -27,7 +26,7 @@ def execute_tempo_query_with_retry(
     Returns:
         List of trace results.
     """
-    url = f"{grafana_url}/api/datasources/proxy/uid/{tempo_datasource_uid}/api/search"
+    url = f"{base_url}/api/search"
 
     @backoff.on_exception(
         backoff.expo,  # Exponential backoff
@@ -53,28 +52,14 @@ def execute_tempo_query_with_retry(
 
 
 def query_tempo_traces(
-    grafana_url: str,
+    base_url: str,
     api_key: Optional[str],
     headers: Optional[Dict[str, str]],
-    tempo_datasource_uid: str,
     query: Optional[str],
     start: int,
     end: int,
     limit: int,
 ) -> Dict:
-    """
-    Query Tempo for traces exceeding a minimum duration.
-
-    Args:
-        tempo_datasource_uid: The UID of the Tempo datasource.
-        min_duration: Minimum duration for traces (e.g., "5s").
-        start: Start of the time range (epoch in seconds).
-        end: End of the time range (epoch in seconds).
-        limit: Maximum number of traces to return.
-
-    Returns:
-        List of trace results.
-    """
     query_params = {
         "start": str(start),
         "end": str(end),
@@ -84,20 +69,18 @@ def query_tempo_traces(
     if query:
         query_params["q"] = query
     data = execute_tempo_query_with_retry(
-        grafana_url=grafana_url,
+        base_url=base_url,
         api_key=api_key,
         headers=headers,
-        tempo_datasource_uid=tempo_datasource_uid,
         query_params=query_params,
     )
     return data
 
 
 def query_tempo_trace_by_id(
-    grafana_url: str,
+    base_url: str,
     api_key: Optional[str],
     headers: Optional[Dict[str, str]],
-    tempo_datasource_uid: str,
     trace_id: str,
     key_labels: List[str],
     retries: int = 3,
@@ -115,7 +98,7 @@ def query_tempo_trace_by_id(
     Returns:
         A formatted trace details string
     """
-    url = f"{grafana_url}/api/datasources/proxy/uid/{tempo_datasource_uid}/api/traces/{trace_id}"
+    url = f"{base_url}/api/traces/{trace_id}"
 
     @backoff.on_exception(
         backoff.expo,

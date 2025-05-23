@@ -1,4 +1,4 @@
-import requests
+import requests  # type: ignore
 from typing import Dict, List, Optional, Union
 import backoff
 
@@ -34,10 +34,9 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
     and e.response.status_code < 500,
 )
 def execute_loki_query(
-    grafana_url: str,
+    base_url: str,
     api_key: Optional[str],
     headers: Optional[Dict[str, str]],
-    loki_datasource_uid: str,
     query: str,
     start: Union[int, str],
     end: Union[int, str],
@@ -45,7 +44,7 @@ def execute_loki_query(
 ) -> List[Dict]:
     params = {"query": query, "limit": limit, "start": start, "end": end}
     try:
-        url = f"{grafana_url}/api/datasources/proxy/uid/{loki_datasource_uid}/loki/api/v1/query_range"
+        url = f"{base_url}/loki/api/v1/query_range"
         response = requests.get(
             url,
             headers=build_headers(api_key=api_key, additional_headers=headers),
@@ -63,10 +62,9 @@ def execute_loki_query(
 
 
 def query_loki_logs_by_label(
-    grafana_url: str,
+    base_url: str,
     api_key: Optional[str],
     headers: Optional[Dict[str, str]],
-    loki_datasource_uid: str,
     namespace: str,
     label_value: str,
     filter_regexp: Optional[str],
@@ -80,10 +78,9 @@ def query_loki_logs_by_label(
     if filter_regexp:
         query += f' |~ "{filter_regexp}"'
     return execute_loki_query(
-        grafana_url=grafana_url,
+        base_url=base_url,
         api_key=api_key,
         headers=headers,
-        loki_datasource_uid=loki_datasource_uid,
         query=query,
         start=start,
         end=end,

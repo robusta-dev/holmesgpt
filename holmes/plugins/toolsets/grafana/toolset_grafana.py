@@ -2,7 +2,7 @@ from typing import Dict, List
 from urllib.parse import urlencode, urljoin
 from holmes.core.tools import Tool, ToolParameter
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
-import requests
+import requests  # type: ignore
 import logging
 
 
@@ -36,7 +36,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:
+    def _invoke(self, params: Dict) -> str:  # type: ignore
         url = urljoin(
             self._toolset._grafana_config.url, "/api/search?query=&type=dash-db"
         )

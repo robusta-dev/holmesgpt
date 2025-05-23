@@ -46,7 +46,7 @@ class SlackDestination(DestinationPlugin):
                         {
                             "type": "mrkdwn",
                             "text": issue.presentation_key_metadata,
-                        }
+                        }  # type: ignore
                     ],
                 }
             )

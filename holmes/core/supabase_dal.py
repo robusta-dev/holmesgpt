@@ -7,7 +7,7 @@ import threading
 from typing import Dict, Optional, List, Tuple
 from uuid import uuid4
 
-import yaml
+import yaml  # type: ignore
 from holmes.core.tool_calling_llm import (
     ResourceInstructionDocument,
     ResourceInstructions,
@@ -17,7 +17,7 @@ from postgrest.types import ReturnMethod
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
 from pydantic import BaseModel
-from cachetools import TTLCache
+from cachetools import TTLCache  # type: ignore
 from postgrest._sync.request_builder import SyncQueryRequestBuilder
 from postgrest.exceptions import APIError as PGAPIError
 
@@ -67,7 +67,7 @@ class SupabaseDal:
             f"Initializing Robusta platform connection for account {self.account_id}"
         )
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
-        self.client = create_client(self.url, self.api_key, options)
+        self.client = create_client(self.url, self.api_key, options)  # type: ignore
         self.user_id = self.sign_in()
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
         self.patch_postgrest_execute()

@@ -3,8 +3,8 @@ import logging
 
 from typing import Any, Dict
 
-import requests
-from cachetools import TTLCache
+import requests  # type: ignore
+from cachetools import TTLCache  # type: ignore
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,

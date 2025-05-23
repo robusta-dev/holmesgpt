@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
 from holmes.config import Config
@@ -22,8 +23,8 @@ def investigate_issues(
     investigate_request: InvestigateRequest,
     dal: SupabaseDal,
     config: Config,
-    model: str = None,
-):
+    model: Optional[str] = None,
+) -> InvestigationResult:
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 
@@ -70,7 +71,7 @@ def get_investigation_context(
     investigate_request: InvestigateRequest,
     dal: SupabaseDal,
     config: Config,
-    request_structured_output_from_llm: bool = None,
+    request_structured_output_from_llm: Optional[bool] = None,
 ):
     load_robusta_api_key(dal=dal, config=config)
     ai = config.create_issue_investigator(dal=dal, model=investigate_request.model)
