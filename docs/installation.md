@@ -1,16 +1,13 @@
 # Installing HolmesGPT
 
-## In-Cluster Installation (Recommended)
+You can install HolmesGPT in one of the follow three methods. Pick which ever works best for your environment:
 
-If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package so you can:
+1. **Standalone**: Run HolmesGPT from your terminal as a CLI tool. Typically installed with **Homebrew or Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
+2. **Web UIs and TUIs**: HolmesGPT is embedded in several third party tools, like **Robusta SaaS** and **K9s** (as a plugin).
+3. **API**: Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and Python SDK, as well as Helm chart to deploy the HTTP server on Kubernetes.
 
-- Analyze Prometheus alerts easily
-- Use HolmesGPT in a friendly web UI
-- Get started without an OpenAI API Key (but you can bring your own LLM if you prefer)
 
-[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
-
-## CLI Installation
+## Standalone
 
 You can install Holmes as a CLI tool and run it on your local machine:
 
@@ -121,8 +118,12 @@ docker build -t holmes . -f Dockerfile.dev
 docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
 
-### Python API
+## Web UIs and TUIs
 
-You can use Holmes as a library and pass in your own LLM implementation. This is particularly useful if LiteLLM or the default Holmes implementation does not suit you.
+- [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) - Managed service with web UI
+- [K9s Plugin](k9s.md) - Terminal UI for Kubernetes
 
-See an example implementation [here](examples/custom_llm.py).
+## API
+
+- [Helm Chart](../helm) - Deploy on Kubernetes
+- [Python API](python.md) - Use as a Python library

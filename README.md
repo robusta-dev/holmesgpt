@@ -82,10 +82,9 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 You can install HolmesGPT in one of the follow three methods. Pick which ever works best for your environment:
 
-1. **Standalone CLI**: Install HolmesGPT using **Brew, Pip/Pipx, Docker** and more and run from your terminal. 
-2. **API**: Expose an HTTP endpoint using using **Helm** or **Python API**. Used by clients like Robusta SaaS or custom clients.
-3. **3rd Party Integrations & Bundles**: Extend HolmesGPT with a UI/TUI using **Robusta SaaS** or **K9s** integrations.
-
+1. **Standalone**: Run HolmesGPT from your terminal as a cli tool. Typically installed with **Homebrew or Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
+2. **Web UIs and TUIs**: HolmesGPT is embedded in several third party tools, like **Robusta SaaS** and **K9s** (as a plugin).
+3. **API**: Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and Python SDK, as well as Helm chart to deploy the HTTP server on Kubernetes.
 
 <table width="100%">
   <tr valign="top">
@@ -128,27 +127,8 @@ You can install HolmesGPT in one of the follow three methods. Pick which ever wo
     </td>
   </tr>
   <tr valign="top">
-    <td width="30%">
-      <h3>API</h3>
-      <table>
-        <tr>
-          <td align="center" width="120">
-            <a href="docs/installation.md#in-cluster-installation-recommended">
-              <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
-              <strong>Helm Chart</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/python.md">
-              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
-              <strong>Python API</strong>
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td>
-    <td width="30%">
-      <h3>3rd Party Integrations and Bundles</h3>
+   <td width="30%">
+      <h3>Web UIs and TUIs</h3>
       <table>
         <tr>
           <td align="center" width="120">
@@ -166,6 +146,26 @@ You can install HolmesGPT in one of the follow three methods. Pick which ever wo
         </tr>
       </table>
     </td>
+    <td width="30%">
+      <h3>API</h3>
+      <table>
+        <tr>
+          <td align="center" width="120">
+            <a href="helm">
+              <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
+              <strong>Helm Chart</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/python.md">
+              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
+              <strong>Python API</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+   
   </tr>
 </table>
 
