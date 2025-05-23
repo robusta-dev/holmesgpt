@@ -400,6 +400,11 @@ class Toolset(BaseModel):
 
     def check_prerequisites(self):
         for prereq in self.prerequisites:
+            if self.get_path() is not None:
+                toolset_description = f"{self.name} ({self.get_path()})"
+            else:
+                toolset_description = f"{self.name}"
+
             if isinstance(prereq, ToolsetCommandPrerequisite):
                 try:
                     command = self.interpolate_command(prereq.command)
@@ -417,13 +422,15 @@ class Toolset(BaseModel):
                     ):
                         self._status = ToolsetStatusEnum.FAILED
                         self._error = "Prerequisites check gave wrong output"
-                        return
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED
                     logging.debug(
                         f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
                     )
                     self._error = f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
+                    logging.info(
+                        f"Disabling toolset {toolset_description}: {self._error}"
+                    )
                     return
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
@@ -431,30 +438,39 @@ class Toolset(BaseModel):
                     if env_var not in os.environ:
                         self._status = ToolsetStatusEnum.FAILED
                         self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
+                        logging.info(
+                            f"Disabling toolset {toolset_description}: {self._error}"
+                        )
                         return
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.FAILED
                     self._error = prereq.disabled_reason
+                    logging.info(
+                        f"Disabling toolset {toolset_description}: {self._error}"
+                    )
                     return
 
             elif isinstance(prereq, CallablePrerequisite):
                 (enabled, error_message) = prereq.callable(self.config)
-                if not enabled and error_message:
-                    logging.warning(
-                        f"Failed to enable tool {self.name}: {error_message}"
-                    )
-                if enabled:
-                    self._status = ToolsetStatusEnum.ENABLED
-                elif not enabled and error_message:
+                if not enabled:
                     self._status = ToolsetStatusEnum.FAILED
+                if error_message:
                     self._error = error_message
-                else:
-                    self._status = ToolsetStatusEnum.DISABLED
+
+            if (
+                self._status == ToolsetStatusEnum.DISABLED
+                or self._status == ToolsetStatusEnum.FAILED
+            ):
+                logging.info(
+                    f"Disabling toolset {toolset_description}: ({self._error})"
+                )
+                # no point checking further prerequisites if one failed
                 return
 
         self._status = ToolsetStatusEnum.ENABLED
+        logging.info(f"Loaded toolset {self.name} from {self.get_path()}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:

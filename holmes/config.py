@@ -338,14 +338,6 @@ class Config(RobustaBaseConfig):
         toolsets = []
         for ts in toolsets_by_name.values():
             toolsets.append(ts)
-            if ts.get_status() == ToolsetStatusEnum.ENABLED:
-                logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
-            elif ts.get_status() == ToolsetStatusEnum.DISABLED:
-                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
-            elif ts.get_status() == ToolsetStatusEnum.FAILED:
-                logging.info(
-                    f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})"
-                )
 
         for ts in default_toolsets:
             if ts.name not in toolsets_by_name.keys():
