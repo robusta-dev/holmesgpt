@@ -89,9 +89,9 @@ You can install HolmesGPT in one of the follow three methods. Pick which ever wo
 
 <table width="100%">
   <tr valign="top">
-    <td>
+    <td colspan="2">
       <h3>Standalone</h3>
-      <table>
+      <table width="100%">
         <tr>
           <td align="center" width="120">
             <a href="docs/installation.md#brew-maclinux">
@@ -128,7 +128,7 @@ You can install HolmesGPT in one of the follow three methods. Pick which ever wo
     </td>
   </tr>
   <tr valign="top">
-    <td width="50%">
+    <td width="30%">
       <h3>API</h3>
       <table>
         <tr>
@@ -147,13 +147,13 @@ You can install HolmesGPT in one of the follow three methods. Pick which ever wo
         </tr>
       </table>
     </td>
-    <td width="50%">
+    <td width="30%">
       <h3>3rd Party Integrations and Bundles</h3>
       <table>
         <tr>
           <td align="center" width="120">
             <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-              <img src="images//integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
+              <img src="images/logo.png" alt="Robusta SaaS" width="50"><br>
               <strong>Robusta SaaS</strong>
             </a>
           </td>
@@ -169,7 +169,6 @@ You can install HolmesGPT in one of the follow three methods. Pick which ever wo
   </tr>
 </table>
 
-For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend installing HolmesGPT SaaS or CLI (see above) to learn your way around.
 
 ## Supported LLM Providers
 
