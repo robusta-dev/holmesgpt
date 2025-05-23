@@ -342,6 +342,8 @@ class Toolset(BaseModel):
     is_default: bool = False
     llm_instructions: Optional[str] = None
 
+    # warning! private attributes are not copied, which can lead to subtle bugs.
+    # e.g. l.extend([some_tool]) will reset these private attribute to None
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
     _error: Optional[str] = PrivateAttr(None)
@@ -399,12 +401,9 @@ class Toolset(BaseModel):
         return interpolated_command
 
     def check_prerequisites(self):
-        for prereq in self.prerequisites:
-            if self.get_path() is not None:
-                toolset_description = f"{self.name} ({self.get_path()})"
-            else:
-                toolset_description = f"{self.name}"
+        self._status = ToolsetStatusEnum.ENABLED
 
+        for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetCommandPrerequisite):
                 try:
                     command = self.interpolate_command(prereq.command)
@@ -421,41 +420,38 @@ class Toolset(BaseModel):
                         and prereq.expected_output not in result.stdout
                     ):
                         self._status = ToolsetStatusEnum.FAILED
-                        self._error = "Prerequisites check gave wrong output"
+                        self._error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED
-                    self._error = f"Prerequisites check `{prereq}` failed with errorcode {e.returncode}: {str(e)}"
+                    self._error = f"`{prereq.command}` returned {e.returncode}"
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
                         self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
+                        self._error = f"Environment variable {env_var} was not set"
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.FAILED
-                    self._error = prereq.disabled_reason
+                    self._error = f"{prereq.disabled_reason}"
 
             elif isinstance(prereq, CallablePrerequisite):
                 (enabled, error_message) = prereq.callable(self.config)
                 if not enabled:
                     self._status = ToolsetStatusEnum.FAILED
                 if error_message:
-                    self._error = error_message
+                    self._error = f"{error_message}"
 
             if (
                 self._status == ToolsetStatusEnum.DISABLED
                 or self._status == ToolsetStatusEnum.FAILED
             ):
-                logging.info(
-                    f"Disabling toolset {toolset_description}: ({self._error})"
-                )
+                logging.info(f"❌ Toolset {self.name}: {self._error}")
                 # no point checking further prerequisites if one failed
                 return
 
-        self._status = ToolsetStatusEnum.ENABLED
-        logging.info(f"Loaded toolset {self.name} from {self.get_path()}")
+        logging.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:

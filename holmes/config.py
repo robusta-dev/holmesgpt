@@ -152,7 +152,7 @@ def parse_toolsets_file(
 
 
 def parse_models_file(path: str):
-    models = load_yaml_file(path, raise_error=False)
+    models = load_yaml_file(path, raise_error=False, warn_not_found=False)
 
     for model, params in models.items():
         params = replace_env_vars_values(params)
@@ -223,7 +223,8 @@ class Config(RobustaBaseConfig):
             self._model_list["Robusta"] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
-        logging.info(f"loaded models: {list(self._model_list.keys())}")
+        if self._model_list:
+            logging.info(f"loaded models: {list(self._model_list.keys())}")
 
         if not self.is_latest_version and self._holmes_info:
             logging.warning(
@@ -578,7 +579,7 @@ class Config(RobustaBaseConfig):
             return loaded_toolsets
 
         if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            logging.warning(
+            logging.debug(
                 f"Custom toolset file {CUSTOM_TOOLSET_LOCATION} does not exist"
             )
             return []

@@ -37,7 +37,7 @@ class BaseGrafanaToolset(Toolset):
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
-            logging.warning(f"Grafana config not provided {self.name}")
+            logging.debug(f"Grafana config not provided {self.name}")
             return False, TOOLSET_CONFIG_MISSING_ERROR
 
         try:
