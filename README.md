@@ -2,7 +2,8 @@
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
-    <a href="#quick-start---installing-holmesgpt"><strong>Quick Start</strong></a> |
+    <a href="#installation-options"><strong>Installation</strong></a> |
+    <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
@@ -81,48 +82,6 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 Choose the installation method that works best for your environment:
 
-<table>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/installation.md#pip-installation">
-        <img src="" alt="pip" width="50"><br>
-        <strong>pip install</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/installation.md#docker-installation">
-        <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
-        <strong>Docker</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/installation.md#helm-installation">
-        <img src="images/integration_logos/helm_logo.png" alt="Helm" width="50"><br>
-        <strong>Helm Chart</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/python.md">
-        <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
-        <strong>Python Package</strong>
-      </a>
-    </td>
-  </tr>
-  <tr>
-      <td align="center" width="120">
-      <a href="/docs/k9s.md">
-        <img src="images/logo.png" alt="Robusta SaaS" width="50"><br>
-        <strong>Robusta SaaS</strong>
-      </a>
-    </td>
-        <td align="center" width="120">
-      <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-        <img src="images/integration_logos/k9s_logo.png" alt="Robusta SaaS" width="50"><br>
-        <strong>K9s Plugin</strong>
-      </a>
-    </td>
-  </tr>
-</table>
 
 ## Supported LLM Providers
 
@@ -172,14 +131,148 @@ HolmesGPT works with the following LLM providers:
 </table>
 
 
-## Quick Start - Installing HolmesGPT
+## Installation Options
 
-HolmesGPT can be installed two ways:
+Choose the installation method that works best for your environment:
 
-1. [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
-2. [Desktop CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) - no Kubernetes required, supports one-off investigations
+### Local CLI Installation
+
+Run HolmesGPT on your local machine with these options:
+
+<table>
+  <tr>
+      <td align="center" width="120">
+      <a href="docs/installation.md#brew-maclinux">
+        <img src="images/integration_logos/brew_logo.png" alt="Brew" width="50"><br>
+        <strong>Brew(Mac/Linux)</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/installation.md#pip-and-pipx">
+        <img src="images/integration_logos/pipx_logo.png" alt="pip" width="50"><br>
+        <strong>pip/pipx</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/installation.md#docker-container">
+        <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
+        <strong>Docker</strong>
+      </a>
+    </td>
+  </tr>
+</table>
+
+### From Source
+
+Build HolmesGPT from source code:
+
+<table>
+  <tr>
+    <td align="center" width="120">
+      <a href="docs/installation.md#from-source-python-poetry">
+        <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
+        <strong>Python Poetry</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/installation.md#from-source-docker">
+        <img src="images/integration_logos/docker_logo.png" alt="Docker Build" width="50"><br>
+        <strong>Docker Build</strong>
+      </a>
+    </td>
+  </tr>
+</table>
+
+### In-Cluster Installation
+
+Install HolmesGPT in your Kubernetes cluster:
+
+<table>
+  <tr>
+    <td align="center" width="120">
+      <a href="docs/installation.md#in-cluster-installation-recommended">
+        <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
+        <strong>Helm Chart</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
+        <img src="images/logo.png" alt="Robusta SaaS" width="50"><br>
+        <strong>Robusta SaaS</strong>
+      </a>
+    </td>
+  </tr>
+</table>
+
+### Other Options
+
+<table>
+  <tr>
+    <td align="center" width="120">
+      <a href="docs/k9s.md">
+        <img src="images/integration_logos/k9s_logo.png" alt="K9s Plugin" width="50"><br>
+        <strong>K9s Plugin</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/python.md">
+        <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
+        <strong>Python Package</strong>
+      </a>
+    </td>
+  </tr>
+</table>
 
 For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend install HolmesGPT SaaS or CLI (see above) to learn your way around.
+
+## Configure LLM Providers
+
+HolmesGPT works with the following LLM providers, click on your provider for instructions:
+
+<table>
+  <tr>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#openai">
+        <img src="images/integration_logos/openai_logo.png" alt="OpenAI" width="50"><br>
+        <strong>OpenAI</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#anthropic">
+        <img src="images/integration_logos/anthropic_logo.png" alt="Anthropic" width="50"><br>
+        <strong>Anthropic</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#aws-bedrock">
+        <img src="images/integration_logos/aws_bedrock_logo.png" alt="AWS Bedrock" width="50"><br>
+        <strong>AWS Bedrock</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#google-vertex-ai">
+        <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
+        <strong>Vertex AI</strong>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#gemini">
+        <img src="images/integration_logos/gemini_logo.png" alt="Gemini" width="50"><br>
+        <strong>Gemini</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#ollama">
+        <img src="images/integration_logos/ollama_logo.png" alt="Ollama" width="50"><br>
+        <strong>Ollama</strong>
+      </a>
+    </td>
+  </tr>
+</table>
+
+You can also use any OpenAI-compatible models, read [here](docs/api-keys.md) for instructions.
 
 ### Using HolmesGPT
 
