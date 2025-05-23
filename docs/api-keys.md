@@ -24,7 +24,7 @@ If you prefer not to pass secrets on the cli, set the OPENAI_API_KEY environment
 
 ## Anthropic
 
-To use Anthropic's Claude models, you need an [Anthropic API key](https://console.anthropic.com/keys).
+To use Anthropic's Claude models, you need an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how-can-i-access-the-anthropic-api).
 
 Set the `ANTHROPIC_API_KEY` environment variable and specify the model:
 
@@ -123,7 +123,7 @@ holmes ask "what pods are unhealthy and why?" --model=gemini/<MODEL_NAME>
 
 Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini/gemini-1.5-flash`, etc.
 
-## Google Vertex AI 
+## Google Vertex AI
 
 To use Vertex AI with Gemini models, set the following environment variables:
 
@@ -141,6 +141,7 @@ poetry run python holmes.py ask "what pods are unhealthy and why?" --model "vert
 
 Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini-2.0-flash-exp`, etc.
 Ensure you have the correct project, location, and credentials for accessing the desired Vertex AI model.
+
 ## Other OpenAI-compatible models
 
 You will need an LLM with support for function-calling (tool-calling).
