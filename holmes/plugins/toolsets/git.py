@@ -378,7 +378,7 @@ class GitExecuteChanges(Tool):
                     description="insert/update/remove", type="string", required=True
                 ),
                 "code": ToolParameter(
-                    description="Code to insert or update",
+                    description="The entire line of code to insert or update",
                     type="string",
                     required=False,
                 ),
@@ -602,7 +602,7 @@ class GitUpdatePR(Tool):
                     description="insert/update/remove", type="string", required=True
                 ),
                 "code": ToolParameter(
-                    description="Code to insert or update",
+                    description="The entire line of code to insert or update",
                     type="string",
                     required=False,
                 ),
