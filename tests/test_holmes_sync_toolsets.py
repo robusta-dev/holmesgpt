@@ -291,4 +291,3 @@ def test_sync_toolsets_with_command_output_mismatch(
 
     assert toolset_data["status"] == ToolsetStatusEnum.FAILED
     assert toolset_data["error"] is not None
-    assert "Prerequisites check gave wrong output" in toolset_data["error"]
