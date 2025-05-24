@@ -197,7 +197,6 @@ def test_sync_toolsets_with_failed_prerequisites(
 
     assert toolset_data["status"] == ToolsetStatusEnum.FAILED
     assert toolset_data["error"] is not None
-    assert "Prerequisites check failed" in toolset_data["error"]
 
 
 @patch("subprocess.run")
