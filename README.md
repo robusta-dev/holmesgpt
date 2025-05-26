@@ -32,126 +32,27 @@ HolmesGPT connects AI models with live observability data and organizational kno
 
 HolmesGPT integrates with popular observability and cloud platforms. The following data sources ("toolsets") are built-in. [Add your own](#customizing-holmesgpt).
 
-<table width="100%">
-  <tr>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html">
-        <img src="images/integration_logos/argocd-icon.png" alt="ArgoCD" width="50"><br>
-        <strong>ArgoCD</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html">
-        <img src="images/integration_logos/aws_rds_logo.png" alt="AWS" width="50"><br>
-        <strong>AWS RDS</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html">
-        <img src="images/integration_logos/confluence_logo.png" alt="Confluence" width="50"><br>
-        <strong>Confluence</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/coralogix_logs.html">
-        <img src="images/integration_logos/coralogix-icon.png" alt="Coralogix" width="50"><br>
-        <strong>Coralogix</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-    <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html">
-      <img src="images/integration_logos/date_time_icon.png" alt="Datetime" width="50"><br>
-      <strong>Datetime</strong>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/docker.html">
-        <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
-        <strong>Docker</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html">
-        <img src="images/integration_logos/grafana_loki-icon.png" alt="Loki" width="50"><br>
-        <strong>Loki</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html">
-        <img src="images/integration_logos/tempo_logo.png" alt="Tempo" width="50"><br>
-        <strong>Tempo</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html">
-        <img src="images/integration_logos/helm_logo.png" alt="Helm" width="50"><br>
-        <strong>Helm</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html">
-        <img src="images/integration_logos/http-icon.png" alt="Internet" width="50"><br>
-        <strong>Internet</strong>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kafka.html">
-        <img src="images/integration_logos/kafka_logo.png" alt="Kafka" width="50"><br>
-        <strong>Kafka</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html">
-        <img src="images/integration_logos/kubernetes-icon.png" alt="Kubernetes" width="50"><br>
-        <strong>Kubernetes</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html">
-        <img src="images/integration_logos/opensearchserverless-icon.png" alt="OpenSearch" width="50"><br>
-        <strong>OpenSearch</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html">
-        <img src="images/integration_logos/prometheus-icon.png" alt="Prometheus" width="50"><br>
-        <strong>Prometheus</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html">
-        <img src="images/integration_logos/rabbit_mq_logo.png" alt="RabbitMQ" width="50"><br>
-        <strong>RabbitMQ</strong>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html">
-        <img src="images/integration_logos/robusta_logo.png" alt="Robusta" width="50"><br>
-        <strong>Robusta</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/slab.html">
-        <img src="images/integration_logos/slab_logo.png" alt="Slab" width="50"><br>
-        <strong>Slab</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <img src="images/integration_logos/github_logo.png" alt="GitHub" width="50"><br>
-      <strong>GitHub (Beta)</strong>
-    </td>
-    <td align="center" width="120">
-      <img src="images/integration_logos/newrelic_logo.png" alt="NewRelic" width="50"><br>
-      <strong>NewRelic (Beta)</strong>
-    </td>
-    <td></td>
-  </tr>
-</table>
+| Data Source | Status | Notes |
+|-------------|--------|-------|
+| <img src="images/integration_logos/argocd-icon.png" alt="ArgoCD" width="20" style="vertical-align: middle;"> [**ArgoCD**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html) | ✅ | GitOps deployment analysis |
+| <img src="images/integration_logos/aws_rds_logo.png" alt="AWS RDS" width="20" style="vertical-align: middle;"> [**AWS RDS**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html) | ✅ | Database performance monitoring |
+| <img src="images/integration_logos/confluence_logo.png" alt="Confluence" width="20" style="vertical-align: middle;"> [**Confluence**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html) | ✅ | Knowledge base integration |
+| <img src="images/integration_logos/coralogix-icon.png" alt="Coralogix" width="20" style="vertical-align: middle;"> [**Coralogix**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/coralogix_logs.html) | ✅ | Log analytics and observability |
+| <img src="images/integration_logos/date_time_icon.png" alt="Datetime" width="20" style="vertical-align: middle;"> [**Datetime**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html) | ✅ | Time-based operations |
+| <img src="images/integration_logos/docker_logo.png" alt="Docker" width="20" style="vertical-align: middle;"> [**Docker**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/docker.html) | ✅ | Container management |
+| <img src="images/integration_logos/github_logo.png" alt="GitHub" width="20" style="vertical-align: middle;"> **GitHub** | 🟡 Beta | Source code analysis |
+| <img src="images/integration_logos/grafana_loki-icon.png" alt="Loki" width="20" style="vertical-align: middle;"> [**Grafana Loki**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html) | ✅ | Log aggregation |
+| <img src="images/integration_logos/tempo_logo.png" alt="Tempo" width="20" style="vertical-align: middle;"> [**Grafana Tempo**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html) | ✅ | Distributed tracing |
+| <img src="images/integration_logos/helm_logo.png" alt="Helm" width="20" style="vertical-align: middle;"> [**Helm**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html) | ✅ | Kubernetes package manager |
+| <img src="images/integration_logos/http-icon.png" alt="Internet" width="20" style="vertical-align: middle;"> [**Internet**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html) | ✅ | Web scraping and API calls |
+| <img src="images/integration_logos/kafka_logo.png" alt="Kafka" width="20" style="vertical-align: middle;"> [**Kafka**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kafka.html) | ✅ | Stream processing platform |
+| <img src="images/integration_logos/kubernetes-icon.png" alt="Kubernetes" width="20" style="vertical-align: middle;"> [**Kubernetes**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html) | ✅ | Container orchestration |
+| <img src="images/integration_logos/newrelic_logo.png" alt="NewRelic" width="20" style="vertical-align: middle;"> **NewRelic** | 🟡 Beta | Application performance monitoring |
+| <img src="images/integration_logos/opensearchserverless-icon.png" alt="OpenSearch" width="20" style="vertical-align: middle;"> [**OpenSearch**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html) | ✅ | Search and analytics |
+| <img src="images/integration_logos/prometheus-icon.png" alt="Prometheus" width="20" style="vertical-align: middle;"> [**Prometheus**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html) | ✅ | Metrics monitoring |
+| <img src="images/integration_logos/rabbit_mq_logo.png" alt="RabbitMQ" width="20" style="vertical-align: middle;"> [**RabbitMQ**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html) | ✅ | Message broker |
+| <img src="images/integration_logos/robusta_logo.png" alt="Robusta" width="20" style="vertical-align: middle;"> [**Robusta**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html) | ✅ | Kubernetes monitoring platform |
+| <img src="images/integration_logos/slab_logo.png" alt="Slab" width="20" style="vertical-align: middle;"> [**Slab**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/slab.html) | ✅ | Team knowledge base |
 
 ### 🔐 Data Privacy
 
