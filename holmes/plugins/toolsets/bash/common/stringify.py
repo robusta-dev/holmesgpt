@@ -1,5 +1,3 @@
-
-
 def escape_shell_args(args: list[str]) -> list[str]:
     """
     Escape shell arguments to prevent injection.

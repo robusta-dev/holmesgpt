@@ -1,75 +1,73 @@
-
-import argparse
 from typing import Any
 
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
-from holmes.plugins.toolsets.bash.common.validators import regex_validator, whitelist_validator
-from holmes.plugins.toolsets.bash.kubectl.constants import SAFE_NAME_PATTERN, SAFE_NAMESPACE_PATTERN, SAFE_SELECTOR_PATTERN, VALID_OUTPUT_FORMATS, VALID_RESOURCE_TYPES
+from holmes.plugins.toolsets.bash.common.validators import (
+    regex_validator,
+    whitelist_validator,
+)
+from holmes.plugins.toolsets.bash.kubectl.constants import (
+    SAFE_NAME_PATTERN,
+    SAFE_NAMESPACE_PATTERN,
+    SAFE_SELECTOR_PATTERN,
+    VALID_OUTPUT_FORMATS,
+    VALID_RESOURCE_TYPES,
+)
 
 
-def create_kubectl_get_parser(kubectl_parser:Any):
-
+def create_kubectl_get_parser(kubectl_parser: Any):
     parser = kubectl_parser.add_parser(
         "get",
         help="Display one or many resources",
-        exit_on_error=False # Important for library use
+        exit_on_error=False,  # Important for library use
     )
     parser.add_argument(
-        "resource_type",
-        type=whitelist_validator("resource type", VALID_RESOURCE_TYPES)
+        "resource_type", type=whitelist_validator("resource type", VALID_RESOURCE_TYPES)
     )
     parser.add_argument(
         "resource_name",
         nargs="?",
         default=None,
-        type=regex_validator("namespace", SAFE_NAME_PATTERN)
+        type=regex_validator("namespace", SAFE_NAME_PATTERN),
     )
     parser.add_argument(
-        "-n", "--namespace",
-        type=regex_validator("namespace", SAFE_NAMESPACE_PATTERN)
+        "-n", "--namespace", type=regex_validator("namespace", SAFE_NAMESPACE_PATTERN)
+    )
+    parser.add_argument("-A", "--all-namespaces", action="store_true")
+    parser.add_argument(
+        "-l", "--selector", type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
     )
     parser.add_argument(
-        "-A", "--all-namespaces",
-        action='store_true'
+        "--field-selector", type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
     )
     parser.add_argument(
-        "-l", "--selector",
-        type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
+        "-o", "--output", type=whitelist_validator("output", VALID_OUTPUT_FORMATS)
     )
     parser.add_argument(
-        "--field-selector",
-        type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
-    )
-    parser.add_argument(
-        "-o", "--output",
-        type=whitelist_validator("output", VALID_OUTPUT_FORMATS)
-    )
-    parser.add_argument(
-        "--sort-by",
-        type=regex_validator("namespace", SAFE_NAME_PATTERN)
+        "--sort-by", type=regex_validator("namespace", SAFE_NAME_PATTERN)
     )
     parser.add_argument(
         "--show-labels",
-        action='store_true',
+        action="store_true",
     )
     parser.add_argument(
         "--show-managed-fields",
-        action='store_true',
+        action="store_true",
     )
     parser.add_argument(
         "--no-headers",
-        action='store_false',
+        action="store_false",
     )
     parser.add_argument(
         "--include-uninitialized",
-        action='store_true',
+        action="store_true",
     )
     parser.add_argument(
         "--ignore-not-found",
-        action='store_true',
+        action="store_true",
     )
 
-def stringify_get_command(cmd:Any) -> str:
+
+def stringify_get_command(cmd: Any) -> str:
     parts = ["kubectl", "get", cmd.resource_type]
 
     # Add resource name if specified
@@ -106,6 +104,5 @@ def stringify_get_command(cmd:Any) -> str:
 
     if cmd.ignore_not_found:
         parts.append("--ignore-not-found")
-
 
     return " ".join(escape_shell_args(parts))

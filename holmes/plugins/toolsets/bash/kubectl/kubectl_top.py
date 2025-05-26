@@ -1,59 +1,54 @@
-
 from typing import Any
 
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import regex_validator
-from holmes.plugins.toolsets.bash.kubectl.constants import SAFE_NAME_PATTERN, SAFE_NAMESPACE_PATTERN, SAFE_SELECTOR_PATTERN
+from holmes.plugins.toolsets.bash.kubectl.constants import (
+    SAFE_NAME_PATTERN,
+    SAFE_NAMESPACE_PATTERN,
+    SAFE_SELECTOR_PATTERN,
+)
 
 
 def create_kubectl_top_parser(kubectl_parser: Any):
     parser = kubectl_parser.add_parser(
         "top",
         help="Display resource (CPU/memory) usage",
-        exit_on_error=False  # Important for library use
+        exit_on_error=False,  # Important for library use
     )
     parser.add_argument(
         "resource_type",
         choices=["nodes", "node", "pods", "pod"],
-        help="Resource type to get usage for"
+        help="Resource type to get usage for",
     )
     parser.add_argument(
         "resource_name",
         nargs="?",
         default=None,
-        type=regex_validator("resource name", SAFE_NAME_PATTERN)
+        type=regex_validator("resource name", SAFE_NAME_PATTERN),
     )
     parser.add_argument(
-        "-n", "--namespace",
-        type=regex_validator("namespace", SAFE_NAMESPACE_PATTERN)
+        "-n", "--namespace", type=regex_validator("namespace", SAFE_NAMESPACE_PATTERN)
     )
+    parser.add_argument("-A", "--all-namespaces", action="store_true")
     parser.add_argument(
-        "-A", "--all-namespaces",
-        action='store_true'
-    )
-    parser.add_argument(
-        "-l", "--selector",
-        type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
+        "-l", "--selector", type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
     )
     parser.add_argument(
         "--containers",
-        action='store_true',
-        help="Display containers along with pods (for pods resource type)"
+        action="store_true",
+        help="Display containers along with pods (for pods resource type)",
     )
     parser.add_argument(
         "--use-protocol-buffers",
-        action='store_true',
-        help="Use protocol buffers for fetching metrics"
+        action="store_true",
+        help="Use protocol buffers for fetching metrics",
     )
     parser.add_argument(
         "--sort-by",
         type=regex_validator("sort field", SAFE_NAME_PATTERN),
-        help="Sort by cpu or memory"
+        help="Sort by cpu or memory",
     )
-    parser.add_argument(
-        "--no-headers",
-        action='store_true'
-    )
+    parser.add_argument("--no-headers", action="store_true")
 
 
 def stringify_top_command(cmd: Any) -> str:

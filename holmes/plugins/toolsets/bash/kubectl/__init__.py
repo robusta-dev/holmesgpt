@@ -1,30 +1,47 @@
-
 from typing import Any
-from holmes.plugins.toolsets.bash.kubectl.constants import SAFE_NAME_PATTERN, SAFE_NAMESPACE_PATTERN, SAFE_SELECTOR_PATTERN, VALID_RESOURCE_TYPES
-from holmes.plugins.toolsets.bash.kubectl.kubectl_describe import create_kubectl_describe_parser, stringify_describe_command
-from holmes.plugins.toolsets.bash.kubectl.kubectl_events import create_kubectl_events_parser, stringify_events_command
-from holmes.plugins.toolsets.bash.kubectl.kubectl_top import create_kubectl_top_parser, stringify_top_command
-from holmes.plugins.toolsets.bash.kubectl.kubectl_get import create_kubectl_get_parser, stringify_get_command
-from holmes.plugins.toolsets.bash.kubectl.kubectl_run import create_kubectl_run_parser, stringify_run_command
+from holmes.plugins.toolsets.bash.kubectl.constants import (
+    SAFE_NAME_PATTERN,
+    SAFE_NAMESPACE_PATTERN,
+    SAFE_SELECTOR_PATTERN,
+    VALID_RESOURCE_TYPES,
+)
+from holmes.plugins.toolsets.bash.kubectl.kubectl_describe import (
+    create_kubectl_describe_parser,
+    stringify_describe_command,
+)
+from holmes.plugins.toolsets.bash.kubectl.kubectl_events import (
+    create_kubectl_events_parser,
+    stringify_events_command,
+)
+from holmes.plugins.toolsets.bash.kubectl.kubectl_top import (
+    create_kubectl_top_parser,
+    stringify_top_command,
+)
+from holmes.plugins.toolsets.bash.kubectl.kubectl_get import (
+    create_kubectl_get_parser,
+    stringify_get_command,
+)
+from holmes.plugins.toolsets.bash.kubectl.kubectl_run import (
+    create_kubectl_run_parser,
+    stringify_run_command,
+)
 
 
 def create_kubectl_parser(parent_parser: Any):
-
     kubectl_parser = parent_parser.add_parser(
-        "kubectl",
-        help="Kubernetes command-line tool",
-        exit_on_error=False
+        "kubectl", help="Kubernetes command-line tool", exit_on_error=False
     )
     action_subparsers = kubectl_parser.add_subparsers(
         dest="action",
         required=True,
-        help="Action to perform (e.g., get, apply, delete)"
+        help="Action to perform (e.g., get, apply, delete)",
     )
     create_kubectl_get_parser(action_subparsers)
     create_kubectl_describe_parser(action_subparsers)
     create_kubectl_top_parser(action_subparsers)
     create_kubectl_events_parser(action_subparsers)
     create_kubectl_run_parser(action_subparsers)
+
 
 def validate_kubectl_command(cmd: Any) -> None:
     """
@@ -58,9 +75,7 @@ def validate_kubectl_command(cmd: Any) -> None:
             raise ValueError("Label selector too long")
 
 
-
-def stringify_kubectl_command(command:Any, config=None):
-
+def stringify_kubectl_command(command: Any, config=None):
     if command.cmd == "kubectl":
         if command.action == "get":
             return stringify_get_command(command)
@@ -73,7 +88,8 @@ def stringify_kubectl_command(command:Any, config=None):
         elif command.action == "run":
             return stringify_run_command(command, config)
         else:
-            raise ValueError(f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run")
+            raise ValueError(
+                f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run"
+            )
     else:
         raise ValueError(f"Unsupported command {command.tool_name}")
-            

@@ -20,8 +20,10 @@ class ImageConfig(BaseModel):
     image: str
     allowed_commands: list[str]
 
+
 class KubectlConfig(BaseModel):
     allowed_images: list[ImageConfig] = []
+
 
 class BashExecutorConfig(BaseModel):
     kubectl: KubectlConfig = KubectlConfig()
@@ -38,8 +40,9 @@ class BaseBashExecutorToolset(Toolset):
 class BaseBashTool(Tool):
     toolset: BaseBashExecutorToolset
 
+
 class RunBashCommand(BaseBashTool):
-    def __init__(self, toolset:BaseBashExecutorToolset):
+    def __init__(self, toolset: BaseBashExecutorToolset):
         super().__init__(
             name="run_bash_command",
             description=(
@@ -63,7 +66,7 @@ class RunBashCommand(BaseBashTool):
                     required=False,
                 ),
             },
-            toolset=toolset
+            toolset=toolset,
         )
 
     def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
@@ -94,29 +97,19 @@ class RunBashCommand(BaseBashTool):
             )
 
         try:
-
-            # Using shell=True with the command passed to 'bash -c' for explicit shell execution.
-            # This is generally safer than passing command_str directly to shell=True if command_str
-            # might contain shell metacharacters that are not intended to be part of the command itself.
-            # However, the user is providing a "bash command", so they expect shell interpretation.
-            # `subprocess.run([ "bash", "-c", command_str], ...)` is a common pattern.
-            # Or `subprocess.run(command_str, shell=True, executable='/bin/bash', ...)`
-            # For simplicity and directness matching "run any bash command":
             process = subprocess.run(
                 safe_command_str,
-                shell=True,  # Allows shell features like pipes, wildcards, etc.
-                executable="/bin/bash",  # Explicitly use bash
-                capture_output=True,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
                 timeout=timeout,
-                check=False,  # We handle the return code manually
+                check=False,
             )
 
             result_data = (
-                f"Command: {command_str}\n"
-                f"Return Code: {process.returncode}\n"
-                f"Stdout:\n{process.stdout.strip()}\n"
-                f"Stderr:\n{process.stderr.strip()}"
+                f"{command_str}\n" f"{process.stdout.strip() if process.stdout else ''}"
             )
 
             status = (
