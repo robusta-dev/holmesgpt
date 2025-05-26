@@ -51,6 +51,123 @@ The following data sources ("toolsets") are built-in. [Add your own](#customizin
 
 [Request access to beta features](mailto:beta@robusta.dev)
 
+### 🔗 Integrations
+
+HolmesGPT integrates with popular observability and cloud platforms:
+
+<table width="100%">
+  <tr>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html">
+        <img src="images/integration_logos/argocd-icon.png" alt="ArgoCD" width="50"><br>
+        <strong>ArgoCD</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html">
+        <img src="images/integration_logos/aws_logo.png" alt="AWS" width="50"><br>
+        <strong>AWS</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html">
+        <img src="images/integration_logos/confluence_logo.png" alt="Confluence" width="50"><br>
+        <strong>Confluence</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/coralogix_logs.html">
+        <img src="images/integration_logos/coralogix-icon.png" alt="Coralogix" width="50"><br>
+        <strong>Coralogix</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+    <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html">
+      <img src="images/integration_logos/bash-icon.png" alt="Datetime" width="50"><br>
+      <strong>Datetime</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/docker.html">
+        <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
+        <strong>Docker</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html">
+        <img src="images/integration_logos/grafana_loki-icon.png" alt="Loki" width="50"><br>
+        <strong>Loki</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html">
+        <img src="images/integration_logos/grafana-icon.png" alt="Tempo" width="50"><br>
+        <strong>Tempo</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html">
+        <img src="images/integration_logos/helm_logo.png" alt="Helm" width="50"><br>
+        <strong>Helm</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html">
+        <img src="images/integration_logos/http-icon.png" alt="Internet" width="50"><br>
+        <strong>Internet</strong>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kafka.html">
+        <img src="images/integration_logos/kafka_logo.png" alt="Kafka" width="50"><br>
+        <strong>Kafka</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html">
+        <img src="images/integration_logos/kubernetes-icon.png" alt="Kubernetes" width="50"><br>
+        <strong>Kubernetes</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html">
+        <img src="images/integration_logos/opensearchserverless-icon.png" alt="OpenSearch" width="50"><br>
+        <strong>OpenSearch</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html">
+        <img src="images/integration_logos/prometheus-icon.png" alt="Prometheus" width="50"><br>
+        <strong>Prometheus</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html">
+        <img src="images/integration_logos/rabbit_mq_logo.png" alt="RabbitMQ" width="50"><br>
+        <strong>RabbitMQ</strong>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html">
+        <img src="images/integration_logos/robusta_logo.png" alt="Robusta" width="50"><br>
+        <strong>Robusta</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/slab.html">
+        <img src="images/integration_logos/slab_logo.png" alt="Slab" width="50"><br>
+        <strong>Slab</strong>
+      </a>
+    </td>
+    <td colspan="3"></td>
+  </tr>
+</table>
+
 ### 🔐 Data Privacy
 
 By design, HolmesGPT has **read-only access** and respects RBAC permissions. It is safe to run in production environments.
