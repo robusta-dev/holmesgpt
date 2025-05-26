@@ -437,11 +437,15 @@ class Toolset(BaseModel):
                     self._error = f"{prereq.disabled_reason}"
 
             elif isinstance(prereq, CallablePrerequisite):
-                (enabled, error_message) = prereq.callable(self.config)
-                if not enabled:
+                try:
+                    (enabled, error_message) = prereq.callable(self.config)
+                    if not enabled:
+                        self._status = ToolsetStatusEnum.FAILED
+                    if error_message:
+                        self._error = f"{error_message}"
+                except Exception as e:
                     self._status = ToolsetStatusEnum.FAILED
-                if error_message:
-                    self._error = f"{error_message}"
+                    self._error = f"Prerequisite call failed unexpectedly: {str(e)}"
 
             if (
                 self._status == ToolsetStatusEnum.DISABLED
