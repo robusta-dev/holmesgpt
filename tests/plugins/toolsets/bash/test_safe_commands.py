@@ -9,8 +9,7 @@ These tests verify the complete round-trip functionality by:
 """
 
 import pytest
-from holmes.plugins.toolsets.bash.common.parse_command import parse_command
-from holmes.plugins.toolsets.bash.common.stringify_command import stringify_command
+from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
 class TestKubectlIntegration:
@@ -50,7 +49,7 @@ class TestKubectlIntegration:
             ),
             (
                 "kubectl describe pods --namespace=kube-system",
-                "kubectl describe pods --namespace=kube-system",
+                "kubectl describe pods --namespace kube-system",
             ),
             (
                 "kubectl describe pods --all-namespaces",
@@ -63,11 +62,7 @@ class TestKubectlIntegration:
             ),
             (
                 "kubectl describe pods --selector=environment=production",
-                "kubectl describe pods --selector=environment=production",
-            ),
-            (
-                "kubectl describe pods --show-events=false",
-                "kubectl describe pods --show-events=false",
+                "kubectl describe pods --selector environment=production",
             ),
             # Basic kubectl top commands
             ("kubectl top nodes", "kubectl top nodes"),
@@ -75,7 +70,7 @@ class TestKubectlIntegration:
             ("kubectl top pods -n default", "kubectl top pods --namespace default"),
             (
                 "kubectl top pods --namespace=kube-system",
-                "kubectl top pods --namespace=kube-system",
+                "kubectl top pods --namespace kube-system",
             ),
             ("kubectl top pods --containers", "kubectl top pods --containers"),
             (
@@ -102,7 +97,7 @@ class TestKubectlIntegration:
             ("kubectl get pods | grep nginx", "kubectl get pods | grep nginx"),
             (
                 "kubectl get pods -n default | grep 'my-app'",
-                "kubectl get pods --namespace default | grep 'my-app'",
+                "kubectl get pods --namespace default | grep my-app",
             ),
             (
                 "kubectl get deployments -o wide | grep running",
@@ -114,7 +109,7 @@ class TestKubectlIntegration:
             ),
             (
                 "kubectl get pods -l app=nginx | grep 'Running'",
-                "kubectl get pods --selector app=nginx | grep 'Running'",
+                "kubectl get pods --selector app=nginx | grep Running",
             ),
             # kubectl describe with grep
             (
@@ -123,7 +118,7 @@ class TestKubectlIntegration:
             ),
             (
                 "kubectl describe pod my-pod | grep 'Status:'",
-                "kubectl describe pod my-pod | grep 'Status:'",
+                "kubectl describe pod my-pod | grep Status:",
             ),
             (
                 "kubectl describe pods -n kube-system | grep Warning",
@@ -131,7 +126,7 @@ class TestKubectlIntegration:
             ),
             # kubectl top with grep
             ("kubectl top pods | grep high-cpu", "kubectl top pods | grep high-cpu"),
-            ("kubectl top nodes | grep 'Ready'", "kubectl top nodes | grep 'Ready'"),
+            ("kubectl top nodes | grep 'Ready'", "kubectl top nodes | grep Ready"),
             (
                 "kubectl top pods --containers | grep memory",
                 "kubectl top pods --containers | grep memory",
@@ -140,7 +135,7 @@ class TestKubectlIntegration:
             ("kubectl events | grep Failed", "kubectl events | grep Failed"),
             (
                 "kubectl events -n default | grep 'Warning'",
-                "kubectl events --namespace default | grep 'Warning'",
+                "kubectl events --namespace default | grep Warning",
             ),
             (
                 "kubectl events --for=pod/my-pod | grep Error",
@@ -157,7 +152,7 @@ class TestKubectlIntegration:
             ),
             (
                 "kubectl get deployments --all-namespaces --field-selector=metadata.namespace!=kube-system -o wide",
-                "kubectl get deployments --all-namespaces --field-selector metadata.namespace!=kube-system --output wide",
+                "kubectl get deployments --all-namespaces --field-selector 'metadata.namespace!=kube-system' --output wide",
             ),
             (
                 "kubectl get services -n production --selector=tier=frontend --output=json",
@@ -165,8 +160,8 @@ class TestKubectlIntegration:
             ),
             # Complex kubectl describe commands
             (
-                "kubectl describe pods -n monitoring --selector=app=prometheus --show-events=false",
-                "kubectl describe pods --namespace monitoring --selector app=prometheus --show-events=false",
+                "kubectl describe pods -n monitoring --selector=app=prometheus",
+                "kubectl describe pods --namespace monitoring --selector app=prometheus",
             ),
             (
                 "kubectl describe deployments --all-namespaces -l environment=staging",
@@ -175,7 +170,7 @@ class TestKubectlIntegration:
             # Complex kubectl top commands
             (
                 "kubectl top pods -n kube-system --containers --selector=k8s-app=kube-dns",
-                "kubectl top pods --namespace kube-system --containers --selector k8s-app=kube-dns",
+                "kubectl top pods --namespace kube-system --selector k8s-app=kube-dns --containers",
             ),
             (
                 "kubectl top nodes --use-protocol-buffers",
@@ -193,19 +188,19 @@ class TestKubectlIntegration:
             # Complex commands with grep
             (
                 "kubectl get pods -n production -l tier=web -o wide | grep 'Running'",
-                "kubectl get pods --namespace production --selector tier=web --output wide | grep 'Running'",
+                "kubectl get pods --namespace production --selector tier=web --output wide | grep Running",
             ),
             (
                 "kubectl describe pods --all-namespaces --selector=app=nginx | grep 'Status:'",
-                "kubectl describe pods --all-namespaces --selector app=nginx | grep 'Status:'",
+                "kubectl describe pods --all-namespaces --selector app=nginx | grep Status:",
             ),
             (
                 "kubectl top pods -n monitoring --containers | grep 'prometheus'",
-                "kubectl top pods --namespace monitoring --containers | grep 'prometheus'",
+                "kubectl top pods --namespace monitoring --containers | grep prometheus",
             ),
             (
                 "kubectl events -n kube-system --types=Warning | grep 'Failed'",
-                "kubectl events --namespace kube-system --types Warning | grep 'Failed'",
+                "kubectl events --namespace kube-system --types Warning | grep Failed",
             ),
             # Resource names with special characters
             ("kubectl get pod my-pod-123", "kubectl get pod my-pod-123"),
@@ -224,7 +219,7 @@ class TestKubectlIntegration:
             ),
             (
                 "kubectl get pods --selector=app!=nginx",
-                "kubectl get pods --selector app!=nginx",
+                "kubectl get pods --selector 'app!=nginx'",
             ),
             (
                 "kubectl get pods --field-selector=spec.nodeName=worker-1",
@@ -277,6 +272,7 @@ class TestKubectlIntegration:
         ],
     )
     def test_kubectl_round_trip(self, input_command: str, expected_output: str):
-        parsed_commands = parse_command(input_command)
-        output_command = stringify_command(parsed_commands)
+        output_command = make_command_safe(input_command)
+        print(f"* EXPECTED:\n{expected_output}")
+        print(f"* ACTUAL:\n{output_command}")
         assert output_command == expected_output

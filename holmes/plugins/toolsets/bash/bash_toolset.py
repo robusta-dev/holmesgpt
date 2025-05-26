@@ -1,5 +1,9 @@
+import argparse
+import logging
 import subprocess
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
+from pydantic import BaseModel
 
 from holmes.core.tools import (
     StructuredToolResult,
@@ -9,16 +13,40 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
+from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
-class RunBashCommand(Tool):
-    def __init__(self):
+class ImageConfig(BaseModel):
+    image: str
+    allowed_commands: list[str]
+
+class KubectlConfig(BaseModel):
+    allowed_images: list[ImageConfig] = []
+
+class BashExecutorConfig(BaseModel):
+    kubectl: KubectlConfig = KubectlConfig()
+
+
+class BaseBashExecutorToolset(Toolset):
+    config: Optional[BashExecutorConfig] = None
+
+    def get_example_config(self):
+        example_config = BashExecutorConfig()
+        return example_config.model_dump()
+
+
+class BaseBashTool(Tool):
+    toolset: BaseBashExecutorToolset
+
+class RunBashCommand(BaseBashTool):
+    def __init__(self, toolset:BaseBashExecutorToolset):
         super().__init__(
-            name="run_kubectl_command",
+            name="run_bash_command",
             description=(
-                "Executes a given kubectl command and returns its standard output, "
+                "Executes a given bash command and returns its standard output, "
                 "standard error, and exit code."
                 "The command is executed via 'bash -c \"<command>\"'."
+                "Only some commands are allowed."
             ),
             parameters={
                 "command": ToolParameter(
@@ -35,6 +63,7 @@ class RunBashCommand(Tool):
                     required=False,
                 ),
             },
+            toolset=toolset
         )
 
     def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
@@ -44,18 +73,28 @@ class RunBashCommand(Tool):
         if not command_str:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                data="Error: 'command' parameter is required and was not provided.",
+                error="The 'command' parameter is required and was not provided.",
                 params=params,
             )
 
         if not isinstance(command_str, str):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                data=f"Error: 'command' parameter must be a string, got {type(command_str).__name__}.",
+                error=f"The 'command' parameter must be a string, got {type(command_str).__name__}.",
+                params=params,
+            )
+        try:
+            safe_command_str = make_command_safe(command_str, self.toolset.config)
+        except argparse.ArgumentError as e:
+            logging.info(f"Refusing LLM tool call {command_str}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
                 params=params,
             )
 
         try:
+
             # Using shell=True with the command passed to 'bash -c' for explicit shell execution.
             # This is generally safer than passing command_str directly to shell=True if command_str
             # might contain shell metacharacters that are not intended to be part of the command itself.
@@ -64,7 +103,7 @@ class RunBashCommand(Tool):
             # Or `subprocess.run(command_str, shell=True, executable='/bin/bash', ...)`
             # For simplicity and directness matching "run any bash command":
             process = subprocess.run(
-                command_str,
+                safe_command_str,
                 shell=True,  # Allows shell features like pipes, wildcards, etc.
                 executable="/bin/bash",  # Explicitly use bash
                 capture_output=True,
@@ -90,6 +129,7 @@ class RunBashCommand(Tool):
                 status=status,
                 data=result_data,
                 params=params,
+                invocation=safe_command_str,
                 return_code=process.returncode,
             )
         except subprocess.TimeoutExpired:
@@ -118,7 +158,7 @@ class RunBashCommand(Tool):
         return display_command
 
 
-class KubectlExecutorToolset(Toolset):
+class BashExecutorToolset(BaseBashExecutorToolset):
     def __init__(self):
         super().__init__(
             name="kubectl/bash",
@@ -132,13 +172,10 @@ class KubectlExecutorToolset(Toolset):
             docs_url="",  # TODO: Add relevant documentation URL if available
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
             prerequisites=[],
-            tools=[RunBashCommand()],
+            tools=[RunBashCommand(self)],
             # Using CORE as per the provided example's structure.
             # In a real system, a more specific tag like 'SYSTEM_COMMANDS' or 'DANGEROUS' might be appropriate
             # if the ToolsetTag system supports custom tags or has more granular options.
             tags=[ToolsetTag.CORE],
             is_default=True,  # CRITICAL: This toolset should NOT be enabled by default for security reasons.
         )
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {"enabled": False}
