@@ -2,7 +2,7 @@ import argparse
 import re
 from typing import Any, Optional
 
-from holmes.plugins.toolsets.bash.bash_toolset import ImageConfig
+from holmes.plugins.toolsets.bash.common.config import KubectlImageConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import regex_validator
 from holmes.plugins.toolsets.bash.kubectl.constants import (
@@ -28,7 +28,7 @@ def validate_image_and_commands(image: str, commands: list[str], config) -> None
         )
 
     # Find matching image config
-    image_config: Optional[ImageConfig] = None
+    image_config: Optional[KubectlImageConfig] = None
     for img_config in config.kubectl.allowed_images:
         if img_config.image == image:
             image_config = img_config

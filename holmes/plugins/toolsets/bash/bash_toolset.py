@@ -3,7 +3,6 @@ import logging
 import subprocess
 from typing import Dict, Any, Optional
 
-from pydantic import BaseModel
 
 from holmes.core.tools import (
     StructuredToolResult,
@@ -13,20 +12,8 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
+from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
-
-
-class ImageConfig(BaseModel):
-    image: str
-    allowed_commands: list[str]
-
-
-class KubectlConfig(BaseModel):
-    allowed_images: list[ImageConfig] = []
-
-
-class BashExecutorConfig(BaseModel):
-    kubectl: KubectlConfig = KubectlConfig()
 
 
 class BaseBashExecutorToolset(Toolset):
