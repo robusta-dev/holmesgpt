@@ -28,32 +28,9 @@ HolmesGPT connects AI models with live observability data and organizational kno
 
 <img width="3114" alt="holmesgpt-architecture-diagram" src="https://github.com/user-attachments/assets/f659707e-1958-4add-9238-8565a5e3713a" />
 
-### 📈 Data Sources
+### 🔗 Data Sources
 
-The following data sources ("toolsets") are built-in. [Add your own](#customizing-holmesgpt).
-
-| Data Source    | Status         | Description                                                  |
-|----------------|----------------|--------------------------------------------------------------|
-| [Kubernetes](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html)     | ✅             | Pod logs, K8s events, and resource status (kubectl describe) |
-| Grafana       | ✅             | [Logs (Loki)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html) and [traces (Tempo)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html) |
-| [Helm](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html)           | ✅             | Release status, chart metadata, and values                   |
-| [ArgoCD](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html)         | ✅             | Application sync status                                      |
-| [AWS RDS](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html)        | ✅             | Logs and events                                              |
-| [Prometheus](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html)     | ✅             | Currently supports investigating alerts; coming soon: automatically write PromQL and show related graphs |
-| [Internet](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html)       | ✅             | Public runbooks                                              |
-| [Confluence](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html)     | ✅             | Private runbooks and documentation                           |
-| [OpenSearch](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html)     | 🟡 Beta        | Query logs and investigate issues with OpenSearch itself (using self-health diagnostics) |
-| NewRelic      | 🟡 Beta        | Investigate alerts, query tracing data                       |
-| Coralogix      | 🟡 Beta        | Logs                                                         |
-| GitHub        | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
-
-[How to configure datasources with Robusta SaaS](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (docs for CLI coming soon)
-
-[Request access to beta features](mailto:beta@robusta.dev)
-
-### 🔗 Integrations
-
-HolmesGPT integrates with popular observability and cloud platforms:
+HolmesGPT integrates with popular observability and cloud platforms. The following data sources ("toolsets") are built-in. [Add your own](#customizing-holmesgpt).
 
 <table width="100%">
   <tr>
@@ -65,8 +42,8 @@ HolmesGPT integrates with popular observability and cloud platforms:
     </td>
     <td align="center" width="120">
       <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html">
-        <img src="images/integration_logos/aws_logo.png" alt="AWS" width="50"><br>
-        <strong>AWS</strong>
+        <img src="images/integration_logos/aws_rds_logo.png" alt="AWS" width="50"><br>
+        <strong>AWS RDS</strong>
       </a>
     </td>
     <td align="center" width="120">
@@ -83,7 +60,7 @@ HolmesGPT integrates with popular observability and cloud platforms:
     </td>
     <td align="center" width="120">
     <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html">
-      <img src="images/integration_logos/bash-icon.png" alt="Datetime" width="50"><br>
+      <img src="images/integration_logos/date_time_icon.png" alt="Datetime" width="50"><br>
       <strong>Datetime</strong>
     </td>
   </tr>
@@ -102,7 +79,7 @@ HolmesGPT integrates with popular observability and cloud platforms:
     </td>
     <td align="center" width="120">
       <a href="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html">
-        <img src="images/integration_logos/grafana-icon.png" alt="Tempo" width="50"><br>
+        <img src="images/integration_logos/tempo_logo.png" alt="Tempo" width="50"><br>
         <strong>Tempo</strong>
       </a>
     </td>
@@ -164,7 +141,15 @@ HolmesGPT integrates with popular observability and cloud platforms:
         <strong>Slab</strong>
       </a>
     </td>
-    <td colspan="3"></td>
+    <td align="center" width="120">
+      <img src="images/integration_logos/github_logo.png" alt="GitHub" width="50"><br>
+      <strong>GitHub (Beta)</strong>
+    </td>
+    <td align="center" width="120">
+      <img src="images/integration_logos/newrelic_logo.png" alt="NewRelic" width="50"><br>
+      <strong>NewRelic (Beta)</strong>
+    </td>
+    <td></td>
   </tr>
 </table>
 
