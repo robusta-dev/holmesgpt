@@ -23,7 +23,7 @@ def validate_image_and_commands(image: str, commands: list[str], config) -> None
     Raises ArgumentTypeError if validation fails.
     """
     if not config or not config.kubectl or not config.kubectl.allowed_images:
-        raise argparse.ArgumentTypeError(
+        raise Exception(
             "No image configuration found. Image validation required for kubectl run but the user has not allowed any image to be run. Either suggest for the user to add an image or run the command themselves."
         )
 
@@ -36,7 +36,7 @@ def validate_image_and_commands(image: str, commands: list[str], config) -> None
 
     if not image_config:
         allowed_images = [img.image for img in config.kubectl.allowed_images]
-        raise argparse.ArgumentTypeError(
+        raise ValueError(
             f"Image '{image}' not allowed. Allowed images: {', '.join(allowed_images)}"
         )
 
@@ -49,7 +49,7 @@ def validate_image_and_commands(image: str, commands: list[str], config) -> None
                 break
 
         if not command_allowed:
-            raise argparse.ArgumentTypeError(
+            raise ValueError(
                 f"Command '{command}' not allowed for image '{image}'. "
                 f"Allowed patterns: {', '.join(image_config.allowed_commands)}"
             )
