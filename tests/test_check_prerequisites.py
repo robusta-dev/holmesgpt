@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 import subprocess
 import os
 from unittest.mock import patch, Mock, call
@@ -11,6 +11,12 @@ from holmes.core.tools import (
     ToolsetCommandPrerequisite,
     ToolsetEnvironmentPrerequisite,
     CallablePrerequisite,
+)
+from tests.utils.toolsets import (
+    callable_success,
+    callable_failure_with_message,
+    callable_failure_no_message,
+    failing_callable_for_test,
 )
 
 
@@ -35,18 +41,6 @@ class SampleToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
-
-
-def callable_success(config: Dict[str, Any]) -> Tuple[bool, str]:
-    return True, ""
-
-
-def callable_failure_with_message(config: Dict[str, Any]) -> Tuple[bool, str]:
-    return False, "Callable check failed"
-
-
-def callable_failure_no_message(config: Dict[str, Any]) -> Tuple[bool, str]:
-    return False, ""
 
 
 def test_check_prerequisites_none():
@@ -278,3 +272,20 @@ def test_check_prerequisites_stops_at_first_failure_command(mock_subprocess_run)
         stderr=subprocess.PIPE,
     )
     mock_callable_should_not_be_called.assert_not_called()
+
+
+def test_check_prerequisites_with_failing_callable():
+    failing_prereq = CallablePrerequisite(callable=failing_callable_for_test)
+
+    toolset = SampleToolset(
+        name="failing-callable-toolset", prerequisites=[failing_prereq], config={}
+    )
+
+    toolset.check_prerequisites()
+
+    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.get_error() is not None
+    expected_error_message = (
+        "Prerequisite call failed unexpectedly: Failure in callable prerequisite"
+    )
+    assert toolset.get_error() == expected_error_message
