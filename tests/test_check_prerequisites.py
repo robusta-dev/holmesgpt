@@ -28,8 +28,11 @@ class DummyTool(Tool):
 class SampleToolset(Toolset):
     name: str = "sample_toolset"
     description: str = "A sample toolset for testing"
-    tools: List[Tool] = [DummyTool()]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # fresh instance for every toolset
+        self.tools: List[Tool] = [DummyTool()]
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
