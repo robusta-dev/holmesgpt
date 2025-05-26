@@ -341,7 +341,7 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
-
+    type: Optional[str] = ""
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
     _error: Optional[str] = PrivateAttr(None)

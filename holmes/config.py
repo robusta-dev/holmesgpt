@@ -133,7 +133,14 @@ def parse_toolsets_file(
 ) -> Optional[List[ToolsetYamlFromConfig]]:
     parsed_yaml = load_yaml_file(path, raise_error)
 
-    toolsets_definitions = parsed_yaml.get("toolsets")
+    toolsets_definitions: dict = parsed_yaml.get("toolsets", {})
+    mcp_definitions: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
+
+    for server_config in mcp_definitions.values():
+        server_config["type"] = "MCP"
+
+    toolsets_definitions.update(mcp_definitions)
+
     if not toolsets_definitions:
         message = f"No 'toolsets' key found in: {path}"
         logging.warning(message)
@@ -613,7 +620,7 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
-                    if toolset.url:
+                    if toolset.type == "MCP":
                         validated_toolset = RemoteMCPToolset(
                             **toolset.model_dump(exclude_none=True)
                         )
