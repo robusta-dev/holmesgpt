@@ -62,9 +62,9 @@ toolsets:
         description: "Retrieves the active Kubernetes cluster name from kubeconfig"
         user_description: "get current AKS cluster name from kubeconfig"
         command: |
-          kubectl config view --minify -o jsonpath='{.clusters[0].name}' | tr -d '"' | tr -d "'"
+           kubectl config current-context
       - name: "get_cluster_resource_group"
         description: "Retrieves the resource group name for the AKS cluster"
         user_description: "get resource group for cluster {{ CLUSTER_NAME }}"
         command: |
-          az account set --subscription {{ SUBSCRIPTION_ID }} && az aks list --only-show-errors --query "[?name=='{{ CLUSTER_NAME }}'].resourceGroup" -o tsv
+           az aks list --subscription {{ SUBSCRIPTION_ID }} --only-show-errors --query "[?name=='{{ CLUSTER_NAME }}'].resourceGroup | [0]" -o tsv

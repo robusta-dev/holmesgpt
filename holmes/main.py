@@ -17,7 +17,7 @@ import warnings
 import json
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
@@ -162,7 +162,7 @@ opt_echo_request: bool = typer.Option(
     "--echo/--no-echo",
     help="Echo back the question provided to HolmesGPT in the output",
 )
-opt_destination: Optional[DestinationType] = typer.Option(
+opt_destination: Optional[Union[DestinationType, str]] = typer.Option(
     "cli",
     "--destination",
     help="Destination for the results of the investigation (defaults to STDOUT)",
