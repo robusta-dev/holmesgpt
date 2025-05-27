@@ -1,12 +1,15 @@
 import argparse
-import json
 import shlex
-from typing import Any
+from typing import Any, Optional
 
+from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.grep import create_grep_parser, stringify_grep_command
 from holmes.plugins.toolsets.bash.kubectl import (
     create_kubectl_parser,
     stringify_kubectl_command,
+)
+from holmes.plugins.toolsets.bash.kubectl.kubectl_run import (
+    simplify_kubectl_run_for_argparse,
 )
 
 
@@ -23,12 +26,15 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def stringify_command(command: Any, original_command: str, config=None) -> str:
+def stringify_command(
+    command: Any, original_command: str, config: Optional[BashExecutorConfig]
+) -> str:
     if command.cmd == "kubectl":
         return stringify_kubectl_command(command, config)
     elif command.cmd == "grep":
         return stringify_grep_command(command)
     else:
+        # This code path should not happen b/c the parsing of the command should catch an unsupported command
         raise ValueError(
             f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: kubectl, grep"
         )
@@ -68,19 +74,28 @@ def split_into_separate_commands(command_str: str) -> list[list[str]]:
     if current_command:
         commands_list.append(current_command)
 
-    print(json.dumps(commands_list, indent=2))
     return commands_list
 
 
-def make_command_safe(command_str: str, config=None) -> str:
+def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) -> str:
+    command_str = simplify_kubectl_run_for_argparse(command_str)
     commands = split_into_separate_commands(command_str)
 
-    safe_commands = [
-        command_parser.parse_args(command_parts) for command_parts in commands
-    ]
-    safe_commands_str = [
-        stringify_command(cmd, original_command=command_str, config=config)
-        for cmd in safe_commands
-    ]
+    try:
+        safe_commands = [
+            command_parser.parse_args(command_parts) for command_parts in commands
+        ]
+        if safe_commands and safe_commands[0].cmd == "grep":
+            raise ValueError("The command grep can only be used after another command using the pipe `|` character to connect both commands")
+        safe_commands_str = [
+            stringify_command(cmd, original_command=command_str, config=config)
+            for cmd in safe_commands
+        ]
 
-    return " | ".join(safe_commands_str)
+        return " | ".join(safe_commands_str)
+    except SystemExit:
+        # argparse throws a SystemExit error when it can't parse command or arguments
+        # This ideally should be captured differently by ensuring all possible args 
+        # are accounted for in the implementation for each command.
+        # When falling back, we raise a generic error
+        raise ValueError("The command failed to be parsed for safety")

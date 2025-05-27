@@ -9,7 +9,28 @@ These tests verify the complete round-trip functionality by:
 """
 
 import pytest
+from holmes.plugins.toolsets.bash.common.config import (
+    BashExecutorConfig,
+    KubectlConfig,
+    KubectlImageConfig,
+)
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
+
+
+TEST_CONFIG = BashExecutorConfig(
+    kubectl=KubectlConfig(
+        allowed_images=[
+            KubectlImageConfig(
+                image="busybox",
+                allowed_commands=["cat /etc/resolv.conf", "nslookup .*"],
+            ),
+            KubectlImageConfig(
+                image="registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3",
+                allowed_commands=["cat /etc/resolv.conf"],
+            ),
+        ]
+    )
+)
 
 
 class TestKubectlIntegration:
@@ -269,10 +290,23 @@ class TestKubectlIntegration:
             # Quote normalization in grep
             ('kubectl get pods | grep "nginx"', "kubectl get pods | grep nginx"),
             ("kubectl get pods | grep 'nginx'", "kubectl get pods | grep nginx"),
+            # Run images
+            (
+                "kubectl run dnsutils-resolvconf --image=registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3 --rm --restart=Never --command -- cat /etc/resolv.conf",
+                "kubectl run dnsutils-resolvconf --image registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3 --rm --restart Never --command -- cat /etc/resolv.conf",
+            ),
+            (
+                "kubectl run dnsutils-resolvconf --image=busybox --rm --restart=Never --command -- cat /etc/resolv.conf",
+                "kubectl run dnsutils-resolvconf --image busybox --rm --restart Never --command -- cat /etc/resolv.conf",
+            ),
+            (
+                "kubectl run dnsutils-resolvconf --image=busybox --rm --restart=Never --command -- nslookup example.com",
+                "kubectl run dnsutils-resolvconf --image busybox --rm --restart Never --command -- nslookup example.com",
+            ),
         ],
     )
     def test_kubectl_round_trip(self, input_command: str, expected_output: str):
-        output_command = make_command_safe(input_command)
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
         print(f"* EXPECTED:\n{expected_output}")
         print(f"* ACTUAL:\n{output_command}")
         assert output_command == expected_output

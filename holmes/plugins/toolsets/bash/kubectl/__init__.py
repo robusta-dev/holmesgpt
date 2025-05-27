@@ -1,4 +1,5 @@
-from typing import Any
+from typing import Any, Optional
+from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.kubectl.constants import (
     SAFE_NAME_PATTERN,
     SAFE_NAMESPACE_PATTERN,
@@ -75,7 +76,7 @@ def validate_kubectl_command(cmd: Any) -> None:
             raise ValueError("Label selector too long")
 
 
-def stringify_kubectl_command(command: Any, config=None):
+def stringify_kubectl_command(command: Any, config: Optional[BashExecutorConfig]):
     if command.cmd == "kubectl":
         if command.action == "get":
             return stringify_get_command(command)

@@ -1,8 +1,10 @@
-import argparse
 import re
 from typing import Any, Optional
 
-from holmes.plugins.toolsets.bash.common.config import KubectlImageConfig
+from holmes.plugins.toolsets.bash.common.config import (
+    BashExecutorConfig,
+    KubectlImageConfig,
+)
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import regex_validator
 from holmes.plugins.toolsets.bash.kubectl.constants import (
@@ -17,14 +19,27 @@ SAFE_IMAGE_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9\-_./:]*$")
 SAFE_COMMAND_PATTERN = re.compile(r"^[a-zA-Z0-9\-_./:\s=<>]*$")
 
 
-def validate_image_and_commands(image: str, commands: list[str], config) -> None:
+def simplify_kubectl_run_for_argparse(cmd: str):
+    """The argparse parser does not work well with kubectl commands that use double dash `--` to separate the container's command from the kubectl options.
+    This method hacks the command and simplifies it for argparse
+    """
+    if cmd.startswith("kubectl run") and " --command -- " in cmd:
+        replaced = cmd.replace(" --command -- ", " --command ")
+        return replaced
+
+    return cmd
+
+
+def validate_image_and_commands(
+    image: str, container_command: str, config: Optional[BashExecutorConfig]
+) -> None:
     """
     Validate that the image is in the whitelist and commands are allowed.
     Raises ArgumentTypeError if validation fails.
     """
     if not config or not config.kubectl or not config.kubectl.allowed_images:
-        raise Exception(
-            "No image configuration found. Image validation required for kubectl run but the user has not allowed any image to be run. Either suggest for the user to add an image or run the command themselves."
+        raise ValueError(
+            "The command `kubectl run` is not allowed. The user must whitelist specific images and commands but none have been configured."
         )
 
     # Find matching image config
@@ -41,43 +56,37 @@ def validate_image_and_commands(image: str, commands: list[str], config) -> None
         )
 
     # Validate commands against allowed patterns
-    for command in commands:
-        command_allowed = False
-        for allowed_pattern in image_config.allowed_commands:
-            if re.match(allowed_pattern, command):
-                command_allowed = True
-                break
+    command_allowed = False
+    for allowed_pattern in image_config.allowed_commands:
+        if re.match(allowed_pattern, container_command):
+            command_allowed = True
+            break
 
-        if not command_allowed:
-            raise ValueError(
-                f"Command '{command}' not allowed for image '{image}'. "
-                f"Allowed patterns: {', '.join(image_config.allowed_commands)}"
-            )
+    if not command_allowed:
+        raise ValueError(
+            f"Command '{container_command}' not allowed for image '{image}'. "
+            f"Allowed patterns: {', '.join(image_config.allowed_commands)}"
+        )
 
 
 def create_kubectl_run_parser(kubectl_parser: Any):
-    parser = kubectl_parser.add_parser(
-        "run", help="Run a particular image on the cluster", exit_on_error=False
-    )
+    parser = kubectl_parser.add_parser("run", exit_on_error=False)
 
     parser.add_argument(
         "name",
         type=regex_validator("pod name", SAFE_NAME_PATTERN),
-        help="Name of the pod to create",
     )
 
     parser.add_argument(
         "--image",
         required=True,
         type=regex_validator("image", SAFE_IMAGE_PATTERN),
-        help="The image for the container to run",
     )
 
     parser.add_argument(
         "-n",
         "--namespace",
         type=regex_validator("namespace", SAFE_NAMESPACE_PATTERN),
-        help="Namespace to create the pod in",
     )
 
     parser.add_argument(
@@ -88,28 +97,31 @@ def create_kubectl_run_parser(kubectl_parser: Any):
 
     parser.add_argument(
         "--restart",
-        choices=["Always", "OnFailure", "Never"],
-        default="Always",
-        help="Restart policy for the pod",
+        choices=["Never"],
+        default="Never",
     )
 
     parser.add_argument(
-        "--command",
-        action="store_true",
-        help="If true, use -- to separate the command from the image",
+        "--overrides",
     )
 
-    parser.add_argument(
-        "command_args", nargs="*", help="Command and arguments to run in the container"
-    )
+    parser.add_argument("--command", nargs="+")
 
 
-def stringify_run_command(cmd: Any, config=None) -> str:
+def stringify_run_command(cmd: Any, config: Optional[BashExecutorConfig]) -> str:
     # Validate image and commands if configured
-    if cmd.image and cmd.command_args:
-        validate_image_and_commands(cmd.image, cmd.command_args, config)
+    if cmd.image and cmd.command:
+        container_command = " ".join(cmd.command)
+        validate_image_and_commands(
+            image=cmd.image, container_command=container_command, config=config
+        )
 
     parts = ["kubectl", "run", cmd.name]
+
+    if cmd.overrides:
+        raise ValueError(
+            "--override is not an accepted argument. It has been disabled for security reasons"
+        )
 
     if cmd.image:
         parts.extend(["--image", cmd.image])
@@ -123,17 +135,12 @@ def stringify_run_command(cmd: Any, config=None) -> str:
     if cmd.attach:
         parts.append("--attach")
 
-    if cmd.restart and cmd.restart != "Always":
+    if cmd.restart:
         parts.extend(["--restart", cmd.restart])
 
     if cmd.command:
         parts.append("--command")
-        if cmd.command_args:
-            parts.append("--")
-            # Validate command args using safe pattern
-            for arg in cmd.command_args:
-                if not SAFE_COMMAND_PATTERN.match(arg):
-                    raise argparse.ArgumentTypeError(f"Unsafe command argument: {arg}")
-            parts.extend(cmd.command_args)
+        parts.append("--")
+        parts.extend(cmd.command)
 
     return " ".join(escape_shell_args(parts))

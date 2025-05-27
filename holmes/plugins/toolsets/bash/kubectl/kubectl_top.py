@@ -13,7 +13,7 @@ def create_kubectl_top_parser(kubectl_parser: Any):
     parser = kubectl_parser.add_parser(
         "top",
         help="Display resource (CPU/memory) usage",
-        exit_on_error=False,  # Important for library use
+        exit_on_error=False,
     )
     parser.add_argument(
         "resource_type",

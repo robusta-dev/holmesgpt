@@ -1,7 +1,7 @@
 import argparse
 import logging
 import subprocess
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 
 from holmes.core.tools import (
@@ -75,7 +75,7 @@ class RunBashCommand(BaseBashTool):
             )
         try:
             safe_command_str = make_command_safe(command_str, self.toolset.config)
-        except argparse.ArgumentError as e:
+        except (argparse.ArgumentError, ValueError) as e:
             logging.info(f"Refusing LLM tool call {command_str}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,

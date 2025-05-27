@@ -12,7 +12,7 @@ def create_grep_parser(main_parser: Any):
     parser = main_parser.add_parser(
         "grep",
         help="Search text patterns in files or input",
-        exit_on_error=False,  # Important for library use
+        exit_on_error=False,
     )
     parser.add_argument(
         "keyword",
