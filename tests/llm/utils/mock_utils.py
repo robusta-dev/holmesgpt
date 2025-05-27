@@ -5,7 +5,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import List, Optional, TypeVar, Union, cast
+from typing import List, Literal, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
@@ -25,9 +25,14 @@ TEST_CASE_ID_PATTERN = r"^[\d+]_(?:[a-z]+_)*[a-z]+$"
 CONFIG_FILE_NAME = "test_case.yaml"
 
 
-class LLMEvaluation(BaseModel):
+class Evaluation(BaseModel):
+    expected_score: float = 1
+    type: Union[Literal["loose"], Literal["strict"]]
+
+
+class LLMEvaluations(BaseModel):
     faithfulness: float = 0.3
-    correctness: float = 1
+    correctness: Union[float, Evaluation] = 1
     context: float = 0
 
 
@@ -43,7 +48,7 @@ class HolmesTestCase(BaseModel):
     folder: str
     generate_mocks: bool = False  # If True, generate mocks
     expected_output: Union[str, List[str]]  # Whether an output is expected
-    evaluation: LLMEvaluation = LLMEvaluation()
+    evaluation: LLMEvaluations = LLMEvaluations()
     retrieval_context: List[
         str
     ] = []  # Elements helping to evaluate the correctness of the LLM response

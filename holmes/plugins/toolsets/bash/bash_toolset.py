@@ -1,10 +1,13 @@
 import argparse
+import json
 import logging
+import os
 import subprocess
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional
 
 
 from holmes.core.tools import (
+    CallablePrerequisite,
     StructuredToolResult,
     Tool,
     ToolParameter,
@@ -76,6 +79,7 @@ class RunBashCommand(BaseBashTool):
         try:
             safe_command_str = make_command_safe(command_str, self.toolset.config)
         except (argparse.ArgumentError, ValueError) as e:
+            print(e)
             logging.info(f"Refusing LLM tool call {command_str}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -141,7 +145,7 @@ class RunBashCommand(BaseBashTool):
 class BashExecutorToolset(BaseBashExecutorToolset):
     def __init__(self):
         super().__init__(
-            name="kubectl/bash",
+            name="bash",
             enabled=True,  # Default state; can be overridden by global config.
             description=(
                 "Toolset for executing arbitrary bash commands on the system where Holmes is running. "
@@ -151,11 +155,27 @@ class BashExecutorToolset(BaseBashExecutorToolset):
             ),
             docs_url="",  # TODO: Add relevant documentation URL if available
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
-            prerequisites=[],
+            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[RunBashCommand(self)],
             # Using CORE as per the provided example's structure.
             # In a real system, a more specific tag like 'SYSTEM_COMMANDS' or 'DANGEROUS' might be appropriate
             # if the ToolsetTag system supports custom tags or has more granular options.
             tags=[ToolsetTag.CORE],
-            is_default=True,  # CRITICAL: This toolset should NOT be enabled by default for security reasons.
+            is_default=False,
         )
+
+        self._reload_llm_instructions()
+
+    def _reload_llm_instructions(self):
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "bash_instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
+
+    def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
+        if config:
+            print(json.dumps(config, indent=2))
+            self.config = BashExecutorConfig(**config)
+        else:
+            self.config = BashExecutorConfig()
+        return True, ""

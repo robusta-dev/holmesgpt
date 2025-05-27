@@ -20,7 +20,7 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
 from os import path
 from braintrust.span_types import SpanTypeAttribute
 from unittest.mock import patch
@@ -138,7 +138,7 @@ def test_investigate(experiment_name, test_case):
         name="Correctness", type=SpanTypeAttribute.SCORE
     ) as correctness_span:
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected
+            output=output, expected_elements=expected, evaluation_type="strict"
         )
         print(
             f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
@@ -217,7 +217,10 @@ def test_investigate(experiment_name, test_case):
         ), f"Expected title {expected_section_title} in sections"
 
     if test_case.evaluation.correctness:
-        assert scores.get("correctness", 0) >= test_case.evaluation.correctness
+        expected_correctness = test_case.evaluation.correctness
+        if isinstance(expected_correctness, Evaluation):
+            expected_correctness = expected_correctness.expected_score
+        assert scores.get("correctness", 0) >= expected_correctness
 
     if test_case.expected_sections:
         for (

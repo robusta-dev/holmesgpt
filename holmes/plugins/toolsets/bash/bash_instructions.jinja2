@@ -1,0 +1,11 @@
+# Bash commands
+
+The tool `run_bash_command` allows you to run many kubectl commands:
+
+- `kubectl get ...`
+- `kubectl describe ...`
+- `kubectl events ...`
+- `kubectl top ...`
+
+It is also possible to combine `kubectl` with `grep`. For example:
+- `kubectl run dnsutils-resolvconf --image=busybox --rm --attach --restart=Never --command -- cat /etc/resolv.conf`

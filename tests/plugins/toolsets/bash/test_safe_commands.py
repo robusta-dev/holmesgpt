@@ -246,6 +246,10 @@ class TestKubectlIntegration:
                 "kubectl get pods --field-selector=spec.nodeName=worker-1",
                 "kubectl get pods --field-selector spec.nodeName=worker-1",
             ),
+            (
+                "kubectl get pods -n kube-system -l k8s-app=kube-dns",
+                "kubectl get pods --namespace kube-system --selector k8s-app=kube-dns",
+            ),
             # Grep with quoted strings containing special characters
             (
                 "kubectl get pods | grep 'my-app-.*'",
@@ -296,12 +300,12 @@ class TestKubectlIntegration:
                 "kubectl run dnsutils-resolvconf --image registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3 --rm --restart Never --command -- cat /etc/resolv.conf",
             ),
             (
-                "kubectl run dnsutils-resolvconf --image=busybox --rm --restart=Never --command -- cat /etc/resolv.conf",
-                "kubectl run dnsutils-resolvconf --image busybox --rm --restart Never --command -- cat /etc/resolv.conf",
+                "kubectl run dnsutils-resolvconf --image=busybox --rm --attach --restart=Never --command -- cat /etc/resolv.conf",
+                "kubectl run dnsutils-resolvconf --image busybox --rm --attach --restart Never --command -- cat /etc/resolv.conf",
             ),
             (
-                "kubectl run dnsutils-resolvconf --image=busybox --rm --restart=Never --command -- nslookup example.com",
-                "kubectl run dnsutils-resolvconf --image busybox --rm --restart Never --command -- nslookup example.com",
+                "kubectl run dnsutils-resolvconf --image=busybox --rm --attach --restart=Never --command -- nslookup example.com",
+                "kubectl run dnsutils-resolvconf --image busybox --rm --attach --restart Never --command -- nslookup example.com",
             ),
         ],
     )

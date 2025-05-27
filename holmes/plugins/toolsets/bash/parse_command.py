@@ -86,7 +86,9 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
             command_parser.parse_args(command_parts) for command_parts in commands
         ]
         if safe_commands and safe_commands[0].cmd == "grep":
-            raise ValueError("The command grep can only be used after another command using the pipe `|` character to connect both commands")
+            raise ValueError(
+                "The command grep can only be used after another command using the pipe `|` character to connect both commands"
+            )
         safe_commands_str = [
             stringify_command(cmd, original_command=command_str, config=config)
             for cmd in safe_commands
@@ -95,7 +97,7 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
         return " | ".join(safe_commands_str)
     except SystemExit:
         # argparse throws a SystemExit error when it can't parse command or arguments
-        # This ideally should be captured differently by ensuring all possible args 
+        # This ideally should be captured differently by ensuring all possible args
         # are accounted for in the implementation for each command.
         # When falling back, we raise a generic error
         raise ValueError("The command failed to be parsed for safety")

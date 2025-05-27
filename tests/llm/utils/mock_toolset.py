@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
@@ -26,6 +27,15 @@ class MockMetadata(BaseModel):
 class ToolMock(MockMetadata):
     source_file: str
     return_value: StructuredToolResult
+
+
+def deconflict_file_name(original_file_name: str) -> str:
+    idx = 0
+    file_name: str = original_file_name
+    while Path(file_name).exists():
+        idx += 1
+        file_name = f"{original_file_name}.{idx}"
+    return file_name
 
 
 class SaveMockTool(Tool):
@@ -56,6 +66,9 @@ class SaveMockTool(Tool):
 
     def _auto_generate_mock_file(self, params: Dict):
         mock_file_path = self._get_mock_file_path()
+
+        mock_file_path = deconflict_file_name(mock_file_path)
+
         logging.warning(f"Writing mock file for your convenience at {mock_file_path}")
 
         mock_metadata_json = MockMetadata(
@@ -149,6 +162,7 @@ class MockToolsets:
             toolsets_definitions = parse_toolsets_file(
                 path=config_path, raise_error=run_live
             )
+            print(f"** ** {toolsets_definitions}")
 
         return toolsets_definitions or []
 

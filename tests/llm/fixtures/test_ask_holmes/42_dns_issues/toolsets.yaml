@@ -1,0 +1,18 @@
+toolsets:
+  kubernetes/core:
+    enabled: false
+  kubernetes/logs:
+    enabled: false
+  bash:
+    enabled: true
+    config:
+      kubectl:
+        allowed_images:
+          - image: busybox
+            allowed_commands:
+            - cat /etc/resolv.conf
+            - nslookup .*
+          - image: "registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3"
+            allowed_commands:
+              - "cat /etc/resolv.conf"
+              - "nslookup .*"

@@ -86,7 +86,7 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
     logging.debug(f"loading toolsets from {THIS_DIR}")
 
     for filename in os.listdir(THIS_DIR):
-        if not filename.endswith("gadget.yaml"):
+        if not filename.endswith(".yaml"):
             continue
         path = os.path.join(THIS_DIR, filename)
         toolsets_from_file = load_toolsets_from_file(path, is_default=True)

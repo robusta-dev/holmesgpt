@@ -66,10 +66,12 @@ def get_env_replacement(value: str) -> Optional[str]:
 
 def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
     for key, value in values.items():
+        print(f"** evaluating {key} {value}")
         if isinstance(value, str):
             env_var_value = get_env_replacement(value)
             if env_var_value:
                 values[key] = env_var_value
+                print(f"** ** setting {key} to {env_var_value}")
         elif isinstance(value, SecretStr):
             env_var_value = get_env_replacement(value.get_secret_value())
             if env_var_value:
@@ -86,6 +88,7 @@ def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
                 else iter
                 for iter in value
             ]
+            print(f"** ** setting {key} to {values[key]}")
     return values
 
 
@@ -117,6 +120,9 @@ def load_toolsets_definitions(
                 validated_config.config = replace_env_vars_values(
                     validated_config.config
                 )
+            print(
+                f"\n** {name}\nloaded:\t{json.dumps(config)}\n\tvalidated:{validated_config.config}"
+            )
             loaded_toolsets.append(validated_config)
         except ValidationError as e:
             logging.warning(f"Toolset '{name}' is invalid: {e}")
