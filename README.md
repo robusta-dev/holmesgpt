@@ -2,7 +2,8 @@
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
-    <a href="#quick-start---installing-holmesgpt"><strong>Quick Start</strong></a> |
+    <a href="#installation-options"><strong>Installation</strong></a> |
+    <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
 </div>
@@ -76,14 +77,147 @@ Robusta can investigate alerts - or just answer questions - from the following s
 <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/388d98aad1a04823b9ed50d0161a4819-0ced91a0e8f80dcb-full-play.gif">
 </a>
 
-## Quick Start - Installing HolmesGPT
 
-HolmesGPT can be installed two ways:
+## Installation
 
-1. [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (**recommended**) for the full HolmesGPT experience (Kubernetes required)
-2. [Desktop CLI](docs/installation.md) or [K9s plugin](docs/k9s.md) - no Kubernetes required, supports one-off investigations
+You can install HolmesGPT in one of the follow three methods:
 
-For advanced use cases, you can [import HolmesGPT as a Python library](docs/python.md) and use it from your own code. Before doing so, we recommend install HolmesGPT SaaS or CLI (see above) to learn your way around.
+1. [Standalone](./docs/installation.md): Run HolmesGPT from your terminal as a CLI tool. Typically installed with **Homebrew** or **Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
+2. **Web UIs and TUIs**: HolmesGPT is embedded in several third-party tools, like [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and [K9s](./docs/k9s.md) (as a plugin).
+3. **API**: Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and [Python SDK](./docs/python.md), as well as [Helm chart](./helm/) to deploy the HTTP server on Kubernetes.
+
+<table width="100%">
+  <tr valign="top">
+    <td colspan="2">
+      <h3>Standalone</h3>
+      <table width="100%">
+        <tr>
+          <td align="center" width="120">
+            <a href="docs/installation.md#brew-maclinux">
+              <img src="images/integration_logos/brew_logo.png" alt="Brew" width="50"><br>
+              <strong>Brew</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#pip-and-pipx">
+              <img src="images/integration_logos/pipx_logo.png" alt="pipx" width="50"><br>
+              <strong>Pipx</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#docker-container">
+              <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
+              <strong>Docker</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#from-source-docker">
+              <img src="images/integration_logos/docker_logo.png" alt="Docker Build" width="50"><br>
+              <strong>Docker Build</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/installation.md#from-source-python-poetry">
+              <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
+              <strong>Poetry</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr valign="top">
+   <td width="30%">
+      <h3>Web UIs and TUIs</h3>
+      <table>
+        <tr>
+          <td align="center" width="120">
+            <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
+              <img src="images/integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
+              <strong>Robusta SaaS</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/k9s.md">
+              <img src="images/integration_logos/k9s_logo.png" alt="K9s Plugin" width="50"><br>
+              <strong>K9s Plugin</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+    <td width="30%">
+      <h3>API</h3>
+      <table>
+        <tr>
+          <td align="center" width="120">
+            <a href="helm">
+              <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
+              <strong>Helm Chart</strong>
+            </a>
+          </td>
+          <td align="center" width="120">
+            <a href="docs/python.md">
+              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
+              <strong>Python API</strong>
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+
+  </tr>
+</table>
+
+
+## Supported LLM Providers
+
+Select your LLM provider to see how to set up your API Key.
+
+<table>
+  <tr>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#openai">
+        <img src="images/integration_logos/openai_logo.png" alt="OpenAI" width="50"><br>
+        <strong>OpenAI</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#anthropic">
+        <img src="images/integration_logos/anthropic_logo.png" alt="Anthropic" width="50"><br>
+        <strong>Anthropic</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#aws-bedrock">
+        <img src="images/integration_logos/aws_bedrock_logo.png" alt="AWS Bedrock" width="50"><br>
+        <strong>AWS Bedrock</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#google-vertex-ai">
+        <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
+        <strong>Google Vertex AI</strong>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#gemini">
+        <img src="images/integration_logos/gemini_logo.png" alt="Gemini" width="50"><br>
+        <strong>Gemini</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#ollama">
+        <img src="images/integration_logos/ollama_logo.png" alt="Ollama" width="50"><br>
+        <strong>Ollama</strong>
+      </a>
+    </td>
+  </tr>
+</table>
+
+You can also use any OpenAI-compatible models, read [here](docs/api-keys.md) for instructions.
 
 ### Using HolmesGPT
 

@@ -1,21 +1,15 @@
 # Installing HolmesGPT
 
-## In-Cluster Installation (Recommended)
+You can install HolmesGPT in one of the follow three methods:
 
-If you use Kubernetes, we recommend installing Holmes + [Robusta](https://github.com/robusta-dev/robusta) as a unified package so you can:
+1. [Standalone](#standalone): Run HolmesGPT from your terminal as a CLI tool. Typically installed with [Homebrew](#brew-maclinux) or [Pip/Pipx](#pip-and-pipx). Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
+2. [Web UIs and TUIs](#web-uis-and-tuis): HolmesGPT is embedded in several third-party tools, like [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and [K9s](./k9s.md) (as a plugin).
+3. [API](#api): Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and [Python SDK](./python.md), as well as [Helm chart](../helm/) to deploy the HTTP server on Kubernetes.
 
-- Analyze Prometheus alerts easily
-- Use HolmesGPT in a friendly web UI
-- Get started without an OpenAI API Key (but you can bring your own LLM if you prefer)
 
-[Sign up for Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) (Kubernetes cluster required) or contact us about on-premise options.
+## Standalone
 
-## CLI Installation
-
-You can install Holmes as a CLI tool and run it on your local machine:
-
-<details>
-  <summary>Brew (Mac/Linux)</summary>
+### Brew (Mac/Linux)
 
 1. Add our tap:
 
@@ -48,11 +42,9 @@ kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/
 ```sh
 holmes ask "what is wrong with the user-profile-import pod?"
 ```
-</details>
 
 
-<details>
-<summary>Docker Container</summary>
+### Docker Container
 
 You can run HolmesGPT via a prebuilt Docker container:
 
@@ -66,13 +58,9 @@ Here is an example, that mounts relevant config files so that HolmesGPT can use 
 docker run -it --net=host -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
 ```
 
-Don't forget to setup [Setup an API key](./api-keys.md) first.
+Don't forget to [Setup an API key](./api-keys.md) first.
 
-</details>
-
-<details>
-
-<summary>Pip and Pipx</summary>
+### Pip and Pipx
 
 You can install HolmesGPT from source with pip or pipx. Pipx is recommended, as it prevents dependency conflicts.
 
@@ -102,11 +90,7 @@ When new versions of HolmesGPT are released, you can upgrade HolmesGPT with pipx
 pipx upgrade holmesgpt
 ```
 
-</details>
-
-<details>
-
-<summary>From Source (Python Poetry)</summary>
+### From Source (Python Poetry)
 
 First [install poetry (the python package manager)](https://python-poetry.org/docs/#installing-with-the-official-installer)
 
@@ -121,10 +105,8 @@ poetry install --no-root
 ```
 poetry run python3 holmes.py ask "what pods are unhealthy and why?"
 ```
-</details>
 
-<details>
-<summary>From Source (Docker)</summary>
+### From Source (Docker)
 
 Clone the project from github, [setup an API key](./api-keys.md), and then run:
 
@@ -133,13 +115,13 @@ cd holmesgpt
 docker build -t holmes . -f Dockerfile.dev
 docker run -it --net=host -v -v ~/.holmes:/root/.holmes -v ~/.aws:/root/.aws -v ~/.config/gcloud:/root/.config/gcloud -v $HOME/.kube/config:/root/.kube/config holmes ask "what pods are unhealthy and why?"
 ```
-</details>
 
-<details>
-<summary>Python API</summary>
+## Web UIs and TUIs
 
-You can use Holmes as a library and pass in your own LLM implementation. This is particularly useful if LiteLLM or the default Holmes implementation does not suit you.
+- [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) - Managed service with web UI
+- [K9s Plugin](k9s.md) - Terminal UI for Kubernetes
 
-See an example implementation [here](examples/custom_llm.py).
+## API
 
-</details>
+- [Helm Chart](../helm) - Deploy on Kubernetes
+- [Python API](python.md) - Use as a Python library

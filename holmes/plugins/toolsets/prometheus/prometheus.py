@@ -794,15 +794,15 @@ class PrometheusToolset(Toolset):
                     f"Failed to connect to Prometheus at {url}: HTTP {response.status_code}",
                 )
 
-        except RequestException as e:
+        except RequestException:
             return (
                 False,
-                f"Toolset failed to initialize using url={url}. Connection error: {str(e)}",
+                f"Failed to initialize using url={url}",
             )
         except Exception as e:
             return (
                 False,
-                f"Toolset failed to initialize using url={url}. Unexpected error: {str(e)}",
+                f"Failed to initialize using url={url}. Unexpected error: {str(e)}",
             )
 
     def get_example_config(self):
