@@ -1,0 +1,5 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"my-app-test"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get -A --show-labels -o wide pod | grep my-app-test", "params": {"kind": "pod", "keyword": "my-app-test"}}
+namespace-42-a   my-app-test-c7d4f4b88-b5rgh                              1/1     Running                  0                  13s     10.244.0.20    pool-5rdd4oamz-gl4h4   <none>           <none>            app=my-app-test,pod-template-hash=c7d4f4b88
+namespace-42-b   my-app-test-86c479596f-6s44h                             1/1     Running                  0                  13s     10.244.0.101   pool-5rdd4oamz-gl4h4   <none>           <none>            app=my-app-test,pod-template-hash=86c479596f
+namespace-42-c   my-app-test-547c688f58-p69sb                             1/1     Running                  0                  13s     10.244.0.71    pool-5rdd4oamz-gl4h4   <none>           <none>            app=my-app-test,pod-template-hash=547c688f58

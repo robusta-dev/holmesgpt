@@ -28,14 +28,14 @@ def invoke_command(command: str, cwd: str) -> str:
 
 
 def before_test(test_case: HolmesTestCase):
-    if test_case.before_test and os.environ.get("RUN_LIVE"):
+    if test_case.before_test and os.environ.get("RUN_LIVE", "").strip().lower() in ("1", "true"):
         commands = test_case.before_test.split("\n")
         for command in commands:
             invoke_command(command=command, cwd=test_case.folder)
 
 
 def after_test(test_case: HolmesTestCase):
-    if test_case.after_test and os.environ.get("RUN_LIVE"):
+    if test_case.after_test and os.environ.get("RUN_LIVE", "").strip().lower() in ("1", "true"):
         commands = test_case.after_test.split("\n")
         for command in commands:
             invoke_command(command=command, cwd=test_case.folder)

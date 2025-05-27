@@ -1,0 +1,6 @@
+{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl logs my-app-test-547c688f58-p69sb -n namespace-42-c", "params": {"pod_name": "my-app-test-547c688f58-p69sb", "namespace": "namespace-42-c"}}
+Log from namespace-42-c
+Log from namespace-42-c
+Log from namespace-42-c
+Log from namespace-42-c

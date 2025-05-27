@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-42-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-42-b
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-42-c
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-test
+  namespace: namespace-42-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app-test
+  template:
+    metadata:
+      labels:
+        app: my-app-test
+    spec:
+      containers:
+      - name: my-app-container
+        image: busybox
+        command: ["sh", "-c", "while true; do echo 'Log from namespace-42-a'; sleep 5; done"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-test
+  namespace: namespace-42-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app-test
+  template:
+    metadata:
+      labels:
+        app: my-app-test
+    spec:
+      containers:
+      - name: my-app-container
+        image: busybox
+        command: ["sh", "-c", "while true; do echo 'Log from namespace-42-b'; sleep 5; done"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-test
+  namespace: namespace-42-c
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app-test
+  template:
+    metadata:
+      labels:
+        app: my-app-test
+    spec:
+      containers:
+      - name: my-app-container
+        image: busybox
+        command: ["sh", "-c", "while true; do echo 'Log from namespace-42-c'; sleep 5; done"]

@@ -1,0 +1,11 @@
+user_prompt: "Fetch logs for the last 6 hours of my-app-test"
+expected_output:
+  - The result mentions that my-app-test is in multiple namespaces, and mentions their names - namespace-42-a, namespace-42-b, namespace-42-c
+  - The result either contains the logs of the app from all the namespaces or tell the user to pick a namespace.
+  - If the logs are in the answer, they should contains logs corresponding to the namespaces - 'Log from namespace-42-a' 'Log from namespace-42-b' 'Log from namespace-42-c'
+before_test: |
+  kubectl apply -f ./deployments.yaml
+after_test: |
+  kubectl delete -f ./deployments.yaml
+evaluation:
+  correctness: 1
