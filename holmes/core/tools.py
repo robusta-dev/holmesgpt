@@ -118,7 +118,6 @@ class ToolsetTag(str, Enum):
 
 
 class ToolsetType(str, Enum):
-    NONE = "none"
     MCP = "mcp"
 
 
@@ -346,7 +345,7 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
-    type: Optional[ToolsetType] = ToolsetType.NONE
+    type: Optional[ToolsetType] = None
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
     _error: Optional[str] = PrivateAttr(None)
