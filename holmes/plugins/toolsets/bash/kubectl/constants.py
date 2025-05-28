@@ -33,8 +33,6 @@ VALID_RESOURCE_TYPES = {
     "configmaps",
     "configmap",
     "cm",
-    "secrets",
-    "secret",
     "persistentvolumes",
     "persistentvolume",
     "pv",

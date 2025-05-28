@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import random
+import re
 import string
 import subprocess
 from typing import Dict, Any, Optional
@@ -17,6 +18,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
+from holmes.plugins.toolsets.bash.kubectl.constants import SAFE_NAMESPACE_PATTERN
 from holmes.plugins.toolsets.bash.kubectl.kubectl_run import validate_image_and_commands
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 from holmes.plugins.toolsets.utils import get_param_or_raise
@@ -80,6 +82,16 @@ class KubectlRunImageCommand(BaseBashTool):
 
         image = get_param_or_raise(params, "image")
         command_str = get_param_or_raise(params, "command")
+
+        namespace = params.get("namespace")
+
+        if namespace and not re.match(SAFE_NAMESPACE_PATTERN, namespace):
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=f"Error: The namespace is invalid. Valid namespaces must match the following regexp: {SAFE_NAMESPACE_PATTERN}",
+                params=params,
+            )
+
         validate_image_and_commands(
             image=image, container_command=command_str, config=self.toolset.config
         )

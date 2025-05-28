@@ -1,34 +1,10 @@
-import argparse
 import re
-from typing import Any, Optional
+from typing import Optional
 
 from holmes.plugins.toolsets.bash.common.config import (
     BashExecutorConfig,
     KubectlImageConfig,
 )
-from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
-from holmes.plugins.toolsets.bash.common.validators import regex_validator
-from holmes.plugins.toolsets.bash.kubectl.constants import (
-    SAFE_NAME_PATTERN,
-    SAFE_NAMESPACE_PATTERN,
-)
-
-# Pattern for validating Docker image names
-SAFE_IMAGE_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9\-_./:]*$")
-
-# Pattern for validating command arguments (alphanumeric, common symbols, spaces)
-SAFE_COMMAND_PATTERN = re.compile(r"^[a-zA-Z0-9\-_./:\s=<>]*$")
-
-
-def simplify_kubectl_run_for_argparse(cmd: str):
-    """The argparse parser does not work well with kubectl commands that use double dash `--` to separate the container's command from the kubectl options.
-    This method hacks the command and simplifies it for argparse
-    """
-    if cmd.startswith("kubectl run") and " --command -- " in cmd:
-        replaced = cmd.replace(" --command -- ", " --command ")
-        return replaced
-
-    return cmd
 
 
 def validate_image_and_commands(
@@ -68,92 +44,3 @@ def validate_image_and_commands(
             f"Command '{container_command}' not allowed for image '{image}'. "
             f"Allowed patterns: {', '.join(image_config.allowed_commands)}"
         )
-
-
-def create_kubectl_run_parser(kubectl_parser: Any):
-    parser = kubectl_parser.add_parser("run", exit_on_error=False)
-
-    parser.add_argument(
-        "name",
-        type=regex_validator("pod name", SAFE_NAME_PATTERN),
-    )
-
-    parser.add_argument(
-        "--image",
-        required=True,
-        # type=regex_validator("image", SAFE_IMAGE_PATTERN),
-    )
-
-    parser.add_argument(
-        "-n",
-        "--namespace",
-        type=regex_validator("namespace", SAFE_NAMESPACE_PATTERN),
-    )
-
-    parser.add_argument(
-        "--rm", action="store_true", help="Delete resources created in this command"
-    )
-
-    parser.add_argument("--attach", action="store_true", help="Attach to the container")
-
-    parser.add_argument(
-        "--restart",
-        choices=["Never"],
-        default="Never",
-    )
-
-    parser.add_argument(
-        "--overrides",
-    )
-
-    parser.add_argument("--tty", action="store_true")
-    parser.add_argument(
-        "-i",
-        action="store_true",
-    )
-
-    parser.add_argument("--command", nargs="+")
-    parser.add_argument(
-        "command_after_separator",
-        nargs=argparse.REMAINDER,  # Captures all remaining arguments
-        default=[],  # Default to an empty list
-    )
-
-
-def stringify_run_command(cmd: Any, config: Optional[BashExecutorConfig]) -> str:
-    # Validate image and commands if configured
-    command = cmd.command or cmd.tty
-    if cmd.image and command:
-        container_command = " ".join(command)
-        validate_image_and_commands(
-            image=cmd.image, container_command=container_command, config=config
-        )
-
-    parts = ["kubectl", "run", cmd.name]
-
-    if cmd.overrides:
-        raise ValueError(
-            "--override is not an accepted argument. It has been disabled for security reasons"
-        )
-
-    if cmd.image:
-        parts.extend(["--image", cmd.image])
-
-    if cmd.namespace:
-        parts.extend(["--namespace", cmd.namespace])
-
-    if cmd.rm:
-        parts.append("--rm")
-
-    if cmd.attach:
-        parts.append("--attach")
-
-    if cmd.restart:
-        parts.extend(["--restart", cmd.restart])
-
-    if command:
-        parts.append("--command")
-        parts.append("--")
-        parts.extend(command)
-
-    return " ".join(escape_shell_args(parts))

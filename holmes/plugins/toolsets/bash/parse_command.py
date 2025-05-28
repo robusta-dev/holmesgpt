@@ -8,9 +8,6 @@ from holmes.plugins.toolsets.bash.kubectl import (
     create_kubectl_parser,
     stringify_kubectl_command,
 )
-from holmes.plugins.toolsets.bash.kubectl.kubectl_run import (
-    simplify_kubectl_run_for_argparse,
-)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -78,7 +75,6 @@ def split_into_separate_commands(command_str: str) -> list[list[str]]:
 
 
 def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) -> str:
-    command_str = simplify_kubectl_run_for_argparse(command_str)
     commands = split_into_separate_commands(command_str)
 
     try:

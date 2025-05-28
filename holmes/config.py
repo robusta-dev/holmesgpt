@@ -150,9 +150,6 @@ def load_toolsets_definitions(
                 validated_config.config = replace_env_vars_values(
                     validated_config.config
                 )
-            print(
-                f"\n** {name}\nloaded:\t{json.dumps(config)}\n\tvalidated:{validated_config.config}"
-            )
             loaded_toolsets.append(validated_config)
         except ValidationError as e:
             logging.warning(f"Toolset '{name}' is invalid: {e}")
