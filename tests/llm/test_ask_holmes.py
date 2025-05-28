@@ -35,7 +35,17 @@ def get_test_cases():
         )
         bt_helper.upload_test_cases(mh.load_test_cases())
     test_cases = mh.load_ask_holmes_test_cases()
-    return [(experiment_name, test_case) for test_case in test_cases]
+
+    iterations = int(os.environ.get("ITERATIONS", "0"))
+    if iterations:
+        test_cases_tuples = []
+        for i in range(0, iterations):
+            test_cases_tuples.extend(
+                [(experiment_name, test_case) for test_case in test_cases]
+            )
+        return test_cases_tuples
+    else:
+        return [(experiment_name, test_case) for test_case in test_cases]
 
 
 def idfn(val):
