@@ -1,46 +1,33 @@
+import json
 import logging
 import os
-import yaml  # type: ignore
 import os.path
-from typing import Any, Dict, List, Optional, Union
-from holmes.utils.file_utils import load_yaml_file
+import re
+from enum import Enum
+from pathlib import Path
+from typing import Any, List, Optional, Union
+
+import yaml  # type: ignore
+from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
+
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
+from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.llm import LLM, DefaultLLM
-from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
-from pydash.arrays import concat
-import json
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
-from holmes.core.tools import (
-    Toolset,
-    ToolsetPattern,
-    ToolsetYamlFromConfig,
-    get_matching_toolsets,
-    ToolsetStatusEnum,
-    ToolsetTag,
-    ToolsetType,
-)
+from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
 from holmes.plugins.sources.github import GitHubSource
-from holmes.plugins.sources.jira import JiraSource, JiraServiceManagementSource
+from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
-
-from holmes.plugins.toolsets import load_builtin_toolsets
-from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
-from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
-from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
-from pydantic import ValidationError
-
-from holmes.core.tools import YAMLToolset
-from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 from holmes.utils.definitions import RobustaConfig
-import re
-from enum import Enum
+from holmes.utils.file_utils import load_yaml_file
+from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
@@ -81,11 +68,13 @@ def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, list):
             # can be a list of strings
             values[key] = [
-                replace_env_vars_values(iter)
-                if isinstance(iter, dict)
-                else get_env_replacement(iter)
-                if isinstance(iter, str)
-                else iter
+                (
+                    replace_env_vars_values(iter)
+                    if isinstance(iter, dict)
+                    else get_env_replacement(iter)
+                    if isinstance(iter, str)
+                    else iter
+                )
                 for iter in value
             ]
     return values
@@ -98,66 +87,6 @@ def is_old_toolset_config(
     if isinstance(toolsets, list):
         return True
     return False
-
-
-def load_toolsets_definitions(
-    toolsets: dict[str, dict[str, Any]], path: str
-) -> List[ToolsetYamlFromConfig]:
-    loaded_toolsets: list[ToolsetYamlFromConfig] = []
-    if is_old_toolset_config(toolsets):
-        message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
-        logging.warning(message)
-        raise ValueError(message)
-
-    for name, config in toolsets.items():
-        try:
-            validated_config: ToolsetYamlFromConfig = ToolsetYamlFromConfig(
-                **config, name=name
-            )
-            validated_config.set_path(path)
-            if validated_config.config:
-                validated_config.config = replace_env_vars_values(
-                    validated_config.config
-                )
-            loaded_toolsets.append(validated_config)
-        except ValidationError as e:
-            logging.warning(f"Toolset '{name}' is invalid: {e}")
-
-        except Exception:
-            logging.warning("Failed to load toolset: %s", name, exc_info=True)
-
-    return loaded_toolsets
-
-
-def parse_toolsets_file(
-    path: str, raise_error: bool = True
-) -> Optional[List[ToolsetYamlFromConfig]]:
-    parsed_yaml = load_yaml_file(path, raise_error)
-
-    toolsets_definitions: dict = parsed_yaml.get("toolsets", {})
-    mcp_definitions: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
-
-    for server_config in mcp_definitions.values():
-        server_config["type"] = ToolsetType.MCP
-
-    toolsets_definitions.update(mcp_definitions)
-
-    if not toolsets_definitions:
-        message = f"No 'toolsets' key found in: {path}"
-        logging.warning(message)
-        if raise_error:
-            raise ValueError(message)
-        return None
-
-    try:
-        toolset_config = load_toolsets_definitions(toolsets_definitions, path)
-    except Exception as err:
-        logging.warning(f"Error loading toolset configuration from {path}: {err}")
-        if raise_error:
-            raise err
-        return None
-
-    return toolset_config
 
 
 def parse_models_file(path: str):
@@ -216,6 +145,8 @@ class Config(RobustaBaseConfig):
     _version: Optional[str] = None
     _holmes_info: Optional[HolmesInfo] = None
 
+    _toolset_manager: Optional[ToolsetManager] = None
+
     @property
     def is_latest_version(self) -> bool:
         if self._holmes_info and self._holmes_info.latest_version and self._version:
@@ -223,6 +154,14 @@ class Config(RobustaBaseConfig):
 
         # We couldn't resolve version, assume we are running the latest version
         return True
+
+    @property
+    def toolset_manager(self) -> ToolsetManager:
+        if not self._toolset_manager:
+            self._toolset_manager = ToolsetManager(
+                toolsets=self.toolsets, custom_toolsets=self.custom_toolsets
+            )
+        return self._toolset_manager
 
     def model_post_init(self, __context: Any) -> None:
         self._version = get_version()
@@ -241,6 +180,22 @@ class Config(RobustaBaseConfig):
                 self._version,
                 self._holmes_info.latest_version,
             )
+
+    @classmethod
+    def load_from_file(cls, config_file: Optional[Path], **kwargs) -> "Config":
+        if config_file is not None and config_file.exists():
+            logging.debug(f"Loading config from {config_file}")
+            config_from_file = load_model_from_file(cls, config_file)
+
+        cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
+
+        if config_from_file is None:
+            return cls(**cli_options)
+
+        logging.debug(f"Overriding config from cli options {cli_options}")
+        merged_config = config_from_file.dict()
+        merged_config.update(cli_options)
+        return cls(**merged_config)
 
     @classmethod
     def load_from_env(cls):
@@ -291,81 +246,18 @@ class Config(RobustaBaseConfig):
 
         return None
 
-    def create_console_tool_executor(
-        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal]
-    ) -> ToolExecutor:
+    def create_console_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
         and their execution in the command-line interface.
 
         The method loads toolsets in this order, with later sources overriding earlier ones:
         1. Built-in toolsets (tagged as CORE or CLI)
-        2. Custom toolsets from config files which can override built-in toolsets
-        3. Toolsets defined in self.toolsets which can override both built-in and custom toolsets config
+        2. toolsets from config file will override and be merged into built-in toolsets with the same name.
+        3. Custom toolsets from config files which can not override built-in toolsets
         """
-        default_toolsets = [
-            toolset
-            for toolset in load_builtin_toolsets(dal)
-            if any(tag in (ToolsetTag.CORE, ToolsetTag.CLI) for tag in toolset.tags)
-        ]
-        # All built-in toolsets are enabled by default, users can override this in their config
-        for toolset in default_toolsets:
-            toolset.enabled = True
-
-        if allowed_toolsets == "*":
-            matching_toolsets = default_toolsets
-        else:
-            matching_toolsets = get_matching_toolsets(
-                default_toolsets,
-                allowed_toolsets.split(","),  # type: ignore
-            )
-
-        toolsets_by_name = {toolset.name: toolset for toolset in matching_toolsets}
-
-        toolsets_loaded_from_config = self.load_custom_toolsets_config()
-
-        if toolsets_loaded_from_config:
-            toolsets_by_name = (
-                self.merge_and_override_bultin_toolsets_with_toolsets_config(
-                    toolsets_loaded_from_config,
-                    toolsets_by_name,
-                )
-            )
-        if self.toolsets:
-            loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
-            if loaded_toolsets_from_env:
-                toolsets_by_name = (
-                    self.merge_and_override_bultin_toolsets_with_toolsets_config(
-                        loaded_toolsets_from_env,
-                        toolsets_by_name,
-                    )
-                )
-
-        for toolset in toolsets_by_name.values():
-            if toolset.enabled:
-                toolset.check_prerequisites()
-
-        toolsets = []
-        for ts in toolsets_by_name.values():
-            toolsets.append(ts)
-
-        for ts in default_toolsets:
-            if ts.name not in toolsets_by_name.keys():
-                logging.debug(
-                    f"Toolset {ts.name} from {ts.get_path()} was filtered out due to allowed_toolsets value"
-                )
-
-        enabled_tools = concat(
-            *[
-                ts.tools
-                for ts in toolsets
-                if ts.get_status() == ToolsetStatusEnum.ENABLED
-            ]
-        )
-        logging.debug(
-            f"Starting AI session with tools: {[t.name for t in enabled_tools]}"
-        )
-        return ToolExecutor(toolsets)
+        cli_toolsets = self.toolset_manager.list_enabled_console_toolsets(dal=dal)
+        return ToolExecutor(cli_toolsets)
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """
@@ -375,39 +267,7 @@ class Config(RobustaBaseConfig):
         if self._server_tool_executor:
             return self._server_tool_executor
 
-        logging.info("Creating server tool executor")
-        all_toolsets = load_builtin_toolsets(dal=dal)
-
-        toolsets_by_name: dict[str, Toolset] = {
-            toolset.name: toolset
-            for toolset in all_toolsets
-            if any(tag in (ToolsetTag.CORE, ToolsetTag.CLUSTER) for tag in toolset.tags)
-        }
-
-        toolsets_loaded_from_config = self.load_custom_toolsets_config()
-        if toolsets_loaded_from_config:
-            toolsets_by_name = (
-                self.merge_and_override_bultin_toolsets_with_toolsets_config(
-                    toolsets_loaded_from_config,
-                    toolsets_by_name,
-                )
-            )
-
-        if self.toolsets:
-            loaded_toolsets_from_env = load_toolsets_definitions(self.toolsets, "env")
-            if loaded_toolsets_from_env:
-                toolsets_by_name = (
-                    self.merge_and_override_bultin_toolsets_with_toolsets_config(
-                        loaded_toolsets_from_env,
-                        toolsets_by_name,
-                    )
-                )
-
-        toolsets: list[Toolset] = list(toolsets_by_name.values())
-
-        for toolset in toolsets:
-            if toolset.enabled:
-                toolset.check_prerequisites()
+        toolsets = self.toolset_manager.list_enabled_server_toolsets(dal=dal)
 
         self._server_tool_executor = ToolExecutor(toolsets)
 
@@ -418,9 +278,9 @@ class Config(RobustaBaseConfig):
         return self._server_tool_executor
 
     def create_console_toolcalling_llm(
-        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
-        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(dal)
         return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
 
     def create_toolcalling_llm(
@@ -443,14 +303,14 @@ class Config(RobustaBaseConfig):
         )
 
     def create_console_issue_investigator(
-        self, allowed_toolsets: ToolsetPattern, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(allowed_toolsets, dal)
+        tool_executor = self.create_console_tool_executor(dal=dal)
         return IssueInvestigator(
             tool_executor, runbook_manager, self.max_steps, self._get_llm()
         )
@@ -548,113 +408,6 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
-    def load_custom_toolsets_config(self) -> Optional[list[ToolsetYamlFromConfig]]:
-        """
-        Loads toolsets config from /etc/holmes/config/custom_toolset.yaml with ToolsetYamlFromConfig class
-        that doesn't have strict validations.
-        Example configuration:
-
-        kubernetes/logs:
-            enabled: false
-
-        test/configurations:
-            enabled: true
-            icon_url: "example.com"
-            description: "test_description"
-            docs_url: "https://docs.docker.com/"
-            prerequisites:
-                - env:
-                    - API_ENDPOINT
-                - command: "curl ${API_ENDPOINT}"
-            additional_instructions: "jq -r '.result.results[].userData | fromjson | .text | fromjson | .log'"
-            tools:
-                - name: "curl_example"
-                description: "Perform a curl request to example.com using variables"
-                command: "curl -X GET '{{api_endpoint}}?query={{ query_param }}' "
-        """
-        loaded_toolsets = []
-        for custom_path in self.custom_toolsets:
-            if not os.path.isfile(custom_path):
-                logging.warning(f"Custom toolset file {custom_path} does not exist")
-                continue
-            toolset_config = parse_toolsets_file(
-                path=str(custom_path), raise_error=False
-            )
-            if toolset_config:
-                loaded_toolsets.extend(toolset_config)
-
-        # if toolsets are loaded from custom_toolsets, return them without checking the default location
-        if loaded_toolsets:
-            return loaded_toolsets
-
-        if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            logging.debug(
-                f"Custom toolset file {CUSTOM_TOOLSET_LOCATION} does not exist"
-            )
-            return []
-
-        return parse_toolsets_file(path=str(CUSTOM_TOOLSET_LOCATION), raise_error=True)
-
-    def merge_and_override_bultin_toolsets_with_toolsets_config(
-        self,
-        toolsets_loaded_from_config: list[ToolsetYamlFromConfig],
-        default_toolsets_by_name: dict[str, Toolset],
-    ) -> dict[str, Toolset]:
-        """
-        Merges and overrides default_toolsets_by_name with custom
-        config from /etc/holmes/config/custom_toolset.yaml
-        """
-        toolsets_with_updated_statuses: Dict[str, YAMLToolset] = {
-            toolset.name: toolset  # type: ignore
-            for toolset in default_toolsets_by_name.values()  # type: ignore
-        }
-
-        for toolset in toolsets_loaded_from_config:
-            if toolset.name in toolsets_with_updated_statuses.keys():
-                toolsets_with_updated_statuses[toolset.name].override_with(toolset)
-            else:
-                try:
-                    if toolset.type == ToolsetType.MCP:
-                        validated_toolset = RemoteMCPToolset(
-                            **toolset.model_dump(exclude_none=True)
-                        )
-                    else:
-                        validated_toolset = YAMLToolset(
-                            **toolset.model_dump(exclude_none=True)
-                        )
-                    toolsets_with_updated_statuses[toolset.name] = validated_toolset
-                except Exception as error:
-                    logging.error(
-                        f"Toolset '{toolset.name}' is invalid: {error} ", exc_info=True
-                    )
-
-        return toolsets_with_updated_statuses  # type: ignore
-
-    @classmethod
-    def load_from_file(cls, config_file: Optional[str], **kwargs) -> "Config":
-        if config_file is not None:
-            logging.debug("Loading config from file %s", config_file)
-            config_from_file = load_model_from_file(cls, config_file)
-        elif os.path.exists(DEFAULT_CONFIG_LOCATION):
-            logging.debug(
-                f"Loading config from default location {DEFAULT_CONFIG_LOCATION}"
-            )
-            config_from_file = load_model_from_file(cls, DEFAULT_CONFIG_LOCATION)
-        else:
-            logging.debug(
-                f"No config file found at {DEFAULT_CONFIG_LOCATION}, using cli settings only"
-            )
-            config_from_file = None
-
-        cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
-
-        if config_from_file is None:
-            return cls(**cli_options)
-
-        merged_config = config_from_file.dict()
-        merged_config.update(cli_options)
-        return cls(**merged_config)
-
     def _get_llm(self, model_key: Optional[str] = None) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
         model = self.model
@@ -690,7 +443,7 @@ class SourceFactory(BaseModel):
     @staticmethod
     def create_source(
         source: SupportedTicketSources,
-        config_file: Optional[str],
+        config_file: Optional[Path],
         ticket_url: Optional[str],
         ticket_username: Optional[str],
         ticket_api_key: Optional[str],

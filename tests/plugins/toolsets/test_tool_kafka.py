@@ -1,17 +1,19 @@
 import os
-import subprocess
-import pytest
 import random
 import string
+import subprocess
+
+import pytest
 from confluent_kafka.admin import NewTopic
+
 from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.kafka import (
-    KafkaToolset,
-    ListKafkaConsumers,
     DescribeConsumerGroup,
-    ListTopics,
     DescribeTopic,
     FindConsumerGroupsByTopic,
+    KafkaToolset,
+    ListKafkaConsumers,
+    ListTopics,
 )
 from tests.utils.kafka import wait_for_kafka_ready
 
@@ -35,7 +37,7 @@ def kafka_toolset():
     kafka_toolset.config = kafka_config
     kafka_toolset.check_prerequisites()
     assert (
-        kafka_toolset.get_status() == ToolsetStatusEnum.ENABLED
+        kafka_toolset.status() == ToolsetStatusEnum.ENABLED
     ), "Prerequisites check failed for Kafka toolset"
     assert kafka_toolset.admin_client is not None, "Missing admin client"
     return kafka_toolset

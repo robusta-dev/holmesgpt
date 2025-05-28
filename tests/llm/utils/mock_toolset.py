@@ -1,14 +1,21 @@
 import json
-from typing import Any, Dict, List, Optional
-from holmes.config import parse_toolsets_file
-from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
-from holmes.plugins.toolsets import load_builtin_toolsets
-from pydantic import BaseModel
 import logging
-import re
 import os
+import re
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
+
+from holmes.config import parse_toolsets_file
+from holmes.core.tools import (
+    StructuredToolResult,
+    Tool,
+    Toolset,
+    ToolsetStatusEnum,
+    ToolsetYamlFromConfig,
+)
+from holmes.plugins.toolsets import load_builtin_toolsets
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
-from holmes.core.tools import StructuredToolResult
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
 
@@ -224,7 +231,7 @@ class MockToolsets:
                 else:
                     mocked_tools.append(wrapped_tool)
 
-            if has_mocks or toolset.get_status() == ToolsetStatusEnum.ENABLED:
+            if has_mocks or toolset.status == ToolsetStatusEnum.ENABLED:
                 mocked_toolset = MockToolset(
                     name=toolset.name,
                     prerequisites=toolset.prerequisites,

@@ -1,14 +1,15 @@
 import os
 import time
-from holmes.core.tools import ToolsetStatusEnum
-from holmes.plugins.toolsets.grafana.grafana_api import get_health
+
 import pytest
 
+from holmes.core.tools import ToolsetStatusEnum
+from holmes.plugins.toolsets.grafana.grafana_api import get_health
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import (
     GetLokiLogsForResource,
+    GrafanaLokiConfig,
     GrafanaLokiToolset,
 )
-from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiConfig
 
 GRAFANA_API_KEY = os.environ.get("GRAFANA_API_KEY", "")
 GRAFANA_URL = os.environ.get("GRAFANA_URL", "")
@@ -37,7 +38,7 @@ def test_grafana_query_loki_logs_by_pod():
     toolset.check_prerequisites()
 
     assert toolset.get_error() is None
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
 
     tool = GetLokiLogsForResource(toolset)
     # just tests that this does not throw

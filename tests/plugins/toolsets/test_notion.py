@@ -1,8 +1,9 @@
 import json
-import pytest
-from holmes.core.tools import ToolsetStatusEnum
-from holmes.plugins.toolsets.internet.notion import NotionToolset, FetchNotion
 
+import pytest
+
+from holmes.core.tools import ToolsetStatusEnum
+from holmes.plugins.toolsets.internet.notion import FetchNotion, NotionToolset
 
 notion_config = {
     "additional_headers": {
@@ -19,7 +20,7 @@ def notion_toolset():
     toolset._status = ToolsetStatusEnum.ENABLED
     toolset.check_prerequisites()
     assert (
-        toolset.get_status() == ToolsetStatusEnum.ENABLED
+        toolset.status == ToolsetStatusEnum.ENABLED
     ), "Prerequisites check failed for Notion toolset"
     return toolset
 

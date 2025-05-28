@@ -1,29 +1,21 @@
-from abc import ABC, abstractmethod
+import json
 import logging
 import os
 import re
 import shlex
 import subprocess
 import tempfile
-from typing import Callable, Dict, List, Literal, Optional, Union, Any, Tuple
-from enum import Enum
+from abc import ABC, abstractmethod
 from datetime import datetime
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import sentry_sdk
-import json
 from jinja2 import Template
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    PrivateAttr,
-    Field,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
-
-
-ToolsetPattern = Union[Literal["*"], List[str]]
 
 
 class ToolResultStatus(str, Enum):
@@ -72,22 +64,6 @@ def sanitize_params(params):
     return {k: sanitize(str(v)) for k, v in params.items()}
 
 
-def get_matching_toolsets(
-    all_toolsets: List["Toolset"], pattern: ToolsetPattern
-) -> List["Toolset"]:
-    """
-    Get toolsets matching a given pattern.
-    """
-    if pattern == "*":
-        return all_toolsets
-
-    matching_toolsets = []
-    for pat in pattern:
-        regex = re.compile(pat.replace("*", ".*"))
-        matching_toolsets.extend([ts for ts in all_toolsets if regex.match(ts.name)])
-    return matching_toolsets
-
-
 def format_tool_output(tool_result: Union[str, StructuredToolResult]) -> str:
     if isinstance(tool_result, StructuredToolResult):
         if tool_result.data and isinstance(tool_result.data, str):
@@ -118,6 +94,8 @@ class ToolsetTag(str, Enum):
 
 
 class ToolsetType(str, Enum):
+    BUILTIN = "built-in"
+    CUSTOMIZED = "customized"
     MCP = "mcp"
 
 
@@ -197,7 +175,7 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _get_status(self, return_code: int, raw_output: str) -> ToolResultStatus:
+    def _getstatus(self, return_code: int, raw_output: str) -> ToolResultStatus:
         if return_code != 0:
             return ToolResultStatus.ERROR
         if raw_output == "":
@@ -223,7 +201,7 @@ class YAMLTool(Tool, BaseModel):
             if return_code == 0
             else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
         )
-        status = self._get_status(return_code, raw_output)
+        status = self._getstatus(return_code, raw_output)
 
         return StructuredToolResult(
             status=status,
@@ -323,6 +301,9 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
     experimental: bool = False
+
+    # Built-in toolset is enabled when 1. it's specified in the config and 2. 'enabled' is not set to false
+    # Custom toolset is enabled when 'enabled' is not set to false
     enabled: bool = False
     name: str
     description: str
@@ -345,16 +326,17 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
-    type: Optional[ToolsetType] = None
 
     # warning! private attributes are not copied, which can lead to subtle bugs.
     # e.g. l.extend([some_tool]) will reset these private attribute to None
 
-    _path: Optional[str] = PrivateAttr(None)
-    _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
-    _error: Optional[str] = PrivateAttr(None)
+    # status fields that be cached
+    type: ToolsetType = ToolsetType.BUILTIN
+    path: Optional[FilePath] = None
+    status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
+    error: Optional[str] = None
 
-    def override_with(self, override: "ToolsetYamlFromConfig") -> None:
+    def override_with(self, override: "YAMLToolset") -> None:
         """
         Overrides the current attributes with values from the ToolsetYamlFromConfig loaded from custom config
         if they are not None.
@@ -381,18 +363,6 @@ class Toolset(BaseModel):
 
         return values
 
-    def set_path(self, path: Optional[str]):
-        self._path = path
-
-    def get_path(self):
-        return self._path
-
-    def get_status(self):
-        return self._status
-
-    def get_error(self):
-        return self._error
-
     def get_environment_variables(self) -> List[str]:
         env_vars = set()
 
@@ -407,7 +377,7 @@ class Toolset(BaseModel):
         return interpolated_command
 
     def check_prerequisites(self):
-        self._status = ToolsetStatusEnum.ENABLED
+        self.status = ToolsetStatusEnum.ENABLED
 
         for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetCommandPrerequisite):
@@ -425,39 +395,39 @@ class Toolset(BaseModel):
                         prereq.expected_output
                         and prereq.expected_output not in result.stdout
                     ):
-                        self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
+                        self.status = ToolsetStatusEnum.FAILED
+                        self.error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
                 except subprocess.CalledProcessError as e:
-                    self._status = ToolsetStatusEnum.FAILED
-                    self._error = f"`{prereq.command}` returned {e.returncode}"
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"`{prereq.command}` returned {e.returncode}"
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
-                        self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"Environment variable {env_var} was not set"
+                        self.status = ToolsetStatusEnum.FAILED
+                        self.error = f"Environment variable {env_var} was not set"
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
-                    self._status = ToolsetStatusEnum.FAILED
-                    self._error = f"{prereq.disabled_reason}"
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"{prereq.disabled_reason}"
 
             elif isinstance(prereq, CallablePrerequisite):
                 try:
                     (enabled, error_message) = prereq.callable(self.config)
                     if not enabled:
-                        self._status = ToolsetStatusEnum.FAILED
+                        self.status = ToolsetStatusEnum.FAILED
                     if error_message:
-                        self._error = f"{error_message}"
+                        self.error = f"{error_message}"
                 except Exception as e:
-                    self._status = ToolsetStatusEnum.FAILED
-                    self._error = f"Prerequisite call failed unexpectedly: {str(e)}"
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"Prerequisite call failed unexpectedly: {str(e)}"
 
             if (
-                self._status == ToolsetStatusEnum.DISABLED
-                or self._status == ToolsetStatusEnum.FAILED
+                self.status == ToolsetStatusEnum.DISABLED
+                or self.status == ToolsetStatusEnum.FAILED
             ):
-                logging.info(f"❌ Toolset {self.name}: {self._error}")
+                logging.info(f"❌ Toolset {self.name}: {self.error}")
                 # no point checking further prerequisites if one failed
                 return
 
@@ -477,6 +447,14 @@ class Toolset(BaseModel):
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]  # type: ignore
+    enabled: bool = False
+    prerequisites: List[
+        Union[
+            StaticPrerequisite,
+            ToolsetCommandPrerequisite,
+            ToolsetEnvironmentPrerequisite,
+        ]
+    ] = []  # type: ignore
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -493,7 +471,7 @@ class ToolExecutor:
 
         self.enabled_toolsets: list[Toolset] = list(
             filter(
-                lambda toolset: toolset.get_status() == ToolsetStatusEnum.ENABLED,
+                lambda toolset: toolset.status == ToolsetStatusEnum.ENABLED,
                 toolsets,
             )
         )
@@ -536,7 +514,16 @@ class ToolExecutor:
 
 
 class ToolsetYamlFromConfig(Toolset):
+    """
+    ToolsetYamlFromConfig represents a toolset loaded from a YAML configuration file.
+    To override a build-in toolset fields, we don't have to explicitly set all required fields,
+    instead, we only put the fields we want to override in the YAML file.
+    ToolsetYamlFromConfig helps py-pass the pydantic validation of the required fields and together with
+    `override_with` method, a build-in toolset object with new configurations is created.
+    """
+
     name: str
+    # defaults enabled to True to enable the toolset provided in configuration by default unless it's explicitly disabled
     enabled: bool = True
     additional_instructions: Optional[str] = None
     prerequisites: List[
