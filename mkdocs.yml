@@ -1,0 +1,199 @@
+site_name: HolmesGPT Documentation
+site_description: AI-powered root cause analysis for DevOps and SRE teams
+site_url: https://holmesgpt.robusta.dev
+repo_url: https://github.com/robusta-dev/holmesgpt
+repo_name: robusta-dev/holmesgpt
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tooltips
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.path
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  font:
+    text: Inter
+    code: Fira Code
+  favicon: assets/favicon.png
+  logo: assets/logo.png
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  # - git-revision-date-localized:
+  #     enable_creation_date: true
+  #     type: timeago
+  # - git-committers:
+  #     repository: robusta-dev/holmesgpt
+  #     branch: main
+  #     docs_path: docs/
+  # - minify:
+  #     minify_html: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: robusta-dev
+      repo: holmesgpt
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/robusta-dev/holmesgpt
+    - icon: fontawesome/brands/slack
+      link: https://robustacommunity.slack.com
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/RobustaDev
+
+nav:
+  - Introduction:
+      - index.md
+      - What is HolmesGPT?: introduction/what-is-holmesgpt.md
+      - Key Features: introduction/key-features.md
+      - Architecture Overview: introduction/architecture.md
+      - Getting Help: introduction/getting-help.md
+
+  - Getting Started:
+      - getting-started/index.md
+      - Prerequisites: getting-started/prerequisites.md
+      - Installation: getting-started/installation.md
+      - Quick Setup: getting-started/quick-setup.md
+      - First Investigation: getting-started/first-investigation.md
+      - Verification: getting-started/verification.md
+
+  - AI Providers:
+      - ai-providers/index.md
+      - Overview & Selection: ai-providers/overview.md
+      - Robusta AI: ai-providers/robusta-ai.md
+      - OpenAI: ai-providers/openai.md
+      - Azure OpenAI: ai-providers/azure-openai.md
+      - AWS Bedrock: ai-providers/aws-bedrock.md
+      - Multiple Providers: ai-providers/multiple-providers.md
+
+  - Data Sources:
+      - data-sources/index.md
+      - Built-in Toolsets:
+          - data-sources/builtin-toolsets/index.md
+          - Kubernetes: data-sources/builtin-toolsets/kubernetes.md
+          - AWS: data-sources/builtin-toolsets/aws.md
+          - Grafana (Loki & Tempo): data-sources/builtin-toolsets/grafana.md
+          - Prometheus: data-sources/builtin-toolsets/prometheus.md
+          - ArgoCD: data-sources/builtin-toolsets/argocd.md
+          - Coralogix: data-sources/builtin-toolsets/coralogix.md
+          - OpenSearch: data-sources/builtin-toolsets/opensearch.md
+          - Docker: data-sources/builtin-toolsets/docker.md
+          - Helm: data-sources/builtin-toolsets/helm.md
+          - Kafka: data-sources/builtin-toolsets/kafka.md
+          - RabbitMQ: data-sources/builtin-toolsets/rabbitmq.md
+          - Confluence: data-sources/builtin-toolsets/confluence.md
+          - Notion: data-sources/builtin-toolsets/notion.md
+          - Slab: data-sources/builtin-toolsets/slab.md
+          - Internet: data-sources/builtin-toolsets/internet.md
+          - Datetime: data-sources/builtin-toolsets/datetime.md
+          - Robusta: data-sources/builtin-toolsets/robusta.md
+      - Custom Toolsets: data-sources/custom-toolsets.md
+      - Remote MCP Servers: data-sources/remote-mcp-servers.md
+
+  - Usage & Workflows:
+      - usage/index.md
+      - Investigation Process: usage/investigation-process.md
+      - Slack Integration: usage/slack-integration.md
+      - Web UI Guide: usage/web-ui-guide.md
+      - CLI Usage: usage/cli-usage.md
+      - Best Practices: usage/best-practices.md
+
+  - Configuration:
+      - configuration/index.md
+      - Helm Configuration: configuration/helm-configuration.md
+      - Security & Permissions: configuration/security.md
+      - Performance Tuning: configuration/performance.md
+      - Monitoring & Observability: configuration/monitoring.md
+      - Troubleshooting: configuration/troubleshooting.md
+
+  - Development:
+      - development/index.md
+      - API Reference: development/api-reference.md
+      - Custom Toolset Development: development/custom-toolsets.md
+      - Contributing Guidelines: development/contributing.md
+      - Examples & Templates: development/examples.md
+
+  - Reference:
+      - reference/index.md
+      - Configuration Schema: reference/configuration-schema.md
+      - CLI Commands: reference/cli-commands.md
+      - FAQ: reference/faq.md
+      - Changelog: reference/changelog.md
