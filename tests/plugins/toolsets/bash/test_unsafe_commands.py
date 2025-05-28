@@ -41,7 +41,7 @@ class TestUnsafeCommands:
             (
                 "rm -rf /",
                 argparse.ArgumentError,
-                "argument cmd: invalid choice: 'rm' (choose from 'kubectl', 'grep')",
+                "argument cmd: invalid choice: 'rm'",
             ),
             ("rm -rf *", argparse.ArgumentError, None),
             ("rm -f /etc/passwd", argparse.ArgumentError, None),
