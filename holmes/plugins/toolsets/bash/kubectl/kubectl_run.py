@@ -106,9 +106,7 @@ def create_kubectl_run_parser(kubectl_parser: Any):
         "--overrides",
     )
 
-    parser.add_argument(
-        "--tty", action="store_true"
-    )
+    parser.add_argument("--tty", action="store_true")
     parser.add_argument(
         "-i",
         action="store_true",
@@ -117,10 +115,9 @@ def create_kubectl_run_parser(kubectl_parser: Any):
     parser.add_argument("--command", nargs="+")
     parser.add_argument(
         "command_after_separator",
-        nargs=argparse.REMAINDER, # Captures all remaining arguments
-        default=[], # Default to an empty list
+        nargs=argparse.REMAINDER,  # Captures all remaining arguments
+        default=[],  # Default to an empty list
     )
-    
 
 
 def stringify_run_command(cmd: Any, config: Optional[BashExecutorConfig]) -> str:

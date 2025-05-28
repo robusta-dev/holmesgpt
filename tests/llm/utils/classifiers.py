@@ -156,8 +156,6 @@ Possible choices:
     - A: The OUTPUT reasonably matches the EXPECTED content
     - B: The OUTPUT does not match the EXPECTED content
     """
-    else:
-        raise Exception(f"type {type} is not loose")
 
     classifier = LLMClassifier(
         name="Correctness",

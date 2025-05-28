@@ -9,11 +9,12 @@ def create_kubectl_logs_parser(kubectl_parser: Any):
     )
     parser.add_argument(
         "options",
-        nargs=argparse.REMAINDER, # Captures all remaining arguments
-        default=[], # Default to an empty list
+        nargs=argparse.REMAINDER,  # Captures all remaining arguments
+        default=[],  # Default to an empty list
     )
 
 
 def stringify_logs_command(cmd: Any) -> str:
-    raise ValueError("Use the tools `kubectl_logs`, `kubectl_previous_logs`, etc. to fetch logs instead of running `kubectl logs` commands")
-
+    raise ValueError(
+        "Use the tools `kubectl_logs`, `kubectl_previous_logs`, etc. to fetch logs instead of running `kubectl logs` commands"
+    )

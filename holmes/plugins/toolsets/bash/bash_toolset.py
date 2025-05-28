@@ -1,7 +1,8 @@
 import argparse
-import json
 import logging
 import os
+import random
+import string
 import subprocess
 from typing import Dict, Any, Optional
 
@@ -16,6 +17,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
+from holmes.plugins.toolsets.bash.kubectl.kubectl_run import validate_image_and_commands
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 from holmes.plugins.toolsets.utils import get_param_or_raise
 
@@ -40,11 +42,6 @@ class KubectlRunImageCommand(BaseBashTool):
                 "Executes `kubectl run <name> --image=<image> ... -- <command>` return the result"
             ),
             parameters={
-                "name": ToolParameter(
-                    description="The name of the pod. Defaults to 'holmes-debug-pod'",
-                    type="string",
-                    required=False,
-                ),
                 "image": ToolParameter(
                     description="The image to run",
                     type="string",
@@ -72,18 +69,26 @@ class KubectlRunImageCommand(BaseBashTool):
             toolset=toolset,
         )
 
-    def _build_kubectl_command(self, params:dict) -> str:
-        name = params.get("name", "holmes-debug-pod")
+    def _build_kubectl_command(self, params: dict, pod_name: str) -> str:
         namespace = params.get("namespace", "default")
         image = get_param_or_raise(params, "image")
         command_str = get_param_or_raise(params, "command")
-        return f"kubectl run {name} --image={image} --namespace={namespace} --rm --attach --restart=Never --command -- {command_str}"
+        return f"kubectl run {pod_name} --image={image} --namespace={namespace} --rm --attach --restart=Never -i --tty -- {command_str}"
 
     def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
-
         timeout = params.get("timeout", 60)
 
-        full_kubectl_command = self._build_kubectl_command(params)
+        image = get_param_or_raise(params, "image")
+        command_str = get_param_or_raise(params, "command")
+        validate_image_and_commands(
+            image=image, container_command=command_str, config=self.toolset.config
+        )
+
+        pod_name = (
+            "holmesgpt-debug-pod-"
+            + "".join(random.choices(string.ascii_letters, k=8)).lower()
+        )
+        full_kubectl_command = self._build_kubectl_command(params, pod_name)
         try:
             process = subprocess.run(
                 full_kubectl_command,
@@ -97,7 +102,8 @@ class KubectlRunImageCommand(BaseBashTool):
             )
 
             result_data = (
-                f"{full_kubectl_command}\n" f"{process.stdout.strip() if process.stdout else ''}"
+                f"{full_kubectl_command}\n"
+                f"{process.stdout.strip() if process.stdout else ''}"
             )
 
             status = (
@@ -134,7 +140,7 @@ class KubectlRunImageCommand(BaseBashTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict[str, Any]) -> str:
-        return self._build_kubectl_command(params)
+        return self._build_kubectl_command(params, "<pod_name>")
 
 
 class RunBashCommand(BaseBashTool):
@@ -185,7 +191,6 @@ class RunBashCommand(BaseBashTool):
         try:
             safe_command_str = make_command_safe(command_str, self.toolset.config)
         except (argparse.ArgumentError, ValueError) as e:
-            print(e)
             logging.info(f"Refusing LLM tool call {command_str}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -262,10 +267,7 @@ class BashExecutorToolset(BaseBashExecutorToolset):
             docs_url="",  # TODO: Add relevant documentation URL if available
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                RunBashCommand(self), 
-                KubectlRunImageCommand(self)
-            ],
+            tools=[RunBashCommand(self), KubectlRunImageCommand(self)],
             # Using CORE as per the provided example's structure.
             # In a real system, a more specific tag like 'SYSTEM_COMMANDS' or 'DANGEROUS' might be appropriate
             # if the ToolsetTag system supports custom tags or has more granular options.
@@ -283,7 +285,6 @@ class BashExecutorToolset(BaseBashExecutorToolset):
 
     def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
         if config:
-            print(json.dumps(config, indent=2))
             self.config = BashExecutorConfig(**config)
         else:
             self.config = BashExecutorConfig()

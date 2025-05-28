@@ -14,7 +14,10 @@ from holmes.plugins.toolsets.bash.kubectl.kubectl_events import (
     create_kubectl_events_parser,
     stringify_events_command,
 )
-from holmes.plugins.toolsets.bash.kubectl.kubectl_logs import create_kubectl_logs_parser, stringify_logs_command
+from holmes.plugins.toolsets.bash.kubectl.kubectl_logs import (
+    create_kubectl_logs_parser,
+    stringify_logs_command,
+)
 from holmes.plugins.toolsets.bash.kubectl.kubectl_top import (
     create_kubectl_top_parser,
     stringify_top_command,
@@ -25,7 +28,6 @@ from holmes.plugins.toolsets.bash.kubectl.kubectl_get import (
 )
 from holmes.plugins.toolsets.bash.kubectl.kubectl_run import (
     create_kubectl_run_parser,
-    stringify_run_command,
 )
 
 
@@ -53,25 +55,28 @@ def validate_kubectl_command(cmd: Any) -> None:
     """
 
     # Validate resource type
-    if cmd.resource_type.lower() not in VALID_RESOURCE_TYPES:
+    if (
+        hasattr(cmd, "resource_type")
+        and cmd.resource_type.lower() not in VALID_RESOURCE_TYPES
+    ):
         raise ValueError(f"Invalid resource type: {cmd.resource_type}")
 
     # Validate resource name if provided
-    if cmd.resource_name:
+    if hasattr(cmd, "resource_name") and cmd.resource_name:
         if not SAFE_NAME_PATTERN.match(cmd.resource_name):
             raise ValueError(f"Invalid resource name: {cmd.resource_name}")
         if len(cmd.resource_name) > 253:
             raise ValueError("Resource name too long")
 
     # Validate namespace if provided
-    if cmd.namespace:
+    if hasattr(cmd, "namespace") and cmd.namespace:
         if not SAFE_NAMESPACE_PATTERN.match(cmd.namespace):
             raise ValueError(f"Invalid namespace: {cmd.namespace}")
         if len(cmd.namespace) > 63:
             raise ValueError("Namespace name too long")
 
     # Validate selectors if provided
-    if cmd.selector:
+    if hasattr(cmd, "selector") and cmd.selector:
         if not SAFE_SELECTOR_PATTERN.match(cmd.selector):
             raise ValueError(f"Invalid label selector: {cmd.selector}")
         if len(cmd.selector) > 1000:

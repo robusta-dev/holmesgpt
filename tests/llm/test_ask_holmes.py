@@ -56,10 +56,6 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.skipif(
-    not os.environ.get("BRAINTRUST_API_KEY"),
-    reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
-)
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
@@ -75,8 +71,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
         raise e
 
     try:
-        (result, enabled_toolsets) = ask_holmes(test_case)
-        print(f"** ENABLED TOOLSETS **\n{', '.join(enabled_toolsets)}")
+        result = ask_holmes(test_case)
 
         if result.tool_calls:
             for tool_call in result.tool_calls:
@@ -89,13 +84,13 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
                         tool_span.log(
                             input=tool_call.description,
                             output=tool_call.result.model_dump_json(indent=2),
-                            error=tool_call.result.error
+                            error=tool_call.result.error,
                         )
                     else:
                         tool_span.log(
                             input=tool_call.description,
                             output=tool_call.result,
-                            error=tool_call.result.error
+                            error=tool_call.result.error,
                         )
     finally:
         after_test(test_case)
@@ -130,6 +125,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
             scores={
                 "correctness": correctness_eval.score,
             },
+            output=correctness_eval.metadata.get("rationale", ""),
             metadata=correctness_eval.metadata,
         )
     if len(test_case.retrieval_context) > 0:
@@ -170,7 +166,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
         assert scores.get("correctness", 0) >= expected_correctness
 
 
-def ask_holmes(test_case: AskHolmesTestCase) -> tuple[LLMResult, list[str]]:
+def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
     run_live = load_bool("RUN_LIVE", False)
     mock = MockToolsets(
         generate_mocks=test_case.generate_mocks,
@@ -187,6 +183,7 @@ def ask_holmes(test_case: AskHolmesTestCase) -> tuple[LLMResult, list[str]]:
     tool_executor = ToolExecutor(mock.enabled_toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
 
+    print(f"** ENABLED TOOLSETS **\n{', '.join(enabled_toolsets)}")
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
@@ -195,4 +192,4 @@ def ask_holmes(test_case: AskHolmesTestCase) -> tuple[LLMResult, list[str]]:
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
     messages = build_chat_messages(ask=chat_request.ask, conversation_history=[], ai=ai)
-    return (ai.messages_call(messages=messages), enabled_toolsets)
+    return ai.messages_call(messages=messages)

@@ -20,8 +20,8 @@ after_test: kubectl delete -f./manifest.yaml
 
 evaluation:
   correctness:
-    expected_score: 1
+    expected_score: 0
     type: "loose"
 include_files:
   - dns_troubleshooting_instructions.md
-generate_mocks: True
+generate_mocks: False

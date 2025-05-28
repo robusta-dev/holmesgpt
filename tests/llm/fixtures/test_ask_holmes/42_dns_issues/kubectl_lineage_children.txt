@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/kube-lineage-extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"pod","name":"client","namespace":"test-ns"}}
-{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kube-lineage pod client -n test-ns", "params": {"kind": "pod", "name": "client", "namespace": "test-ns"}}
-NAME                                    READY   STATUS    AGE
-Pod/client                              1/1     Running   5d5h
-└── NetworkPolicy/default-deny-egress   -                 5d5h

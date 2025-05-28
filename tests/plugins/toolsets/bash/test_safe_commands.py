@@ -294,23 +294,6 @@ class TestKubectlIntegration:
             # Quote normalization in grep
             ('kubectl get pods | grep "nginx"', "kubectl get pods | grep nginx"),
             ("kubectl get pods | grep 'nginx'", "kubectl get pods | grep nginx"),
-            # Run images
-            (
-                "kubectl run dnsutils-resolvconf --image=registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3 --rm --restart=Never --command -- cat /etc/resolv.conf",
-                "kubectl run dnsutils-resolvconf --image registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3 --rm --restart Never --command -- cat /etc/resolv.conf",
-            ),
-            (
-                "kubectl run dnsutils-resolvconf --image=busybox --rm --attach --restart=Never --command -- cat /etc/resolv.conf",
-                "kubectl run dnsutils-resolvconf --image busybox --rm --attach --restart Never --command -- cat /etc/resolv.conf",
-            ),
-            (
-                "kubectl run dnsutils-resolvconf --image=busybox --rm --attach --restart=Never --command -- nslookup example.com",
-                "kubectl run dnsutils-resolvconf --image busybox --rm --attach --restart Never --command -- nslookup example.com",
-            ),
-            (
-                "kubectl run dnsutils --rm -i --tty --image=busybox --restart=Never -- nslookup kubernetes.default",
-                "kubectl run dnsutils --image=busybox --rm --restart Never -command -- nslookup kubernetes.default"
-            )
         ],
     )
     def test_kubectl_round_trip(self, input_command: str, expected_output: str):

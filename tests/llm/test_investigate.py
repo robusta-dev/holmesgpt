@@ -127,7 +127,7 @@ def test_investigate(experiment_name, test_case):
                 )
             else:
                 tool_span.log(
-                    input=tool_call.description, 
+                    input=tool_call.description,
                     output=tool_call.result,
                     error=tool_call.result.error,
                 )

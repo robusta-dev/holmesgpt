@@ -53,17 +53,17 @@ class SupportedTicketSources(str, Enum):
 
 def get_env_replacement(value: str) -> Optional[str]:
     env_patterns = re.findall(r"{{\s*env\.([^}]*)\s*}}", value)
-    
+
     # Find all non-env patterns ({{ anything_else }})
     all_patterns = re.findall(r"{{\s*([^}]*)\s*}}", value)
-    non_env_patterns = [p for p in all_patterns if not p.strip().startswith('env.')]
-    
+    non_env_patterns = [p for p in all_patterns if not p.strip().startswith("env.")]
+
     if non_env_patterns and not env_patterns:
         return ""
-    
+
     if not env_patterns and not non_env_patterns:
         return value
-    
+
     # If the entire string is just one env pattern, handle it specially (should raise on missing)
     full_pattern_match = re.match(r"^\s*{{\s*env\.([^}]*)\s*}}\s*$", value)
     if full_pattern_match:
@@ -73,15 +73,15 @@ def get_env_replacement(value: str) -> Optional[str]:
             logging.error(msg)
             raise Exception(msg)
         return os.environ.get(env_var_key)
-    
+
     # For strings containing env patterns within text, replace all occurrences
     result = value
-    
+
     # Replace non-env patterns with empty string
     for pattern in non_env_patterns:
         pattern_regex = r"{{\s*" + re.escape(pattern.strip()) + r"\s*}}"
         result = re.sub(pattern_regex, "", result)
-    
+
     # Replace env patterns with their values or raise exception
     for env_var_key in env_patterns:
         env_var_key = env_var_key.strip()
@@ -93,7 +93,7 @@ def get_env_replacement(value: str) -> Optional[str]:
             logging.error(msg)
             raise Exception(msg)
         result = re.sub(pattern_regex, replacement, result)
-    
+
     return result
 
 
