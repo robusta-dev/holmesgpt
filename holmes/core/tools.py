@@ -117,6 +117,10 @@ class ToolsetTag(str, Enum):
     CLI = "cli"
 
 
+class ToolsetType(str, Enum):
+    MCP = "mcp"
+
+
 class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
@@ -341,9 +345,11 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
+    type: Optional[ToolsetType] = None
 
     # warning! private attributes are not copied, which can lead to subtle bugs.
     # e.g. l.extend([some_tool]) will reset these private attribute to None
+
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
     _error: Optional[str] = PrivateAttr(None)
@@ -546,6 +552,7 @@ class ToolsetYamlFromConfig(Toolset):
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+    url: Optional[str] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

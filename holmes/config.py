@@ -20,6 +20,7 @@ from holmes.core.tools import (
     get_matching_toolsets,
     ToolsetStatusEnum,
     ToolsetTag,
+    ToolsetType,
 )
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
@@ -30,6 +31,7 @@ from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
 from holmes.plugins.toolsets import load_builtin_toolsets
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
@@ -166,7 +168,14 @@ def parse_toolsets_file(
 ) -> Optional[List[ToolsetYamlFromConfig]]:
     parsed_yaml = load_yaml_file(path, raise_error)
 
-    toolsets_definitions = parsed_yaml.get("toolsets")
+    toolsets_definitions: dict = parsed_yaml.get("toolsets", {})
+    mcp_definitions: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
+
+    for server_config in mcp_definitions.values():
+        server_config["type"] = ToolsetType.MCP
+
+    toolsets_definitions.update(mcp_definitions)
+
     if not toolsets_definitions:
         message = f"No 'toolsets' key found in: {path}"
         logging.warning(message)
@@ -639,9 +648,14 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
-                    validated_toolset = YAMLToolset(
-                        **toolset.model_dump(exclude_none=True)
-                    )
+                    if toolset.type == ToolsetType.MCP:
+                        validated_toolset = RemoteMCPToolset(
+                            **toolset.model_dump(exclude_none=True)
+                        )
+                    else:
+                        validated_toolset = YAMLToolset(
+                            **toolset.model_dump(exclude_none=True)
+                        )
                     toolsets_with_updated_statuses[toolset.name] = validated_toolset
                 except Exception as error:
                     logging.error(

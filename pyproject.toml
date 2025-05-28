@@ -10,7 +10,7 @@ packages = [{ include = "holmes" }]
 holmes = "holmes.main:run"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 openai = "^1.6.1"
 slack-bolt = "^1.18.1"
 pydantic-settings = "^2.1.0"
@@ -45,6 +45,7 @@ sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
 kubernetes = "^32.0.1"
+mcp = "v1.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
