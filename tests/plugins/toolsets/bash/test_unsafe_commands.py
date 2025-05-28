@@ -137,8 +137,8 @@ class TestUnsafeCommands:
             # Dangerous kubectl run commands with unsupported arguments will fail during parsing
             (
                 "kubectl run malicious-pod --image=malicious/backdoor:latest --command echo test",
-                ValueError,
-                None,
+                argparse.ArgumentError,
+                "argument action: invalid choice: 'run'",
             ),
             ("kubectl exec -it some-pod -- rm -rf /", argparse.ArgumentError, None),
             (
