@@ -40,7 +40,11 @@ class SaveMockTool(Tool):
     add_params_to_mock_file: bool = False
 
     def __init__(
-        self, unmocked_tool: Tool, test_case_folder: str, toolset_name: str = "Unknown"
+        self,
+        unmocked_tool: Tool,
+        test_case_folder: str,
+        toolset_name: str = "Unknown",
+        add_params_to_mock_file: bool = False,
     ):
         super().__init__(
             name=unmocked_tool.name,
@@ -50,6 +54,7 @@ class SaveMockTool(Tool):
             toolset_name=toolset_name,
             unmocked_tool=unmocked_tool,
             test_case_folder=test_case_folder,
+            add_params_to_mock_file=add_params_to_mock_file,
         )
 
     def _get_mock_file_path(self, tool_params: Dict):
