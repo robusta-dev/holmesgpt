@@ -307,6 +307,10 @@ class TestKubectlIntegration:
                 "kubectl run dnsutils-resolvconf --image=busybox --rm --attach --restart=Never --command -- nslookup example.com",
                 "kubectl run dnsutils-resolvconf --image busybox --rm --attach --restart Never --command -- nslookup example.com",
             ),
+            (
+                "kubectl run dnsutils --rm -i --tty --image=busybox --restart=Never -- nslookup kubernetes.default",
+                "kubectl run dnsutils --image=busybox --rm --restart Never -command -- nslookup kubernetes.default"
+            )
         ],
     )
     def test_kubectl_round_trip(self, input_command: str, expected_output: str):

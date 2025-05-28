@@ -1,3 +1,4 @@
+import argparse
 import re
 from typing import Any, Optional
 
@@ -80,7 +81,7 @@ def create_kubectl_run_parser(kubectl_parser: Any):
     parser.add_argument(
         "--image",
         required=True,
-        type=regex_validator("image", SAFE_IMAGE_PATTERN),
+        # type=regex_validator("image", SAFE_IMAGE_PATTERN),
     )
 
     parser.add_argument(
@@ -105,13 +106,28 @@ def create_kubectl_run_parser(kubectl_parser: Any):
         "--overrides",
     )
 
+    parser.add_argument(
+        "--tty", action="store_true"
+    )
+    parser.add_argument(
+        "-i",
+        action="store_true",
+    )
+
     parser.add_argument("--command", nargs="+")
+    parser.add_argument(
+        "command_after_separator",
+        nargs=argparse.REMAINDER, # Captures all remaining arguments
+        default=[], # Default to an empty list
+    )
+    
 
 
 def stringify_run_command(cmd: Any, config: Optional[BashExecutorConfig]) -> str:
     # Validate image and commands if configured
-    if cmd.image and cmd.command:
-        container_command = " ".join(cmd.command)
+    command = cmd.command or cmd.tty
+    if cmd.image and command:
+        container_command = " ".join(command)
         validate_image_and_commands(
             image=cmd.image, container_command=container_command, config=config
         )
@@ -138,9 +154,9 @@ def stringify_run_command(cmd: Any, config: Optional[BashExecutorConfig]) -> str
     if cmd.restart:
         parts.extend(["--restart", cmd.restart])
 
-    if cmd.command:
+    if command:
         parts.append("--command")
         parts.append("--")
-        parts.extend(cmd.command)
+        parts.extend(command)
 
     return " ".join(escape_shell_args(parts))

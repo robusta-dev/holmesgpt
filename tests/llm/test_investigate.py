@@ -123,9 +123,14 @@ def test_investigate(experiment_name, test_case):
                 tool_span.log(
                     input=tool_call.description,
                     output=tool_call.result.model_dump_json(indent=2),
+                    error=tool_call.result.error,
                 )
             else:
-                tool_span.log(input=tool_call.description, output=tool_call.result)
+                tool_span.log(
+                    input=tool_call.description, 
+                    output=tool_call.result,
+                    error=tool_call.result.error,
+                )
 
     output = result.analysis
 

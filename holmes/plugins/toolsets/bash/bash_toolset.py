@@ -17,6 +17,7 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
+from holmes.plugins.toolsets.utils import get_param_or_raise
 
 
 class BaseBashExecutorToolset(Toolset):
@@ -29,6 +30,111 @@ class BaseBashExecutorToolset(Toolset):
 
 class BaseBashTool(Tool):
     toolset: BaseBashExecutorToolset
+
+
+class KubectlRunImageCommand(BaseBashTool):
+    def __init__(self, toolset: BaseBashExecutorToolset):
+        super().__init__(
+            name="kubectl_run_image",
+            description=(
+                "Executes `kubectl run <name> --image=<image> ... -- <command>` return the result"
+            ),
+            parameters={
+                "name": ToolParameter(
+                    description="The name of the pod. Defaults to 'holmes-debug-pod'",
+                    type="string",
+                    required=False,
+                ),
+                "image": ToolParameter(
+                    description="The image to run",
+                    type="string",
+                    required=True,
+                ),
+                "command": ToolParameter(
+                    description="The command to execute on the deployed pod",
+                    type="string",
+                    required=True,
+                ),
+                "namespace": ToolParameter(
+                    description="The namespace in which to deploy the temporary pod",
+                    type="string",
+                    required=False,
+                ),
+                "timeout": ToolParameter(
+                    description=(
+                        "Optional timeout in seconds for the command execution. "
+                        "Defaults to 60s."
+                    ),
+                    type="integer",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _build_kubectl_command(self, params:dict) -> str:
+        name = params.get("name", "holmes-debug-pod")
+        namespace = params.get("namespace", "default")
+        image = get_param_or_raise(params, "image")
+        command_str = get_param_or_raise(params, "command")
+        return f"kubectl run {name} --image={image} --namespace={namespace} --rm --attach --restart=Never --command -- {command_str}"
+
+    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
+
+        timeout = params.get("timeout", 60)
+
+        full_kubectl_command = self._build_kubectl_command(params)
+        try:
+            process = subprocess.run(
+                full_kubectl_command,
+                shell=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+
+            result_data = (
+                f"{full_kubectl_command}\n" f"{process.stdout.strip() if process.stdout else ''}"
+            )
+
+            status = (
+                ToolResultStatus.SUCCESS
+                if process.returncode == 0
+                else ToolResultStatus.ERROR
+            )
+
+            return StructuredToolResult(
+                status=status,
+                data=result_data,
+                params=params,
+                invocation=full_kubectl_command,
+                return_code=process.returncode,
+            )
+        except subprocess.TimeoutExpired:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=f"Error: Command '{full_kubectl_command}' timed out after {timeout} seconds.",
+                params=params,
+            )
+        except FileNotFoundError:
+            # This might occur if /bin/bash is not found, or if shell=False and command is not found
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data="Error: Bash executable or command not found. Ensure bash is installed and the command is valid.",
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=f"Error executing command '{full_kubectl_command}': {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict[str, Any]) -> str:
+        return self._build_kubectl_command(params)
 
 
 class RunBashCommand(BaseBashTool):
@@ -156,7 +262,10 @@ class BashExecutorToolset(BaseBashExecutorToolset):
             docs_url="",  # TODO: Add relevant documentation URL if available
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[RunBashCommand(self)],
+            tools=[
+                RunBashCommand(self), 
+                KubectlRunImageCommand(self)
+            ],
             # Using CORE as per the provided example's structure.
             # In a real system, a more specific tag like 'SYSTEM_COMMANDS' or 'DANGEROUS' might be appropriate
             # if the ToolsetTag system supports custom tags or has more granular options.

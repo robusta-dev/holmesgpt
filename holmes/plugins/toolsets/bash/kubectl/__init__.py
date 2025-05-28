@@ -14,6 +14,7 @@ from holmes.plugins.toolsets.bash.kubectl.kubectl_events import (
     create_kubectl_events_parser,
     stringify_events_command,
 )
+from holmes.plugins.toolsets.bash.kubectl.kubectl_logs import create_kubectl_logs_parser, stringify_logs_command
 from holmes.plugins.toolsets.bash.kubectl.kubectl_top import (
     create_kubectl_top_parser,
     stringify_top_command,
@@ -42,6 +43,7 @@ def create_kubectl_parser(parent_parser: Any):
     create_kubectl_top_parser(action_subparsers)
     create_kubectl_events_parser(action_subparsers)
     create_kubectl_run_parser(action_subparsers)
+    create_kubectl_logs_parser(action_subparsers)
 
 
 def validate_kubectl_command(cmd: Any) -> None:
@@ -78,6 +80,7 @@ def validate_kubectl_command(cmd: Any) -> None:
 
 def stringify_kubectl_command(command: Any, config: Optional[BashExecutorConfig]):
     if command.cmd == "kubectl":
+        validate_kubectl_command(command)
         if command.action == "get":
             return stringify_get_command(command)
         elif command.action == "describe":
@@ -86,8 +89,10 @@ def stringify_kubectl_command(command: Any, config: Optional[BashExecutorConfig]
             return stringify_top_command(command)
         elif command.action == "events":
             return stringify_events_command(command)
-        elif command.action == "run":
-            return stringify_run_command(command, config)
+        elif command.action == "logs":
+            return stringify_logs_command(command)
+        # elif command.action == "run":
+        #     return stringify_run_command(command, config)
         else:
             raise ValueError(
                 f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run"

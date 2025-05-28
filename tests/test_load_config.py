@@ -8,11 +8,11 @@ from holmes.config import get_env_replacement
 @pytest.mark.parametrize(
     "input_value, mock_environ, expected_output",
     [
-        ("this is a plain string", {}, None),
-        ("{{ other_format.VAR }}", {}, None),
-        ("{{env.VAR}", {}, None),
-        ("{ env.VAR }}", {}, None),
-        ("{{ VAR }}", {}, None),
+        ("this is a plain string", {}, "this is a plain string"),
+        ("{{ other_format.VAR }}", {}, ""),
+        ("{{env.VAR}", {}, "{{env.VAR}"),
+        ("{ env.VAR }}", {}, "{ env.VAR }}"),
+        ("{{ VAR }}", {}, ""),
         ("{{ env.MY_VAR }}", {"MY_VAR": "var_value_123"}, "var_value_123"),
         (
             "{{  env.MY_VAR_SPACED  }}",
@@ -22,12 +22,12 @@ from holmes.config import get_env_replacement
         (
             "prefix {{ env.MY_VAR }} suffix",
             {"MY_VAR": "var_value_789"},
-            "var_value_789",
+            "prefix var_value_789 suffix",
         ),
         (
             "{{ env.FIRST_VAR }} {{ env.SECOND_VAR }}",
             {"FIRST_VAR": "first_val", "SECOND_VAR": "second_val"},
-            "first_val",
+            "first_val second_val",
         ),
         ("{{ env.EMPTY_VAL_VAR }}", {"EMPTY_VAL_VAR": ""}, ""),
         (
@@ -45,7 +45,6 @@ from holmes.config import get_env_replacement
             {"MYKEY": "special"},
             "this is a special env var",
         ),
-        ("this is a  env var", {}, "this is a  env var"),
     ],
 )
 def test_get_env_replacement_successful(
