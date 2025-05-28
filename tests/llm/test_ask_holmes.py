@@ -14,7 +14,7 @@ from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
-from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
+from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 
 
@@ -35,7 +35,17 @@ def get_test_cases():
         )
         bt_helper.upload_test_cases(mh.load_test_cases())
     test_cases = mh.load_ask_holmes_test_cases()
-    return [(experiment_name, test_case) for test_case in test_cases]
+
+    iterations = int(os.environ.get("ITERATIONS", "0"))
+    if iterations:
+        test_cases_tuples = []
+        for i in range(0, iterations):
+            test_cases_tuples.extend(
+                [(experiment_name, test_case) for test_case in test_cases]
+            )
+        return test_cases_tuples
+    else:
+        return [(experiment_name, test_case) for test_case in test_cases]
 
 
 def idfn(val):
@@ -46,19 +56,14 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.skipif(
-    not os.environ.get("BRAINTRUST_API_KEY"),
-    reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
-)
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_ask_holmes(experiment_name, test_case):
+def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
     )
 
     eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
-
     try:
         before_test(test_case)
     except Exception as e:
@@ -66,7 +71,8 @@ def test_ask_holmes(experiment_name, test_case):
         raise e
 
     try:
-        result: LLMResult = ask_holmes(test_case)
+        result = ask_holmes(test_case)
+
         if result.tool_calls:
             for tool_call in result.tool_calls:
                 # TODO: mock this instead so span start time & end time will be accurate.
@@ -78,11 +84,13 @@ def test_ask_holmes(experiment_name, test_case):
                         tool_span.log(
                             input=tool_call.description,
                             output=tool_call.result.model_dump_json(indent=2),
+                            error=tool_call.result.error,
                         )
                     else:
                         tool_span.log(
                             input=tool_call.description,
                             output=tool_call.result,
+                            error=tool_call.result.error,
                         )
     finally:
         after_test(test_case)
@@ -101,17 +109,23 @@ def test_ask_holmes(experiment_name, test_case):
     with eval.start_span(
         name="Correctness", type=SpanTypeAttribute.SCORE
     ) as correctness_span:
+        evaluation_type: str = (
+            test_case.evaluation.correctness.type
+            if isinstance(test_case.evaluation.correctness, Evaluation)
+            else "strict"
+        )
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected
+            output=output, expected_elements=expected, evaluation_type=evaluation_type
         )
         print(
-            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
+            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
         )
         scores["correctness"] = correctness_eval.score
         correctness_span.log(
             scores={
                 "correctness": correctness_eval.score,
             },
+            output=correctness_eval.metadata.get("rationale", ""),
             metadata=correctness_eval.metadata,
         )
     if len(test_case.retrieval_context) > 0:
@@ -146,7 +160,10 @@ def test_ask_holmes(experiment_name, test_case):
     print(f"\n** SCORES **\n{scores}")
 
     if test_case.evaluation.correctness:
-        assert scores.get("correctness", 0) >= test_case.evaluation.correctness
+        expected_correctness = test_case.evaluation.correctness
+        if isinstance(expected_correctness, Evaluation):
+            expected_correctness = expected_correctness.expected_score
+        assert scores.get("correctness", 0) >= expected_correctness
 
 
 def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
@@ -164,7 +181,9 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
             expected_tools.append(tool_mock.tool_name)
 
     tool_executor = ToolExecutor(mock.enabled_toolsets)
+    enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
 
+    print(f"** ENABLED TOOLSETS **\n{', '.join(enabled_toolsets)}")
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,

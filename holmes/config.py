@@ -52,24 +52,55 @@ class SupportedTicketSources(str, Enum):
 
 
 def get_env_replacement(value: str) -> Optional[str]:
-    env_values = re.findall(r"{{\s*env\.([^\s]*)\s*}}", value)
-    if not env_values:
-        return None
-    env_var_key = env_values[0].strip()
-    if env_var_key not in os.environ:
-        msg = f"ENV var replacement {env_var_key} does not exist for param: {value}"
-        logging.error(msg)
-        raise Exception(msg)
+    env_patterns = re.findall(r"{{\s*env\.([^}]*)\s*}}", value)
 
-    return os.environ.get(env_var_key)
+    # Find all non-env patterns ({{ anything_else }})
+    all_patterns = re.findall(r"{{\s*([^}]*)\s*}}", value)
+    non_env_patterns = [p for p in all_patterns if not p.strip().startswith("env.")]
+
+    if non_env_patterns and not env_patterns:
+        return ""
+
+    if not env_patterns and not non_env_patterns:
+        return value
+
+    # If the entire string is just one env pattern, handle it specially (should raise on missing)
+    full_pattern_match = re.match(r"^\s*{{\s*env\.([^}]*)\s*}}\s*$", value)
+    if full_pattern_match:
+        env_var_key = full_pattern_match.group(1).strip()
+        if env_var_key not in os.environ:
+            msg = f"ENV var replacement {env_var_key} does not exist"
+            logging.error(msg)
+            raise Exception(msg)
+        return os.environ.get(env_var_key)
+
+    # For strings containing env patterns within text, replace all occurrences
+    result = value
+
+    # Replace non-env patterns with empty string
+    for pattern in non_env_patterns:
+        pattern_regex = r"{{\s*" + re.escape(pattern.strip()) + r"\s*}}"
+        result = re.sub(pattern_regex, "", result)
+
+    # Replace env patterns with their values or raise exception
+    for env_var_key in env_patterns:
+        env_var_key = env_var_key.strip()
+        pattern_regex = r"{{\s*env\." + re.escape(env_var_key) + r"\s*}}"
+        if env_var_key in os.environ:
+            replacement = os.environ[env_var_key]
+        else:
+            msg = f"ENV var replacement {env_var_key} does not exist"
+            logging.error(msg)
+            raise Exception(msg)
+        result = re.sub(pattern_regex, replacement, result)
+
+    return result
 
 
 def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
     for key, value in values.items():
         if isinstance(value, str):
-            env_var_value = get_env_replacement(value)
-            if env_var_value:
-                values[key] = env_var_value
+            values[key] = get_env_replacement(value)
         elif isinstance(value, SecretStr):
             env_var_value = get_env_replacement(value.get_secret_value())
             if env_var_value:
@@ -117,6 +148,9 @@ def load_toolsets_definitions(
                 validated_config.config = replace_env_vars_values(
                     validated_config.config
                 )
+            print(
+                f"\n** {name}\nloaded:\t{json.dumps(config)}\n\tvalidated:{validated_config.config}"
+            )
             loaded_toolsets.append(validated_config)
         except ValidationError as e:
             logging.warning(f"Toolset '{name}' is invalid: {e}")
