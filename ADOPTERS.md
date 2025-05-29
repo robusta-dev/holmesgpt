@@ -6,7 +6,7 @@ If you're using HolmesGPT in your organization or as an individual, please add y
 <summary><strong>How to Add Your Entry</strong> (click to expand)</summary>
 
 1. Fork this repository
-2. Add your entry to the appropriate table below 
+2. Add your entry to the appropriate table below
 3. Submit a pull request with your changes. Thanks!
 
 </details>
