@@ -20,6 +20,7 @@ from holmes.core.tools import (
     get_matching_toolsets,
     ToolsetStatusEnum,
     ToolsetTag,
+    ToolsetType,
 )
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
@@ -30,6 +31,7 @@ from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
 from holmes.plugins.toolsets import load_builtin_toolsets
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
@@ -132,7 +134,14 @@ def parse_toolsets_file(
 ) -> Optional[List[ToolsetYamlFromConfig]]:
     parsed_yaml = load_yaml_file(path, raise_error)
 
-    toolsets_definitions = parsed_yaml.get("toolsets")
+    toolsets_definitions: dict = parsed_yaml.get("toolsets", {})
+    mcp_definitions: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
+
+    for server_config in mcp_definitions.values():
+        server_config["type"] = ToolsetType.MCP
+
+    toolsets_definitions.update(mcp_definitions)
+
     if not toolsets_definitions:
         message = f"No 'toolsets' key found in: {path}"
         logging.warning(message)
@@ -152,7 +161,7 @@ def parse_toolsets_file(
 
 
 def parse_models_file(path: str):
-    models = load_yaml_file(path, raise_error=False)
+    models = load_yaml_file(path, raise_error=False, warn_not_found=False)
 
     for model, params in models.items():
         params = replace_env_vars_values(params)
@@ -223,7 +232,8 @@ class Config(RobustaBaseConfig):
             self._model_list["Robusta"] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
-        logging.info(f"loaded models: {list(self._model_list.keys())}")
+        if self._model_list:
+            logging.info(f"loaded models: {list(self._model_list.keys())}")
 
         if not self.is_latest_version and self._holmes_info:
             logging.warning(
@@ -338,14 +348,6 @@ class Config(RobustaBaseConfig):
         toolsets = []
         for ts in toolsets_by_name.values():
             toolsets.append(ts)
-            if ts.get_status() == ToolsetStatusEnum.ENABLED:
-                logging.info(f"Loaded toolset {ts.name} from {ts.get_path()}")
-            elif ts.get_status() == ToolsetStatusEnum.DISABLED:
-                logging.info(f"Disabled toolset: {ts.name} from {ts.get_path()}")
-            elif ts.get_status() == ToolsetStatusEnum.FAILED:
-                logging.info(
-                    f"Failed loading toolset {ts.name} from {ts.get_path()}: ({ts.get_error()})"
-                )
 
         for ts in default_toolsets:
             if ts.name not in toolsets_by_name.keys():
@@ -586,7 +588,7 @@ class Config(RobustaBaseConfig):
             return loaded_toolsets
 
         if not os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            logging.warning(
+            logging.debug(
                 f"Custom toolset file {CUSTOM_TOOLSET_LOCATION} does not exist"
             )
             return []
@@ -612,9 +614,14 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
-                    validated_toolset = YAMLToolset(
-                        **toolset.model_dump(exclude_none=True)
-                    )
+                    if toolset.type == ToolsetType.MCP:
+                        validated_toolset = RemoteMCPToolset(
+                            **toolset.model_dump(exclude_none=True)
+                        )
+                    else:
+                        validated_toolset = YAMLToolset(
+                            **toolset.model_dump(exclude_none=True)
+                        )
                     toolsets_with_updated_statuses[toolset.name] = validated_toolset
                 except Exception as error:
                     logging.error(

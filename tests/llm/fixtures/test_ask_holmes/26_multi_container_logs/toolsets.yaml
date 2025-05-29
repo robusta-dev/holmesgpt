@@ -1,0 +1,4 @@
+toolsets:
+  # TODO this test is intended to test holmes ability to read logs from multiple container, but because it mentions page render time it misleads holmes to find prometheus metrics. Recommendation - ask a simpler question instead.
+  prometheus/metrics:
+    enabled: false
