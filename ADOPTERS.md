@@ -21,7 +21,7 @@ If you're using HolmesGPT in your organization or as an individual, please add y
 
 | Name | Contact | Description of Use |
 | ---- | ------- | ------------------ |
-| [Your Name](https://github.com/yourusername) | [@yourusername](https://github.com/yourusername) | How you use HolmesGPT |
+| Your Name | [@yourusername](https://github.com/yourusername) | How you use HolmesGPT |
 
 
 Thank you for being part of the HolmesGPT community!
