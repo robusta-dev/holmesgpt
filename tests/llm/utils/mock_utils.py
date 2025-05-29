@@ -41,7 +41,7 @@ class HolmesTestCase(BaseModel):
     id: str
     folder: str
     generate_mocks: bool = False  # If True, generate mocks
-    add_params_to_mock_file: bool = False  # If True, add params to mock file
+    add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[

@@ -37,14 +37,14 @@ class SaveMockTool(Tool):
     toolset_name: str
     unmocked_tool: Tool
     test_case_folder: str
-    add_params_to_mock_file: bool = False
+    add_params_to_mock_file: bool = True
 
     def __init__(
         self,
         unmocked_tool: Tool,
         test_case_folder: str,
         toolset_name: str = "Unknown",
-        add_params_to_mock_file: bool = False,
+        add_params_to_mock_file: bool = True,
     ):
         super().__init__(
             name=unmocked_tool.name,
@@ -142,14 +142,14 @@ class MockToolsets:
     _mocks: List[ToolMock]
     generate_mocks: bool
     test_case_folder: str
-    add_params_to_mock_file: bool = False
+    add_params_to_mock_file: bool = True
 
     def __init__(
         self,
         test_case_folder: str,
         generate_mocks: bool = True,
         run_live: bool = False,
-        add_params_to_mock_file: bool = False,
+        add_params_to_mock_file: bool = True,
     ) -> None:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
