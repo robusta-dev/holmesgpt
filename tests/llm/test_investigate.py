@@ -74,6 +74,7 @@ def get_test_cases():
     else:
         return [(experiment_name, test_case) for test_case in test_cases]
 
+
 def idfn(val):
     if isinstance(val, InvestigateTestCase):
         return val.id

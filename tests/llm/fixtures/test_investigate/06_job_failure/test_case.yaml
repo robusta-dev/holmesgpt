@@ -9,3 +9,5 @@ after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_failure/job_crash.yaml
 evaluation:
   correctness: 0
+# Unreliable: some tool calls are unmocked. To rerun with a looser expected output as in some failures the LLM still finds out connection issues for the DB
+# Success rate 70% / 100 evals

@@ -11,3 +11,5 @@ after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod.v2/crashloop-cert-app.yaml
 evaluation:
   correctness: 1
+# Unreliable: prometheus/metrics need to be disabled. Otehrwise this eval seem mostly ok.
+# Success rate 94% for 100 evals
