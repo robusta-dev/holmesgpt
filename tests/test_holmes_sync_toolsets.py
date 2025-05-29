@@ -13,8 +13,13 @@ from holmes.core.tools import (
     ToolsetTag,
     YAMLTool,
     StaticPrerequisite,
+    CallablePrerequisite,
 )
 from holmes.config import Config
+from tests.utils.toolsets import (
+    callable_success,
+    failing_callable_for_test,
+)
 
 
 @pytest.fixture
@@ -291,3 +296,97 @@ def test_sync_toolsets_with_command_output_mismatch(
 
     assert toolset_data["status"] == ToolsetStatusEnum.FAILED
     assert toolset_data["error"] is not None
+
+
+def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
+    mock_dal, mock_config
+):
+    toolset_with_failing_callable = SampleToolset(
+        name="failing-callable-sync-toolset",
+        description="Toolset with a callable prerequisite that raises an unhandled exception",
+        enabled=True,
+        tools=[
+            YAMLTool(
+                name="test-tool-fail", description="Test tool", command="echo test"
+            )
+        ],
+        tags=[ToolsetTag.CORE],
+        prerequisites=[
+            CallablePrerequisite(callable=failing_callable_for_test)
+        ],  # Using the imported callable
+        config={},
+    )
+
+    successful_toolset_1 = SampleToolset(
+        name="successful-toolset-1",
+        description="A perfectly fine toolset",
+        enabled=True,
+        tools=[
+            YAMLTool(name="test-tool-ok-1", description="Test tool", command="echo ok1")
+        ],
+        tags=[ToolsetTag.CLUSTER],
+        prerequisites=[],
+        config={},
+    )
+
+    successful_toolset_2 = SampleToolset(
+        name="successful-toolset-2",
+        description="Another fine toolset with a passing callable",
+        enabled=True,
+        tools=[
+            YAMLTool(name="test-tool-ok-2", description="Test tool", command="echo ok2")
+        ],
+        tags=[ToolsetTag.CORE],
+        prerequisites=[CallablePrerequisite(callable=callable_success)],
+        config={},
+    )
+
+    all_toolsets = [
+        toolset_with_failing_callable,
+        successful_toolset_1,
+        successful_toolset_2,
+    ]
+
+    # We are mocking the Config class that's why we need to call check_prerequisites on each toolset here
+    for ts in all_toolsets:
+        ts.check_prerequisites()
+
+    assert toolset_with_failing_callable.get_status() == ToolsetStatusEnum.FAILED
+    assert (
+        "Prerequisite call failed unexpectedly: Failure in callable prerequisite"
+        in toolset_with_failing_callable.get_error()
+    )
+    assert successful_toolset_1.get_status() == ToolsetStatusEnum.ENABLED
+    assert successful_toolset_1.get_error() is None
+    assert successful_toolset_2.get_status() == ToolsetStatusEnum.ENABLED
+    assert successful_toolset_2.get_error() is None
+
+    mock_config.create_tool_executor.return_value = Mock(toolsets=all_toolsets)
+
+    holmes_sync_toolsets_status(mock_dal, mock_config)
+
+    mock_dal.sync_toolsets.assert_called_once()
+    call_args = mock_dal.sync_toolsets.call_args[0]
+
+    synced_toolsets_data = call_args[0]
+    assert len(synced_toolsets_data) == len(all_toolsets)
+
+    toolsets_data = {data["toolset_name"]: data for data in synced_toolsets_data}
+
+    failing_data = toolsets_data.get("failing-callable-sync-toolset")
+    assert failing_data is not None
+    assert failing_data["status"] == ToolsetStatusEnum.FAILED
+    assert (
+        "Prerequisite call failed unexpectedly: Failure in callable prerequisite"
+        in failing_data["error"]
+    )
+
+    success1_data = toolsets_data.get("successful-toolset-1")
+    assert success1_data is not None
+    assert success1_data["status"] == ToolsetStatusEnum.ENABLED
+    assert success1_data["error"] is None
+
+    success2_data = toolsets_data.get("successful-toolset-2")
+    assert success2_data is not None
+    assert success2_data["status"] == ToolsetStatusEnum.ENABLED
+    assert success2_data["error"] is None

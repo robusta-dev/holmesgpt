@@ -164,6 +164,7 @@ jobs:
   update-formula:
     needs: [mac-hash, linux-hash]
     runs-on: ubuntu-latest
+    if: ${{ !github.event.release.prerelease }}
     steps:
       - name: Checkout homebrew-holmesgpt repository
         uses: actions/checkout@v2

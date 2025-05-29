@@ -117,6 +117,10 @@ class ToolsetTag(str, Enum):
     CLI = "cli"
 
 
+class ToolsetType(str, Enum):
+    MCP = "mcp"
+
+
 class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
@@ -341,9 +345,11 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
+    type: Optional[ToolsetType] = None
 
     # warning! private attributes are not copied, which can lead to subtle bugs.
     # e.g. l.extend([some_tool]) will reset these private attribute to None
+
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
     _error: Optional[str] = PrivateAttr(None)
@@ -437,11 +443,15 @@ class Toolset(BaseModel):
                     self._error = f"{prereq.disabled_reason}"
 
             elif isinstance(prereq, CallablePrerequisite):
-                (enabled, error_message) = prereq.callable(self.config)
-                if not enabled:
+                try:
+                    (enabled, error_message) = prereq.callable(self.config)
+                    if not enabled:
+                        self._status = ToolsetStatusEnum.FAILED
+                    if error_message:
+                        self._error = f"{error_message}"
+                except Exception as e:
                     self._status = ToolsetStatusEnum.FAILED
-                if error_message:
-                    self._error = f"{error_message}"
+                    self._error = f"Prerequisite call failed unexpectedly: {str(e)}"
 
             if (
                 self._status == ToolsetStatusEnum.DISABLED
@@ -542,6 +552,7 @@ class ToolsetYamlFromConfig(Toolset):
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+    url: Optional[str] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
