@@ -12,7 +12,6 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 from holmes.core import investigation
-from contextlib import asynccontextmanager
 from holmes.utils.holmes_status import update_holmes_status_in_db
 import logging
 import uvicorn
@@ -77,8 +76,7 @@ config = Config.load_from_env()
 dal = SupabaseDal(config.cluster_name)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def sync_before_server_start():
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
@@ -87,7 +85,6 @@ async def lifespan(app: FastAPI):
         holmes_sync_toolsets_status(dal, config)
     except Exception:
         logging.error("Failed to synchronise holmes toolsets", exc_info=True)
-    yield
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
@@ -106,7 +103,7 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
         }
     )
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 if LOG_PERFORMANCE:
@@ -347,4 +344,5 @@ if __name__ == "__main__":
     log_config["formatters"]["default"]["fmt"] = (
         "%(asctime)s %(levelname)-8s %(message)s"
     )
+    sync_before_server_start()
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT, log_config=log_config)
