@@ -16,7 +16,6 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_config
 
-# TODO(mainred): make toolset status cache file configurable
 DEFAULT_TOOLSET_STATUS_LOCATION = os.path.expanduser("~/.holmes/toolsets_status.json")
 
 
@@ -30,13 +29,17 @@ class ToolsetManager:
     toolsets: Optional[dict[str, dict[str, Any]]]
     custom_toolsets: Optional[List[FilePath]]
 
+    toolset_status_location: Optional[List[FilePath]]
+
     def __init__(
         self,
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
+        toolset_status_location: Optional[str] = DEFAULT_TOOLSET_STATUS_LOCATION,
     ):
         self.toolsets = toolsets
         self.custom_toolsets = custom_toolsets
+        self.toolset_status_location = toolset_status_location
 
     @property
     def cli_tool_tags(self) -> List[str]:
@@ -153,9 +156,9 @@ class ToolsetManager:
 
         all_toolsets = self._list_all_toolsets(dal=dal, check_prerequisites=True)
 
-        if not os.path.exists(os.path.dirname(DEFAULT_TOOLSET_STATUS_LOCATION)):
-            os.makedirs(os.path.dirname(DEFAULT_TOOLSET_STATUS_LOCATION))
-        with open(DEFAULT_TOOLSET_STATUS_LOCATION, "w") as f:
+        if not os.path.exists(os.path.dirname(self.toolset_status_location)):
+            os.makedirs(os.path.dirname(self.toolset_status_location))
+        with open(self.toolset_status_location, "w") as f:
             toolset_status = [
                 json.loads(
                     toolset.model_dump_json(
@@ -165,9 +168,7 @@ class ToolsetManager:
                 for toolset in all_toolsets
             ]
             json.dump(toolset_status, f, indent=2)
-        logging.info(
-            f"Toolset statuses are cached to {DEFAULT_TOOLSET_STATUS_LOCATION}"
-        )
+        logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
 
     def load_toolset_with_status(
         self, dal: Optional[SupabaseDal] = None, refresh_status: bool = False
@@ -177,12 +178,12 @@ class ToolsetManager:
         If the file does not exist, return an empty list.
         """
 
-        if not os.path.exists(DEFAULT_TOOLSET_STATUS_LOCATION) or refresh_status:
+        if not os.path.exists(self.toolset_status_location) or refresh_status:
             logging.info("refreshing toolset status")
             self.refresh_toolset_status(dal)
 
         cached_toolsets: List[dict[str, Any]] = []
-        with open(DEFAULT_TOOLSET_STATUS_LOCATION, "r") as f:
+        with open(self.toolset_status_location, "r") as f:
             cached_toolsets = json.load(f)
 
         toolsets_status_by_name: dict[str, dict[str, Any]] = {
