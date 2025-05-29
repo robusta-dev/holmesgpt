@@ -29,7 +29,7 @@ retrieval_context:
   - Any element of context. This will inform the evaluation score 'context'
   - These context elements are expected to be present in the output
 evaluation: # expected evaluation scores. The test will fail unless the LLM scores at least the following:
-  correctness: 0.5 # defaults to 0.3
+  correctness: 1
   context: 0 # defaults to 0
 before-test: kubectl apply -f manifest.yaml
 after-test: kubectl delete -f manifest.yaml

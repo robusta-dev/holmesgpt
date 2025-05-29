@@ -1,0 +1,4 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_name","match_params":{"kind":"service","name":"my-http-service","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get --show-labels -o wide service my-http-service -n default", "params": {"kind": "service", "name": "my-http-service", "namespace": "default"}}
+NAME              TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE     SELECTOR          LABELS
+my-http-service   ClusterIP   10.96.26.69   <none>        80/TCP    4m20s   app=my-http-app   <none>

@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"job","keyword":"java-api-checker"}}
-stdout:
-default     java-api-checker                 Running    0/1           2m10s      2m10s   java-beans             busybox                  batch.kubernetes.io/controller-uid=602f2a35-ed45-4fb1-b8ae-f4bf70fff7ed   batch.kubernetes.io/controller-uid=602f2a35-ed45-4fb1-b8ae-f4bf70fff7ed,batch.kubernetes.io/job-name=java-api-checker,controller-uid=602f2a35-ed45-4fb1-b8ae-f4bf70fff7ed,job-name=java-api-checker
-
-stderr:

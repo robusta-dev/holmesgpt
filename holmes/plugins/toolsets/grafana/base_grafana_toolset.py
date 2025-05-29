@@ -7,7 +7,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
 )
 from holmes.plugins.toolsets.grafana.common import GrafanaConfig
-from holmes.plugins.toolsets.grafana.grafana_api import get_health
+from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 from holmes.plugins.toolsets.utils import TOOLSET_CONFIG_MISSING_ERROR
 
 
@@ -42,7 +42,7 @@ class BaseGrafanaToolset(Toolset):
 
         try:
             self._grafana_config = self.config_class(**config)
-            return get_health(self._grafana_config)
+            return grafana_health_check(self._grafana_config)
 
         except Exception as e:
             logging.exception(f"Failed to set up grafana toolset {self.name}")
