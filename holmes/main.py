@@ -162,7 +162,8 @@ opt_echo_request: bool = typer.Option(
     "--echo/--no-echo",
     help="Echo back the question provided to HolmesGPT in the output",
 )
-opt_destination: Optional[str] = typer.Option(
+opt_destination: Optional[DestinationType] = typer.Option(
+    DestinationType.CLI,
     "--destination",
     help="Destination for the results of the investigation (defaults to STDOUT)",
 )
