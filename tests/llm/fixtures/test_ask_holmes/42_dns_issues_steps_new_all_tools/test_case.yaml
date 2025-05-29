@@ -1,0 +1,27 @@
+user_prompt: "detect why the k8s pod client under namespace test-ns cannot resolve dns"
+
+expected_output: |
+
+  The answer should show the the investigation went through the following steps.
+  - Check CoreDNS/kube-dns Pods
+  - Examine DNS Service
+  - Test DNS Resolution from a Pod
+  - Check NetworkPolicies
+  - Review CoreDNS Configuration (if applicable)
+  - Check the DNS trace
+
+  Most of these should be present
+  The answer MUST NOT tell the user to do any of the above actions as next steps but should have run these actions itself.
+  The answer MUST include confirm it tested DNS resolution from a pod and it showed DNS issues
+before_test: |
+  kubectl apply -f./manifest.yaml
+  sleep 10
+after_test: kubectl delete -f./manifest.yaml
+
+evaluation:
+  correctness:
+    expected_score: 0
+    type: "loose"
+include_files:
+  - dns_troubleshooting_instructions.md
+generate_mocks: False

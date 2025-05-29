@@ -1,11 +1,9 @@
-{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query","match_params":{"query":"container_memory_working_set_bytes","description":"*","start":"*","end":"*","step":"*"}}
+{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query"}
 {
   "status": "success",
   "error_message": null,
   "random_key": "nAaB",
   "tool_name": "execute_prometheus_range_query",
-  "description": "Memory working set for all containers",
-  "query": "container_memory_working_set_bytes",
   "start": "2025-03-09T06:38:14Z",
   "end": "2025-03-10T06:38:14Z",
   "step": 60
