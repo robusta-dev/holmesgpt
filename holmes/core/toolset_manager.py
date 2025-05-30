@@ -88,8 +88,10 @@ class ToolsetManager:
 
         The method loads toolsets in this order, with later sources overriding earlier ones:
         1. Built-in toolsets
-        2. Custom toolsets from config files which can override built-in toolsets
-        3. Toolsets defined in self.toolsets which can override both built-in and custom toolsets config
+        2. Toolsets defined in self.toolsets can override both built-in and add new custom toolsets
+        3. Custom toolsets from config files can override built-in toolsets conditionally:
+          3.1 custom toolset from config can override both built-in and add new custom toolsets # for backward compatibility
+          3.2 custom toolset from CLI can only add new custom toolsets
         """
         # Load built-in toolsets
         builtin_toolsets = load_builtin_toolsets(dal)
@@ -104,21 +106,19 @@ class ToolsetManager:
                 self.toolsets, builtin_toolsets_names, dal
             )
 
-        self.add_or_merge_onto_toolsets(
-            toolsets_from_config,
-            toolsets_by_name,
-        )
+            if toolsets_from_config:
+                self.add_or_merge_onto_toolsets(
+                    toolsets_from_config,
+                    toolsets_by_name,
+                )
 
         # custom toolset should not override built-in toolsets
         # to test the new change of built-in toolset, we should make code change and re-compile the program
         custom_toolsets = self.load_custom_toolsets(builtin_toolsets_names)
-        for custom_toolset in custom_toolsets:
-            if custom_toolset.name in toolsets_by_name:
-                raise Exception(
-                    f"Toolset {custom_toolset.name} is already defined in the toolsets. "
-                    "Please rename it from the custom toolset or remove it from the custom toolsets configuration."
-                )
-            toolsets_by_name[custom_toolset.name] = custom_toolset
+        self.add_or_merge_onto_toolsets(
+            custom_toolsets,
+            toolsets_by_name,
+        )
 
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
@@ -158,7 +158,6 @@ class ToolsetManager:
         builtin_toolsets = load_toolsets_from_config(
             builtin_toolsets_dict, strict_check=False
         )
-
         # custom toolsets or MCP servers are expected to defined required fields
         custom_toolsets = load_toolsets_from_config(
             toolsets=custom_toolsets_dict, strict_check=True
@@ -272,7 +271,12 @@ class ToolsetManager:
             if not os.path.isfile(toolset_path):
                 raise FileNotFoundError(f"toolset file {toolset_path} does not exist")
 
-            parsed_yaml = benedict(toolset_path)
+            try:
+                parsed_yaml = benedict(toolset_path)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to load toolsets from {toolset_path}, error: {e}"
+                )
             toolsets_config: dict[str, dict[str, Any]] = parsed_yaml.get("toolsets", {})
             mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
 
@@ -292,7 +296,6 @@ class ToolsetManager:
             toolsets_from_config = self._load_toolsets_from_config(
                 toolsets_config, builtin_toolsets_names
             )
-
             if check_conflict_default:
                 for toolset in toolsets_from_config:
                     if toolset.name in builtin_toolsets_names:
@@ -327,8 +330,8 @@ class ToolsetManager:
             additional_instructions: "jq -r '.result.results[].userData | fromjson | .text | fromjson | .log'"
             tools:
                 - name: "curl_example"
-                description: "Perform a curl request to example.com using variables"
-                command: "curl -X GET '{{api_endpoint}}?query={{ query_param }}' "
+                  description: "Perform a curl request to example.com using variables"
+                  command: "curl -X GET '{{api_endpoint}}?query={{ query_param }}' "
         """
         if not self.custom_toolsets and not self.custom_toolsets_from_cli:
             logging.debug(
@@ -370,13 +373,6 @@ class ToolsetManager:
 
         for new_toolset in new_toolsets:
             if new_toolset.name in existing_toolsets_by_name.keys():
-                logging.debug(
-                    f"Toolset {new_toolset.name} already exists, merging with existing toolset."
-                )
-                logging.debug(
-                    f"Existing toolset: {existing_toolsets_by_name[new_toolset.name]}"
-                )
-                logging.debug(f"New toolset: {new_toolset}")
                 existing_toolsets_by_name[new_toolset.name].override_with(new_toolset)
             else:
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
