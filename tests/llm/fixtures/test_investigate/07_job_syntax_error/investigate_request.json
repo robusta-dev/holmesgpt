@@ -12,7 +12,7 @@
   },
   "context": {
     "issue_type": "KubeJobFailed",
-    "robusta_issue_id": "3c6602c4-8561-4853-9f7d-d658d220ec72",
+    "robusta_issue_id": "0c6325dd-f881-41e0-b7df-45bfffce16b5",
     "source": "prometheus"
   },
   "source_instance_id": "ApiRequest",

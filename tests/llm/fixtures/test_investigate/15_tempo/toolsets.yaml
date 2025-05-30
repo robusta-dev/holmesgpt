@@ -5,3 +5,8 @@ toolsets:
       api_key: "{{env.GRAFANA_API_KEY}}"
       url: "{{env.GRAFANA_URL}}"
       grafana_datasource_uid: "{{env.GRAFANA_TEMPO_DATASOURCE_UID}}"
+  prometheus/metrics:
+    enabled: False
+# Relies on https://github.com/robusta-dev/kubernetes-demos/tree/main/minishop-telemetry
+# Requires
+# - Grafana tempo receiving telemetry from minishop

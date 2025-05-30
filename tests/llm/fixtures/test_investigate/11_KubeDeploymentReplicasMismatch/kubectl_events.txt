@@ -1,6 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_events","match_params":{"namespace":"default","pod_name":"user-profile-resources-659d4dd659-cq4kq","resource_type":"pod"}}
-stdout:
-LAST SEEN               TYPE      REASON             OBJECT                                        MESSAGE
-9m22s (x37 over 3h5m)   Warning   FailedScheduling   Pod/user-profile-resources-659d4dd659-cq4kq   0/1 nodes are available: 1 Insufficient nvidia.com/gpu. preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod.
-
-stderr:
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_events","match_params":{"namespace":"default","resource_type":"pod","pod_name":"user-profile-resources-659d4dd659-9ddzf"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl events --for pod/user-profile-resources-659d4dd659-9ddzf -n default", "params": {"namespace": "default", "resource_type": "pod", "pod_name": "user-profile-resources-659d4dd659-9ddzf"}}
+LAST SEEN             TYPE      REASON             OBJECT                                        MESSAGE
+17h (x189 over 21h)   Warning   FailedScheduling   Pod/user-profile-resources-659d4dd659-9ddzf   0/2 nodes are available: 1 Insufficient nvidia.com/gpu, 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }. preemption: 0/2 nodes are available: 1 No preemption victims found for incoming pod, 1 Preemption is not helpful for scheduling.
+21s (x13 over 60m)    Warning   FailedScheduling   Pod/user-profile-resources-659d4dd659-9ddzf   0/2 nodes are available: 1 Insufficient nvidia.com/gpu, 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }. preemption: 0/2 nodes are available: 1 No preemption victims found for incoming pod, 1 Preemption is not helpful for scheduling.

@@ -4,3 +4,4 @@ before_test: kubectl apply -f ./helm/manifest.yaml
 after_test: kubectl delete -f ./helm/manifest.yaml
 evaluation:
   correctness: 1
+# Success rate 100% / 100 evals
