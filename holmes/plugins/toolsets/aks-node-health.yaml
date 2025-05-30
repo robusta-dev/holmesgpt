@@ -20,17 +20,17 @@ toolsets:
         command: |
           kubectl describe node {{ NODE_NAME }}
 
-      - name: "check_kubelet_logs"
-        description: "Fetches kubelet logs from a specific node in the AKS cluster using Azure CLI VMSS run command."
-        user_description: "get kubelet logs for node {{ NODE_NAME }} in the AKS cluster"
+      - name: "get_node_events"
+        description: "Fetches recent events for a specific node to surface warnings and errors."
+        user_description: "get events for node {{ NODE_NAME }}"
         command: |
-          az vmss run-command invoke --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ VMSS_NAME }} --command-id RunShellScript --instance-id {{ NODE_INSTANCE_ID }} --scripts 'journalctl -u kubelet'
+          kubectl get events --field-selector involvedObject.kind=Node,involvedObject.name={{ NODE_NAME }} --sort-by='.lastTimestamp'
 
-      - name: "check_vmss_health"
-        description: "Checks the health of the Virtual Machine Scale Set (VMSS) instance for the node."
-        user_description: "check VMSS health for node {{ NODE_NAME }} in resource group {{ RESOURCE_GROUP_NAME }}"
+      - name: "check_node_resource_usage"
+        description: "Shows CPU/memory usage for a specific node (requires metrics-server)."
+        user_description: "get resource usage for node {{ NODE_NAME }}"
         command: |
-          az vmss list-instances --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ VMSS_NAME }}
+          kubectl top node {{ NODE_NAME }}
 
       - name: "review_activity_log"
         description: "Reviews the Azure Activity Log for recent changes affecting the node."
@@ -56,14 +56,3 @@ toolsets:
         command: |
           az aks check-network inbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
       
-      - name: "restart_node"
-        description: "Restarts a specific node in the AKS cluster."
-        user_description: "restart node {{ NODE_NAME }} in the AKS cluster"
-        command: |
-          az vm restart --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ NODE_NAME }}
-
-      - name: "reimage_node"
-        description: "Reimages a specific node in the AKS cluster."
-        user_description: "reimage node {{ NODE_NAME }} in the AKS cluster"
-        command: |
-          az vmss reimage --resource-group {{ RESOURCE_GROUP_NAME }} --instance-id {{ NODE_INSTANCE_ID }}
