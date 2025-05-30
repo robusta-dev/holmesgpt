@@ -209,13 +209,14 @@ class ToolsetManager:
         with open(self.toolset_status_location, "r") as f:
             cached_toolsets = json.load(f)
 
+        # load status from cached file and update the toolset details
         toolsets_status_by_name: dict[str, dict[str, Any]] = {
             cached_toolset["name"]: cached_toolset for cached_toolset in cached_toolsets
         }
-
         all_toolsets_with_status = self._list_all_toolsets(
             dal=dal, check_prerequisites=False
         )
+
         for toolset in all_toolsets_with_status:
             if toolset.name in toolsets_status_by_name:
                 # Update the status and error from the cached status
@@ -227,6 +228,20 @@ class ToolsetManager:
                     cached_status.get("type", ToolsetType.BUILTIN)
                 )
                 toolset.path = cached_status.get("path", None)
+
+        # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
+        custom_toolsets_from_cli = self._load_toolsets_from_paths(
+            self.custom_toolsets_from_cli,
+            list(toolsets_status_by_name.keys()),
+            check_conflict_default=True,
+        )
+        # custom toolsets from cli as experimental toolset should not override custom toolsets from config
+        for custom_toolset_from_cli in custom_toolsets_from_cli:
+            if custom_toolset_from_cli in toolsets_status_by_name.keys():
+                raise Exception(
+                    f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
+                )
+        all_toolsets_with_status.extend(custom_toolset_from_cli)
 
         return all_toolsets_with_status
 
@@ -344,21 +359,6 @@ class ToolsetManager:
             self.custom_toolsets, builtin_toolsets_names
         )
         loaded_custom_toolsets.extend(custom_toolsets)
-
-        custom_toolsets_from_cli = self._load_toolsets_from_paths(
-            self.custom_toolsets_from_cli,
-            builtin_toolsets_names,
-            check_conflict_default=True,
-        )
-        custom_toolsets_by_name = [toolset.name for toolset in custom_toolsets]
-        # custom toolsets from cli as experimental toolset should not override custom toolsets from config
-        for custom_toolset_from_cli in custom_toolsets_from_cli:
-            if custom_toolset_from_cli in custom_toolsets_by_name:
-                raise Exception(
-                    f"Toolset {custom_toolset_from_cli.name} passed from cli is already defined in the custom toolsets. "
-                    "Please rename the custom toolset or remove it from the custom toolsets configuration."
-                )
-        loaded_custom_toolsets.extend(custom_toolsets_from_cli)
 
         return loaded_custom_toolsets
 
