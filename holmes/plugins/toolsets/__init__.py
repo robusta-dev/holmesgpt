@@ -4,7 +4,7 @@ import os.path
 from typing import Any, List, Optional, Union
 
 import yaml  # type: ignore
-from pydantic import FilePath, ValidationError
+from pydantic import ValidationError
 
 import holmes.utils.env as env_utils
 from holmes.core.supabase_dal import SupabaseDal
@@ -34,10 +34,8 @@ THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 def load_toolsets_from_file(
-    toolsets_path: str,
-    is_default: bool = False,
-    type: ToolsetType = ToolsetType.BUILTIN,
-) -> List[YAMLToolset]:
+    toolsets_path: str, strict_check: bool = True
+) -> List[Toolset]:
     toolsets = []
     with open(toolsets_path) as file:
         parsed_yaml = yaml.safe_load(file)
@@ -47,10 +45,7 @@ def load_toolsets_from_file(
             )
         toolsets_dict = parsed_yaml.get("toolsets", {})
 
-        toolsets.extend(load_toolsets_config(toolsets_dict, toolsets_path, type))
-
-    for toolset in toolsets:
-        toolset.is_default = is_default
+        toolsets.extend(load_toolsets_from_config(toolsets_dict, strict_check))
 
     return toolsets
 
@@ -86,12 +81,19 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         if not filename.endswith(".yaml"):
             continue
         path = os.path.join(THIS_DIR, filename)
-        toolsets_from_file = load_toolsets_from_file(
-            path, is_default=True, type=ToolsetType.BUILTIN
-        )
+        toolsets_from_file = load_toolsets_from_file(path, strict_check=True)
         all_toolsets.extend(toolsets_from_file)
 
     all_toolsets.extend(load_python_toolsets(dal=dal))  # type: ignore
+
+    # disable built-in toolsets by default, and the user can enable them explicitly in config.
+    for toolset in all_toolsets:
+        toolset.enabled = False
+        toolset.type = ToolsetType.BUILTIN
+        toolset.is_default = True
+        # dont' expose build-in toolsets path
+        toolset.path = None
+
     return all_toolsets  # type: ignore
 
 
@@ -104,47 +106,37 @@ def is_old_toolset_config(
     return False
 
 
-def load_toolsets_config(
+def load_toolsets_from_config(
     toolsets: dict[str, dict[str, Any]],
-    path: Optional[FilePath] = None,
-    type: ToolsetType = ToolsetType.BUILTIN,
     strict_check: bool = True,
-) -> List[YAMLToolset]:
+) -> List[Toolset]:
     """
     Load toolsets from a dictionary or list of dictionaries.
     :param toolsets: Dictionary of toolsets or list of toolset configurations.
-    :param path: Optional path to the toolset configuration file.
-    :param type: Type of the toolset (e.g., BUILTIN, CUSTOM).
     :param strict_check: If True, all required fields for a toolset must be present.
-    :return: List of validated YAMLToolset objects.
+    :return: List of validated Toolset objects.
     """
 
     if not toolsets:
         return []
 
-    loaded_toolsets: list[YAMLToolset] = []
+    loaded_toolsets: list[Toolset] = []
     if is_old_toolset_config(toolsets):
         message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
         logging.warning(message)
         raise ValueError(message)
 
     for name, config in toolsets.items():
-        # ignore the built-in toolset path
-        if type == ToolsetType.BUILTIN or type == ToolsetType.MCP:
-            path = None
         try:
+            if type is ToolsetType.MCP:
+                validated_toolset: RemoteMCPToolset = RemoteMCPToolset(
+                    **config, name=name
+                )
             if strict_check:
-                if type == ToolsetType.MCP:
-                    validated_toolset = RemoteMCPToolset(
-                        **config, path=path, type=type, name=name
-                    )
-                else:
-                    validated_toolset: YAMLToolset = YAMLToolset(  # type: ignore
-                        **config, path=path, type=type, name=name
-                    )
+                validated_toolset: YAMLToolset = YAMLToolset(**config, name=name)  # type: ignore
             else:
                 validated_toolset: ToolsetYamlFromConfig = ToolsetYamlFromConfig(  # type: ignore
-                    **config, path=path, type=type, name=name
+                    **config, name=name
                 )
 
             if validated_toolset.config:

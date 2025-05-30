@@ -336,7 +336,7 @@ class Toolset(BaseModel):
     status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
     error: Optional[str] = None
 
-    def override_with(self, override: "YAMLToolset") -> None:
+    def override_with(self, override: "ToolsetYamlFromConfig") -> None:
         """
         Overrides the current attributes with values from the ToolsetYamlFromConfig loaded from custom config
         if they are not None.
@@ -447,7 +447,9 @@ class Toolset(BaseModel):
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]  # type: ignore
-    enabled: bool = False
+    # YamlToolset is loaded from a YAML file specified by the user and should be enabled by default
+    # Built-in toolsets are exception and should be disabled by default when loaded
+    enabled: bool = True
     prerequisites: List[
         Union[
             StaticPrerequisite,
@@ -523,7 +525,8 @@ class ToolsetYamlFromConfig(Toolset):
     """
 
     name: str
-    # defaults enabled to True to enable the toolset provided in configuration by default unless it's explicitly disabled
+    # YamlToolset is loaded from a YAML file specified by the user and should be enabled by default
+    # Built-in toolsets are exception and should be disabled by default when loaded
     enabled: bool = True
     additional_instructions: Optional[str] = None
     prerequisites: List[

@@ -41,7 +41,6 @@ from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
-from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from holmes.utils.file_utils import write_json_file
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -145,7 +144,7 @@ opt_config_file: Optional[Path] = typer.Option(
     help="Path to the config file. Defaults to ~/.holmes/config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
 opt_custom_toolsets: Optional[List[Path]] = typer.Option(
-    [CUSTOM_TOOLSET_LOCATION] if os.path.exists(CUSTOM_TOOLSET_LOCATION) else [],
+    [],
     "--custom-toolsets",
     "-t",
     help="Path to a custom toolsets (can specify -t multiple times to add multiple toolsets).",
@@ -381,7 +380,7 @@ def ask(
         api_key=api_key,
         model=model,
         max_steps=max_steps,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
     )
@@ -1117,13 +1116,12 @@ def opsgenie(
 def list_toolsets(
     verbose: Optional[List[bool]] = opt_verbose,
     config_file: Optional[Path] = opt_config_file,  # type: ignore
-    custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
 ):
     """
     List build-int and custom toolsets status of CLI
     """
     console = init_logging(verbose)
-    config = Config.load_from_file(config_file, custom_toolsets=custom_toolsets)
+    config = Config.load_from_file(config_file)
     cli_toolsets = config.toolset_manager.load_toolset_with_status()
 
     pretty_print_toolset_status(cli_toolsets, console)
@@ -1133,13 +1131,12 @@ def list_toolsets(
 def refresh_toolsets(
     verbose: Optional[List[bool]] = opt_verbose,
     config_file: Optional[Path] = opt_config_file,  # type: ignore
-    custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
 ):
     """
     Refresh build-in and custom toolsets status of CLI
     """
     console = init_logging(verbose)
-    config = Config.load_from_file(config_file, custom_toolsets=custom_toolsets)
+    config = Config.load_from_file(config_file)
     cli_toolsets = config.toolset_manager.load_toolset_with_status(refresh_status=True)
     pretty_print_toolset_status(cli_toolsets, console)
 

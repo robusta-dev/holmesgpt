@@ -27,8 +27,8 @@ The following toolsets are either disabled or failed to initialize:
 * toolset "{{ toolset.name }}": {{ toolset.description }}
     {%- if toolset.status == "failed" %}
     *  status: The toolset is enabled but misconfigured and failed to initialize.
-      {%- if toolset.get_error() %}
-    *  error: {{ toolset.get_error() }}
+      {%- if toolset.error %}
+    *  error: {{ toolset.error }}
       {%- endif -%}
     {%- else %}
     *  status: {{ toolset.status.value }}

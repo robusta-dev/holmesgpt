@@ -136,7 +136,12 @@ class Config(RobustaBaseConfig):
     opsgenie_query: Optional[str] = None
 
     custom_runbooks: List[FilePath] = []
-    custom_toolsets: List[FilePath] = []
+
+    # custom_toolsets is defined in the config file, and can override built-in toolsets as stable custom toolsets
+    # While custom_toolsets_from_cli is defined in the CLI and should not override built-in toolsets.
+    # custom_toolsets status can be cached while custom_toolsets_from_cli should be loaded every time the CLI runs.
+    custom_toolsets: Optional[List[FilePath]] = None
+    custom_toolsets_from_cli: Optional[List[FilePath]] = None
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
 
@@ -159,7 +164,9 @@ class Config(RobustaBaseConfig):
     def toolset_manager(self) -> ToolsetManager:
         if not self._toolset_manager:
             self._toolset_manager = ToolsetManager(
-                toolsets=self.toolsets, custom_toolsets=self.custom_toolsets
+                toolsets=self.toolsets,
+                custom_toolsets=self.custom_toolsets,
+                custom_toolsets_from_cli=self.custom_toolsets_from_cli,
             )
         return self._toolset_manager
 

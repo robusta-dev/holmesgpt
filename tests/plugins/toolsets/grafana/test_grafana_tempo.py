@@ -72,15 +72,15 @@ def test_grafana_query_loki_logs_by_pod():
     }
 
     if not GRAFANA_TEMPO_DATASOURCE_UID:
-        config["headers"]["X-Scope-OrgID"] = (
-            "1"  # standalone tempo likely requires an orgid
-        )
+        config["headers"][
+            "X-Scope-OrgID"
+        ] = "1"  # standalone tempo likely requires an orgid
 
     toolset = GrafanaTempoToolset()
     toolset.config = config
     toolset.check_prerequisites()
 
-    assert toolset.get_error() is None
+    assert toolset.error is None
     assert toolset.status == ToolsetStatusEnum.ENABLED
 
     tool = GetTempoTraces(toolset)

@@ -7,14 +7,8 @@ from benedict import benedict
 from pydantic import FilePath
 
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import (
-    Toolset,
-    ToolsetStatusEnum,
-    ToolsetTag,
-    ToolsetType,
-    YAMLToolset,
-)
-from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_config
+from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
 
 DEFAULT_TOOLSET_STATUS_LOCATION = os.path.expanduser("~/.holmes/toolsets_status.json")
 
@@ -28,17 +22,20 @@ class ToolsetManager:
 
     toolsets: Optional[dict[str, dict[str, Any]]]
     custom_toolsets: Optional[List[FilePath]]
+    custom_toolsets_from_cli: Optional[List[FilePath]]
 
-    toolset_status_location: Optional[List[FilePath]]
+    toolset_status_location: FilePath
 
     def __init__(
         self,
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
-        toolset_status_location: Optional[str] = DEFAULT_TOOLSET_STATUS_LOCATION,
+        custom_toolsets_from_cli: Optional[List[FilePath]] = None,
+        toolset_status_location: FilePath = DEFAULT_TOOLSET_STATUS_LOCATION,
     ):
         self.toolsets = toolsets
         self.custom_toolsets = custom_toolsets
+        self.custom_toolsets_from_cli = custom_toolsets_from_cli
         self.toolset_status_location = toolset_status_location
 
     @property
@@ -62,7 +59,7 @@ class ToolsetManager:
         """
         Get the enabled status of the toolset from the config.
         Return False only when the toolset is explicitly defined as disabled in the config.
-        This is helpful to enable the toolset specified in the config or custom toolset file without manually specify
+        This is helpful to enable the toolset specified in the config or custom toolset file without manually specifying
         'enabled: true'. Also, this avoid setting enabled to true by default, which can lead to unexpected behavior if
         the toolset is not ready to be used.
         """
@@ -88,60 +85,86 @@ class ToolsetManager:
     ) -> List[Toolset]:
         """
         List all built-in and custom toolsets.
+
+        The method loads toolsets in this order, with later sources overriding earlier ones:
+        1. Built-in toolsets
+        2. Custom toolsets from config files which can override built-in toolsets
+        3. Toolsets defined in self.toolsets which can override both built-in and custom toolsets config
         """
         # Load built-in toolsets
         builtin_toolsets = load_builtin_toolsets(dal)
         toolsets_by_name: dict[str, Toolset] = {
             toolset.name: toolset for toolset in builtin_toolsets
         }
+        builtin_toolsets_names = list(toolsets_by_name.keys())
 
-        # build-in toolset is enabled when it's explicitly enabled in the config
+        # build-in toolset is enabled when it's explicitly enabled in the toolset or custom toolset config
         if self.toolsets is not None:
-            # enabled built-in toolsets when they are defined not disabled in the config
-            for _, toolset_config in self.toolsets.items():
-                logging.debug(f"Processing toolset config: {toolset_config}")
-                toolset_config["enabled"] = self.get_toolset_definition_enabled(
-                    toolset_config
-                )
-            toolsets_from_config = load_toolsets_config(
-                toolsets=self.toolsets, strict_check=False
+            toolsets_from_config = self._load_toolsets_from_config(
+                self.toolsets, builtin_toolsets_names, dal
             )
-            if toolsets_from_config:
-                self.add_or_merge_yaml_toolsets(
-                    toolsets_from_config,
-                    toolsets_by_name,
-                )
+
+        self.add_or_merge_onto_toolsets(
+            toolsets_from_config,
+            toolsets_by_name,
+        )
 
         # custom toolset should not override built-in toolsets
         # to test the new change of built-in toolset, we should make code change and re-compile the program
-        custom_toolsets = self.load_custom_toolsets()
+        custom_toolsets = self.load_custom_toolsets(builtin_toolsets_names)
         for custom_toolset in custom_toolsets:
             if custom_toolset.name in toolsets_by_name:
                 raise Exception(
-                    f"Toolset {custom_toolset.name} is already defined in the built-in toolsets. "
-                    "Please rename the custom toolset or remove it from the custom toolsets configuration."
+                    f"Toolset {custom_toolset.name} is already defined in the toolsets. "
+                    "Please rename it from the custom toolset or remove it from the custom toolsets configuration."
                 )
             toolsets_by_name[custom_toolset.name] = custom_toolset
 
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
             return list(toolsets_by_name.values())
-
         for _, toolset in toolsets_by_name.items():
             if toolset.enabled:
-                try:
-                    toolset.check_prerequisites()
-                except Exception as e:
-                    logging.error(
-                        f"Failed to check prerequisites for toolset {toolset.name}: {e}",
-                        exc_info=True,
-                    )
-                    toolset.status = ToolsetStatusEnum.FAILED
-                    toolset.error = str(e)
+                toolset.check_prerequisites()
             else:
                 toolset.status = ToolsetStatusEnum.DISABLED
 
         return list(toolsets_by_name.values())
+
+    def _load_toolsets_from_config(
+        self,
+        toolsets: dict[str, dict[str, Any]],
+        builtin_toolset_names: list[str],
+        dal: Optional[SupabaseDal] = None,
+    ) -> List[Toolset]:
+        if toolsets is None:
+            logging.debug("No toolsets configured, skipping loading toolsets")
+            return []
+
+        builtin_toolsets_dict: dict[str, dict[str, Any]] = {}
+        custom_toolsets_dict: dict[str, dict[str, Any]] = {}
+        for toolset_name, toolset_config in toolsets.items():
+            toolset_config["enabled"] = self.get_toolset_definition_enabled(
+                toolset_config
+            )
+            if toolset_name in builtin_toolset_names:
+                # build-in types was assigned when loaded
+                builtin_toolsets_dict[toolset_name] = toolset_config
+            else:
+                toolset_config["type"] = ToolsetType.CUSTOMIZED.value
+                custom_toolsets_dict[toolset_name] = toolset_config
+
+        # built-in toolsets and built-in MCP servers in the config can override the existing fields of built-in toolsets
+        builtin_toolsets = load_toolsets_from_config(
+            builtin_toolsets_dict, strict_check=False
+        )
+
+        # custom toolsets or MCP servers are expected to defined required fields
+        custom_toolsets = load_toolsets_from_config(
+            toolsets=custom_toolsets_dict, strict_check=True
+        )
+
+        return builtin_toolsets + custom_toolsets
 
     def refresh_toolset_status(self, dal: Optional[SupabaseDal] = None):
         """
@@ -149,14 +172,15 @@ class ToolsetManager:
         Loading cached toolsets status saves the time for runtime tool executor checking the status of each toolset
 
         enabled toolset when:
-        - build-in toolset enabled by default like datetime
         - build-in toolset specified in the config and not explicitly disabled
         - custom toolset not explicitly disabled
         """
 
         all_toolsets = self._list_all_toolsets(dal=dal, check_prerequisites=True)
 
-        if not os.path.exists(os.path.dirname(self.toolset_status_location)):
+        if self.toolset_status_location and not os.path.exists(
+            os.path.dirname(self.toolset_status_location)
+        ):
             os.makedirs(os.path.dirname(self.toolset_status_location))
         with open(self.toolset_status_location, "w") as f:
             toolset_status = [
@@ -233,15 +257,64 @@ class ToolsetManager:
             if any(tag in self.server_tool_tags for tag in ts.tags)
         ]
 
-    def load_custom_toolsets(self) -> list[YAMLToolset]:
+    def _load_toolsets_from_paths(
+        self,
+        toolset_paths: Optional[List[FilePath]],
+        builtin_toolsets_names: list[str],
+        check_conflict_default: bool = False,
+    ) -> List[Toolset]:
+        if not toolset_paths:
+            logging.debug("No toolsets configured, skipping loading toolsets")
+            return []
+
+        loaded_custom_toolsets: List[Toolset] = []
+        for toolset_path in toolset_paths:
+            if not os.path.isfile(toolset_path):
+                raise FileNotFoundError(f"toolset file {toolset_path} does not exist")
+
+            parsed_yaml = benedict(toolset_path)
+            toolsets_config: dict[str, dict[str, Any]] = parsed_yaml.get("toolsets", {})
+            mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
+
+            for server_config in mcp_config.values():
+                server_config["type"] = ToolsetType.MCP
+
+            for toolset_config in toolsets_config.values():
+                toolset_config["path"] = toolset_path
+
+            toolsets_config.update(mcp_config)
+
+            if not toolsets_config:
+                raise ValueError(
+                    f"No 'toolsets' or 'mcp_servers' key found in: {toolset_path}"
+                )
+
+            toolsets_from_config = self._load_toolsets_from_config(
+                toolsets_config, builtin_toolsets_names
+            )
+
+            if check_conflict_default:
+                for toolset in toolsets_from_config:
+                    if toolset.name in builtin_toolsets_names:
+                        raise Exception(
+                            f"Toolset {toolset.name} is already defined in the built-in toolsets. "
+                            "Please rename the custom toolset or remove it from the custom toolsets configuration."
+                        )
+
+            loaded_custom_toolsets.extend(toolsets_from_config)
+
+        return loaded_custom_toolsets
+
+    def load_custom_toolsets(self, builtin_toolsets_names: list[str]) -> list[Toolset]:
         """
         Loads toolsets config from custom toolset path with YAMLToolset class.
 
         Example configuration:
-
+        # override the built-in toolsets with custom toolsets
         kubernetes/logs:
             enabled: false
 
+        # define a custom toolset with strictly defined fields
         test/configurations:
             enabled: true
             icon_url: "example.com"
@@ -257,59 +330,53 @@ class ToolsetManager:
                 description: "Perform a curl request to example.com using variables"
                 command: "curl -X GET '{{api_endpoint}}?query={{ query_param }}' "
         """
-        if not self.custom_toolsets:
+        if not self.custom_toolsets and not self.custom_toolsets_from_cli:
             logging.debug(
                 "No custom toolsets configured, skipping loading custom toolsets"
             )
             return []
-        loaded_custom_toolsets = []
-        for custom_path in self.custom_toolsets:
-            if not os.path.isfile(custom_path):
-                raise FileNotFoundError(
-                    f"Custom toolset file {custom_path} does not exist"
+
+        loaded_custom_toolsets: List[Toolset] = []
+        custom_toolsets = self._load_toolsets_from_paths(
+            self.custom_toolsets, builtin_toolsets_names
+        )
+        loaded_custom_toolsets.extend(custom_toolsets)
+
+        custom_toolsets_from_cli = self._load_toolsets_from_paths(
+            self.custom_toolsets_from_cli,
+            builtin_toolsets_names,
+            check_conflict_default=True,
+        )
+        custom_toolsets_by_name = [toolset.name for toolset in custom_toolsets]
+        # custom toolsets from cli as experimental toolset should not override custom toolsets from config
+        for custom_toolset_from_cli in custom_toolsets_from_cli:
+            if custom_toolset_from_cli in custom_toolsets_by_name:
+                raise Exception(
+                    f"Toolset {custom_toolset_from_cli.name} passed from cli is already defined in the custom toolsets. "
+                    "Please rename the custom toolset or remove it from the custom toolsets configuration."
                 )
-
-            parsed_yaml = benedict(custom_path)
-            toolsets_config = parsed_yaml.get("toolsets", {})
-            mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
-
-            for server_config in mcp_config.values():
-                server_config["type"] = ToolsetType.MCP
-
-            toolsets_config.update(mcp_config)
-
-            if not toolsets_config:
-                raise ValueError(
-                    f"No 'toolsets' or 'mcp_servers' key found in: {custom_path}"
-                )
-
-            for _, toolset_config in toolsets_config.items():
-                logging.debug(f"Processing toolset config: {toolset_config}")
-                toolset_config["enabled"] = self.get_toolset_definition_enabled(
-                    toolset_config
-                )
-
-            yaml_toolsets = load_toolsets_config(
-                toolsets=toolsets_config,
-                path=custom_path,
-                type=ToolsetType.CUSTOMIZED,
-                strict_check=True,
-            )
-            loaded_custom_toolsets.extend(yaml_toolsets)
+        loaded_custom_toolsets.extend(custom_toolsets_from_cli)
 
         return loaded_custom_toolsets
 
-    def add_or_merge_yaml_toolsets(
+    def add_or_merge_onto_toolsets(
         self,
-        new_toolsets: list[YAMLToolset],
+        new_toolsets: list[Toolset],
         existing_toolsets_by_name: dict[str, Toolset],
     ) -> None:
         """
-        Add new or merge toolsets to existing toolsets.
+        Add new or merge toolsets onto existing toolsets.
         """
 
         for new_toolset in new_toolsets:
             if new_toolset.name in existing_toolsets_by_name.keys():
+                logging.debug(
+                    f"Toolset {new_toolset.name} already exists, merging with existing toolset."
+                )
+                logging.debug(
+                    f"Existing toolset: {existing_toolsets_by_name[new_toolset.name]}"
+                )
+                logging.debug(f"New toolset: {new_toolset}")
                 existing_toolsets_by_name[new_toolset.name].override_with(new_toolset)
             else:
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
