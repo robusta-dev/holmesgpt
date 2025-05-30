@@ -3,7 +3,7 @@ import os
 import pytest
 import yaml
 
-from holmes.plugins.toolsets import Toolset, ToolsetType, load_toolsets_from_config
+from holmes.plugins.toolsets import load_toolsets_from_config
 
 
 def test_load_toolsets_from_config_old_format():

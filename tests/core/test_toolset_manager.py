@@ -275,4 +275,3 @@ def test_load_custom_toolsets_empty_file(tmp_path, toolset_manager):
     with pytest.raises(Exception) as e_info:
         toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
     assert "Invalid data type:" in e_info.value.args[0]
-
