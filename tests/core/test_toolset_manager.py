@@ -4,8 +4,9 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
-from holmes.core.tools import ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
 from holmes.core.toolset_manager import ToolsetManager
 
 
@@ -14,29 +15,20 @@ def toolset_manager():
     return ToolsetManager()
 
 
-def test_get_toolset_definition_enabled_true_bool():
-    config = {"enabled": True}
-    assert ToolsetManager.get_toolset_definition_enabled(config) is True
+get_toolset_definition_enabled_true_data = [
+    ({}, True),
+    ({"enabled": True}, True),
+    ({"enabled": False}, False),
+    ({"enabled": "true"}, True),
+    ({"enabled": "True"}, True),
+    ({"enabled": "False"}, False),
+    ({"enabled": "false"}, False),
+]
 
 
-def test_get_toolset_definition_enabled_false_bool():
-    config = {"enabled": False}
-    assert ToolsetManager.get_toolset_definition_enabled(config) is False
-
-
-def test_get_toolset_definition_enabled_false_str():
-    config = {"enabled": "false"}
-    assert ToolsetManager.get_toolset_definition_enabled(config) is False
-
-
-def test_get_toolset_definition_enabled_true_str():
-    config = {"enabled": "true"}
-    assert ToolsetManager.get_toolset_definition_enabled(config) is True
-
-
-def test_get_toolset_definition_enabled_default():
-    config = {}
-    assert ToolsetManager.get_toolset_definition_enabled(config) is True
+@pytest.mark.parametrize("config, expected", get_toolset_definition_enabled_true_data)
+def test_get_toolset_definition_enabled(config, expected):
+    assert ToolsetManager.get_toolset_definition_enabled(config) == expected
 
 
 def test_cli_tool_tags(toolset_manager):
@@ -52,22 +44,20 @@ def test_server_tool_tags(toolset_manager):
 
 
 @patch("holmes.core.toolset_manager.load_builtin_toolsets")
-@patch("holmes.core.toolset_manager.load_toolsets_config")
+@patch("holmes.core.toolset_manager.load_toolsets_from_config")
 def test__list_all_toolsets_merges_configs(
-    mock_load_toolsets_config, mock_load_builtin_toolsets, toolset_manager
+    mock_load_toolsets_from_config, mock_load_builtin_toolsets, toolset_manager
 ):
-    builtin_toolset = MagicMock()
+    builtin_toolset = MagicMock(spec=Toolset)
     builtin_toolset.name = "builtin"
-    builtin_toolset.enabled = True
     builtin_toolset.tags = [ToolsetTag.CORE]
     builtin_toolset.check_prerequisites = MagicMock()
     mock_load_builtin_toolsets.return_value = [builtin_toolset]
-    config_toolset = MagicMock()
+    config_toolset = MagicMock(spec=Toolset)
     config_toolset.name = "config"
-    config_toolset.enabled = True
     config_toolset.tags = [ToolsetTag.CLI]
     config_toolset.check_prerequisites = MagicMock()
-    mock_load_toolsets_config.return_value = [config_toolset]
+    mock_load_toolsets_from_config.return_value = [config_toolset]
 
     toolset_manager.toolsets = {"config": {"enabled": True}}
     toolsets = toolset_manager._list_all_toolsets(check_prerequisites=False)
@@ -76,24 +66,9 @@ def test__list_all_toolsets_merges_configs(
     assert "config" in names
 
 
-@patch("holmes.core.toolset_manager.load_builtin_toolsets")
-@patch("holmes.core.toolset_manager.ToolsetManager.load_custom_toolsets")
-def test__list_all_toolsets_custom_override_error(
-    mock_load_custom_toolsets, mock_load_builtin_toolsets, toolset_manager
-):
-    builtin_toolset = MagicMock()
-    builtin_toolset.name = "duplicate"
-    mock_load_builtin_toolsets.return_value = [builtin_toolset]
-    custom_toolset = MagicMock()
-    custom_toolset.name = "duplicate"
-    mock_load_custom_toolsets.return_value = [custom_toolset]
-    with pytest.raises(Exception):
-        toolset_manager._list_all_toolsets(check_prerequisites=False)
-
-
 @patch("holmes.core.toolset_manager.ToolsetManager._list_all_toolsets")
 def test_refresh_toolset_status_creates_file(mock_list_all_toolsets, toolset_manager):
-    toolset = MagicMock()
+    toolset = MagicMock(spec=Toolset)
     toolset.name = "test"
     toolset.status = ToolsetStatusEnum.ENABLED
     toolset.enabled = True
@@ -123,7 +98,7 @@ def test_refresh_toolset_status_creates_file(mock_list_all_toolsets, toolset_man
 
 @patch("holmes.core.toolset_manager.ToolsetManager._list_all_toolsets")
 def test_load_toolset_with_status_reads_cache(mock_list_all_toolsets, toolset_manager):
-    toolset = MagicMock()
+    toolset = MagicMock(spec=Toolset)
     toolset.name = "test"
     toolset.tags = [ToolsetTag.CORE]
     toolset.enabled = True
@@ -137,9 +112,9 @@ def test_load_toolset_with_status_reads_cache(mock_list_all_toolsets, toolset_ma
         cache_data = [
             {
                 "name": "test",
-                "status": "ENABLED",
+                "status": "enabled",
                 "enabled": True,
-                "type": "BUILTIN",
+                "type": "built-in",
                 "path": None,
                 "error": None,
             }
@@ -154,7 +129,7 @@ def test_load_toolset_with_status_reads_cache(mock_list_all_toolsets, toolset_ma
 
 @patch("holmes.core.toolset_manager.ToolsetManager.load_toolset_with_status")
 def test_list_enabled_console_toolsets(mock_load_toolset_with_status, toolset_manager):
-    toolset = MagicMock()
+    toolset = MagicMock(spec=Toolset)
     toolset.tags = [ToolsetTag.CORE, ToolsetTag.CLI]
     toolset.enabled = True
     mock_load_toolset_with_status.return_value = [toolset]
@@ -164,7 +139,7 @@ def test_list_enabled_console_toolsets(mock_load_toolset_with_status, toolset_ma
 
 @patch("holmes.core.toolset_manager.ToolsetManager.load_toolset_with_status")
 def test_list_enabled_server_toolsets(mock_load_toolset_with_status, toolset_manager):
-    toolset = MagicMock()
+    toolset = MagicMock(spec=Toolset)
     toolset.tags = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
     toolset.enabled = True
     mock_load_toolset_with_status.return_value = [toolset]
@@ -172,58 +147,132 @@ def test_list_enabled_server_toolsets(mock_load_toolset_with_status, toolset_man
     assert toolset in result
 
 
-@patch("holmes.core.toolset_manager.benedict")
-@patch("holmes.core.toolset_manager.load_toolsets_config")
-def test_load_custom_toolsets_success(
-    mock_load_toolsets_config, mock_benedict, toolset_manager
-):
-    yaml_toolset = MagicMock()
+@patch("holmes.core.toolset_manager.load_toolsets_from_config")
+def test_load_custom_toolsets_success(mock_load_toolsets_from_config, toolset_manager):
+    yaml_toolset = MagicMock(spec=Toolset)
     yaml_toolset.name = "custom"
-    mock_load_toolsets_config.return_value = [yaml_toolset]
-    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
-        tmpfile.write(b"toolsets:\n  custom:\n    enabled: true\n")
-        tmpfile.flush()
+    mock_load_toolsets_from_config.return_value = [yaml_toolset]
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmpfile:
+        data = {"toolsets": {"custom": {"enabled": True, "config": {"key": "value"}}}}
+        json.dump(data, tmpfile, indent=2)
         tmpfile_path = tmpfile.name
     toolset_manager.custom_toolsets = [tmpfile_path]
-    mock_benedict.return_value.get.side_effect = lambda k, **kwargs: {
-        "toolsets": {"custom": {"enabled": True}},
-        "mcp_servers": {},
-    }[k]
-    result = toolset_manager.load_custom_toolsets()
+    result = toolset_manager.load_custom_toolsets(["builtin"])
     assert yaml_toolset in result
     os.remove(tmpfile_path)
 
 
-@patch("holmes.core.toolset_manager.load_toolsets_config")
+@patch("holmes.core.toolset_manager.load_toolsets_from_config")
 @patch("holmes.core.toolset_manager.benedict")
 def test_load_custom_toolsets_no_file(
-    mock_benedict, mock_load_toolsets_config, toolset_manager
+    mock_benedict, mock_load_toolsets_from_config, toolset_manager
 ):
     toolset_manager.custom_toolsets = ["/nonexistent/path.yaml"]
     with pytest.raises(FileNotFoundError):
-        toolset_manager.load_custom_toolsets()
+        toolset_manager.load_custom_toolsets(["builtin"])
 
 
 def test_load_custom_toolsets_none(toolset_manager):
     toolset_manager.custom_toolsets = None
-    assert toolset_manager.load_custom_toolsets() == []
+    toolset_manager.custom_toolsets_from_cli = None
+    assert toolset_manager.load_custom_toolsets(["builtin"]) == []
 
 
-def test_add_or_merge_yaml_toolsets_merges():
+def test_add_or_merge_onto_toolsets_merges():
     existing = {}
-    new_toolset = MagicMock()
+    new_toolset = MagicMock(spec=Toolset)
     new_toolset.name = "merge"
-    existing_toolset = MagicMock()
+    new_toolset.description = "This is a new toolset"
+    existing_toolset = MagicMock(spec=Toolset)
     existing_toolset.name = "merge"
+    existing_toolset.enabled = "enabled"
     existing["merge"] = existing_toolset
     new_toolset.override_with = MagicMock()
-    ToolsetManager.add_or_merge_yaml_toolsets(ToolsetManager, [new_toolset], existing)
-    new_toolset.override_with.assert_called_once_with(new_toolset)
+    ToolsetManager.add_or_merge_onto_toolsets(ToolsetManager, [new_toolset], existing)
+    existing_toolset.override_with.assert_called_once_with(new_toolset)
 
 
-def test_add_or_merge_yaml_toolsets_adds():
+def test_add_or_merge_onto_toolsets_adds():
     existing = {}
-    new_toolset = MagicMock()
+    new_toolset = MagicMock(spec=Toolset)
     new_toolset.name = "add"
-    ToolsetManager.add_or_merge_yaml_toolsets(ToolsetManager, [new_toolset], existing)
+    ToolsetManager.add_or_merge_onto_toolsets(ToolsetManager, [new_toolset], existing)
     assert existing["add"] == new_toolset
+
+
+def test_load_custom_builtin_toolsets_valid(tmp_path, toolset_manager):
+    custom_file = tmp_path / "custom_toolset.yaml"
+    data = {
+        "toolsets": {
+            "dummy_tool": {
+                "enabled": True,
+            }
+        }
+    }
+    custom_file.write_text(yaml.dump(data))
+
+    toolset_manager.custom_toolsets = [custom_file]
+    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=["dummy_tool"])
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+    tool = result[0]
+    assert tool.name == "dummy_tool"
+    assert str(getattr(tool, "path", None)) == str(custom_file)
+
+
+def test_load_custom_toolsets_valid(tmp_path, toolset_manager):
+    custom_file = tmp_path / "custom_toolset.yaml"
+    data = {
+        "toolsets": {
+            "dummy_tool": {
+                "enabled": True,
+                "description": "dummy",
+                "config": {"key": "value"},
+            }
+        }
+    }
+    custom_file.write_text(yaml.dump(data))
+
+    toolset_manager.custom_toolsets = [custom_file]
+    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+    tool = result[0]
+    assert tool.name == "dummy_tool"
+    assert str(getattr(tool, "path", None)) == str(custom_file)
+
+
+def test_load_custom_toolsets_missing_field_invalid(tmp_path, toolset_manager):
+    custom_file = tmp_path / "custom_toolset.yaml"
+    data = {"toolsets": {"dummy_tool": {"enabled": True, "config": {"key": "value"}}}}
+    custom_file.write_text(yaml.dump(data))
+
+    toolset_manager.custom_toolsets = [custom_file]
+    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
+
+    assert isinstance(result, list)
+    assert len(result) == 0
+
+
+def test_load_custom_toolsets_invalid_yaml(tmp_path, toolset_manager):
+    custom_file = tmp_path / "custom_toolset.yaml"
+    custom_file.write_text("::::")
+
+    toolset_manager.custom_toolsets = [custom_file]
+    with pytest.raises(Exception) as e_info:
+        toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
+    assert "No 'toolsets' or 'mcp_servers' key found" in e_info.value.args[0]
+
+
+def test_load_custom_toolsets_empty_file(tmp_path, toolset_manager):
+    custom_file = tmp_path / "custom_toolset.yaml"
+    custom_file.write_text("")
+
+    toolset_manager.custom_toolsets = [custom_file]
+
+    with pytest.raises(Exception) as e_info:
+        toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
+    assert "Invalid data type:" in e_info.value.args[0]
+

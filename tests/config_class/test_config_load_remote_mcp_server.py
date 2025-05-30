@@ -1,7 +1,9 @@
-import yaml
-import pytest
 import os
-from holmes.config import load_toolsets_definitions
+
+import pytest
+import yaml
+
+from holmes.plugins.toolsets import load_toolsets_from_config
 
 
 # class DummyToolsetYamlFromConfig to bypass actual validations and test only load_custom_toolsets_config
@@ -46,7 +48,9 @@ def test_load_mcp_toolsets_definition():
 
         toolsets_config = yaml.safe_load(toolsets_config_str)
         assert isinstance(toolsets_config, dict)
-        definitions = load_toolsets_definitions(toolsets=toolsets_config, path="env")
+        definitions = load_toolsets_from_config(
+            toolsets=toolsets_config, strict_check=False
+        )
         assert len(definitions) == 1
         mcp_test = definitions[0]
         config = mcp_test.config
