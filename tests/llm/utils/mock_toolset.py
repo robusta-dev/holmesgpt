@@ -11,7 +11,6 @@ from holmes.core.tools import (
     Tool,
     Toolset,
     ToolsetStatusEnum,
-    ToolsetYamlFromConfig,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
@@ -148,7 +147,7 @@ class MockToolsets:
         self._enable_builtin_toolsets(run_live)
         self._update()
 
-    def _load_toolsets_definitions(self, run_live) -> List[ToolsetYamlFromConfig]:
+    def _load_toolsets_definitions(self, run_live) -> List[Toolset]:
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
         toolsets_definitions = None
         if os.path.isfile(config_path):

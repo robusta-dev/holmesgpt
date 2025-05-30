@@ -9,6 +9,7 @@ from pydantic import FilePath
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
+from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 
 DEFAULT_TOOLSET_STATUS_LOCATION = os.path.expanduser("~/.holmes/toolsets_status.json")
 
@@ -35,6 +36,13 @@ class ToolsetManager:
     ):
         self.toolsets = toolsets
         self.custom_toolsets = custom_toolsets
+
+        # holmes container uses CUSTOM_TOOLSET_LOCATION to load custom toolsets
+        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            if self.custom_toolsets is None:
+                self.custom_toolsets = []
+            self.custom_toolsets.append(CUSTOM_TOOLSET_LOCATION)
+
         self.custom_toolsets_from_cli = custom_toolsets_from_cli
         self.toolset_status_location = toolset_status_location
 
@@ -89,9 +97,7 @@ class ToolsetManager:
         The method loads toolsets in this order, with later sources overriding earlier ones:
         1. Built-in toolsets
         2. Toolsets defined in self.toolsets can override both built-in and add new custom toolsets
-        3. Custom toolsets from config files can override built-in toolsets conditionally:
-          3.1 custom toolset from config can override both built-in and add new custom toolsets # for backward compatibility
-          3.2 custom toolset from CLI can only add new custom toolsets
+        3. custom toolset from config can override both built-in and add new custom toolsets # for backward compatibility
         """
         # Load built-in toolsets
         builtin_toolsets = load_builtin_toolsets(dal)
