@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from holmes.config import parse_toolsets_file
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
@@ -14,7 +13,7 @@ from holmes.core.tools import (
     ToolsetStatusEnum,
     ToolsetYamlFromConfig,
 )
-from holmes.plugins.toolsets import load_builtin_toolsets
+from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
@@ -153,8 +152,8 @@ class MockToolsets:
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
         toolsets_definitions = None
         if os.path.isfile(config_path):
-            toolsets_definitions = parse_toolsets_file(
-                path=config_path, raise_error=run_live
+            toolsets_definitions = load_toolsets_from_file(
+                toolsets_path=config_path, strict_check=False
             )
 
         return toolsets_definitions or []
