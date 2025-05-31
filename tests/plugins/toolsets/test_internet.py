@@ -108,9 +108,7 @@ def test_html_to_markdown(fixture: Fixture):
     )
     if not match:
         write_file(actual_file_path_for_debugging, actual_output)
-    assert (
-        match
-    ), f"Values mismatch. Run the following command to compare expected with actual: `diff {fixture.expected_output_file_path} {actual_file_path_for_debugging}`"
+    assert match, f"Values mismatch. Run the following command to compare expected with actual: `diff {fixture.expected_output_file_path} {actual_file_path_for_debugging}`"
 
 
 def test_fetch_webpage():

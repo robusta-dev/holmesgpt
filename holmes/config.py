@@ -152,11 +152,11 @@ class Config(RobustaBaseConfig):
     def load_from_file(cls, config_file: Optional[Path], **kwargs) -> "Config":
         """
         Load configuration from file and merge with CLI options.
-        
+
         Args:
             config_file: Path to configuration file
             **kwargs: CLI options to override config file values
-            
+
         Returns:
             Config instance with merged settings
         """
