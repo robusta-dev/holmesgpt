@@ -9,3 +9,9 @@ retrieval_context:
   - 6 pods are not running as indicated by the STATUS column
 evaluation:
   correctness: 0
+# The issue here is that the LLM is not able to correctly understand the user prompt.
+# when the user refer to running pods the llm doesn't look on the STATUS column to filter the pods
+# When tried to be specific with the user prompt, e.g. "How many pods do I have running status on..."
+# It was still counting wrong and show 8 pods instead of 6
+# when added request to list the names of the pods to the prompt for debugging, it was able to correctly count the pods in some cases 30% times
+# In the other 70% he listed the right pods but the count was wrong.
