@@ -1,12 +1,11 @@
+from rich.console import Console
+
+from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
+from holmes.config import Config
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest
-from holmes.core.tool_calling_llm import (
-    ResourceInstructionDocument,
-    ResourceInstructions,
-)
-from rich.console import Console
-from holmes.config import Config
-from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
+from holmes.core.resource_instruction import ResourceInstructionDocument
+from holmes.core.tool_calling_llm import ResourceInstructions
 
 
 def _test_investigate_issue_using_fetch_webpage():
