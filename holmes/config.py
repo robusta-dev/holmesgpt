@@ -150,6 +150,16 @@ class Config(RobustaBaseConfig):
 
     @classmethod
     def load_from_file(cls, config_file: Optional[Path], **kwargs) -> "Config":
+        """
+        Load configuration from file and merge with CLI options.
+        
+        Args:
+            config_file: Path to configuration file
+            **kwargs: CLI options to override config file values
+            
+        Returns:
+            Config instance with merged settings
+        """
         if config_file is not None and config_file.exists():
             logging.debug(f"Loading config from {config_file}")
             config_from_file = load_model_from_file(cls, config_file)

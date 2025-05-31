@@ -57,8 +57,8 @@ class ToolsetManager:
     @property
     def server_tool_tags(self) -> List[str]:
         """
-        Returns the list of toolset tags that are relevant for CLI tools.
-        A toolset is considered a CLI tool if it has any of UI tool tags:
+        Returns the list of toolset tags that are relevant for server tools.
+        A toolset is considered a server tool if it has any of UI tool tags:
         """
         return [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
@@ -71,16 +71,15 @@ class ToolsetManager:
         'enabled: true'. Also, this avoid setting enabled to true by default, which can lead to unexpected behavior if
         the toolset is not ready to be used.
         """
+
+        # Normally benedict should translate the value of enabled to bool when well assigned,
+        # but in case it doesn't, and to avoid unexpected behavior, we check if the value is a
+        # string and if it is 'false' (case insensitive).
         if "enabled" in toolset_config:
             if (
                 isinstance(toolset_config["enabled"], bool)
                 and not toolset_config["enabled"]
-            ):
-                return False
-            # Normally benedict should translate the value of enabled to bool when well assigned,
-            # but in case it doesn't, and to avoid unexpected behavior, we check if the value is a
-            # string and if it is 'false' (case insensitive).
-            elif (
+            ) or (
                 isinstance(toolset_config["enabled"], str)
                 and toolset_config["enabled"].lower() == "false"
             ):
@@ -297,7 +296,7 @@ class ToolsetManager:
             except Exception as e:
                 raise ValueError(
                     f"Failed to load toolsets from {toolset_path}, error: {e}"
-                )
+                ) from e
             toolsets_config: dict[str, dict[str, Any]] = parsed_yaml.get("toolsets", {})
             mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
 
