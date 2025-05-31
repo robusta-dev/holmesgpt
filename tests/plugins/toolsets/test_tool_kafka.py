@@ -37,7 +37,7 @@ def kafka_toolset():
     kafka_toolset.config = kafka_config
     kafka_toolset.check_prerequisites()
     assert (
-        kafka_toolset.status() == ToolsetStatusEnum.ENABLED
+        kafka_toolset.status == ToolsetStatusEnum.ENABLED
     ), "Prerequisites check failed for Kafka toolset"
     assert kafka_toolset.admin_client is not None, "Missing admin client"
     return kafka_toolset

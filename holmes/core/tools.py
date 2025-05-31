@@ -175,7 +175,7 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _getstatus(self, return_code: int, raw_output: str) -> ToolResultStatus:
+    def _get_status(self, return_code: int, raw_output: str) -> ToolResultStatus:
         if return_code != 0:
             return ToolResultStatus.ERROR
         if raw_output == "":
@@ -201,7 +201,7 @@ class YAMLTool(Tool, BaseModel):
             if return_code == 0
             else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
         )
-        status = self._getstatus(return_code, raw_output)
+        status = self._get_status(return_code, raw_output)
 
         return StructuredToolResult(
             status=status,

@@ -1,7 +1,8 @@
+import logging
 import os
 import re
-import logging
 from typing import Any, Optional
+
 from pydantic import SecretStr
 
 
@@ -13,7 +14,7 @@ def get_env_replacement(value: str) -> Optional[str]:
     if env_var_key not in os.environ:
         msg = f"ENV var replacement {env_var_key} does not exist for param: {value}"
         logging.error(msg)
-        raise Exception(msg)
+        raise ValueError(msg)
 
     return os.environ.get(env_var_key)
 
@@ -33,11 +34,13 @@ def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, list):
             # can be a list of strings
             values[key] = [
-                replace_env_vars_values(iter)
-                if isinstance(iter, dict)
-                else get_env_replacement(iter)
-                if isinstance(iter, str)
-                else iter
-                for iter in value
+                (
+                    replace_env_vars_values(item)
+                    if isinstance(item, dict)
+                    else get_env_replacement(item)
+                    if isinstance(item, str)
+                    else item
+                )
+                for item in value
             ]
     return values

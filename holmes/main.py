@@ -1118,7 +1118,7 @@ def list_toolsets(
     config_file: Optional[Path] = opt_config_file,  # type: ignore
 ):
     """
-    List build-int and custom toolsets status of CLI
+    List build-in and custom toolsets status of CLI
     """
     console = init_logging(verbose)
     config = Config.load_from_file(config_file)
