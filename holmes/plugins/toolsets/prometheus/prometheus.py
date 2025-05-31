@@ -7,7 +7,7 @@ import time
 
 from typing import Any, Dict, List, Union, Optional, Tuple
 
-import requests
+import requests  # type: ignore
 from pydantic import BaseModel
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -115,7 +115,7 @@ def fetch_metadata_with_series_api(
     response.raise_for_status()
     metrics = response.json()["data"]
 
-    metadata = {}
+    metadata: Dict = {}
     for metric_data in metrics:
         metric_name = metric_data.get("__name__")
         if not metric_name:
@@ -290,7 +290,7 @@ class ListPrometheusRules(BasePrometheusTool):
                 params=params,
             )
         if not self._cache and self.toolset.config.rules_cache_duration_seconds:
-            self._cache = TTLCache(self.toolset.config.rules_cache_duration_seconds)
+            self._cache = TTLCache(self.toolset.config.rules_cache_duration_seconds)  # type: ignore
         try:
             if self._cache:
                 cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
@@ -380,7 +380,7 @@ class ListAvailableMetrics(BasePrometheusTool):
             )
         if not self._cache and self.toolset.config.metrics_labels_cache_duration_hrs:
             self._cache = TTLCache(
-                self.toolset.config.metrics_labels_cache_duration_hrs * 3600
+                self.toolset.config.metrics_labels_cache_duration_hrs * 3600  # type: ignore
             )
         try:
             prometheus_url = self.toolset.config.prometheus_url
@@ -794,15 +794,15 @@ class PrometheusToolset(Toolset):
                     f"Failed to connect to Prometheus at {url}: HTTP {response.status_code}",
                 )
 
-        except RequestException as e:
+        except RequestException:
             return (
                 False,
-                f"Toolset failed to initialize using url={url}. Connection error: {str(e)}",
+                f"Failed to initialize using url={url}",
             )
         except Exception as e:
             return (
                 False,
-                f"Toolset failed to initialize using url={url}. Unexpected error: {str(e)}",
+                f"Failed to initialize using url={url}. Unexpected error: {str(e)}",
             )
 
     def get_example_config(self):

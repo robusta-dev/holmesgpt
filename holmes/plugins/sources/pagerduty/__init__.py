@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 
-import requests
+import requests  # type: ignore
 
 from holmes.core.issue import Issue
 from holmes.core.tool_calling_llm import LLMResult
@@ -49,7 +49,7 @@ class PagerDutySource(SourcePlugin):
         except requests.RequestException as e:
             raise ConnectionError("Failed to fetch data from PagerDuty.") from e
 
-    def fetch_issue(self, id: str) -> Optional[Issue]:
+    def fetch_issue(self, id: str) -> Optional[Issue]:  # type: ignore
         """
         Fetch a single issue from PagerDuty using the incident ID and convert it to an Issue object.
 

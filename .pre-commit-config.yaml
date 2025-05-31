@@ -18,4 +18,11 @@ repos:
     hooks:
       - id: detect-private-key
       - id: end-of-file-fixer
+        exclude_types: [image]
       - id: trailing-whitespace
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        pass_filenames: false
+        args: [., --python-version=3.9]

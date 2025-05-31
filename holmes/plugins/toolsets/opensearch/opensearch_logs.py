@@ -3,8 +3,8 @@ import logging
 
 from typing import Any, Dict
 
-import requests
-from cachetools import TTLCache
+import requests  # type: ignore
+from cachetools import TTLCache  # type: ignore
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -12,7 +12,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 import json
-from requests import RequestException
+from requests import RequestException  # type: ignore
 from urllib.parse import urljoin
 
 from holmes.plugins.toolsets.opensearch.opensearch_utils import (
@@ -155,7 +155,7 @@ class GetLogFields(Tool):
             mapping_data = mapping_response.json()
 
             # Extract field names, types, and indexes from mapping response
-            field_details = {}  # Dictionary to store field details
+            field_details: Dict = {}  # Dictionary to store field details
 
             # Process all indices in the response
             for index_name, index_data in mapping_data.items():

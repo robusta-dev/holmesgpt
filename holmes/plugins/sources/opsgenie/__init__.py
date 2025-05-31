@@ -3,8 +3,8 @@ from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.interfaces import SourcePlugin
 from holmes.core.issue import Issue
 from typing import List, Optional
-import requests
-import markdown
+import requests  # type: ignore
+import markdown  # type: ignore
 
 OPSGENIE_TEAM_INTEGRATION_KEY_HELP = "OpsGenie Team Integration key for writing back results. (NOT a normal API Key.) Get it from Teams > YourTeamName > Integrations > Add Integration > API Key. Don't forget to turn on the integration!"
 
@@ -38,7 +38,7 @@ class OpsGenieSource(SourcePlugin):
                 response.raise_for_status()
                 data.extend(response.json().get("data", []))
                 next_url = response.json().get("paging", {}).get("next", None)
-                url = next_url if next_url else None
+                url = next_url if next_url else None  # type: ignore
             return [self.convert_to_issue(alert) for alert in data]
         except requests.RequestException as e:
             raise ConnectionError("Failed to fetch data from OpsGenie.") from e

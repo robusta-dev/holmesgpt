@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Literal, Optional, Union, Any, Tuple
 from enum import Enum
 from datetime import datetime
 import sentry_sdk
-
+import json
 from jinja2 import Template
 from pydantic import (
     BaseModel,
@@ -29,6 +29,7 @@ ToolsetPattern = Union[Literal["*"], List[str]]
 class ToolResultStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
+    NO_DATA = "no_data"
 
 
 class StructuredToolResult(BaseModel):
@@ -40,6 +41,21 @@ class StructuredToolResult(BaseModel):
     url: Optional[str] = None
     invocation: Optional[str] = None
     params: Optional[Dict] = None
+
+    def get_stringified_data(self) -> str:
+        if self.data is None:
+            return ""
+
+        if isinstance(self.data, str):
+            return self.data
+        else:
+            try:
+                if isinstance(self.data, BaseModel):
+                    return self.data.model_dump_json(indent=2)
+                else:
+                    return json.dumps(self.data, indent=2)
+            except Exception:
+                return str(self.data)
 
 
 def sanitize(param):
@@ -99,6 +115,10 @@ class ToolsetTag(str, Enum):
     CORE = "core"
     CLUSTER = "cluster"
     CLI = "cli"
+
+
+class ToolsetType(str, Enum):
+    MCP = "mcp"
 
 
 class ToolParameter(BaseModel):
@@ -169,7 +189,7 @@ class YAMLTool(Tool, BaseModel):
             template = Template(self.user_description)
         else:
             cmd_or_script = self.command or self.script
-            template = Template(cmd_or_script)
+            template = Template(cmd_or_script)  # type: ignore
         return template.render(params)
 
     def _build_context(self, params):
@@ -177,11 +197,18 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
+    def _get_status(self, return_code: int, raw_output: str) -> ToolResultStatus:
+        if return_code != 0:
+            return ToolResultStatus.ERROR
+        if raw_output == "":
+            return ToolResultStatus.NO_DATA
+        return ToolResultStatus.SUCCESS
+
     def _invoke(self, params) -> StructuredToolResult:
         if self.command is not None:
             raw_output, return_code, invocation = self.__invoke_command(params)
         else:
-            raw_output, return_code, invocation = self.__invoke_script(params)
+            raw_output, return_code, invocation = self.__invoke_script(params)  # type: ignore
 
         if self.additional_instructions and return_code == 0:
             logging.info(
@@ -196,10 +223,10 @@ class YAMLTool(Tool, BaseModel):
             if return_code == 0
             else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
         )
+        status = self._get_status(return_code, raw_output)
+
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS
-            if return_code == 0
-            else ToolResultStatus.ERROR,
+            status=status,
             error=error,
             return_code=return_code,
             data=output_with_instructions,
@@ -210,7 +237,7 @@ class YAMLTool(Tool, BaseModel):
     def __apply_additional_instructions(self, raw_output: str) -> str:
         try:
             result = subprocess.run(
-                self.additional_instructions,
+                self.additional_instructions,  # type: ignore
                 input=raw_output,
                 shell=True,
                 text=True,
@@ -227,16 +254,16 @@ class YAMLTool(Tool, BaseModel):
 
     def __invoke_command(self, params) -> Tuple[str, int, str]:
         context = self._build_context(params)
-        command = os.path.expandvars(self.command)
-        template = Template(command)
+        command = os.path.expandvars(self.command)  # type: ignore
+        template = Template(command)  # type: ignore
         rendered_command = template.render(context)
         output, return_code = self.__execute_subprocess(rendered_command)
         return output, return_code, rendered_command
 
     def __invoke_script(self, params) -> str:
         context = self._build_context(params)
-        script = os.path.expandvars(self.script)
-        template = Template(script)
+        script = os.path.expandvars(self.script)  # type: ignore
+        template = Template(script)  # type: ignore
         rendered_script = template.render(context)
 
         with tempfile.NamedTemporaryFile(
@@ -250,7 +277,7 @@ class YAMLTool(Tool, BaseModel):
             output, return_code = self.__execute_subprocess(temp_script_path)
         finally:
             subprocess.run(["rm", temp_script_path])
-        return output, return_code, rendered_script
+        return output, return_code, rendered_script  # type: ignore
 
     def __execute_subprocess(self, cmd) -> Tuple[str, int]:
         try:
@@ -286,7 +313,7 @@ class CallablePrerequisite(BaseModel):
 
 class ToolsetCommandPrerequisite(BaseModel):
     command: str  # must complete successfully (error code 0) for prereq to be satisfied
-    expected_output: str = None  # optional
+    expected_output: Optional[str] = None  # optional
 
 
 class ToolsetEnvironmentPrerequisite(BaseModel):
@@ -318,6 +345,10 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
+    type: Optional[ToolsetType] = None
+
+    # warning! private attributes are not copied, which can lead to subtle bugs.
+    # e.g. l.extend([some_tool]) will reset these private attribute to None
 
     _path: Optional[str] = PrivateAttr(None)
     _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
@@ -329,7 +360,8 @@ class Toolset(BaseModel):
         if they are not None.
         """
         for field, value in override.model_dump(
-            exclude_unset=True, exclude=("name")
+            exclude_unset=True,
+            exclude=("name"),  # type: ignore
         ).items():
             if field in self.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
@@ -375,6 +407,8 @@ class Toolset(BaseModel):
         return interpolated_command
 
     def check_prerequisites(self):
+        self._status = ToolsetStatusEnum.ENABLED
+
         for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetCommandPrerequisite):
                 try:
@@ -392,45 +426,42 @@ class Toolset(BaseModel):
                         and prereq.expected_output not in result.stdout
                     ):
                         self._status = ToolsetStatusEnum.FAILED
-                        self._error = "Prerequisites check gave wrong output"
-                        return
+                        self._error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
                 except subprocess.CalledProcessError as e:
                     self._status = ToolsetStatusEnum.FAILED
-                    logging.debug(
-                        f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
-                    )
-                    self._error = f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
-                    return
+                    self._error = f"`{prereq.command}` returned {e.returncode}"
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
                         self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
-                        return
+                        self._error = f"Environment variable {env_var} was not set"
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
                     self._status = ToolsetStatusEnum.FAILED
-                    self._error = prereq.disabled_reason
-                    return
+                    self._error = f"{prereq.disabled_reason}"
 
             elif isinstance(prereq, CallablePrerequisite):
-                (enabled, error_message) = prereq.callable(self.config)
-                if not enabled and error_message:
-                    logging.warning(
-                        f"Failed to enable tool {self.name}: {error_message}"
-                    )
-                if enabled:
-                    self._status = ToolsetStatusEnum.ENABLED
-                elif not enabled and error_message:
+                try:
+                    (enabled, error_message) = prereq.callable(self.config)
+                    if not enabled:
+                        self._status = ToolsetStatusEnum.FAILED
+                    if error_message:
+                        self._error = f"{error_message}"
+                except Exception as e:
                     self._status = ToolsetStatusEnum.FAILED
-                    self._error = error_message
-                else:
-                    self._status = ToolsetStatusEnum.DISABLED
+                    self._error = f"Prerequisite call failed unexpectedly: {str(e)}"
+
+            if (
+                self._status == ToolsetStatusEnum.DISABLED
+                or self._status == ToolsetStatusEnum.FAILED
+            ):
+                logging.info(f"❌ Toolset {self.name}: {self._error}")
+                # no point checking further prerequisites if one failed
                 return
 
-        self._status = ToolsetStatusEnum.ENABLED
+        logging.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
@@ -445,7 +476,7 @@ class Toolset(BaseModel):
 
 
 class YAMLToolset(Toolset):
-    tools: List[YAMLTool]
+    tools: List[YAMLTool]  # type: ignore
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -514,13 +545,14 @@ class ToolsetYamlFromConfig(Toolset):
             ToolsetCommandPrerequisite,
             ToolsetEnvironmentPrerequisite,
         ]
-    ] = []
-    tools: Optional[List[YAMLTool]] = []
-    description: Optional[str] = None
+    ] = []  # type: ignore
+    tools: Optional[List[YAMLTool]] = []  # type: ignore
+    description: Optional[str] = None  # type: ignore
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+    url: Optional[str] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

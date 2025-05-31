@@ -1,7 +1,7 @@
 import json
 import os
 import logging
-import yaml
+import yaml  # type: ignore
 
 
 def write_json_file(json_output_file: str, json_ob_to_dump):
@@ -16,7 +16,9 @@ def write_json_file(json_output_file: str, json_ob_to_dump):
         return
 
 
-def load_yaml_file(path: str, raise_error: bool = True) -> dict:
+def load_yaml_file(
+    path: str, raise_error: bool = True, warn_not_found: bool = True
+) -> dict:
     try:
         with open(path, "r", encoding="utf-8") as file:
             parsed_yaml = yaml.safe_load(file)
@@ -26,7 +28,8 @@ def load_yaml_file(path: str, raise_error: bool = True) -> dict:
             raise err
         return {}
     except FileNotFoundError as err:
-        logging.warning(f"file {path} was not found.")
+        if warn_not_found:
+            logging.warning(f"file {path} was not found.")
         if raise_error:
             raise err
         return {}

@@ -10,13 +10,13 @@ packages = [{ include = "holmes" }]
 holmes = "holmes.main:run"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 openai = "^1.6.1"
 slack-bolt = "^1.18.1"
 pydantic-settings = "^2.1.0"
 pyyaml = "^6.0.1"
 jinja2 = "^3.1.2"
-typer = "^0.12"
+typer = "^0.15.4"
 python-benedict = "^0.33.1"
 humanize = "^4.9.0"
 rich = "^13.7.1"
@@ -45,6 +45,7 @@ sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
 kubernetes = "^32.0.1"
+mcp = "v1.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -59,3 +60,10 @@ freezegun = "^1.5.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+exclude = [
+    "tests/*",
+
+]
+ignore_missing_imports = true

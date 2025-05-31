@@ -1,6 +1,6 @@
 # based on https://github.com/kostyachum/python-markdown-plain-text/blob/main/markdown_plain_text/extention.py
 # MIT licensed
-from markdown import Extension, Markdown
+from markdown import Extension, Markdown  # type: ignore
 
 from xml.etree.ElementTree import ProcessingInstruction
 from xml.etree.ElementTree import Comment, ElementTree

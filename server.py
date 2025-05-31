@@ -12,7 +12,6 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 from holmes.core import investigation
-from contextlib import asynccontextmanager
 from holmes.utils.holmes_status import update_holmes_status_in_db
 import logging
 import uvicorn
@@ -38,16 +37,13 @@ from holmes.config import Config
 from holmes.core.conversations import (
     build_chat_messages,
     build_issue_chat_messages,
-    handle_issue_conversation,
     build_workload_health_chat_messages,
 )
 from holmes.core.models import (
     FollowUpAction,
     InvestigationResult,
-    ConversationRequest,
     InvestigateRequest,
     WorkloadHealthRequest,
-    ConversationInvestigationResponse,
     ChatRequest,
     ChatResponse,
     IssueChatRequest,
@@ -81,8 +77,7 @@ config = Config.load_from_env()
 dal = SupabaseDal(config.cluster_name)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def sync_before_server_start():
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
@@ -91,7 +86,6 @@ async def lifespan(app: FastAPI):
         holmes_sync_toolsets_status(dal, config)
     except Exception:
         logging.error("Failed to synchronise holmes toolsets", exc_info=True)
-    yield
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
@@ -110,7 +104,7 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
         }
     )
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 if LOG_PERFORMANCE:
@@ -254,25 +248,6 @@ def workload_health_conversation(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# older api that does not support conversation history
-@app.post("/api/conversation")
-def issue_conversation_deprecated(conversation_request: ConversationRequest):
-    try:
-        load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
-
-        system_prompt = handle_issue_conversation(conversation_request, ai)
-
-        investigation = ai.prompt_call(system_prompt, conversation_request.user_prompt)
-
-        return ConversationInvestigationResponse(
-            analysis=investigation.result,
-            tool_calls=investigation.tool_calls,
-        )
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=e.message)
-
-
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
@@ -370,4 +345,5 @@ if __name__ == "__main__":
     log_config["formatters"]["default"]["fmt"] = (
         "%(asctime)s %(levelname)-8s %(message)s"
     )
+    sync_before_server_start()
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT, log_config=log_config)
