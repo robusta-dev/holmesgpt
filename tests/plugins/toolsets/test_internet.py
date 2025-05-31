@@ -1,9 +1,10 @@
 import os
 import re
-from typing import List
-from pydantic import BaseModel
-import pytest
 from pathlib import Path
+from typing import List
+
+import pytest
+from pydantic import BaseModel
 
 from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
 from holmes.plugins.toolsets.internet.internet import InternetToolset, html_to_markdown
@@ -107,12 +108,14 @@ def test_html_to_markdown(fixture: Fixture):
     )
     if not match:
         write_file(actual_file_path_for_debugging, actual_output)
-    assert match, f"Values mismatch. Run the following command to compare expected with actual: `diff {fixture.expected_output_file_path} {actual_file_path_for_debugging}`"
+    assert (
+        match
+    ), f"Values mismatch. Run the following command to compare expected with actual: `diff {fixture.expected_output_file_path} {actual_file_path_for_debugging}`"
 
 
 def test_fetch_webpage():
     toolset = InternetToolset()
-    toolset._status = ToolsetStatusEnum.ENABLED
+    toolset.status = ToolsetStatusEnum.ENABLED
     tool_executor = ToolExecutor(toolsets=[toolset])
     fetch_webpage_tool = tool_executor.get_tool_by_name("fetch_webpage")
     assert fetch_webpage_tool

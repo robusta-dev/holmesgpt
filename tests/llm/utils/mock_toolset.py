@@ -6,12 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from holmes.core.tools import (
-    StructuredToolResult,
-    Tool,
-    Toolset,
-    ToolsetStatusEnum,
-)
+from holmes.core.tools import StructuredToolResult, Tool, Toolset, ToolsetStatusEnum
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 
@@ -238,7 +233,7 @@ class MockToolsets:
                     llm_instructions=toolset.llm_instructions,
                 )
                 mocked_toolset.tools = mocked_tools
-                mocked_toolset._status = ToolsetStatusEnum.ENABLED
+                mocked_toolset.status = ToolsetStatusEnum.ENABLED
                 mocked_toolsets.append(mocked_toolset)
 
         enabled_toolsets = mocked_toolsets

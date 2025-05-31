@@ -46,7 +46,7 @@ class SampleToolset(Toolset):
 def test_check_prerequisites_none():
     toolset = SampleToolset(prerequisites=[])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     assert toolset.error is None
 
 
@@ -54,7 +54,7 @@ def test_check_prerequisites_static_enabled():
     prereq = StaticPrerequisite(enabled=True, disabled_reason="Should not be used")
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     assert toolset.error is None
 
 
@@ -63,7 +63,7 @@ def test_check_prerequisites_static_disabled():
     prereq = StaticPrerequisite(enabled=False, disabled_reason=reason)
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
     assert toolset.error == reason
 
 
@@ -75,7 +75,7 @@ def test_check_prerequisites_command_success(mock_subprocess_run):
     )
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     assert toolset.error is None
     mock_subprocess_run.assert_called_once_with(
         "my_command",
@@ -95,7 +95,7 @@ def test_check_prerequisites_command_output_mismatch(mock_subprocess_run):
     )
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
     assert "did not include `expected output`" in toolset.error
 
 
@@ -107,7 +107,7 @@ def test_check_prerequisites_command_failure(mock_subprocess_run):
     prereq = ToolsetCommandPrerequisite(command="my_command")
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
 
 
 @patch.dict(os.environ, {"EXISTING_VAR": "value"}, clear=True)
@@ -115,7 +115,7 @@ def test_check_prerequisites_env_var_exists():
     prereq = ToolsetEnvironmentPrerequisite(env=["EXISTING_VAR"])
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     assert toolset.error is None
 
 
@@ -124,7 +124,7 @@ def test_check_prerequisites_env_var_missing():
     prereq = ToolsetEnvironmentPrerequisite(env=["MISSING_VAR"])
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
     assert toolset.error == "Environment variable MISSING_VAR was not set"
 
 
@@ -132,7 +132,7 @@ def test_check_prerequisites_callable_success():
     prereq = CallablePrerequisite(callable=callable_success)
     toolset = SampleToolset(prerequisites=[prereq], config={"key": "value"})
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     assert toolset.error is None
 
 
@@ -140,7 +140,7 @@ def test_check_prerequisites_callable_failure_with_message():
     prereq = CallablePrerequisite(callable=callable_failure_with_message)
     toolset = SampleToolset(prerequisites=[prereq], config={})
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
     assert toolset.error == "Callable check failed"
 
 
@@ -148,7 +148,7 @@ def test_check_prerequisites_callable_failure_no_message():
     prereq = CallablePrerequisite(callable=callable_failure_no_message)
     toolset = SampleToolset(prerequisites=[prereq])
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
     assert toolset.error is None
 
 
@@ -164,7 +164,7 @@ def test_check_prerequisites_multiple_success(mock_subprocess_run):
     ]
     toolset = SampleToolset(prerequisites=prerequisites, config={})
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     assert toolset.error is None
     assert mock_subprocess_run.call_count == 1  # Ensure command was run
 
@@ -184,7 +184,7 @@ def test_check_prerequisites_command_uses_interpolate_command(mock_subprocess_ru
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
 
 
 @patch("subprocess.run")
@@ -208,7 +208,7 @@ def test_check_prerequisites_multiple_all_types_success(mock_subprocess_run):
     )
     toolset.check_prerequisites()
 
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     assert toolset.error is None
     assert mock_subprocess_run.call_count == 3
     expected_subprocess_calls = [
@@ -261,7 +261,7 @@ def test_check_prerequisites_stops_at_first_failure_command(mock_subprocess_run)
     toolset = SampleToolset(prerequisites=prerequisites, config={})
     toolset.check_prerequisites()
 
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
     assert toolset.error == "`failing_cmd` returned 1"
     mock_subprocess_run.assert_called_once_with(
         "failing_cmd",
@@ -283,7 +283,7 @@ def test_check_prerequisites_with_failing_callable():
 
     toolset.check_prerequisites()
 
-    assert toolset.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset.status == ToolsetStatusEnum.FAILED
     assert toolset.error is not None
     expected_error_message = (
         "Prerequisite call failed unexpectedly: Failure in callable prerequisite"

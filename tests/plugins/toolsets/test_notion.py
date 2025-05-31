@@ -17,7 +17,7 @@ notion_config = {
 def notion_toolset():
     toolset = NotionToolset()
     toolset.config = notion_config
-    toolset._status = ToolsetStatusEnum.ENABLED
+    toolset.status = ToolsetStatusEnum.ENABLED
     toolset.check_prerequisites()
     assert (
         toolset.status == ToolsetStatusEnum.ENABLED

@@ -246,7 +246,7 @@ class ToolsetManager:
                 raise Exception(
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
-        all_toolsets_with_status.extend(custom_toolset_from_cli)
+        all_toolsets_with_status.extend(custom_toolsets_from_cli)
 
         return all_toolsets_with_status
 
