@@ -16,7 +16,7 @@ from tests.llm.utils.classifiers import (
     evaluate_previous_logs_mention,
     evaluate_sections,
 )
-from tests.llm.utils.constants import PROJECT
+from tests.llm.utils.constants import PROJECT, TESTS_DEFAULT_MODEL
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
@@ -80,7 +80,7 @@ def idfn(val):
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(experiment_name, test_case):
     config = MockConfig(test_case)
-    config.model = os.environ.get("MODEL", "gpt-4o")
+    config.model = os.environ.get("MODEL", TESTS_DEFAULT_MODEL)
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
         generate_mocks=test_case.generate_mocks,

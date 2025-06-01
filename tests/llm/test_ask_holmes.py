@@ -11,7 +11,7 @@ from holmes.core.tools import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
-from tests.llm.utils.constants import PROJECT
+from tests.llm.utils.constants import PROJECT, TESTS_DEFAULT_MODEL
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
@@ -168,7 +168,7 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
-        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o")),
+        llm=DefaultLLM(os.environ.get("MODEL", TESTS_DEFAULT_MODEL)),
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
