@@ -8,6 +8,8 @@ from typing import Dict, Optional, List, Tuple
 from uuid import uuid4
 
 import yaml  # type: ignore
+
+from holmes.config import get_env_replacement
 from holmes.core.tool_calling_llm import (
     ResourceInstructionDocument,
     ResourceInstructions,
@@ -133,6 +135,10 @@ class SupabaseDal:
                             "Please set a valid Robusta UI token.\n "
                             "See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
                         )
+                    env_replacement_token = get_env_replacement(token)
+                    if env_replacement_token:
+                        token = env_replacement_token
+
                     if "{{" in token:
                         raise ValueError(
                             "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`).\n "
