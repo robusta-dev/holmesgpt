@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import yaml  # type: ignore
 
-from holmes.config import get_env_replacement
+from holmes.config_utils import get_env_replacement
 from holmes.core.tool_calling_llm import (
     ResourceInstructionDocument,
     ResourceInstructions,
