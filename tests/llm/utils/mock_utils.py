@@ -103,7 +103,6 @@ def parse_structured_json(
         params = {}
         if metadata and metadata.match_params:
             params = metadata.match_params
-        logging.error(e)
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=text,
