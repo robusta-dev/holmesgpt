@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs","match_params":{"pod_name":"*","namespace":"default"}}
-stdout:
-/bin/sh: syntax error: unexpected "fi"
-
-stderr:
