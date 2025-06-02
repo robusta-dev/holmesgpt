@@ -18,14 +18,6 @@ Pre-built integrations with popular tools and platforms:
 - **[Custom Toolsets](custom-toolsets.md)** - Build your own integrations
 - **[Remote MCP Servers](remote-mcp-servers.md)** - Connect external data sources (Tech Preview)
 
-## How It Works
-
-HolmesGPT automatically:
-
-1. **Detects** relevant data sources based on your alert context
-2. **Fetches** logs, metrics, and configuration data
-3. **Correlates** information across multiple sources
-4. **Analyzes** patterns to identify root causes
 
 ## Getting Started
 

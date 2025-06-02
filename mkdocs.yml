@@ -166,21 +166,6 @@ nav:
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
 
-  - Usage & Workflows:
-      - usage/index.md
-      - Investigation Process: usage/investigation-process.md
-      - Slack Integration: usage/slack-integration.md
-      - Web UI Guide: usage/web-ui-guide.md
-      - CLI Usage: usage/cli-usage.md
-      - Best Practices: usage/best-practices.md
-
-  - Configuration:
-      - configuration/index.md
-      - Helm Configuration: configuration/helm-configuration.md
-      - Security & Permissions: configuration/security.md
-      - Performance Tuning: configuration/performance.md
-      - Monitoring & Observability: configuration/monitoring.md
-      - Troubleshooting: configuration/troubleshooting.md
 
   - Development:
       - development/index.md
@@ -191,6 +176,8 @@ nav:
 
   - Reference:
       - reference/index.md
+      - Helm Configuration: reference/helm-configuration.md
+      - Troubleshooting: reference/troubleshooting.md
       - Configuration Schema: reference/configuration-schema.md
       - CLI Commands: reference/cli-commands.md
       - FAQ: reference/faq.md

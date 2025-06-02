@@ -86,7 +86,7 @@ Depending on your installation method:
 
 If you encounter issues during setup:
 
-- Check our [troubleshooting guide](../configuration/)
+- Check our [troubleshooting guide](../reference/troubleshooting.md)
 - Visit our [FAQ](../reference/)
 - Join our [Slack community](https://robustacommunity.slack.com)
 

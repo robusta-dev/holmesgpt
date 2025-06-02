@@ -386,7 +386,7 @@ helm uninstall holmesgpt
 
 - **[API Keys Setup](../api-keys.md)** - Configure your AI provider
 - **[Run Your First Investigation](first-investigation.md)** - Complete walkthrough
-- **[Configuration](../configuration/)** - Advanced settings and custom toolsets
+- **[Helm Configuration](../reference/helm-configuration.md)** - Advanced settings and custom toolsets
 
 ## Need Help?
 

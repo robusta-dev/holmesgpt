@@ -278,14 +278,14 @@ kubectl delete pod crash-pod
 
 Now that you've run your first investigations:
 
-- **[Configure Custom Toolsets](../configuration/)** - Add your monitoring tools
-- **[Set Up Runbooks](../configuration/)** - Create organization-specific guidance
+- **[Configure Custom Toolsets](../data-sources/)** - Add your monitoring tools
+- **[Set Up Runbooks](../data-sources/)** - Create organization-specific guidance
 - **[Integrate with CI/CD](python-installation.md)** - Automate investigation in pipelines
 - **[Deploy as a Service](kubernetes-installation.md)** - Use HTTP API for integrations
 
 ## Need Help?
 
-- **Common issues**: Check our [troubleshooting guide](../configuration/)
+- **Common issues**: Check our [troubleshooting guide](../reference/troubleshooting.md)
 - **Community support**: Join our [Slack community](https://robustacommunity.slack.com)
 - **Bug reports**: Create an issue on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
 

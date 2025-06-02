@@ -122,6 +122,6 @@ HolmesGPT can also be integrated with other tools:
 
 ## Need Help?
 
-- Check our [troubleshooting guide](../configuration/)
+- Check our [troubleshooting guide](../reference/troubleshooting.md)
 - Join our [Slack community](https://robustacommunity.slack.com)
 - Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)

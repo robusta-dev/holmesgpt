@@ -57,7 +57,7 @@ Get up and running with HolmesGPT in minutes:
 
 - **:material-slack: Community**: Join our [Slack community](https://robustacommunity.slack.com) for support and discussions
 - **:material-github: Issues**: Report bugs or request features on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
-- **:material-book: Documentation**: Check our [FAQ](reference/faq.md) and [troubleshooting guide](configuration/troubleshooting.md)
+- **:material-book: Documentation**: Check our [FAQ](reference/faq.md) and [troubleshooting guide](reference/troubleshooting.md)
 
 ---
 

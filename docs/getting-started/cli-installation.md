@@ -103,10 +103,10 @@ After installation, set up your AI provider and run your first investigation:
 
 - **[API Keys Setup](../api-keys.md)** - Configure your AI provider
 - **[Run Your First Investigation](first-investigation.md)** - Complete walkthrough
-- **[Configuration](../configuration/)** - Advanced settings and custom toolsets
+- **[Helm Configuration](../reference/helm-configuration.md)** - Advanced settings and custom toolsets
 
 ## Need Help?
 
-- Check our [troubleshooting guide](../configuration/)
+- Check our [troubleshooting guide](../reference/troubleshooting.md)
 - Join our [Slack community](https://robustacommunity.slack.com)
 - Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
