@@ -51,7 +51,7 @@ def test_load_toolsets_from_config_multiple_old_format_toolsets():
     ]
 
     with pytest.raises(ValueError, match="Old toolset config format detected"):
-        load_toolsets_from_config(old_format_data, "dummy_path")
+        load_toolsets_from_config(old_format_data)
 
 
 toolsets_config_str = """

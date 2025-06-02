@@ -128,7 +128,9 @@ def load_toolsets_from_config(
 
     for name, config in toolsets.items():
         try:
-            if type is ToolsetType.MCP:
+            toolset_type = config.get("type", ToolsetType.BUILTIN.value)
+            # MCP server is not a built-in toolset, so we need to set the type explicitly
+            if toolset_type is ToolsetType.MCP:
                 validated_toolset: RemoteMCPToolset = RemoteMCPToolset(
                     **config, name=name
                 )
