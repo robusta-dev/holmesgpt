@@ -20,7 +20,7 @@ Get up and running with HolmesGPT in minutes:
 - **:material-clock-fast: Instant Results**: Get root cause analysis in seconds, not hours
 - **:material-cog: Highly Configurable**: Customize with your own toolsets and data sources
 
-## :material-map: Documentation Overview
+## :material-map: Introduction
 
 <div class="grid cards" markdown>
 
@@ -40,37 +40,18 @@ Get up and running with HolmesGPT in minutes:
 
     ---
 
-    Follow our step-by-step guides to get HolmesGPT running in your environment.
+    Choose your installation method and start investigating in minutes.
 
-    [:octicons-arrow-right-24: Prerequisites](getting-started/prerequisites.md)
+    [:octicons-arrow-right-24: CLI Installation](getting-started/cli-installation.md)
 
-    [:octicons-arrow-right-24: Installation](getting-started/installation.md)
+    [:octicons-arrow-right-24: UI Installation](getting-started/ui-installation.md)
 
-    [:octicons-arrow-right-24: Quick Setup](getting-started/quick-setup.md)
+    [:octicons-arrow-right-24: Python SDK](getting-started/python-installation.md)
 
--   :material-cog:{ .lg .middle } **Configure**
+    [:octicons-arrow-right-24: Kubernetes/Helm](getting-started/kubernetes-installation.md)
 
-    ---
+    [:octicons-arrow-right-24: First Investigation](getting-started/first-investigation.md)
 
-    Set up AI providers and data sources for your specific infrastructure.
-
-    [:octicons-arrow-right-24: AI Providers](ai-providers/overview.md)
-
-    [:octicons-arrow-right-24: Built-in Toolsets](data-sources/builtin-toolsets/)
-
-    [:octicons-arrow-right-24: Custom Toolsets](data-sources/custom-toolsets.md)
-
--   :material-code-braces:{ .lg .middle } **Extend & Develop**
-
-    ---
-
-    Learn how to customize and extend HolmesGPT for your specific needs.
-
-    [:octicons-arrow-right-24: Custom Development](development/custom-toolsets.md)
-
-    [:octicons-arrow-right-24: API Reference](development/api-reference.md)
-
-    [:octicons-arrow-right-24: Contributing](development/contributing.md)
 
 </div>
 
@@ -83,5 +64,5 @@ Get up and running with HolmesGPT in minutes:
 ---
 
 !!! tip "Recommended Reading"
-    
+
     New to HolmesGPT? We recommend starting with [What is HolmesGPT?](introduction/what-is-holmesgpt.md) to understand the core concepts, then jumping to our [Quick Setup](getting-started/quick-setup.md) guide to get hands-on experience.

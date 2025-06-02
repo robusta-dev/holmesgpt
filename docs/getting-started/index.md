@@ -1,32 +1,62 @@
 # Getting Started with HolmesGPT
 
-Get HolmesGPT up and running in your environment with our step-by-step guides.
+Choose your installation method and get HolmesGPT running in minutes.
+
+## Installation Options
+
+Select the installation method that best fits your needs:
+
+### 🖥️ [CLI (Standalone)](cli-installation.md)
+Run HolmesGPT from your terminal. Perfect for:
+- Local development and debugging
+- Shell scripts and automation
+- CI/CD pipeline integration
+- Quick ad-hoc investigations
+
+### 🌐 [UI (TUI/Web UI)](ui-installation.md)
+Use HolmesGPT through graphical interfaces:
+- **Robusta SaaS** - Full-featured web interface
+- **K9s Plugin** - Terminal UI integration
+- Zero installation with SaaS option
+
+### 🐍 [Python SDK](python-installation.md)
+Embed HolmesGPT in your applications:
+- Custom monitoring dashboards
+- Automated investigation workflows
+- Integration with existing Python tools
+- Programmatic access to AI analysis
+
+### ☸️ [Kubernetes with Helm](kubernetes-installation.md)
+Deploy as a service in your cluster:
+- HTTP API for integrations
+- Team access and collaboration
+- Enterprise deployment option
+- Integration with cluster monitoring
 
 ## Quick Start Path
 
-Follow these guides in order for the fastest setup:
+For the fastest setup experience:
 
-1. **[Prerequisites](prerequisites.md)** - Check system requirements
-2. **[Installation](installation.md)** - Install HolmesGPT on Kubernetes
-3. **[Quick Setup](quick-setup.md)** - Basic configuration and AI provider setup
-4. **[First Investigation](first-investigation.md)** - Run your first analysis
-5. **[Verification](verification.md)** - Confirm everything is working
+1. **[Choose Installation Method](#installation-options)** - Pick what works for your environment
+2. **[Configure AI Provider](../api-keys.md)** - Set up OpenAI, Anthropic, or other AI provider
+3. **[Run Your First Investigation](first-investigation.md)** - Follow step-by-step walkthrough
 
-## Before You Begin
+## What You'll Need
 
-Make sure you have:
+Depending on your installation method:
 
-- Kubernetes cluster access
-- Helm 3.x installed
-- An AI provider account (OpenAI, Azure, AWS, or Robusta AI)
-- Basic knowledge of Kubernetes and YAML
+- **For CLI**: kubectl access to any Kubernetes cluster
+- **For UI**: Web browser or terminal access
+- **For Python SDK**: Python 3.8+ environment
+- **For Kubernetes**: Helm 3.x and cluster admin access
+- **For all methods**: AI provider API key
 
 ## Need Help?
 
 If you encounter issues during setup:
 
-- Check our [troubleshooting guide](../configuration/troubleshooting.md)
-- Visit our [FAQ](../reference/faq.md)
+- Check our [troubleshooting guide](../configuration/)
+- Visit our [FAQ](../reference/)
 - Join our [Slack community](https://robustacommunity.slack.com)
 
-Let's get started with [Prerequisites](prerequisites.md)!
+Ready to get started? Pick your installation method above! 🚀
