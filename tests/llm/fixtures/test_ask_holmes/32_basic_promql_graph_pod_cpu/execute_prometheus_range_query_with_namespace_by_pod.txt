@@ -1,0 +1,11 @@
+{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query","match_params":{"query":"sum(rate(container_cpu_usage_seconds_total{pod=\"robusta-holmes-7956c6bbc7-v5krl\", namespace=\"default\"}[5m])) by (pod)","description":"*","start":"*","end":"*","step":"*"}}
+{
+  "status": "success",
+  "random_key": "Rs0H",
+  "tool_name": "execute_prometheus_range_query",
+  "description": "CPU usage for robusta-holmes pod",
+  "query": "sum(rate(container_cpu_usage_seconds_total{pod=\"robusta-holmes-7956c6bbc7-v5krl\", namespace=\"default\"}[5m])) by (pod)",
+  "start": "1739974068",
+  "end": "1739975868",
+  "step": 30
+}
