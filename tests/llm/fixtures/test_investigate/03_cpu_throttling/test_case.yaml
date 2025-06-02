@@ -7,5 +7,5 @@ before-test: |
 after-test: kubectl delete -f manifest.yaml
 evaluation:
   correctness: 1
-generate_mocks: True
+generate_mocks: False
 # Success rate 100% for 400 evals

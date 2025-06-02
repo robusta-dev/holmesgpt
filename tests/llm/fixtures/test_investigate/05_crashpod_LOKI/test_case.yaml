@@ -8,5 +8,4 @@ after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod.v2/crashloop-cert-app.yaml
 evaluation:
   correctness: 1
-generate_mocks: True
-# Success rate 100% for 100 evals
+generate_mocks: False

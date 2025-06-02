@@ -2,5 +2,4 @@ expected_output:
   - This must mention insufficient GPU resources
 evaluation:
   correctness: 1
-generate_mocks: True
-# Success rate 100% for 100 evals
+generate_mocks: False
