@@ -1,6 +1,6 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"redis-747ffc844f-z9zp5","namespace":"default"}}
-stdout:
-Name:             redis-747ffc844f-z9zp5
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"redis-747ffc844f-f9ghd","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe pod redis-747ffc844f-f9ghd -n default", "params": {"kind": "pod", "name": "redis-747ffc844f-f9ghd", "namespace": "default"}}
+Name:             redis-747ffc844f-f9ghd
 Namespace:        default
 Priority:         0
 Service Account:  default
@@ -35,7 +35,7 @@ Containers:
     Environment:  <none>
     Mounts:
       /data from redis-storage (rw)
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-pnp44 (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-vdbtm (ro)
 Conditions:
   Type           Status
   PodScheduled   False
@@ -44,7 +44,7 @@ Volumes:
     Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
     ClaimName:  redis-standard-pvc
     ReadOnly:   false
-  kube-api-access-pnp44:
+  kube-api-access-vdbtm:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
     ConfigMapName:           kube-root-ca.crt
@@ -55,8 +55,6 @@ Node-Selectors:              <none>
 Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:
-  Type     Reason            Age   From               Message
-  ----     ------            ----  ----               -------
-  Warning  FailedScheduling  8s    default-scheduler  0/1 nodes are available: pod has unbound immediate PersistentVolumeClaims. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.
-
-stderr:
+  Type     Reason            Age                   From               Message
+  ----     ------            ----                  ----               -------
+  Warning  FailedScheduling  100s (x2 over 6m45s)  default-scheduler  0/2 nodes are available: pod has unbound immediate PersistentVolumeClaims. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling.

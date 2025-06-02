@@ -5,4 +5,6 @@ retrieval_context:
   - "Pod my-cluster-kafka was evicted"
   - "The node was low on resource: ephemeral-storage. Threshold quantity: 2126213140, available: 1884540Ki. Container kafka was using 3264Ki, request is 0, has larger consumption of ephemeral-storage."
 evaluation:
-  correctness: 1
+  correctness: 0
+generate_mocks: True
+# the LLM sometimes confuses the issue id for a resource and tries to run `kubectl get -A --show-labels -o wide pod | grep asodfkq1209edyhqawdo2uydqawidh`
