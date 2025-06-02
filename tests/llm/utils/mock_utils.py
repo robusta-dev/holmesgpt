@@ -124,7 +124,9 @@ class MockHelper:
 
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
-        test_cases_ids: List[str] = [f for f in os.listdir(self._test_cases_folder) if not f.startswith('.')] # ignoring hidden files like Mac's .DS_Store
+        test_cases_ids: List[str] = [
+            f for f in os.listdir(self._test_cases_folder) if not f.startswith(".")
+        ]  # ignoring hidden files like Mac's .DS_Store
         for test_case_id in test_cases_ids:
             test_case_folder = self._test_cases_folder.joinpath(test_case_id)
             logging.info("Evaluating potential test case folder: {test_case_folder}")
