@@ -11,4 +11,4 @@ after_test: |
   kubectl delete -f ./slow-rds-query-for-medium.yaml
 evaluation:
   correctness: 1
-generate_mocks: True
+generate_mocks: False
