@@ -9,7 +9,7 @@ HolmesGPT transforms alert investigation from manual detective work into intelli
 Get up and running with HolmesGPT in minutes:
 
 1. **[Install HolmesGPT](getting-started/installation.md)**
-2. **[Configure an AI provider](ai-providers/overview.md)** (OpenAI, Azure, AWS Bedrock, or Robusta AI)
+2. **[Configure an AI provider](ai-providers/overview.md)** (OpenAI, Azure, AWS Bedrock, or Ollama)
 3. **[Run your first investigation](getting-started/first-investigation.md)** and see HolmesGPT in action
 
 ## :material-lightbulb: What Makes HolmesGPT Different?

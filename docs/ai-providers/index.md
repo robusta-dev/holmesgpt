@@ -6,14 +6,6 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
 
 <div class="grid cards" markdown>
 
--   :material-robot:{ .lg .middle } **Robusta AI**
-
-    ---
-
-    Managed AI service optimized specifically for HolmesGPT with built-in best practices.
-
-    [:octicons-arrow-right-24: Setup Guide](robusta-ai.md)
-
 -   :material-openai:{ .lg .middle } **OpenAI**
 
     ---
@@ -57,7 +49,7 @@ You can configure [multiple providers](multiple-providers.md) simultaneously and
 
 !!! tip "Best Performance"
     We highly recommend **GPT-4o** for the most accurate results. You can access it through:
-    
+
     - **OpenAI** directly
     - **Azure OpenAI** for enterprise features
     - **Robusta AI** for managed convenience
