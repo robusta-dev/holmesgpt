@@ -251,25 +251,36 @@ class ToolsetManager:
         return all_toolsets_with_status
 
     def list_enabled_console_toolsets(
-        self, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None, refresh_status=False
     ) -> List[Toolset]:
         """
         List all enabled toolsets that cli tools can use.
+
+        listing console toolset does not refresh toolset status by default, and expects the status to be
+        refreshed specifically and cached locally.
         """
-        toolsets_with_status = self.load_toolset_with_status(dal)
+        toolsets_with_status = self.load_toolset_with_status(
+            dal, refresh_status=refresh_status
+        )
         return [
             ts
             for ts in toolsets_with_status
             if any(tag in self.cli_tool_tags for tag in ts.tags)
         ]
 
+    # TODO(mainred): cache and refresh periodically toolset status for server if necessary
     def list_enabled_server_toolsets(
-        self, dal: Optional[SupabaseDal] = None
+        self, dal: Optional[SupabaseDal] = None, refresh_status=True
     ) -> List[Toolset]:
         """
         List all toolsets that are enabled and have the server tool tags.
+
+        server will sync the status of toolsets to DB during startup instead of local cache.
+        Refreshing the status by default for server to keep the toolsets up-to-date instead of relying on local cache.
         """
-        toolsets_with_status = self.load_toolset_with_status(dal)
+        toolsets_with_status = self.load_toolset_with_status(
+            dal, refresh_status=refresh_status
+        )
         return [
             ts
             for ts in toolsets_with_status

@@ -9,7 +9,6 @@ from typing import Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
-import holmes.utils.env as env_utils
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
@@ -26,6 +25,7 @@ from holmes.plugins.sources.opsgenie import OpsGenieSource
 from holmes.plugins.sources.pagerduty import PagerDutySource
 from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 from holmes.utils.definitions import RobustaConfig
+from holmes.utils.env import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
@@ -53,7 +53,7 @@ def parse_models_file(path: str):
     models = load_yaml_file(path, raise_error=False, warn_not_found=False)
 
     for model, params in models.items():
-        params = env_utils.replace_env_vars_values(params)
+        params = replace_env_vars_values(params)
 
     return models
 

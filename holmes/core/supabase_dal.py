@@ -30,6 +30,7 @@ from holmes.core.resource_instruction import (
     ResourceInstructions,
 )
 from holmes.utils.definitions import RobustaConfig
+from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
@@ -131,6 +132,10 @@ class SupabaseDal:
                             "Please set a valid Robusta UI token.\n "
                             "See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
                         )
+                    env_replacement_token = get_env_replacement(token)
+                    if env_replacement_token:
+                        token = env_replacement_token
+
                     if "{{" in token:
                         raise ValueError(
                             "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`).\n "
