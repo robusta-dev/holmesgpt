@@ -6,32 +6,63 @@ Choose your installation method and get HolmesGPT running in minutes.
 
 Select the installation method that best fits your needs:
 
-### 🖥️ [CLI (Standalone)](cli-installation.md)
-Run HolmesGPT from your terminal. Perfect for:
-- Local development and debugging
-- Shell scripts and automation
-- CI/CD pipeline integration
-- Quick ad-hoc investigations
+<div class="grid cards" markdown>
 
-### 🌐 [UI (TUI/Web UI)](ui-installation.md)
-Use HolmesGPT through graphical interfaces:
-- **Robusta SaaS** - Full-featured web interface
-- **K9s Plugin** - Terminal UI integration
-- Zero installation with SaaS option
+-   :material-console:{ .lg .middle } **[Install CLI](cli-installation.md)**
 
-### 🐍 [Python SDK](python-installation.md)
-Embed HolmesGPT in your applications:
-- Custom monitoring dashboards
-- Automated investigation workflows
-- Integration with existing Python tools
-- Programmatic access to AI analysis
+    ---
 
-### ☸️ [Kubernetes with Helm](kubernetes-installation.md)
-Deploy as a service in your cluster:
-- HTTP API for integrations
-- Team access and collaboration
-- Enterprise deployment option
-- Integration with cluster monitoring
+    Run HolmesGPT from your terminal. Perfect for:
+
+    - Local development and debugging
+    - Shell scripts and automation
+    - CI/CD pipeline integration
+    - Quick ad-hoc investigations
+
+    [:octicons-arrow-right-24: Install](cli-installation.md)
+
+
+-   :material-kubernetes:{ .lg .middle } **[Install Helm Chart](kubernetes-installation.md)**
+
+    ---
+
+    Deploy as a service in your cluster:
+
+    - HTTP API for integrations
+    - Team access and collaboration
+    - Enterprise deployment option
+    - Integration with cluster monitoring
+
+    [:octicons-arrow-right-24: Install](kubernetes-installation.md)
+
+
+-   :material-web:{ .lg .middle } **[Install UI/TUI](ui-installation.md)**
+
+    ---
+
+    Use HolmesGPT through graphical interfaces:
+
+    - **Robusta SaaS** - Full-featured web interface
+    - **K9s Plugin** - Terminal UI integration
+    - Zero installation with SaaS option
+
+    [:octicons-arrow-right-24: Install](ui-installation.md)
+
+-   :material-language-python:{ .lg .middle } **[Install Python SDK](python-installation.md)**
+
+    ---
+
+    Embed HolmesGPT in your applications:
+
+    - Custom monitoring dashboards
+    - Automated investigation workflows
+    - Integration with existing Python tools
+    - Programmatic access to AI analysis
+
+    [:octicons-arrow-right-24: Install](python-installation.md)
+
+
+</div>
 
 ## Quick Start Path
 

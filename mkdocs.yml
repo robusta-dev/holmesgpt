@@ -129,20 +129,18 @@ nav:
 
   - Getting Started:
       - getting-started/index.md
-      - Prerequisites: getting-started/prerequisites.md
-      - Installation: getting-started/installation.md
-      - Quick Setup: getting-started/quick-setup.md
+      - Install CLI: getting-started/cli-installation.md
+      - Install Helm Chart: getting-started/kubernetes-installation.md
+      - Install UI/TUI: getting-started/ui-installation.md
+      - Install Python SDK: getting-started/python-installation.md
       - First Investigation: getting-started/first-investigation.md
-      - Verification: getting-started/verification.md
 
   - AI Providers:
       - ai-providers/index.md
       - Overview & Selection: ai-providers/overview.md
-      - Robusta AI: ai-providers/robusta-ai.md
       - OpenAI: ai-providers/openai.md
       - Azure OpenAI: ai-providers/azure-openai.md
       - AWS Bedrock: ai-providers/aws-bedrock.md
-      - Multiple Providers: ai-providers/multiple-providers.md
 
   - Data Sources:
       - data-sources/index.md
