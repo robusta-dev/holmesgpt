@@ -199,6 +199,12 @@ Select your LLM provider to see how to set up your API Key.
       </a>
     </td>
     <td align="center" width="120">
+      <a href="docs/api-keys.md#azure-openai">
+        <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
+        <strong>Azure Open AI</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
       <a href="docs/api-keys.md#google-vertex-ai">
         <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
         <strong>Google Vertex AI</strong>
