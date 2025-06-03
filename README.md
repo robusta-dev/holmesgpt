@@ -2,7 +2,7 @@
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
-    <a href="#installation-options"><strong>Installation</strong></a> |
+    <a href="#installation"><strong>Installation</strong></a> |
     <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
@@ -196,6 +196,12 @@ Select your LLM provider to see how to set up your API Key.
       <a href="docs/api-keys.md#aws-bedrock">
         <img src="images/integration_logos/aws_bedrock_logo.png" alt="AWS Bedrock" width="50"><br>
         <strong>AWS Bedrock</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
+      <a href="docs/api-keys.md#azure-openai">
+        <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
+        <strong>Azure Open AI</strong>
       </a>
     </td>
     <td align="center" width="120">
