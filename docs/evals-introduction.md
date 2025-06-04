@@ -9,7 +9,7 @@ The eval system comprises two main test suites:
 - **Ask Holmes**: Tests single-question interactions with HolmesGPT
 - **Investigate**: Tests HolmesGPT's ability to investigate specific issues reported by AlertManager
 
-Evals use fixtures that simulate real Kubernetes environments and tool outputs, allowing comprehensive testing without requiring live clusters. 
+Evals use fixtures that simulate real Kubernetes environments and tool outputs, allowing comprehensive testing without requiring live clusters.
 
 While results are tracked and analyzed using Braintrust, Braintrust is not necessary to writing, running and debugging evals.
 

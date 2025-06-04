@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union, Literal
+from typing import Dict, List, Optional, Union
 from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
 import openai
@@ -18,6 +18,7 @@ if base_url:
     )
     wrapped = wrap_openai(client)
     init(wrapped)  # type: ignore
+
 
 def evaluate_correctness(
     expected_elements: Union[str, List[str]], output: Optional[str]
@@ -61,6 +62,7 @@ Possible choices:
         api_version=api_version,
     )
     return classifier(input=input, output=output, expected=expected_elements_str)
+
 
 def evaluate_sections(sections: Dict[str, bool], output: Optional[str]):
     expected_sections = [section for section, expected in sections.items() if expected]

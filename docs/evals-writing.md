@@ -141,7 +141,7 @@ evaluation:
 Set `generate_mocks: true` in `test_case.yaml` and run with a live cluster:
 
 ```bash
-ITERATIONS=100 pytest ./tests/llm/test_ask_holmes.py -k "your_test" 
+ITERATIONS=100 pytest ./tests/llm/test_ask_holmes.py -k "your_test"
 ```
 
 This captures real tool outputs and saves them as mock files.
@@ -173,7 +173,7 @@ Some tests require specific toolsets. Create a `toolsets.yaml` file:
 toolsets:
   - name: kubernetes
     enabled: true
-  - name: prometheus  
+  - name: prometheus
     enabled: true
     config:
       prometheus_url: http://localhost:9090 # requires port-forward
@@ -255,7 +255,7 @@ evaluation:
 
 ### Mock Data Quality
 1. **Representative data**: Use realistic kubectl outputs and logs
-2. **Error scenarios**: Include failure modes and edge cases  
+2. **Error scenarios**: Include failure modes and edge cases
 3. **Consistent formatting**: Match actual tool output formats
 4. **Sufficient detail**: Include enough information for proper diagnosis
 5. **Run repeatedly**: Run mock generation many times to ensure all investigative paths are covered by mock files
@@ -286,7 +286,7 @@ evaluation:
 pytest -v -s ./tests/llm/test_ask_holmes.py -k "your_test"
 
 # Generate fresh mocks from live system
-# set `generate_mocks: True` in test_case.yaml` and then: 
+# set `generate_mocks: True` in test_case.yaml` and then:
 pytest ./tests/llm/test_ask_holmes.py -k "your_test"
 ```
 
