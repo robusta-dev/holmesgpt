@@ -2,6 +2,9 @@
 
 Deploy HolmesGPT as a service in your Kubernetes cluster with HTTP API access.
 
+!!! info "Helm Configuration"
+    For all available Helm values and advanced configuration options, see the [Helm Configuration Reference](../reference/helm-configuration.md).
+
 ## Prerequisites
 
 - Kubernetes cluster (1.19+)
@@ -40,45 +43,6 @@ secret:
   create: false
   name: "holmes-secrets"
   key: "api-key"
-
-# Service configuration
-service:
-  type: ClusterIP
-  port: 80
-
-# Ingress configuration
-ingress:
-  enabled: true
-  className: "nginx"
-  hosts:
-    - host: holmes.your-domain.com
-      paths:
-        - path: /
-          pathType: Prefix
-
-# Resource limits
-resources:
-  limits:
-    cpu: 500m
-    memory: 512Mi
-  requests:
-    cpu: 250m
-    memory: 256Mi
-
-# RBAC permissions
-rbac:
-  create: true
-
-# Custom toolsets
-toolsets:
-  - name: "prometheus"
-    enabled: true
-    config:
-      url: "http://prometheus:9090"
-  - name: "grafana"
-    enabled: true
-    config:
-      url: "http://grafana:3000"
 ```
 
 Install with custom values:
@@ -117,7 +81,18 @@ kubectl port-forward svc/holmesgpt 8080:80
 
 #### Ingress (Production)
 
-Configure ingress in your `values.yaml` (see example above).
+Configure ingress in your `values.yaml`:
+
+```yaml
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: holmes.your-domain.com
+      paths:
+        - path: /
+          pathType: Prefix
+```
 
 ### API Endpoints
 
@@ -188,21 +163,6 @@ receivers:
         send_resolved: true
 ```
 
-### Grafana Integration
-
-Add Holmes as a data source in Grafana:
-
-```bash
-curl -X POST http://grafana:3000/api/datasources \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "HolmesGPT",
-    "type": "holmesgpt",
-    "url": "http://holmesgpt:80",
-    "access": "proxy"
-  }'
-```
-
 ### Custom Application Integration
 
 ```python
@@ -220,154 +180,24 @@ result = investigate_with_holmes("why is my deployment failing?")
 print(result["result"])
 ```
 
-## Configuration Options
-
-### Environment Variables
-
-Set these in your Helm values:
-
-```yaml
-env:
-  - name: OPENAI_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: holmes-secrets
-        key: api-key
-  - name: HOLMES_LOG_LEVEL
-    value: "INFO"
-  - name: HOLMES_MAX_INVESTIGATIONS
-    value: "10"
-```
-
-### Volume Mounts
-
-Mount custom configurations:
-
-```yaml
-volumes:
-  - name: custom-config
-    configMap:
-      name: holmes-config
-
-volumeMounts:
-  - name: custom-config
-    mountPath: /app/config
-    readOnly: true
-```
-
-## Monitoring and Observability
-
-### Metrics
-
-Holmes exposes Prometheus metrics at `/metrics`:
-
-```bash
-curl http://localhost:8080/metrics
-```
-
-Key metrics:
-- `holmes_investigations_total`
-- `holmes_investigation_duration_seconds`
-- `holmes_toolset_executions_total`
-- `holmes_errors_total`
-
-### Logs
-
-View Holmes logs:
-
-```bash
-kubectl logs -f deployment/holmesgpt
-```
-
-### Health Checks
-
-Configure readiness and liveness probes:
-
-```yaml
-readinessProbe:
-  httpGet:
-    path: /health
-    port: 8080
-  initialDelaySeconds: 30
-  periodSeconds: 10
-
-livenessProbe:
-  httpGet:
-    path: /health
-    port: 8080
-  initialDelaySeconds: 60
-  periodSeconds: 30
-```
-
-## Security Considerations
-
-### RBAC Permissions
-
-Holmes requires these Kubernetes permissions:
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: holmes-reader
-rules:
-- apiGroups: [""]
-  resources: ["pods", "services", "events", "nodes"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["deployments", "replicasets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["metrics.k8s.io"]
-  resources: ["pods", "nodes"]
-  verbs: ["get", "list"]
-```
-
-### Network Policies
-
-Restrict network access:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: holmes-netpol
-spec:
-  podSelector:
-    matchLabels:
-      app: holmesgpt
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: monitoring
-  egress:
-  - to: []
-    ports:
-    - protocol: TCP
-      port: 443  # HTTPS to AI providers
-```
-
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Permission Denied**
-   ```bash
-   kubectl auth can-i get pods --as=system:serviceaccount:default:holmesgpt
-   ```
+**Permission Denied**
+```bash
+kubectl auth can-i get pods --as=system:serviceaccount:default:holmesgpt
+```
 
-2. **API Key Issues**
-   ```bash
-   kubectl logs deployment/holmesgpt | grep "API key"
-   ```
+**API Key Issues**
+```bash
+kubectl logs deployment/holmesgpt | grep "API key"
+```
 
-3. **Network Connectivity**
-   ```bash
-   kubectl exec -it deployment/holmesgpt -- curl https://api.openai.com/v1/models
-   ```
+**Network Connectivity**
+```bash
+kubectl exec -it deployment/holmesgpt -- curl https://api.openai.com/v1/models
+```
 
 ## Upgrading
 

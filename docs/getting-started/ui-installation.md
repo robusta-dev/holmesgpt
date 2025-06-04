@@ -97,23 +97,6 @@ HolmesGPT can also be integrated with other tools:
 - **Share results** with your team
 - [Request beta access](mailto:beta@robusta.dev)
 
-### VS Code Extension (Coming Soon)
-
-- **Investigate Kubernetes resources** from your IDE
-- **Debug deployments** without leaving your editor
-- **View logs and metrics** inline
-
-## Choosing the Right Option
-
-| Feature | Robusta SaaS | K9s Plugin |
-|---------|--------------|------------|
-| **Installation** | None required | Plugin setup needed |
-| **Interface** | Web browser | Terminal |
-| **Team collaboration** | ✅ Built-in | ❌ Individual use |
-| **Enterprise features** | ✅ Available | ❌ Not available |
-| **Offline use** | ❌ Requires internet | ✅ Works offline |
-| **Cost** | Free tier + paid plans | Free |
-
 ## Next Steps
 
 - **[API Keys Setup](../api-keys.md)** - Configure your AI provider
