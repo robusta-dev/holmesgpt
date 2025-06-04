@@ -6,7 +6,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
 <div class="grid cards" markdown>
 
--   **ArgoCD**
+-   :material-git:{ .lg .middle } **ArgoCD**
 
     ---
 
@@ -14,7 +14,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](argocd.md)
 
--   **AWS**
+-   :material-aws:{ .lg .middle } **AWS**
 
     ---
 
@@ -22,7 +22,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](aws.md)
 
--   **Confluence**
+-   :material-book-open:{ .lg .middle } **Confluence**
 
     ---
 
@@ -30,7 +30,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](confluence.md)
 
--   **Coralogix logs**
+-   :material-chart-line:{ .lg .middle } **Coralogix logs**
 
     ---
 
@@ -38,7 +38,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](coralogix.md)
 
--   **Datetime**
+-   :material-clock:{ .lg .middle } **Datetime**
 
     ---
 
@@ -46,7 +46,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](datetime.md)
 
--   **Docker**
+-   ![Docker](../../../images/integration_logos/docker_logo.png){ width="50" } **Docker**
 
     ---
 
@@ -54,7 +54,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](docker.md)
 
--   **Grafana Loki**
+-   :material-chart-timeline:{ .lg .middle } **Grafana Loki**
 
     ---
 
@@ -62,7 +62,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](grafana.md)
 
--   **Grafana Tempo**
+-   :material-chart-timeline:{ .lg .middle } **Grafana Tempo**
 
     ---
 
@@ -70,7 +70,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](grafana.md)
 
--   **Helm**
+-   ![Helm](../../../images/integration_logos/helm_logo.png){ width="50" } **Helm**
 
     ---
 
@@ -78,7 +78,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](helm.md)
 
--   **Internet**
+-   :material-web:{ .lg .middle } **Internet**
 
     ---
 
@@ -86,7 +86,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](internet.md)
 
--   **Kafka**
+-   :material-server:{ .lg .middle } **Kafka**
 
     ---
 
@@ -94,7 +94,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](kafka.md)
 
--   **Kubernetes**
+-   ![Kubernetes](../../../images/integration_logos/kubernetes_logo.png){ width="50" } **Kubernetes**
 
     ---
 
@@ -102,7 +102,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](kubernetes.md)
 
--   **Notion**
+-   :material-note-text:{ .lg .middle } **Notion**
 
     ---
 
@@ -110,23 +110,23 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](notion.md)
 
--   **OpenSearch logs**
+-   :material-database-search:{ .lg .middle } **OpenSearch logs**
 
     ---
 
     OpenSearch log aggregation and search integration.
 
-    [:octicons-arrow-right-24: Configuration](opensearch.md)
+    [:octicons-arrow-right-24: Configuration](opensearch-logs.md)
 
--   **OpenSearch status**
+-   :material-database-search:{ .lg .middle } **OpenSearch status**
 
     ---
 
     OpenSearch cluster status and health monitoring.
 
-    [:octicons-arrow-right-24: Configuration](opensearch.md)
+    [:octicons-arrow-right-24: Configuration](opensearch-status.md)
 
--   **Prometheus**
+-   :material-fire:{ .lg .middle } **Prometheus**
 
     ---
 
@@ -134,7 +134,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](prometheus.md)
 
--   **RabbitMQ**
+-   :material-rabbit:{ .lg .middle } **RabbitMQ**
 
     ---
 
@@ -142,7 +142,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](rabbitmq.md)
 
--   **Robusta**
+-   ![Robusta](../../../images/integration_logos/robusta_logo.png){ width="50" } **Robusta**
 
     ---
 
@@ -150,7 +150,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     [:octicons-arrow-right-24: Configuration](robusta.md)
 
--   **Slab**
+-   :material-forum:{ .lg .middle } **Slab**
 
     ---
 
