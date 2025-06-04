@@ -52,7 +52,7 @@ after_test: kubectl delete -f ./manifest.yaml
 - `user_prompt`: This is the question that will trigger Holmes' investigation
 - `expected_output`: This is a list of expected elements that MUST be found in Holmes' answer. The combination of these elements lead to a `correctness` score based on HolmesGPT's output. This `expected_output` will be compared against HolmesGPT's answer and evaluated by a LLM ('LLM as judge'). The resulting score is called `correctness` and is a binary score with a value of either `0` or `1`. HolmesGPT's answer is score `0` is any of the expected element is not present in the answer, `1` if all expected elements are preent in the answer.
 - `evaluation.correctness`: This is the expected correctness score and is used for pytest to fail the test. This expected `correctness` score should be `0` unless you expect HolmesGPT to systematically succeed the evaluation. Because of this, it is important for `expected_output` to be reduced to the minimally accepted output from HolmesGPT.
-- `before_test` and `after_test`: These are setup and teardown steps to reproduce the test on a fresh environment. It is important for these to be present because as HolmesGPT's code, prompt and toolset evolve the mocks become insufficient or inaccurate.
+- `before_test` and `after_test`: These are setup and teardown steps to reproduce the test on a fresh environment. It is important for these to be present because as HolmesGPT's code, prompt and toolset evolve the mocks become insufficient or inaccurate. These scripts are run automatically when the env var `RUN_LIVE=true` is set
 
 
 ### Step 3: Generate Mock Tool Outputs
