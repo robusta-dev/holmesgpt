@@ -239,6 +239,3 @@ Possible choices:
     return classifier(
         input=unexpected_sections_str, output=output, expected=expected_sections_str
     )
-
-
-evaluate_correctness(["foobar"], "foobar")
