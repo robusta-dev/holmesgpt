@@ -21,21 +21,18 @@ class ToolsetManager:
     It also provides methods to get toolsets by name and to get the list of all toolsets.
     """
 
-    toolsets: Optional[dict[str, dict[str, Any]]]
-    custom_toolsets: Optional[List[FilePath]]
-    custom_toolsets_from_cli: Optional[List[FilePath]]
-
-    toolset_status_location: FilePath
-
     def __init__(
         self,
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
-        toolset_status_location: FilePath = FilePath(DEFAULT_TOOLSET_STATUS_LOCATION),
+        toolset_status_location: FilePath = None,
     ):
         self.toolsets = toolsets
         self.custom_toolsets = custom_toolsets
+
+        if toolset_status_location is None:
+            toolset_status_location = FilePath(DEFAULT_TOOLSET_STATUS_LOCATION)
 
         # holmes container uses CUSTOM_TOOLSET_LOCATION to load custom toolsets
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
@@ -62,31 +59,6 @@ class ToolsetManager:
         """
         return [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
-    @staticmethod
-    def get_toolset_definition_enabled(toolset_config: dict[str, Any]) -> bool:
-        """
-        Get the enabled status of the toolset from the config.
-        Return False only when the toolset is explicitly defined as disabled in the config.
-        This is helpful to enable the toolset specified in the config or custom toolset file without manually specifying
-        'enabled: true'. Also, this avoid setting enabled to true by default, which can lead to unexpected behavior if
-        the toolset is not ready to be used.
-        """
-
-        # Normally benedict should translate the value of enabled to bool when well assigned,
-        # but in case it doesn't, and to avoid unexpected behavior, we check if the value is a
-        # string and if it is 'false' (case insensitive).
-        if "enabled" in toolset_config:
-            if (
-                isinstance(toolset_config["enabled"], bool)
-                and not toolset_config["enabled"]
-            ) or (
-                isinstance(toolset_config["enabled"], str)
-                and toolset_config["enabled"].lower() == "false"
-            ):
-                return False
-            # TODO(mainred): add validation for the enabled field to be bool or str other than a valid 'bool' string
-        return True
-
     def _list_all_toolsets(
         self, dal: Optional[SupabaseDal] = None, check_prerequisites=True
     ) -> List[Toolset]:
@@ -104,7 +76,6 @@ class ToolsetManager:
             toolset.name: toolset for toolset in builtin_toolsets
         }
         builtin_toolsets_names = list(toolsets_by_name.keys())
-
         # build-in toolset is enabled when it's explicitly enabled in the toolset or custom toolset config
         if self.toolsets is not None:
             toolsets_from_config = self._load_toolsets_from_config(
@@ -149,9 +120,6 @@ class ToolsetManager:
         builtin_toolsets_dict: dict[str, dict[str, Any]] = {}
         custom_toolsets_dict: dict[str, dict[str, Any]] = {}
         for toolset_name, toolset_config in toolsets.items():
-            toolset_config["enabled"] = self.get_toolset_definition_enabled(
-                toolset_config
-            )
             if toolset_name in builtin_toolset_names:
                 # build-in types was assigned when loaded
                 builtin_toolsets_dict[toolset_name] = toolset_config
@@ -243,7 +211,7 @@ class ToolsetManager:
         # custom toolsets from cli as experimental toolset should not override custom toolsets from config
         for custom_toolset_from_cli in custom_toolsets_from_cli:
             if custom_toolset_from_cli in toolsets_status_by_name.keys():
-                raise Exception(
+                raise ValueError(
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
         all_toolsets_with_status.extend(custom_toolsets_from_cli)

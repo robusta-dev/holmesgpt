@@ -68,26 +68,20 @@ env_vars = {
 }
 
 
-def test_load_toolsets_from_config():
-    original_env = os.environ.copy()
+def test_load_toolsets_from_config(monkeypatch):
+    for key, value in env_vars.items():
+        os.environ[key] = value
+        monkeypatch.setenv(key, value)
 
-    try:
-        for key, value in env_vars.items():
-            os.environ[key] = value
-
-        toolsets_config = yaml.safe_load(toolsets_config_str)
-        assert isinstance(toolsets_config, dict)
-        definitions = load_toolsets_from_config(
-            toolsets=toolsets_config, strict_check=False
-        )
-        assert len(definitions) == 1
-        grafana_loki = definitions[0]
-        config = grafana_loki.config
-        assert config
-        assert config.get("api_key") == "glsa_sdj1q2o3prujpqfd"
-        assert config.get("url") == "https://my-grafana.com/"
-        assert config.get("grafana_datasource_uid") == "my_grafana_datasource_uid"
-
-    finally:
-        os.environ.clear()
-        os.environ.update(original_env)
+    toolsets_config = yaml.safe_load(toolsets_config_str)
+    assert isinstance(toolsets_config, dict)
+    definitions = load_toolsets_from_config(
+        toolsets=toolsets_config, strict_check=False
+    )
+    assert len(definitions) == 1
+    grafana_loki = definitions[0]
+    config = grafana_loki.config
+    assert config
+    assert config.get("api_key") == "glsa_sdj1q2o3prujpqfd"
+    assert config.get("url") == "https://my-grafana.com/"
+    assert config.get("grafana_datasource_uid") == "my_grafana_datasource_uid"

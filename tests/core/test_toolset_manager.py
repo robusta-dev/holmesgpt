@@ -15,22 +15,6 @@ def toolset_manager():
     return ToolsetManager()
 
 
-get_toolset_definition_enabled_true_data = [
-    ({}, True),
-    ({"enabled": True}, True),
-    ({"enabled": False}, False),
-    ({"enabled": "true"}, True),
-    ({"enabled": "True"}, True),
-    ({"enabled": "False"}, False),
-    ({"enabled": "false"}, False),
-]
-
-
-@pytest.mark.parametrize("config, expected", get_toolset_definition_enabled_true_data)
-def test_get_toolset_definition_enabled(config, expected):
-    assert ToolsetManager.get_toolset_definition_enabled(config) == expected
-
-
 def test_cli_tool_tags(toolset_manager):
     tags = toolset_manager.cli_tool_tags
     assert ToolsetTag.CORE in tags

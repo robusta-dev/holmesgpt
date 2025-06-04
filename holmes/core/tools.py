@@ -304,7 +304,7 @@ class Toolset(BaseModel):
 
     # Built-in toolset is enabled when 1. it's specified in the config and 2. 'enabled' is not set to false
     # Custom toolset is enabled when 'enabled' is not set to false
-    enabled: bool = False
+    enabled: bool = True
     name: str
     description: str
     docs_url: Optional[str] = None

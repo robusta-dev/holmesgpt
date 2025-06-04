@@ -32,6 +32,7 @@ from holmes.config import (
     Config,
     SourceFactory,
     SupportedTicketSources,
+    DEFAULT_CONFIG_LOCATION,
 )
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
@@ -138,7 +139,7 @@ opt_api_key: Optional[str] = typer.Option(
 )
 opt_model: Optional[str] = typer.Option(None, help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
-    None,
+    DEFAULT_CONFIG_LOCATION,
     "--config",
     help="Path to the config file. Defaults to ~/.holmes/config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
