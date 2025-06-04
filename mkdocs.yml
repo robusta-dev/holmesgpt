@@ -168,6 +168,7 @@ nav:
           - Slab: data-sources/builtin-toolsets/slab.md
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
+      - Permissions: data-sources/permissions.md
 
 
   - Development:
