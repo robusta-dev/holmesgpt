@@ -149,23 +149,23 @@ nav:
       - data-sources/index.md
       - Built-in Toolsets:
           - data-sources/builtin-toolsets/index.md
-          - Kubernetes: data-sources/builtin-toolsets/kubernetes.md
-          - AWS: data-sources/builtin-toolsets/aws.md
-          - Grafana (Loki & Tempo): data-sources/builtin-toolsets/grafana.md
-          - Prometheus: data-sources/builtin-toolsets/prometheus.md
           - ArgoCD: data-sources/builtin-toolsets/argocd.md
-          - Coralogix: data-sources/builtin-toolsets/coralogix.md
-          - OpenSearch: data-sources/builtin-toolsets/opensearch.md
-          - Docker: data-sources/builtin-toolsets/docker.md
-          - Helm: data-sources/builtin-toolsets/helm.md
-          - Kafka: data-sources/builtin-toolsets/kafka.md
-          - RabbitMQ: data-sources/builtin-toolsets/rabbitmq.md
+          - AWS: data-sources/builtin-toolsets/aws.md
           - Confluence: data-sources/builtin-toolsets/confluence.md
-          - Notion: data-sources/builtin-toolsets/notion.md
-          - Slab: data-sources/builtin-toolsets/slab.md
-          - Internet: data-sources/builtin-toolsets/internet.md
+          - Coralogix: data-sources/builtin-toolsets/coralogix.md
           - Datetime: data-sources/builtin-toolsets/datetime.md
+          - Docker: data-sources/builtin-toolsets/docker.md
+          - Grafana: data-sources/builtin-toolsets/grafana.md
+          - Helm: data-sources/builtin-toolsets/helm.md
+          - Internet: data-sources/builtin-toolsets/internet.md
+          - Kafka: data-sources/builtin-toolsets/kafka.md
+          - Kubernetes: data-sources/builtin-toolsets/kubernetes.md
+          - Notion: data-sources/builtin-toolsets/notion.md
+          - OpenSearch: data-sources/builtin-toolsets/opensearch.md
+          - Prometheus: data-sources/builtin-toolsets/prometheus.md
+          - RabbitMQ: data-sources/builtin-toolsets/rabbitmq.md
           - Robusta: data-sources/builtin-toolsets/robusta.md
+          - Slab: data-sources/builtin-toolsets/slab.md
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
 

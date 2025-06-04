@@ -1,79 +1,169 @@
 # Built-in Toolsets
 
-HolmesGPT comes with 18+ pre-built integrations that automatically fetch and analyze data from your infrastructure and applications.
+Holmes allows defining integrations (toolsets) that fetch data from external sources. Some toolsets are enabled by default, while others require the user to add their own configuration/credentials.
 
-## Core Infrastructure
+## Available Toolsets
 
-Essential integrations for Kubernetes and cloud environments:
+<div class="grid cards" markdown>
 
-- **[Kubernetes](kubernetes.md)** - Pods, services, events, logs (enabled by default)
-- **[AWS](aws.md)** - EC2, ECS, CloudWatch, and other AWS services
-- **[Docker](docker.md)** - Container information and logs
-- **[Helm](helm.md)** - Helm chart and release information
+-   **ArgoCD**
 
-## Monitoring & Observability
+    ---
 
-Integrations for metrics, logs, and traces:
+    Integration with ArgoCD for GitOps deployment information.
 
-- **[Prometheus](prometheus.md)** - Metrics collection and querying
-- **[Grafana (Loki & Tempo)](grafana.md)** - Log aggregation and distributed tracing
-- **[Coralogix](coralogix.md)** - Cloud-native observability platform
-- **[OpenSearch](opensearch.md)** - Search and analytics engine
+    [:octicons-arrow-right-24: Configuration](argocd.md)
 
-## Application Services
+-   **AWS**
 
-Message queues and application infrastructure:
+    ---
 
-- **[Kafka](kafka.md)** - Apache Kafka cluster information
-- **[RabbitMQ](rabbitmq.md)** - Message broker monitoring
+    Amazon Web Services integration for cloud resources.
 
-## DevOps Tools
+    [:octicons-arrow-right-24: Configuration](aws.md)
 
-CI/CD and deployment management:
+-   **Confluence**
 
-- **[ArgoCD](argocd.md)** - GitOps deployment status and history
-- **[Robusta](robusta.md)** - Robusta platform integration
+    ---
 
-## Knowledge Management
+    Atlassian Confluence integration for documentation access.
 
-Documentation and knowledge bases:
+    [:octicons-arrow-right-24: Configuration](confluence.md)
 
-- **[Confluence](confluence.md)** - Atlassian Confluence integration
-- **[Notion](notion.md)** - Notion workspace integration
-- **[Slab](slab.md)** - Team knowledge base
+-   **Coralogix logs**
 
-## Utility Toolsets
+    ---
 
-Helper tools for investigations:
+    Coralogix cloud-native observability platform integration.
 
-- **[Internet](internet.md)** - Web searches and external data
-- **[Datetime](datetime.md)** - Time and date utilities
+    [:octicons-arrow-right-24: Configuration](coralogix.md)
 
-## Configuration
+-   **Datetime**
 
-Most toolsets fall into these categories:
+    ---
 
-### Enabled by Default
-Some toolsets work automatically:
-- Kubernetes resources and logs
-- Docker container information
-- Basic datetime utilities
+    Time and date utilities for investigations.
 
-### Requires Configuration
-Most external services need API keys or credentials:
-- Cloud providers (AWS)
-- Monitoring tools (Prometheus, Grafana)
-- Third-party services (Confluence, Notion)
+    [:octicons-arrow-right-24: Configuration](datetime.md)
 
-### Optional Setup
-Some toolsets enhance investigations but aren't required:
-- Knowledge management tools
-- Specialized monitoring platforms
+-   **Docker**
 
-## Next Steps
+    ---
+
+    Docker container information and management.
+
+    [:octicons-arrow-right-24: Configuration](docker.md)
+
+-   **Grafana Loki**
+
+    ---
+
+    Grafana Loki log aggregation system integration.
+
+    [:octicons-arrow-right-24: Configuration](grafana.md)
+
+-   **Grafana Tempo**
+
+    ---
+
+    Grafana Tempo distributed tracing integration.
+
+    [:octicons-arrow-right-24: Configuration](grafana.md)
+
+-   **Helm**
+
+    ---
+
+    Helm chart and release information.
+
+    [:octicons-arrow-right-24: Configuration](helm.md)
+
+-   **Internet**
+
+    ---
+
+    Web searches and external data access.
+
+    [:octicons-arrow-right-24: Configuration](internet.md)
+
+-   **Kafka**
+
+    ---
+
+    Apache Kafka cluster information and monitoring.
+
+    [:octicons-arrow-right-24: Configuration](kafka.md)
+
+-   **Kubernetes**
+
+    ---
+
+    Core Kubernetes resources, events, and logs.
+
+    [:octicons-arrow-right-24: Configuration](kubernetes.md)
+
+-   **Notion**
+
+    ---
+
+    Notion workspace integration for documentation.
+
+    [:octicons-arrow-right-24: Configuration](notion.md)
+
+-   **OpenSearch logs**
+
+    ---
+
+    OpenSearch log aggregation and search integration.
+
+    [:octicons-arrow-right-24: Configuration](opensearch.md)
+
+-   **OpenSearch status**
+
+    ---
+
+    OpenSearch cluster status and health monitoring.
+
+    [:octicons-arrow-right-24: Configuration](opensearch.md)
+
+-   **Prometheus**
+
+    ---
+
+    Prometheus metrics collection and querying.
+
+    [:octicons-arrow-right-24: Configuration](prometheus.md)
+
+-   **RabbitMQ**
+
+    ---
+
+    RabbitMQ message broker monitoring and management.
+
+    [:octicons-arrow-right-24: Configuration](rabbitmq.md)
+
+-   **Robusta**
+
+    ---
+
+    Robusta platform integration for enhanced Kubernetes monitoring.
+
+    [:octicons-arrow-right-24: Configuration](robusta.md)
+
+-   **Slab**
+
+    ---
+
+    Slab team knowledge base integration.
+
+    [:octicons-arrow-right-24: Configuration](slab.md)
+
+</div>
+
+## Getting Started
 
 1. **Review** the toolsets relevant to your infrastructure
 2. **Configure** authentication for external services
 3. **Test** investigations to see which data sources are accessed
 
-Click on any toolset above to see detailed configuration instructions.
+Some toolsets work automatically with Kubernetes, while external services require API keys or credentials to be configured.

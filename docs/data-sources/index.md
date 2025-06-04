@@ -1,23 +1,23 @@
 # Data Sources
 
-HolmesGPT can integrate with a wide variety of data sources to provide comprehensive analysis of your infrastructure and applications.
+HolmesGPT can incorporate data sources from various tools to improve its root cause analysis. This is done through configuring different types of integrations:
 
 ## Integration Types
 
 ### Built-in Toolsets
-Pre-built integrations with popular tools and platforms:
+Pre-configured analysis capabilities that HolmesGPT can use to fetch data from common tools:
 
-- **[Kubernetes](builtin-toolsets/kubernetes.md)** - Pods, services, events, logs
-- **[AWS](builtin-toolsets/aws.md)** - EC2, ECS, CloudWatch, and more
-- **[Grafana](builtin-toolsets/grafana.md)** - Loki logs and Tempo traces
-- **[Prometheus](builtin-toolsets/prometheus.md)** - Metrics and alerting
-- **[And 14 more...](builtin-toolsets/)** - Complete list of supported integrations
+- **[View all Built-in Toolsets](builtin-toolsets/)** - Complete list of 19 supported integrations
 
-### Custom Integration Options
+### Custom Toolsets
+User-defined investigation extensions for tools not covered by built-in toolsets:
 
 - **[Custom Toolsets](custom-toolsets.md)** - Build your own integrations
-- **[Remote MCP Servers](remote-mcp-servers.md)** - Connect external data sources (Tech Preview)
 
+### Remote MCP Servers
+Additional data connection options through the Model Context Protocol:
+
+- **[Remote MCP Servers](remote-mcp-servers.md)** - Connect external data sources (Tech Preview)
 
 ## Getting Started
 
@@ -26,5 +26,3 @@ Pre-built integrations with popular tools and platforms:
 3. **Test** with a sample investigation
 
 Most toolsets work out-of-the-box with Kubernetes, while external services require API keys or authentication setup.
-
-Explore our [built-in toolsets](builtin-toolsets/) to see what integrations are available for your stack.
