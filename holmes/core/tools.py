@@ -95,7 +95,7 @@ class ToolsetTag(str, Enum):
 
 class ToolsetType(str, Enum):
     BUILTIN = "built-in"
-    CUSTOMIZED = "customized"
+    CUSTOMIZED = "custom"
     MCP = "mcp"
 
 
@@ -331,7 +331,7 @@ class Toolset(BaseModel):
     # e.g. l.extend([some_tool]) will reset these private attribute to None
 
     # status fields that be cached
-    type: ToolsetType = ToolsetType.BUILTIN
+    type: Optional[ToolsetType] = None
     path: Optional[FilePath] = None
     status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
     error: Optional[str] = None
@@ -447,16 +447,6 @@ class Toolset(BaseModel):
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]  # type: ignore
-    # YamlToolset is loaded from a YAML file specified by the user and should be enabled by default
-    # Built-in toolsets are exception and should be disabled by default when loaded
-    enabled: bool = True
-    prerequisites: List[
-        Union[
-            StaticPrerequisite,
-            ToolsetCommandPrerequisite,
-            ToolsetEnvironmentPrerequisite,
-        ]
-    ] = []  # type: ignore
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -489,7 +479,7 @@ class ToolExecutor:
             for tool in ts.tools:
                 if tool.name in self.tools_by_name:
                     logging.warning(
-                        f"Overriding existing tool '{tool.name} with new tool from {ts.name} at {ts._path}'!"
+                        f"Overriding existing tool '{tool.name} with new tool from {ts.name} at {ts.path}'!"
                     )
                 self.tools_by_name[tool.name] = tool
 

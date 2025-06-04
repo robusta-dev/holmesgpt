@@ -29,7 +29,6 @@ from rich.table import Table
 
 from holmes import get_version
 from holmes.config import (
-    DEFAULT_CONFIG_LOCATION,
     Config,
     SourceFactory,
     SupportedTicketSources,
@@ -62,7 +61,7 @@ toolset_app = typer.Typer(
     add_completion=False,
     name="toolset",
     no_args_is_help=True,
-    help="toolset management commands",
+    help="Toolset management commands",
 )
 app.add_typer(toolset_app, name="toolset")
 
@@ -139,7 +138,7 @@ opt_api_key: Optional[str] = typer.Option(
 )
 opt_model: Optional[str] = typer.Option(None, help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
-    DEFAULT_CONFIG_LOCATION,
+    None,
     "--config",
     help="Path to the config file. Defaults to ~/.holmes/config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
@@ -328,7 +327,7 @@ def ask(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[Path] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,

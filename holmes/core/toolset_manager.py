@@ -32,7 +32,7 @@ class ToolsetManager:
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
-        toolset_status_location: FilePath = DEFAULT_TOOLSET_STATUS_LOCATION,
+        toolset_status_location: FilePath = FilePath(DEFAULT_TOOLSET_STATUS_LOCATION),
     ):
         self.toolsets = toolsets
         self.custom_toolsets = custom_toolsets
