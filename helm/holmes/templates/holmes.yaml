@@ -4,15 +4,18 @@ metadata:
   name: {{ .Release.Name }}-holmes
   namespace: {{ .Release.Namespace }}
   labels:
+    {{- include "holmesgpt.labels" . | nindent 4 }}
     app: holmes
 spec:
   replicas: 1
   selector:
     matchLabels:
+      {{- include "holmesgpt.selectorLabels" . | nindent 6 }}
       app: holmes
   template:
     metadata:
       labels:
+        {{- include "holmesgpt.labels" . | nindent 8 }}
         app: holmes
       annotations:
         # checksum annotation triggering pod reload when .Values.toolsets changes by helm upgrade
@@ -103,6 +106,7 @@ metadata:
   name: {{ .Release.Name }}-holmes
   namespace: {{ .Release.Namespace }}
   labels:
+    {{- include "holmesgpt.labels" . | nindent 4 }}
     app: holmes
 spec:
   selector:
