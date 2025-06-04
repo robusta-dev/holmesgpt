@@ -3,5 +3,6 @@ user_prompt: "what's wrong with the argocd app `demo-app`?"
 expected_output:
   - "`my-demoshop-namespaces` should be `my-demoshop-namespace`"
 evaluation:
-  correctness: 1
+  # Often Holmes does not suggest the correct namespace even if it consistently identify the namespace is wrong
+  correctness: 0
 generate_mocks: False

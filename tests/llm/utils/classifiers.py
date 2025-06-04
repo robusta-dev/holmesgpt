@@ -127,7 +127,11 @@ D. OUTPUT mentions both "logs" and "previous logs" but presents both as having t
     return classifier(input=None, output=output, expected=None)
 
 
-def evaluate_correctness(expected_elements: List[str], output: Optional[str]):
+def evaluate_correctness(
+    expected_elements: Union[str, List[str]], output: Optional[str]
+):
+    if isinstance(expected_elements, str):
+        expected_elements = [expected_elements]
     expected_elements_str = "\n- ".join(expected_elements)
 
     prompt_prefix = """

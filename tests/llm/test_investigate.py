@@ -88,7 +88,7 @@ def idfn(val):
     reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
 )
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name, test_case):
+def test_investigate(experiment_name, test_case: InvestigateTestCase):
     config = MockConfig(test_case)
     config.model = os.environ.get("MODEL", "gpt-4o")
     mock_dal = MockSupabaseDal(
