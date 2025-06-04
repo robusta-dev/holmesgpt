@@ -6,6 +6,54 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
 
 <div class="grid cards" markdown>
 
+-   :material-robot:{ .lg .middle } **Anthropic**
+
+    ---
+
+    Claude models with excellent reasoning capabilities for complex troubleshooting.
+
+    [:octicons-arrow-right-24: Configuration](anthropic.md)
+
+-   :material-aws:{ .lg .middle } **AWS Bedrock**
+
+    ---
+
+    AWS managed AI service with support for multiple model providers.
+
+    [:octicons-arrow-right-24: Configuration](aws-bedrock.md)
+
+-   :material-microsoft-azure:{ .lg .middle } **Azure OpenAI**
+
+    ---
+
+    Enterprise-grade OpenAI through Microsoft Azure with enhanced security.
+
+    [:octicons-arrow-right-24: Configuration](azure-openai.md)
+
+-   :material-google:{ .lg .middle } **Gemini**
+
+    ---
+
+    Google's Gemini models via Google AI Studio for direct API access.
+
+    [:octicons-arrow-right-24: Configuration](gemini.md)
+
+-   :material-google-cloud:{ .lg .middle } **Google Vertex AI**
+
+    ---
+
+    Enterprise Google Cloud AI with Gemini models and advanced features.
+
+    [:octicons-arrow-right-24: Configuration](google-vertex-ai.md)
+
+-   :material-llama:{ .lg .middle } **Ollama**
+
+    ---
+
+    Run large language models locally on your machine for privacy and offline use.
+
+    [:octicons-arrow-right-24: Configuration](ollama.md)
+
 -   :material-openai:{ .lg .middle } **OpenAI**
 
     ---
@@ -14,44 +62,23 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
 
     [:octicons-arrow-right-24: Configuration](openai.md)
 
--   :material-microsoft-azure:{ .lg .middle } **Azure OpenAI**
+-   :material-api:{ .lg .middle } **OpenAI-Compatible**
 
     ---
 
-    Enterprise-grade OpenAI through Microsoft Azure with enhanced security.
+    Any OpenAI-compatible API or self-hosted inference server.
 
-    [:octicons-arrow-right-24: Azure Setup](azure-openai.md)
-
--   :material-aws:{ .lg .middle } **AWS Bedrock**
-
-    ---
-
-    AWS managed AI service with support for multiple model providers.
-
-    [:octicons-arrow-right-24: Bedrock Config](aws-bedrock.md)
+    [:octicons-arrow-right-24: Configuration](openai-compatible.md)
 
 </div>
 
-## Choosing a Provider
+## Quick Start
 
-Need help deciding? Check our [Overview & Selection](overview.md) guide for:
+!!! tip "Recommended for New Users"
+    **OpenAI GPT-4o** provides the best balance of accuracy and reliability. Get started with:
 
-- Performance comparisons
-- Cost analysis
-- Feature availability
-- Deployment considerations
+    1. Get an [OpenAI API key](https://platform.openai.com/api-keys)
+    2. Set `export OPENAI_API_KEY="your-api-key"`
+    3. Run `holmes ask "what pods are failing?"`
 
-## Multiple Providers
-
-You can configure [multiple providers](multiple-providers.md) simultaneously and choose which one to use for each investigation.
-
-## Recommended Setup
-
-!!! tip "Best Performance"
-    We highly recommend **GPT-4o** for the most accurate results. You can access it through:
-
-    - **OpenAI** directly
-    - **Azure OpenAI** for enterprise features
-    - **Robusta AI** for managed convenience
-
-Start with our [Overview & Selection](overview.md) guide to choose the right provider for your needs.
+Choose your provider above to see detailed configuration instructions.
