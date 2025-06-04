@@ -81,10 +81,6 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.skipif(
-    not os.environ.get("BRAINTRUST_API_KEY"),
-    reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
-)
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(experiment_name, test_case: InvestigateTestCase):
     config = MockConfig(test_case)
