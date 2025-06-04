@@ -1,4 +1,4 @@
-# UI Installation
+# Install UI/TUI
 
 Use HolmesGPT through graphical interfaces and third-party integrations.
 

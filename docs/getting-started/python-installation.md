@@ -1,4 +1,4 @@
-# Python SDK Installation
+# Install Python SDK
 
 Embed HolmesGPT in your own applications with the Python API for programmatic root cause analysis.
 

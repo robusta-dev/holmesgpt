@@ -1,4 +1,4 @@
-# Kubernetes Installation
+# Install Helm Chart
 
 Deploy HolmesGPT as a service in your Kubernetes cluster with HTTP API access.
 

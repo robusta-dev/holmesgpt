@@ -1,4 +1,4 @@
-# CLI Installation
+# Install CLI
 
 Run HolmesGPT from your terminal as a standalone CLI tool. Ideal for local use, shell scripts, or CI/CD pipelines.
 

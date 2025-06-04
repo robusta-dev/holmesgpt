@@ -1,4 +1,4 @@
-# Getting Started with HolmesGPT
+# Getting Started
 
 Choose your installation method and get HolmesGPT running in minutes.
 

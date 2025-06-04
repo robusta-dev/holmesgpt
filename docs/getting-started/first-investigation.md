@@ -1,4 +1,4 @@
-# Run Your First Investigation
+# First Investigation
 
 This guide walks you through running your first HolmesGPT investigation, assuming you've installed the CLI.
 
