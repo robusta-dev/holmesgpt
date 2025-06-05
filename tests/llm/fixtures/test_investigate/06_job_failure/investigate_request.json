@@ -12,7 +12,7 @@
   },
   "context": {
     "issue_type": "JobFailure",
-    "robusta_issue_id": "1eb606c4-46af-430e-a116-a92c201ee1d0",
+    "robusta_issue_id": "d1e5b8cb-4632-48fc-8add-60b58cb200c6",
     "source": "kubernetes_api_server"
   },
   "source_instance_id": "ApiRequest",

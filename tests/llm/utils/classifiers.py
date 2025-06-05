@@ -1,8 +1,23 @@
 from typing import Dict, List, Optional, Union, Literal
-from autoevals import Factuality, LLMClassifier
+from autoevals import Factuality, LLMClassifier, init
+from braintrust.oai import wrap_openai
+import openai
 import os
 
-classifier_model = os.environ.get("CLASSIFIER_MODEL", "gpt-4o")
+classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
+api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
+base_url = os.environ.get("AZURE_API_BASE", None)
+api_version = os.environ.get("AZURE_API_VERSION", None)
+
+if base_url:
+    client = openai.AzureOpenAI(
+        azure_endpoint=base_url,
+        azure_deployment=classifier_model,
+        api_version=api_version,
+        api_key=api_key,
+    )
+    wrapped = wrap_openai(client)
+    init(wrapped)  # type: ignore
 
 
 def evaluate_app_or_infra(
@@ -35,6 +50,9 @@ Make a choice of "1" if the OUTPUT is as EXPECTED, "0" otherwise.
         choice_scores={"A": 0, "B": 0.33, "C": 0.67, "D": 1},
         use_cot=True,
         model=classifier_model,
+        api_key=api_key,
+        base_url=base_url,
+        api_version=api_version,
     )
     return classifier(input=None, output=output, expected=expected)
 
@@ -72,6 +90,9 @@ D. All items present in the CONTEXT are mentioned in the ANSWER
         choice_scores={"A": 0, "B": 0.33, "C": 0.67, "D": 1},
         use_cot=True,
         model=classifier_model,
+        api_key=api_key,
+        base_url=base_url,
+        api_version=api_version,
     )
     return classifier(input=input, output=output, expected=context)
 
@@ -99,11 +120,18 @@ D. OUTPUT mentions both "logs" and "previous logs" but presents both as having t
         choice_scores={"A": 1, "B": 1, "C": 0, "D": 1},
         use_cot=True,
         model=classifier_model,
+        api_key=api_key,
+        base_url=base_url,
+        api_version=api_version,
     )
     return classifier(input=None, output=output, expected=None)
 
 
-def evaluate_correctness(expected_elements: List[str], output: Optional[str]):
+def evaluate_correctness(
+    expected_elements: Union[str, List[str]], output: Optional[str]
+):
+    if isinstance(expected_elements, str):
+        expected_elements = [expected_elements]
     expected_elements_str = "\n- ".join(expected_elements)
 
     prompt_prefix = """
@@ -136,6 +164,9 @@ Possible choices:
         choice_scores={"A": 1, "B": 0},
         use_cot=True,
         model=classifier_model,
+        api_key=api_key,
+        base_url=base_url,
+        api_version=api_version,
     )
     return classifier(input=input, output=output, expected=expected_elements_str)
 
@@ -201,6 +232,9 @@ Possible choices:
         choice_scores={"A": 0, "B": 1},
         use_cot=True,
         model=classifier_model,
+        api_key=api_key,
+        base_url=base_url,
+        api_version=api_version,
     )
     return classifier(
         input=unexpected_sections_str, output=output, expected=expected_sections_str

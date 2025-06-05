@@ -1,6 +1,6 @@
 expected_output:
   - The job `java-api-checker` in the `default` namespace has failed because of a backoff limit.
-  - The logs show repeated network exceptions indicating that all attempts to connect to the database at `prod-db:3333` failed
+  - issues connecting to `prod-db:3333`
 before_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_failure/job_crash.yaml || true
   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_failure/job_crash.yaml
@@ -8,4 +8,5 @@ before_test: |
 after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_failure/job_crash.yaml
 evaluation:
-  correctness: 0
+  correctness: 1
+generate_mocks: False

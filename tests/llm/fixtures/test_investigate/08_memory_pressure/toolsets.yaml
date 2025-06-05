@@ -1,0 +1,5 @@
+toolsets:
+  prometheus/metrics:
+    enabled: False
+  aks/node-health:
+    enabled: False

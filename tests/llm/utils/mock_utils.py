@@ -41,6 +41,7 @@ class HolmesTestCase(BaseModel):
     id: str
     folder: str
     generate_mocks: bool = False  # If True, generate mocks
+    add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluation = LLMEvaluation()
     retrieval_context: List[
@@ -102,7 +103,6 @@ def parse_structured_json(
         params = {}
         if metadata and metadata.match_params:
             params = metadata.match_params
-        logging.error(e)
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
             data=text,
@@ -123,7 +123,9 @@ class MockHelper:
 
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
-        test_cases_ids: List[str] = os.listdir(self._test_cases_folder)
+        test_cases_ids: List[str] = [
+            f for f in os.listdir(self._test_cases_folder) if not f.startswith(".")
+        ]  # ignoring hidden files like Mac's .DS_Store
         for test_case_id in test_cases_ids:
             test_case_folder = self._test_cases_folder.joinpath(test_case_id)
             logging.info("Evaluating potential test case folder: {test_case_folder}")

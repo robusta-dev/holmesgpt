@@ -62,7 +62,17 @@ def get_test_cases():
         bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_investigate_test_cases()
-    return [(experiment_name, test_case) for test_case in test_cases]
+
+    iterations = int(os.environ.get("ITERATIONS", "0"))
+    if iterations:
+        test_cases_tuples = []
+        for i in range(0, iterations):
+            test_cases_tuples.extend(
+                [(experiment_name, test_case) for test_case in test_cases]
+            )
+        return test_cases_tuples
+    else:
+        return [(experiment_name, test_case) for test_case in test_cases]
 
 
 def idfn(val):
@@ -78,7 +88,7 @@ def idfn(val):
     reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
 )
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name, test_case):
+def test_investigate(experiment_name, test_case: InvestigateTestCase):
     config = MockConfig(test_case)
     config.model = os.environ.get("MODEL", "gpt-4o")
     mock_dal = MockSupabaseDal(
@@ -176,6 +186,7 @@ def test_investigate(experiment_name, test_case):
                 scores={
                     "sections": sections_eval.score,
                 },
+                output=correctness_eval.metadata.get("rationale", ""),
                 metadata=sections_eval.metadata,
             )
 

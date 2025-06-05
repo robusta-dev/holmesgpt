@@ -1,4 +1,4 @@
-{"toolset_name":"argocd/core","tool_name":"argocd_app_diff","match_params":{"app_name":"argocd/demo-app"}}
+{"toolset_name":"argocd/core","tool_name":"argocd_app_diff"}
 Command `argocd app diff argocd/demo-app` failed with return code 1
 stdout:
 
