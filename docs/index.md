@@ -1,8 +1,8 @@
 # HolmesGPT Documentation
 
-**AI-powered root cause analysis for DevOps and SRE teams**
+**AI-powered troubleshooting and analysis for DevOps and SRE teams**
 
-HolmesGPT transforms alert investigation from manual detective work into intelligent, automated analysis. Instead of spending hours correlating logs, metrics, and traces across multiple systems, let HolmesGPT do the heavy lifting while you focus on solutions.
+HolmesGPT is an extensible AI agent that helps users troubleshoot Cloud-Native issues, get cluster information, and investigate alerts by bridging the knowledge gap through AI. Instead of spending hours correlating logs, metrics, and traces across multiple systems, HolmesGPT leverages tool-calling capabilities to integrate with your existing observability tools and organizational knowledge, letting you focus on solutions.
 
 ## :material-rocket-launch: Quick Start
 
@@ -15,10 +15,11 @@ Get up and running with HolmesGPT in minutes:
 ## :material-lightbulb: What Makes HolmesGPT Different?
 
 - **:material-brain: Intelligent Analysis**: Uses advanced AI to correlate data across multiple sources
+- **:material-cog: Extensible Architecture**: Integrate any troubleshooting tool (like Inspektor Gadget) through custom toolsets
+- **:material-puzzle: Rich Tool Ecosystem**: 18+ built-in toolsets for Kubernetes, OpenSearch, Grafana, and more
+- **:material-book: Knowledge Integration**: Bring your organizational runbooks and expertise into the AI workflow
 - **:material-shield-check: Privacy-First**: Read-only access with strict privacy controls
-- **:material-puzzle: Extensive Integrations**: 18+ built-in toolsets for Kubernetes, AWS, Grafana, and more
-- **:material-clock-fast: Instant Results**: Get root cause analysis in seconds, not hours
-- **:material-cog: Highly Configurable**: Customize with your own toolsets and data sources
+- **:material-clock-fast: Instant Results**: Get analysis and answers in seconds, not hours
 
 ## :material-map: Documentation Overview
 
