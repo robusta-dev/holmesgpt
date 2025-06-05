@@ -87,8 +87,8 @@ pytest ./tests/llm/test_ask_holmes.py -k "99_pod_health_check" -v
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `before-test` | string | Command to run before test (requires `RUN_LIVE=true`) |
-| `after-test` | string | Command to run after test cleanup |
+| `before_test` | string | Command to run before test (requires `RUN_LIVE=true`) |
+| `after_test` | string | Command to run after test cleanup |
 | `generate_mocks` | boolean | Whether to generate new mock files |
 
 ### Investigation Specific Fields
