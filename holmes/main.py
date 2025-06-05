@@ -1,5 +1,8 @@
 # ruff: noqa: E402
 import os
+from collections import OrderedDict
+
+from tabulate import tabulate
 
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -25,14 +28,13 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
-from rich.table import Table
 
 from holmes import get_version
 from holmes.config import (
+    DEFAULT_CONFIG_LOCATION,
     Config,
     SourceFactory,
     SupportedTicketSources,
-    DEFAULT_CONFIG_LOCATION,
 )
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
@@ -147,7 +149,7 @@ opt_custom_toolsets: Optional[List[Path]] = typer.Option(
     [],
     "--custom-toolsets",
     "-t",
-    help="Path to a custom toolsets (can specify -t multiple times to add multiple toolsets).",
+    help="Path to a custom toolsets (can specify -t multiple times to add multiple toolsets). The status of the custom toolsets specified here won't be cached",
 )
 opt_custom_runbooks: Optional[List[Path]] = typer.Option(
     [],
@@ -582,7 +584,7 @@ def alertmanager(
         alertmanager_file=alertmanager_file,
         slack_token=slack_token,
         slack_channel=slack_channel,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
 
@@ -712,7 +714,7 @@ def jira(
         jira_username=jira_username,
         jira_api_key=jira_api_key,
         jira_query=jira_query,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()  # type: ignore
@@ -903,7 +905,7 @@ def github(
         github_pat=github_pat,
         github_repository=github_repository,
         github_query=github_query,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()
@@ -987,7 +989,7 @@ def pagerduty(
         pagerduty_api_key=pagerduty_api_key,
         pagerduty_user_email=pagerduty_user_email,
         pagerduty_incident_key=pagerduty_incident_key,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()
@@ -1073,7 +1075,7 @@ def opsgenie(
         opsgenie_api_key=opsgenie_api_key,
         opsgenie_team_integration_key=opsgenie_team_integration_key,
         opsgenie_query=opsgenie_query,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()
@@ -1142,20 +1144,21 @@ def refresh_toolsets(
 
 
 def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
-    table = Table(title="Toolset Status")
-
     status_fields = ["name", "status", "enabled", "type", "path", "error"]
+    toolsets_status = []
+    for toolset in toolsets:
+        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))
+        order_toolset_status = OrderedDict(
+            (k, toolset_status[k]) for k in status_fields if k in toolset_status
+        )
+        toolsets_status.append(order_toolset_status)
 
-    toolsets_status = [
-        json.loads(toolset.model_dump_json(include=status_fields))
-        for toolset in toolsets
-    ]
-
-    for status_field in status_fields:
-        table.add_column(status_field.capitalize(), no_wrap=True)
-
-    for toolset_status in toolsets_status:
-        table.add_row(*[str(toolset_status.get(field, "")) for field in status_fields])  # type: ignore
+    table = tabulate(
+        toolsets_status,
+        headers="keys",
+        tablefmt="simple",
+        disable_numparse=True,
+    )
 
     console.print(table)
 

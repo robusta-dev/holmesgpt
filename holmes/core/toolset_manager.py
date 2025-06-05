@@ -178,6 +178,7 @@ class ToolsetManager:
             logging.info("refreshing toolset status")
             self.refresh_toolset_status(dal)
 
+        logging.info("loading toolset status from cache")
         cached_toolsets: List[dict[str, Any]] = []
         with open(self.toolset_status_location, "r") as f:
             cached_toolsets = json.load(f)
