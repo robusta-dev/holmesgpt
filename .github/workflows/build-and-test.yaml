@@ -11,6 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
+      - name: Install Python dependencies
+        run: poetry install --no-root
       - uses: pre-commit/action@v3.0.1
 
   build:
