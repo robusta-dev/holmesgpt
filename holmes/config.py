@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from holmes.config_utils import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
-from holmes import get_version
+from holmes import get_version  # type: ignore
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
 from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
