@@ -65,6 +65,5 @@ build-backend = "poetry.core.masonry.api"
 [tool.mypy]
 exclude = [
     "tests/*",
-
 ]
 ignore_missing_imports = true

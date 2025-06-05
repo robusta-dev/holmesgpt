@@ -20,10 +20,3 @@ repos:
       - id: end-of-file-fixer
         exclude_types: [image]
       - id: trailing-whitespace
-  - repo: local # For some reason https://github.com/pre-commit/mirrors-mypy is not working as expected and missing some files & errors.
-    hooks:
-      - id: mypy
-        name: mypy
-        entry: poetry run mypy --config-file=pyproject.toml
-        language: system
-        types: [ python ]
