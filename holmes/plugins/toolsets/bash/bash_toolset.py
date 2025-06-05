@@ -4,7 +4,6 @@ import os
 import random
 import re
 import string
-import subprocess
 from typing import Dict, Any, Optional
 
 
@@ -17,6 +16,7 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
+from holmes.plugins.toolsets.bash.common.bash import execute_bash_command
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.kubectl.constants import SAFE_NAMESPACE_PATTERN
 from holmes.plugins.toolsets.bash.kubectl.kubectl_run import validate_image_and_commands
@@ -75,7 +75,7 @@ class KubectlRunImageCommand(BaseBashTool):
         namespace = params.get("namespace", "default")
         image = get_param_or_raise(params, "image")
         command_str = get_param_or_raise(params, "command")
-        return f"kubectl run {pod_name} --image={image} --namespace={namespace} --rm --attach --restart=Never -i --tty -- {command_str}"
+        return f"kubectl run {pod_name} --image={image} --namespace={namespace} --rm --attach --restart=Never -i -- {command_str}"
 
     def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
         timeout = params.get("timeout", 60)
@@ -88,7 +88,7 @@ class KubectlRunImageCommand(BaseBashTool):
         if namespace and not re.match(SAFE_NAMESPACE_PATTERN, namespace):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                data=f"Error: The namespace is invalid. Valid namespaces must match the following regexp: {SAFE_NAMESPACE_PATTERN}",
+                error=f"Error: The namespace is invalid. Valid namespaces must match the following regexp: {SAFE_NAMESPACE_PATTERN}",
                 params=params,
             )
 
@@ -101,55 +101,9 @@ class KubectlRunImageCommand(BaseBashTool):
             + "".join(random.choices(string.ascii_letters, k=8)).lower()
         )
         full_kubectl_command = self._build_kubectl_command(params, pod_name)
-        try:
-            process = subprocess.run(
-                full_kubectl_command,
-                shell=True,
-                executable="/bin/bash",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                timeout=timeout,
-                check=False,
-            )
-
-            result_data = (
-                f"{full_kubectl_command}\n"
-                f"{process.stdout.strip() if process.stdout else ''}"
-            )
-
-            status = (
-                ToolResultStatus.SUCCESS
-                if process.returncode == 0
-                else ToolResultStatus.ERROR
-            )
-
-            return StructuredToolResult(
-                status=status,
-                data=result_data,
-                params=params,
-                invocation=full_kubectl_command,
-                return_code=process.returncode,
-            )
-        except subprocess.TimeoutExpired:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data=f"Error: Command '{full_kubectl_command}' timed out after {timeout} seconds.",
-                params=params,
-            )
-        except FileNotFoundError:
-            # This might occur if /bin/bash is not found, or if shell=False and command is not found
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data="Error: Bash executable or command not found. Ensure bash is installed and the command is valid.",
-                params=params,
-            )
-        except Exception as e:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data=f"Error executing command '{full_kubectl_command}': {str(e)}",
-                params=params,
-            )
+        return execute_bash_command(
+            cmd=full_kubectl_command, timeout=timeout, params=params
+        )
 
     def get_parameterized_one_liner(self, params: Dict[str, Any]) -> str:
         return self._build_kubectl_command(params, "<pod_name>")
@@ -202,60 +156,14 @@ class RunBashCommand(BaseBashTool):
             )
         try:
             safe_command_str = make_command_safe(command_str, self.toolset.config)
+            return execute_bash_command(
+                cmd=safe_command_str, timeout=timeout, params=params
+            )
         except (argparse.ArgumentError, ValueError) as e:
             logging.info(f"Refusing LLM tool call {command_str}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
-                params=params,
-            )
-
-        try:
-            process = subprocess.run(
-                safe_command_str,
-                shell=True,
-                executable="/bin/bash",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                timeout=timeout,
-                check=False,
-            )
-
-            result_data = (
-                f"{command_str}\n" f"{process.stdout.strip() if process.stdout else ''}"
-            )
-
-            status = (
-                ToolResultStatus.SUCCESS
-                if process.returncode == 0
-                else ToolResultStatus.ERROR
-            )
-
-            return StructuredToolResult(
-                status=status,
-                data=result_data,
-                params=params,
-                invocation=safe_command_str,
-                return_code=process.returncode,
-            )
-        except subprocess.TimeoutExpired:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data=f"Error: Command '{command_str}' timed out after {timeout} seconds.",
-                params=params,
-            )
-        except FileNotFoundError:
-            # This might occur if /bin/bash is not found, or if shell=False and command is not found
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data="Error: Bash executable or command not found. Ensure bash is installed and the command is valid.",
-                params=params,
-            )
-        except Exception as e:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data=f"Error executing command '{command_str}': {str(e)}",
                 params=params,
             )
 
@@ -269,7 +177,7 @@ class BashExecutorToolset(BaseBashExecutorToolset):
     def __init__(self):
         super().__init__(
             name="bash",
-            enabled=True,  # Default state; can be overridden by global config.
+            enabled=False,  # Default state; can be overridden by global config.
             description=(
                 "Toolset for executing arbitrary bash commands on the system where Holmes is running. "
                 "WARNING: This toolset provides powerful capabilities and should be "

@@ -5,6 +5,10 @@ from typing import Any
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import regex_validator
 
+MAX_FOR_OBJ_SIZE = 253
+for_object_pattern = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9\-_./:]*$")
+VALID_EVENT_TYPES = {"Normal", "Warning"}
+
 
 def create_kubectl_events_parser(kubectl_parser: Any):
     parser = kubectl_parser.add_parser(
@@ -27,18 +31,14 @@ def create_kubectl_events_parser(kubectl_parser: Any):
         "--field-selector",
         type=regex_validator("field selector", re.compile(r"^[a-zA-Z0-9\-_.=,!()]+$")),
     )
-    parser.add_argument(
-        "--for", dest="for_object", type=lambda x: _validate_for_object(x)
-    )
-    parser.add_argument("--types", type=lambda x: _validate_event_types(x))
+    parser.add_argument("--for", dest="for_object", type=_validate_for_object)
+    parser.add_argument("--types", type=_validate_event_types)
     parser.add_argument("-w", "--watch", action="store_true")
     parser.add_argument("--no-headers", action="store_true")
 
 
 def _validate_for_object(value: str) -> str:
     """Validate the --for object parameter."""
-    MAX_FOR_OBJ_SIZE = 253
-    for_object_pattern = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9\-_./:]*$")
 
     if not for_object_pattern.match(value):
         raise argparse.ArgumentTypeError(f"Invalid for_object: {value}")
@@ -51,7 +51,6 @@ def _validate_for_object(value: str) -> str:
 
 def _validate_event_types(value: str) -> str:
     """Validate the --types parameter."""
-    VALID_EVENT_TYPES = {"Normal", "Warning"}
     type_list = [t.strip() for t in value.split(",")]
 
     for event_type in type_list:

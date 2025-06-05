@@ -37,14 +37,13 @@ def create_kubectl_get_parser(kubectl_parser: Any):
         "-l", "--selector", type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
     )
     parser.add_argument(
-        "--field-selector", type=regex_validator("selector", SAFE_SELECTOR_PATTERN)
+        "--field-selector",
+        type=regex_validator("field-selector", SAFE_SELECTOR_PATTERN),
     )
     parser.add_argument(
         "-o", "--output", type=whitelist_validator("output", VALID_OUTPUT_FORMATS)
     )
-    parser.add_argument(
-        "--sort-by", type=regex_validator("namespace", SAFE_NAME_PATTERN)
-    )
+    parser.add_argument("--sort-by", type=regex_validator("sort-by", SAFE_NAME_PATTERN))
     parser.add_argument(
         "--show-labels",
         action="store_true",

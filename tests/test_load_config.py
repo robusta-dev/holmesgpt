@@ -2,17 +2,18 @@ import os
 
 import pytest
 
-from holmes.config import get_env_replacement
+from holmes.config_utils import get_env_replacement
 
 
 @pytest.mark.parametrize(
     "input_value, mock_environ, expected_output",
     [
         ("this is a plain string", {}, "this is a plain string"),
-        ("{{ other_format.VAR }}", {}, ""),
+        ("{{ other_format.VAR }}", {}, "{{ other_format.VAR }}"),
         ("{{env.VAR}", {}, "{{env.VAR}"),
         ("{ env.VAR }}", {}, "{ env.VAR }}"),
-        ("{{ VAR }}", {}, ""),
+        ("{{ foo.bar }}", {}, "{{ foo.bar }}"),
+        ("{{ VAR }}", {}, "{{ VAR }}"),
         ("{{ env.MY_VAR }}", {"MY_VAR": "var_value_123"}, "var_value_123"),
         (
             "{{  env.MY_VAR_SPACED  }}",

