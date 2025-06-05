@@ -8,7 +8,7 @@ from holmes.config_utils import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
-from holmes.core.llm import LLM, DefaultLLM
+from holmes.core.llm import LLM
 from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
 from pydash.arrays import concat
 import json
@@ -41,13 +41,11 @@ from pydantic import ValidationError
 from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import (
     ROBUSTA_CONFIG_PATH,
-    ROBUSTA_AI,
-    ROBUSTA_API_ENDPOINT,
-    ROBUSTA_AI_MODEL_NAME_FALLBACK,
 )
 from holmes.utils.definitions import RobustaConfig
 from enum import Enum
 from holmes.common.env_vars import load_bool
+from holmes.llm_selector import LLMSelector
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
@@ -621,51 +619,13 @@ class Config(RobustaBaseConfig):
         return cls(**merged_config)
 
     def _get_llm(self, model_key: Optional[str] = None) -> LLM:
-        selected_model: Optional[str] = None
-        selected_api_key: Optional[str] = (
-            self.api_key.get_secret_value() if self.api_key else None
+        llm_selector = LLMSelector(
+            initial_api_key=self.api_key.get_secret_value() if self.api_key else None,
+            model_list_config=self._model_list,
+            default_model_from_config=self.model,
+            holmes_info_object=self._holmes_info,
         )
-        selected_params: Dict[str, Any] = {}
-
-        if model_key and self._model_list and model_key in self._model_list:
-            logging.debug(f"Using model '{model_key}' from model_list")
-            selected_params = self._model_list[model_key].copy()
-            selected_api_key = selected_params.pop("api_key", selected_api_key)
-            selected_model = selected_params.pop("model", self.model)
-        elif self.model:
-            selected_model = self.model
-            selected_params = {}
-        elif self._model_list:
-            first_model_key = next(iter(self._model_list.keys()))
-            logging.debug(f"Using first model from model_list: '{first_model_key}'")
-            selected_params = self._model_list[first_model_key].copy()
-            selected_api_key = selected_params.pop("api_key", selected_api_key)
-            selected_model = selected_params.pop("model", self.model)
-        elif ROBUSTA_AI:
-            logging.debug("No specific model configured, falling back to Robusta AI")
-            selected_model = getattr(
-                self._holmes_info,
-                "robusta_ai_model_name",
-                ROBUSTA_AI_MODEL_NAME_FALLBACK,
-            )
-            if not self.api_key:
-                raise ValueError(
-                    "ROBUSTA_AI is enabled but no API key is configured. "
-                    "Call `load_robusta_api_key()` before requesting an LLM instance "
-                    "or set the API key via the CLI / env var."
-                )
-            selected_api_key = self.api_key.get_secret_value()
-            selected_params = {"base_url": ROBUSTA_API_ENDPOINT}
-        else:
-            raise ValueError(
-                "No LLM model configured. Please set the MODEL environment variable, "
-                "provide a model_list.yaml file, or ensure ROBUSTA_AI is not disabled."
-            )
-
-        if not selected_model:
-            raise ValueError("Could not determine an LLM model to use.")
-
-        return DefaultLLM(selected_model, selected_api_key, selected_params)
+        return llm_selector.select_llm(model_key)
 
     def load_robusta_api_key(self, dal: SupabaseDal):
         if (
