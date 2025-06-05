@@ -66,5 +66,5 @@ build-backend = "poetry.core.masonry.api"
 ignore_missing_imports = true
 scripts_are_modules = true
 exclude = [
-    "tests/llm/*",
+    "tests/llm/fixtures/.*",
 ]

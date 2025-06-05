@@ -28,3 +28,4 @@ repos:
         args: ["--scripts-are-modules", "--config-file=pyproject.toml"]
         language: system
         types: [python]
+        exclude: tests/llm/fixtures/.*

@@ -567,7 +567,7 @@ class Config(RobustaBaseConfig):
         Merges and overrides default_toolsets_by_name with custom
         config from /etc/holmes/config/custom_toolset.yaml
         """
-        toolsets_with_updated_statuses: Dict[str, YAMLToolset] = {
+        toolsets_with_updated_statuses: Dict[str, YAMLToolset | RemoteMCPToolset] = {
             toolset.name: toolset  # type: ignore
             for toolset in default_toolsets_by_name.values()  # type: ignore
         }
@@ -577,6 +577,7 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
+                    validated_toolset: YAMLToolset | RemoteMCPToolset
                     if toolset.type == ToolsetType.MCP:
                         validated_toolset = RemoteMCPToolset(
                             **toolset.model_dump(exclude_none=True)

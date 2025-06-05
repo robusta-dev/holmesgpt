@@ -1,3 +1,4 @@
+# type: ignore
 import json
 from typing_extensions import Dict
 import yaml
