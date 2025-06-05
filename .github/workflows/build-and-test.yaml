@@ -11,11 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-      - name: Install Python dependencies
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
-          poetry config virtualenvs.create false
-          poetry install
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: false
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
       - uses: pre-commit/action@v3.0.1
 
   build:
