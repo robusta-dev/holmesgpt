@@ -3,7 +3,7 @@
 This guide explains how to use Braintrust to analyze evaluation results, debug failures, and compare model performance.
 
 - [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
-- [Docs on writing your own evals](./docs/evals-introduction.md).
+- [Docs on writing your own evals](./docs/evals-writing.md).
 
 ## Overview
 
