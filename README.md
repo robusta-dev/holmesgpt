@@ -6,7 +6,6 @@
     <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
-<br>
  Questions? <a href="https://deepwiki.com/robusta-dev/holmesgpt"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
