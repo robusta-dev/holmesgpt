@@ -24,6 +24,6 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: mypy --config-file=pyproject.toml
+        entry: poetry run mypy --config-file=pyproject.toml
         language: system
         types: [ python ]
