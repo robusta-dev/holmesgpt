@@ -43,7 +43,7 @@ from holmes.common.env_vars import (
     ROBUSTA_CONFIG_PATH,
     ROBUSTA_AI,
     ROBUSTA_API_ENDPOINT,
-    ROBUSTA_AI_MODEL_NAME_BACKOFF,
+    ROBUSTA_AI_MODEL_NAME_FALLBACK,
 )
 from holmes.utils.definitions import RobustaConfig
 from enum import Enum
@@ -646,7 +646,7 @@ class Config(RobustaBaseConfig):
             selected_model = getattr(
                 self._holmes_info,
                 "robusta_ai_model_name",
-                ROBUSTA_AI_MODEL_NAME_BACKOFF,
+                ROBUSTA_AI_MODEL_NAME_FALLBACK,
             )
             if not self.api_key:
                 raise ValueError(
