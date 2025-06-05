@@ -15,7 +15,7 @@ jobs:
         run: |
           curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
           poetry config virtualenvs.create false
-          poetry install --no-root
+          poetry install
       - uses: pre-commit/action@v3.0.1
 
   build:
