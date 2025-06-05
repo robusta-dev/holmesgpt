@@ -315,7 +315,12 @@ You can view an example config file with all available settings [here](config.ex
 
 ## Evals
 
-Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](./docs/evals-introduction.md) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs. Learn more about it [here](./docs/evals-introduction.md).
+Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](./docs/evals-introduction.md) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
+
+- [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
+- [Write your own evals](./docs/evals-introduction.md).
+- [Use Braintrust to view analyze results (optional)](./docs/evals-introduction.md).
+
 
 ## License
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.

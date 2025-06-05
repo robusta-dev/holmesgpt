@@ -2,6 +2,9 @@
 
 This guide explains how to use Braintrust to analyze evaluation results, debug failures, and compare model performance.
 
+- [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
+- [Docs on writing your own evals](./docs/evals-introduction.md).
+
 ## Overview
 
 Braintrust is a platform for tracking and analyzing LLM evaluations. HolmesGPT evals can be used without Braintrust but using Braintrust has a few advantages:

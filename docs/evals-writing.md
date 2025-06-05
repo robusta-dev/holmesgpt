@@ -2,6 +2,10 @@
 
 This guide explains how to create new evaluations for HolmesGPT. Evaluations test the system's ability to correctly diagnose issues and provide accurate recommendations.
 
+
+- [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
+- [Use Braintrust to view analyze results (optional)](./docs/evals-introduction.md).
+
 ## Overview
 
 HolmesGPT supports two types of evaluations:
