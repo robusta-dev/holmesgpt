@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from holmes.config_utils import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
-from holmes import get_version
+from holmes import get_version  # type: ignore
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
 from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
@@ -567,7 +567,7 @@ class Config(RobustaBaseConfig):
         Merges and overrides default_toolsets_by_name with custom
         config from /etc/holmes/config/custom_toolset.yaml
         """
-        toolsets_with_updated_statuses: Dict[str, YAMLToolset] = {
+        toolsets_with_updated_statuses: Dict[str, YAMLToolset | RemoteMCPToolset] = {
             toolset.name: toolset  # type: ignore
             for toolset in default_toolsets_by_name.values()  # type: ignore
         }
@@ -577,6 +577,7 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
+                    validated_toolset: YAMLToolset | RemoteMCPToolset
                     if toolset.type == ToolsetType.MCP:
                         validated_toolset = RemoteMCPToolset(
                             **toolset.model_dump(exclude_none=True)

@@ -1,3 +1,4 @@
+# type: ignore
 from holmes.core.tools import ToolExecutor, StructuredToolResult, ToolResultStatus
 from tests.llm.utils.mock_toolset import MockToolsets, ToolMock
 import pytest
