@@ -19,9 +19,9 @@ Each test consists of:
 
 1. **Choose test type**: Ask Holmes vs Investigation. Choose Ask Holmes for most use cases. Choose Investigations for issues triggered by AlertManager
 2. **Create a test folder**: Use numbered naming convention
-3. **Define your test case**: 
+3. **Define your test case**:
   * Create `test_case.yaml` with prompt and expectations
-  * Define kubectl or helm setup and teardown manifests 
+  * Define kubectl or helm setup and teardown manifests
 4. **Generate mock data**: Using a live system
 5. **Set evaluation criteria**: Define minimum scores for test success
 6. **Test and iterate**: Run the test and refine as needed
