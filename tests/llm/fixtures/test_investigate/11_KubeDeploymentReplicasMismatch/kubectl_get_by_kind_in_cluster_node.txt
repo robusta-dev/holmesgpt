@@ -1,6 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_cluster","match_params":{"kind":"node"}}
-stdout:
-NAME                          STATUS   ROLES           AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION   CONTAINER-RUNTIME     LABELS
-grafana-cloud-control-plane   Ready    control-plane   48d   v1.31.2   172.18.0.3    <none>        Debian GNU/Linux 12 (bookworm)   6.1.0-30-amd64   containerd://1.7.18   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=grafana-cloud-control-plane,kubernetes.io/os=linux,node-role.kubernetes.io/control-plane=
-
-stderr:
