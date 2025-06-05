@@ -63,7 +63,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
-exclude = [
-    "tests/*",
-]
 ignore_missing_imports = true
+scripts_are_modules = true
+exclude = [
+    "tests/llm/*",
+]
