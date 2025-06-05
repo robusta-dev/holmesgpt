@@ -1,5 +1,9 @@
 # HolmesGPT Evaluations - Introduction
 
+
+- [Docs on writing your own evals](./evals-writing.md).
+- [Use Braintrust to view analyze results (optional)](./evals-reporting.md).
+
 ## Overview
 
 HolmesGPT uses automated evaluations (evals) to ensure consistent performance across different LLM models and to catch regressions during development. These evaluations test the system's ability to correctly diagnose Kubernetes issues.
