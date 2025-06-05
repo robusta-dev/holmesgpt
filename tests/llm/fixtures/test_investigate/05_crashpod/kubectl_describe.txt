@@ -1,47 +1,47 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"db-certs-authenticator-757f89d977-4qfst","namespace":"default"}}
-stdout:
-Name:             db-certs-authenticator-757f89d977-4qfst
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"db-certs-authenticator-757f89d977-795x7","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe pod db-certs-authenticator-757f89d977-795x7 -n default", "params": {"kind": "pod", "name": "db-certs-authenticator-757f89d977-795x7", "namespace": "default"}}
+Name:             db-certs-authenticator-757f89d977-795x7
 Namespace:        default
 Priority:         0
 Service Account:  default
-Node:             grafana-cloud-control-plane/172.18.0.3
-Start Time:       Fri, 24 Jan 2025 13:24:17 +0100
+Node:             kind-double-node-worker/172.18.0.3
+Start Time:       Wed, 28 May 2025 14:26:06 +0200
 Labels:           app=flask
                   pod-template-hash=757f89d977
 Annotations:      <none>
 Status:           Running
-IP:               10.244.0.32
+IP:               10.244.1.62
 IPs:
-  IP:           10.244.0.32
+  IP:           10.244.1.62
 Controlled By:  ReplicaSet/db-certs-authenticator-757f89d977
 Containers:
   flask:
-    Container ID:   containerd://8f87507839ef10777ccb11a4fe1d896ba097946301e73cf8f0038d2410d70ed6
+    Container ID:   containerd://75dc752eb0ea34cc1e5c116be8197fed20264041c0d5c2106606d6c7f43a6ce9
     Image:          us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest
     Image ID:       us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app@sha256:2829937cca7723f59949d75911af8d65c4aa92292e7c85a2787e108dfdc14cb4
     Port:           5000/TCP
     Host Port:      0/TCP
-    State:          Running
-      Started:      Mon, 27 Jan 2025 08:09:22 +0100
+    State:          Waiting
+      Reason:       CrashLoopBackOff
     Last State:     Terminated
       Reason:       Error
       Exit Code:    1
-      Started:      Mon, 27 Jan 2025 08:03:16 +0100
-      Finished:     Mon, 27 Jan 2025 08:04:18 +0100
-    Ready:          True
-    Restart Count:  52
+      Started:      Thu, 29 May 2025 12:14:26 +0200
+      Finished:     Thu, 29 May 2025 12:15:28 +0200
+    Ready:          False
+    Restart Count:  63
     Environment:    <none>
     Mounts:
       /certs from writable-certs (rw)
       /certs/certificate.pem from cert-volume (rw,path="certificate.pem")
       /certs/key.pem from key-volume (rw,path="key.pem")
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-d879h (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-2wnnm (ro)
 Conditions:
   Type                        Status
   PodReadyToStartContainers   True
   Initialized                 True
-  Ready                       True
-  ContainersReady             True
+  Ready                       False
+  ContainersReady             False
   PodScheduled                True
 Volumes:
   cert-volume:
@@ -56,7 +56,7 @@ Volumes:
     Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
     Medium:
     SizeLimit:  <unset>
-  kube-api-access-d879h:
+  kube-api-access-2wnnm:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
     ConfigMapName:           kube-root-ca.crt
@@ -67,8 +67,6 @@ Node-Selectors:              <none>
 Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
 Events:
-  Type     Reason   Age                   From     Message
-  ----     ------   ----                  ----     -------
-  Warning  BackOff  4m5s (x266 over 77m)  kubelet  Back-off restarting failed container flask in pod db-certs-authenticator-757f89d977-4qfst_default(a2a4f5c6-044f-48b6-9c00-dc96d43819ab)
-
-stderr:
+  Type     Reason   Age                    From     Message
+  ----     ------   ----                   ----     -------
+  Warning  BackOff  3m6s (x896 over 4h2m)  kubelet  Back-off restarting failed container flask in pod db-certs-authenticator-757f89d977-795x7_default(a28c79fd-8935-4641-ab47-1a5891e8f6d5)
