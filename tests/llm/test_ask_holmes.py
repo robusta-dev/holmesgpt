@@ -38,12 +38,7 @@ def get_test_cases():
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
     if iterations:
-        test_cases_tuples = []
-        for i in range(0, iterations):
-            test_cases_tuples.extend(
-                [(experiment_name, test_case) for test_case in test_cases]
-            )
-        return test_cases_tuples
+        return [(experiment_name, test_case) for test_case in test_cases] * iterations
     else:
         return [(experiment_name, test_case) for test_case in test_cases]
 

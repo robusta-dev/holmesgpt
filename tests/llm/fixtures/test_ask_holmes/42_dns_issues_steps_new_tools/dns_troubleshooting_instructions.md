@@ -5,7 +5,7 @@ Your primary goal when using these tools is to diagnose DNS resolution issues wi
 
 *   Use the tools to gather information about the DNS pods, services, and configuration.
 *   Clearly present the key findings from the tool outputs in your analysis.
-*   Instead of provide next steps to the user, you need to follow the troubleshoot guide to execute the steps.
+*   Instead of providing next steps to the user, you need to follow the troubleshoot guide to execute the steps.
 
 ## Workflow for DNS Diagnosis
 
