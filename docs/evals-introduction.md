@@ -1,8 +1,8 @@
 # HolmesGPT Evaluations - Introduction
 
 
-- [Docs on writing your own evals](./docs/evals-writing.md).
-- [Use Braintrust to view analyze results (optional)](./docs/evals-reporting.md).
+- [Docs on writing your own evals](./evals-writing.md).
+- [Use Braintrust to view analyze results (optional)](./evals-reporting.md).
 
 ## Overview
 
