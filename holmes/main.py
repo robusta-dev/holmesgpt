@@ -2,7 +2,7 @@
 import os
 from collections import OrderedDict
 
-from tabulate import tabulate
+from tabulate import tabulate  # type: ignore
 
 from holmes.utils.cert_utils import add_custom_certificate
 
