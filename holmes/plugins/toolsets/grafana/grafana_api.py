@@ -21,7 +21,7 @@ def get_health(config: GrafanaConfig) -> Tuple[bool, str]:
         url = f"{config.url}/api/datasources/uid/{config.grafana_datasource_uid}/health"
     else:
         # Both loki and tempo provide the same /ready api
-        url = f"{config.url}/ready"
+        url = f"{config.url}/{config.healthcheck}"
 
     try:
         headers_ = build_headers(api_key=config.api_key, additional_headers=None)

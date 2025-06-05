@@ -1,4 +1,4 @@
-{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query","match_params":{"query":"*","description":"*","start":"*","end":"*","step":"*"}}
+{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query"}
 {
   "status": "success",
   "random_key": "AtEJ",
