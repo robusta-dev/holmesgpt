@@ -56,6 +56,7 @@ autoevals = "^0.0.129"
 pre-commit = "^4.0.1"
 responses = "^0.23.1"
 freezegun = "^1.5.1"
+mypy = "^1.16.0"
 
 [build-system]
 requires = ["poetry-core"]
