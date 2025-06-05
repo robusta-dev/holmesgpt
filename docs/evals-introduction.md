@@ -45,6 +45,8 @@ Run a specific test case:
 pytest ./tests/llm/test_ask_holmes.py -k "01_how_many_pods"
 ```
 
+> It is possible to investigate and debug why an eval fails by the output provided in the console. The output includes the correctness score, the reasoning for the score, information about what tools were called, the expected answer, as well as the LLM's answer.
+
 ### Environment Variables
 
 Configure evaluations using these environment variables:
