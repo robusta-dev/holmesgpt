@@ -6,6 +6,7 @@
     <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
+ Questions? <a href="https://deepwiki.com/robusta-dev/holmesgpt"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
 Respond to alerts faster, using AI to automatically:
@@ -312,6 +313,15 @@ You can save common settings and API keys in config file for re-use. Place the c
 You can view an example config file with all available settings [here](config.example.yaml).
 </details>
 
+## Evals
+
+Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](./docs/evals-introduction.md) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
+
+- [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
+- [Write your own evals](./docs/evals-writing.md).
+- [Use Braintrust to view analyze results (optional)](./docs/evals-reporting.md).
+
+
 ## License
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
 <!-- Change License -->
@@ -324,4 +334,4 @@ If you have any questions, feel free to message us on [robustacommunity.slack.co
 
 Install HolmesGPT from source with Poetry. See [Installation](docs/installation.md) for details.
 
-For help, contact us on [Slack](https://bit.ly/robusta-slack)
+For help, contact us on [Slack](https://bit.ly/robusta-slack) or [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)

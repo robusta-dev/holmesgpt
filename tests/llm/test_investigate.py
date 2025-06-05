@@ -11,9 +11,7 @@ from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import ToolExecutor
 from tests.llm.utils.classifiers import (
-    evaluate_context_usage,
     evaluate_correctness,
-    evaluate_previous_logs_mention,
     evaluate_sections,
 )
 from tests.llm.utils.constants import PROJECT
@@ -83,10 +81,6 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.skipif(
-    not os.environ.get("BRAINTRUST_API_KEY"),
-    reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
-)
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(experiment_name, test_case: InvestigateTestCase):
     config = MockConfig(test_case)
@@ -161,18 +155,6 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase):
             metadata=correctness_eval.metadata,
         )
 
-    with eval.start_span(
-        name="Previous Logs", type=SpanTypeAttribute.SCORE
-    ) as logs_span:
-        logs_eval = evaluate_previous_logs_mention(output=output)
-        scores["previous_logs"] = logs_eval.score
-        logs_span.log(
-            scores={
-                "previous_logs": logs_eval.score,
-            },
-            metadata=logs_eval.metadata,
-        )
-
     if test_case.expected_sections:
         with eval.start_span(
             name="Sections", type=SpanTypeAttribute.SCORE
@@ -188,21 +170,6 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase):
                 },
                 output=correctness_eval.metadata.get("rationale", ""),
                 metadata=sections_eval.metadata,
-            )
-
-    if len(test_case.retrieval_context) > 0:
-        with eval.start_span(
-            name="Context", type=SpanTypeAttribute.SCORE
-        ) as context_span:
-            context_eval = evaluate_context_usage(
-                input=input, output=output, context_items=test_case.retrieval_context
-            )
-            scores["context"] = context_eval.score
-            context_span.log(
-                scores={
-                    "context": context_eval.score,
-                },
-                metadata=context_eval.metadata,
             )
 
     if bt_helper and eval:
