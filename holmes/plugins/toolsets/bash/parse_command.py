@@ -96,4 +96,4 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
         # This ideally should be captured differently by ensuring all possible args
         # are accounted for in the implementation for each command.
         # When falling back, we raise a generic error
-        raise ValueError("The command failed to be parsed for safety")
+        raise ValueError("The command failed to be parsed for safety") from None

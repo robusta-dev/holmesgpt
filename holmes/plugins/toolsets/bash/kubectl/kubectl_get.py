@@ -27,7 +27,7 @@ def create_kubectl_get_parser(kubectl_parser: Any):
         "resource_name",
         nargs="?",
         default=None,
-        type=regex_validator("namespace", SAFE_NAME_PATTERN),
+        type=regex_validator("resource_name", SAFE_NAME_PATTERN),
     )
     parser.add_argument(
         "-n", "--namespace", type=regex_validator("namespace", SAFE_NAMESPACE_PATTERN)
