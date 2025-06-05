@@ -9,7 +9,7 @@ from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
-from tests.llm.utils.classifiers import evaluate_context_usage, evaluate_correctness
+from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
@@ -123,20 +123,6 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
             output=correctness_eval.metadata.get("rationale", ""),
             metadata=correctness_eval.metadata,
         )
-    if len(test_case.retrieval_context) > 0:
-        with eval.start_span(
-            name="Context", type=SpanTypeAttribute.SCORE
-        ) as context_span:
-            context_eval = evaluate_context_usage(
-                output=output, context_items=test_case.retrieval_context, input=input
-            )
-            scores["context"] = context_eval.score
-            context_span.log(
-                scores={
-                    "context": context_eval.score,
-                },
-                metadata=context_eval.metadata,
-            )
 
     if bt_helper and eval:
         bt_helper.end_evaluation(

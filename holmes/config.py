@@ -3,6 +3,8 @@ import os
 import yaml  # type: ignore
 import os.path
 from typing import Any, Dict, List, Optional, Union
+
+from holmes.config_utils import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes import get_version
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
@@ -39,7 +41,6 @@ from pydantic import ValidationError
 from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 from holmes.utils.definitions import RobustaConfig
-import re
 from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
@@ -51,75 +52,6 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 class SupportedTicketSources(str, Enum):
     JIRA_SERVICE_MANAGEMENT = "jira-service-management"
     PAGERDUTY = "pagerduty"
-
-
-def get_env_replacement(value: str) -> Optional[str]:
-    env_patterns = re.findall(r"{{\s*env\.([^}]*)\s*}}", value)
-
-    # Find all non-env patterns ({{ anything_else }})
-    all_patterns = re.findall(r"{{\s*([^}]*)\s*}}", value)
-    non_env_patterns = [p for p in all_patterns if not p.strip().startswith("env.")]
-
-    if non_env_patterns and not env_patterns:
-        return ""
-
-    if not env_patterns and not non_env_patterns:
-        return value
-
-    # If the entire string is just one env pattern, handle it specially (should raise on missing)
-    full_pattern_match = re.match(r"^\s*{{\s*env\.([^}]*)\s*}}\s*$", value)
-    if full_pattern_match:
-        env_var_key = full_pattern_match.group(1).strip()
-        if env_var_key not in os.environ:
-            msg = f"ENV var replacement {env_var_key} does not exist"
-            logging.error(msg)
-            raise Exception(msg)
-        return os.environ.get(env_var_key)
-
-    # For strings containing env patterns within text, replace all occurrences
-    result = value
-
-    # Replace non-env patterns with empty string
-    for pattern in non_env_patterns:
-        pattern_regex = r"{{\s*" + re.escape(pattern.strip()) + r"\s*}}"
-        result = re.sub(pattern_regex, "", result)
-
-    # Replace env patterns with their values or raise exception
-    for env_var_key in env_patterns:
-        env_var_key = env_var_key.strip()
-        pattern_regex = r"{{\s*env\." + re.escape(env_var_key) + r"\s*}}"
-        if env_var_key in os.environ:
-            replacement = os.environ[env_var_key]
-        else:
-            msg = f"ENV var replacement {env_var_key} does not exist"
-            logging.error(msg)
-            raise Exception(msg)
-        result = re.sub(pattern_regex, replacement, result)
-
-    return result
-
-
-def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
-    for key, value in values.items():
-        if isinstance(value, str):
-            values[key] = get_env_replacement(value)
-        elif isinstance(value, SecretStr):
-            env_var_value = get_env_replacement(value.get_secret_value())
-            if env_var_value:
-                values[key] = SecretStr(env_var_value)
-        elif isinstance(value, dict):
-            replace_env_vars_values(value)
-        elif isinstance(value, list):
-            # can be a list of strings
-            values[key] = [
-                replace_env_vars_values(iter)
-                if isinstance(iter, dict)
-                else get_env_replacement(iter)
-                if isinstance(iter, str)
-                else iter
-                for iter in value
-            ]
-    return values
 
 
 def is_old_toolset_config(

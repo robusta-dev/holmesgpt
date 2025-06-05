@@ -1,4 +1,4 @@
-{"toolset_name":"argocd/core","tool_name":"argocd_app_resources","match_params":{"app_name":"argocd/demo-app"}}
+{"toolset_name":"argocd/core","tool_name":"argocd_app_resources"}
 stdout:
 GROUP                  KIND            NAMESPACE               NAME                       ORPHANED
                        Namespace                               my-demoshop-namespace      No

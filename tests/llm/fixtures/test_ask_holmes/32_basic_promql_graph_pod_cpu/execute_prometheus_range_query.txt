@@ -3,6 +3,7 @@
   "status": "success",
   "random_key": "HBGf",
   "tool_name": "execute_prometheus_range_query",
+  "description": "CPU usage for robusta-holmes pod",
   "start": "1739974068",
   "end": "1739975868",
   "step": 30

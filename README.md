@@ -2,10 +2,11 @@
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
-    <a href="#installation-options"><strong>Installation</strong></a> |
+    <a href="#installation"><strong>Installation</strong></a> |
     <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
+ Questions? <a href="https://deepwiki.com/robusta-dev/holmesgpt"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
 Respond to alerts faster, using AI to automatically:
@@ -41,6 +42,7 @@ HolmesGPT integrates with popular observability and cloud platforms. The followi
 | [<img src="images/integration_logos/date_time_icon.png" alt="Datetime" width="20" style="vertical-align: middle;"> **Datetime**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html) | ✅ | Date and time-related operations |
 | [<img src="images/integration_logos/docker_logo.png" alt="Docker" width="20" style="vertical-align: middle;"> **Docker**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/docker.html) | ✅ | Get images, logs, events, history and more |
 | <img src="images/integration_logos/github_logo.png" alt="GitHub" width="20" style="vertical-align: middle;"> **GitHub** | 🟡 Beta | Remediate alerts by opening pull requests with fixes |
+| <img src="images/integration_logos/datadog_logo.png" alt="DataDog" width="20" style="vertical-align: middle;"> **DataDog** | 🟡 Beta | Fetches log data from datadog  |
 | [<img src="images/integration_logos/grafana_loki-icon.png" alt="Loki" width="20" style="vertical-align: middle;"> **Grafana Loki**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html) | ✅ | Query logs for Kubernetes resources or any query |
 | [<img src="images/integration_logos/tempo_logo.png" alt="Tempo" width="20" style="vertical-align: middle;"> **Grafana Tempo**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html) | ✅ | Fetch trace info, debug issues like high latency in application. |
 | [<img src="images/integration_logos/helm_logo.png" alt="Helm" width="20" style="vertical-align: middle;"> **Helm**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html) | ✅ | Release status, chart metadata, and values |
@@ -198,6 +200,12 @@ Select your LLM provider to see how to set up your API Key.
       </a>
     </td>
     <td align="center" width="120">
+      <a href="docs/api-keys.md#azure-openai">
+        <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
+        <strong>Azure Open AI</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
       <a href="docs/api-keys.md#google-vertex-ai">
         <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
         <strong>Google Vertex AI</strong>
@@ -305,6 +313,15 @@ You can save common settings and API keys in config file for re-use. Place the c
 You can view an example config file with all available settings [here](config.example.yaml).
 </details>
 
+## Evals
+
+Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](./docs/evals-introduction.md) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
+
+- [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
+- [Write your own evals](./docs/evals-writing.md).
+- [Use Braintrust to view analyze results (optional)](./docs/evals-reporting.md).
+
+
 ## License
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
 <!-- Change License -->
@@ -317,4 +334,4 @@ If you have any questions, feel free to message us on [robustacommunity.slack.co
 
 Install HolmesGPT from source with Poetry. See [Installation](docs/installation.md) for details.
 
-For help, contact us on [Slack](https://bit.ly/robusta-slack)
+For help, contact us on [Slack](https://bit.ly/robusta-slack) or [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)

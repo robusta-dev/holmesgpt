@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"redis"}}
-stdout:
-default              redis-747ffc844f-z9zp5                                   0/1     Pending   0                7s     <none>        <none>               <none>           <none>            app=redis,pod-template-hash=747ffc844f
-
-stderr:

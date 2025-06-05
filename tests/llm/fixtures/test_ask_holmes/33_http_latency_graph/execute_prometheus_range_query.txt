@@ -3,6 +3,7 @@
   "status": "success",
   "random_key": "0we9",
   "tool_name": "execute_prometheus_range_query",
+  "description": "HTTP request latency for customer-orders-service",
   "start": "1739705559",
   "end": "1739791959",
   "step": 300
