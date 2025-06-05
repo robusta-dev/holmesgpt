@@ -2,7 +2,5 @@ user_prompt: 'what is the image version of << { "type": "pod", "name": "robusta-
 #user_prompt: "what is the image version of my robusta-runner pod?"
 expected_output:
   - The image version of the `robusta-runner` pod is `0.18.0`.
-retrieval_context:
-  - "image: robustadev/robusta-runner:0.18.0"
 evaluation:
   correctness: 1

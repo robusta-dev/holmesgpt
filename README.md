@@ -313,6 +313,10 @@ You can save common settings and API keys in config file for re-use. Place the c
 You can view an example config file with all available settings [here](config.example.yaml).
 </details>
 
+## Evals
+
+Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](./docs/evals-introduction.md) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs. Learn more about it [here](./docs/evals-introduction.md).
+
 ## License
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
 <!-- Change License -->

@@ -1,8 +1,6 @@
 user_prompt: "What is the issue with payment-processing-worker?"
 expected_output:
   - The `DEPLOY_ENV` environment variable is undefined or missing
-retrieval_context:
-  - "logs from payment-processing-worker mention: Environment variable DEPLOY_ENV is undefined"
 before_test: |
   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
   kubectl wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=CrashLoopBackOff pod -l app=payment-processing-worker --timeout=120s
