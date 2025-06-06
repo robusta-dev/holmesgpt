@@ -1149,7 +1149,9 @@ def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> No
     for toolset in toolsets:
         toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
         order_toolset_status = OrderedDict(
-            (k, toolset_status[k]) for k in status_fields if k in toolset_status
+            (k.capitalize(), toolset_status[k])
+            for k in status_fields
+            if k in toolset_status
         )
         toolsets_status.append(order_toolset_status)
 
