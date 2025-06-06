@@ -1,3 +1,4 @@
+# type: ignore
 import json
 from typing import Any, Dict, List, Optional
 from holmes.config import parse_toolsets_file

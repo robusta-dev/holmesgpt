@@ -1,3 +1,4 @@
+# type: ignore
 from typing import Any, Dict, List
 import subprocess
 import os
