@@ -336,9 +336,9 @@ class Toolset(BaseModel):
     status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
     error: Optional[str] = None
 
-    def override_with(self, override: "ToolsetYamlFromConfig") -> None:
+    def override_with(self, override: "Toolset") -> None:
         """
-        Overrides the current attributes with values from the ToolsetYamlFromConfig loaded from custom config
+        Overrides the current attributes with values from the Toolset loaded from custom config
         if they are not None.
         """
         for field, value in override.model_dump(

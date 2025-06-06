@@ -1,3 +1,4 @@
+# type: ignore
 import json
 import logging
 import os

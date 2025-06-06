@@ -26,7 +26,7 @@ class ToolsetManager:
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
-        toolset_status_location: FilePath = None,
+        toolset_status_location: Optional[FilePath] = None,
     ):
         self.toolsets = toolsets
         self.custom_toolsets = custom_toolsets
@@ -38,7 +38,7 @@ class ToolsetManager:
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             if self.custom_toolsets is None:
                 self.custom_toolsets = []
-            self.custom_toolsets.append(CUSTOM_TOOLSET_LOCATION)
+            self.custom_toolsets.append(FilePath(CUSTOM_TOOLSET_LOCATION))
 
         self.custom_toolsets_from_cli = custom_toolsets_from_cli
         self.toolset_status_location = toolset_status_location

@@ -29,7 +29,7 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
 
-from holmes import get_version
+from holmes import get_version  # type: ignore
 from holmes.config import (
     DEFAULT_CONFIG_LOCATION,
     Config,
@@ -141,7 +141,7 @@ opt_api_key: Optional[str] = typer.Option(
 )
 opt_model: Optional[str] = typer.Option(None, help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
-    DEFAULT_CONFIG_LOCATION,
+    DEFAULT_CONFIG_LOCATION,  # type: ignore
     "--config",
     help="Path to the config file. Defaults to ~/.holmes/config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
@@ -1147,7 +1147,7 @@ def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> No
     status_fields = ["name", "status", "enabled", "type", "path", "error"]
     toolsets_status = []
     for toolset in toolsets:
-        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))
+        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
         order_toolset_status = OrderedDict(
             (k, toolset_status[k]) for k in status_fields if k in toolset_status
         )
