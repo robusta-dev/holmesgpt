@@ -2,8 +2,10 @@ import pytest
 from unittest.mock import patch, MagicMock
 from typing import Optional, Dict, Any
 
+from pydantic import BaseModel
+
 from holmes.llm_selector import LLMSelector
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, ModelResponse, CustomStreamWrapper
 from holmes.common.env_vars import (
     ROBUSTA_AI_MODEL_NAME_FALLBACK,
     ROBUSTA_API_ENDPOINT,
@@ -21,10 +23,24 @@ class MockLLM(LLM):
         self.api_key = api_key
         self.params = params if params is not None else {}
 
-    def completion(self, prompt: str, temperature: float, max_tokens: int) -> str:
-        return "mocked_completion"
+    def completion(
+        self,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict[str, Any]]] = None,
+        tool_choice: Optional[str | dict[Any, Any]] = None,
+        response_format: Optional[dict[Any, Any] | type[BaseModel]] = None,
+        temperature: Optional[float] = None,
+        drop_params: Optional[bool] = None,
+        stream: Optional[bool] = None,
+    ) -> ModelResponse | CustomStreamWrapper:
+        # Return a mock response that satisfies the type checker
+        mock_response = MagicMock(spec=ModelResponse)
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content="mocked_completion"))
+        ]
+        return mock_response
 
-    def embedding(self, text: str) -> list[float]:
+    def embedding(self, text: str, model: Optional[str] = None) -> list[float]:
         return [0.1, 0.2]
 
 
