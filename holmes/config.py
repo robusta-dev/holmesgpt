@@ -8,7 +8,7 @@ from holmes.config_utils import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes import get_version  # type: ignore
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
-from holmes.core.llm import LLM, DefaultLLM
+from holmes.core.llm import LLM
 from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
 from pydash.arrays import concat
 import json
@@ -39,9 +39,13 @@ from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 from pydantic import ValidationError
 
 from holmes.core.tools import YAMLToolset
-from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, ROBUSTA_AI, ROBUSTA_API_ENDPOINT
+from holmes.common.env_vars import (
+    ROBUSTA_CONFIG_PATH,
+)
 from holmes.utils.definitions import RobustaConfig
 from enum import Enum
+from holmes.common.env_vars import load_bool
+from holmes.llm_selector import LLMSelector
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
@@ -136,7 +140,7 @@ class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
-    model: Optional[str] = "gpt-4o"
+    model: Optional[str] = None
     max_steps: int = 10
     cluster_name: Optional[str] = None
 
@@ -191,10 +195,6 @@ class Config(RobustaBaseConfig):
         self._version = get_version()
         self._holmes_info = fetch_holmes_info()
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
-        if ROBUSTA_AI:
-            self._model_list["Robusta"] = {
-                "base_url": ROBUSTA_API_ENDPOINT,
-            }
         if self._model_list:
             logging.info(f"loaded models: {list(self._model_list.keys())}")
 
@@ -620,20 +620,23 @@ class Config(RobustaBaseConfig):
         return cls(**merged_config)
 
     def _get_llm(self, model_key: Optional[str] = None) -> LLM:
-        api_key = self.api_key.get_secret_value() if self.api_key else None
-        model = self.model
-        model_params = {}
-        if self._model_list:
-            # get requested model or the first credentials if no model requested.
-            model_params = (
-                self._model_list.get(model_key, {}).copy()
-                if model_key
-                else next(iter(self._model_list.values())).copy()
-            )
-            api_key = model_params.pop("api_key", api_key)
-            model = model_params.pop("model", model)
+        llm_selector = LLMSelector(
+            initial_api_key=self.api_key.get_secret_value() if self.api_key else None,
+            model_list_config=self._model_list,
+            default_model_from_config=self.model,
+            holmes_info_object=self._holmes_info,
+        )
+        return llm_selector.select_llm(model_key)
 
-        return DefaultLLM(model, api_key, model_params)  # type: ignore
+    def load_robusta_api_key(self, dal: SupabaseDal):
+        if (
+            load_bool("ROBUSTA_AI", True)
+            and not self.api_key
+            and not self.model
+            and not self._model_list
+        ):
+            account_id, token = dal.get_ai_credentials()
+            self.api_key = SecretStr(f"{account_id} {token}")
 
     def get_models_list(self) -> List[str]:
         if self._model_list:
