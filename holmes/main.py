@@ -149,7 +149,7 @@ opt_custom_toolsets: Optional[List[Path]] = typer.Option(
     [],
     "--custom-toolsets",
     "-t",
-    help="Path to a custom toolsets (can specify -t multiple times to add multiple toolsets). The status of the custom toolsets specified here won't be cached",
+    help="Path to a custom toolsets. The status of the custom toolsets specified here won't be cached (can specify -t multiple times to add multiple toolsets)",
 )
 opt_custom_runbooks: Optional[List[Path]] = typer.Option(
     [],

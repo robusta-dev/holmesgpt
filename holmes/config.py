@@ -97,10 +97,11 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
 
-    # custom_toolsets is defined in the config file, and can override built-in toolsets as stable custom toolsets
-    # While custom_toolsets_from_cli is defined in the CLI and should not override built-in toolsets.
-    # custom_toolsets status can be cached while custom_toolsets_from_cli should be loaded every time the CLI runs.
+    # custom_toolsets is passed from config file, and be used to override built-in toolsets, provides 'stable' customized toolset.
+    # The status of custom toolsets can be cached.
     custom_toolsets: Optional[List[FilePath]] = None
+    # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
+    # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
