@@ -211,7 +211,7 @@ class ToolsetManager:
         )
         # custom toolsets from cli as experimental toolset should not override custom toolsets from config
         for custom_toolset_from_cli in custom_toolsets_from_cli:
-            if custom_toolset_from_cli in toolsets_status_by_name.keys():
+            if custom_toolset_from_cli.name in toolsets_status_by_name:
                 raise ValueError(
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
