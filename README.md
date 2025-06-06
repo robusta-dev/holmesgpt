@@ -202,7 +202,7 @@ Select your LLM provider to see how to set up your API Key.
     <td align="center" width="120">
       <a href="docs/api-keys.md#azure-openai">
         <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
-        <strong>Azure Open AI</strong>
+        <strong>Azure OpenAI</strong>
       </a>
     </td>
     <td align="center" width="120">
