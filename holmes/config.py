@@ -3,8 +3,10 @@ import os
 import yaml  # type: ignore
 import os.path
 from typing import Any, Dict, List, Optional, Union
+
+from holmes.config_utils import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
-from holmes import get_version
+from holmes import get_version  # type: ignore
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.core.llm import LLM, DefaultLLM
 from pydantic import FilePath, SecretStr, BaseModel, ConfigDict
@@ -39,7 +41,6 @@ from pydantic import ValidationError
 from holmes.core.tools import YAMLToolset
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, ROBUSTA_AI, ROBUSTA_API_ENDPOINT
 from holmes.utils.definitions import RobustaConfig
-import re
 from enum import Enum
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
@@ -51,44 +52,6 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 class SupportedTicketSources(str, Enum):
     JIRA_SERVICE_MANAGEMENT = "jira-service-management"
     PAGERDUTY = "pagerduty"
-
-
-def get_env_replacement(value: str) -> Optional[str]:
-    env_values = re.findall(r"{{\s*env\.([^\s]*)\s*}}", value)
-    if not env_values:
-        return None
-    env_var_key = env_values[0].strip()
-    if env_var_key not in os.environ:
-        msg = f"ENV var replacement {env_var_key} does not exist for param: {value}"
-        logging.error(msg)
-        raise Exception(msg)
-
-    return os.environ.get(env_var_key)
-
-
-def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:
-    for key, value in values.items():
-        if isinstance(value, str):
-            env_var_value = get_env_replacement(value)
-            if env_var_value:
-                values[key] = env_var_value
-        elif isinstance(value, SecretStr):
-            env_var_value = get_env_replacement(value.get_secret_value())
-            if env_var_value:
-                values[key] = SecretStr(env_var_value)
-        elif isinstance(value, dict):
-            replace_env_vars_values(value)
-        elif isinstance(value, list):
-            # can be a list of strings
-            values[key] = [
-                replace_env_vars_values(iter)
-                if isinstance(iter, dict)
-                else get_env_replacement(iter)
-                if isinstance(iter, str)
-                else iter
-                for iter in value
-            ]
-    return values
 
 
 def is_old_toolset_config(
@@ -604,7 +567,7 @@ class Config(RobustaBaseConfig):
         Merges and overrides default_toolsets_by_name with custom
         config from /etc/holmes/config/custom_toolset.yaml
         """
-        toolsets_with_updated_statuses: Dict[str, YAMLToolset] = {
+        toolsets_with_updated_statuses: Dict[str, YAMLToolset | RemoteMCPToolset] = {
             toolset.name: toolset  # type: ignore
             for toolset in default_toolsets_by_name.values()  # type: ignore
         }
@@ -614,6 +577,7 @@ class Config(RobustaBaseConfig):
                 toolsets_with_updated_statuses[toolset.name].override_with(toolset)
             else:
                 try:
+                    validated_toolset: YAMLToolset | RemoteMCPToolset
                     if toolset.type == ToolsetType.MCP:
                         validated_toolset = RemoteMCPToolset(
                             **toolset.model_dump(exclude_none=True)

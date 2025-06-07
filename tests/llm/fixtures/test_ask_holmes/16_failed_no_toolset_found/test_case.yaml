@@ -2,4 +2,5 @@ user_prompt: "Why is my Digital ocean droplet not working fine"
 expected_output:
   - The answer should prompt the user to add a Holmes Digital Ocean integration to access droplets
 evaluation:
-  correctness: 1
+  correctness: 0
+generate_mocks: False

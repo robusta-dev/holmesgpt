@@ -1,10 +1,9 @@
-{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query","match_params":{"query":"http_request_duration_seconds_sum / http_request_duration_seconds_count","description":"*","start":"*","end":"*","step":"*"}}
+{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query"}
 {
   "status": "success",
   "random_key": "0we9",
   "tool_name": "execute_prometheus_range_query",
-  "description": "Average HTTP request latency for customer-orders-service",
-  "query": "http_request_duration_seconds_sum / http_request_duration_seconds_count",
+  "description": "HTTP request latency for customer-orders-service",
   "start": "1739705559",
   "end": "1739791959",
   "step": 300

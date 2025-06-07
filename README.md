@@ -2,10 +2,11 @@
   <h1 align="center">Solve alerts faster with an AI Agent</h1>
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
-    <a href="#installation-options"><strong>Installation</strong></a> |
+    <a href="#installation"><strong>Installation</strong></a> |
     <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
     <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
   </p>
+ Questions? <a href="https://deepwiki.com/robusta-dev/holmesgpt"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
 Respond to alerts faster, using AI to automatically:
@@ -28,28 +29,32 @@ HolmesGPT connects AI models with live observability data and organizational kno
 
 <img width="3114" alt="holmesgpt-architecture-diagram" src="https://github.com/user-attachments/assets/f659707e-1958-4add-9238-8565a5e3713a" />
 
-### 📈 Data Sources
+### 🔗 Data Sources
 
-The following data sources ("toolsets") are built-in. [Add your own](#customizing-holmesgpt).
+HolmesGPT integrates with popular observability and cloud platforms. The following data sources ("toolsets") are built-in. [Add your own](#customizing-holmesgpt).
 
-| Data Source    | Status         | Description                                                  |
-|----------------|----------------|--------------------------------------------------------------|
-| [Kubernetes](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html)     | ✅             | Pod logs, K8s events, and resource status (kubectl describe) |
-| Grafana       | ✅             | [Logs (Loki)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html) and [traces (Tempo)](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html) |
-| [Helm](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html)           | ✅             | Release status, chart metadata, and values                   |
-| [ArgoCD](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html)         | ✅             | Application sync status                                      |
-| [AWS RDS](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html)        | ✅             | Logs and events                                              |
-| [Prometheus](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html)     | ✅             | Currently supports investigating alerts; coming soon: automatically write PromQL and show related graphs |
-| [Internet](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html)       | ✅             | Public runbooks                                              |
-| [Confluence](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html)     | ✅             | Private runbooks and documentation                           |
-| [OpenSearch](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html)     | 🟡 Beta        | Query logs and investigate issues with OpenSearch itself (using self-health diagnostics) |
-| NewRelic      | 🟡 Beta        | Investigate alerts, query tracing data                       |
-| Coralogix      | 🟡 Beta        | Logs                                                         |
-| GitHub        | 🟡 Beta        | Remediate alerts by opening pull requests with fixes         |
-
-[How to configure datasources with Robusta SaaS](https://docs.robusta.dev/master/configuration/holmesgpt/builtin_toolsets.html) (docs for CLI coming soon)
-
-[Request access to beta features](mailto:beta@robusta.dev)
+| Data Source | Status | Notes |
+|-------------|--------|-------|
+| [<img src="images/integration_logos/argocd-icon.png" alt="ArgoCD" width="20" style="vertical-align: middle;"> **ArgoCD**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html) | ✅ | Get status, history and manifests and more of apps, projects and clusters |
+| [<img src="images/integration_logos/aws_rds_logo.png" alt="AWS RDS" width="20" style="vertical-align: middle;"> **AWS RDS**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html) | ✅ | Fetch events, instances, slow query logs and more |
+| [<img src="images/integration_logos/confluence_logo.png" alt="Confluence" width="20" style="vertical-align: middle;"> **Confluence**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html) | ✅ | Private runbooks and documentation |
+| [<img src="images/integration_logos/coralogix-icon.png" alt="Coralogix Logs" width="20" style="vertical-align: middle;"> **Coralogix Logs**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/coralogix_logs.html) | ✅ | Retrieve logs for any resource |
+| [<img src="images/integration_logos/date_time_icon.png" alt="Datetime" width="20" style="vertical-align: middle;"> **Datetime**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html) | ✅ | Date and time-related operations |
+| [<img src="images/integration_logos/docker_logo.png" alt="Docker" width="20" style="vertical-align: middle;"> **Docker**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/docker.html) | ✅ | Get images, logs, events, history and more |
+| <img src="images/integration_logos/github_logo.png" alt="GitHub" width="20" style="vertical-align: middle;"> **GitHub** | 🟡 Beta | Remediate alerts by opening pull requests with fixes |
+| <img src="images/integration_logos/datadog_logo.png" alt="DataDog" width="20" style="vertical-align: middle;"> **DataDog** | 🟡 Beta | Fetches log data from datadog  |
+| [<img src="images/integration_logos/grafana_loki-icon.png" alt="Loki" width="20" style="vertical-align: middle;"> **Grafana Loki**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html) | ✅ | Query logs for Kubernetes resources or any query |
+| [<img src="images/integration_logos/tempo_logo.png" alt="Tempo" width="20" style="vertical-align: middle;"> **Grafana Tempo**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html) | ✅ | Fetch trace info, debug issues like high latency in application. |
+| [<img src="images/integration_logos/helm_logo.png" alt="Helm" width="20" style="vertical-align: middle;"> **Helm**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/helm.html) | ✅ | Release status, chart metadata, and values |
+| [<img src="images/integration_logos/http-icon.png" alt="Internet" width="20" style="vertical-align: middle;"> **Internet**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html) | ✅ | Public runbooks, community docs etc |
+| [<img src="images/integration_logos/kafka_logo.png" alt="Kafka" width="20" style="vertical-align: middle;"> **Kafka**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kafka.html) | ✅ | Fetch metadata, list consumers and topics or find lagging consumer groups |
+| [<img src="images/integration_logos/kubernetes-icon.png" alt="Kubernetes" width="20" style="vertical-align: middle;"> **Kubernetes**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html) | ✅ | Pod logs, K8s events, and resource status (kubectl describe) |
+| <img src="images/integration_logos/newrelic_logo.png" alt="NewRelic" width="20" style="vertical-align: middle;"> **NewRelic** | 🟡 Beta | Investigate alerts, query tracing data |
+| [<img src="images/integration_logos/opensearchserverless-icon.png" alt="OpenSearch" width="20" style="vertical-align: middle;"> **OpenSearch**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html) | ✅ | Query health, shard, and settings related info of one or more clusters|
+| [<img src="images/integration_logos/prometheus-icon.png" alt="Prometheus" width="20" style="vertical-align: middle;"> **Prometheus**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html) | ✅ | Investigate alerts, query metrics and generate PromQL queries  |
+| [<img src="images/integration_logos/rabbit_mq_logo.png" alt="RabbitMQ" width="20" style="vertical-align: middle;"> **RabbitMQ**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html) | ✅ | Info about partitions, memory/disk alerts to troubleshoot split-brain scenarios and more  |
+| [<img src="images/integration_logos/robusta_logo.png" alt="Robusta" width="20" style="vertical-align: middle;"> **Robusta**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html) | ✅ | Multi-cluster monitoring, historical change data, user-configured runbooks, PromQL graphs and more |
+| [<img src="images/integration_logos/slab_logo.png" alt="Slab" width="20" style="vertical-align: middle;"> **Slab**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/slab.html) | ✅ | Team knowledge base and runbooks on demand |
 
 ### 🔐 Data Privacy
 
@@ -195,6 +200,12 @@ Select your LLM provider to see how to set up your API Key.
       </a>
     </td>
     <td align="center" width="120">
+      <a href="docs/api-keys.md#azure-openai">
+        <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
+        <strong>Azure OpenAI</strong>
+      </a>
+    </td>
+    <td align="center" width="120">
       <a href="docs/api-keys.md#google-vertex-ai">
         <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
         <strong>Google Vertex AI</strong>
@@ -302,6 +313,15 @@ You can save common settings and API keys in config file for re-use. Place the c
 You can view an example config file with all available settings [here](config.example.yaml).
 </details>
 
+## Evals
+
+Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](./docs/evals-introduction.md) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
+
+- [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
+- [Write your own evals](./docs/evals-writing.md).
+- [Use Braintrust to view analyze results (optional)](./docs/evals-reporting.md).
+
+
 ## License
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
 <!-- Change License -->
@@ -314,4 +334,4 @@ If you have any questions, feel free to message us on [robustacommunity.slack.co
 
 Install HolmesGPT from source with Poetry. See [Installation](docs/installation.md) for details.
 
-For help, contact us on [Slack](https://bit.ly/robusta-slack)
+For help, contact us on [Slack](https://bit.ly/robusta-slack) or [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)
