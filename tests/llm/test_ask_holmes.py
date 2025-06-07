@@ -15,7 +15,7 @@ from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
-from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
+from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 
 
@@ -39,12 +39,7 @@ def get_test_cases():
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
     if iterations:
-        test_cases_tuples = []
-        for i in range(0, iterations):
-            test_cases_tuples.extend(
-                [(experiment_name, test_case) for test_case in test_cases]
-            )
-        return test_cases_tuples
+        return [(experiment_name, test_case) for test_case in test_cases] * iterations
     else:
         return [(experiment_name, test_case) for test_case in test_cases]
 
@@ -110,8 +105,13 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
     with eval.start_span(
         name="Correctness", type=SpanTypeAttribute.SCORE
     ) as correctness_span:
+        evaluation_type: str = (
+            test_case.evaluation.correctness.type
+            if isinstance(test_case.evaluation.correctness, Evaluation)
+            else "strict"
+        )
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected
+            output=output, expected_elements=expected, evaluation_type=evaluation_type
         )
         print(
             f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
@@ -143,6 +143,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
 
     if test_case.evaluation.correctness:
         expected_correctness = test_case.evaluation.correctness
+        if isinstance(expected_correctness, Evaluation):
+            expected_correctness = expected_correctness.expected_score
         assert scores.get("correctness", 0) >= expected_correctness
 
 

@@ -54,6 +54,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         .get("evaluation", {})
                         .get("correctness", 1)
                     )
+                    if isinstance(expected_correctness_score, dict):
+                        expected_correctness_score = expected_correctness_score.get(
+                            "expected_score", 1
+                        )
                     total_test_cases += 1
                     status_text = ":x:"
                     if correctness_score == 1:
