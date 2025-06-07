@@ -4,23 +4,23 @@ Embed HolmesGPT in your own applications with the Python API for programmatic ro
 
 ## Installation
 
-### Using pip
+=== "pip"
 
-```bash
-pip install holmesgpt
-```
+    ```bash
+    pip install holmesgpt
+    ```
 
-### Using pipenv
+=== "pipenv"
 
-```bash
-pipenv install holmesgpt
-```
+    ```bash
+    pipenv install holmesgpt
+    ```
 
-### Using poetry
+=== "poetry"
 
-```bash
-poetry add holmesgpt
-```
+    ```bash
+    poetry add holmesgpt
+    ```
 
 ## Quick Start
 
@@ -62,68 +62,6 @@ holmes = HolmesGPT(config)
 result = holmes.investigate("what's wrong with my deployment?")
 ```
 
-### Async Support
-
-```python
-import asyncio
-from holmes import ask_holmes_async
-
-async def investigate_issue():
-    result = await ask_holmes_async("check cluster health")
-    return result
-
-# Run async investigation
-result = asyncio.run(investigate_issue())
-```
-
-## Use Cases
-
-### CI/CD Integration
-
-```python
-import os
-from holmes import ask_holmes
-
-def check_deployment_health(namespace):
-    """Check if deployment was successful"""
-    question = f"are all pods healthy in {namespace} namespace?"
-    result = ask_holmes(question)
-
-    if "unhealthy" in result.lower():
-        print(f"❌ Deployment issues found: {result}")
-        return False
-    else:
-        print(f"✅ Deployment successful: {result}")
-        return True
-
-# Use in CI/CD pipeline
-if not check_deployment_health("production"):
-    os.exit(1)
-```
-
-### Monitoring Integration
-
-```python
-from holmes import ask_holmes
-import time
-
-def monitor_cluster():
-    """Continuous cluster monitoring"""
-    while True:
-        try:
-            result = ask_holmes("what issues need attention?")
-            if "critical" in result.lower():
-                send_alert(result)
-            time.sleep(300)  # Check every 5 minutes
-        except Exception as e:
-            print(f"Monitoring error: {e}")
-
-def send_alert(message):
-    # Integration with your alerting system
-    print(f"🚨 ALERT: {message}")
-```
-
-### Custom Toolsets
 
 ```python
 from holmes.core import HolmesGPT

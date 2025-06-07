@@ -120,19 +120,19 @@ extra:
       link: https://twitter.com/RobustaDev
 
 nav:
-  - Introduction:
-      - index.md
-      - Key Features: introduction/key-features.md
-      - Architecture Overview: introduction/architecture.md
-      - Getting Help: introduction/getting-help.md
+  # - Introduction:
+  #     - index.md
+  #     - Key Features: introduction/key-features.md
+  #     - Architecture Overview: introduction/architecture.md
+  #     - Getting Help: introduction/getting-help.md
 
-  - Getting Started:
-      - getting-started/index.md
-      - Install CLI: getting-started/cli-installation.md
-      - Install Helm Chart: getting-started/kubernetes-installation.md
-      - Install UI/TUI: getting-started/ui-installation.md
-      - Install Python SDK: getting-started/python-installation.md
-      - First Investigation: getting-started/first-investigation.md
+  - Installation:
+      - index.md
+      - Install CLI: installation/cli-installation.md
+      - Install UI/TUI: installation/ui-installation.md
+      - Install Helm Chart: installation/kubernetes-installation.md
+      - Install Python SDK: installation/python-installation.md
+      - First Investigation: installation/first-investigation.md
 
   - AI Providers:
       - ai-providers/index.md
@@ -170,7 +170,6 @@ nav:
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
       - Permissions: data-sources/permissions.md
-
 
   - Development:
       - development/index.md

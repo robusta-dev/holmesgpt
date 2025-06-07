@@ -1,4 +1,4 @@
-# HolmesGPT Documentation
+<!-- # HolmesGPT Documentation
 
 **AI-powered troubleshooting and analysis for DevOps and SRE teams**
 
@@ -10,9 +10,9 @@ Instead of spending hours correlating logs, metrics, and traces across multiple 
 
 Get up and running with HolmesGPT in minutes:
 
-1. **[Install HolmesGPT](getting-started/installation.md)**
+1. **[Install HolmesGPT](installation/installation.md)**
 2. **[Configure an AI provider](ai-providers/overview.md)** (OpenAI, Azure, AWS Bedrock, or Ollama)
-3. **[Run your first investigation](getting-started/first-investigation.md)** and see HolmesGPT in action
+3. **[Run your first investigation](installation/first-investigation.md)** and see HolmesGPT in action
 
 ## :material-lightbulb: What Makes HolmesGPT Different?
 
@@ -43,13 +43,13 @@ Get up and running with HolmesGPT in minutes:
 
     Choose your installation method and start investigating in minutes.
 
-    [:octicons-arrow-right-24: Install CLI](getting-started/cli-installation.md)
+    [:octicons-arrow-right-24: Install CLI](installation/cli-installation.md)
 
-    [:octicons-arrow-right-24: Install UI/TUI](getting-started/ui-installation.md)
+    [:octicons-arrow-right-24: Install UI/TUI](installation/ui-installation.md)
 
-    [:octicons-arrow-right-24: Install Helm Chart](getting-started/kubernetes-installation.md)
+    [:octicons-arrow-right-24: Install Helm Chart](installation/kubernetes-installation.md)
 
-    [:octicons-arrow-right-24: Install Python SDK](getting-started/python-installation.md)
+    [:octicons-arrow-right-24: Install Python SDK](installation/python-installation.md)
 
 
 </div>
@@ -58,4 +58,48 @@ Get up and running with HolmesGPT in minutes:
 
 - **:material-slack: Community**: Join our [Slack community](https://robustacommunity.slack.com) for support and discussions
 - **:material-github: Issues**: Report bugs or request features on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
-- **:material-book: Documentation**: Check our [FAQ](reference/faq.md) and [troubleshooting guide](reference/troubleshooting.md)
+- **:material-book: Documentation**: Check our [FAQ](reference/faq.md) and [troubleshooting guide](reference/troubleshooting.md) -->
+
+# Installation
+
+Choose your installation method and get HolmesGPT running in minutes.
+
+## Most Popular Options
+
+<div class="grid cards" markdown>
+
+-   :material-console:{ .lg .middle } **[Install CLI](cli-installation.md)**
+
+    ---
+
+    Run HolmesGPT from your terminal
+
+    [:octicons-arrow-right-24: Install](installation/cli-installation.md)
+
+-   :material-web:{ .lg .middle } **[Install UI/TUI](ui-installation.md)**
+
+    ---
+
+    Use through a web interface or K9s plugin
+
+    [:octicons-arrow-right-24: Install](installation/ui-installation.md)
+
+
+</div>
+
+## More Options
+
+Using HolmesGPT via an API or Python SDK
+
+* Deploy as a service in your cluster using a **[Helm Chart](installation/kubernetes-installation.md)**
+* Embed HolmesGPT in your applications with a **[Python SDK](installation/python-installation.md)**
+
+## Need Help?
+
+If you encounter issues during setup:
+
+- Check our [troubleshooting guide](../reference/troubleshooting.md)
+- Visit our [FAQ](../reference/)
+- Join our [Slack community](https://robustacommunity.slack.com)
+
+Ready to get started? Pick your installation method above! 🚀
