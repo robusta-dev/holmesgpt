@@ -334,6 +334,6 @@ If you have any questions, feel free to message us on [robustacommunity.slack.co
 
 Install HolmesGPT from source with Poetry. See [Installation](docs/installation.md) for details.
 
-For help, contact us on [Slack](https://bit.ly/robusta-slack) or ask [DeepWiki's AI](https://deepwiki.com/robusta-dev/holmesgpt) your questions.  
+For help, contact us on [Slack](https://bit.ly/robusta-slack) or ask [DeepWiki AI](https://deepwiki.com/robusta-dev/holmesgpt) your questions.  
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)
