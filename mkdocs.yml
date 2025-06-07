@@ -152,10 +152,11 @@ nav:
           - ArgoCD: data-sources/builtin-toolsets/argocd.md
           - AWS: data-sources/builtin-toolsets/aws.md
           - Confluence: data-sources/builtin-toolsets/confluence.md
-          - Coralogix: data-sources/builtin-toolsets/coralogix.md
+          - Coralogix logs: data-sources/builtin-toolsets/coralogix-logs.md
           - Datetime: data-sources/builtin-toolsets/datetime.md
           - Docker: data-sources/builtin-toolsets/docker.md
-          - Grafana: data-sources/builtin-toolsets/grafana.md
+          - Grafana Loki: data-sources/builtin-toolsets/grafanaloki.md
+          - Grafana Tempo: data-sources/builtin-toolsets/grafanatempo.md
           - Helm: data-sources/builtin-toolsets/helm.md
           - Internet: data-sources/builtin-toolsets/internet.md
           - Kafka: data-sources/builtin-toolsets/kafka.md
@@ -167,6 +168,13 @@ nav:
           - RabbitMQ: data-sources/builtin-toolsets/rabbitmq.md
           - Robusta: data-sources/builtin-toolsets/robusta.md
           - Slab: data-sources/builtin-toolsets/slab.md
+          - DataDog: data-sources/builtin-toolsets/datadog.md
+          - GitHub: data-sources/builtin-toolsets/github.md
+          - New Relic: data-sources/builtin-toolsets/newrelic.md
+          - Azure Kubernetes Service: data-sources/builtin-toolsets/aks.md
+          - AKS Node Health: data-sources/builtin-toolsets/aks-node-health.md
+          - ServiceNow: data-sources/builtin-toolsets/servicenow.md
+          - Model Context Protocol: data-sources/builtin-toolsets/mcp.md
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
       - Permissions: data-sources/permissions.md

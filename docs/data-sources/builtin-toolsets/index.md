@@ -36,7 +36,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     Coralogix cloud-native observability platform integration.
 
-    [:octicons-arrow-right-24: Configuration](coralogix.md)
+    [:octicons-arrow-right-24: Configuration](coralogix-logs.md)
 
 -   :material-clock:{ .lg .middle } **Datetime**
 
@@ -60,7 +60,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     Grafana Loki log aggregation system integration.
 
-    [:octicons-arrow-right-24: Configuration](grafana.md)
+    [:octicons-arrow-right-24: Configuration](grafanaloki.md)
 
 -   :material-chart-timeline:{ .lg .middle } **Grafana Tempo**
 
@@ -68,7 +68,7 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
     Grafana Tempo distributed tracing integration.
 
-    [:octicons-arrow-right-24: Configuration](grafana.md)
+    [:octicons-arrow-right-24: Configuration](grafanatempo.md)
 
 -   ![Helm](../../../images/integration_logos/helm_logo.png){ width="50" } **Helm**
 
@@ -157,6 +157,62 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
     Slab team knowledge base integration.
 
     [:octicons-arrow-right-24: Configuration](slab.md)
+
+-   :material-chart-line:{ .lg .middle } **DataDog**
+
+    ---
+
+    DataDog observability platform integration for logs and monitoring.
+
+    [:octicons-arrow-right-24: Configuration](datadog.md)
+
+-   :material-github:{ .lg .middle } **GitHub**
+
+    ---
+
+    GitHub repository integration for code and documentation access.
+
+    [:octicons-arrow-right-24: Configuration](github.md)
+
+-   :material-chart-box:{ .lg .middle } **New Relic**
+
+    ---
+
+    New Relic APM integration for application performance monitoring.
+
+    [:octicons-arrow-right-24: Configuration](newrelic.md)
+
+-   :material-microsoft-azure:{ .lg .middle } **Azure Kubernetes Service**
+
+    ---
+
+    Azure Kubernetes Service (AKS) cluster management and troubleshooting.
+
+    [:octicons-arrow-right-24: Configuration](aks.md)
+
+-   :material-heart-pulse:{ .lg .middle } **AKS Node Health**
+
+    ---
+
+    Specialized health monitoring for Azure Kubernetes Service nodes.
+
+    [:octicons-arrow-right-24: Configuration](aks-node-health.md)
+
+-   :material-ticket:{ .lg .middle } **ServiceNow**
+
+    ---
+
+    ServiceNow integration for incident and ticket management.
+
+    [:octicons-arrow-right-24: Configuration](servicenow.md)
+
+-   :material-api:{ .lg .middle } **Model Context Protocol**
+
+    ---
+
+    Integration with external MCP servers for custom tools and capabilities.
+
+    [:octicons-arrow-right-24: Configuration](mcp.md)
 
 </div>
 
