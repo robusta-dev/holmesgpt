@@ -4,10 +4,9 @@ import json
 import os
 
 import pytest
+
 from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
-from holmes.plugins.toolsets.prometheus.prometheus import (
-    PrometheusToolset,
-)
+from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("PROMETHEUS_URL", None) is None, reason="PROMETHEUS_URL must be set"
@@ -22,7 +21,7 @@ def tool_executor():
     toolset.enabled = True
     toolset.config = {"prometheus_url": PROMETHEUS_URL}
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     tool_executor = ToolExecutor(toolsets=[toolset])
     return tool_executor
 

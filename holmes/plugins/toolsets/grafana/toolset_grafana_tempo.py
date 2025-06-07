@@ -1,32 +1,33 @@
 import os
-import yaml  # type: ignore
 from typing import Any, Dict, List, cast
-from pydantic import BaseModel
+
 import requests  # type: ignore
+import yaml  # type: ignore
+from pydantic import BaseModel
+
 from holmes.common.env_vars import load_bool
 from holmes.core.tools import (
+    StructuredToolResult,
     Tool,
     ToolParameter,
+    ToolResultStatus,
 )
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
-from holmes.plugins.toolsets.grafana.tempo_api import (
-    query_tempo_trace_by_id,
-    query_tempo_traces,
-)
-from holmes.plugins.toolsets.utils import (
-    get_param_or_raise,
-    process_timestamps_to_int,
-    ONE_HOUR_IN_SECONDS,
-)
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
     build_headers,
     get_base_url,
 )
+from holmes.plugins.toolsets.grafana.tempo_api import (
+    query_tempo_trace_by_id,
+    query_tempo_traces,
+)
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.plugins.toolsets.utils import get_param_or_raise, process_timestamps_to_int
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
+
+ONE_HOUR_IN_SECONDS = 3600
 
 
 class GrafanaTempoLabelsConfig(BaseModel):

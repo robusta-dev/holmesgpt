@@ -4,7 +4,7 @@
 {%- set opensearch_ts = toolsets | selectattr("name", "equalto", "opensearch/logs") | first -%}
 
 # Logs
-{% if loki_ts and loki_ts.get_status() == "enabled" -%}
+{% if loki_ts and loki_ts.status == "enabled" -%}
 * For any logs, including for investigating kubernetes problems, use Loki
 * Use the tool fetch_loki_logs_for_resource to get the logs of any kubernetes pod or node
 * Use fetch_loki_logs and build a query for any other logs
@@ -14,7 +14,7 @@
 ** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
 ** If there are too many logs, or not enough, narrow or widen the timestamps
 * If you are not provided with time information. Ignore start_timestamp and end_timestamp. Loki will default to the latest logs.
-{%- elif coralogix_ts and coralogix_ts.get_status() == "enabled" -%}
+{%- elif coralogix_ts and coralogix_ts.status == "enabled" -%}
 * For any logs, including for investigating kubernetes problems, use fetch_coralogix_logs_for_resource
 * Use the tool fetch_coralogix_logs_for_resource to get the logs of any kubernetes pod, coralogix application, or coralogix subsystem
 * Prefer fetching logs through coralogix and avoid using kubectl logs commands
@@ -23,12 +23,12 @@
 ** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
 ** If there are too many logs, or not enough, narrow or widen the timestamps
 * If no logs are found, retry with increasing the start/end time range by one hour.
-{%- elif k8s_ts and k8s_ts.get_status() == "enabled" -%}
+{%- elif k8s_ts and k8s_ts.status == "enabled" -%}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.
 * Check both kubectl_logs and kubectl_previous_logs because a pod restart mean kubectl_logs may not have relevant logs
-{%- elif opensearch_ts and opensearch_ts.get_status() == "enabled" -%}
+{%- elif opensearch_ts and opensearch_ts.status == "enabled" -%}
 * ALWAYS, first, use describe_opensearch_logs_fields to understand the documents fields, then base the opensearch query on that. You must filter by the fields names that appears here
 * The search query should always contain the root 'query' element in the search expression
 * if the user wants pod logs, use fetch_opensearch_logs
