@@ -4,80 +4,80 @@ Run HolmesGPT from your terminal as a standalone CLI tool. Ideal for local use, 
 
 ## Installation Options
 
-### Homebrew (Recommended for Mac/Linux)
+=== "Homebrew (Mac/Linux)"
 
-1. Add our tap:
-   ```bash
-   brew tap robusta-dev/homebrew-holmesgpt
-   ```
+    1. Add our tap:
+       ```bash
+       brew tap robusta-dev/homebrew-holmesgpt
+       ```
 
-2. Install HolmesGPT:
-   ```bash
-   brew install holmesgpt
-   ```
+    2. Install HolmesGPT:
+       ```bash
+       brew install holmesgpt
+       ```
 
-3. Verify installation:
-   ```bash
-   holmes --help
-   ```
+    3. Verify installation:
+       ```bash
+       holmes --help
+       ```
 
-### Pipx (Cross-platform)
+=== "Pipx"
 
-1. Install pipx if you haven't already:
-   ```bash
-   python -m pip install --user pipx
-   python -m pipx ensurepath
-   ```
+    1. Install pipx if you haven't already:
+       ```bash
+       python -m pip install --user pipx
+       python -m pipx ensurepath
+       ```
 
-2. Install HolmesGPT:
-   ```bash
-   pipx install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
-   ```
+    2. Install HolmesGPT:
+       ```bash
+       pipx install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
+       ```
 
-3. Verify installation:
-   ```bash
-   holmes version
-   ```
+    3. Verify installation:
+       ```bash
+       holmes version
+       ```
 
-### Docker Container
+=== "From Source (Poetry)"
 
-Run HolmesGPT using the prebuilt Docker container:
+    For development or custom builds:
 
-```bash
-docker run -it --net=host \
-  -v ~/.holmes:/root/.holmes \
-  -v ~/.aws:/root/.aws \
-  -v ~/.config/gcloud:/root/.config/gcloud \
-  -v $HOME/.kube/config:/root/.kube/config \
-  us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
-```
+    1. Install Poetry:
+       ```bash
+       curl -sSL https://install.python-poetry.org | python3 -
+       ```
 
-### From Source (Poetry)
+    2. Clone and install:
+       ```bash
+       git clone https://github.com/robusta-dev/holmesgpt.git
+       cd holmesgpt
+       poetry install --no-root
+       ```
 
-For development or custom builds:
+    3. Run HolmesGPT:
+       ```bash
+       poetry run python3 holmes.py ask "what pods are unhealthy and why?"
+       ```
 
-1. Install Poetry:
-   ```bash
-   curl -sSL https://install.python-poetry.org | python3 -
-   ```
+=== "Docker Container"
 
-2. Clone and install:
-   ```bash
-   git clone https://github.com/robusta-dev/holmesgpt.git
-   cd holmesgpt
-   poetry install --no-root
-   ```
+    Run HolmesGPT using the prebuilt Docker container:
 
-3. Run HolmesGPT:
-   ```bash
-   poetry run python3 holmes.py ask "what pods are unhealthy and why?"
-   ```
+    ```bash
+    docker run -it --net=host \
+      -v ~/.holmes:/root/.holmes \
+      -v ~/.aws:/root/.aws \
+      -v ~/.config/gcloud:/root/.config/gcloud \
+      -v $HOME/.kube/config:/root/.kube/config \
+      us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
+    ```
 
 ## Quick Start
 
 After installation, set up your AI provider and run your first investigation:
 
-1. **Set up API key** (choose one):
+1. **Set up API key** (View [AI Provider docs](/ai-providers/) for more options):
    ```bash
    export OPENAI_API_KEY="your-api-key"
    export ANTHROPIC_API_KEY="your-api-key"
@@ -99,11 +99,6 @@ After installation, set up your AI provider and run your first investigation:
    holmes ask "what pods are unhealthy and why?" --interactive
    ```
 
-## Next Steps
-
-- **[API Keys Setup](../api-keys.md)** - Configure your AI provider
-- **[Run Your First Investigation](first-investigation.md)** - Complete walkthrough
-- **[Helm Configuration](../reference/helm-configuration.md)** - Advanced settings and custom toolsets
 
 ## Need Help?
 

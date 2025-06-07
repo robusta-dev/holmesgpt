@@ -2,8 +2,9 @@
 
 Deploy HolmesGPT as a service in your Kubernetes cluster with HTTP API access.
 
-!!! info "Helm Configuration"
-    For all available Helm values and advanced configuration options, see the [Helm Configuration Reference](../reference/helm-configuration.md).
+!!! warning "Helm Configuration"
+
+    Direct API access is generally not recommended unless you are building custom integrations or applications on top of HolmesGPT.
 
 ## Prerequisites
 
@@ -12,44 +13,46 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with HTTP API access.
 - kubectl configured to access your cluster
 - AI provider API key
 
-## Installation with Helm
+## Installation
 
-### Add the Helm Repository
+=== "Basic Installation"
 
-```bash
-helm repo add holmesgpt https://robusta-dev.github.io/holmesgpt
-helm repo update
-```
+    Add the Helm Repository
 
-### Basic Installation
+    ```bash
+    helm repo add holmesgpt https://robusta-dev.github.io/holmesgpt
+    helm repo update
+    ```
 
-```bash
-helm install holmesgpt holmesgpt/holmes
-```
+    Install HolmesGPT
 
-### Custom Installation
+    ```bash
+    helm install holmesgpt holmesgpt/holmes
+    ```
 
-Create a `values.yaml` file for custom configuration:
+=== "Custom Installation"
 
-```yaml
-# values.yaml
-config:
-  aiProvider: "openai"
-  apiKey: "your-api-key"  # Or use secret
-  model: "gpt-4"
+    Create a `values.yaml` file
 
-# Use existing secret for API key
-secret:
-  create: false
-  name: "holmes-secrets"
-  key: "api-key"
-```
+    ```yaml
+    # values.yaml
+    config:
+      aiProvider: "openai"
+      apiKey: "your-api-key"  # Or use secret
+      model: "gpt-4"
 
-Install with custom values:
+    # Use existing secret for API key
+    secret:
+      create: false
+      name: "holmes-secrets"
+      key: "api-key"
+    ```
 
-```bash
-helm install holmesgpt holmesgpt/holmes -f values.yaml
-```
+    Install with custom values
+
+    ```bash
+    helm install holmesgpt holmesgpt/holmes -f values.yaml
+    ```
 
 ### Using Secrets for API Keys
 
@@ -77,21 +80,6 @@ secret:
 
 ```bash
 kubectl port-forward svc/holmesgpt 8080:80
-```
-
-#### Ingress (Production)
-
-Configure ingress in your `values.yaml`:
-
-```yaml
-ingress:
-  enabled: true
-  className: "nginx"
-  hosts:
-    - host: holmes.your-domain.com
-      paths:
-        - path: /
-          pathType: Prefix
 ```
 
 ### API Endpoints
@@ -142,63 +130,6 @@ curl http://localhost:8080/health
 }
 ```
 
-## Integration Examples
-
-### Prometheus AlertManager
-
-Configure AlertManager to send alerts to Holmes:
-
-```yaml
-# alertmanager.yml
-route:
-  routes:
-    - match:
-        severity: critical
-      receiver: 'holmes-webhook'
-
-receivers:
-  - name: 'holmes-webhook'
-    webhook_configs:
-      - url: 'http://holmesgpt:80/webhook/alertmanager'
-        send_resolved: true
-```
-
-### Custom Application Integration
-
-```python
-import requests
-
-def investigate_with_holmes(question):
-    response = requests.post(
-        "http://holmesgpt:80/ask",
-        json={"question": question}
-    )
-    return response.json()
-
-# Example usage
-result = investigate_with_holmes("why is my deployment failing?")
-print(result["result"])
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Permission Denied**
-```bash
-kubectl auth can-i get pods --as=system:serviceaccount:default:holmesgpt
-```
-
-**API Key Issues**
-```bash
-kubectl logs deployment/holmesgpt | grep "API key"
-```
-
-**Network Connectivity**
-```bash
-kubectl exec -it deployment/holmesgpt -- curl https://api.openai.com/v1/models
-```
-
 ## Upgrading
 
 ```bash
@@ -211,12 +142,6 @@ helm upgrade holmesgpt holmesgpt/holmes -f values.yaml
 ```bash
 helm uninstall holmesgpt
 ```
-
-## Next Steps
-
-- **[API Keys Setup](../api-keys.md)** - Configure your AI provider
-- **[Run Your First Investigation](first-investigation.md)** - Complete walkthrough
-- **[Helm Configuration](../reference/helm-configuration.md)** - Advanced settings and custom toolsets
 
 ## Need Help?
 
