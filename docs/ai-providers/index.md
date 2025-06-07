@@ -2,41 +2,16 @@
 
 HolmesGPT supports multiple AI providers, giving you flexibility in choosing the best model for your needs and budget.
 
-## Supported Providers
-
 <div class="grid cards" markdown>
 
--   :material-robot:{ .lg .middle } **Anthropic**
-
-    [:octicons-arrow-right-24: Configuration](anthropic.md)
-
--   :material-aws:{ .lg .middle } **AWS Bedrock**
-
-    [:octicons-arrow-right-24: Configuration](aws-bedrock.md)
-
--   :material-microsoft-azure:{ .lg .middle } **Azure OpenAI**
-
-    [:octicons-arrow-right-24: Configuration](azure-openai.md)
-
--   :material-google:{ .lg .middle } **Gemini**
-
-    [:octicons-arrow-right-24: Configuration](gemini.md)
-
--   :material-google-cloud:{ .lg .middle } **Google Vertex AI**
-
-    [:octicons-arrow-right-24: Configuration](google-vertex-ai.md)
-
--   :material-llama:{ .lg .middle } **Ollama**
-
-    [:octicons-arrow-right-24: Configuration](ollama.md)
-
--   :material-openai:{ .lg .middle } **OpenAI**
-
-    [:octicons-arrow-right-24: Configuration](openai.md)
-
--   :material-api:{ .lg .middle } **OpenAI-Compatible**
-
-    [:octicons-arrow-right-24: Configuration](openai-compatible.md)
+-   [:material-robot:{ .lg .middle } **Anthropic**](anthropic.md)
+-   [:material-aws:{ .lg .middle } **AWS Bedrock**](aws-bedrock.md)
+-   [:material-microsoft-azure:{ .lg .middle } **Azure OpenAI**](azure-openai.md)
+-   [:material-google:{ .lg .middle } **Gemini**](gemini.md)
+-   [:material-google-cloud:{ .lg .middle } **Google Vertex AI**](google-vertex-ai.md)
+-   [:material-llama:{ .lg .middle } **Ollama**](ollama.md)
+-   [:material-openai:{ .lg .middle } **OpenAI**](openai.md)
+-   [:material-api:{ .lg .middle } **OpenAI-Compatible**](openai-compatible.md)
 
 </div>
 
