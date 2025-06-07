@@ -15,7 +15,6 @@ If you're using HolmesGPT in your organization or as an individual, please add y
 
 | Organization | Contact | Description of Use |
 | ------------ | ------- | ------------------ |
-| [Your Organization Name](https://yourcompany.com) | [@yourusername](https://github.com/yourusername) | How you use HolmesGPT |
 | Microsoft Azure Kubernetes Service(AKS) Team | [aritraghosh](https://github.com/aritraghosh) | We use it for troubleshooting all kinds of issue in clusters including node readiness, pod scheduling, DNS configuration, upgrades  |
 
 ## Individual Users
