@@ -1,3 +1,4 @@
+from typing import Optional
 import unittest
 from unittest.mock import patch, MagicMock
 from kubernetes.client.exceptions import ApiException
@@ -5,6 +6,41 @@ from kubernetes.client.exceptions import ApiException
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+
+
+def mock_k8s_read_log(
+    name: str,
+    namespace: str,
+    container: Optional[str] = None,
+    previous: bool = False,
+    timestamps: bool = True,
+):
+    print(
+        f"Mock k8s_read_log called with: name='{name}', namespace='{namespace}', container='{container}', previous={previous}"
+    )
+
+    container_suffix = ""
+    if container:
+        container_suffix = f" - container={container}"
+
+    if namespace == "default" and name == "test-pod":
+        if previous:
+            return (
+                f"2023-05-01T12:00:01Z Log line 1 - prev{container_suffix}\n"
+                f"2023-05-01T12:00:02Z Log line 2 - prev{container_suffix}\n"
+                f"2023-05-01T12:00:03Z Log line 3 - prev{container_suffix}\n"
+            )
+        else:
+            return (
+                f"2023-05-01T12:00:04Z Log line 1 - current{container_suffix}\n"
+                f"2023-05-01T12:00:05Z Log line 2 - current{container_suffix}\n"
+                f"2023-05-01T12:00:06Z Log line 3 - current{container_suffix}\n"
+            )
+
+    # Fallback for unhandled cases, or you could raise an error
+    raise Exception(
+        f"UNEXPECTED_MOCK_CALL: name={name}, ns={namespace}, container={container}, previous={previous}"
+    )
 
 
 class TestKubernetesLogsToolset(unittest.TestCase):
@@ -17,28 +53,18 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
         # Create mock for read_namespaced_pod
-        self.mock_pod = MagicMock()
-        self.mock_container = MagicMock()
-        self.mock_container.name = "test-container"
-        self.mock_pod.spec.containers = [self.mock_container]
-
-        # Create mock for read_namespaced_pod_log
-        self.sample_logs = (
-            "2023-05-01T12:00:00Z Log line 1\n"
-            "2023-05-01T12:00:01Z Log line 2\n"
-            "2023-05-01T12:00:02Z Log line 3\n"
-        )
 
     @patch("kubernetes.client.CoreV1Api")
-    @patch("kubernetes.config")
-    def test_default_log_formatting(self, mock_config, mock_api):
-        """Test that logs are formatted correctly with default settings"""
+    def test_single_container(self, mock_api):
+        mock_pod = MagicMock()
+        mock_container = MagicMock()
+        mock_container.name = "my-container"
+        mock_pod.spec.containers = [mock_container]
 
         mock_api_instance = mock_api.return_value
-        mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
-        mock_api_instance.read_namespaced_pod_log.return_value = self.sample_logs
+        mock_api_instance.read_namespaced_pod.return_value = mock_pod
+        mock_api_instance.read_namespaced_pod_log.side_effect = mock_k8s_read_log
 
-        # Set the internal API reference (normally done in _initialize_client)
         self.toolset._core_v1_api = mock_api_instance
 
         params = FetchPodLogsParams(
@@ -54,68 +80,24 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
         assert result.data
-
         # Verify that the logs are formatted correctly (no line numbers)
+
         expected_logs = (
-            "2023-05-01T12:00:00Z Log line 1\n"
-            "2023-05-01T12:00:01Z Log line 2\n"
-            "2023-05-01T12:00:02Z Log line 3"
+            "Log line 1 - prev - container=my-container\n"
+            "Log line 2 - prev - container=my-container\n"
+            "Log line 3 - prev - container=my-container\n"
+            "Log line 1 - current - container=my-container\n"
+            "Log line 2 - current - container=my-container\n"
+            "Log line 3 - current - container=my-container"
         )
-        assert expected_logs in result.data
+        print(f"EXPECTED:\n{expected_logs}")
+        print(f"ACTUAL:\n{result.data}")
+
+        assert expected_logs == result.data
 
     @patch("kubernetes.client.CoreV1Api")
-    @patch("kubernetes.config")
-    def test_fallback_to_previous_logs(self, mock_config, mock_api):
+    def test_multi_containers(self, mock_api):
         """Test fallback to previous logs when current logs are empty"""
-        # Configure mocks
-        mock_api_instance = mock_api.return_value
-        mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
-
-        # Set the internal API reference (normally done in _initialize_client)
-        self.toolset._core_v1_api = mock_api_instance
-
-        # Configure read_namespaced_pod_log to return empty for current logs
-        # and non-empty for previous logs
-        previous_logs = (
-            "2023-05-01T11:00:00Z Previous log 1\n"
-            "2023-05-01T11:00:01Z Previous log 2\n"
-        )
-
-        def mock_get_logs(**kwargs):
-            if kwargs.get("previous", False):
-                return previous_logs
-            else:
-                return ""  # Empty current logs
-
-        mock_api_instance.read_namespaced_pod_log.side_effect = mock_get_logs
-
-        params = FetchPodLogsParams(
-            namespace="default",
-            pod_name="test-pod",
-            limit=2000,
-            start_time=None,
-            end_time=None,
-            match=None,
-        )
-
-        result = self.toolset.fetch_pod_logs(params=params)
-
-        self.assertEqual(result.status, ToolResultStatus.SUCCESS)
-
-        # Verify that the logs are from the previous container instance
-        expected_logs = (
-            "2023-05-01T11:00:00Z Previous log 1\n"
-            "2023-05-01T11:00:01Z Previous log 2"
-        )
-        self.assertEqual(result.data, expected_logs)
-
-    @patch("kubernetes.client.CoreV1Api")
-    @patch("kubernetes.config")
-    def test_multi_container_pod(self, mock_config, mock_api):
-        """Test logs from multi-container pod"""
-        mock_api_instance = mock_api.return_value
-
-        self.toolset._core_v1_api = mock_api_instance
 
         mock_pod = MagicMock()
         mock_container1 = MagicMock()
@@ -123,21 +105,11 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         mock_container2 = MagicMock()
         mock_container2.name = "container2"
         mock_pod.spec.containers = [mock_container1, mock_container2]
-
+        mock_api_instance = mock_api.return_value
         mock_api_instance.read_namespaced_pod.return_value = mock_pod
+        mock_api_instance.read_namespaced_pod_log.side_effect = mock_k8s_read_log
 
-        # Configure different logs for each container
-        container1_logs = "Log from container1"
-        container2_logs = "Log from container2"
-
-        def mock_get_logs(**kwargs):
-            if kwargs.get("container") == "container1":
-                return container1_logs
-            elif kwargs.get("container") == "container2":
-                return container2_logs
-            return ""
-
-        mock_api_instance.read_namespaced_pod_log.side_effect = mock_get_logs
+        self.toolset._core_v1_api = mock_api_instance
 
         params = FetchPodLogsParams(
             namespace="default",
@@ -150,18 +122,31 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         result = self.toolset.fetch_pod_logs(params=params)
 
-        # Verify results
-        assert result
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
-        assert result.data
 
-        # Verify logs have container prefix
-        self.assertIn("container1: Log from container1", result.data)
-        self.assertIn("container2: Log from container2", result.data)
+        print(result.data)
+
+        # Verify that the logs are from the previous container instance
+        expected_logs = (
+            "container1: Log line 1 - prev - container=container1\n"
+            "container2: Log line 1 - prev - container=container2\n"
+            "container1: Log line 2 - prev - container=container1\n"
+            "container2: Log line 2 - prev - container=container2\n"
+            "container1: Log line 3 - prev - container=container1\n"
+            "container2: Log line 3 - prev - container=container2\n"
+            "container1: Log line 1 - current - container=container1\n"
+            "container2: Log line 1 - current - container=container2\n"
+            "container1: Log line 2 - current - container=container1\n"
+            "container2: Log line 2 - current - container=container2\n"
+            "container1: Log line 3 - current - container=container1\n"
+            "container2: Log line 3 - current - container=container2"
+        )
+        print(f"EXPECTED:\n{expected_logs}")
+        print(f"ACTUAL:\n{result.data}")
+        self.assertEqual(result.data, expected_logs)
 
     @patch("kubernetes.client.CoreV1Api")
-    @patch("kubernetes.config")
-    def test_pod_not_found(self, mock_config, mock_api):
+    def test_pod_not_found(self, mock_api):
         """Test error handling when pod is not found"""
         # Configure mock to raise 404 error
         mock_api_instance = mock_api.return_value
@@ -187,17 +172,16 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         result = self.toolset.fetch_pod_logs(params=params)
 
-        # In the updated API, if the pod is not found it tries previous logs which returns empty
-        # rather than an error, which is considered a success with "No logs found"
         self.assertEqual(result.status, ToolResultStatus.NO_DATA)
 
     @patch("kubernetes.client.CoreV1Api")
-    @patch("kubernetes.config")
-    def test_filter_logs(self, mock_config, mock_api):
-        """Test log filtering"""
-        # Configure mocks
+    def test_filter_logs(self, mock_api):
+        mock_pod = MagicMock()
+        mock_container = MagicMock()
+        mock_container.name = "my-container"
+        mock_pod.spec.containers = [mock_container]
         mock_api_instance = mock_api.return_value
-        mock_api_instance.read_namespaced_pod.return_value = self.mock_pod
+        mock_api_instance.read_namespaced_pod.return_value = mock_pod
 
         logs_with_errors = (
             "2023-05-01T12:00:00Z INFO: Starting service\n"
@@ -225,6 +209,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         # Verify only filtered logs are returned
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
         assert result.data
+        print(f"ACTUAL:\n{result.data}")
         self.assertIn("ERROR: Connection failed", result.data)
         self.assertIn("ERROR: Connection timeout", result.data)
         self.assertNotIn("INFO: Starting service", result.data)
