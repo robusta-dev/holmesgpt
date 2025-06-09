@@ -227,7 +227,7 @@ class TestIncorrectCommands:
             (
                 "kubectl get pods -n namespace && kubectl get pods -n namespace",
                 ValueError,
-                "Double ampersand \"&&\" is not a supported way to chain commands",
+                'Double ampersand "&&" is not a supported way to chain commands',
             ),
         ],
     )
