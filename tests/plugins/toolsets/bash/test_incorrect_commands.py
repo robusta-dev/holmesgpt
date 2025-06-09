@@ -227,17 +227,7 @@ class TestIncorrectCommands:
             (
                 "kubectl get pods -n namespace && kubectl get pods -n namespace",
                 ValueError,
-                'Double ampersand "&&" is not a supported way to chain commands',
-            ),
-            (
-                "|",
-                argparse.ArgumentError,
-                None,
-            ),
-            (
-                "| |",
-                argparse.ArgumentError,
-                None,
+                "Double ampersand \"&&\" is not a supported way to chain commands",
             ),
         ],
     )
@@ -268,3 +258,8 @@ class TestIncorrectCommands:
         """Test that empty commands return empty string."""
         assert make_command_safe("", config=TEST_CONFIG) == ""
         assert make_command_safe("   ", config=TEST_CONFIG) == ""
+
+    def test_only_pipe_returns_empty_string(self):
+        """Test that command with only pipe character returns empty string."""
+        assert make_command_safe("|", config=TEST_CONFIG) == ""
+        assert make_command_safe("| |", config=TEST_CONFIG) == ""
