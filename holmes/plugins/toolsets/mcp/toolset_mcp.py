@@ -45,9 +45,11 @@ class RemoteMCPTool(Tool):
                     c.text for c in tool_result.content if c.type == "text"
                 )
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR
-                    if tool_result.isError
-                    else ToolResultStatus.SUCCESS,
+                    status=(
+                        ToolResultStatus.ERROR
+                        if tool_result.isError
+                        else ToolResultStatus.SUCCESS
+                    ),
                     data=merged_text,
                     params=params,
                     invocation=f"MCPtool {self.name} with params {params}",
@@ -86,7 +88,7 @@ class RemoteMCPTool(Tool):
 
 class RemoteMCPToolset(Toolset):
     url: AnyUrl
-    tools: List[RemoteMCPTool] = Field(default_factory=list)
+    tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
     def model_post_init(self, __context: Any) -> None:

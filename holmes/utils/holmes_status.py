@@ -1,6 +1,6 @@
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
-from holmes import get_version
+from holmes import get_version  # type: ignore
 import logging
 
 

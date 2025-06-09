@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from tests.llm.utils.mock_utils import HolmesTestCase
+from tests.llm.utils.mock_utils import HolmesTestCase  # type: ignore
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 
 
@@ -24,6 +24,8 @@ def pop_test_case(
         if test_case.id == id:
             test_cases.remove(test_case)
             return test_case
+
+    return None
 
 
 def pop_matching_test_case_if_exists(
@@ -53,7 +55,7 @@ class BraintrustEvalHelper:
         for item in self.dataset:
             test_case = pop_matching_test_case_if_exists(test_cases, item)
             if not test_case:
-                self.dataset.delete(item.get("id"))
+                self.dataset.delete(item.get("id"))  # type: ignore
                 continue
 
             logging.info(f"Updating dataset item f{test_case.id}")
@@ -98,8 +100,8 @@ class BraintrustEvalHelper:
                 raise Exception(
                     "Experiment must be writable. The above options open=False and update=True ensure this is the case so this exception should never be raised"
                 )
-            self.experiment = experiment
-        self._root_span = self.experiment.start_span(name=name)
+            self.experiment = experiment  # type: ignore
+        self._root_span = self.experiment.start_span(name=name)  # type: ignore
         return self._root_span
 
     def end_evaluation(
@@ -157,5 +159,7 @@ def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData
     records = list(experiment.fetch())
     test_cases = list(dataset.fetch())
     return ExperimentData(
-        experiment_name=experiment_name, records=records, test_cases=test_cases
+        experiment_name=experiment_name,
+        records=records,  # type: ignore
+        test_cases=test_cases,  # type: ignore
     )

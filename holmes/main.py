@@ -35,7 +35,7 @@ from holmes.core.tool_calling_llm import (
     ToolCallingLLM,
 )
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
-from holmes import get_version
+from holmes import get_version  # type: ignore
 
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
