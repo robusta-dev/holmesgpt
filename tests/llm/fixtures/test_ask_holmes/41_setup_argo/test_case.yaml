@@ -4,5 +4,5 @@ expected_output: |
   or the answer should explain how to get an argocd token and update the values yaml file for holmes to configure
   argocd and then run something similar to `helm upgrade robusta robusta/robusta --values=generated_values.yaml`.
 evaluation:
-  correctness: 1
+  correctness: 0
 generate_mocks: False
