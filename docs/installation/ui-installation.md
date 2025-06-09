@@ -2,7 +2,7 @@
 
 Use HolmesGPT through graphical interfaces and third-party integrations.
 
-## Robusta SaaS (Web UI)
+## Web UI (Robusta)
 
 The fastest way to use HolmesGPT is via the managed Robusta SaaS platform.
 
@@ -18,7 +18,10 @@ The fastest way to use HolmesGPT is via the managed Robusta SaaS platform.
 
 ---
 
-## K9s Plugin (Terminal UI)
+## Slack Bot (Robusta)
+Tag HolmesGPT in any Slack message for instant analysis. [Request beta access](mailto:beta@robusta.dev)
+
+## K9s Plugin
 
 Integrate HolmesGPT into your K9s Kubernetes terminal.
 

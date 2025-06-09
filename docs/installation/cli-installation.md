@@ -1,6 +1,6 @@
 # Install CLI
 
-Run HolmesGPT from your terminal as a standalone CLI tool. Ideal for local use, shell scripts, or CI/CD pipelines.
+Run HolmesGPT from your terminal as a standalone CLI tool.
 
 ## Installation Options
 
@@ -23,11 +23,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool. Ideal for local use, 
 
 === "Pipx"
 
-    1. Install pipx if you haven't already:
-       ```bash
-       python -m pip install --user pipx
-       python -m pipx ensurepath
-       ```
+   1. Install [pipx](https://pypa.github.io/pipx/installation/)
 
     2. Install HolmesGPT:
        ```bash
@@ -43,10 +39,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool. Ideal for local use, 
 
     For development or custom builds:
 
-    1. Install Poetry:
-       ```bash
-       curl -sSL https://install.python-poetry.org | python3 -
-       ```
+   1. Install [Poetry](https://python-poetry.org/docs/#installation)
 
     2. Clone and install:
        ```bash
@@ -72,6 +65,10 @@ Run HolmesGPT from your terminal as a standalone CLI tool. Ideal for local use, 
       -v $HOME/.kube/config:/root/.kube/config \
       us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
     ```
+
+## Using HolmesGPT in a Shell Script
+
+## Using HolmesGPT in a CI/CD Pipeline
 
 ## Quick Start
 
