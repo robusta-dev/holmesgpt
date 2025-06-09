@@ -181,6 +181,10 @@ nav:
 
   - Development:
       - development/index.md
+      - Evaluations:
+          - development/evals/index.md
+          - Writing Evaluations: development/evals/writing.md
+          - Reporting with Braintrust: development/evals/reporting.md
       - API Reference: development/api-reference.md
       - Custom Toolset Development: development/custom-toolsets.md
       - Contributing Guidelines: development/contributing.md
