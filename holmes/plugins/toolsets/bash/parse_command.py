@@ -65,6 +65,10 @@ def split_into_separate_commands(command_str: str) -> list[list[str]]:
             if current_command:
                 commands_list.append(current_command)
             current_command = []
+        if part == "&&":
+            raise ValueError(
+                'Double ampersand "&&" is not a supported way to chain commands. Run each command separately.'
+            )
         else:
             current_command.append(part)
 
