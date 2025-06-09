@@ -5,7 +5,7 @@ Your primary goal when using these tools is to diagnose DNS resolution issues wi
 
 *   Use the tools to gather information about the DNS pods, services, and configuration.
 *   Clearly present the key findings from the tool outputs in your analysis.
-*   Instead of providing next steps to the user, you need to follow the troubleshoot guide to execute the steps.
+*   Instead of providing next steps to the user, you need to follow the troubleshooting guide to execute the steps.
 
 ## Workflow for DNS Diagnosis
 
@@ -41,7 +41,7 @@ Your primary goal when using these tools is to diagnose DNS resolution issues wi
     *   Inspect the CoreDNS ConfigMap: `kubectl get configmap coredns -n kube-system -o yaml`.
     *   Look for errors or misconfigurations in the Corefile (e.g., incorrect upstream resolvers, plugin issues).
     *   Inspect the customized CoreDNS ConfigMap: `kubectl get configmap coredns-custom -n kube-system -o yaml`.
-    *   Look for errors or misconfigurations in the customizated CoreDNS config (e.g., incorrect upstream resolvers, plugin issues).
+    *   Look for errors or misconfigurations in the customized CoreDNS config (e.g., incorrect upstream resolvers, plugin issues).
 
 6.  **Check the DNS trace**
     *   Use findings from the DNS trace to pinpoint where DNS resolution is failing (e.g., query not reaching DNS server, invalid FQDN, or error response from DNS server).
