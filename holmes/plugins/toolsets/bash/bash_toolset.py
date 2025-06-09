@@ -177,20 +177,17 @@ class BashExecutorToolset(BaseBashExecutorToolset):
     def __init__(self):
         super().__init__(
             name="bash",
-            enabled=False,  # Default state; can be overridden by global config.
+            enabled=False,
             description=(
                 "Toolset for executing arbitrary bash commands on the system where Holmes is running. "
                 "WARNING: This toolset provides powerful capabilities and should be "
                 "enabled and used with extreme caution due to significant security risks. "
                 "Ensure that only trusted users have access to this tool."
             ),
-            docs_url="",  # TODO: Add relevant documentation URL if available
+            docs_url="",  # TODO: Add relevant documentation URL
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[RunBashCommand(self), KubectlRunImageCommand(self)],
-            # Using CORE as per the provided example's structure.
-            # In a real system, a more specific tag like 'SYSTEM_COMMANDS' or 'DANGEROUS' might be appropriate
-            # if the ToolsetTag system supports custom tags or has more granular options.
             tags=[ToolsetTag.CORE],
             is_default=False,
         )
