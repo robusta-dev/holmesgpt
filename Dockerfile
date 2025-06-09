@@ -26,8 +26,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key -o Release.key
 
 # Set the architecture-specific kube lineage URLs
-ARG KUBE_LINEAGE_ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.2/kube-lineage-macos-latest-v2.2.2
-ARG KUBE_LINEAGE_AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.2/kube-lineage-ubuntu-latest-v2.2.2
+ARG KUBE_LINEAGE_ARM_URL=https://github.com/robusta-dev/kube-lineage/releases/download/v2.2.3/kube-lineage-macos-latest-v2.2.3
+ARG KUBE_LINEAGE_AMD_URL=https://github.com/robusta-dev/kube-lineage/releases/download/v2.2.3/kube-lineage-ubuntu-latest-v2.2.3
 # Define a build argument to identify the platform
 ARG TARGETPLATFORM
 # Conditional download based on the platform
