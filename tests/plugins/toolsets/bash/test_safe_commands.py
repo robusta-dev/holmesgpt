@@ -298,6 +298,6 @@ class TestKubectlIntegration:
     )
     def test_kubectl_round_trip(self, input_command: str, expected_output: str):
         output_command = make_command_safe(input_command, config=TEST_CONFIG)
-        print(f"* EXPECTED:\n{expected_output}")
-        print(f"* ACTUAL:\n{output_command}")
+        # print(f"* EXPECTED:\n{expected_output}")
+        # print(f"* ACTUAL:\n{output_command}")
         assert output_command == expected_output
