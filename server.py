@@ -157,7 +157,7 @@ def stream_investigate_issues(req: InvestigateRequest):
         )
         return StreamingResponse(
             ai.call_stream(
-                system_prompt, user_prompt, robusta_ai, response_format, runbooks
+                system_prompt=system_prompt, user_prompt=user_prompt, stream=robusta_ai, sections=sections, response_format=response_format, runbooks=runbooks
             ),
             media_type="text/event-stream",
         )
