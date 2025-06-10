@@ -23,7 +23,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
 === "Pipx"
 
-   1. Install [pipx](https://pypa.github.io/pipx/installation/)
+    1. Install [pipx](https://pypa.github.io/pipx/installation/)
 
     2. Install HolmesGPT:
        ```bash
@@ -39,9 +39,9 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
     For development or custom builds:
 
-   1. Install [Poetry](https://python-poetry.org/docs/#installation)
+    1. Install [Poetry](https://python-poetry.org/docs/#installation)
 
-    2. Clone and install:
+    2. Install HolmesGPT:
        ```bash
        git clone https://github.com/robusta-dev/holmesgpt.git
        cd holmesgpt

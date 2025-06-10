@@ -1,17 +1,17 @@
 # Install Helm Chart
 
-Deploy HolmesGPT as a service in your Kubernetes cluster with HTTP API access.
+Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API access.
 
-!!! warning "Helm Configuration"
+!!! warning "When to use the Helm chart?"
 
-    Direct API access is generally not recommended unless you are building custom integrations or applications on top of HolmesGPT.
+    Most users should use the [CLI](cli-installation.md) or [UI/TUI](ui-installation.md) instead. Using the Helm chart is only recommended if you're building a custom integration over an HTTP API.
 
 ## Prerequisites
 
-- Kubernetes cluster (1.19+)
-- Helm 3.x installed
+- Kubernetes cluster
+- Helm
 - kubectl configured to access your cluster
-- AI provider API key
+- Supported [AI Provider](../../ai-providers/) API key.
 
 ## Installation
 

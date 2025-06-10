@@ -4,13 +4,13 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
 
 <div class="grid cards" markdown>
 
--   [:material-robot:{ .lg .middle } **Anthropic**](anthropic.md)
+-   [:simple-anthropic:{ .lg .middle } **Anthropic**](anthropic.md)
 -   [:material-aws:{ .lg .middle } **AWS Bedrock**](aws-bedrock.md)
 -   [:material-microsoft-azure:{ .lg .middle } **Azure OpenAI**](azure-openai.md)
--   [:material-google:{ .lg .middle } **Gemini**](gemini.md)
+-   [:simple-googlegemini:{ .lg .middle } **Gemini**](gemini.md)
 -   [:material-google-cloud:{ .lg .middle } **Google Vertex AI**](google-vertex-ai.md)
--   [:material-llama:{ .lg .middle } **Ollama**](ollama.md)
--   [:material-openai:{ .lg .middle } **OpenAI**](openai.md)
+-   [:simple-ollama:{ .lg .middle } **Ollama**](ollama.md)
+-   [:simple-openai:{ .lg .middle } **OpenAI**](openai.md)
 -   [:material-api:{ .lg .middle } **OpenAI-Compatible**](openai-compatible.md)
 
 </div>
