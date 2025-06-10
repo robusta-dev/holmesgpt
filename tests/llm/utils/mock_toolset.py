@@ -62,13 +62,13 @@ class SaveMockTool(Tool):
         self._add_params_to_mock_file = add_params_to_mock_file
 
     def _get_mock_file_path(self, tool_params: Dict):
-        if self.add_params_to_mock_file:
+        if self._add_params_to_mock_file:
             params_data = "_".join(tool_params.values())
             params_data = f"_{params_data}"
         else:
             params_data = ""
 
-        return f"{self.test_case_folder}/{self.name}{params_data}.txt{AUTO_GENERATED_FILE_SUFFIX}"
+        return f"{self._test_case_folder}/{self.name}{params_data}.txt{AUTO_GENERATED_FILE_SUFFIX}"
 
     def _auto_generate_mock_file(self, params: Dict):
         mock_metadata_json = MockMetadata(
