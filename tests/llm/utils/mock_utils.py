@@ -6,10 +6,11 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import List, Optional, TypeVar, Union, cast
+from typing import List, Literal, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
+from holmes.core.prompt import append_file_to_user_prompt
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
@@ -25,8 +26,13 @@ TEST_CASE_ID_PATTERN = r"^[\d+]_(?:[a-z]+_)*[a-z]+$"
 CONFIG_FILE_NAME = "test_case.yaml"
 
 
-class LLMEvaluation(BaseModel):
-    correctness: float = 1
+class Evaluation(BaseModel):
+    expected_score: float = 1
+    type: Union[Literal["loose"], Literal["strict"]]
+
+
+class LLMEvaluations(BaseModel):
+    correctness: Union[float, Evaluation] = 1
 
 
 class Message(BaseModel):
@@ -42,7 +48,7 @@ class HolmesTestCase(BaseModel):
     generate_mocks: bool = False  # If True, generate mocks
     add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
-    evaluation: LLMEvaluation = LLMEvaluation()
+    evaluation: LLMEvaluations = LLMEvaluations()
     tool_mocks: List[ToolMock] = []
     before_test: Optional[str] = None
     after_test: Optional[str] = None
@@ -50,6 +56,7 @@ class HolmesTestCase(BaseModel):
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
     user_prompt: str  # The user's question to ask holmes
+    include_files: Optional[List[str]] = None  # matches include_files option of the CLI
 
 
 class InvestigateTestCase(HolmesTestCase, BaseModel):
@@ -133,6 +140,12 @@ class MockHelper:
                 config_dict["folder"] = str(test_case_folder)
 
                 if config_dict.get("user_prompt"):
+                    extra_prompt = load_include_files(
+                        test_case_folder, config_dict.get("include_files", None)
+                    )
+                    config_dict["user_prompt"] = (
+                        config_dict["user_prompt"] + extra_prompt
+                    )
                     test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                         config_dict
                     )
@@ -223,3 +236,15 @@ def load_investigate_request(test_case_folder: Path) -> InvestigateRequest:
     raise Exception(
         f"Investigate test case declared in folder {str(test_case_folder)} should have an investigate_request.json file but none is present"
     )
+
+
+def load_include_files(
+    test_case_folder: Path, include_files: Optional[list[str]]
+) -> str:
+    extra_prompt: str = ""
+    if include_files:
+        for file_path_str in include_files:
+            file_path = Path(test_case_folder.joinpath(file_path_str))
+            extra_prompt = append_file_to_user_prompt(extra_prompt, file_path)
+
+    return extra_prompt

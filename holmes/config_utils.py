@@ -7,16 +7,23 @@ import re
 
 
 def get_env_replacement(value: str) -> Optional[str]:
-    env_values = re.findall(r"{{\s*env\.([^\s]*)\s*}}", value)
-    if not env_values:
-        return None
-    env_var_key = env_values[0].strip()
-    if env_var_key not in os.environ:
-        msg = f"ENV var replacement {env_var_key} does not exist for param: {value}"
-        logging.error(msg)
-        raise Exception(msg)
+    env_patterns = re.findall(r"{{\s*env\.([^}]*)\s*}}", value)
 
-    return os.environ.get(env_var_key)
+    result = value
+
+    # Replace env patterns with their values or raise exception
+    for env_var_key in env_patterns:
+        env_var_key = env_var_key.strip()
+        pattern_regex = r"{{\s*env\." + re.escape(env_var_key) + r"\s*}}"
+        if env_var_key in os.environ:
+            replacement = os.environ[env_var_key]
+        else:
+            msg = f"ENV var replacement {env_var_key} does not exist"
+            logging.error(msg)
+            raise Exception(msg)
+        result = re.sub(pattern_regex, replacement, result)
+
+    return result
 
 
 def replace_env_vars_values(values: dict[str, Any]) -> dict[str, Any]:

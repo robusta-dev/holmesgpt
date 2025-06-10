@@ -21,7 +21,9 @@ if base_url:
 
 
 def evaluate_correctness(
-    expected_elements: Union[str, List[str]], output: Optional[str]
+    expected_elements: Union[str, List[str]],
+    output: Optional[str],
+    evaluation_type: str = "strict",
 ):
     if isinstance(expected_elements, str):
         expected_elements = [expected_elements]
@@ -49,6 +51,31 @@ Return a choice based on the number of EXPECTED ELEMENTS present in the OUTPUT.
 Possible choices:
     - A: All elements are presents
     - B: Either no element is present or only some but not all elements are present
+    """
+
+    if evaluation_type == "loose":
+        prompt_prefix = """
+You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
+represents the correctness of that OUTPUT.
+
+The correctness is defined by the presence of EXPECTED in the OUTPUT.
+Make a judgement call whether each ELEMENT sufficiently matches the OUTPUT. ELEMENTS do
+not need to appear verbatim or be a perfect match but their essence should be
+present in the whole OUTPUT, even if it spans multiple sentences.
+
+# EXPECTED
+
+{{expected}}
+
+# OUTPUT
+
+{{output}}
+
+
+Return a choice based on the number of EXPECTED presence in the OUTPUT.
+Possible choices:
+    - A: The OUTPUT reasonably matches the EXPECTED content
+    - B: The OUTPUT does not match the EXPECTED content
     """
 
     classifier = LLMClassifier(
