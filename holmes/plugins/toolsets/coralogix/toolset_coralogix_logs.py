@@ -1,14 +1,18 @@
 from typing import Any, Optional, Tuple
+
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
-    ToolResultStatus,
     Tool,
     ToolParameter,
+    ToolResultStatus,
     Toolset,
     ToolsetTag,
 )
-
+from holmes.plugins.toolsets.consts import (
+    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+    TOOLSET_CONFIG_MISSING_ERROR,
+)
 from holmes.plugins.toolsets.coralogix.api import (
     DEFAULT_LOG_COUNT,
     DEFAULT_TIME_SPAN_SECONDS,
@@ -22,11 +26,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     build_coralogix_link_to_logs,
     stringify_flattened_logs,
 )
-from holmes.plugins.toolsets.utils import (
-    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
-    TOOLSET_CONFIG_MISSING_ERROR,
-    standard_start_datetime_tool_param_description,
-)
+from holmes.plugins.toolsets.utils import standard_start_datetime_tool_param_description
 
 
 class BaseCoralogixToolset(Toolset):
@@ -111,9 +111,9 @@ class FetchLogs(BaseCoralogixTool):
             data = f"link: {url}\nquery: {query_string}\n{logs}"
 
         return StructuredToolResult(
-            status=ToolResultStatus.ERROR
-            if logs_data.error
-            else ToolResultStatus.SUCCESS,
+            status=(
+                ToolResultStatus.ERROR if logs_data.error else ToolResultStatus.SUCCESS
+            ),
             error=logs_data.error,
             data=data,
             url=url,

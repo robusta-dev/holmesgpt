@@ -83,9 +83,10 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name, test_case: InvestigateTestCase):
+def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
     config = MockConfig(test_case)
     config.model = os.environ.get("MODEL", "gpt-4o")
+
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
         generate_mocks=test_case.generate_mocks,
@@ -148,7 +149,10 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase):
         name="Correctness", type=SpanTypeAttribute.SCORE
     ) as correctness_span:
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected, evaluation_type="strict"
+            output=output,
+            expected_elements=expected,
+            caplog=caplog,
+            evaluation_type="strict",
         )
         print(
             f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"

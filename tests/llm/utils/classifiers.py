@@ -1,8 +1,10 @@
+import os
 from typing import Dict, List, Optional, Union
+
+import openai
 from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
-import openai
-import os
+import logging
 
 classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
 api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
@@ -10,9 +12,13 @@ base_url = os.environ.get("AZURE_API_BASE", None)
 api_version = os.environ.get("AZURE_API_VERSION", None)
 
 if base_url:
+    if len(classifier_model.split("/")) != 2:
+        raise ValueError(
+            f"Current classifier model '{classifier_model}' does not meet the pattern 'azure/<deployment-name>' when using Azure OpenAI."
+        )
     client = openai.AzureOpenAI(
         azure_endpoint=base_url,
-        azure_deployment=classifier_model,
+        azure_deployment=classifier_model.split("/", 1)[1],
         api_version=api_version,
         api_key=api_key,
     )
@@ -23,8 +29,12 @@ if base_url:
 def evaluate_correctness(
     expected_elements: Union[str, List[str]],
     output: Optional[str],
+    caplog,
     evaluation_type: str = "strict",
 ):
+    caplog.set_level("INFO", logger="classifier")
+    logger = logging.getLogger("classifier")
+
     if isinstance(expected_elements, str):
         expected_elements = [expected_elements]
     expected_elements_str = "\n- ".join(expected_elements)
@@ -77,6 +87,20 @@ Possible choices:
     - A: The OUTPUT reasonably matches the EXPECTED content
     - B: The OUTPUT does not match the EXPECTED content
     """
+    if base_url:
+        logger.info(
+            f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+        )
+        logger.info(
+            "To use OpenAI instead, unset the environment variable AZURE_API_BASE"
+        )
+    else:
+        logger.info(
+            f"Evaluating correctness with OpenAI; model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+        )
+        logger.info(
+            "To use Azure OpenAI instead, set the environment variables AZURE_API_BASE, AZURE_API_VERSION, and AZURE_API_KEY"
+        )
 
     classifier = LLMClassifier(
         name="Correctness",

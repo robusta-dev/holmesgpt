@@ -1,25 +1,23 @@
+import os
+import subprocess
 from typing import Any, Dict
 from unittest.mock import Mock, patch
-import pytest
-import subprocess
-import os
 
-from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
+import pytest
+
+from holmes.config import Config
 from holmes.core.tools import (
+    CallablePrerequisite,
+    StaticPrerequisite,
     Toolset,
     ToolsetCommandPrerequisite,
     ToolsetEnvironmentPrerequisite,
     ToolsetStatusEnum,
     ToolsetTag,
     YAMLTool,
-    StaticPrerequisite,
-    CallablePrerequisite,
 )
-from holmes.config import Config
-from tests.utils.toolsets import (
-    callable_success,
-    failing_callable_for_test,
-)
+from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
+from tests.utils.toolsets import callable_success, failing_callable_for_test
 
 
 @pytest.fixture
@@ -351,15 +349,15 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
     for ts in all_toolsets:
         ts.check_prerequisites()
 
-    assert toolset_with_failing_callable.get_status() == ToolsetStatusEnum.FAILED
+    assert toolset_with_failing_callable.status == ToolsetStatusEnum.FAILED
     assert (
         "Prerequisite call failed unexpectedly: Failure in callable prerequisite"
-        in toolset_with_failing_callable.get_error()
+        in toolset_with_failing_callable.error
     )
-    assert successful_toolset_1.get_status() == ToolsetStatusEnum.ENABLED
-    assert successful_toolset_1.get_error() is None
-    assert successful_toolset_2.get_status() == ToolsetStatusEnum.ENABLED
-    assert successful_toolset_2.get_error() is None
+    assert successful_toolset_1.status == ToolsetStatusEnum.ENABLED
+    assert successful_toolset_1.error is None
+    assert successful_toolset_2.status == ToolsetStatusEnum.ENABLED
+    assert successful_toolset_2.error is None
 
     mock_config.create_tool_executor.return_value = Mock(toolsets=all_toolsets)
 
