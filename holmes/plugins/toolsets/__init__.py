@@ -8,6 +8,7 @@ from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
 from holmes.plugins.toolsets.datetime import DatetimeToolset
+from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
@@ -74,6 +75,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         CoralogixLogsToolset(),
         RabbitMQToolset(),
         GitToolset(),
+        BashExecutorToolset(),
     ]
 
     return toolsets
@@ -82,6 +84,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
 def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
     all_toolsets = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
+
     for filename in os.listdir(THIS_DIR):
         if not filename.endswith(".yaml"):
             continue
