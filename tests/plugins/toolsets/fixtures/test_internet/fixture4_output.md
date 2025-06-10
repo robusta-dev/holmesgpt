@@ -2,7 +2,7 @@
 
 {{ message }}
 
-[Robusta-dev](/Robusta-dev) 
+[Robusta-dev](/Robusta-dev)
 /
 **[devops-runbooks](/Robusta-dev/devops-runbooks)**
 Public
