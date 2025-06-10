@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from holmes.config_utils import get_env_replacement
+from holmes.utils.env import get_env_replacement
 
 
 @pytest.mark.parametrize(

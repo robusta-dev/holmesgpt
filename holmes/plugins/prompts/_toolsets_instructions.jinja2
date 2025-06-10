@@ -2,9 +2,9 @@
 {%- set disabled_toolsets = [] -%}
 
 {%- for toolset in toolsets -%}
-  {%- if toolset.llm_instructions and toolset.get_status().value == "enabled" -%}
+  {%- if toolset.llm_instructions and toolset.status.value == "enabled" -%}
     {%- set _ = enabled_toolsets_with_instructions.append(toolset) -%}
-  {%- elif toolset.get_status().value != "enabled" -%}
+  {%- elif toolset.status.value != "enabled" -%}
     {%- set _ = disabled_toolsets.append(toolset) -%}
   {%- endif -%}
 {%- endfor -%}
@@ -25,13 +25,13 @@
 The following toolsets are either disabled or failed to initialize:
 {% for toolset in disabled_toolsets %}
 * toolset "{{ toolset.name }}": {{ toolset.description }}
-    {%- if toolset.get_status() == "failed" %}
+    {%- if toolset.status == "failed" %}
     *  status: The toolset is enabled but misconfigured and failed to initialize.
-      {%- if toolset.get_error() %}
-    *  error: {{ toolset.get_error() }}
+      {%- if toolset.error %}
+    *  error: {{ toolset.error }}
       {%- endif -%}
     {%- else %}
-    *  status: {{ toolset.get_status().value }}
+    *  status: {{ toolset.status.value }}
     {%- endif %}
     {%- if toolset.docs_url %}
     *  setup instructions: {{ toolset.docs_url }}
