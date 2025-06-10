@@ -1,3 +1,5 @@
+$> kubectl apply -f tests/llm/fixtures/test_ask_holmes/42_dns_issues_result_all_tools/manifest.yaml
+$> clear; python holmes.py ask "detect why the k8s pod client under namespace test-ns cannot resolve dns. Describe the steps you take and summarize the output of each tool call you make." -f ./test1/runbooks.md
 User: detect why the k8s pod client under namespace test-ns cannot resolve dns. Describe the steps you take and summarize the output of each tool call you make.
 Loading file test2/runbooks.md
 Running tool fetch_webpage: fetched webpage https://github.com/Arkhaios-AB/devops-runbooks/blob/main/README.md                                                                                                                                                                                                                                                                                                          tools.py:147
