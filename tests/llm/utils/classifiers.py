@@ -1,8 +1,9 @@
+import os
 from typing import Dict, List, Optional, Union
+
+import openai
 from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
-import openai
-import os
 
 classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
 api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
@@ -10,9 +11,13 @@ base_url = os.environ.get("AZURE_API_BASE", None)
 api_version = os.environ.get("AZURE_API_VERSION", None)
 
 if base_url:
+    if len(classifier_model.split("/")) != 2:
+        raise ValueError(
+            f"Current classifier model '{classifier_model}' does not meet the pattern 'azure/<deployment-name>' when using Azure OpenAI."
+        )
     client = openai.AzureOpenAI(
         azure_endpoint=base_url,
-        azure_deployment=classifier_model,
+        azure_deployment=classifier_model.split("/", 1)[1],
         api_version=api_version,
         api_key=api_key,
     )
