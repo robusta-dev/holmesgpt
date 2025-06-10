@@ -1,0 +1,14 @@
+# Bash commands
+
+The tool `run_bash_command` allows you to run many kubectl commands:
+
+- `kubectl get ...`
+- `kubectl describe ...`
+- `kubectl events ...`
+- `kubectl top ...`
+
+It is also possible to combine `kubectl` with `grep`. For example:
+- `kubectl get pods | grep holmes`
+
+The tool `kubectl_run_image` will run an image:
+- `kubectl run <name> --image=<image> --rm --attach --restart=Never --i --tty -- <command>`

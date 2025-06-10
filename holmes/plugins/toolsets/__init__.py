@@ -16,6 +16,7 @@ from holmes.plugins.toolsets.datadog import DatadogToolset
 from holmes.plugins.toolsets.datetime import DatetimeToolset
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
+from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet.internet import InternetToolset
@@ -70,6 +71,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         CoralogixLogsToolset(),
         RabbitMQToolset(),
         GitToolset(),
+        BashExecutorToolset(),
     ]
 
     return toolsets
