@@ -758,9 +758,9 @@ class PrometheusToolset(Toolset):
             prometheus_url=prometheus_url,
             headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
         )
-        logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
+        logging.info(f"Prometheus auto discovered at url {prometheus_url}")
         self._reload_llm_instructions()
-        return True, ""
+        return self._is_healthy()
 
     def auto_detect_prometheus_url(self) -> Optional[str]:
         url: Optional[str] = PrometheusDiscovery.find_prometheus_url()
