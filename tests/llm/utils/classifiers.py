@@ -5,8 +5,6 @@ import openai
 from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
 import logging
-import openai
-import os
 
 classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
 api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
