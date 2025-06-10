@@ -235,7 +235,7 @@ class Config(RobustaBaseConfig):
         2. toolsets from config file will override and be merged into built-in toolsets with the same name.
         3. Custom toolsets from config files which can not override built-in toolsets
         """
-        cli_toolsets = self.toolset_manager.list_enabled_console_toolsets(dal=dal)
+        cli_toolsets = self.toolset_manager.list_console_toolsets(dal=dal)
         return ToolExecutor(cli_toolsets)
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
@@ -246,7 +246,7 @@ class Config(RobustaBaseConfig):
         if self._server_tool_executor:
             return self._server_tool_executor
 
-        toolsets = self.toolset_manager.list_enabled_server_toolsets(dal=dal)
+        toolsets = self.toolset_manager.list_server_toolsets(dal=dal)
 
         self._server_tool_executor = ToolExecutor(toolsets)
 

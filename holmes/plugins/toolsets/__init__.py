@@ -91,7 +91,6 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
     # disable built-in toolsets by default, and the user can enable them explicitly in config.
     for toolset in all_toolsets:
         toolset.type = ToolsetType.BUILTIN
-        toolset.is_default = True
         # dont' expose build-in toolsets path
         toolset.path = None
 

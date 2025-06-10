@@ -44,7 +44,7 @@ class ToolsetManager:
         self.toolset_status_location = toolset_status_location
 
     @property
-    def cli_tool_tags(self) -> List[str]:
+    def cli_tool_tags(self) -> List[ToolsetTag]:
         """
         Returns the list of toolset tags that are relevant for CLI tools.
         A toolset is considered a CLI tool if it has any of cli tool tags:
@@ -52,7 +52,7 @@ class ToolsetManager:
         return [ToolsetTag.CORE, ToolsetTag.CLI]
 
     @property
-    def server_tool_tags(self) -> List[str]:
+    def server_tool_tags(self) -> List[ToolsetTag]:
         """
         Returns the list of toolset tags that are relevant for server tools.
         A toolset is considered a server tool if it has any of UI tool tags:
@@ -60,7 +60,11 @@ class ToolsetManager:
         return [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
     def _list_all_toolsets(
-        self, dal: Optional[SupabaseDal] = None, check_prerequisites=True
+        self,
+        dal: Optional[SupabaseDal] = None,
+        check_prerequisites=True,
+        enable_all_toolsets=False,
+        toolset_tags: Optional[List[ToolsetTag]] = None,
     ) -> List[Toolset]:
         """
         List all built-in and custom toolsets.
@@ -95,6 +99,17 @@ class ToolsetManager:
             custom_toolsets,
             toolsets_by_name,
         )
+
+        if toolset_tags is not None:
+            toolsets_by_name = {
+                name: toolset
+                for name, toolset in toolsets_by_name.items()
+                if any(tag in toolset_tags for tag in toolset.tags)
+            }
+
+        if enable_all_toolsets:
+            for toolset in toolsets_by_name.values():
+                toolset.enabled = True
 
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
@@ -138,7 +153,12 @@ class ToolsetManager:
 
         return builtin_toolsets + custom_toolsets
 
-    def refresh_toolset_status(self, dal: Optional[SupabaseDal] = None):
+    def refresh_toolset_status(
+        self,
+        dal: Optional[SupabaseDal] = None,
+        enable_all_toolsets=False,
+        toolset_tags: Optional[List[ToolsetTag]] = None,
+    ):
         """
         Refresh the status of all toolsets and cache the status to a file.
         Loading cached toolsets status saves the time for runtime tool executor checking the status of each toolset
@@ -148,7 +168,12 @@ class ToolsetManager:
         - custom toolset not explicitly disabled
         """
 
-        all_toolsets = self._list_all_toolsets(dal=dal, check_prerequisites=True)
+        all_toolsets = self._list_all_toolsets(
+            dal=dal,
+            check_prerequisites=True,
+            enable_all_toolsets=enable_all_toolsets,
+            toolset_tags=toolset_tags,
+        )
 
         if self.toolset_status_location and not os.path.exists(
             os.path.dirname(self.toolset_status_location)
@@ -167,7 +192,11 @@ class ToolsetManager:
         logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
 
     def load_toolset_with_status(
-        self, dal: Optional[SupabaseDal] = None, refresh_status: bool = False
+        self,
+        dal: Optional[SupabaseDal] = None,
+        refresh_status: bool = False,
+        enable_all_toolsets=False,
+        toolset_tags: Optional[List[ToolsetTag]] = None,
     ) -> List[Toolset]:
         """
         Load the toolset status from the cache file.
@@ -176,7 +205,9 @@ class ToolsetManager:
 
         if not os.path.exists(self.toolset_status_location) or refresh_status:
             logging.info("refreshing toolset status")
-            self.refresh_toolset_status(dal)
+            self.refresh_toolset_status(
+                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
+            )
 
         logging.info("loading toolset status from cache")
         cached_toolsets: List[dict[str, Any]] = []
@@ -188,7 +219,7 @@ class ToolsetManager:
             cached_toolset["name"]: cached_toolset for cached_toolset in cached_toolsets
         }
         all_toolsets_with_status = self._list_all_toolsets(
-            dal=dal, check_prerequisites=False
+            dal=dal, check_prerequisites=False, toolset_tags=toolset_tags
         )
 
         for toolset in all_toolsets_with_status:
@@ -219,7 +250,7 @@ class ToolsetManager:
 
         return all_toolsets_with_status
 
-    def list_enabled_console_toolsets(
+    def list_console_toolsets(
         self, dal: Optional[SupabaseDal] = None, refresh_status=False
     ) -> List[Toolset]:
         """
@@ -229,16 +260,15 @@ class ToolsetManager:
         refreshed specifically and cached locally.
         """
         toolsets_with_status = self.load_toolset_with_status(
-            dal, refresh_status=refresh_status
+            dal,
+            refresh_status=refresh_status,
+            enable_all_toolsets=True,
+            toolset_tags=self.cli_tool_tags,
         )
-        return [
-            ts
-            for ts in toolsets_with_status
-            if any(tag in self.cli_tool_tags for tag in ts.tags)
-        ]
+        return toolsets_with_status
 
     # TODO(mainred): cache and refresh periodically toolset status for server if necessary
-    def list_enabled_server_toolsets(
+    def list_server_toolsets(
         self, dal: Optional[SupabaseDal] = None, refresh_status=True
     ) -> List[Toolset]:
         """
@@ -248,13 +278,12 @@ class ToolsetManager:
         Refreshing the status by default for server to keep the toolsets up-to-date instead of relying on local cache.
         """
         toolsets_with_status = self.load_toolset_with_status(
-            dal, refresh_status=refresh_status
+            dal,
+            refresh_status=refresh_status,
+            enable_all_toolsets=False,
+            toolset_tags=self.server_tool_tags,
         )
-        return [
-            ts
-            for ts in toolsets_with_status
-            if any(tag in self.server_tool_tags for tag in ts.tags)
-        ]
+        return toolsets_with_status
 
     def _load_toolsets_from_paths(
         self,

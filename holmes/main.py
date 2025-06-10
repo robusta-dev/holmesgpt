@@ -1124,7 +1124,7 @@ def list_toolsets(
     """
     console = init_logging(verbose)
     config = Config.load_from_file(config_file)
-    cli_toolsets = config.toolset_manager.load_toolset_with_status()
+    cli_toolsets = config.toolset_manager.list_console_toolsets()
 
     pretty_print_toolset_status(cli_toolsets, console)
 
@@ -1139,7 +1139,7 @@ def refresh_toolsets(
     """
     console = init_logging(verbose)
     config = Config.load_from_file(config_file)
-    cli_toolsets = config.toolset_manager.load_toolset_with_status(refresh_status=True)
+    cli_toolsets = config.toolset_manager.list_console_toolsets(refresh_status=True)
     pretty_print_toolset_status(cli_toolsets, console)
 
 
