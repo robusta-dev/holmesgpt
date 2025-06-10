@@ -3,32 +3,31 @@ import os
 import os.path
 from typing import List, Optional
 
+import yaml  # type: ignore
+
 from holmes.core.supabase_dal import SupabaseDal
+from holmes.core.tools import Toolset, YAMLToolset
+from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
+from holmes.plugins.toolsets.datadog import DatadogToolset
 from holmes.plugins.toolsets.datetime import DatetimeToolset
-from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
-from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
-from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
-from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
+from holmes.plugins.toolsets.git import GitToolset
+from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
-from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
-
 from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
-from holmes.plugins.toolsets.newrelic import NewRelicToolset
-from holmes.plugins.toolsets.datadog import DatadogToolset
-from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
-from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
+from holmes.plugins.toolsets.log_filter import LogFilterToolset
+from holmes.plugins.toolsets.newrelic import NewRelicToolset
+from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
+from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
+from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
+from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
-from holmes.plugins.toolsets.git import GitToolset
-
-from holmes.core.tools import Toolset, YAMLToolset
-import yaml  # type: ignore
-
+from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -76,6 +75,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         RabbitMQToolset(),
         GitToolset(),
         BashExecutorToolset(),
+        LogFilterToolset(),
     ]
 
     return toolsets
