@@ -1,4 +1,5 @@
 $> python holmes.py ask "detect why the k8s pod client under namespace test-ns cannot resolve dns. Describe the steps you take and summarize the output of each tool call you make." -f ./test1/runbooks.md -i
+
 User: detect why the k8s pod client under namespace test-ns cannot resolve dns. Describe the steps you take and summarize the output of each tool call you make.
 Loading file test1/runbooks.md
 Running pre-check for clarifications...                                                                                                                                                                                                                                                                                                                                                                          main.py:267
