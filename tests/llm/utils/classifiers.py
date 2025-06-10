@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Union
 from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
+import logging
 import openai
 import os
 
@@ -23,8 +24,12 @@ if base_url:
 def evaluate_correctness(
     expected_elements: Union[str, List[str]],
     output: Optional[str],
+    caplog,
     evaluation_type: str = "strict",
 ):
+    caplog.set_level("INFO", logger="classifier")
+    logger = logging.getLogger("classifier")
+
     if isinstance(expected_elements, str):
         expected_elements = [expected_elements]
     expected_elements_str = "\n- ".join(expected_elements)
@@ -77,6 +82,20 @@ Possible choices:
     - A: The OUTPUT reasonably matches the EXPECTED content
     - B: The OUTPUT does not match the EXPECTED content
     """
+    if base_url:
+        logger.info(
+            f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+        )
+        logger.info(
+            "To use OpenAI instead, unset the environment variable AZURE_API_BASE"
+        )
+    else:
+        logger.info(
+            f"Evaluating correctness with OpenAI; model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+        )
+        logger.info(
+            "To use Azure OpenAI instead, set the environment variables AZURE_API_BASE, AZURE_API_VERSION, and AZURE_API_KEY"
+        )
 
     classifier = LLMClassifier(
         name="Correctness",

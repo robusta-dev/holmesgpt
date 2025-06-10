@@ -1,7 +1,7 @@
 # type: ignore
-from pathlib import Path
 import os
 import pytest
+from pathlib import Path
 
 from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
@@ -53,7 +53,7 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
+def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -111,7 +111,10 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
             else "strict"
         )
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected, evaluation_type=evaluation_type
+            output=output,
+            expected_elements=expected,
+            caplog=caplog,
+            evaluation_type=evaluation_type,
         )
         print(
             f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
