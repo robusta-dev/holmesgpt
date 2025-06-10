@@ -40,3 +40,7 @@ toolsets:
       - name: "kubectl_logs_all_containers_grep"
         description: "Search for a specific term in the logs of a single Kubernetes pod across all of its containers. Only provide a pod name, not a deployment or other resource."
         command: "kubectl logs {{pod_name}} -n {{ namespace }} --all-containers | grep {{ search_term }}"
+
+      - name: "kubectl_logs_grep_no_match"
+        description: "Filter out lines matching a specific regular expression from the logs of a single Kubernetes pod. Only provide a pod name, not a deployment or other resource."
+        command: "kubectl logs {{ pod_name }} -n {{ namespace }} | grep -v -P {{ pod_log_filter }}"
