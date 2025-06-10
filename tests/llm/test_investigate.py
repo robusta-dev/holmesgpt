@@ -21,7 +21,7 @@ from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
 from os import path
-from braintrust import Span
+from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
 
 TEST_CASES_FOLDER = Path(
@@ -152,7 +152,10 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
 
     print(f"** EXPECTED **\n-  {debug_expected}")
     correctness_eval = evaluate_correctness(
-        output=output, expected_elements=expected, parent_span=eval_span, evaluation_type="strict"
+        output=output,
+        expected_elements=expected,
+        parent_span=eval_span,
+        evaluation_type="strict",
     )
     print(
         f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"

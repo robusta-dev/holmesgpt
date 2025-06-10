@@ -143,6 +143,7 @@ class MockHelper:
                 if config_dict.get("user_prompt"):
                     config_dict["conversation_history"] = load_conversation_history(
                         test_case_folder
+                    )
                     extra_prompt = load_include_files(
                         test_case_folder, config_dict.get("include_files", None)
                     )
@@ -287,7 +288,8 @@ def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str,
         conversation_history.append({"role": role, "content": content})
 
     return conversation_history
-                      
+
+
 def load_include_files(
     test_case_folder: Path, include_files: Optional[list[str]]
 ) -> str:
@@ -298,4 +300,3 @@ def load_include_files(
             extra_prompt = append_file_to_user_prompt(extra_prompt, file_path)
 
     return extra_prompt
-

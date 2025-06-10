@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional, Union
 from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
 import openai
@@ -25,7 +25,7 @@ if base_url:
 def evaluate_correctness(
     expected_elements: Union[str, List[str]],
     output: Optional[str],
-  , parent_span: Span,
+    parent_span: Span,
     evaluation_type: str = "strict",
 ):
     with parent_span.start_span(

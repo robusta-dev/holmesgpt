@@ -110,13 +110,17 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
             result.messages[0]["content"]
             if result.messages and len(result.messages) > 0
             else result.prompt
+        )
         evaluation_type: str = (
             test_case.evaluation.correctness.type
             if isinstance(test_case.evaluation.correctness, Evaluation)
             else "strict"
         )
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected, parent_span=eval_span, evaluation_type=evaluation_type
+            output=output,
+            expected_elements=expected,
+            parent_span=eval_span,
+            evaluation_type=evaluation_type,
         )
 
         scores["correctness"] = correctness_eval.score
