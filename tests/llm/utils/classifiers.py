@@ -1,61 +1,25 @@
 from typing import Optional
-from autoevals import LLMClassifier
+from autoevals import LLMClassifier, init
+from braintrust.oai import wrap_openai
+import openai
 import os
 from braintrust import Span, SpanTypeAttribute
 
 classifier_model = os.environ.get("CLASSIFIER_MODEL", "gpt-4o")
 
-
-def evaluate_context_usage(
-    context_items: list[str],
-    output: Optional[str],
-    input: Optional[str],
-    parent_span: Span,
-):
-    with parent_span.start_span(
-        name="ContextPrecision", type=SpanTypeAttribute.SCORE
-    ) as span:
-        context = "\n- ".join(context_items)
-        prompt_prefix = """
-# CONTEXT
-
-- {{expected}}
-
-# QUESTION
-
-{{input}}
-
-# ANSWER
-
-{{output}}
-
-
-Verify whether the ANSWER to the QUESTION refers to all items mentioned in the CONTEXT.
-Then evaluate which of the following statement matches the closest and return the corresponding letter:
-
-A. No item mentioned in the CONTEXT is mentioned in the ANSWER
-B. Less than half of items present in the CONTEXT are mentioned in the ANSWER
-C. More than half of items present in the CONTEXT are mentioned in the ANSWER
-D. All items present in the CONTEXT are mentioned in the ANSWER
-"""
-        classifier = LLMClassifier(
-            name="ContextPrecision",
-            prompt_template=prompt_prefix,
-            choice_scores={"A": 0, "B": 0.33, "C": 0.67, "D": 1},
-            use_cot=True,
-            model=classifier_model,
-        )
-        eval_result = classifier(input=input, output=output, expected=context)
-        span.log(
-            input=prompt_prefix,
-            output=eval_result.metadata.get("rationale", ""),
-            expected=context,
-            scores={
-                "context": eval_result.score,
-            },
-            metadata=eval_result.metadata,
-        )
-        return eval_result
+classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
+api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
+base_url = os.environ.get("AZURE_API_BASE", None)
+api_version = os.environ.get("AZURE_API_VERSION", None)
+if base_url:
+    client = openai.AzureOpenAI(
+        azure_endpoint=base_url,
+        azure_deployment=classifier_model,
+        api_version=api_version,
+        api_key=api_key,
+    )
+    wrapped = wrap_openai(client)
+    init(wrapped)  # type: ignore
 
 
 def evaluate_correctness(

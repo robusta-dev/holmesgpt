@@ -21,6 +21,8 @@ class BaseOpenSearchConfig(BaseModel):
     opensearch_url: str
     index_pattern: str
     opensearch_auth_header: Optional[str] = None
+    # Setting to None will disable the cache
+    fields_ttl_seconds: Optional[int] = 14400  # 4 hours
 
 
 class OpenSearchLoggingConfig(BaseOpenSearchConfig):

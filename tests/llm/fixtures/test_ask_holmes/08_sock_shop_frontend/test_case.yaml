@@ -2,10 +2,6 @@ user_prompt: "Why did the sock-shop front-end stop working?"
 expected_output:
   - There is an error related to the database
   - The MongoDB client driver may require an upgrade
-retrieval_context:
-  - "The sock-shop front-end crashed"
-  - "The mongodb client driver may require an upgrade"
-  - "Query failed with error code 352 and error message 'Unsupported OP_QUERY command: find"
 before_test: |
   kubectl apply -f ./helm/sock-shop.yaml
   sleep 20

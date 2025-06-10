@@ -1,6 +1,0 @@
-{"toolset_name":"helm/core","tool_name":"helm_list"}
-stdout:
-NAME                  	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART                	APP VERSION
-robusta               	default  	9       	2025-02-24 14:58:03.874049875 +0100 CET	deployed	robusta-0.21.5       	0.21.5
-
-stderr:

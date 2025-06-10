@@ -19,9 +19,7 @@ from holmes.plugins.toolsets.grafana.common import (
 )
 def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
     base_url = get_base_url(config)
-
-    # Both loki and tempo provide the same /ready api
-    url = f"{base_url}/ready"
+    url = f"{base_url}/{config.healthcheck}"
     try:
         headers_ = build_headers(api_key=config.api_key, additional_headers=None)
 

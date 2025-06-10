@@ -1,6 +1,6 @@
+# type: ignore
 import json
 from typing import Any, Dict, List, Optional
-
 from holmes.config import parse_toolsets_file
 from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
 from holmes.plugins.toolsets import load_builtin_toolsets
@@ -38,6 +38,7 @@ class SaveMockTool(Tool):
     _toolset_name: str
     _unmocked_tool: Tool
     _test_case_folder: str
+    _add_params_to_mock_file: bool = True
 
     def __init__(
         self,
@@ -45,25 +46,31 @@ class SaveMockTool(Tool):
         test_case_folder: str,
         parent_span: Optional[Span] = None,
         toolset_name: str = "Unknown",
+        add_params_to_mock_file: bool = True,
     ):
         super().__init__(
             name=unmocked_tool.name,
             description=unmocked_tool.description,
             parameters=unmocked_tool.parameters,
             user_description=unmocked_tool.user_description,
+            add_params_to_mock_file=add_params_to_mock_file,
         )
         self._toolset_name = toolset_name
         self._unmocked_tool = unmocked_tool
         self._test_case_folder = test_case_folder
         self._parent_span = parent_span
+        self._add_params_to_mock_file = add_params_to_mock_file
 
-    def _get_mock_file_path(self):
-        return f"{self._test_case_folder}/{self.name}.txt{AUTO_GENERATED_FILE_SUFFIX}"
+    def _get_mock_file_path(self, tool_params: Dict):
+        if self.add_params_to_mock_file:
+            params_data = "_".join(tool_params.values())
+            params_data = f"_{params_data}"
+        else:
+            params_data = ""
+
+        return f"{self.test_case_folder}/{self.name}{params_data}.txt{AUTO_GENERATED_FILE_SUFFIX}"
 
     def _auto_generate_mock_file(self, params: Dict):
-        mock_file_path = self._get_mock_file_path()
-        logging.warning(f"Writing mock file for your convenience at {mock_file_path}")
-
         mock_metadata_json = MockMetadata(
             toolset_name=self._toolset_name, tool_name=self.name, match_params=params
         ).model_dump_json()
@@ -73,6 +80,9 @@ class SaveMockTool(Tool):
         content = output.data
         structured_output_without_data = output.model_dump()
         structured_output_without_data["data"] = None
+
+        mock_file_path = self._get_mock_file_path(params)
+        logging.warning(f"Writing mock file for your convenience at {mock_file_path}")
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata_json + "\n")
             f.write(json.dumps(structured_output_without_data) + "\n")
@@ -200,6 +210,7 @@ class MockToolsets:
     _mocks: List[ToolMock]
     generate_mocks: bool
     test_case_folder: str
+    add_params_to_mock_file: bool = True
 
     def __init__(
         self,
@@ -207,6 +218,7 @@ class MockToolsets:
         generate_mocks: bool = True,
         run_live: bool = False,
         parent_span: Optional[Span] = None,
+        add_params_to_mock_file: bool = True,
     ) -> None:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
@@ -214,6 +226,7 @@ class MockToolsets:
         self._mocks = []
         self.enabled_toolsets = []
         self.configured_toolsets = []
+        self.add_params_to_mock_file = add_params_to_mock_file
         self._enable_builtin_toolsets(run_live)
         self._update()
 
@@ -272,6 +285,7 @@ class MockToolsets:
                 toolset_name=toolset_name,
                 test_case_folder=self.test_case_folder,
                 parent_span=self._parent_span,
+                add_params_to_mock_file=self.add_params_to_mock_file,
             )
         else:
             return tool

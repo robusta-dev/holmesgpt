@@ -19,6 +19,7 @@ class GrafanaConfig(BaseModel):
     url: str
     grafana_datasource_uid: Optional[str] = None
     external_url: Optional[str] = None
+    healthcheck: Optional[str] = "ready"
 
 
 def build_headers(api_key: Optional[str], additional_headers: Optional[Dict[str, str]]):

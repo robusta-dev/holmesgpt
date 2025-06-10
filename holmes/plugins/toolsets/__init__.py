@@ -84,7 +84,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
 
 
 def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
-    all_toolsets = []
+    all_toolsets: List[Toolset] = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
 
     # Handle YAML toolsets

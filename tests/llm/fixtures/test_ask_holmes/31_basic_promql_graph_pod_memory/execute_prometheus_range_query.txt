@@ -3,7 +3,7 @@
   "status": "success",
   "random_key": "vwJA",
   "tool_name": "execute_prometheus_range_query",
-  "description": "Memory usage for robusta-holmes pod over the last 30 minutes",
+  "description": "Memory usage for robusta-holmes pod",
   "start": "1739973438",
   "end": "1739975238",
   "step": 30

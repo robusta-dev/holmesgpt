@@ -1,5 +1,5 @@
 import pytest
-from dateutil import parser
+from dateutil import parser  # type: ignore
 from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339, to_unix_ms
 from freezegun import freeze_time
 

@@ -1,4 +1,5 @@
 import os
+from typing import Any
 from holmes.core.tools import ToolResultStatus, ToolsetStatusEnum
 from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 import pytest
@@ -45,16 +46,16 @@ def loki_config() -> GrafanaLokiConfig:
         if os.environ.get(var) is None:
             pytest.skip(f"Missing required environment variable: {var}")
 
-    config = {
+    config_dict: dict[str, Any] = {
         "api_key": GRAFANA_API_KEY,
         "url": GRAFANA_URL,
         "grafana_datasource_uid": GRAFANA_LOKI_DATASOURCE_UID,
     }
 
     if GRAFANA_LOKI_X_SCOPE_ORGID:
-        config["headers"] = {"X-Scope-OrgID": GRAFANA_LOKI_X_SCOPE_ORGID}
+        config_dict["headers"] = {"X-Scope-OrgID": GRAFANA_LOKI_X_SCOPE_ORGID}
 
-    return GrafanaLokiConfig(**config)
+    return GrafanaLokiConfig(**config_dict)
 
 
 @pytest.fixture

@@ -5,4 +5,4 @@ expected_output: |
   argocd and then run something similar to `helm upgrade robusta robusta/robusta --values=generated_values.yaml`.
 evaluation:
   correctness: 0
-generate_mocks: True
+generate_mocks: False

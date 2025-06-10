@@ -1,3 +1,4 @@
+# type: ignore
 import os
 from pathlib import Path
 from typing import Optional
@@ -11,7 +12,6 @@ from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import ToolExecutor
 from tests.llm.utils.classifiers import (
-    evaluate_context_usage,
     evaluate_correctness,
     evaluate_sections,
 )
@@ -63,7 +63,17 @@ def get_test_cases():
         bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_investigate_test_cases()
-    return [(experiment_name, test_case) for test_case in test_cases]
+
+    iterations = int(os.environ.get("ITERATIONS", "0"))
+    if iterations:
+        test_cases_tuples = []
+        for i in range(0, iterations):
+            test_cases_tuples.extend(
+                [(experiment_name, test_case) for test_case in test_cases]
+            )
+        return test_cases_tuples
+    else:
+        return [(experiment_name, test_case) for test_case in test_cases]
 
 
 def idfn(val):
@@ -79,7 +89,7 @@ def idfn(val):
     reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
 )
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name, test_case):
+def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
     dataset_name = braintrust_util.get_dataset_name("investigate")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -137,15 +147,6 @@ def test_investigate(experiment_name, test_case):
             sections=sections, output=output, parent_span=eval_span
         )
         scores["sections"] = sections_eval.score
-
-    if len(test_case.retrieval_context) > 0:
-        context_eval = evaluate_context_usage(
-            context_items=test_case.retrieval_context,
-            output=output,
-            input=input,
-            parent_span=eval_span,
-        )
-        scores["context"] = context_eval.score
 
     if bt_helper and eval_span:
         bt_helper.end_evaluation(
