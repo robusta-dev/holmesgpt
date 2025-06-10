@@ -8,7 +8,7 @@ template = "builtin://generic_ask_conversation.jinja2"
 def test_prometheus_prompt_inclusion():
     # Case 1: prometheus/metrics is enabled
     ts = PrometheusToolset()
-    ts._status = ToolsetStatusEnum.ENABLED
+    ts.status = ToolsetStatusEnum.ENABLED
     context = {"toolsets": [ts]}
     rendered = load_and_render_prompt(template, context)
 
