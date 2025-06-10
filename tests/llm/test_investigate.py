@@ -19,7 +19,7 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
 from os import path
 from braintrust import Span
 from unittest.mock import patch
@@ -124,6 +124,26 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
         )
     assert result, "No result returned by investigate_issues()"
 
+    for tool_call in result.tool_calls:
+        # TODO: mock this instead so span start time & end time will be accurate.
+        # Also to include calls to llm spans
+        with eval.start_span(
+            name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
+        ) as tool_span:
+            # TODO: remove this after FE is ready
+            if isinstance(tool_call.result, dict):
+                tool_span.log(
+                    input=tool_call.description,
+                    output=tool_call.result.model_dump_json(indent=2),
+                    error=tool_call.result.error,
+                )
+            else:
+                tool_span.log(
+                    input=tool_call.description,
+                    output=tool_call.result,
+                    error=tool_call.result.error,
+                )
+
     output = result.analysis
 
     scores = {}
@@ -132,7 +152,7 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
 
     print(f"** EXPECTED **\n-  {debug_expected}")
     correctness_eval = evaluate_correctness(
-        output=output, expected_elements=expected, parent_span=eval_span
+        output=output, expected_elements=expected, parent_span=eval_span, evaluation_type="strict"
     )
     print(
         f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
@@ -172,7 +192,10 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
         ), f"Expected title {expected_section_title} in sections"
 
     if test_case.evaluation.correctness:
-        assert scores.get("correctness", 0) >= test_case.evaluation.correctness
+        expected_correctness = test_case.evaluation.correctness
+        if isinstance(expected_correctness, Evaluation):
+            expected_correctness = expected_correctness.expected_score
+        assert scores.get("correctness", 0) >= expected_correctness
 
     if test_case.expected_sections:
         for (
