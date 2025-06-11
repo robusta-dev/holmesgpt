@@ -1,6 +1,6 @@
 import json
 from typing import Dict, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import datetime
 
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
@@ -16,7 +16,7 @@ class GrafanaConfig(BaseModel):
 
     api_key: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
-    url: str
+    url: str = Field(..., description="The URL of the Grafana instance")
     grafana_datasource_uid: Optional[str] = None
     external_url: Optional[str] = None
     healthcheck: Optional[str] = "ready"

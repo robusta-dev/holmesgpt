@@ -1,11 +1,9 @@
-import logging
 from datetime import datetime
+import logging
 from typing import Any, List
 
 import yaml  # type: ignore
 
-
-from holmes.common.env_vars import ENABLE_HOLMES_TOOLSETS_FROM_SAAS
 from holmes.config import Config
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetDBModel
@@ -61,8 +59,6 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
             toolset_name=toolset.name,
             cluster_id=config.cluster_name,
             account_id=dal.account_id,
-            status=toolset.get_status(),
-            error=toolset.get_error(),
             updated_at=updated_at,
             config_schema=schema,
             version=toolset.version,
