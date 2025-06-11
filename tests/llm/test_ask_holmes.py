@@ -62,11 +62,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
     try:
         before_test(test_case)
-    except Exception as e:
-        after_test(test_case)
-        raise e
 
-    try:
         result = ask_holmes(test_case)
 
         if result.tool_calls:
@@ -88,6 +84,17 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                             output=tool_call.result,
                             error=tool_call.result.error,
                         )
+    except Exception as e:
+        bt_helper.end_evaluation(
+            input=test_case.user_prompt,
+            output=result.result or str(e),
+            expected=test_case.expected_output,
+            id=test_case.id,
+            scores={},
+        )
+        after_test(test_case)
+        raise
+
     finally:
         after_test(test_case)
 
