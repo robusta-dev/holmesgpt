@@ -4,8 +4,6 @@ from typing import Any, List
 
 import yaml  # type: ignore
 
-
-from holmes.common.env_vars import ENABLE_HOLMES_TOOLSETS_FROM_SAAS
 from holmes.config import Config
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetDBModel
