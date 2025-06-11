@@ -44,6 +44,8 @@ By enabling this toolset, HolmesGPT will be able to interact with Azure Kubernet
             cluster_name: "<your AKS cluster name>"
     ```
 
+    --8<-- "snippets/helm_upgrade_command.md"
+
 ## Advanced Configuration
 
 You can configure additional Azure settings:

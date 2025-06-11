@@ -52,6 +52,8 @@ For example if you access coralogix at `https://my-team.app.eu2.coralogix.com/` 
           enabled: false  # Disable default Kubernetes logging
     ```
 
+    --8<-- "snippets/helm_upgrade_command.md"
+
 ## Capabilities
 
 | Tool Name | Description |

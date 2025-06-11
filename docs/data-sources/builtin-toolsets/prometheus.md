@@ -39,6 +39,8 @@ Prior to generating a PromQL query, HolmesGPT tends to list the available metric
                     #    Authorization: "Basic <base_64_encoded_string>"
     ```
 
+    --8<-- "snippets/helm_upgrade_command.md"
+
 It is also possible to set the `PROMETHEUS_URL` environment variable instead of the above `prometheus_url` config key.
 
 ## Advanced configuration

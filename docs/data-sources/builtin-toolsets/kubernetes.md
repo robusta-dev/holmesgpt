@@ -38,7 +38,7 @@ holmes:
 
 By enabling this toolset, HolmesGPT will be able to read kubernetes pod logs.
 
-You may disable this toolset if you provide Holmes with an alternative toolset for log collection (such as Grafana Loki, OpenSearch, or Coralogix).
+--8<-- "snippets/toolsets_that_provide_logging.md"
 
 ### Configuration
 

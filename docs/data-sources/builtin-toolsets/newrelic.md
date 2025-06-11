@@ -2,6 +2,8 @@
 
 By enabling this toolset, HolmesGPT will be able to fetch logs and traces from New Relic. This allows Holmes to access your application performance data and logs stored in New Relic for investigation purposes.
 
+--8<-- "snippets/disable_default_logging_toolset.md"
+
 ## Prerequisites
 
 1. A New Relic User API Key

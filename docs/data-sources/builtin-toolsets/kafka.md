@@ -53,10 +53,7 @@ This toolset uses the AdminClient of the [confluent-kafka python library](https:
                           kafka_security_protocol: SASL_PLAINTEXT
     ```
 
-    Update your Helm values and run a Helm upgrade:
-    ```bash
-    helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
-    ```
+    --8<-- "snippets/helm_upgrade_command.md"
 
 Below is a description of the configuration field for each cluster:
 

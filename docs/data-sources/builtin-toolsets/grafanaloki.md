@@ -101,6 +101,8 @@ In this case, the Loki datasource UID is `klja8hsa-8a9c-4b35-1230-7baab22b02ee`.
           enabled: false # HolmesGPT's default logging mechanism MUST be disabled
     ```
 
+    --8<-- "snippets/helm_upgrade_command.md"
+
 ## Direct Connection
 
 The toolset can directly connect to a Loki instance without proxying through a Grafana instance. This is done by not setting the `grafana_datasource_uid` field. Not setting this field makes HolmesGPT assume that it is directly connecting to Loki.
@@ -139,6 +141,8 @@ The toolset can directly connect to a Loki instance without proxying through a G
         kubernetes/logs:
           enabled: false # HolmesGPT's default logging mechanism MUST be disabled
     ```
+
+    --8<-- "snippets/helm_upgrade_command.md"
 
 ## Advanced Configuration
 

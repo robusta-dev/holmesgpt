@@ -52,6 +52,8 @@ You **should** enable this toolset to replace the default Kubernetes logs toolse
           enabled: false # HolmesGPT's default logging mechanism MUST be disabled
     ```
 
+    --8<-- "snippets/helm_upgrade_command.md"
+
 ## Capabilities
 
 | Tool Name | Description |

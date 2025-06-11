@@ -55,6 +55,8 @@ You can find these in your DataDog account under Organization Settings > API Key
           enabled: false  # Disable default Kubernetes logging
     ```
 
+    --8<-- "snippets/helm_upgrade_command.md"
+
 ## Advanced Configuration
 
 You can customize the DataDog site and other parameters:

@@ -24,6 +24,8 @@ This toolset follows a two step process to detect partition:
                 management_url: <http://rabbitmq.rabbitmq:15672>
     ```
 
+    --8<-- "snippets/helm_upgrade_command.md"
+
 === "Holmes CLI"
 
     Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
