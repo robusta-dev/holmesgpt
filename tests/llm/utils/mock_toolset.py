@@ -63,7 +63,7 @@ class SaveMockTool(Tool):
 
     def _get_mock_file_path(self, tool_params: Dict):
         if self._add_params_to_mock_file:
-            params_data = "_".join(tool_params.values())
+            params_data = "_".join(str(v) for v in tool_params.values())
             params_data = f"_{params_data}"
         else:
             params_data = ""

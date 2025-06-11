@@ -1,5 +1,6 @@
 # type: ignore
 import os
+from typing import Optional
 import pytest
 from pathlib import Path
 
@@ -61,7 +62,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     )
 
     eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
-
+    result: Optional[LLMResult] = None
     try:
         before_test(test_case)
 
@@ -89,7 +90,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     except Exception as e:
         bt_helper.end_evaluation(
             input=test_case.user_prompt,
-            output=result.result or str(e),
+            output=result.result if result else str(e),
             expected=test_case.expected_output,
             id=test_case.id,
             scores={},
