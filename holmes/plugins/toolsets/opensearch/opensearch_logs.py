@@ -101,7 +101,7 @@ class OpenSearchLogsToolset(BasePodLoggingToolset):
                 self.opensearch_config.opensearch_url,
                 f"/{self.opensearch_config.index_pattern}/_search",
             )
-            logs_response = requests.get(
+            logs_response = requests.post(
                 url=url,
                 timeout=180,
                 verify=True,

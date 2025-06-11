@@ -308,7 +308,9 @@ def parse_logs(
                 # defensive code given logs are from an external API
                 structured_logs.append(
                     StructuredLog(
-                        timestamp_ms=None, content=log_line, container=container_name
+                        timestamp_ms=None,
+                        content=str(log_line),
+                        container=container_name,
                     )
                 )
                 continue

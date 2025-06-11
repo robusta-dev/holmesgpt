@@ -54,7 +54,7 @@ def parse_json_lines(raw_text) -> List[Dict[str, Any]]:
     return json_objects
 
 
-def normalize_datetime(date_str: str) -> str:
+def normalize_datetime(date_str: Optional[str]) -> str:
     """takes a date string as input and attempts to convert it into a standardized ISO 8601 format with UTC timezone (“Z” suffix) and microsecond precision.
     if any error occurs during parsing or formatting, it returns the original input string.
     The method specifically handles older Python versions by removing a trailing “Z” and truncating microseconds to 6 digits before parsing.
