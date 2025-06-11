@@ -94,7 +94,8 @@ markdown_extensions:
       repo: holmesgpt
   - pymdownx.mark
   - pymdownx.smartsymbols
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: docs
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
