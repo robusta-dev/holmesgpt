@@ -6,7 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tools import (
+    Toolset,
+    ToolsetStatusEnum,
+    ToolsetTag,
+    ToolsetType,
+    YAMLToolset,
+)
 from holmes.core.toolset_manager import ToolsetManager
 
 
@@ -43,11 +49,48 @@ def test__list_all_toolsets_merges_configs(
     config_toolset.check_prerequisites = MagicMock()
     mock_load_toolsets_from_config.return_value = [config_toolset]
 
-    toolset_manager.toolsets = {"config": {"enabled": True}}
+    toolset_manager.toolsets = {"config": {"description": "test config toolset"}}
     toolsets = toolset_manager._list_all_toolsets(check_prerequisites=False)
     names = [t.name for t in toolsets]
     assert "builtin" in names
     assert "config" in names
+
+
+@patch("holmes.core.toolset_manager.load_builtin_toolsets")
+def test__list_all_toolsets_override_builtin_config(
+    mock_load_builtin_toolsets, toolset_manager
+):
+    builtin_toolset = YAMLToolset(
+        name="builtin",
+        tags=[ToolsetTag.CORE],
+        description="Builtin toolset",
+        experimental=False,
+    )
+    mock_load_builtin_toolsets.return_value = [builtin_toolset]
+    toolset_manager.toolsets = {"builtin": {"enabled": False}}
+    toolsets = toolset_manager._list_all_toolsets(check_prerequisites=False)
+    assert len(toolsets) == 1
+    assert toolsets[0].enabled is False
+
+
+@patch("holmes.core.toolset_manager.load_builtin_toolsets")
+def test__list_all_toolsets_custom_toolset(mock_load_builtin_toolsets, toolset_manager):
+    builtin_toolset = YAMLToolset(
+        name="builtin",
+        tags=[ToolsetTag.CORE],
+        description="Builtin toolset",
+        experimental=False,
+    )
+    mock_load_builtin_toolsets.return_value = [builtin_toolset]
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmpfile:
+        data = {"toolsets": {"builtin": {"enabled": False}}}
+        json.dump(data, tmpfile, indent=2)
+        tmpfile_path = tmpfile.name
+    toolset_manager.custom_toolsets = [tmpfile_path]
+    toolsets = toolset_manager._list_all_toolsets(check_prerequisites=False)
+    assert len(toolsets) == 1
+    assert toolsets[0].enabled is False
+    os.remove(tmpfile_path)
 
 
 @patch("holmes.core.toolset_manager.ToolsetManager._list_all_toolsets")
