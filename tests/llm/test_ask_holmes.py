@@ -1,7 +1,7 @@
 # type: ignore
-from pathlib import Path
 import os
 import pytest
+from pathlib import Path
 
 from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
@@ -54,7 +54,7 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
+def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -64,9 +64,6 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
 
     try:
         before_test(test_case)
-    except Exception as e:
-        after_test(test_case)
-        raise e
 
     try:
         result = ask_holmes(test_case, parent_span=eval_span)
@@ -90,6 +87,17 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
                             output=tool_call.result,
                             error=tool_call.result.error,
                         )
+    except Exception as e:
+        bt_helper.end_evaluation(
+            input=test_case.user_prompt,
+            output=result.result or str(e),
+            expected=test_case.expected_output,
+            id=test_case.id,
+            scores={},
+        )
+        after_test(test_case)
+        raise
+
     finally:
         after_test(test_case)
 
@@ -121,6 +129,10 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
             expected_elements=expected,
             parent_span=eval_span,
             evaluation_type=evaluation_type,
+            caplog=caplog,
+        )
+        print(
+            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
         )
 
         scores["correctness"] = correctness_eval.score

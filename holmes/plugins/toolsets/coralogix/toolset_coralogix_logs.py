@@ -1,11 +1,18 @@
 from typing import Any, Optional, Tuple
+
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
+    Tool,
+    ToolParameter,
     ToolResultStatus,
+    Toolset,
     ToolsetTag,
 )
-
+from holmes.plugins.toolsets.consts import (
+    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+    TOOLSET_CONFIG_MISSING_ERROR,
+)
 from holmes.plugins.toolsets.coralogix.api import (
     build_query_string,
     get_start_end,
@@ -25,6 +32,7 @@ from holmes.plugins.toolsets.logging_api import (
 from holmes.plugins.toolsets.utils import (
     TOOLSET_CONFIG_MISSING_ERROR,
 )
+
 
 
 class CoralogixLogsToolset(BasePodLoggingToolset):
@@ -90,9 +98,9 @@ class CoralogixLogsToolset(BasePodLoggingToolset):
             data = f"link: {url}\nquery: {query_string}\n{logs}"
 
         return StructuredToolResult(
-            status=ToolResultStatus.ERROR
-            if logs_data.error
-            else ToolResultStatus.SUCCESS,
+            status=(
+                ToolResultStatus.ERROR if logs_data.error else ToolResultStatus.SUCCESS
+            ),
             error=logs_data.error,
             data=data,
             url=url,

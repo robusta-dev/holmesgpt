@@ -1,13 +1,14 @@
 # type: ignore
 import json
-from typing import Any, Dict, List, Optional
-from holmes.config import parse_toolsets_file
-from holmes.core.tools import Tool, Toolset, ToolsetStatusEnum, ToolsetYamlFromConfig
-from holmes.plugins.toolsets import load_builtin_toolsets
-from pydantic import BaseModel
 import logging
-import re
 import os
+import re
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
+
+from holmes.core.tools import StructuredToolResult, Tool, Toolset, ToolsetStatusEnum
+from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from holmes.core.tools import StructuredToolResult
 from braintrust import Span, SpanTypeAttribute
@@ -230,12 +231,12 @@ class MockToolsets:
         self._enable_builtin_toolsets(run_live)
         self._update()
 
-    def _load_toolsets_definitions(self, run_live) -> List[ToolsetYamlFromConfig]:
+    def _load_toolsets_definitions(self, run_live) -> List[Toolset]:
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
         toolsets_definitions = None
         if os.path.isfile(config_path):
-            toolsets_definitions = parse_toolsets_file(
-                path=config_path, raise_error=run_live
+            toolsets_definitions = load_toolsets_from_file(
+                toolsets_path=config_path, strict_check=False
             )
 
         return toolsets_definitions or []
@@ -312,7 +313,7 @@ class MockToolsets:
                 else:
                     mocked_tools.append(wrapped_tool)
 
-            if has_mocks or toolset.get_status() == ToolsetStatusEnum.ENABLED:
+            if has_mocks or toolset.status == ToolsetStatusEnum.ENABLED:
                 mocked_toolset = MockToolset(
                     name=toolset.name,
                     prerequisites=toolset.prerequisites,
@@ -321,6 +322,7 @@ class MockToolsets:
                     llm_instructions=toolset.llm_instructions,
                 )
                 mocked_toolset.tools = mocked_tools
+                mocked_toolset.status = ToolsetStatusEnum.ENABLED
                 mocked_toolsets.append(mocked_toolset)
 
         enabled_toolsets = mocked_toolsets

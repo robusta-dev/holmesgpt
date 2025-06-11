@@ -2,13 +2,18 @@ import os
 from typing import Any
 from holmes.core.tools import ToolResultStatus, ToolsetStatusEnum
 from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
+import time
 import pytest
 
-from holmes.plugins.toolsets.grafana.toolset_grafana_loki import (
-    GrafanaLokiToolset,
-)
+from holmes.core.tools import ToolsetStatusEnum
+from holmes.plugins.toolsets.grafana.grafana_api import get_health
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiConfig
 from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.grafana.toolset_grafana_loki import (
+    GetLokiLogsForResource,
+    GrafanaLokiConfig,
+    GrafanaLokiToolset,
+)
 
 
 REQUIRED_ENV_VARS = [
@@ -64,8 +69,12 @@ def loki_toolset(loki_config) -> GrafanaLokiToolset:
     toolset = GrafanaLokiToolset()
     toolset.config = loki_config.model_dump()
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED, toolset.get_error()
+
+    assert toolset.error is None
+    assert toolset.status == ToolsetStatusEnum.ENABLED
+    
     return toolset
+
 
 
 @pytest.mark.skipif(

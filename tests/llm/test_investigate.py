@@ -89,7 +89,7 @@ def idfn(val):
     reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
 )
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
+def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("investigate")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -98,6 +98,7 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
 
     config = MockConfig(test_case, eval_span)
     config.model = os.environ.get("MODEL", "gpt-4o")
+
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
         generate_mocks=test_case.generate_mocks,
@@ -155,6 +156,7 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase):
         output=output,
         expected_elements=expected,
         parent_span=eval_span,
+        caplog=caplog,
         evaluation_type="strict",
     )
     print(
