@@ -15,16 +15,16 @@
 ** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
 ** If there are too many logs, or not enough, narrow or widen the timestamps
 * If you are not provided with time information. Ignore start_timestamp and end_timestamp. Loki will default to the latest logs.
-{%- elif coralogix_ts and coralogix_ts.get_status() == "enabled" -%}
+{%- elif coralogix_ts and coralogix_ts.status == "enabled" -%}
 {% include '_default_log_prompt.jinja2' %}
-{%- elif k8s_base_ts and k8s_base_ts.get_status() == "enabled" -%}
+{%- elif k8s_base_ts and k8s_base_ts.status == "enabled" -%}
 {% include '_default_log_prompt.jinja2' %}
-{%- elif k8s_yaml_ts and k8s_yaml_ts.get_status() == "enabled" -%}
+{%- elif k8s_yaml_ts and k8s_yaml_ts.status == "enabled" -%}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.
 * Check both kubectl_logs and kubectl_previous_logs because a pod restart mean kubectl_logs may not have relevant logs
-{%- elif opensearch_ts and opensearch_ts.get_status() == "enabled" -%}
+{%- elif opensearch_ts and opensearch_ts.status == "enabled" -%}
 {% include '_default_log_prompt.jinja2' %}
 {%- else -%}
 * You have not been given access to tools to fetch kubernetes logs for nodes, pods, services or apps. This is likely a misconfiguration.

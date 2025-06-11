@@ -17,9 +17,9 @@ def test_no_logs_toolset():
 
 
 def test_kubernetes_yaml_toolset():
-    toolsets = load_toolsets_from_file(KUBERNETES_YAML_TOOLSET_PATH, is_default=True)
+    toolsets = load_toolsets_from_file(KUBERNETES_YAML_TOOLSET_PATH, strict_check=True)
     toolsets[0].enabled = True
-    toolsets[0]._status = ToolsetStatusEnum.ENABLED
+    toolsets[0].status = ToolsetStatusEnum.ENABLED
     prompt = load_and_render_prompt(
         "builtin://_fetch_logs.jinja2", {"toolsets": toolsets}
     )
@@ -30,7 +30,7 @@ def test_kubernetes_yaml_toolset():
 def test_kubernetes_python_toolset():
     toolset = KubernetesLogsToolset()
     toolset.enabled = True
-    toolset._status = ToolsetStatusEnum.ENABLED
+    toolset.status = ToolsetStatusEnum.ENABLED
     prompt = load_and_render_prompt(
         "builtin://_fetch_logs.jinja2", {"toolsets": [toolset]}
     )
@@ -41,7 +41,7 @@ def test_kubernetes_python_toolset():
 def test_opensearch_toolset():
     toolset = OpenSearchLogsToolset()
     toolset.enabled = True
-    toolset._status = ToolsetStatusEnum.ENABLED
+    toolset.status = ToolsetStatusEnum.ENABLED
     prompt = load_and_render_prompt(
         "builtin://_fetch_logs.jinja2", {"toolsets": [toolset]}
     )
