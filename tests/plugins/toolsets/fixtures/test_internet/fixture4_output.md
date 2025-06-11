@@ -2,37 +2,47 @@
 
 {{ message }}
 
-[Robusta\-dev](/Robusta-dev)
+[Robusta-dev](/Robusta-dev)
 /
-**[devops\-runbooks](/Robusta-dev/devops-runbooks)**
+**[devops-runbooks](/Robusta-dev/devops-runbooks)**
 Public
 
 * [Notifications](/login?return_to=%2FRobusta-dev%2Fdevops-runbooks) You must be signed in to change notification settings
 * [Fork
- 0](/login?return_to=%2FRobusta-dev%2Fdevops-runbooks)
+  0](/login?return_to=%2FRobusta-dev%2Fdevops-runbooks)
 * [Star
- 0](/login?return_to=%2FRobusta-dev%2Fdevops-runbooks)
+   0](/login?return_to=%2FRobusta-dev%2Fdevops-runbooks)
 
-   /certificate\-issues.md
-======================
+/
 
-Copy path          Latest commit
+certificate-issues.md
+=====================
+
+Copy path
+
+Latest commit
 -------------
 
- History
+History
 -------
 
-[History](/Robusta-dev/devops-runbooks/commits/main/cluster/certificate-issues.md)215 lines (164 loc) · 6\.76 KB/certificate\-issues.md
-======================
+[History](/Robusta-dev/devops-runbooks/commits/main/cluster/certificate-issues.md)
+
+215 lines (164 loc) · 6.76 KB
+
+/
+
+certificate-issues.md
+=====================
 
 File metadata and controls
 --------------------------
 
-*
-*
-*
+215 lines (164 loc) · 6.76 KB
 
-215 lines (164 loc) · 6\.76 KB[Raw](https://github.com/Robusta-dev/devops-runbooks/raw/refs/heads/main/cluster/certificate-issues.md)Troubleshooting Certificate Issues
+[Raw](https://github.com/Robusta-dev/devops-runbooks/raw/refs/heads/main/cluster/certificate-issues.md)
+
+Troubleshooting Certificate Issues
 ==================================
 
 Symptoms
@@ -65,7 +75,7 @@ Possible Causes
 Diagnosis Steps
 ---------------
 
-### 1\. Check Certificate Expiration
+### 1. Check Certificate Expiration
 
 ```
 # For kubeadm clusters, check expiration of all certificates
@@ -75,7 +85,7 @@ sudo kubeadm certs check-expiration
 sudo openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -dates
 ```
 
-### 2\. Check Certificate Content and SANs
+### 2. Check Certificate Content and SANs
 
 ```
 # Check certificate Subject and Subject Alternative Names
@@ -83,14 +93,14 @@ sudo openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -text | grep -A1 
 sudo openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -text | grep -A1 "Subject Alternative Name"
 ```
 
-### 3\. Verify Certificate Chain
+### 3. Verify Certificate Chain
 
 ```
 # Verify certificate is signed by the expected CA
 sudo openssl verify -CAfile /etc/kubernetes/pki/ca.crt /etc/kubernetes/pki/apiserver.crt
 ```
 
-### 4\. Check for Certificate Errors in Logs
+### 4. Check for Certificate Errors in Logs
 
 ```
 # Check kube-apiserver logs
@@ -103,7 +113,7 @@ sudo journalctl -u kubelet | grep -i certificate
 sudo crictl logs $(sudo crictl ps -a --name etcd -q)
 ```
 
-### 5\. Check System Time
+### 5. Check System Time
 
 ```
 # Check system time and NTP status
@@ -111,7 +121,7 @@ date
 timedatectl status
 ```
 
-### 6\. Check Certificate Permissions
+### 6. Check Certificate Permissions
 
 ```
 # Check permissions on certificate files
@@ -121,7 +131,7 @@ ls -la /etc/kubernetes/pki/
 Resolution Steps
 ----------------
 
-### 1\. Renew Expired Certificates
+### 1. Renew Expired Certificates
 
 For kubeadm clusters:
 
@@ -137,9 +147,9 @@ sudo kubeadm certs renew etcd-server
 # etc.
 ```
 
-For non\-kubeadm clusters, use your certificate management system or manually regenerate certificates.
+For non-kubeadm clusters, use your certificate management system or manually regenerate certificates.
 
-### 2\. Restart Components After Certificate Renewal
+### 2. Restart Components After Certificate Renewal
 
 ```
 # For static pods (in kubeadm), move manifest away and back
@@ -157,7 +167,7 @@ sudo mv /tmp/etcd.yaml /etc/kubernetes/manifests/
 sudo systemctl restart kubelet
 ```
 
-### 3\. Fix Kubelet Client Certificate
+### 3. Fix Kubelet Client Certificate
 
 If kubelet client certificate has issues:
 
@@ -170,7 +180,7 @@ sudo kubeadm init phase kubeconfig kubelet
 sudo systemctl restart kubelet
 ```
 
-### 4\. Fix Node Time Synchronization
+### 4. Fix Node Time Synchronization
 
 ```
 # Install NTP
@@ -189,7 +199,7 @@ sudo systemctl start chronyd
 sudo date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z"
 ```
 
-### 5\. Fix Certificate Permissions
+### 5. Fix Certificate Permissions
 
 ```
 # Set correct permissions for certificate files
@@ -198,7 +208,7 @@ sudo chmod 644 /etc/kubernetes/pki/*.crt
 sudo chown root:root /etc/kubernetes/pki/*
 ```
 
-### 6\. Fix Webhook Certificate Issues
+### 6. Fix Webhook Certificate Issues
 
 For webhook certificate issues:
 
@@ -209,7 +219,7 @@ kubectl patch mutatingwebhookconfiguration <webhook-name> \
   --type='json' -p="[{'op': 'replace', 'path': '/webhooks/0/clientConfig/caBundle', 'value':'${CA_BUNDLE}'}]"
 ```
 
-### 7\. Regenerate kubeconfig Files
+### 7. Regenerate kubeconfig Files
 
 If kubeconfig files have certificate issues:
 
@@ -221,7 +231,7 @@ sudo cp /etc/kubernetes/admin.conf /etc/kubernetes/admin.conf.backup
 sudo kubeadm init phase kubeconfig all
 ```
 
-### 8\. Full Certificate Recovery (Last Resort)
+### 8. Full Certificate Recovery (Last Resort)
 
 In the worst case, you may need to completely regenerate all certificates:
 
@@ -242,7 +252,7 @@ Prevention
 
 1. **Certificate Monitoring**: Set up monitoring for certificate expiration dates
 2. **Automated Renewal**: Implement automated certificate renewal
-3. **Certificate Management**: Use a certificate management solution like cert\-manager
+3. **Certificate Management**: Use a certificate management solution like cert-manager
 4. **Regular Testing**: Periodically test certificate renewal processes
 5. **Documentation**: Document certificate locations, renewal procedures, and expiration dates
 6. **Time Synchronization**: Ensure all nodes have synchronized time
@@ -260,4 +270,4 @@ Related Runbooks
 * [Kubelet Issues](/Robusta-dev/devops-runbooks/blob/main/cluster/kubelet-issues.md)
 * [Admission Controller Issues](/Robusta-dev/devops-runbooks/blob/main/cluster/admission-controller-issues.md)
 
- You can’t perform that action at this time.
+You can’t perform that action at this time.
