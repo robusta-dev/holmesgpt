@@ -6,9 +6,7 @@ from holmes.core.tools import (
     ToolsetTag,
     CallablePrerequisite,
 )
-from typing import Any, ClassVar, Tuple, Type
 
-from holmes.core.tools import CallablePrerequisite, Tool, Toolset, ToolsetTag
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.grafana.common import GrafanaConfig
 from holmes.plugins.toolsets.grafana.grafana_api import get_health
