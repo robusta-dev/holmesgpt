@@ -1,12 +1,11 @@
+from rich.console import Console
+
+from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
+from holmes.config import Config
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest
-from holmes.core.tool_calling_llm import (
-    ResourceInstructionDocument,
-    ResourceInstructions,
-)
-from rich.console import Console
-from holmes.config import Config
-from holmes.common.env_vars import HOLMES_POST_PROCESSING_PROMPT
+from holmes.core.resource_instruction import ResourceInstructionDocument
+from holmes.core.tool_calling_llm import ResourceInstructions
 
 
 def _test_investigate_issue_using_fetch_webpage():
@@ -29,7 +28,7 @@ def _test_investigate_issue_using_fetch_webpage():
     )
     console = Console()
     config = Config.load_from_env()
-    ai = config.create_issue_investigator(console, allowed_toolsets="*")
+    ai = config.create_issue_investigator(console)
 
     issue = Issue(
         id="",
@@ -73,7 +72,7 @@ def _test_investigate_issue_without_fetch_webpage():
     resource_instructions = ResourceInstructions(instructions=[], documents=[])
     console = Console()
     config = Config.load_from_env()
-    ai = config.create_issue_investigator(console, allowed_toolsets="*")
+    ai = config.create_issue_investigator(console)
 
     issue = Issue(
         id="",

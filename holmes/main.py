@@ -1,5 +1,10 @@
 # ruff: noqa: E402
 import os
+from holmes.core.prompt import append_file_to_user_prompt
+from collections import OrderedDict
+
+from tabulate import tabulate  # type: ignore
+
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -10,32 +15,36 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 
 
+import json
+import logging
 import socket
 import uuid
-import logging
 import warnings
-import json
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional
+
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
-from holmes.utils.file_utils import write_json_file
-from holmes.config import Config, SupportedTicketSources, SourceFactory
+
+from holmes import get_version  # type: ignore
+from holmes.config import (
+    DEFAULT_CONFIG_LOCATION,
+    Config,
+    SourceFactory,
+    SupportedTicketSources,
+)
+from holmes.core.resource_instruction import ResourceInstructionDocument
+from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
+from holmes.core.tools import Toolset
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.tool_calling_llm import (
-    LLMResult,
-    ResourceInstructionDocument,
-    ToolCallingLLM,
-)
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
-from holmes import get_version  # type: ignore
-
+from holmes.utils.file_utils import write_json_file
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
@@ -52,6 +61,13 @@ generate_app = typer.Typer(
     help="Generate new integrations or test data",
 )
 app.add_typer(generate_app, name="generate")
+toolset_app = typer.Typer(
+    add_completion=False,
+    name="toolset",
+    no_args_is_help=True,
+    help="Toolset management commands",
+)
+app.add_typer(toolset_app, name="toolset")
 
 
 class Verbosity(Enum):
@@ -126,7 +142,7 @@ opt_api_key: Optional[str] = typer.Option(
 )
 opt_model: Optional[str] = typer.Option(None, help="Model to use for the LLM")
 opt_config_file: Optional[Path] = typer.Option(
-    None,
+    DEFAULT_CONFIG_LOCATION,  # type: ignore
     "--config",
     help="Path to the config file. Defaults to ~/.holmes/config.yaml when it exists. Command line arguments take precedence over config file settings",
 )
@@ -134,11 +150,7 @@ opt_custom_toolsets: Optional[List[Path]] = typer.Option(
     [],
     "--custom-toolsets",
     "-t",
-    help="Path to a custom toolsets (can specify -t multiple times to add multiple toolsets)",
-)
-opt_allowed_toolsets: Optional[str] = typer.Option(
-    "*",
-    help="Toolsets the LLM is allowed to use to investigate (default is * for all available toolsets, can be comma separated list of toolset names)",
+    help="Path to a custom toolsets. The status of the custom toolsets specified here won't be cached (can specify -t multiple times to add multiple toolsets)",
 )
 opt_custom_runbooks: Optional[List[Path]] = typer.Option(
     [],
@@ -319,9 +331,8 @@ def ask(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
-    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     # semi-common options
@@ -372,13 +383,12 @@ def ask(
         api_key=api_key,
         model=model,
         max_steps=max_steps,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
     )
 
     ai = config.create_console_toolcalling_llm(
-        allowed_toolsets=allowed_toolsets,  # type: ignore
         dal=None,  # type: ignore
     )
     template_context = {
@@ -405,8 +415,7 @@ def ask(
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + initial_user_prompt)
     for path in include_file:  # type: ignore
-        f = path.open("r")
-        initial_user_prompt += f"\n\nAttached file '{path.absolute()}':\n{f.read()}"
+        initial_user_prompt = append_file_to_user_prompt(initial_user_prompt, path)
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
     messages = [
@@ -543,9 +552,8 @@ def alertmanager(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
-    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
@@ -576,11 +584,11 @@ def alertmanager(
         alertmanager_file=alertmanager_file,
         slack_token=slack_token,
         slack_channel=slack_channel,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
 
-    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)  # type: ignore
+    ai = config.create_console_issue_investigator()  # type: ignore
 
     source = config.create_alertmanager_source()
 
@@ -636,7 +644,7 @@ def generate_alertmanager_tests(
         None,
         help="Path to dump alertmanager alerts as json (if not given, output curl commands instead)",
     ),
-    config_file: Optional[str] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
     verbose: Optional[List[bool]] = opt_verbose,
 ):
     """
@@ -681,9 +689,8 @@ def jira(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
-    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
@@ -707,10 +714,10 @@ def jira(
         jira_username=jira_username,
         jira_api_key=jira_api_key,
         jira_query=jira_query,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets=allowed_toolsets)  # type: ignore
+    ai = config.create_console_issue_investigator()  # type: ignore
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()
@@ -781,8 +788,7 @@ def ticket(
         None,
         help="ticket ID to investigate (e.g., 'KAN-1')",
     ),
-    config_file: Optional[str] = opt_config_file,  # type: ignore
-    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
     system_prompt: Optional[str] = typer.Option(
         "builtin://generic_ticket.jinja2", help=system_prompt_help
     ),
@@ -827,9 +833,7 @@ def ticket(
         },
     )
 
-    ai = ticket_source.config.create_console_issue_investigator(
-        allowed_toolsets=allowed_toolsets  # type: ignore
-    )
+    ai = ticket_source.config.create_console_issue_investigator()
     console.print(
         f"[bold yellow]Analyzing ticket: {issue_to_investigate.name}...[/bold yellow]"
     )
@@ -876,9 +880,8 @@ def github(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
-    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
@@ -902,10 +905,10 @@ def github(
         github_pat=github_pat,
         github_repository=github_repository,
         github_query=github_query,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)  # type: ignore
+    ai = config.create_console_issue_investigator()
     source = config.create_github_source()
     try:
         issues = source.fetch_issues()
@@ -962,9 +965,8 @@ def pagerduty(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
-    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
@@ -987,10 +989,10 @@ def pagerduty(
         pagerduty_api_key=pagerduty_api_key,
         pagerduty_user_email=pagerduty_user_email,
         pagerduty_incident_key=pagerduty_incident_key,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)  # type: ignore
+    ai = config.create_console_issue_investigator()
     source = config.create_pagerduty_source()
     try:
         issues = source.fetch_issues()
@@ -1049,9 +1051,8 @@ def opsgenie(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
-    config_file: Optional[str] = opt_config_file,  # type: ignore
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
-    allowed_toolsets: Optional[str] = opt_allowed_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
@@ -1074,10 +1075,10 @@ def opsgenie(
         opsgenie_api_key=opsgenie_api_key,
         opsgenie_team_integration_key=opsgenie_team_integration_key,
         opsgenie_query=opsgenie_query,
-        custom_toolsets=custom_toolsets,
+        custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator(allowed_toolsets)  # type: ignore
+    ai = config.create_console_issue_investigator()
     source = config.create_opsgenie_source()
     try:
         issues = source.fetch_issues()
@@ -1111,6 +1112,57 @@ def opsgenie(
             console.print(
                 f"[bold]Not updating alert {issue.url}. Use the --update option to do so.[/bold]"
             )
+
+
+@toolset_app.command("list")
+def list_toolsets(
+    verbose: Optional[List[bool]] = opt_verbose,
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
+):
+    """
+    List build-in and custom toolsets status of CLI
+    """
+    console = init_logging(verbose)
+    config = Config.load_from_file(config_file)
+    cli_toolsets = config.toolset_manager.list_console_toolsets()
+
+    pretty_print_toolset_status(cli_toolsets, console)
+
+
+@toolset_app.command("refresh")
+def refresh_toolsets(
+    verbose: Optional[List[bool]] = opt_verbose,
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
+):
+    """
+    Refresh build-in and custom toolsets status of CLI
+    """
+    console = init_logging(verbose)
+    config = Config.load_from_file(config_file)
+    cli_toolsets = config.toolset_manager.list_console_toolsets(refresh_status=True)
+    pretty_print_toolset_status(cli_toolsets, console)
+
+
+def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
+    status_fields = ["name", "status", "enabled", "type", "path", "error"]
+    toolsets_status = []
+    for toolset in toolsets:
+        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
+        order_toolset_status = OrderedDict(
+            (k.capitalize(), toolset_status[k])
+            for k in status_fields
+            if k in toolset_status
+        )
+        toolsets_status.append(order_toolset_status)
+
+    table = tabulate(
+        toolsets_status,
+        headers="keys",
+        tablefmt="simple",
+        disable_numparse=True,
+    )
+
+    console.print(table)
 
 
 @app.command()

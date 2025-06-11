@@ -2,46 +2,41 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import List, Optional, Dict, Type, Union
-from pydantic_core import from_json
-import sentry_sdk
-import requests  # type: ignore
+from typing import Dict, List, Optional, Type, Union
 
+import requests  # type: ignore
+import sentry_sdk
+from litellm.types.utils import Message
+from openai import BadRequestError
+from openai.types.chat.chat_completion_message_tool_call import (
+    ChatCompletionMessageToolCall,
+)
+from pydantic import BaseModel
+from pydantic_core import from_json
+from rich.console import Console
+
+from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
+    parse_markdown_into_sections_from_hash_sign,
     process_response_into_sections,
 )
+from holmes.core.issue import Issue
+from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
+from holmes.core.resource_instruction import ResourceInstructions
+from holmes.core.runbooks import RunbookManager
+from holmes.core.tools import StructuredToolResult, ToolExecutor, ToolResultStatus
+from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
-from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.llm import LLM
-from openai import BadRequestError
-from openai.types.chat.chat_completion_message_tool_call import (
-    ChatCompletionMessageToolCall,
-)
-from pydantic import BaseModel
-from rich.console import Console
-
-from holmes.core.issue import Issue
-from holmes.core.runbooks import RunbookManager
-from holmes.core.tools import ToolExecutor
-from litellm.types.utils import Message
-from holmes.common.env_vars import (
-    ROBUSTA_API_ENDPOINT,
-    STREAM_CHUNKS_PER_PARSE,
-)
-from holmes.core.investigation_structured_output import (
-    parse_markdown_into_sections_from_hash_sign,
-)
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -115,20 +110,6 @@ class LLMResult(BaseModel):
         return "AI used info from issue and " + ",".join(
             [f"`{tool_call.description}`" for tool_call in self.tool_calls]
         )
-
-
-class ResourceInstructionDocument(BaseModel):
-    """Represents context necessary for an investigation in the form of a URL
-    It is expected that Holmes will use that URL to fetch additional context about an error.
-    This URL can for example be the location of a runbook
-    """
-
-    url: str
-
-
-class ResourceInstructions(BaseModel):
-    instructions: List[str] = []
-    documents: List[ResourceInstructionDocument] = []
 
 
 class ToolCallingLLM:

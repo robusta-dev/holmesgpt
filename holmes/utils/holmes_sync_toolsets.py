@@ -1,9 +1,8 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 from typing import Any, List
 
 import yaml  # type: ignore
-
 
 from holmes.config import Config
 from holmes.core.supabase_dal import SupabaseDal
@@ -13,10 +12,10 @@ from holmes.plugins.prompts import load_and_render_prompt
 
 def log_toolsets_statuses(toolsets: List[Toolset]):
     enabled_toolsets = [
-        toolset.name for toolset in toolsets if toolset.get_status().value == "enabled"
+        toolset.name for toolset in toolsets if toolset.status.value == "enabled"
     ]
     disabled_toolsets = [
-        toolset.name for toolset in toolsets if toolset.get_status().value != "enabled"
+        toolset.name for toolset in toolsets if toolset.status.value != "enabled"
     ]
     logging.info(f"Enabled toolsets: {enabled_toolsets}")
     logging.info(f"Disabled toolsets: {disabled_toolsets}")
@@ -55,8 +54,6 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
                 toolset_name=toolset.name,
                 cluster_id=config.cluster_name,
                 account_id=dal.account_id,
-                status=toolset.get_status(),
-                error=toolset.get_error(),
                 updated_at=updated_at,
             ).model_dump()
         )

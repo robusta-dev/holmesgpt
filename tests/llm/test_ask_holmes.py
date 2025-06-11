@@ -1,7 +1,7 @@
 # type: ignore
-from pathlib import Path
 import os
 import pytest
+from pathlib import Path
 
 from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
@@ -15,7 +15,7 @@ from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
-from tests.llm.utils.mock_utils import AskHolmesTestCase, MockHelper
+from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 
 
@@ -39,12 +39,7 @@ def get_test_cases():
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
     if iterations:
-        test_cases_tuples = []
-        for i in range(0, iterations):
-            test_cases_tuples.extend(
-                [(experiment_name, test_case) for test_case in test_cases]
-            )
-        return test_cases_tuples
+        return [(experiment_name, test_case) for test_case in test_cases] * iterations
     else:
         return [(experiment_name, test_case) for test_case in test_cases]
 
@@ -58,7 +53,7 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
+def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -67,11 +62,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
     eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
     try:
         before_test(test_case)
-    except Exception as e:
-        after_test(test_case)
-        raise e
 
-    try:
         result = ask_holmes(test_case)
 
         if result.tool_calls:
@@ -93,6 +84,17 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
                             output=tool_call.result,
                             error=tool_call.result.error,
                         )
+    except Exception as e:
+        bt_helper.end_evaluation(
+            input=test_case.user_prompt,
+            output=result.result or str(e),
+            expected=test_case.expected_output,
+            id=test_case.id,
+            scores={},
+        )
+        after_test(test_case)
+        raise
+
     finally:
         after_test(test_case)
 
@@ -110,8 +112,16 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
     with eval.start_span(
         name="Correctness", type=SpanTypeAttribute.SCORE
     ) as correctness_span:
+        evaluation_type: str = (
+            test_case.evaluation.correctness.type
+            if isinstance(test_case.evaluation.correctness, Evaluation)
+            else "strict"
+        )
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected
+            output=output,
+            expected_elements=expected,
+            caplog=caplog,
+            evaluation_type=evaluation_type,
         )
         print(
             f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
@@ -143,6 +153,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase):
 
     if test_case.evaluation.correctness:
         expected_correctness = test_case.evaluation.correctness
+        if isinstance(expected_correctness, Evaluation):
+            expected_correctness = expected_correctness.expected_score
         assert scores.get("correctness", 0) >= expected_correctness
 
 
