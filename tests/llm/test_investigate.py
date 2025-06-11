@@ -6,11 +6,11 @@ from typing import Optional
 import pytest
 
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import ToolExecutor
 from tests.llm.utils.classifiers import (
     evaluate_correctness,
     evaluate_sections,

@@ -7,7 +7,7 @@ import pytest
 import os
 
 from holmes.core.tools import ToolResultStatus
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.opensearch.opensearch_logs import (
     OpenSearchLogsToolset,
 )

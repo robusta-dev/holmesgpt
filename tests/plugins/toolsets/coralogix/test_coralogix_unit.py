@@ -13,7 +13,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     normalize_datetime,
     stringify_flattened_logs,
 )
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures")

@@ -30,13 +30,14 @@ from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tools import StructuredToolResult, ToolExecutor, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:

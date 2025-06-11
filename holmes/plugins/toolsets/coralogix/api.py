@@ -12,7 +12,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     parse_logs,
     CoralogixLogsMethodology,
 )
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
 )

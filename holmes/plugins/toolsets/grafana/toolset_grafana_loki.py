@@ -8,7 +8,7 @@ from holmes.plugins.toolsets.grafana.common import (
     get_base_url,
 )
 from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
-from holmes.plugins.toolsets.logging_api import (
+from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
     PodLoggingTool,

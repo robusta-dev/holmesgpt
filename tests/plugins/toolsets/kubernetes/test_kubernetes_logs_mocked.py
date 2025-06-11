@@ -5,7 +5,7 @@ from kubernetes.client.exceptions import ApiException
 
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
 
 def mock_k8s_read_log(

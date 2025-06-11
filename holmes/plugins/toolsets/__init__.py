@@ -141,14 +141,13 @@ def load_toolsets_from_config(
         try:
             toolset_type = config.get("type", ToolsetType.BUILTIN.value)
             # MCP server is not a built-in toolset, so we need to set the type explicitly
+            validated_toolset: Optional[Toolset] = None
             if toolset_type is ToolsetType.MCP:
-                validated_toolset: RemoteMCPToolset = RemoteMCPToolset(
-                    **config, name=name
-                )
+                validated_toolset = RemoteMCPToolset(**config, name=name)
             if strict_check:
-                validated_toolset: YAMLToolset = YAMLToolset(**config, name=name)  # type: ignore
+                validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
             else:
-                validated_toolset: ToolsetYamlFromConfig = ToolsetYamlFromConfig(  # type: ignore
+                validated_toolset = ToolsetYamlFromConfig(  # type: ignore
                     **config, name=name
                 )
 

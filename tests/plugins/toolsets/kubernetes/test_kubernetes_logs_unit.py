@@ -4,7 +4,7 @@ from holmes.plugins.toolsets.kubernetes_logs import (
     filter_logs,
     parse_logs,
 )
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.utils import to_unix_ms
 
 

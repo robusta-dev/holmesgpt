@@ -20,7 +20,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     build_coralogix_link_to_logs,
     stringify_flattened_logs,
 )
-from holmes.plugins.toolsets.logging_api import (
+from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
     PodLoggingTool,

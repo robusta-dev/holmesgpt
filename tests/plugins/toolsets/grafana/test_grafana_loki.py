@@ -5,7 +5,7 @@ from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 import pytest
 
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiConfig
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import (
     GrafanaLokiToolset,
 )

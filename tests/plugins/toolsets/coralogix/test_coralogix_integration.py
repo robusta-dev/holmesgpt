@@ -12,7 +12,7 @@ from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
 from holmes.plugins.toolsets.coralogix.utils import CoralogixConfig
-from holmes.plugins.toolsets.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
 
 REQUIRED_ENV_VARS = [

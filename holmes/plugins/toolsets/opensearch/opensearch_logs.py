@@ -11,7 +11,7 @@ from holmes.core.tools import (
     ToolResultStatus,
     ToolsetTag,
 )
-from holmes.plugins.toolsets.logging_api import (
+from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
     PodLoggingTool,
