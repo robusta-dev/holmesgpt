@@ -42,21 +42,6 @@ export OPENAI_API_KEY=123
 holmes ask "what pods are unhealthy in my cluster?" --model="openai/llama3.1"
 ```
 
-## Available Models
-
-```bash
-# Llama 3.1
-ollama pull llama3.1:8b    # 4.7GB
-ollama pull llama3.1:70b   # 40GB (requires powerful hardware)
-
-# Code Llama
-ollama pull codellama:7b   # 3.8GB
-ollama pull codellama:13b  # 7.3GB
-
-# Mistral
-ollama pull mistral:7b     # 4.1GB
-```
-
 ### Model Usage
 
 ```bash
@@ -65,12 +50,6 @@ holmes ask "pod analysis" --model="ollama_chat/llama3.1:8b"
 holmes ask "yaml debugging" --model="ollama_chat/codellama:7b"
 holmes ask "quick check" --model="ollama_chat/mistral:7b"
 ```
-
-!!! note "Hardware Requirements"
-    - **8GB RAM** - For 7B models
-    - **16GB RAM** - For 13B models
-    - **64GB RAM** - For 70B models
-    - **GPU (optional)** - Significantly faster inference
 
 ## Known Limitations
 

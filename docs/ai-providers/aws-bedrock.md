@@ -2,13 +2,6 @@
 
 Configure HolmesGPT to use AWS Bedrock foundation models.
 
-## Prerequisites
-
-Install the boto3 library:
-
-```bash
-pip install boto3>=1.28.57
-```
 
 ## Configuration
 
