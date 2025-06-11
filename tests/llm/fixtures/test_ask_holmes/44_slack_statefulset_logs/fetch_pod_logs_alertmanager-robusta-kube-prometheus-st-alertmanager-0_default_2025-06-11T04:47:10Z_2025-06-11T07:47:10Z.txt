@@ -1,0 +1,18 @@
+{"toolset_name":"kubernetes/logs","tool_name":"fetch_pod_logs","match_params":{"pod_name":"alertmanager-robusta-kube-prometheus-st-alertmanager-0","namespace":"default","start_time":"2025-06-11T04:47:10Z","end_time":"2025-06-11T07:47:10Z"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": null, "invocation": null, "params": {"namespace": "default", "pod_name": "alertmanager-robusta-kube-prometheus-st-alertmanager-0", "start_time": "2025-06-11T04:47:10Z", "end_time": "2025-06-11T07:47:10Z", "match": null, "limit": null}}
+alertmanager: ts=2025-06-11T07:11:24.323Z caller=main.go:245 level=info msg="Starting Alertmanager" version="(version=0.26.0, branch=HEAD, revision=d7b4f0c7322e7151d6e3b1e31cbc15361e295d8d)"
+alertmanager: ts=2025-06-11T07:11:24.325Z caller=main.go:246 level=info build_context="(go=go1.20.7, platform=linux/amd64, user=root@df8d7debeef4, date=20230824-11:11:58, tags=netgo)"
+alertmanager: ts=2025-06-11T07:11:24.364Z caller=coordinator.go:113 level=info component=configuration msg="Loading configuration file" file=/etc/alertmanager/config_out/alertmanager.env.yaml
+alertmanager: ts=2025-06-11T07:11:24.366Z caller=coordinator.go:126 level=info component=configuration msg="Completed loading of configuration file" file=/etc/alertmanager/config_out/alertmanager.env.yaml
+alertmanager: ts=2025-06-11T07:11:24.371Z caller=tls_config.go:274 level=info msg="Listening on" address=[::]:9093
+alertmanager: ts=2025-06-11T07:11:24.371Z caller=tls_config.go:313 level=info msg="TLS is disabled." http2=false address=[::]:9093
+config-reloader: level=info ts=2025-06-11T07:11:24.591038001Z caller=main.go:137 msg="Starting prometheus-config-reloader" version="(version=0.70.0, branch=refs/tags/v0.70.0, revision=c2c673f7123f3745a2a982b4a2bdc43a11f50fad)"
+config-reloader: level=info ts=2025-06-11T07:11:24.59109478Z caller=main.go:138 build_context="(go=go1.21.4, platform=linux/amd64, user=Action-Run-ID-7048794395, date=20231130-15:42:49, tags=unknown)"
+config-reloader: level=info ts=2025-06-11T07:11:24.591467541Z caller=reloader.go:246 msg="reloading via HTTP"
+config-reloader: level=info ts=2025-06-11T07:11:24.592626103Z caller=main.go:193 msg="Starting web server for metrics" listen=:8080
+config-reloader: level=info ts=2025-06-11T07:11:24.599087528Z caller=tls_config.go:274 msg="Listening on" address=[::]:8080
+config-reloader: level=info ts=2025-06-11T07:11:24.59941138Z caller=tls_config.go:277 msg="TLS is disabled." http2=false address=[::]:8080
+alertmanager: ts=2025-06-11T07:11:24.602Z caller=coordinator.go:113 level=info component=configuration msg="Loading configuration file" file=/etc/alertmanager/config_out/alertmanager.env.yaml
+alertmanager: ts=2025-06-11T07:11:24.603Z caller=coordinator.go:126 level=info component=configuration msg="Completed loading of configuration file" file=/etc/alertmanager/config_out/alertmanager.env.yaml
+config-reloader: level=info ts=2025-06-11T07:11:24.609155767Z caller=reloader.go:424 msg="Reload triggered" cfg_in=/etc/alertmanager/config/alertmanager.yaml.gz cfg_out=/etc/alertmanager/config_out/alertmanager.env.yaml watched_dirs=/etc/alertmanager/config
+config-reloader: level=info ts=2025-06-11T07:11:24.609216435Z caller=reloader.go:282 msg="started watching config file and directories for changes" cfg=/etc/alertmanager/config/alertmanager.yaml.gz out=/etc/alertmanager/config_out/alertmanager.env.yaml dirs=/etc/alertmanager/config

@@ -50,14 +50,13 @@ class CoralogixLogsToolset(BasePodLoggingToolset):
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
             return False, TOOLSET_CONFIG_MISSING_ERROR
-        
+
         self.config = CoralogixConfig(**config)
 
         if not self.config.api_key:
             return False, "Missing configuration field 'api_key'"
-        
+
         return health_check(domain=self.config.domain, api_key=self.config.api_key)
-        
 
     @property
     def coralogix_config(self) -> Optional[CoralogixConfig]:

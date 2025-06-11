@@ -72,21 +72,22 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
             for tool_call in result.tool_calls:
                 # TODO: mock this instead so span start time & end time will be accurate.
                 # Also to include calls to llm spans
-                with eval_span.start_span(
-                    name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-                ) as tool_span:
-                    if isinstance(tool_call.result, dict):
-                        tool_span.log(
-                            input=tool_call.description,
-                            output=tool_call.result.model_dump_json(indent=2),
-                            error=tool_call.result.error,
-                        )
-                    else:
-                        tool_span.log(
-                            input=tool_call.description,
-                            output=tool_call.result,
-                            error=tool_call.result.error,
-                        )
+                if eval_span:
+                    with eval_span.start_span(
+                        name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
+                    ) as tool_span:
+                        if isinstance(tool_call.result, dict):
+                            tool_span.log(
+                                input=tool_call.description,
+                                output=tool_call.result.model_dump_json(indent=2),
+                                error=tool_call.result.error,
+                            )
+                        else:
+                            tool_span.log(
+                                input=tool_call.description,
+                                output=tool_call.result,
+                                error=tool_call.result.error,
+                            )
     except Exception as e:
         bt_helper.end_evaluation(
             input=test_case.user_prompt,
@@ -113,38 +114,38 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     debug_expected = "\n-  ".join(expected)
     print(f"** EXPECTED **\n-  {debug_expected}")
 
-    if bt_helper and eval_span:
-        prompt = (
-            result.messages[0]["content"]
-            if result.messages and len(result.messages) > 0
-            else result.prompt
-        )
-        evaluation_type: str = (
-            test_case.evaluation.correctness.type
-            if isinstance(test_case.evaluation.correctness, Evaluation)
-            else "strict"
-        )
-        correctness_eval = evaluate_correctness(
-            output=output,
-            expected_elements=expected,
-            parent_span=eval_span,
-            evaluation_type=evaluation_type,
-            caplog=caplog,
-        )
-        print(
-            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
-        )
+    prompt = (
+        result.messages[0]["content"]
+        if result.messages and len(result.messages) > 0
+        else result.prompt
+    )
+    evaluation_type: str = (
+        test_case.evaluation.correctness.type
+        if isinstance(test_case.evaluation.correctness, Evaluation)
+        else "strict"
+    )
+    correctness_eval = evaluate_correctness(
+        output=output,
+        expected_elements=expected,
+        parent_span=eval_span,
+        evaluation_type=evaluation_type,
+        caplog=caplog,
+    )
+    print(
+        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
+    )
 
-        scores["correctness"] = correctness_eval.score
+    scores["correctness"] = correctness_eval.score
 
-        bt_helper.end_evaluation(
-            input=input,
-            output=output or "",
-            expected=str(expected),
-            id=test_case.id,
-            scores=scores,
-            prompt=prompt,
-        )
+    bt_helper.end_evaluation(
+        input=input,
+        output=output or "",
+        expected=str(expected),
+        id=test_case.id,
+        scores=scores,
+        prompt=prompt,
+    )
+
     if result.tool_calls:
         tools_called = [tc.description for tc in result.tool_calls]
     else:
@@ -160,7 +161,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         assert scores.get("correctness", 0) >= expected_correctness
 
 
-def ask_holmes(test_case: AskHolmesTestCase, parent_span: Span) -> LLMResult:
+def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLMResult:
     run_live = load_bool("RUN_LIVE", default=False)
     mock = MockToolsets(
         generate_mocks=test_case.generate_mocks,

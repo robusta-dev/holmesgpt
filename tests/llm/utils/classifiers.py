@@ -29,13 +29,17 @@ if base_url:
 def evaluate_correctness(
     expected_elements: Union[str, List[str]],
     output: Optional[str],
-    parent_span: Span,
+    parent_span: Optional[Span],
     caplog,
     evaluation_type: str = "strict",
 ):
-    with parent_span.start_span(
-        name="Correctness", type=SpanTypeAttribute.SCORE
-    ) as span:
+    span = None
+    try:
+        if parent_span:
+            span = parent_span.start_span(
+                name="Correctness", type=SpanTypeAttribute.SCORE
+            )
+
         expected_elements_str = "\n- ".join(expected_elements)
 
         caplog.set_level("INFO", logger="classifier")
@@ -93,20 +97,20 @@ Possible choices:
     - A: The OUTPUT reasonably matches the EXPECTED content
     - B: The OUTPUT does not match the EXPECTED content
     """
-    if base_url:
-        logger.info(
-            f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
-        )
-        logger.info(
-            "To use OpenAI instead, unset the environment variable AZURE_API_BASE"
-        )
-    else:
-        logger.info(
-            f"Evaluating correctness with OpenAI; model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
-        )
-        logger.info(
-            "To use Azure OpenAI instead, set the environment variables AZURE_API_BASE, AZURE_API_VERSION, and AZURE_API_KEY"
-        )
+        if base_url:
+            logger.info(
+                f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+            )
+            logger.info(
+                "To use OpenAI instead, unset the environment variable AZURE_API_BASE"
+            )
+        else:
+            logger.info(
+                f"Evaluating correctness with OpenAI; model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+            )
+            logger.info(
+                "To use Azure OpenAI instead, set the environment variables AZURE_API_BASE, AZURE_API_VERSION, and AZURE_API_KEY"
+            )
 
         classifier = LLMClassifier(
             name="Correctness",
@@ -123,22 +127,29 @@ Possible choices:
             input=input, output=output, expected=expected_elements_str
         )
 
-        span.log(
-            input=prompt_prefix,
-            output=correctness_eval.metadata.get("rationale", ""),
-            expected=expected_elements_str,
-            scores={
-                "correctness": correctness_eval.score,
-            },
-            metadata=correctness_eval.metadata,
-        )
-        return correctness_eval
+        if span:
+            span.log(
+                input=prompt_prefix,
+                output=correctness_eval.metadata.get("rationale", ""),
+                expected=expected_elements_str,
+                scores={
+                    "correctness": correctness_eval.score,
+                },
+                metadata=correctness_eval.metadata,
+            )
+    finally:
+        if span:
+            span.end()
+    return correctness_eval
 
 
 def evaluate_sections(
-    sections: dict[str, bool], output: Optional[str], parent_span: Span
+    sections: dict[str, bool], output: Optional[str], parent_span: Optional[Span]
 ):
-    with parent_span.start_span(name="Sections", type=SpanTypeAttribute.SCORE) as span:
+    span = None
+    try:
+        if parent_span:
+            span = parent_span.start_span(name="Sections", type=SpanTypeAttribute.SCORE)
         expected_sections = [
             section for section, expected in sections.items() if expected
         ]
@@ -201,14 +212,18 @@ Possible choices:
             input=unexpected_sections_str, output=output, expected=expected_sections_str
         )
 
-        span.log(
-            input=prompt_prefix,
-            output=correctness_eval.metadata.get("rationale", ""),
-            expected=expected_sections_str,
-            scores={
-                "sections": correctness_eval.score,
-            },
-            metadata=correctness_eval.metadata,
-        )
+        if span:
+            span.log(
+                input=prompt_prefix,
+                output=correctness_eval.metadata.get("rationale", ""),
+                expected=expected_sections_str,
+                scores={
+                    "sections": correctness_eval.score,
+                },
+                metadata=correctness_eval.metadata,
+            )
 
         return correctness_eval
+    finally:
+        if span:
+            span.end()
