@@ -34,6 +34,8 @@ data:
 
 ## Capabilities
 
+--8<-- "snippets/toolset_capabilities_intro.md"
+
 | Tool Name | Description |
 |-----------|-------------|
 | argocd_app_list | List ArgoCD applications |
@@ -41,3 +43,5 @@ data:
 | argocd_app_diff | Show differences between live and desired state |
 | argocd_app_manifests | Get manifests for an ArgoCD application |
 | argocd_app_resources | Get resources for an ArgoCD application |
+
+--8<-- "snippets/custom_toolset_appeal.md"

@@ -6,8 +6,11 @@ This toolset uses the AdminClient of the [confluent-kafka python library](https:
 
 ## Configuration
 
-```yaml
-holmes:
+=== "Holmes CLI"
+
+    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+
+    ```yaml
     toolsets:
         kafka/admin:
             enabled: true
@@ -25,7 +28,35 @@ holmes:
                       kafka_password: ****
                       kafka_sasl_mechanism: SCRAM-SHA-512
                       kafka_security_protocol: SASL_PLAINTEXT
-```
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```yaml
+    holmes:
+        toolsets:
+            kafka/admin:
+                enabled: true
+                config:
+                    kafka_clusters:
+                        - name: aks-prod-kafka
+                          kafka_broker: kafka-1.aks-prod-kafka-brokers.kafka.svc:9095
+                          kafka_username: kafka-plaintext-user
+                          kafka_password: ******
+                          kafka_sasl_mechanism: SCRAM-SHA-512
+                          kafka_security_protocol: SASL_PLAINTEXT
+                        - name: gke-stg-kafka
+                          kafka_broker: gke-kafka.gke-stg-kafka-brokers.kafka.svc:9095
+                          kafka_username: kafka-plaintext-user
+                          kafka_password: ****
+                          kafka_sasl_mechanism: SCRAM-SHA-512
+                          kafka_security_protocol: SASL_PLAINTEXT
+    ```
+
+    Update your Helm values and run a Helm upgrade:
+    ```bash
+    helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
 
 Below is a description of the configuration field for each cluster:
 
@@ -40,6 +71,8 @@ Below is a description of the configuration field for each cluster:
 
 ## Capabilities
 
+--8<-- "snippets/toolset_capabilities_intro.md"
+
 | Tool Name | Description |
 |-----------|-------------|
 | kafka_list_topics | List all Kafka topics |
@@ -47,3 +80,5 @@ Below is a description of the configuration field for each cluster:
 | kafka_list_consumers | List all consumer groups |
 | kafka_describe_consumer | Get detailed information about a consumer group |
 | kafka_consumer_lag | Check consumer lag for a consumer group |
+
+--8<-- "snippets/custom_toolset_appeal.md"

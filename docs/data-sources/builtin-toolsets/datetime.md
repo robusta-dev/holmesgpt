@@ -1,7 +1,6 @@
 # Datetime ✓
 
-!!! info "Enabled by Default"
-    This toolset is enabled by default and should typically remain enabled.
+--8<-- "snippets/enabled_by_default.md"
 
 By enabling this toolset, HolmesGPT will be able to get the current UTC date and time. This feature should be kept enabled as it can be necessary for other toolsets that rely on dates and time.
 
@@ -20,8 +19,5 @@ holmes:
             enabled: true
 ```
 
-## Capabilities
-
-| Tool Name | Description |
-|-----------|-------------|
+--8<-- "snippets/capabilities_table_header.md"
 | get_current_time | Return current time information. Useful to build queries that require a time information |

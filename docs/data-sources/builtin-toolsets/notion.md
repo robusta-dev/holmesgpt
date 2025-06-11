@@ -7,39 +7,61 @@ Enabling this toolset allows HolmesGPT to fetch pages from Notion, making it use
 ## Setup Instructions
 
 1. **Create a Webhook Integration**
-   - Go to the Notion Developer Portal.
-   - Create a new integration with **read content** capabilities.
+
+    - Go to the Notion Developer Portal.
+    - Create a new integration with **read content** capabilities.
 
 2. **Grant Access to Pages**
-   - Open the desired Notion page.
-   - Click the three dots in the top right.
-   - Select **Connections** and add your integration.
+
+    - Open the desired Notion page.
+    - Click the three dots in the top right.
+    - Select **Connections** and add your integration.
 
 3. **Configure Authentication**
-   - Retrieve the **Internal Integration Secret** from Notion.
-   - Create a Kubernetes secret in your cluster with this key.
-   - Configure the `NOTION_AUTH` environment variable.
+
+    - Retrieve the **Internal Integration Secret** from Notion.
+    - Create a Kubernetes secret in your cluster with this key.
+    - Configure the `NOTION_AUTH` environment variable.
 
 ## Configuration
 
-```yaml
-holmes:
-  additionalEnvVars:
-  - name: NOTION_AUTH
-    valueFrom:
-      secretKeyRef:
-        name: notion-secret-key
-        key: NOTION_SECRET_HERE
+=== "Holmes CLI"
+
+    First, set the environment variable:
+    ```bash
+    export NOTION_AUTH="<your Notion integration secret>"
+    ```
+
+    Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    ```yaml
     toolsets:
         notion:
             enabled: true
-            config:
-              additional_headers:
-                Authorization: Bearer {{ env.NOTION_AUTH }}
-```
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```yaml
+    holmes:
+        additionalEnvVars:
+            - name: NOTION_AUTH
+              value: "<your Notion integration secret>"
+        toolsets:
+            notion:
+                enabled: true
+                config:
+                    additional_headers:
+                        Authorization: Bearer {{ env.NOTION_AUTH }}
+    ```
+
+    --8<-- "snippets/helm_upgrade_command.md"
 
 ## Capabilities
+
+--8<-- "snippets/toolset_capabilities_intro.md"
 
 | Tool Name | Description |
 |-----------|-------------|
 | fetch_notion_webpage | Fetch a notion webpage. Use this to fetch notion runbooks if they are present before starting your investigation |
+
+--8<-- "snippets/custom_toolset_appeal.md"

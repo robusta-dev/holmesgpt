@@ -7,14 +7,19 @@ Read access to Docker resources.
 
 ## Configuration
 
-```yaml
-holmes:
+=== "Holmes CLI"
+
+    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+
+    ```yaml
     toolsets:
         docker/core:
             enabled: true
-```
+    ```
 
 ## Capabilities
+
+--8<-- "snippets/toolset_capabilities_intro.md"
 
 | Tool Name | Description |
 |-----------|-------------|
@@ -27,3 +32,5 @@ holmes:
 | docker_events | Get real-time events from the Docker server |
 | docker_history | Show the history of an image |
 | docker_diff | Inspect changes to files or directories on a container's filesystem |
+
+--8<-- "snippets/custom_toolset_appeal.md"

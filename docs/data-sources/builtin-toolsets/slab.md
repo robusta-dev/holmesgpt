@@ -8,28 +8,44 @@ Retrieve your Slab [API token](https://help.slab.com/en/articles/6545629-develop
 
 === "Holmes CLI"
 
-    First create the following environment variable:
-
+    First, set the environment variable:
     ```bash
     export SLAB_API_KEY="<your slab API key>"
     ```
 
     Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
-
     ```yaml
     toolsets:
-      slab:
-        enabled: true
+        slab:
+            enabled: true
     ```
 
-    To test, run:
+=== "Robusta Helm Chart"
 
-    ```bash
-    holmes ask "Why is my pod failing, if its a crashloopbackoff use the runbooks from slab"
+    ```yaml
+    holmes:
+        additionalEnvVars:
+            - name: SLAB_API_KEY
+              value: "<your slab API key>"
+        toolsets:
+            slab:
+                enabled: true
     ```
+
+    --8<-- "snippets/helm_upgrade_command.md"
+
+To test, run:
+
+```bash
+holmes ask "Why is my pod failing, if its a crashloopbackoff use the runbooks from slab"
+```
 
 ## Capabilities
+
+--8<-- "snippets/toolset_capabilities_intro.md"
 
 | Tool Name | Description |
 |-----------|-------------|
 | fetch_slab_document | Fetch a document from slab. Use this to fetch runbooks if they are present before starting your investigation. |
+
+--8<-- "snippets/custom_toolset_appeal.md"
