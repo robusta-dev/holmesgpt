@@ -3,14 +3,10 @@ from typing import Any, Optional, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
-    Tool,
-    ToolParameter,
     ToolResultStatus,
-    Toolset,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import (
-    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
     TOOLSET_CONFIG_MISSING_ERROR,
 )
 from holmes.plugins.toolsets.coralogix.api import (
@@ -29,10 +25,6 @@ from holmes.plugins.toolsets.logging_api import (
     FetchPodLogsParams,
     PodLoggingTool,
 )
-from holmes.plugins.toolsets.utils import (
-    TOOLSET_CONFIG_MISSING_ERROR,
-)
-
 
 
 class CoralogixLogsToolset(BasePodLoggingToolset):

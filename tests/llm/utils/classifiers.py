@@ -4,12 +4,7 @@ from braintrust.oai import wrap_openai
 import openai
 import os
 from braintrust import Span, SpanTypeAttribute
-import os
-from typing import Dict, List, Optional, Union
 
-import openai
-from autoevals import LLMClassifier, init
-from braintrust.oai import wrap_openai
 import logging
 
 classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
@@ -35,8 +30,8 @@ def evaluate_correctness(
     expected_elements: Union[str, List[str]],
     output: Optional[str],
     parent_span: Span,
-    evaluation_type: str = "strict",
     caplog,
+    evaluation_type: str = "strict",
 ):
     with parent_span.start_span(
         name="Correctness", type=SpanTypeAttribute.SCORE
@@ -49,7 +44,6 @@ def evaluate_correctness(
         if isinstance(expected_elements, str):
             expected_elements = [expected_elements]
         expected_elements_str = "\n- ".join(expected_elements)
-
 
         prompt_prefix = """
     You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that

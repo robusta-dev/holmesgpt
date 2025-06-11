@@ -65,7 +65,6 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     try:
         before_test(test_case)
 
-    try:
         result = ask_holmes(test_case, parent_span=eval_span)
 
         if result.tool_calls:

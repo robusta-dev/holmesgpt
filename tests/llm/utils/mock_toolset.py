@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, Tool, Toolset, ToolsetStatusEnum
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
-from holmes.core.tools import StructuredToolResult
 from braintrust import Span, SpanTypeAttribute
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
