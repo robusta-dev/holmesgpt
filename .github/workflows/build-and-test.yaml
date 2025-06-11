@@ -2,7 +2,25 @@
 # we test this on each commit/PR to catch build problems early
 name: Build and test HolmesGPT
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'mkdocs.yml'
+      - 'LICENSE.txt'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'mkdocs.yml'
+      - 'LICENSE.txt'
+  workflow_dispatch: {}
 
 jobs:
   check:
