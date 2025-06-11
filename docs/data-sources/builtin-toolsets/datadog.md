@@ -5,6 +5,8 @@ By enabling this toolset, HolmesGPT will be able to fetch logs from DataDog. Thi
 !!! warning "Logging Toolsets"
     Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
 
+--8<-- "snippets/toolsets_that_provide_logging.md"
+
 ## Prerequisites
 
 1. A DataDog API key with log access permissions

@@ -4,6 +4,8 @@ By enabling this toolset, HolmesGPT will be able to fetch logs and traces from N
 
 --8<-- "snippets/disable_default_logging_toolset.md"
 
+--8<-- "snippets/toolsets_that_provide_logging.md"
+
 ## Prerequisites
 
 1. A New Relic User API Key

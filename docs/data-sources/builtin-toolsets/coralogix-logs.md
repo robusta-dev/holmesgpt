@@ -7,6 +7,8 @@ You **should** enable this toolset to replace the default Kubernetes logs toolse
 !!! warning "Logging Toolsets"
     Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
 
+--8<-- "snippets/toolsets_that_provide_logging.md"
+
 ## Prerequisites
 
 1. A [Coralogix API key](https://coralogix.com/docs/developer-portal/apis/data-query/direct-archive-query-http-api/#api-key) which is assigned the `DataQuerying` permission preset

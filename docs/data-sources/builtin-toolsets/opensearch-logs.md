@@ -7,6 +7,8 @@ You **should** enable this toolset to replace the default Kubernetes logs toolse
 !!! warning "Logging Toolsets"
     Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
 
+--8<-- "snippets/toolsets_that_provide_logging.md"
+
 ## Configuration
 
 === "Holmes CLI"

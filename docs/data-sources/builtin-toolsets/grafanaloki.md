@@ -7,6 +7,8 @@ You **should** enable this toolset to replace the default Kubernetes logs toolse
 !!! warning "Logging Toolsets"
     Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
 
+--8<-- "snippets/toolsets_that_provide_logging.md"
+
 ## Proxying through Grafana
 
 This is the recommended approach because we intend to add more capabilities to the toolset that are only available with Grafana.
