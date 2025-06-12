@@ -429,3 +429,30 @@ def test_sync_toolsets_with_config_schema(mock_dal, mock_config, sample_toolset)
         assert config_schema["type"] == "object"
         assert config_schema["title"] == "SampleConfig"
         assert toolset_data["version"] == "1.0.0"
+
+
+@pytest.mark.parametrize(
+    "path, expected_configured_locally",
+    [(None, False), ("/etc/holmes/config/custom_toolset.yaml", True)],
+)
+def test_sync_toolsets_with_locally_configured_toolset(
+    path, expected_configured_locally, mock_dal, mock_config, sample_toolset
+):
+    with patch.multiple(
+        SampleToolset, config_class=SampleConfig, version="1.0.0"
+    ), patch(
+        "holmes.utils.holmes_sync_toolsets.ENABLE_HOLMES_TOOLSETS_FROM_SAAS", True
+    ):
+        sample_toolset.is_default = True
+        sample_toolset.type = ToolsetType.BUILTIN
+        sample_toolset.path = path
+        mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
+
+        holmes_sync_toolsets_status(mock_dal, mock_config)
+
+        mock_dal.sync_toolsets.assert_called_once()
+        call_args = mock_dal.sync_toolsets.call_args[0]
+
+        assert len(call_args[0]) == 1
+        toolset_data = call_args[0][0]
+        assert toolset_data["is_configured_locally"] == expected_configured_locally
