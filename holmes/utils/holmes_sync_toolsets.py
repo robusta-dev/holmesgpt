@@ -63,11 +63,12 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
             updated_at=updated_at,
             config_schema=schema,
             version=toolset.version,
+            is_configured_locally=toolset.is_configured_locally,
         )
         exclude = (
             None
             if ENABLE_HOLMES_TOOLSETS_FROM_SAAS
-            else {"config_schema", "version", "is_default"}
+            else {"config_schema", "version", "is_default", "is_configured_locally"}
         )
         toolset_data = toolset_model.model_dump(exclude=exclude)
         db_toolsets.append(toolset_data)

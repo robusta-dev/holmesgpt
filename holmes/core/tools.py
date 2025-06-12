@@ -455,6 +455,10 @@ class Toolset(BaseModel):
             context={"tool_names": tool_names, "config": self.config},
         )
 
+    @property
+    def is_configured_locally(self) -> bool:
+        return self.type == ToolsetType.BUILTIN and self.path is not None
+
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]  # type: ignore
@@ -563,3 +567,4 @@ class ToolsetDBModel(BaseModel):
     version: Optional[str] = None
     config_schema: Optional[Dict[str, Any]] = None
     is_default: bool
+    is_configured_locally: bool

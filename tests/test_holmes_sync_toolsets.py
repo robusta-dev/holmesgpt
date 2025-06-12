@@ -77,7 +77,7 @@ def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
     assert isinstance(toolset_data["updated_at"], str)
 
     # Backward compatibility
-    for key in ["is_default", "config_schema", "version"]:
+    for key in ["is_default", "config_schema", "version", "is_configured_locally"]:
         assert key not in toolset_data
 
 
