@@ -335,7 +335,7 @@ class OpenSearchLogsToolset(BaseOpenSearchToolset):
             name="opensearch/logs",
             description="OpenSearch integration to fetch logs",
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch_logs.html",
-            icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
+            icon_url="https://opensearch.org/wp-content/uploads/2025/01/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 GetLogFields(toolset=self),
