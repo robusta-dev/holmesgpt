@@ -47,7 +47,6 @@ class ToolsetManager:
     def cli_tool_tags(self) -> List[ToolsetTag]:
         """
         Returns the list of toolset tags that are relevant for CLI tools.
-        A toolset is considered a CLI tool if it has any of cli tool tags:
         """
         return [ToolsetTag.CORE, ToolsetTag.CLI]
 
@@ -55,7 +54,6 @@ class ToolsetManager:
     def server_tool_tags(self) -> List[ToolsetTag]:
         """
         Returns the list of toolset tags that are relevant for server tools.
-        A toolset is considered a server tool if it has any of UI tool tags:
         """
         return [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
@@ -80,6 +78,11 @@ class ToolsetManager:
             toolset.name: toolset for toolset in builtin_toolsets
         }
         builtin_toolsets_names = list(toolsets_by_name.keys())
+
+        if enable_all_toolsets:
+            for toolset in toolsets_by_name.values():
+                toolset.enabled = True
+
         # build-in toolset is enabled when it's explicitly enabled in the toolset or custom toolset config
         if self.toolsets is not None:
             toolsets_from_config = self._load_toolsets_from_config(
@@ -106,10 +109,6 @@ class ToolsetManager:
                 for name, toolset in toolsets_by_name.items()
                 if any(tag in toolset_tags for tag in toolset.tags)
             }
-
-        if enable_all_toolsets:
-            for toolset in toolsets_by_name.values():
-                toolset.enabled = True
 
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
@@ -140,6 +139,11 @@ class ToolsetManager:
                 builtin_toolsets_dict[toolset_name] = toolset_config
             else:
                 toolset_config["type"] = ToolsetType.CUSTOMIZED.value
+                # custom toolsets defaults to enabled when not explicitly disabled
+                if toolset_config.get("enabled", True) is False:
+                    toolset_config["enabled"] = False
+                else:
+                    toolset_config["enabled"] = True
                 custom_toolsets_dict[toolset_name] = toolset_config
 
         # built-in toolsets and built-in MCP servers in the config can override the existing fields of built-in toolsets

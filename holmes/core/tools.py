@@ -301,8 +301,6 @@ class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
     experimental: bool = False
 
-    # Built-in toolset is enabled when 1. it's specified in the config and 2. 'enabled' is not set to false
-    # Custom toolset is enabled when 'enabled' is not set to false
     enabled: bool = False
     name: str
     description: str
