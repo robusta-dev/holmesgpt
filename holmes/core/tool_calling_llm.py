@@ -557,6 +557,12 @@ class ToolCallingLLM:
                             },
                         )
                         return
+
+                messages.append(
+                    response_message.model_dump(
+                        exclude_defaults=True, exclude_unset=True, exclude_none=True
+                    )
+                )
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
@@ -567,12 +573,6 @@ class ToolCallingLLM:
                     )
             except Exception:
                 raise
-
-            messages.append(
-                response_message.model_dump(
-                    exclude_defaults=True, exclude_unset=True, exclude_none=True
-                )
-            )
 
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:

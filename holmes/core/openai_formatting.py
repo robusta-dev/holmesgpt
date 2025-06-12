@@ -40,7 +40,9 @@ def format_tool_to_open_ai_standard(
                     if param_attributes.required
                 ],
                 "type": "object",
+                "additionalProperties": False,
             },
+            "strict": True,
         },
     }
 
