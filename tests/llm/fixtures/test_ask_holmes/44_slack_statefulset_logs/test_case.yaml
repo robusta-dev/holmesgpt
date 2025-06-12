@@ -3,3 +3,4 @@ expected_output: "alertmanager running without issues"
 evaluation:
   correctness: 0
 generate_mocks: True
+# For setup, this test relies on Robusta being installed in the default namespace: `helm install robusta ... -n "default"`
