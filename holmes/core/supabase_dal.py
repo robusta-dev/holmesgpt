@@ -4,36 +4,33 @@ import json
 import logging
 import os
 import threading
-from typing import Dict, Optional, List, Tuple
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
 import yaml  # type: ignore
+from cachetools import TTLCache  # type: ignore
+from postgrest._sync.request_builder import SyncQueryRequestBuilder
+from postgrest.exceptions import APIError as PGAPIError
+from postgrest.types import ReturnMethod
+from pydantic import BaseModel
+from supabase import create_client
+from supabase.lib.client_options import ClientOptions
 
-from holmes.config_utils import get_env_replacement
-from holmes.core.tool_calling_llm import (
+from holmes.common.env_vars import (
+    ROBUSTA_ACCOUNT_ID,
+    ROBUSTA_CONFIG_PATH,
+    STORE_API_KEY,
+    STORE_EMAIL,
+    STORE_PASSWORD,
+    STORE_URL,
+)
+from holmes.core.resource_instruction import (
     ResourceInstructionDocument,
     ResourceInstructions,
 )
 from holmes.utils.definitions import RobustaConfig
-from postgrest.types import ReturnMethod
-from supabase import create_client
-from supabase.lib.client_options import ClientOptions
-from pydantic import BaseModel
-from cachetools import TTLCache  # type: ignore
-from postgrest._sync.request_builder import SyncQueryRequestBuilder
-from postgrest.exceptions import APIError as PGAPIError
-
-from holmes.common.env_vars import (
-    ROBUSTA_CONFIG_PATH,
-    ROBUSTA_ACCOUNT_ID,
-    STORE_URL,
-    STORE_API_KEY,
-    STORE_EMAIL,
-    STORE_PASSWORD,
-)
-
-from datetime import datetime, timedelta
-
+from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))

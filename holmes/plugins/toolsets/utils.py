@@ -1,20 +1,12 @@
 import datetime
-from typing import Dict, Optional, Tuple, Union
-from dateutil import parser  # type: ignore
 import time
+from typing import Dict, Optional, Tuple, Union
 
-ONE_HOUR_IN_SECONDS = 3600
-
-TOOLSET_CONFIG_MISSING_ERROR = "The toolset is missing its configuration"
+from dateutil import parser  # type: ignore
 
 
 def standard_start_datetime_tool_param_description(time_span_seconds: int):
     return f"Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to -{time_span_seconds}"
-
-
-STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION = (
-    "End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW"
-)
 
 
 def is_int(val):

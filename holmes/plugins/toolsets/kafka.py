@@ -1,35 +1,36 @@
 import logging
-from pydantic import BaseModel, ConfigDict
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import yaml  # type: ignore
-from typing import Any, Dict, List, Optional, Union, Tuple
-from holmes.core.tools import (
-    Tool,
-    ToolParameter,
-    Toolset,
-    ToolsetTag,
-    CallablePrerequisite,
-)
-from holmes.plugins.toolsets.utils import (
-    TOOLSET_CONFIG_MISSING_ERROR,
-    get_param_or_raise,
-)
 from confluent_kafka.admin import (
     AdminClient,
     BrokerMetadata,
     ClusterMetadata,
     ConfigResource,
+    ConsumerGroupDescription,
     GroupMember,
     GroupMetadata,
     KafkaError,
     ListConsumerGroupsResult,
     MemberAssignment,
     MemberDescription,
-    ConsumerGroupDescription,
     PartitionMetadata,
     TopicMetadata,
-    _TopicPartition as TopicPartition,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from confluent_kafka.admin import _TopicPartition as TopicPartition
+from pydantic import BaseModel, ConfigDict
+
+from holmes.core.tools import (
+    CallablePrerequisite,
+    StructuredToolResult,
+    Tool,
+    ToolParameter,
+    ToolResultStatus,
+    Toolset,
+    ToolsetTag,
+)
+from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
+from holmes.plugins.toolsets.utils import get_param_or_raise
 
 
 class KafkaClusterConfig(BaseModel):
