@@ -124,7 +124,7 @@ Possible choices:
         )
 
         correctness_eval = classifier(
-            input=input, output=output, expected=expected_elements_str
+            input=prompt_prefix, output=output, expected=expected_elements_str
         )
 
         if span:
@@ -137,10 +137,10 @@ Possible choices:
                 },
                 metadata=correctness_eval.metadata,
             )
+        return correctness_eval
     finally:
         if span:
             span.end()
-    return correctness_eval
 
 
 def evaluate_sections(

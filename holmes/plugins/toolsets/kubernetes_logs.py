@@ -216,6 +216,7 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             "previous": previous,
             "timestamps": True,
         }
+        print(f"query_params, {query_params}")
         try:
             if container_name:
                 query_params["container"] = container_name
@@ -223,17 +224,28 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             logs = self._core_v1_api.read_namespaced_pod_log(**query_params)
             return parse_logs(logs, container_name)
         except ApiException as e:
+            print("* EXCEPTION")
+            print(e)
+            logs = []
+            if e.body and e.body:
+                logs.append(
+                    StructuredLog(
+                        timestamp_ms=None, container=container_name, content=e.body
+                    )
+                )
             if e.status == 400 and "previous terminated container" in str(e).lower():
-                return []
+                return logs
             elif (
                 e.status == 400
                 and "a container name must be specified for pod" in str(e).lower()
             ):
                 # disregard this because we first try to explicitely fetch logs for all containers and only
                 # if there is no result do we not request logs for a specific container
-                return []
+                return logs
+            elif e.status == 400 and "is waiting to start" in str(e).lower():
+                return logs
             elif e.status == 404:
-                return []
+                return logs
             else:
                 logging.warning(
                     f"API error fetching logs. params={query_params}. Error: {str(e)}"

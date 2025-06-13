@@ -9,12 +9,10 @@ Alerts: Insignificant alert for devops testing purposes
 > **Alert labels**
 > - alertname `TestAlertDevops`
 > - context `non-prod.eu-west1.mgmt`
-> - deployment `robusta-kube-prometheus-st-operator`
-> - statefulset `alertmanager-robusta-kube-prometheus-st-alertmanager`
+> - deployment `prometheus-st-operator`
+> - statefulset `alertmanager`
 > - env `mgmt-non-prod`
 > - envType `non-prod`
-> - namespace `default`
-> - prometheus `prometheus/prometheus-kube-prometheus-prometheus`
-> - region `eu-west-1`
+> - namespace `ask-holmes-slack-statefulset-logs`
 > - severity `warning`
 > - team `devops`

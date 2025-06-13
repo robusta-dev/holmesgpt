@@ -7,7 +7,13 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from holmes.core.tools import StructuredToolResult, Tool, Toolset, ToolsetStatusEnum
+from holmes.core.tools import (
+    StructuredToolResult,
+    Tool,
+    ToolResultStatus,
+    Toolset,
+    ToolsetStatusEnum,
+)
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from braintrust import Span, SpanTypeAttribute
@@ -30,7 +36,21 @@ class ToolMock(MockMetadata):
     return_value: StructuredToolResult
 
 
-class SaveMockTool(Tool):
+def ensure_non_error_returned(
+    original_tool_result: Optional[StructuredToolResult],
+) -> StructuredToolResult:
+    if original_tool_result and original_tool_result.status in [
+        ToolResultStatus.SUCCESS,
+        ToolResultStatus.NO_DATA,
+    ]:
+        return original_tool_result
+    else:
+        return StructuredToolResult(
+            status=ToolResultStatus.NO_DATA, params=original_tool_result.params
+        )
+
+
+class FallbackToolWrapper(Tool):
     """
     Tool that saves the result of the tool call to file if invoked.
     """
@@ -47,6 +67,7 @@ class SaveMockTool(Tool):
         parent_span: Optional[Span] = None,
         toolset_name: str = "Unknown",
         add_params_to_mock_file: bool = True,
+        generate_mocks: bool = True,
     ):
         super().__init__(
             name=unmocked_tool.name,
@@ -60,6 +81,7 @@ class SaveMockTool(Tool):
         self._test_case_folder = test_case_folder
         self._parent_span = parent_span
         self._add_params_to_mock_file = add_params_to_mock_file
+        self._generate_mocks = generate_mocks
 
     def _get_mock_file_path(self, tool_params: Dict):
         if self._add_params_to_mock_file:
@@ -70,15 +92,13 @@ class SaveMockTool(Tool):
 
         return f"{self._test_case_folder}/{self.name}{params_data}.txt{AUTO_GENERATED_FILE_SUFFIX}"
 
-    def _auto_generate_mock_file(self, params: Dict):
+    def _auto_generate_mock_file(self, tool_result: StructuredToolResult, params: Dict):
         mock_metadata_json = MockMetadata(
             toolset_name=self._toolset_name, tool_name=self.name, match_params=params
         ).model_dump_json()
 
-        logging.info(f"Invoking tool {self._unmocked_tool}")
-        output = self._unmocked_tool.invoke(params)
-        content = output.data
-        structured_output_without_data = output.model_dump()
+        content = tool_result.data
+        structured_output_without_data = tool_result.model_dump()
         structured_output_without_data["data"] = None
 
         mock_file_path = self._get_mock_file_path(params)
@@ -89,8 +109,6 @@ class SaveMockTool(Tool):
             if content:
                 f.write(content)
 
-        return output
-
     def _invoke(self, params) -> StructuredToolResult:
         span = None
         if self._parent_span:
@@ -98,16 +116,23 @@ class SaveMockTool(Tool):
                 name=self.name, type=SpanTypeAttribute.TOOL
             )
         try:
-            result = self._auto_generate_mock_file(params)
-            metadata = result.model_dump()
-            tool_output = result.data
+            logging.info(f"Invoking tool {self._unmocked_tool}")
+            tool_result = self._unmocked_tool.invoke(params)
+            metadata = tool_result.model_dump()
             del metadata["data"]
+
+            if self._generate_mocks:
+                self._auto_generate_mock_file(tool_result, params)
+            else:
+                tool_result = ensure_non_error_returned(tool_result)
+
             if span:
                 span.log(
                     input=params,
-                    output=tool_output,
+                    output=tool_result.data,
                     metadata=metadata,
                 )
+            return tool_result
         except Exception as e:
             if span:
                 span.log(
@@ -118,7 +143,6 @@ class SaveMockTool(Tool):
         finally:
             if span:
                 span.end()
-        return result
 
     def get_parameterized_one_liner(self, params) -> str:
         return self._unmocked_tool.get_parameterized_one_liner(params)
@@ -246,7 +270,8 @@ class MockToolsets:
         toolset_definitions = self._load_toolsets_definitions(run_live)
 
         for toolset in self.unmocked_toolsets:
-            toolset.enabled = True
+            if toolset.is_default:
+                toolset.enabled = True
             definition = next(
                 (d for d in toolset_definitions if d.name == toolset.name), None
             )
@@ -279,16 +304,14 @@ class MockToolsets:
         return found_mocks
 
     def _wrap_tool(self, tool: Tool, toolset_name: str) -> Tool:
-        if self.generate_mocks:
-            return SaveMockTool(
-                unmocked_tool=tool,
-                toolset_name=toolset_name,
-                test_case_folder=self.test_case_folder,
-                parent_span=self._parent_span,
-                add_params_to_mock_file=self.add_params_to_mock_file,
-            )
-        else:
-            return tool
+        return FallbackToolWrapper(
+            unmocked_tool=tool,
+            toolset_name=toolset_name,
+            test_case_folder=self.test_case_folder,
+            parent_span=self._parent_span,
+            add_params_to_mock_file=self.add_params_to_mock_file,
+            generate_mocks=self.generate_mocks,
+        )
 
     def _update(self):
         mocked_toolsets = []
