@@ -11,7 +11,7 @@ classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "g
 api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
 base_url = os.environ.get("AZURE_API_BASE", None)
 api_version = os.environ.get("AZURE_API_VERSION", None)
-if base_url:
+if base_url and classifier_model.startswith('azure'):
     if len(classifier_model.split("/")) != 2:
         raise ValueError(
             f"Current classifier model '{classifier_model}' does not meet the pattern 'azure/<deployment-name>' when using Azure OpenAI."
