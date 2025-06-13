@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import logging
+import os
 import textwrap
 from typing import Dict, List, Optional, Type, Union
 
@@ -148,6 +149,56 @@ class ToolCallingLLM:
     ) -> LLMResult:
         return self.call(messages, post_process_prompt, response_format)
 
+
+    def _make_plan(self, messages: List[Dict[str, str]]):
+
+        messages.append({
+                "role": "system",
+                "content": """
+The user has asked for a question. Your job is to design a plan to help answer that question.
+You have a bunch of tools available to you to help with planning what tools to use.
+
+Once you have designed a plan, you will be asked in a subsequent message to execute that plan. 
+Only answer with a plan for now and make no tool call.
+
+Here is an example of a plan for answering the question `show me the logs for the statefulset xyz`:
+
+1. Run a kubectl command using the `run_bash_command` to find the statefulset `xyz`. Use as many kubectl commands as necessary to find the resource
+2. Run a kubectl command using the `run_bash_command` to find the pods related to the statefulset
+3. Use kubectl describe on the pods and the statefulset to get their statuses and detect any errors
+4. Use the tool fetch_pod_logs to get the logs for all pods linked to statefulset `xyz` and find out if there are runtime errors
+""",
+            })
+        completion = self.llm.completion(
+            messages=parse_messages_tags(messages),
+            tools=self.tool_executor.get_all_tools_openai_format(),
+            tool_choice='auto',
+            drop_params=True,
+        )
+
+        response = completion.choices[0]
+        response_message = response.message
+
+        new_message = response_message.model_dump(
+            exclude_defaults=True, exclude_unset=True, exclude_none=True
+        )
+        plan = new_message.get("content")
+
+        print(f"** PLAN: \n{plan}")
+        return plan
+        
+    def _append_execute_plan_instructions(self, plan:str, messages:List[Dict[str, str]]):
+
+        messages.append({
+                "role": "system",
+                "content": f"""
+Your goal is to answer the user's question.
+Execute the following plan step by step and then answer the user's question
+
+{plan}
+""",
+            })
+
     @sentry_sdk.trace
     def call(  # type: ignore
         self,
@@ -161,9 +212,11 @@ class ToolCallingLLM:
         tool_calls = []  # type: ignore
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
-        max_steps = self.max_steps
+        max_steps = 100 #self.max_steps
         i = 0
-
+        if os.environ.get("ENABLE_PLAN_MODE", False):
+            plan = self._make_plan(messages)
+            self._append_execute_plan_instructions(plan, messages)
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")

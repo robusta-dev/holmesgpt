@@ -9,3 +9,4 @@ after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/readiness_probe_fail/failing_readiness_probe.yaml
 evaluation:
   correctness: 1
+generate_mocks: True
