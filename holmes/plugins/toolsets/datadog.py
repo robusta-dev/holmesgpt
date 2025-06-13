@@ -116,6 +116,9 @@ class DatadogConfig(BaseModel):
 
 
 class DatadogToolset(Toolset):
+    config_class = DatadogConfig
+    version = "0.0.1"
+
     dd_api_key: Optional[str] = None
     dd_app_key: Optional[str] = None
 

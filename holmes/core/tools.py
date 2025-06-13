@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import json
 import logging
 import os
@@ -5,10 +6,19 @@ import re
 import shlex
 import subprocess
 import tempfile
-from abc import ABC, abstractmethod
-from datetime import datetime
+from typing import (
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Type,
+    Union,
+    Any,
+    Tuple,
+)
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from datetime import datetime
 
 import sentry_sdk
 from jinja2 import Template
@@ -300,6 +310,9 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    config_class: ClassVar[Optional[Type[BaseModel]]] = None
+    version: ClassVar[Optional[str]] = None
+
     experimental: bool = False
 
     enabled: bool = False
@@ -442,6 +455,10 @@ class Toolset(BaseModel):
             context={"tool_names": tool_names, "config": self.config},
         )
 
+    @property
+    def is_configured_locally(self) -> bool:
+        return self.type == ToolsetType.BUILTIN and self.path is not None
+
 
 class YAMLToolset(Toolset):
     tools: List[YAMLTool]  # type: ignore
@@ -547,3 +564,7 @@ class ToolsetDBModel(BaseModel):
     docs_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     updated_at: str = Field(default_factory=datetime.now().isoformat)
+    version: Optional[str] = None
+    config_schema: Optional[Dict[str, Any]] = None
+    is_default: bool
+    is_configured_locally: bool
