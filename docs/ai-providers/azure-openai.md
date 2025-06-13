@@ -19,16 +19,11 @@ export AZURE_API_KEY="your-azure-api-key"  # Optional, can use --api-key instead
 ### Usage
 
 ```bash
-holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_NAME> --api-key=<API_KEY>
+holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_MODEL_NAME> --api-key=<API_KEY>
 ```
 
 Replace `<DEPLOYMENT_NAME>` with your actual Azure OpenAI deployment name.
 
-## Environment Variables
-
-- **AZURE_API_VERSION** - API version (e.g., `2024-02-15-preview`)
-- **AZURE_API_BASE** - Your Azure endpoint URL (e.g., `https://my-org.openai.azure.com/`)
-- **AZURE_API_KEY** - Your Azure API key (optional if passed via `--api-key`)
 
 ## Available Models
 
@@ -42,8 +37,6 @@ holmes ask "analyze cluster issues" --model=azure/gpt-4-deployment
 holmes ask "quick cluster check" --model=azure/gpt-35-turbo-deployment
 ```
 
-!!! note
-    Model availability varies by region. Check your Azure portal for available models.
 
 ## Troubleshooting
 
