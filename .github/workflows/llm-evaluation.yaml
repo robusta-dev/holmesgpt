@@ -3,23 +3,8 @@ name: Evaluate LLM test cases
 on:
   pull_request:
     branches: ["*"]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - '*.md'
-      - '**/*.md'
-      - 'docs/**'
-      - '.gitignore'
-      - 'mkdocs.yml'
-      - 'LICENSE.txt'
   push:
     branches: [master]
-    paths-ignore:
-      - '*.md'
-      - '**/*.md'
-      - 'docs/**'
-      - '.gitignore'
-      - 'mkdocs.yml'
-      - 'LICENSE.txt'
 
 permissions:
   pull-requests: write
