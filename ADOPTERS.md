@@ -16,6 +16,7 @@ If you're using HolmesGPT in your organization or as an individual, please add y
 | Organization | Contact | Description of Use |
 | ------------ | ------- | ------------------ |
 | Microsoft Azure Kubernetes Service(AKS) Team | [aritraghosh](https://github.com/aritraghosh) | We use it for troubleshooting all kinds of issue in clusters including node readiness, pod scheduling, DNS configuration, upgrades  |
+| Innovaccer(Cloud Infrastructure) Team | [chitender](https://github.com/chitender) | We use it inside our homeGrown Infrainsights solution for troubleshooting P0/P1 incidents, automated RCA/Investigations of issues, analyse APM and logs for analysis  |
 
 ## Individual Users
 

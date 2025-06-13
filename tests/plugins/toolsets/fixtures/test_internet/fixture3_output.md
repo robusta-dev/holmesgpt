@@ -1,26 +1,24 @@
-
-
-Kube Container Waiting \| kube\-prometheus runbooks
+Kube Container Waiting | kube-prometheus runbooks
 
 KubeContainerWaiting
- [\#](#kubecontainerwaiting)
-=================================================
+[#](#kubecontainerwaiting)
+===============================================
 
 Meaning
- [\#](#meaning)
------------------------
+[#](#meaning)
+---------------------
 
 Container in pod is in Waiting state for too long.
 
 Impact
- [\#](#impact)
----------------------
+[#](#impact)
+-------------------
 
 Service degradation or unavailability.
 
 Diagnosis
- [\#](#diagnosis)
----------------------------
+[#](#diagnosis)
+-------------------------
 
 * Check pod events via `kubectl -n $NAMESPACE describe pod $POD`.
 * Check pod logs via `kubectl -n $NAMESPACE logs $POD -c $CONTAINER`
@@ -29,7 +27,7 @@ Diagnosis
 * Check for node taints and capabilities.
 
 Mitigation
- [\#](#mitigation)
------------------------------
+[#](#mitigation)
+---------------------------
 
 See [Container waiting](https://kubernetes.io/docs/tasks/debug-application-cluster/debug-application/#my-pod-stays-waiting)
