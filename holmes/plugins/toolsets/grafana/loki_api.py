@@ -67,16 +67,16 @@ def query_loki_logs_by_label(
     headers: Optional[Dict[str, str]],
     namespace: str,
     label_value: str,
-    filter_regexp: Optional[str],
+    match: Optional[str],
     start: Union[int, str],
     end: Union[int, str],
     label: str,
     namespace_search_key: str = "namespace",
     limit: int = 200,
 ) -> List[Dict]:
-    query = f'{{{namespace_search_key}="{namespace}", {label}=~"{label_value}"}}'
-    if filter_regexp:
-        query += f' |~ "{filter_regexp}"'
+    query = f'{{{namespace_search_key}="{namespace}", {label}="{label_value}"}}'
+    if match:
+        query += f' |= "{match}"'
     return execute_loki_query(
         base_url=base_url,
         api_key=api_key,

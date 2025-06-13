@@ -1,19 +1,17 @@
-{"toolset_name":"kubernetes/extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"deployment","name":"my-http-app-deployment","namespace":"default"}}
-stdout:
-NAME                                                                         READY   STATUS                                                                                                      AGE
-Deployment/my-http-app-deployment                                            1/1                                                                                                                 8s
-├── Event/my-http-app-deployment.180b81ad9f8eb0fd                            -       ScalingReplicaSet: Scaled up replica set my-http-app-deployment-75cdcff8b4 to 1                             8s
-└── ReplicaSet/my-http-app-deployment-75cdcff8b4                             1/1                                                                                                                 8s
-    ├── Event/my-http-app-deployment-75cdcff8b4.180b81ada0626ef0             -       SuccessfulCreate: Created pod: my-http-app-deployment-75cdcff8b4-5kzjx                                      8s
-    └── Pod/my-http-app-deployment-75cdcff8b4-5kzjx                          1/1     Running                                                                                                     8s
-        ├── Event/my-http-app-deployment-75cdcff8b4-5kzjx.180b81ada0ca6a09   -       Scheduled: Successfully assigned default/my-http-app-deployment-75cdcff8b4-5kzjx to kind-control-plane      8s
-        ├── Event/my-http-app-deployment-75cdcff8b4-5kzjx.180b81adba88e648   -       Pulling: Pulling image "nginx"                                                                              8s
-        ├── Event/my-http-app-deployment-75cdcff8b4-5kzjx.180b81aded25de1e   -       Pulled: Successfully pulled image "nginx" in 849ms (849ms including waiting). Image size: 72955450 bytes.   7s
-        ├── Event/my-http-app-deployment-75cdcff8b4-5kzjx.180b81adef617c63   -       Created: Created container my-http-app                                                                      7s
-        ├── Event/my-http-app-deployment-75cdcff8b4-5kzjx.180b81adf45f290c   -       Started: Started container my-http-app                                                                      7s
-        ├── Service/kubernetes                                               -                                                                                                                   8d
-        └── Service/my-http-service                                          -                                                                                                                   8s
-            ├── EndpointSlice/my-http-service-ts4rh                          -                                                                                                                   8s
-            └── Ingress/my-http-ingress                                      -                                                                                                                   8s
-
-stderr:
+{"toolset_name":"kubernetes/kube-lineage-extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"deployment","name":"my-http-app-deployment","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kube-lineage deployment my-http-app-deployment -n default", "params": {"kind": "deployment", "name": "my-http-app-deployment", "namespace": "default"}}
+NAME                                                                         READY   STATUS                                                                                                          AGE
+Deployment/my-http-app-deployment                                            1/1                                                                                                                     2m24s
+├── Event/my-http-app-deployment.183f62ba9afb3f63                            -       ScalingReplicaSet: Scaled up replica set my-http-app-deployment-75cdcff8b4 to 1                                 2m24s
+└── ReplicaSet/my-http-app-deployment-75cdcff8b4                             1/1                                                                                                                     2m24s
+    ├── Event/my-http-app-deployment-75cdcff8b4.183f62ba9bdf7496             -       SuccessfulCreate: Created pod: my-http-app-deployment-75cdcff8b4-kmj67                                          2m24s
+    └── Pod/my-http-app-deployment-75cdcff8b4-kmj67                          1/1     Running                                                                                                         2m24s
+        ├── Event/my-http-app-deployment-75cdcff8b4-kmj67.183f62ba9c4d163c   -       Scheduled: Successfully assigned default/my-http-app-deployment-75cdcff8b4-kmj67 to kind-double-node-worker     2m24s
+        ├── Event/my-http-app-deployment-75cdcff8b4-kmj67.183f62baba19fa14   -       Pulling: Pulling image "nginx"                                                                                  2m24s
+        ├── Event/my-http-app-deployment-75cdcff8b4-kmj67.183f62bd164dfb6c   -       Pulled: Successfully pulled image "nginx" in 10.136s (10.136s including waiting). Image size: 72404038 bytes.   2m14s
+        ├── Event/my-http-app-deployment-75cdcff8b4-kmj67.183f62bd18cf0233   -       Created: Created container my-http-app                                                                          2m14s
+        ├── Event/my-http-app-deployment-75cdcff8b4-kmj67.183f62bd1fbf7188   -       Started: Started container my-http-app                                                                          2m14s
+        ├── Service/kubernetes                                               -                                                                                                                       29d
+        └── Service/my-http-service                                          -                                                                                                                       2m24s
+            ├── EndpointSlice/my-http-service-ql5b9                          -                                                                                                                       2m24s
+            └── Ingress/my-http-ingress                                      -                                                                                                                       2m24s

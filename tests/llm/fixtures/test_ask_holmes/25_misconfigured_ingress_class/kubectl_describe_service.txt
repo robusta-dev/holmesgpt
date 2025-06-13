@@ -1,0 +1,18 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"service","name":"my-http-service","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe service my-http-service -n default", "params": {"kind": "service", "name": "my-http-service", "namespace": "default"}}
+Name:                     my-http-service
+Namespace:                default
+Labels:                   <none>
+Annotations:              <none>
+Selector:                 app=my-http-app
+Type:                     ClusterIP
+IP Family Policy:         SingleStack
+IP Families:              IPv4
+IP:                       10.96.26.69
+IPs:                      10.96.26.69
+Port:                     <unset>  80/TCP
+TargetPort:               8080/TCP
+Endpoints:                10.244.1.53:8080
+Session Affinity:         None
+Internal Traffic Policy:  Cluster
+Events:                   <none>

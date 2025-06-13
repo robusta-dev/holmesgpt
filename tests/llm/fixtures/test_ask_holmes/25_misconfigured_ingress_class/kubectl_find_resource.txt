@@ -1,5 +1,3 @@
 {"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"deployment","keyword":"my-http-app-deployment"}}
-stdout:
-default              my-http-app-deployment                1/1     1            1           6s     my-http-app                                           nginx                                                                                                      app=my-http-app                                                                <none>
-
-stderr:
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get -A --show-labels -o wide deployment | grep my-http-app-deployment", "params": {"kind": "deployment", "keyword": "my-http-app-deployment"}}
+default              my-http-app-deployment                1/1     1            1           2m22s   my-http-app                                           nginx                                                                                                      app=my-http-app                                                                                                <none>

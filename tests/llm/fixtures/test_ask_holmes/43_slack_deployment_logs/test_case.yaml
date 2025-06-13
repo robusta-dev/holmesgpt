@@ -1,0 +1,10 @@
+user_prompt: "Fetch the logs for the last 6 hours of this deployment"
+expected_output: "Unable to connect to Database"
+before_test: |
+  kubectl apply -f ./helm/sock-shop.yaml
+  sleep 20
+after_test: |
+  kubectl delete -f ./helm/sock-shop.yaml || true
+evaluation:
+  correctness: 1
+generate_mocks: False

@@ -19,6 +19,30 @@ class CoralogixQueryResult(BaseModel):
     error: Optional[str]
 
 
+class CoralogixLabelsConfig(BaseModel):
+    pod: str = "kubernetes.pod_name"
+    namespace: str = "kubernetes.namespace_name"
+    log_message: str = "log"
+
+
+class CoralogixLogsMethodology(str, Enum):
+    FREQUENT_SEARCH_ONLY = "FREQUENT_SEARCH_ONLY"
+    ARCHIVE_ONLY = "ARCHIVE_ONLY"
+    ARCHIVE_FALLBACK = "ARCHIVE_FALLBACK"
+    FREQUENT_SEARCH_FALLBACK = "FREQUENT_SEARCH_FALLBACK"
+    BOTH_FREQUENT_SEARCH_AND_ARCHIVE = "BOTH_FREQUENT_SEARCH_AND_ARCHIVE"
+
+
+class CoralogixConfig(BaseModel):
+    team_hostname: str
+    domain: str
+    api_key: str
+    labels: CoralogixLabelsConfig = CoralogixLabelsConfig()
+    logs_retrieval_methodology: CoralogixLogsMethodology = (
+        CoralogixLogsMethodology.ARCHIVE_FALLBACK
+    )
+
+
 def parse_json_lines(raw_text) -> List[Dict[str, Any]]:
     """Parses JSON objects from a raw text response."""
     json_objects = []
@@ -30,46 +54,11 @@ def parse_json_lines(raw_text) -> List[Dict[str, Any]]:
     return json_objects
 
 
-def indent_multiline_log_message(indent_char_count: int, log_message: str):
-    """improves human readability of logs by indenting logs that span multiple lines.
-    This is important because lines for a single logs() call on a system may span multiple coralogix log lines.
-
-    e.g.
-    instead of printing this:
-    ```
-    2025-03-25T07:43:39.062945526Z Require stack:
-         at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
-         at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
-         at Module.require (node:internal/modules/cjs/loader:1491:12)
-       code: 'MODULE_NOT_FOUND',
-    2025-03-25T07:43:39.062945626Z etc.
-    ```
-
-    this method will print:
-
-    ```
-    2025-03-25T07:43:39.062945526Z Require stack:
-                                       at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
-                                       at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
-                                       at Module.require (node:internal/modules/cjs/loader:1491:12)
-                                     code: 'MODULE_NOT_FOUND',
-    2025-03-25T07:43:39.062945626Z etc.
-    ```
+def normalize_datetime(date_str: Optional[str]) -> str:
+    """takes a date string as input and attempts to convert it into a standardized ISO 8601 format with UTC timezone (“Z” suffix) and microsecond precision.
+    if any error occurs during parsing or formatting, it returns the original input string.
+    The method specifically handles older Python versions by removing a trailing “Z” and truncating microseconds to 6 digits before parsing.
     """
-    lines = log_message.replace("\r", "\n").split("\n")
-    log_message = lines.pop(0)
-    while (
-        not log_message and len(lines) > 0
-    ):  # Some log messages start with a line feed or return carriage. Make sure the first line is not empty
-        log_message = lines.pop(0)
-    for new_line in lines:
-        if new_line.strip():
-            line = "\n" + (" " * indent_char_count) + new_line
-            log_message += line
-    return log_message
-
-
-def normalize_datetime(date_str: str) -> str:
     if not date_str:
         return "UNKNOWN_TIMESTAMP"
 
@@ -113,11 +102,7 @@ def flatten_structured_log_entries(
 def stringify_flattened_logs(log_entries: List[FlattenedLog]) -> str:
     formatted_logs = []
     for entry in log_entries:
-        prefix = f"{entry.timestamp} "
-        log_message = indent_multiline_log_message(
-            indent_char_count=len(prefix), log_message=entry.log_message
-        )
-        formatted_logs.append(f"{prefix}{log_message}")
+        formatted_logs.append(entry.log_message)
 
     return "\n".join(formatted_logs) if formatted_logs else "No logs found."
 
@@ -140,7 +125,7 @@ def parse_json_objects(json_objects: List[Dict[str, Any]]) -> List[FlattenedLog]
 
     logs.sort(key=lambda x: x[0])
 
-    return logs  # stringify_flattened_logs(logs)
+    return logs
 
 
 def parse_logs(raw_logs: str) -> List[FlattenedLog]:
@@ -155,45 +140,6 @@ def parse_logs(raw_logs: str) -> List[FlattenedLog]:
             f"Unexpected error in format_logs for a coralogix API response: {str(e)}"
         )
         raise e
-
-
-class CoralogixLabelsConfig(BaseModel):
-    pod: str = "kubernetes.pod_name"
-    namespace: str = "kubernetes.namespace_name"
-    application: str = "coralogix.metadata.applicationName"
-    subsystem: str = "coralogix.metadata.subsystemName"
-
-
-class CoralogixLogsMethodology(str, Enum):
-    FREQUENT_SEARCH_ONLY = "FREQUENT_SEARCH_ONLY"
-    ARCHIVE_ONLY = "ARCHIVE_ONLY"
-    ARCHIVE_FALLBACK = "ARCHIVE_FALLBACK"
-    FREQUENT_SEARCH_FALLBACK = "FREQUENT_SEARCH_FALLBACK"
-    BOTH_FREQUENT_SEARCH_AND_ARCHIVE = "BOTH_FREQUENT_SEARCH_AND_ARCHIVE"
-
-
-class CoralogixConfig(BaseModel):
-    team_hostname: str
-    domain: str
-    api_key: str
-    labels: CoralogixLabelsConfig = CoralogixLabelsConfig()
-    logs_retrieval_methodology: CoralogixLogsMethodology = (
-        CoralogixLogsMethodology.ARCHIVE_FALLBACK
-    )
-
-
-def get_resource_label(params: Dict, config: CoralogixConfig):
-    resource_type = params.get("resource_type", "pod")
-    label = None
-    if resource_type == "pod":
-        label = config.labels.pod
-    elif resource_type == "application":
-        label = config.labels.application
-    elif resource_type == "subsystem":
-        label = config.labels.subsystem
-    else:
-        return f'Error: unsupported resource type "{resource_type}". resource_type must be one of pod, application or subsystem'
-    return label
 
 
 def build_coralogix_link_to_logs(
