@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Optional, Tuple
 
 from holmes.core.tools import (
@@ -149,6 +150,7 @@ class CoralogixLogsToolset(BaseCoralogixToolset):
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
             return False, TOOLSET_CONFIG_MISSING_ERROR
+        logging.info(f"Coralogix config: {config}")
         self.config = CoralogixConfig(**config)
         if self.config.api_key:
             return health_check(domain=self.config.domain, api_key=self.config.api_key)

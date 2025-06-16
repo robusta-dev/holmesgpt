@@ -17,6 +17,10 @@ from pydantic import BaseModel
 from supabase import create_client
 from supabase.lib.client_options import ClientOptions
 
+from holmes.clients.robusta_client import (
+    HolmesToolsetConfig,
+    fetch_holmes_toolset_config,
+)
 from holmes.common.env_vars import (
     ROBUSTA_ACCOUNT_ID,
     ROBUSTA_CONFIG_PATH,
@@ -417,13 +421,16 @@ class SupabaseDal:
                 "You're trying to use ROBUSTA_AI, but Cannot get credentials for ROBUSTA_AI. Store not initialized."
             )
 
+        session_token = self.get_session_token()
+        return self.account_id, session_token
+
+    def get_session_token(self):
         with self.lock:
             session_token = self.token_cache.get("session_token")
             if not session_token:
                 session_token = self.create_session_token()
                 self.token_cache["session_token"] = session_token
-
-        return self.account_id, session_token
+        return session_token
 
     def get_workload_issues(self, resource: dict, since_hours: float) -> List[str]:
         if not self.enabled or not resource:
@@ -538,3 +545,7 @@ class SupabaseDal:
             logging.exception(
                 f"An error occurred during toolset synchronization: {e}", exc_info=True
             )
+
+    def get_toolset_configs(self) -> List[HolmesToolsetConfig]:
+        token = self.get_session_token()
+        return fetch_holmes_toolset_config(token, self.account_id, self.cluster)

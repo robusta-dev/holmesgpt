@@ -6,6 +6,8 @@ from typing import Any, List, Optional
 from benedict import benedict
 from pydantic import FilePath
 
+from holmes.clients.robusta_client import HolmesToolsetConfig
+from holmes.common.env_vars import ENABLE_HOLMES_TOOLSETS_FROM_SAAS
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
@@ -109,6 +111,20 @@ class ToolsetManager:
                 for name, toolset in toolsets_by_name.items()
                 if any(tag in toolset_tags for tag in toolset.tags)
             }
+
+        if ENABLE_HOLMES_TOOLSETS_FROM_SAAS and dal:
+            logging.info("Loading toolsets from SaaS")
+            toolsets_from_saas: List[HolmesToolsetConfig] = dal.get_toolset_configs()
+            for toolset_config in toolsets_from_saas:
+                toolset_name = toolset_config.toolset_name
+                if toolset_name not in toolsets_by_name:
+                    logging.warning(f"Toolset {toolset_name} not found in toolsets")
+                    continue
+
+                logging.info(f"Loading toolset {toolset_name} from SaaS")
+                toolset = toolsets_by_name[toolset_name]
+                toolset.enabled = toolset_config.enabled
+                toolset.config = toolset_config.config
 
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
@@ -281,9 +297,9 @@ class ToolsetManager:
         server will sync the status of toolsets to DB during startup instead of local cache.
         Refreshing the status by default for server to keep the toolsets up-to-date instead of relying on local cache.
         """
-        toolsets_with_status = self.load_toolset_with_status(
+        toolsets_with_status = self._list_all_toolsets(
             dal,
-            refresh_status=refresh_status,
+            check_prerequisites=True,
             enable_all_toolsets=False,
             toolset_tags=self.server_tool_tags,
         )
