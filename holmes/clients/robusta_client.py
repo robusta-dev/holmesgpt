@@ -51,7 +51,9 @@ def fetch_holmes_toolset_config(
         response.raise_for_status()
         result = response.json()
 
-        toolset_configs = [HolmesToolsetConfig(**item) for item in result["configs"]]
+        toolset_configs: List[HolmesToolsetConfig] = [
+            HolmesToolsetConfig(**item) for item in result["configs"]
+        ]
         return toolset_configs
     except Exception:
         logging.exception("Failed to fetch holmes toolset configs")
