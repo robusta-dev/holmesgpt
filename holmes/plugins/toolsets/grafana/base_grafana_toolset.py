@@ -14,7 +14,6 @@ from holmes.plugins.toolsets.grafana.grafana_api import get_health
 
 class BaseGrafanaToolset(Toolset):
     config_class = GrafanaConfig
-    config_class = GrafanaConfig
 
     def __init__(
         self,

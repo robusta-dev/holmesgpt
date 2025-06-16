@@ -5,7 +5,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import BaseModel
-from pydantic import BaseModel
 
 from holmes.config import Config
 from holmes.core.tools import (
@@ -77,10 +76,6 @@ def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
     assert toolset_data["description"] == "Test toolset"
     assert toolset_data["status"] == ToolsetStatusEnum.DISABLED
     assert isinstance(toolset_data["updated_at"], str)
-
-    # Backward compatibility
-    for key in ["is_default", "config_schema", "version", "is_configured_locally"]:
-        assert key not in toolset_data
 
     # Backward compatibility
     for key in ["is_default", "config_schema", "version", "is_configured_locally"]:
