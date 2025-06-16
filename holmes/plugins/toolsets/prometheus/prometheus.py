@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests  # type: ignore
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from requests import RequestException
 
 from holmes.core.tools import (
@@ -48,6 +48,12 @@ class PrometheusConfig(BaseModel):
     headers: Dict = {}
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
+
+    @field_validator("prometheus_url")
+    def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.endswith("/"):
+            return v + "/"
+        return v
 
 
 class BasePrometheusTool(Tool):
@@ -305,7 +311,7 @@ class ListPrometheusRules(BasePrometheusTool):
 
             prometheus_url = self.toolset.config.prometheus_url
 
-            rules_url = urljoin(prometheus_url, "/api/v1/rules")
+            rules_url = urljoin(prometheus_url, "api/v1/rules")
 
             rules_response = requests.get(
                 url=rules_url,
