@@ -19,7 +19,7 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
 from os import path
 from braintrust.span_types import SpanTypeAttribute
 from unittest.mock import patch
@@ -83,9 +83,10 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name, test_case: InvestigateTestCase):
+def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
     config = MockConfig(test_case)
     config.model = os.environ.get("MODEL", "gpt-4o")
+
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
         generate_mocks=test_case.generate_mocks,
@@ -128,9 +129,14 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase):
                 tool_span.log(
                     input=tool_call.description,
                     output=tool_call.result.model_dump_json(indent=2),
+                    error=tool_call.result.error,
                 )
             else:
-                tool_span.log(input=tool_call.description, output=tool_call.result)
+                tool_span.log(
+                    input=tool_call.description,
+                    output=tool_call.result,
+                    error=tool_call.result.error,
+                )
 
     output = result.analysis
 
@@ -143,7 +149,10 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase):
         name="Correctness", type=SpanTypeAttribute.SCORE
     ) as correctness_span:
         correctness_eval = evaluate_correctness(
-            output=output, expected_elements=expected
+            output=output,
+            expected_elements=expected,
+            caplog=caplog,
+            evaluation_type="strict",
         )
         print(
             f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
@@ -196,7 +205,10 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase):
         ), f"Expected title {expected_section_title} in sections"
 
     if test_case.evaluation.correctness:
-        assert scores.get("correctness", 0) >= test_case.evaluation.correctness
+        expected_correctness = test_case.evaluation.correctness
+        if isinstance(expected_correctness, Evaluation):
+            expected_correctness = expected_correctness.expected_score
+        assert scores.get("correctness", 0) >= expected_correctness
 
     if test_case.expected_sections:
         for (

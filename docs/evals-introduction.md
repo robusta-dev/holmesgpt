@@ -138,7 +138,7 @@ Configure evaluations using these environment variables:
 | Variable | Example | Description |
 |----------|---------|-------------|
 | `MODEL` | `MODEL=anthropic/claude-3.5` | Specify which LLM model to use |
-| `CLASSIFIER_MODEL` | `CLASSIFIER_MODEL=gpt-4o` | The LLM model to use for scoring the answer (LLM as judge). Defaults to `MODEL` |
+| `CLASSIFIER_MODEL` | `CLASSIFIER_MODEL=gpt-4o` | The LLM model to use for scoring the answer (LLM as judge). Supported LLM providers are OpenAI and Azure OpenAI. Defaults to `MODEL` |
 | `ITERATIONS` | `ITERATIONS=3` | Run each test multiple times for consistency checking |
 | `RUN_LIVE` | `RUN_LIVE=true` | Execute `before-test` and `after-test` commands, ignore mock files |
 | `BRAINTRUST_API_KEY` | `BRAINTRUST_API_KEY=sk-1dh1...swdO02` | API key for Braintrust integration |

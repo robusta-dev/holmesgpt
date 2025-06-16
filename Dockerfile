@@ -26,8 +26,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key -o Release.key
 
 # Set the architecture-specific kube lineage URLs
-ARG KUBE_LINEAGE_ARM_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.2/kube-lineage-macos-latest-v2.2.2
-ARG KUBE_LINEAGE_AMD_URL=https://github.com/Avi-Robusta/kube-lineage/releases/download/v2.2.2/kube-lineage-ubuntu-latest-v2.2.2
+ARG KUBE_LINEAGE_ARM_URL=https://github.com/robusta-dev/kube-lineage/releases/download/v2.2.3/kube-lineage-macos-latest-v2.2.3
+ARG KUBE_LINEAGE_AMD_URL=https://github.com/robusta-dev/kube-lineage/releases/download/v2.2.3/kube-lineage-ubuntu-latest-v2.2.3
 # Define a build argument to identify the platform
 ARG TARGETPLATFORM
 # Conditional download based on the platform
@@ -132,6 +132,7 @@ RUN git config --global core.symlinks false
 
 # Remove setuptools-65.5.1 installed from python:3.11-slim base image as fix for CVE-2024-6345 until image will be updated
 RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-65.5.1.dist-info
+RUN rm -rf /usr/local/lib/python3.11/ensurepip/_bundled/setuptools-65.5.0-py3-none-any.whl
 
 COPY ./holmes /app/holmes
 COPY ./server.py /app/server.py

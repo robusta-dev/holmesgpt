@@ -4,9 +4,9 @@
     <a href="#how-it-works"><strong>How it Works</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> |
     <a href="#supported-llm-providers"><strong>LLM Providers</strong></a> |
-    <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a>
+    <a href="https://www.youtube.com/watch?v=TfQfx65LsDQ"><strong>YouTube Demo</strong></a> |
+    <a href="https://deepwiki.com/robusta-dev/holmesgpt"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   </p>
- Questions? <a href="https://deepwiki.com/robusta-dev/holmesgpt"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </div>
 
 Respond to alerts faster, using AI to automatically:
@@ -202,7 +202,7 @@ Select your LLM provider to see how to set up your API Key.
     <td align="center" width="120">
       <a href="docs/api-keys.md#azure-openai">
         <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
-        <strong>Azure Open AI</strong>
+        <strong>Azure OpenAI</strong>
       </a>
     </td>
     <td align="center" width="120">
@@ -334,4 +334,6 @@ If you have any questions, feel free to message us on [robustacommunity.slack.co
 
 Install HolmesGPT from source with Poetry. See [Installation](docs/installation.md) for details.
 
-For help, contact us on [Slack](https://bit.ly/robusta-slack) or [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)
+For help, contact us on [Slack](https://bit.ly/robusta-slack) or ask [DeepWiki AI](https://deepwiki.com/robusta-dev/holmesgpt) your questions.
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)

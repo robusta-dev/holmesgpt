@@ -1,9 +1,10 @@
 import sys
-from typing import Any, Dict, List, Optional, Tuple, Type, Union, Annotated
+from pathlib import Path
+from typing import Annotated, Any, Dict, List, Optional, Tuple, Type, Union
 
 import typer
 from benedict import benedict  # type: ignore
-from pydantic import BaseModel, ValidationError, BeforeValidator, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict, ValidationError
 
 from holmes.plugins.prompts import load_prompt
 
@@ -36,7 +37,7 @@ def convert_errors(e: ValidationError) -> List[Dict[str, Any]]:
 
 
 def load_model_from_file(
-    model: Type[BaseModel], file_path: str, yaml_path: Optional[str] = None
+    model: Type[BaseModel], file_path: Path, yaml_path: Optional[str] = None
 ):
     try:
         contents = benedict(file_path, format="yaml")
@@ -47,7 +48,7 @@ def load_model_from_file(
         print(e)
         bad_fields = [e["loc"] for e in convert_errors(e)]
         typer.secho(
-            f"Invalid config file at  {file_path}. Check the fields {bad_fields}.\nSee detailed errors above.",
+            f"Invalid config file at {file_path}. Check the fields {bad_fields}.\nSee detailed errors above.",
             fg="red",
         )
         sys.exit()

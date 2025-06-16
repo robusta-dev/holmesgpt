@@ -1,34 +1,34 @@
-import os
-import re
+import json
 import logging
+import os
 import random
+import re
 import string
 import time
-
-from typing import Any, Dict, List, Union, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urljoin
 
 import requests  # type: ignore
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from requests import RequestException
+
 from holmes.core.tools import (
     CallablePrerequisite,
+    StructuredToolResult,
     Tool,
     ToolParameter,
+    ToolResultStatus,
     Toolset,
     ToolsetTag,
 )
-import json
-from requests import RequestException
-
-from urllib.parse import urljoin
+from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
 from holmes.plugins.toolsets.utils import (
-    STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
-    standard_start_datetime_tool_param_description,
     get_param_or_raise,
     process_timestamps_to_rfc3339,
+    standard_start_datetime_tool_param_description,
 )
 from holmes.utils.cache import TTLCache
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 DEFAULT_TIME_SPAN_SECONDS = 3600
@@ -48,6 +48,12 @@ class PrometheusConfig(BaseModel):
     headers: Dict = {}
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
+
+    @field_validator("prometheus_url")
+    def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.endswith("/"):
+            return v + "/"
+        return v
 
 
 class BasePrometheusTool(Tool):
@@ -305,7 +311,7 @@ class ListPrometheusRules(BasePrometheusTool):
 
             prometheus_url = self.toolset.config.prometheus_url
 
-            rules_url = urljoin(prometheus_url, "/api/v1/rules")
+            rules_url = urljoin(prometheus_url, "api/v1/rules")
 
             rules_response = requests.get(
                 url=rules_url,
@@ -758,9 +764,9 @@ class PrometheusToolset(Toolset):
             prometheus_url=prometheus_url,
             headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
         )
-        logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
+        logging.info(f"Prometheus auto discovered at url {prometheus_url}")
         self._reload_llm_instructions()
-        return True, ""
+        return self._is_healthy()
 
     def auto_detect_prometheus_url(self) -> Optional[str]:
         url: Optional[str] = PrometheusDiscovery.find_prometheus_url()

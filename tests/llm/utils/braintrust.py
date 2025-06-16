@@ -121,6 +121,7 @@ class BraintrustEvalHelper:
             expected=expected,
             dataset_record_id=id,
             scores=scores,
+            metadata={},
         )
         self._root_span.end()
         self.experiment.flush()
