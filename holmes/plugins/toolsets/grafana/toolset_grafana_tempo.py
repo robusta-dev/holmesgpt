@@ -44,6 +44,7 @@ class GrafanaTempoConfig(GrafanaConfig):
 
 class BaseGrafanaTempoToolset(BaseGrafanaToolset):
     config_class = GrafanaTempoConfig
+    version = "0.0.1"
 
     def get_example_config(self):
         example_config = GrafanaTempoConfig(

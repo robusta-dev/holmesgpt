@@ -720,6 +720,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
 
 class PrometheusToolset(Toolset):
+    config_class = PrometheusConfig
+    version = "0.0.1"
+
     def __init__(self):
         super().__init__(
             name="prometheus/metrics",

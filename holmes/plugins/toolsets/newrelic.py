@@ -181,6 +181,9 @@ class NewrelicConfig(BaseModel):
 
 
 class NewRelicToolset(Toolset):
+    config_class = NewrelicConfig
+    version = "0.0.1"
+
     nr_api_key: Optional[str] = None
     nr_account_id: Optional[str] = None
 

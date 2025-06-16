@@ -120,6 +120,9 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
 
 
 class RabbitMQToolset(Toolset):
+    config_class = RabbitMQConfig
+    version = "0.0.1"
+
     def __init__(self):
         super().__init__(
             name="rabbitmq/core",
