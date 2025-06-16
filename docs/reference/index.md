@@ -5,12 +5,7 @@ Complete reference documentation for HolmesGPT configuration, commands, and trou
 ## Reference Documentation
 
 ### Configuration Reference
-- **[Configuration Schema](configuration-schema.md)** - Complete Helm values schema
-- **[CLI Commands](cli-commands.md)** - Command-line interface reference
-
-### Help & Support
-- **[FAQ](faq.md)** - Frequently asked questions
-- **[Changelog](changelog.md)** - Version history and release notes
+- **[Helm Configuration](helm-configuration.md)** - Complete Helm configuration reference
 
 ## Quick Reference
 
@@ -59,9 +54,9 @@ holmes:
 Can't find what you're looking for?
 
 1. **Search** this documentation using the search bar
-2. **Check** the [FAQ](faq.md) for common questions
-3. **Visit** our [troubleshooting guide](../configuration/troubleshooting.md)
+2. **Check** our troubleshooting guide for common issues
+3. **Visit** our [troubleshooting guide](troubleshooting.md)
 4. **Ask** in our [Slack community](https://robustacommunity.slack.com)
 5. **Report** issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
 
-Start with the [FAQ](faq.md) for answers to common questions.
+Start with the [troubleshooting guide](troubleshooting.md) for answers to common questions.

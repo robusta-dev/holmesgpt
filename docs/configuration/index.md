@@ -5,7 +5,7 @@ Advanced configuration options for optimizing HolmesGPT performance, security, a
 ## Configuration Areas
 
 ### Core Configuration
-- **[Helm Configuration](helm-configuration.md)** - Complete Helm values reference
+- **[Helm Configuration](../reference/helm-configuration.md)** - Complete Helm values reference
 - **[Security & Permissions](security.md)** - RBAC, secrets, and access control
 
 ### Performance & Monitoring
@@ -13,7 +13,7 @@ Advanced configuration options for optimizing HolmesGPT performance, security, a
 - **[Monitoring & Observability](monitoring.md)** - Monitor HolmesGPT itself
 
 ### Troubleshooting
-- **[Troubleshooting](troubleshooting.md)** - Common issues and solutions
+- **[Troubleshooting](../reference/troubleshooting.md)** - Common issues and solutions
 
 ## Configuration Priority
 
@@ -63,4 +63,4 @@ Common configuration patterns:
     - Per-tenant AI provider configuration
     - Shared monitoring infrastructure
 
-Start with [Helm Configuration](helm-configuration.md) for the complete configuration reference.
+Start with [Helm Configuration](../reference/helm-configuration.md) for the complete configuration reference.

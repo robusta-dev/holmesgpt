@@ -6,7 +6,7 @@ Choose your installation method
 
 <div class="grid cards" markdown>
 
--   :material-console:{ .lg .middle } **[Install CLI](cli-installation.md)**
+-   :material-console:{ .lg .middle } **[Install CLI](installation/cli-installation.md)**
 
     ---
 
@@ -14,7 +14,7 @@ Choose your installation method
 
     [:octicons-arrow-right-24: Install](installation/cli-installation.md)
 
--   :material-web:{ .lg .middle } **[Install UI/TUI](ui-installation.md)**
+-   :material-web:{ .lg .middle } **[Install UI/TUI](installation/ui-installation.md)**
 
     ---
 
@@ -36,7 +36,7 @@ Using HolmesGPT via a HTTP API or Python SDK
 
 If you encounter issues during setup:
 
-- Check our [troubleshooting guide](../reference/troubleshooting.md)
+- Check our [troubleshooting guide](reference/troubleshooting.md)
 - Visit our [FAQ](../reference/)
 - Join our [Slack community](https://robustacommunity.slack.com)
 
