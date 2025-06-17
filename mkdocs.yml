@@ -186,16 +186,9 @@ nav:
           - development/evals/index.md
           - Writing Evaluations: development/evals/writing.md
           - Reporting with Braintrust: development/evals/reporting.md
-      - API Reference: development/api-reference.md
-      - Custom Toolset Development: development/custom-toolsets.md
       - Contributing Guidelines: development/contributing.md
-      - Examples & Templates: development/examples.md
 
   - Reference:
       - reference/index.md
       - Helm Configuration: reference/helm-configuration.md
       - Troubleshooting: reference/troubleshooting.md
-      - Configuration Schema: reference/configuration-schema.md
-      - CLI Commands: reference/cli-commands.md
-      - FAQ: reference/faq.md
-      - Changelog: reference/changelog.md

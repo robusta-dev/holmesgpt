@@ -1,16 +1,16 @@
 # Development
 
-Extend HolmesGPT with custom integrations, contribute to the project, or integrate it into your own applications.
+Extend HolmesGPT with custom integrations and contribute to the project.
 
-## Development Areas
+## Available Development Guides
 
-### Custom Extensions
-- **[Custom Toolset Development](custom-toolsets.md)** - Build your own data source integrations
-- **[Examples & Templates](examples.md)** - Code samples and starter templates
-
-### Integration & API
-- **[API Reference](api-reference.md)** - Programmatic access to HolmesGPT
 - **[Contributing Guidelines](contributing.md)** - How to contribute to the HolmesGPT project
+
+## Evaluations
+
+- **[Evaluations Overview](evals/index.md)** - Understanding HolmesGPT's evaluation framework
+- **[Writing Evaluations](evals/writing.md)** - Create your own evaluation tests
+- **[Reporting with Braintrust](evals/reporting.md)** - Analyze evaluation results
 
 ## Development Setup
 
@@ -23,19 +23,6 @@ To start developing with HolmesGPT:
 
 ## Common Development Tasks
 
-### Building Custom Toolsets
-Create integrations for:
-- Internal APIs and services
-- Custom monitoring systems
-- Specialized data sources
-- Legacy systems
-
-### API Integration
-Use HolmesGPT programmatically:
-- Trigger investigations from your applications
-- Integrate with incident management systems
-- Build custom dashboards and reporting
-- Automate investigation workflows
 
 ### Contributing
 Help improve HolmesGPT:
@@ -55,8 +42,7 @@ Help improve HolmesGPT:
 
 New to HolmesGPT development? Start with:
 
-1. **[Custom Toolset Development](custom-toolsets.md)** - Learn the basics of extending HolmesGPT
-2. **[Examples & Templates](examples.md)** - See practical code examples
-3. **[Contributing Guidelines](contributing.md)** - Understand the development process
+1. **[Contributing Guidelines](contributing.md)** - Understand the development process
+2. **[Evaluations Overview](evals/index.md)** - Learn about the evaluation framework
 
-Ready to build something custom? Begin with [Custom Toolset Development](custom-toolsets.md).
+Ready to contribute? Begin with [Contributing Guidelines](contributing.md).
