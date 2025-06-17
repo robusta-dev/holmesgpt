@@ -164,7 +164,7 @@ def test_list_console_toolsets(mock_load_toolset_with_status, toolset_manager):
     assert toolset in result
 
 
-@patch("holmes.core.toolset_manager.ToolsetManager.load_toolset_with_status")
+@patch("holmes.core.toolset_manager.ToolsetManager._list_all_toolsets")
 def test_list_server_toolsets(mock_load_toolset_with_status, toolset_manager):
     toolset = MagicMock(spec=Toolset)
     toolset.tags = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
