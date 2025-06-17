@@ -145,11 +145,11 @@ class ReturnProjectProcesses(MongoDBAtlasBaseTool):
 
 class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
     name: str = "atlas_return_project_slow_queries"
-    description: str = "Returns log lines for slow queries that the Performance Advisor and Query Profiler identified for a specific process in a specific project."
+    description: str = "Returns log lines for slow queries that the Performance Advisor and Query Profiler identified for a specific process in a specific project. requires process id which can be found using atlas_return_project_processes tool."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/processes/{process_id}/performanceAdvisor/slowQueryLogs?includeMetrics=true"
     parameters: Dict[str, ToolParameter] = {
         "process_id": ToolParameter(
-            description="Combination of host and port that serves the MongoDB process. The host must be the hostname, FQDN, IPv4 address, or IPv6 address of the host that runs the MongoDB process (mongod or mongos). The port must be the IANA port on which the MongoDB process listens for requests.",
+            description="Combination of host and port that serves the MongoDB process. The host must be the hostname, IPv4 address,  The port must be the IANA port on which the MongoDB process listens for requests.",
             type="string",
             required=True,
         ),
@@ -219,7 +219,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
 class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_logs_for_host_in_project"
     description: str = "Returns log messages for the specified host for the specified project of the last 1 hour."
-    url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/clusters/{process_id}/logs/mongodb.gz?startDate={start_date}"
+    url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/clusters/{process_id}/logs/mongodb.gz"
     parameters: Dict[str, ToolParameter] = {
         "hostName": ToolParameter(
             description="The host must be the hostname, FQDN, IPv4 address, or IPv6 address of the host that runs the MongoDB process (mongod or mongos).",
@@ -246,7 +246,6 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
             url = self.url.format(
                 project_id=self.toolset.config.get("project_id"),
                 process_id=params.get("hostName", ""),
-                start_date=one_hour_ago,
             )
             response = requests.get(
                 url=url,
@@ -255,6 +254,7 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
                     self.toolset.config.get("public_key"),
                     self.toolset.config.get("private_key"),
                 ),
+                params={"startDate": one_hour_ago},
             )
             response.raise_for_status()
             if response.ok:
