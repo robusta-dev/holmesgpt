@@ -51,6 +51,7 @@ def health_check(domain: str, api_key: str) -> Tuple[bool, str]:
     if response.status_code == 200:
         return True, ""
     else:
+        logging.info(f"Response: {response.text}")
         return False, f"Failed with status_code={response.status_code}. {response.text}"
 
 

@@ -354,7 +354,7 @@ class Toolset(BaseModel):
         """
         for field, value in override.model_dump(
             exclude_unset=True,
-            exclude=("name"),  # type: ignore
+            exclude={"name"},
         ).items():
             if field in self.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
