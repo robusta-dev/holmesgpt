@@ -169,17 +169,25 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
 
+        # append user questions with runbook selected from runbook catalog
+        # Normally user_question should exists
+        user_prompt = ""
         for message in messages:
             if message.get("role") == "user":
-                user_question = message.get("content", "")
-
+                user_prompt = message.get("content", "")
         if self.runbook_catalog_manager:
             runbook, link = self.runbook_catalog_manager.get_runbook_by_question(
-                user_question
+                user_prompt
             )
             if runbook:
-                logging.info(f"Found runbook for question '{user_question}': {link}")
-                user_prompt = add_runbook_to_user_prompt(user_question, runbook)  # type: ignore
+                logging.info(f"Found runbook {link} for question '{user_prompt}'")
+                user_prompt_with_runbook = add_runbook_to_user_prompt(
+                    user_prompt, runbook
+                )  # type: ignore
+                for msg in messages:
+                    if msg.get("role") == "user":
+                        msg["content"] = user_prompt_with_runbook
+                        break
 
         max_steps = self.max_steps
         i = 0

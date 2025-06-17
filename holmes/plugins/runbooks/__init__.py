@@ -1,7 +1,7 @@
 import json
 import os
 import os.path
-from datetime import datetime
+from datetime import date
 from pathlib import Path
 from typing import List, Optional, Pattern, Union
 
@@ -60,7 +60,7 @@ class RunbookCatalogEntry(BaseModel):
     Different from runbooks provided by Runbook class, this entry points to markdown file containing the runbook content.
     """
 
-    Update_Date: datetime
+    Update_Date: date
     Description: str
     KeyWords: list[str]
     link: str

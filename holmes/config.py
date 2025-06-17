@@ -264,7 +264,7 @@ class Config(RobustaBaseConfig):
         for runbook_path in self.custom_runbooks:
             with open(runbook_path, "r") as file:
                 runbook = file.read()
-                all_runbooks.extend(runbook)
+                all_runbooks.append(runbook)
         runbook_catalog_manager = RunbookCatalogManager(
             llm=self._get_llm(), runbooks=all_runbooks
         )
