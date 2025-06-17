@@ -1,10 +1,10 @@
 # ruff: noqa: E402
 import os
-from holmes.core.prompt import append_file_to_user_prompt
 from collections import OrderedDict
 
 from tabulate import tabulate  # type: ignore
 
+from holmes.core.prompt import append_file_to_user_prompt
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -333,6 +333,7 @@ def ask(
     model: Optional[str] = opt_model,
     config_file: Optional[Path] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
+    custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     # semi-common options
@@ -386,11 +387,13 @@ def ask(
         custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
+        custom_runbooks=custom_runbooks,
     )
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
     )
+
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
     }
@@ -414,6 +417,7 @@ def ask(
 
     if echo_request:
         console.print("[bold yellow]User:[/bold yellow] " + initial_user_prompt)
+
     for path in include_file:  # type: ignore
         initial_user_prompt = append_file_to_user_prompt(initial_user_prompt, path)
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")

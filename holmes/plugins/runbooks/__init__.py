@@ -1,5 +1,7 @@
+import json
 import os
 import os.path
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Pattern, Union
 
@@ -8,6 +10,8 @@ from pydantic import BaseModel, PrivateAttr
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
+
+CATALOG_FILE = "catalog.json"
 
 
 class IssueMatcher(RobustaBaseConfig):
@@ -48,3 +52,41 @@ def load_builtin_runbooks() -> List[Runbook]:
         path = os.path.join(THIS_DIR, filename)
         all_runbooks.extend(load_runbooks_from_file(path))
     return all_runbooks
+
+
+class RunbookCatalogEntry(BaseModel):
+    """
+    RunbookCatalogEntry contains metadata about a runbook
+    Different from runbooks provided by Runbook class, this entry points to markdown file containing the runbook content.
+    """
+
+    Update_Date: datetime
+    Description: str
+    KeyWords: list[str]
+    link: str
+
+
+class RunbookCatalog(BaseModel):
+    """
+    RunbookCatalog is a collection of runbook entries, each entry contains metadata about the runbook.
+    The correct runbook can be selected from the list by comparing the description with the user question.
+    """
+
+    catalog: List[RunbookCatalogEntry]
+
+
+def load_catalog() -> Optional[RunbookCatalog]:
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    catalogPath = os.path.join(dir_path, CATALOG_FILE)
+    if not os.path.isfile(catalogPath):
+        return None
+
+    with open(catalogPath) as file:
+        catalog_dict = json.load(file)
+        return RunbookCatalog(**catalog_dict)
+    return None
+
+
+def get_runbook_folder() -> str:
+    return os.path.dirname(os.path.realpath(__file__))

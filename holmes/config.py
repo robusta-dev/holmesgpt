@@ -13,7 +13,7 @@ from holmes import get_version  # type: ignore
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.llm import LLM, DefaultLLM
-from holmes.core.runbooks import RunbookManager
+from holmes.core.runbooks import RunbookCatalogManager, RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
@@ -260,7 +260,20 @@ class Config(RobustaBaseConfig):
         self, dal: Optional[SupabaseDal] = None
     ) -> ToolCallingLLM:
         tool_executor = self.create_console_tool_executor(dal)
-        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
+        all_runbooks: list[str] = []
+        for runbook_path in self.custom_runbooks:
+            with open(runbook_path, "r") as file:
+                runbook = file.read()
+                all_runbooks.extend(runbook)
+        runbook_catalog_manager = RunbookCatalogManager(
+            llm=self._get_llm(), runbooks=all_runbooks
+        )
+        return ToolCallingLLM(
+            tool_executor,
+            self.max_steps,
+            self._get_llm(),
+            runbook_catalog_manager=runbook_catalog_manager,
+        )
 
     def create_toolcalling_llm(
         self, dal: Optional[SupabaseDal] = None, model: Optional[str] = None

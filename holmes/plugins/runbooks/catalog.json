@@ -1,0 +1,14 @@
+{
+  "catalog": [
+    {
+      "Update_Date": "2025-06-17",
+      "Description": "Runbook to investigate DNS resolution issue on Kubernetes cluster",
+      "KeyWords": [
+        "networking",
+        "CoreDNS",
+        "DNS"
+      ],
+      "link": "networking/dns_troubleshooting_instructions.md"
+    }
+  ]
+}

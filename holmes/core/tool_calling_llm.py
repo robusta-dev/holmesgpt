@@ -29,7 +29,7 @@ from holmes.core.issue import Issue
 from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
-from holmes.core.runbooks import RunbookManager
+from holmes.core.runbooks import RunbookCatalogManager, RunbookManager
 from holmes.core.tools import StructuredToolResult, ToolExecutor, ToolResultStatus
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
@@ -115,10 +115,17 @@ class LLMResult(BaseModel):
 class ToolCallingLLM:
     llm: LLM
 
-    def __init__(self, tool_executor: ToolExecutor, max_steps: int, llm: LLM):
+    def __init__(
+        self,
+        tool_executor: ToolExecutor,
+        max_steps: int,
+        llm: LLM,
+        runbook_catalog_manager: Optional[RunbookCatalogManager] = None,
+    ):
         self.tool_executor = tool_executor
         self.max_steps = max_steps
         self.llm = llm
+        self.runbook_catalog_manager = runbook_catalog_manager
 
     def prompt_call(
         self,
@@ -161,6 +168,19 @@ class ToolCallingLLM:
         tool_calls = []  # type: ignore
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
+
+        for message in messages:
+            if message.get("role") == "user":
+                user_question = message.get("content", "")
+
+        if self.runbook_catalog_manager:
+            runbook, link = self.runbook_catalog_manager.get_runbook_by_question(
+                user_question
+            )
+            if runbook:
+                logging.info(f"Found runbook for question '{user_question}': {link}")
+                user_prompt = add_runbook_to_user_prompt(user_question, runbook)  # type: ignore
+
         max_steps = self.max_steps
         i = 0
 
@@ -198,8 +218,9 @@ class ToolCallingLLM:
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
-                    e
+                if (
+                    "Unrecognized request arguments supplied: tool_choice, tools"
+                    in str(e)
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
@@ -559,8 +580,9 @@ class ToolCallingLLM:
                         return
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
-                    e
+                if (
+                    "Unrecognized request arguments supplied: tool_choice, tools"
+                    in str(e)
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
@@ -718,3 +740,7 @@ class IssueInvestigator(ToolCallingLLM):
 
 def create_sse_message(event_type: str, data: dict = {}):
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
+
+def add_runbook_to_user_prompt(user_prompt: Optional[str], runbook: str) -> str:
+    return f"My instructions to check '{user_prompt}' by following the runbook:\n {runbook}"
