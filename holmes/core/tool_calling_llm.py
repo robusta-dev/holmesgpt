@@ -218,9 +218,8 @@ class ToolCallingLLM:
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                if (
-                    "Unrecognized request arguments supplied: tool_choice, tools"
-                    in str(e)
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
@@ -580,9 +579,8 @@ class ToolCallingLLM:
                         return
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                if (
-                    "Unrecognized request arguments supplied: tool_choice, tools"
-                    in str(e)
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
