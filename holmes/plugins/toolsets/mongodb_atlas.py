@@ -14,6 +14,7 @@ from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from requests.auth import HTTPDigestAuth
 import gzip
 import io
+from datetime import datetime, timedelta, timezone
 
 
 def success(msg: Any, params: Any) -> StructuredToolResult:
@@ -184,32 +185,12 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listProjectEvents
 class ReturnEventsFromProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_events_from_project"
-    description: str = "Returns events for the specified project. Events identify significant database, security activities or status changes."
+    description: str = "Returns events for the specified project. Events identify significant database, security activities or status changes. maximum of 500 events from the last 24 hours."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
-    parameters: Dict[str, ToolParameter] = {
-        "itemsPerPage": ToolParameter(
-            description="Number of the page that displays the current set of the total objects that the response returns. >=1 default 1",
-            type="integer",
-            required=True,
-        ),
-        "pageNum": ToolParameter(
-            description="Number of items that the response returns per page. [200-500] default 200",
-            type="integer",
-            required=True,
-        ),
-        "minDate": ToolParameter(
-            description="Date and time from when MongoDB Cloud starts returning events. This parameter uses the ISO 8601 timestamp format in UTC. default to 6 hours ago",
-            type="string",
-            required=True,
-        ),
-        "maxDate": ToolParameter(
-            description="Date and time from when MongoDB Cloud stops returning events. This parameter uses the ISO 8601 timestamp format in UTC.",
-            type="string",
-            required=True,
-        ),
-    }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
+        timestamp_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+        iso_timestamp = timestamp_24h_ago.strftime("%Y-%m-%dT%H:%M:%SZ")
         try:
             url = self.url.format(projectId=self.toolset.config.get("project_id"))
             response = requests.get(
@@ -219,7 +200,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
                     self.toolset.config.get("public_key"),
                     self.toolset.config.get("private_key"),
                 ),
-                params=params,
+                params={"minDate": iso_timestamp, "itemsPerPage": 500},
             )
             response.raise_for_status()
             if response.ok:
