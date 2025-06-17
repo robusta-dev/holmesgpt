@@ -11,7 +11,7 @@ from holmes.core.tools import (
 
 from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
-from requests.auth import HTTPDigestAuth
+from requests.auth import HTTPDigestAuth  # type: ignore
 import gzip
 import io
 from datetime import datetime, timedelta, timezone
@@ -66,7 +66,7 @@ class MongoDBAtlasToolset(Toolset):
             return False, "Missing config credentials."
 
         try:
-            MongoDBConfig(**config)
+            self.config: Dict = MongoDBConfig(**config).model_dump()
             return True, ""
         except Exception:
             logging.exception("Failed to set up MongoDBAtlas toolset")
@@ -110,7 +110,7 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
                 )
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
-            return error(f"Exception {self.name}: {str(e)}")
+            return error(f"Exception {self.name}: {str(e)}", params=params)
 
 
 class ReturnProjectProcesses(MongoDBAtlasBaseTool):
