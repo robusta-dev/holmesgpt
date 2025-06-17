@@ -479,6 +479,9 @@ class ListKafkaClusters(BaseKafkaTool):
 
 class KafkaToolset(Toolset):
     model_config = ConfigDict(arbitrary_types_allowed=True)
+    config_class = KafkaConfig
+    version = "0.0.1"
+
     clients: Dict[str, AdminClient] = {}
 
     def __init__(self):
