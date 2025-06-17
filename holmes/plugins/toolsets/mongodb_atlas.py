@@ -1,6 +1,6 @@
 import requests  # type: ignore
 import logging
-from typing import Any, Optional, Dict, Tuple, List
+from typing import Any, Dict, Tuple, List
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -8,13 +8,12 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
-import os
+
 from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from requests.auth import HTTPDigestAuth
-
-ATLAS_PUBLIC_KEY = os.environ.get("ATLAS_PUBLIC_KEY")
-ATLAS_PRIVATE_KEY = os.environ.get("ATLAS_PRIVATE_KEY")
+import gzip
+import io
 
 
 def success(msg: Any, params: Any) -> StructuredToolResult:
@@ -33,53 +32,72 @@ def error(msg: str, params: Any) -> StructuredToolResult:
     )
 
 
-class ReturnAllProjects(Tool):
-    name: str = "atlas_return_all_projects"
-    description: str = "Returns details about all atlas mongodb projects. Projects group clusters into logical collections that support an application environment, workload, or both."
+class MongoDBConfig(BaseModel):
+    public_key: str
+    private_key: str
+    project_id: str
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/  using administration api.
+class MongoDBAtlasToolset(Toolset):
+    name: str = "MongoDBAtlas"
+    description: str = "The MongoDB Atlas API allows access to Mongodb projects and processes. You can find logs, alerts, events, slow quereies and various metrics to understand the state of Mongodb projects."
+    docs_url: str = (
+        "https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/"
+    )
+    icon_url: str = "https://webimages.mongodb.com/_com_assets/cms/kuyjf3vea2hg34taa-horizontal_default_slate_blue.svg?auto=format%252Ccompress"
+    tags: List[ToolsetTag] = [ToolsetTag.CORE]
+
+    def __init__(self):
+        super().__init__(
+            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            tools=[
+                ReturnProjectAlerts(toolset=self),
+                ReturnProjectProcesses(toolset=self),
+                ReturnProjectSlowQueries(toolset=self),
+                ReturnEventsFromProject(toolset=self),
+                ReturnLogsForProcessInPorject(toolset=self),
+            ],
+        )
+
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        if not config:
+            return False, "Missing config credentials."
+
         try:
-            response = requests.get(
-                url="https://cloud.mongodb.com/api/atlas/v2/groups",
-                headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY),
-            )
-            response.raise_for_status()
-            if response.ok:
-                return success(response.json(), params)
-            else:
-                return error(
-                    f"Failed to fetch atlas all projects. Status code: {response.status_code}\n{response.text}",
-                    params=params,
-                )
-        except Exception as e:
-            logging.exception(f"Failed {self.get_parameterized_one_liner(params)}")
-            return error(f"Exception {self.name} {str(e)}", params=params)
+            MongoDBConfig(**config)
+            return True, ""
+        except Exception:
+            logging.exception("Failed to set up MongoDBAtlas toolset")
+            return False, ""
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
+
+
+class MongoDBAtlasBaseTool(Tool):
+    toolset: MongoDBAtlasToolset
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"MongoDB {self.name} {params}"
+        return f"MongoDB {self.name} project {self.toolset.config.get('project_id')} {params}"
 
 
-class ReturnProjectAlerts(Tool):
+class ReturnProjectAlerts(MongoDBAtlasBaseTool):
     name: str = "atlas_return_project_alerts"
     description: str = "Returns all project alerts. These alerts apply to all components in one project. You receive an alert when a monitored component meets or exceeds a value you set."
-    parameters: Dict[str, ToolParameter] = {
-        "project_id": ToolParameter(
-            description="The unique project id, in the format ^([a-f0-9]{24})$",
-            type="string",
-            required=True,
-        )
-    }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             url = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/alerts".format(
-                project_id=params.get("project_id", "")
+                project_id=self.toolset.config.get("project_id")
             )
             response = requests.get(
                 url=url,
                 headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY),
+                auth=HTTPDigestAuth(
+                    self.toolset.config.get("public_key"),
+                    self.toolset.config.get("private_key"),
+                ),
             )
             response.raise_for_status()
             if response.ok:
@@ -93,30 +111,23 @@ class ReturnProjectAlerts(Tool):
             logging.exception(self.get_parameterized_one_liner(params))
             return error(f"Exception {self.name}: {str(e)}")
 
-    def get_parameterized_one_liner(self, params) -> str:
-        return f"MongoDB {self.name} {params}"
 
-
-class ReturnProjectProcesses(Tool):
-    name: str = "Atlas_return_project_processes"
-    description: str = "Returns details of all processes for the specified project. Useful for getting metrics and data for specific project"
-    parameters: Dict[str, ToolParameter] = {
-        "project_id": ToolParameter(
-            description="The unique project id, in the format ^([a-f0-9]{24})$",
-            type="string",
-            required=True,
-        )
-    }
+class ReturnProjectProcesses(MongoDBAtlasBaseTool):
+    name: str = "atlas_return_project_processes"
+    description: str = "Returns details of all processes for the specified project. Useful for getting logs and data for specific project"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             url = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/processes".format(
-                project_id=params.get("project_id", "")
+                project_id=self.toolset.config.get("project_id")
             )
             response = requests.get(
                 url=url,
                 headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY),
+                auth=HTTPDigestAuth(
+                    self.toolset.config.get("public_key"),
+                    self.toolset.config.get("private_key"),
+                ),
             )
             response.raise_for_status()
             if response.ok:
@@ -130,20 +141,12 @@ class ReturnProjectProcesses(Tool):
             logging.exception(self.get_parameterized_one_liner(params))
             return error(f"Exception {self.name}: {str(e)}", params=params)
 
-    def get_parameterized_one_liner(self, params) -> str:
-        return f"MongoDB {self.name} {params}"
 
-
-class ReturnProjectSlowQueries(Tool):
+class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
     name: str = "atlas_return_project_slow_queries"
     description: str = "Returns log lines for slow queries that the Performance Advisor and Query Profiler identified for a specific process in a specific project."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/processes/{process_id}/performanceAdvisor/slowQueryLogs?includeMetrics=true"
     parameters: Dict[str, ToolParameter] = {
-        "project_id": ToolParameter(
-            description="The unique project id, in the format ^([a-f0-9]{24})$",
-            type="string",
-            required=True,
-        ),
         "process_id": ToolParameter(
             description="Combination of host and port that serves the MongoDB process. The host must be the hostname, FQDN, IPv4 address, or IPv6 address of the host that runs the MongoDB process (mongod or mongos). The port must be the IANA port on which the MongoDB process listens for requests.",
             type="string",
@@ -154,13 +157,16 @@ class ReturnProjectSlowQueries(Tool):
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             url = self.url.format(
-                project_id=params.get("project_id", ""),
+                project_id=self.toolset.config.get("project_id"),
                 process_id=params.get("process_id", ""),
             )
             response = requests.get(
                 url=url,
                 headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY),
+                auth=HTTPDigestAuth(
+                    self.toolset.config.get("public_key"),
+                    self.toolset.config.get("private_key"),
+                ),
             )
             response.raise_for_status()
             if response.ok:
@@ -174,21 +180,13 @@ class ReturnProjectSlowQueries(Tool):
             logging.exception(self.get_parameterized_one_liner(params))
             return error(f"Exception {self.name}: {str(e)}", params=params)
 
-    def get_parameterized_one_liner(self, params) -> str:
-        return f"MongoDB {self.name} {params}"
-
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listProjectEvents
-class ReturnEventsFromProject(Tool):
+class ReturnEventsFromProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_events_from_project"
     description: str = "Returns events for the specified project. Events identify significant database, security activities or status changes."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
     parameters: Dict[str, ToolParameter] = {
-        "projectId": ToolParameter(
-            description="The unique project id, in the format ^([a-f0-9]{24})$",
-            type="string",
-            required=True,
-        ),
         "itemsPerPage": ToolParameter(
             description="Number of the page that displays the current set of the total objects that the response returns. >=1 default 1",
             type="integer",
@@ -213,11 +211,14 @@ class ReturnEventsFromProject(Tool):
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
-            url = self.url.format(projectId=params.pop("projectId", ""))
+            url = self.url.format(projectId=self.toolset.config.get("project_id"))
             response = requests.get(
                 url=url,
                 headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY),
+                auth=HTTPDigestAuth(
+                    self.toolset.config.get("public_key"),
+                    self.toolset.config.get("private_key"),
+                ),
                 params=params,
             )
             response.raise_for_status()
@@ -232,98 +233,58 @@ class ReturnEventsFromProject(Tool):
             logging.exception(self.get_parameterized_one_liner(params))
             return error(f"Exception {self.name}: {str(e)}", params=params)
 
-    def get_parameterized_one_liner(self, params) -> str:
-        return f"MongoDB {self.name} {params}"
 
+# TODO https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Monitoring-and-Logs/operation/getHostLogs logs from on project
+class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
+    name: str = "atlas_return_logs_for_host_in_project"
+    description: str = "Returns log messages for the specified host for the specified project of the last 1 hour."
+    url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/clusters/{process_id}/logs/mongodb.gz?startDate={start_date}"
+    parameters: Dict[str, ToolParameter] = {
+        "hostName": ToolParameter(
+            description="The host must be the hostname, FQDN, IPv4 address, or IPv6 address of the host that runs the MongoDB process (mongod or mongos).",
+            type="string",
+            required=True,
+        ),
+        # "endDate": ToolParameter(
+        #     description="Specifies the date and time for the starting point of the range of log messages to retrieve, in the number of seconds that have elapsed since the UNIX epoch. This value will default to 1 hour after the start date.",
+        #     type="string",
+        #     required=True,
+        # ),
+        # "startDate": ToolParameter(
+        #     description="Specifies the date and time for the ending point of the range of log messages to retrieve, in the number of seconds that have elapsed since the UNIX epoch. This value will default to 1 hour prior to the end date.",
+        #     type="string",
+        #     required=True,
+        # ),
+    }
 
-# TODO https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Monitoring-and-Logs/operation/getHostLogs logs from on project // does not work for free tier.
-# class ReturnLogsForProcessInPorject(Tool):
-#     name: str = "atlas_return_logs_for_host_in_project"
-#     description: str = "Returns a compressed (.gz) log file that contains a range of log messages for the specified host for the specified project."
-#     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/clusters/{process_id}/logs/mongodb.gz?pretty=true"
-#     parameters: Dict[str, ToolParameter] = (
-#         {
-#             "project_id": ToolParameter(
-#                 description="The unique project id, in the format ^([a-f0-9]{24})$",
-#                 type="string",
-#                 required=True,
-#             ),
-#             "process_id": ToolParameter(
-#                 description="Combination of host and port that serves the MongoDB process. The host must be the hostname, FQDN, IPv4 address, or IPv6 address of the host that runs the MongoDB process (mongod or mongos). The port must be the IANA port on which the MongoDB process listens for requests.",
-#                 type="string",
-#                 required=True,
-#             ),
-#         },
-#     )
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        import time
 
-#     def _invoke(self, params: Any) -> StructuredToolResult:
-#         try:
-#             url = self.url.format(
-#                 project_id=params.get("project_id", ""),
-#                 process_id=params.get("process_id", ""),
-#             )
-#             response = requests.get(
-#                 url=url,
-#                 headers={"Accept": "application/vnd.atlas.2025-03-12+gzip"},
-#                 auth=HTTPDigestAuth(ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY),
-#             )
-#             response.raise_for_status()
-#             if response.ok:
-#                 #TODO handle gzip file...
-#                 return success(response.json(), params)
-#             else:
-#                 return error(
-#                     f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
-#                     params=params,
-#                 )
-#         except Exception as e:
-#             logging.exception(self.get_parameterized_one_liner(params))
-#             return error(f"Exception {self.name}: {str(e)}")
-
-#     def get_parameterized_one_liner(self, params) -> str:
-#         return f"MongoDB {self.name} {params}"
-
-
-class MongoDBConfig(BaseModel):
-    public_key: str
-    private_key: str
-
-
-# connections, queue buildup?
-
-
-# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/  using administration api.
-class MongoDBAtlasToolset(Toolset):
-    name: str = "MongoDBAtlas"
-    description: str = "The MongoDB Atlas Administration API allows access mongo projects and processes. You can find logs, alerts, events, slow quereies and various metrics to understand the state of Mongodb projects."
-    docs_url: str = (
-        "https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/"
-    )
-    icon_url: str = "https://webimages.mongodb.com/_com_assets/cms/kuyjf3vea2hg34taa-horizontal_default_slate_blue.svg?auto=format%252Ccompress"
-    tags: List[ToolsetTag] = [ToolsetTag.CORE]
-
-    def __init__(self):
-        super().__init__(
-            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                ReturnAllProjects(),
-                ReturnProjectAlerts(),
-                ReturnProjectProcesses(),
-                ReturnProjectSlowQueries(),
-                ReturnEventsFromProject(),
-            ],
-        )
-
-    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        one_hour_ago = int(time.time()) - (1 * 3600)
         try:
-            self.config = MongoDBConfig(
-                private_key=ATLAS_PRIVATE_KEY, public_key=ATLAS_PUBLIC_KEY
+            url = self.url.format(
+                project_id=self.toolset.config.get("project_id"),
+                process_id=params.get("hostName", ""),
+                start_date=one_hour_ago,
             )
-
-            return True, ""
-        except Exception:
-            logging.exception("Failed to set up MongoDBAtlas toolset")
-            return False, ""
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
+            response = requests.get(
+                url=url,
+                headers={"Accept": "application/vnd.atlas.2025-03-12+gzip"},
+                auth=HTTPDigestAuth(
+                    self.toolset.config.get("public_key"),
+                    self.toolset.config.get("private_key"),
+                ),
+            )
+            response.raise_for_status()
+            if response.ok:
+                with gzip.GzipFile(fileobj=io.BytesIO(response.content)) as gz:
+                    text_data = gz.read().decode("utf-8")
+                return success(text_data, params)
+            else:
+                return error(
+                    f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
+                    params=params,
+                )
+        except Exception as e:
+            logging.exception(self.get_parameterized_one_liner(params))
+            return error(f"Exception {self.name}: {str(e)}", params=params)
