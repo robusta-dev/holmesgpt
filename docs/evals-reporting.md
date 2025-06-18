@@ -42,7 +42,7 @@ export BRAINTRUST_API_KEY=sk-your-key
 export UPLOAD_DATASET=true
 export PUSH_EVALS_TO_BRAINTRUST=true
 
-pytest ./tests/llm/test_ask_holmes.py
+poetry run pytest ./tests/llm/test_ask_holmes.py
 ```
 
 ### Named Experiment
@@ -50,7 +50,7 @@ pytest ./tests/llm/test_ask_holmes.py
 ```bash
 export EXPERIMENT_ID=baseline_gpt4o
 export MODEL=gpt-4o
-pytest -n 10 ./tests/llm/test_*.py
+poetry run pytest -n 10 ./tests/llm/test_*.py
 ```
 
 ### Key Environment Variables
