@@ -13,18 +13,13 @@ toolsets:
         user_description: "get cloud provider of AKS cluster"
         command: |
           kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.providerID}{"\n"}{end}'
-      - name: "aks_show_cluster"
-        description: "Fetches the configuration of a specific AKS cluster"
+      - name: "aks_get_cluster"
+        description: "Get the configuration details of a specific AKS cluster"
         user_description: "get AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }} in subscription {{ SUBSCRIPTION_ID }}"
         command: |
           az aks show --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
-      - name: "aks_list_clusters"
-        description: "Lists all AKS clusters under a subscription"
-        user_description: "list AKS clusters under subscription {{ SUBSCRIPTION_ID }}"
-        command: |
-          az aks list --subscription {{ SUBSCRIPTION_ID }}
       - name: "aks_list_clusters_by_rg"
-        description: "Lists all AKS clusters under a specific resource group"
+        description: "Lists all AKS clusters under a specific resource group. Only run this tool when you need to get all clusters in a resource group, rather than a specific one."
         user_description: "list AKS clusters in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
         command: |
           az aks list --resource-group {{ RESOURCE_GROUP_NAME }} --subscription {{ SUBSCRIPTION_ID }}
@@ -69,3 +64,13 @@ toolsets:
         user_description: "get resource group for cluster {{ CLUSTER_NAME }}"
         command: |
            az aks list --subscription {{ SUBSCRIPTION_ID }} --only-show-errors --query "[?name=='{{ CLUSTER_NAME }}'].resourceGroup | [0]" -o tsv
+      - name: "get_all_nsgs"
+        description: "Gets all Network Security Group (NSG) instances in a subscription"
+        user_description: "list NSG instances in current Azure subscription {{ SUBSCRIPTION_ID }} context"
+        command: |
+            az network nsg list -o table
+      - name: "get_nsg_rules"
+        description: "Gets alls NSG rules associated with a specific NSG"
+        user_description: "list NSG rules for NSG {{ NSG_NAME }} in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
+        command: |
+            az network nsg rule list --resource-group {{ RESOURCE_GROUP_NAME }} --nsg-name {{ NSG_NAME }} --include-default -o table
