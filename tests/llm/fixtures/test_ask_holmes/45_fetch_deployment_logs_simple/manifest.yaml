@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: fetch-deployment-logs-simple
+  name: ask-holmes-namespace-45
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: my-server-deployment
-  namespace: fetch-deployment-logs-simple
+  namespace: ask-holmes-namespace-45
   labels:
     tier: frontend
 spec:

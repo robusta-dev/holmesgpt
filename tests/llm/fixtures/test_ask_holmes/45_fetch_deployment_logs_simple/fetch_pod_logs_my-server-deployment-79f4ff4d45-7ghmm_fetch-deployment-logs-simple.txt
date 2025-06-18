@@ -1,5 +1,5 @@
-{"toolset_name":"kubernetes/logs","tool_name":"fetch_pod_logs","match_params":{"pod_name":"my-server-deployment-79f4ff4d45-7ghmm","namespace":"fetch-deployment-logs-simple"}}
-{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": null, "invocation": null, "params": {"namespace": "fetch-deployment-logs-simple", "pod_name": "my-server-deployment-79f4ff4d45-7ghmm", "start_time": null, "end_time": null, "match": null, "limit": null}}
+{"toolset_name":"kubernetes/logs","tool_name":"fetch_pod_logs","match_params":{"pod_name":"my-server-deployment-79f4ff4d45-7ghmm","namespace":"ask-holmes-namespace-45"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": null, "invocation": null, "params": {"namespace": "ask-holmes-namespace-45", "pod_name": "my-server-deployment-79f4ff4d45-7ghmm", "start_time": null, "end_time": null, "match": null, "limit": null}}
 {"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"previous terminated container \"nginx-container\" in pod \"my-server-deployment-79f4ff4d45-7ghmm\" not found","reason":"BadRequest","code":400}
 
 /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
