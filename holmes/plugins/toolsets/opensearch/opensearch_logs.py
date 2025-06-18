@@ -1,26 +1,26 @@
-import os
+import json
 import logging
-
+import os
 from typing import Any, Dict
+from urllib.parse import urljoin
 
 import requests  # type: ignore
 from cachetools import TTLCache  # type: ignore
+from requests import RequestException  # type: ignore
+
 from holmes.core.tools import (
     CallablePrerequisite,
+    StructuredToolResult,
     Tool,
     ToolParameter,
+    ToolResultStatus,
     ToolsetTag,
 )
-import json
-from requests import RequestException  # type: ignore
-from urllib.parse import urljoin
-
 from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     BaseOpenSearchToolset,
-    format_logs,
     add_auth_header,
+    format_logs,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 

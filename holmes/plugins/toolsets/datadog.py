@@ -1,15 +1,18 @@
-import requests  # type: ignore
 import logging
-from typing import Any, Optional, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
+
+import requests  # type: ignore
+from pydantic import BaseModel
+
 from holmes.core.tools import (
     CallablePrerequisite,
+    StructuredToolResult,
     Tool,
     ToolParameter,
+    ToolResultStatus,
     Toolset,
     ToolsetTag,
 )
-from pydantic import BaseModel
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 
 class BaseDatadogTool(Tool):
@@ -133,14 +136,12 @@ class DatadogToolset(Toolset):
             tags=[ToolsetTag.CORE],
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if not config:
+    def prerequisites_callable(self) -> Tuple[bool, str]:
+        if not self.config:
             return False, ""
 
         try:
-            dd_config = DatadogConfig(**config)
-            self.dd_api_key = dd_config.dd_api_key
-            self.dd_app_key = dd_config.dd_app_key
+            self.init_config()
             return bool(self.dd_api_key and self.dd_app_key), ""
         except Exception:
             logging.exception("Failed to set up Datadog toolset")
@@ -148,3 +149,8 @@ class DatadogToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def init_config(self):
+        dd_config = DatadogConfig(**self.config)
+        self.dd_api_key = dd_config.dd_api_key
+        self.dd_app_key = dd_config.dd_app_key

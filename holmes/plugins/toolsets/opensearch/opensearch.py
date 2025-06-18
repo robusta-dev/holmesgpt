@@ -207,12 +207,12 @@ class OpenSearchToolset(Toolset):
             ],
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if not config:
+    def prerequisites_callable(self) -> Tuple[bool, str]:
+        if not self.config:
             return False, TOOLSET_CONFIG_MISSING_ERROR
 
         try:
-            os_config = OpenSearchConfig(**config)
+            os_config = OpenSearchConfig(**self.config)
             errors = []
             for cluster in os_config.opensearch_clusters:
                 try:
@@ -243,3 +243,11 @@ class OpenSearchToolset(Toolset):
             ]
         )
         return example_config.model_dump()
+
+    def init_config(self):
+        os_config = OpenSearchConfig(**self.config)
+        for cluster in os_config.opensearch_clusters:
+            logging.info("Setting up OpenSearch client")
+            cluster_kwargs = cluster.model_dump()
+            client = OpenSearchClient(**cluster_kwargs)
+            self.clients.append(client)

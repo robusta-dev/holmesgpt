@@ -135,6 +135,9 @@ class MockToolset(Toolset):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
+    def init_config(self):
+        pass
+
 
 class MockToolsets:
     unmocked_toolsets: List[Toolset]

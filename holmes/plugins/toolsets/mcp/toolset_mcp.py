@@ -1,23 +1,21 @@
-from holmes.core.tools import (
-    Toolset,
-    Tool,
-    ToolParameter,
-    StructuredToolResult,
-    ToolResultStatus,
-    CallablePrerequisite,
-)
+import asyncio
+import logging
+from typing import Any, Dict, List, Optional, Tuple
 
-from typing import Dict, Any, List, Optional
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
-
-from mcp.types import Tool as MCP_Tool
 from mcp.types import CallToolResult
+from mcp.types import Tool as MCP_Tool
+from pydantic import AnyUrl, Field, field_validator
 
-import asyncio
-from pydantic import Field, AnyUrl, field_validator
-from typing import Tuple
-import logging
+from holmes.core.tools import (
+    CallablePrerequisite,
+    StructuredToolResult,
+    Tool,
+    ToolParameter,
+    ToolResultStatus,
+    Toolset,
+)
 
 
 class RemoteMCPTool(Tool):
@@ -104,7 +102,7 @@ class RemoteMCPToolset(Toolset):
         return v
 
     # used as a CallablePrerequisite, config added for that case.
-    def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
+    def init_server_tools(self) -> Tuple[bool, str]:
         try:
             tools_result = asyncio.run(self._get_server_tools())
             self.tools = [
@@ -133,3 +131,6 @@ class RemoteMCPToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def init_config(self):
+        pass

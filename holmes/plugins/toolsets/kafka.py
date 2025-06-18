@@ -499,12 +499,12 @@ class KafkaToolset(Toolset):
             ],
         )
 
-    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
-        if not config:
+    def prerequisites_callable(self) -> Tuple[bool, str]:
+        if not self.config:
             return False, TOOLSET_CONFIG_MISSING_ERROR
         errors = []
         try:
-            kafka_config = KafkaConfig(**config)
+            kafka_config = KafkaConfig(**self.config)
 
             for cluster in kafka_config.kafka_clusters:
                 try:
@@ -537,6 +537,26 @@ class KafkaToolset(Toolset):
         except Exception as e:
             logging.exception("Failed to set up Kafka toolset")
             return False, str(e)
+
+    def init_config(self):
+        kafka_config = KafkaConfig(**self.config)
+
+        for cluster in kafka_config.kafka_clusters:
+            admin_config = {
+                "bootstrap.servers": cluster.kafka_broker,
+                "client.id": cluster.kafka_client_id,
+            }
+
+            if cluster.kafka_security_protocol:
+                admin_config["security.protocol"] = cluster.kafka_security_protocol
+            if cluster.kafka_sasl_mechanism:
+                admin_config["sasl.mechanisms"] = cluster.kafka_sasl_mechanism
+            if cluster.kafka_username and cluster.kafka_password:
+                admin_config["sasl.username"] = cluster.kafka_username
+                admin_config["sasl.password"] = cluster.kafka_password
+
+            client = AdminClient(admin_config)
+            self.clients[cluster.name] = client  # Store in dictionary
 
     def get_example_config(self) -> Dict[str, Any]:
         example_config = KafkaConfig(

@@ -43,6 +43,9 @@ class SampleToolset(Toolset):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
+    def init_config(self):
+        pass
+
 
 def test_check_prerequisites_none():
     toolset = SampleToolset(prerequisites=[])
@@ -239,8 +242,8 @@ def test_check_prerequisites_multiple_all_types_success(mock_subprocess_run):
         ),
     ]
     mock_subprocess_run.assert_has_calls(expected_subprocess_calls, any_order=False)
-    mock_callable_success.assert_called_once_with({"some_config": "value"})
-    second_mock_callable_success.assert_called_once_with({"some_config": "value"})
+    mock_callable_success.assert_called_once()
+    second_mock_callable_success.assert_called_once()
 
 
 @patch("subprocess.run")

@@ -1,22 +1,22 @@
-import re
-import os
 import logging
-from typing import Any, Optional, Tuple, Dict, List
-
-from requests import RequestException, Timeout  # type: ignore
-from holmes.core.tools import (
-    Tool,
-    ToolParameter,
-    Toolset,
-    ToolsetTag,
-    CallablePrerequisite,
-)
-from markdownify import markdownify
-from bs4 import BeautifulSoup
+import os
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests  # type: ignore
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from bs4 import BeautifulSoup
+from markdownify import markdownify
+from requests import RequestException, Timeout  # type: ignore
 
+from holmes.core.tools import (
+    CallablePrerequisite,
+    StructuredToolResult,
+    Tool,
+    ToolParameter,
+    ToolResultStatus,
+    Toolset,
+    ToolsetTag,
+)
 
 # TODO: change and make it holmes
 INTERNET_TOOLSET_USER_AGENT = os.environ.get(
@@ -244,16 +244,18 @@ class InternetBaseToolset(Toolset):
             docs_url=docs_url,
         )
 
-    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
-        if not config:
-            return True, ""
-        self.additional_headers = config.get("additional_headers", {})
+    def prerequisites_callable(self) -> Tuple[bool, str]:
+        self.init_config()
         return True, ""
 
     def get_example_config(self) -> Dict[str, Any]:
         return {
             "additional_headers": {"Authorization": "Basic <base_64_encoded_string>"}
         }
+
+    def init_config(self):
+        if self.config:
+            self.additional_headers = self.config.get("additional_headers", {})
 
 
 class InternetToolset(InternetBaseToolset):
