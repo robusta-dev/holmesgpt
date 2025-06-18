@@ -68,9 +68,9 @@ toolsets:
         description: "Gets all Network Security Group (NSG) instances in a subscription"
         user_description: "list NSG instances in current Azure subscription {{ SUBSCRIPTION_ID }} context"
         command: |
-            az network nsg list -o table
+            az network nsg list --subscription {{ SUBSCRIPTION_ID }} -o table
       - name: "get_nsg_rules"
-        description: "Gets alls NSG rules associated with a specific NSG"
+        description: "Gets all NSG rules associated with a specific NSG"
         user_description: "list NSG rules for NSG {{ NSG_NAME }} in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
         command: |
-            az network nsg rule list --resource-group {{ RESOURCE_GROUP_NAME }} --nsg-name {{ NSG_NAME }} --include-default -o table
+            az network nsg rule list --resource-group {{ RESOURCE_GROUP_NAME }} --nsg-name {{ NSG_NAME }} --subscription {{ SUBSCRIPTION_ID }} --include-default -o table
