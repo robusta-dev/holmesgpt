@@ -78,25 +78,25 @@ Here is the catalog of available runbooks:
         ]
         response = self.ai.completion(messages, temperature=0)
         # when no runbook matches the user question, llm returns ""
-        runbookAbsLink = response.choices[0].message.content.strip(' "')  # type: ignore
-        if len(runbookAbsLink) == 0:
+        runbook_abs_link = response.choices[0].message.content.strip(' "')  # type: ignore
+        if len(runbook_abs_link) == 0:
             logging.debug("No runbook found for the question.")
             return None, None
         else:
-            logging.debug(f"Runbook link from LLM: {runbookAbsLink}")
+            logging.debug(f"Runbook link from LLM: {runbook_abs_link}")
         runbook_folder = get_runbook_folder()
 
-        runbookPath = os.path.join(runbook_folder, runbookAbsLink)
+        runbookPath = os.path.join(runbook_folder, runbook_abs_link)
         try:
             with open(runbookPath, "r") as file:
                 content = file.read()
                 if len(content.strip()) == 0:
-                    print(f"Warning: The runbook '{runbookPath}' is empty.")
-                    return None, runbookAbsLink
+                    logging.warning(f"The runbook '{runbookPath}' is empty.")
+                    return None, runbook_abs_link
                 # If the file is found and not empty, return its content
-                return content, runbookAbsLink
+                return content, runbook_abs_link
         except FileNotFoundError:
-            print(f"Error: The file '{runbookPath}' was not found.")
+            logging.error(f"The file '{runbookPath}' was not found.")
             return None, None
         except Exception as e:
             logging.error(f"An error occurred while reading the file: {e}")
