@@ -33,46 +33,41 @@ def evaluate_correctness(
     caplog,
     evaluation_type: str = "strict",
 ):
-    span = None
-    try:
-        if parent_span:
-            span = parent_span.start_span(
-                name="Correctness", type=SpanTypeAttribute.SCORE
-            )
+    expected_elements_str = "\n- ".join(expected_elements)
 
-        caplog.set_level("INFO", logger="classifier")
-        logger = logging.getLogger("classifier")
+    caplog.set_level("INFO", logger="classifier")
+    logger = logging.getLogger("classifier")
 
-        if isinstance(expected_elements, str):
-            expected_elements = [expected_elements]
-        expected_elements_str = "\n- ".join(expected_elements)
+    if isinstance(expected_elements, str):
+        expected_elements = [expected_elements]
+    expected_elements_str = "\n- ".join(expected_elements)
 
-        prompt_prefix = """
-    You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
-    represents the correctness of that OUTPUT.
+    prompt_prefix = """
+You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
+represents the correctness of that OUTPUT.
 
-    The correctness is defined by the presence of EXPECTED ELEMENTS in the OUTPUT.
-    Make a judgement call whether each ELEMENT sufficiently matches the OUTPUT. ELEMENTS do
-    not need to appear verbatim or be a perfect match but their essence should be
-    present in the whole OUTPUT, even if it spans multiple sentences.
+The correctness is defined by the presence of EXPECTED ELEMENTS in the OUTPUT.
+Make a judgement call whether each ELEMENT sufficiently matches the OUTPUT. ELEMENTS do
+not need to appear verbatim or be a perfect match but their essence should be
+present in the whole OUTPUT, even if it spans multiple sentences.
 
-    # EXPECTED ELEMENTS
+# EXPECTED ELEMENTS
 
-    - {{expected}}
+- {{expected}}
 
-    # OUTPUT
+# OUTPUT
 
-    {{output}}
+{{output}}
 
 
 Return a choice based on the number of EXPECTED ELEMENTS present in the OUTPUT.
 Possible choices:
-    - A: All elements are presents
-    - B: Either no element is present or only some but not all elements are present
-    """
+- A: All elements are presents
+- B: Either no element is present or only some but not all elements are present
+"""
 
-        if evaluation_type == "loose":
-            prompt_prefix = """
+    if evaluation_type == "loose":
+        prompt_prefix = """
 You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
 represents the correctness of that OUTPUT.
 
@@ -92,40 +87,42 @@ present in the whole OUTPUT, even if it spans multiple sentences.
 
 Return a choice based on the number of EXPECTED presence in the OUTPUT.
 Possible choices:
-    - A: The OUTPUT reasonably matches the EXPECTED content
-    - B: The OUTPUT does not match the EXPECTED content
-    """
-        if base_url:
-            logger.info(
-                f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
-            )
-            logger.info(
-                "To use OpenAI instead, unset the environment variable AZURE_API_BASE"
-            )
-        else:
-            logger.info(
-                f"Evaluating correctness with OpenAI; model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
-            )
-            logger.info(
-                "To use Azure OpenAI instead, set the environment variables AZURE_API_BASE, AZURE_API_VERSION, and AZURE_API_KEY"
-            )
-
-        classifier = LLMClassifier(
-            name="Correctness",
-            prompt_template=prompt_prefix,
-            choice_scores={"A": 1, "B": 0},
-            use_cot=True,
-            model=classifier_model,
-            api_key=api_key,
-            base_url=base_url,
-            api_version=api_version,
+- A: The OUTPUT reasonably matches the EXPECTED content
+- B: The OUTPUT does not match the EXPECTED content
+"""
+    if base_url:
+        logger.info(
+            f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+        )
+        logger.info(
+            "To use OpenAI instead, unset the environment variable AZURE_API_BASE"
+        )
+    else:
+        logger.info(
+            f"Evaluating correctness with OpenAI; model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
+        )
+        logger.info(
+            "To use Azure OpenAI instead, set the environment variables AZURE_API_BASE, AZURE_API_VERSION, and AZURE_API_KEY"
         )
 
-        correctness_eval = classifier(
-            input=prompt_prefix, output=output, expected=expected_elements_str
-        )
+    classifier = LLMClassifier(
+        name="Correctness",
+        prompt_template=prompt_prefix,
+        choice_scores={"A": 1, "B": 0},
+        use_cot=True,
+        model=classifier_model,
+        api_key=api_key,
+        base_url=base_url,
+        api_version=api_version,
+    )
+    if parent_span:
+        with parent_span.start_span(
+            name="Correctness", type=SpanTypeAttribute.SCORE
+        ) as span:
+            correctness_eval = classifier(
+                input=prompt_prefix, output=output, expected=expected_elements_str
+            )
 
-        if span:
             span.log(
                 input=prompt_prefix,
                 output=correctness_eval.metadata.get("rationale", ""),
@@ -135,38 +132,31 @@ Possible choices:
                 },
                 metadata=correctness_eval.metadata,
             )
-        return correctness_eval
-    finally:
-        if span:
-            span.end()
+            return correctness_eval
+    else:
+        return classifier(
+            input=prompt_prefix, output=output, expected=expected_elements_str
+        )
 
 
 def evaluate_sections(
     sections: dict[str, bool], output: Optional[str], parent_span: Optional[Span]
 ):
-    span = None
-    try:
-        if parent_span:
-            span = parent_span.start_span(name="Sections", type=SpanTypeAttribute.SCORE)
-        expected_sections = [
-            section for section, expected in sections.items() if expected
-        ]
-        expected_sections_str = "\n".join(
-            [f"- {section}" for section in expected_sections]
-        )
-        if not expected_sections_str:
-            expected_sections_str = "<No section is expected>"
+    expected_sections = [section for section, expected in sections.items() if expected]
+    expected_sections_str = "\n".join([f"- {section}" for section in expected_sections])
+    if not expected_sections_str:
+        expected_sections_str = "<No section is expected>"
 
-        unexpected_sections = [
-            section for section, expected in sections.items() if not expected
-        ]
-        unexpected_sections_str = "\n".join(
-            [f"- {section}" for section in unexpected_sections]
-        )
-        if not unexpected_sections_str:
-            unexpected_sections_str = "<No element>"
+    unexpected_sections = [
+        section for section, expected in sections.items() if not expected
+    ]
+    unexpected_sections_str = "\n".join(
+        [f"- {section}" for section in unexpected_sections]
+    )
+    if not unexpected_sections_str:
+        unexpected_sections_str = "<No element>"
 
-        prompt_prefix = """
+    prompt_prefix = """
 You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
 represents the correctness of that OUTPUT.
 
@@ -195,25 +185,27 @@ If there are <No element> in UNEXPECTED SECTIONS assume the OUTPUT has no UNEXPE
 
 Return a choice based on the number of EXPECTED ELEMENTS present in the OUTPUT.
 Possible choices:
-    A. One or more of the EXPECTED SECTIONS is missing and one or more of the UNEXPECTED SECTIONS is present
-    B. All EXPECTED SECTIONS are present in the OUTPUT and no UNEXPECTED SECTIONS is present in the output
+A. One or more of the EXPECTED SECTIONS is missing and one or more of the UNEXPECTED SECTIONS is present
+B. All EXPECTED SECTIONS are present in the OUTPUT and no UNEXPECTED SECTIONS is present in the output
 """
 
-        classifier = LLMClassifier(
-            name="sections",
-            prompt_template=prompt_prefix,
-            choice_scores={"A": 0, "B": 1},
-            use_cot=True,
-            model=classifier_model,
-            api_key=api_key,
-            base_url=base_url,
-            api_version=api_version,
-        )
-        correctness_eval = classifier(
-            input=unexpected_sections_str, output=output, expected=expected_sections_str
-        )
+    classifier = LLMClassifier(
+        name="sections",
+        prompt_template=prompt_prefix,
+        choice_scores={"A": 0, "B": 1},
+        use_cot=True,
+        model=classifier_model,
+    )
+    if parent_span:
+        with parent_span.start_span(
+            name="Sections", type=SpanTypeAttribute.SCORE
+        ) as span:
+            correctness_eval = classifier(
+                input=unexpected_sections_str,
+                output=output,
+                expected=expected_sections_str,
+            )
 
-        if span:
             span.log(
                 input=prompt_prefix,
                 output=correctness_eval.metadata.get("rationale", ""),
@@ -224,7 +216,8 @@ Possible choices:
                 metadata=correctness_eval.metadata,
             )
 
-        return correctness_eval
-    finally:
-        if span:
-            span.end()
+            return correctness_eval
+    else:
+        return classifier(
+            input=unexpected_sections_str, output=output, expected=expected_sections_str
+        )

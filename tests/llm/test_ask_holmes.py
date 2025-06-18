@@ -17,6 +17,7 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
 from braintrust import Span
+from pydantic import BaseModel
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 
@@ -76,17 +77,17 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                     with eval_span.start_span(
                         name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
                     ) as tool_span:
-                        if isinstance(tool_call.result, dict):
+                        if isinstance(tool_call.result, BaseModel):
                             tool_span.log(
                                 input=tool_call.description,
-                                output=tool_call.result,
+                                output=tool_call.result.model_dump_json(indent=2),
                                 error=tool_call.result.error,
                             )
                         else:
                             tool_span.log(
                                 input=tool_call.description,
-                                output=tool_call.result.model_dump_json(indent=2),
                                 error=tool_call.result.error,
+                                output=tool_call.result,
                             )
     except Exception as e:
         bt_helper.end_evaluation(
