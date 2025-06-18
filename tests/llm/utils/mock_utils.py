@@ -45,6 +45,7 @@ T = TypeVar("T")
 class HolmesTestCase(BaseModel):
     id: str
     folder: str
+    tags: list[str] = []
     generate_mocks: bool = False  # If True, generate mocks
     add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
@@ -55,7 +56,7 @@ class HolmesTestCase(BaseModel):
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
-    user_prompt: str  # The user's question to ask holmes
+    user_prompt: str # The user's question to ask holmes
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
 
 
@@ -63,6 +64,7 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     investigate_request: InvestigateRequest
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
+    global_instructions: Optional[list[str]] = None
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
 
 
@@ -142,6 +144,9 @@ class MockHelper:
                 if config_dict.get("user_prompt"):
                     extra_prompt = load_include_files(
                         test_case_folder, config_dict.get("include_files", None)
+                    )
+                    config_dict["global_instructions"] = load_global_instructions(
+                        test_case_folder, config_dict.get("global_instructions", None)
                     )
                     config_dict["user_prompt"] = (
                         config_dict["user_prompt"] + extra_prompt
@@ -248,3 +253,17 @@ def load_include_files(
             extra_prompt = append_file_to_user_prompt(extra_prompt, file_path)
 
     return extra_prompt
+
+def load_global_instructions(
+    test_case_folder: Path, global_instructions_files: Optional[list[str]]
+) -> str:
+    global_instructions: Optional[list[str]] = None
+    if global_instructions_files:
+        global_instructions = []
+        for file_path_str in global_instructions_files:
+            file_path = Path(test_case_folder.joinpath(file_path_str))
+
+        with file_path.open("r") as f:
+            global_instructions.append(f"{f.read()}")
+
+    return global_instructions
