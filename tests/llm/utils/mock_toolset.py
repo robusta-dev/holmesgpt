@@ -44,10 +44,16 @@ def ensure_non_error_returned(
         ToolResultStatus.NO_DATA,
     ]:
         return original_tool_result
-    else:
+    elif original_tool_result:
+        logging.warning(
+            f"Overriding tool call result with a NO_DATA mock value: {original_tool_result.status}"
+        )
         return StructuredToolResult(
             status=ToolResultStatus.NO_DATA, params=original_tool_result.params
         )
+    else:
+        logging.warning("Overriding empty tool call result with NO_DATA status")
+        return StructuredToolResult(status=ToolResultStatus.NO_DATA)
 
 
 class FallbackToolWrapper(Tool):
@@ -85,7 +91,7 @@ class FallbackToolWrapper(Tool):
 
     def _get_mock_file_path(self, tool_params: Dict):
         if self._add_params_to_mock_file:
-            params_data = "_".join(str(v) for v in tool_params.values())
+            params_data = "_".join(str(tool_params[k]) for k in sorted(tool_params))
             params_data = f"_{params_data}"
         else:
             params_data = ""

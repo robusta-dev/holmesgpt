@@ -79,13 +79,13 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                         if isinstance(tool_call.result, dict):
                             tool_span.log(
                                 input=tool_call.description,
-                                output=tool_call.result.model_dump_json(indent=2),
+                                output=tool_call.result,
                                 error=tool_call.result.error,
                             )
                         else:
                             tool_span.log(
                                 input=tool_call.description,
-                                output=tool_call.result,
+                                output=tool_call.result.model_dump_json(indent=2),
                                 error=tool_call.result.error,
                             )
     except Exception as e:

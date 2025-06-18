@@ -216,7 +216,6 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             "previous": previous,
             "timestamps": True,
         }
-        print(f"query_params, {query_params}")
         try:
             if container_name:
                 query_params["container"] = container_name
@@ -224,8 +223,6 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             logs = self._core_v1_api.read_namespaced_pod_log(**query_params)
             return parse_logs(logs, container_name)
         except ApiException as e:
-            print("* EXCEPTION")
-            print(e)
             logs = []
             if e.body and e.body:
                 logs.append(

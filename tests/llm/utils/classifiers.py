@@ -40,8 +40,6 @@ def evaluate_correctness(
                 name="Correctness", type=SpanTypeAttribute.SCORE
             )
 
-        expected_elements_str = "\n- ".join(expected_elements)
-
         caplog.set_level("INFO", logger="classifier")
         logger = logging.getLogger("classifier")
 
@@ -207,6 +205,9 @@ Possible choices:
             choice_scores={"A": 0, "B": 1},
             use_cot=True,
             model=classifier_model,
+            api_key=api_key,
+            base_url=base_url,
+            api_version=api_version,
         )
         correctness_eval = classifier(
             input=unexpected_sections_str, output=output, expected=expected_sections_str
