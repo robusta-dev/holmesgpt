@@ -153,13 +153,23 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
             type="string",
             required=True,
         ),
+        "since": ToolParameter(
+            description="timestamp from the past which the query start to retrieve the slow queries from. timestamp in the number of milliseconds that have elapsed since the UNIX epoch. since+duration<=now",
+            type="integer",
+            required=True,
+        ),
+        "duration": ToolParameter(
+            description="Length of time during which the query finds slow queries (window length). This parameter expresses its value in milliseconds.",
+            type="integer",
+            required=True,
+        ),
     }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             url = self.url.format(
                 project_id=self.toolset.config.get("project_id"),
-                process_id=params.get("process_id", ""),
+                process_id=params.pop("process_id", ""),
             )
             response = requests.get(
                 url=url,
@@ -168,6 +178,7 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
                     self.toolset.config.get("public_key"),
                     self.toolset.config.get("private_key"),
                 ),
+                params=params,
             )
             response.raise_for_status()
             if response.ok:
