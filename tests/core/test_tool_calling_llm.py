@@ -33,6 +33,7 @@ class TestTruncateMessagesToFitContext:
                         "name": f"tool{i+1}",
                         "content": content,
                         "tool_call_id": f"call_{i+1}",
+                        "token_count": len(content),  # Simulate token count
                     }
                 )
             return messages
@@ -51,6 +52,13 @@ class TestTruncateMessagesToFitContext:
             # Verify efficient space utilization - i.e. all room available for tools is used
             total_tool_length = sum(len(msg["content"]) for msg in tool_messages)
             assert total_tool_length == available_for_tools
+
+            for tool_msg in tool_messages:
+                # if this tool was not truncated
+                if "token_count" in tool_msg:
+                    assert "TRUNCATED" not in tool_msg["content"]
+                else:
+                    assert tool_msg["content"].endswith("\n\n[TRUNCATED]")
 
         # Context limits
         max_context_size = 10000
@@ -161,3 +169,102 @@ class TestTruncateMessagesToFitContext:
 
         # Should return unchanged when no tool messages
         assert result == original_messages
+
+
+class TestTruncateMessagesToFitContextEdgeCases:
+    def test_truncation_notice_fits_exactly(self):
+        """Test when allocated space is exactly the size of the truncation notice."""
+        truncation_notice = "\n\n[TRUNCATED]"
+        # The tool message is longer than the available space, but available space == len(truncation_notice)
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "usr"},
+            {
+                "role": "tool",
+                "name": "tool1",
+                "content": "A" * 100,
+                "tool_call_id": "call_1",
+            },
+        ]
+        # Only enough space for the truncation notice
+        maximum_output_token = 10
+        max_context_size = len("sysusr") + len(truncation_notice) + maximum_output_token
+
+        def count_tokens_fn(msgs):
+            return sum(len(m.get("content", "")) for m in msgs)
+
+        result = truncate_messages_to_fit_context(
+            messages.copy(),
+            max_context_size,
+            maximum_output_token,
+            count_tokens_fn,
+        )
+        tool_msg = [m for m in result if m["role"] == "tool"][0]
+        assert tool_msg["content"] == truncation_notice
+
+    def test_truncation_notice_larger_than_allocation(self):
+        """Test when allocated space is less than the truncation notice length."""
+        truncation_notice = "\n\n[TRUNCATED]"
+        # Only 5 chars available for tool message
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "usr"},
+            {
+                "role": "tool",
+                "name": "tool1",
+                "content": "A" * 100,
+                "tool_call_id": "call_1",
+            },
+        ]
+        maximum_output_token = 10
+        max_context_size = len("sysusr") + 5 + maximum_output_token
+
+        def count_tokens_fn(msgs):
+            return sum(len(m.get("content", "")) for m in msgs)
+
+        result = truncate_messages_to_fit_context(
+            messages.copy(),
+            max_context_size,
+            maximum_output_token,
+            count_tokens_fn,
+        )
+        tool_msg = [m for m in result if m["role"] == "tool"][0]
+        # Should be the first 5 chars of the truncation notice
+        assert tool_msg["content"] == truncation_notice[:5]
+
+    def test_multiple_tools_fair_allocation(self):
+        """Test that multiple tool messages are truncated fairly."""
+        # 2 tool messages, both too large, available space split evenly
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "usr"},
+            {
+                "role": "tool",
+                "name": "tool1",
+                "content": "A" * 100,
+                "tool_call_id": "call_1",
+            },
+            {
+                "role": "tool",
+                "name": "tool2",
+                "content": "B" * 100,
+                "tool_call_id": "call_2",
+            },
+        ]
+        # Only 60 chars available for both tools
+        max_context_size = len("sysusr") + 60 + 10
+        maximum_output_token = 10
+
+        def count_tokens_fn(msgs):
+            return sum(len(m.get("content", "")) for m in msgs)
+
+        result = truncate_messages_to_fit_context(
+            messages.copy(),
+            max_context_size,
+            maximum_output_token,
+            count_tokens_fn,
+        )
+        tool_msgs = [m for m in result if m["role"] == "tool"]
+        # Each tool should get 30 chars (60 // 2)
+        for msg in tool_msgs:
+            assert len(msg["content"]) == 30
