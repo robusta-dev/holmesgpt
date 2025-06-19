@@ -38,7 +38,7 @@ from holmes.config import (
     SupportedTicketSources,
 )
 from holmes.core.resource_instruction import ResourceInstructionDocument
-from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
+from holmes.core.tool_calling_llm import LLMResult
 from holmes.core.tools import Toolset
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
@@ -254,68 +254,6 @@ def handle_result(
         slack.send_issue(issue, result)
 
 
-def _pre_check_and_clarify(
-    ai: ToolCallingLLM,
-    initial_prompt: str,
-    console: Console,
-    messages: List[dict],
-) -> List[dict]:
-    """
-    Uses the LLM to check if the initial prompt has enough information
-    and asks clarifying questions if necessary.
-    Returns the updated messages list.
-    """
-    clarification_system_prompt = load_and_render_prompt(
-        "builtin://clarification_needed.jinja2",
-        {"toolsets": ai.tool_executor.toolsets},
-    )
-
-    pre_check_messages = [
-        {"role": "system", "content": clarification_system_prompt},
-        {"role": "user", "content": initial_prompt},
-    ]
-
-    logging.info("Running pre-check for clarifications...")
-    try:
-        # Use a simpler, cheaper model if configured, otherwise default
-        # For simplicity here, we use the same model but could optimize
-        pre_check_response = ai.llm.completion(
-            messages=pre_check_messages, temperature=0.2
-        )
-        clarification_request = pre_check_response.choices[0].message.content.strip()  # type: ignore
-        logging.debug(f"Pre-check response: {clarification_request}")
-
-        if clarification_request and not clarification_request.upper().startswith("OK"):
-            console.print(
-                "[bold yellow]AI needs more information:[/bold yellow]", end="\n"
-            )
-            # Print the questions received from the LLM
-            console.print(f"{clarification_request}")
-            # Add AI's clarification request to messages
-            messages.append({"role": "assistant", "content": clarification_request})
-
-            console.print()
-            console.print(Rule("[dim]Your input below[/dim]"))
-
-            user_answers = typer.prompt("Please provide the requested information")
-            # Add user's answers to messages
-            # Format the response to indicate it's an answer to the previous questions
-            formatted_answer = f"Here is the information you requested:\n{user_answers}"
-            messages.append({"role": "user", "content": formatted_answer})
-            console.print(
-                "[bold green]Thanks! Proceeding with investigation...[/bold green]"
-            )
-            console.print(Rule())
-
-    except Exception as e:
-        logging.error(f"Error during pre-check/clarification phase: {e}", exc_info=True)
-        console.print(
-            "[bold red]Error during clarification check. Proceeding with original prompt.[/bold red]"
-        )
-
-    return messages
-
-
 # TODO: add streaming output
 @app.command()
 def ask(
@@ -362,16 +300,6 @@ def ask(
         "--interactive",
         "-i",
         help="Enter interactive mode after the initial question to ask follow-up questions.",
-    ),
-    interactive_limit: int = typer.Option(
-        10,
-        "--interactive-limit",
-        help="Maximum number of follow-up questions in interactive mode.",
-    ),
-    skip_clarifications: bool = typer.Option(
-        False,
-        "--skip-clarifications",
-        help="Skip the initial clarification-seeking step.",
     ),
 ):
     """
@@ -423,9 +351,6 @@ def ask(
         {"role": "user", "content": initial_user_prompt},
     ]
 
-    if not skip_clarifications and interactive:
-        messages = _pre_check_and_clarify(ai, initial_user_prompt, console, messages)
-
     response = ai.call(messages, post_processing_prompt)
     messages = response.messages  # type: ignore # Update messages with the full history
 
@@ -465,7 +390,6 @@ def ask(
             messages,
             post_processing_prompt,
             show_tool_output,
-            interactive_limit,
         )
 
 
@@ -476,16 +400,15 @@ def run_interactive_loop(
     messages: list[dict],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
-    limit: int,
 ) -> None:
     console.print(
         Rule(
             "[bold cyan]Entering interactive mode. Type 'exit' or 'quit' to end.[/bold cyan]"
         )
     )
-    for _ in range(limit):
+    while True:
         try:
-            follow_up_prompt = typer.prompt("Follow-up question")
+            follow_up_prompt = typer.prompt("User")
             if follow_up_prompt.lower() in ["exit", "quit"]:
                 break
 
