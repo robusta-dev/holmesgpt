@@ -61,7 +61,7 @@ def get_version() -> str:
         try:
             with open(archival_file_path, "r") as f:
                 archival_data = json.load(f)
-                return f"{archival_data['refs']}-{archival_data['hash-short']}"
+                return f"dev-{archival_data['refs']}-{archival_data['hash-short']}"
         except Exception:
             pass
 
