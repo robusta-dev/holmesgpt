@@ -25,6 +25,14 @@ def success(msg: Any, params: Any) -> StructuredToolResult:
     )
 
 
+def no_data(msg: Any, params: Any) -> StructuredToolResult:
+    return StructuredToolResult(
+        status=ToolResultStatus.NO_DATA,
+        data=msg,
+        params=params,
+    )
+
+
 def error(msg: str, params: Any) -> StructuredToolResult:
     return StructuredToolResult(
         status=ToolResultStatus.ERROR,
@@ -102,7 +110,12 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
             )
             response.raise_for_status()
             if response.ok:
-                return success(response.json(), params)
+                res = response.json()
+                count = res.get("totalCount", 0)
+                if count:
+                    return success(res, params)
+                else:
+                    return no_data(res, params)
             else:
                 return error(
                     f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
@@ -143,23 +156,19 @@ class ReturnProjectProcesses(MongoDBAtlasBaseTool):
             return error(f"Exception {self.name}: {str(e)}", params=params)
 
 
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Performance-Advisor/operation/listSlowQueries
 class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
-    name: str = "atlas_return_project_slow_queries"
-    description: str = "Returns log lines for slow queries that the Performance Advisor and Query Profiler identified for a specific process in a specific project. requires process id which can be found using atlas_return_project_processes tool."
+    name: str = "atlas_return_project_processes_slow_queries"
+    description: str = "Returns log lines for slow queries that the Performance Advisor and Query Profiler identified for a specific process in a specific project. requires fetching the project processes first."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/processes/{process_id}/performanceAdvisor/slowQueryLogs?includeMetrics=true"
     parameters: Dict[str, ToolParameter] = {
         "process_id": ToolParameter(
-            description="Combination of host and port that serves the MongoDB process. The host must be the hostname, IPv4 address,  The port must be the IANA port on which the MongoDB process listens for requests.",
+            description="Combination of host and port that serves the MongoDB process. call tool atlas_return_project_processes tool to get host+port of project procecess.",
             type="string",
             required=True,
         ),
         "since": ToolParameter(
-            description="timestamp from the past which the query start to retrieve the slow queries from. timestamp in the number of milliseconds that have elapsed since the UNIX epoch. since+duration<=now",
-            type="integer",
-            required=True,
-        ),
-        "duration": ToolParameter(
-            description="Length of time during which the query finds slow queries (window length). This parameter expresses its value in milliseconds.",
+            description="timestamp from the past which the query start to retrieve the slow queries from. timestamp in the number of milliseconds that have elapsed since the UNIX epoch. since<now and if not specified use 24 hours ago.",
             type="integer",
             required=True,
         ),
@@ -182,7 +191,12 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
             )
             response.raise_for_status()
             if response.ok:
-                return success(response.json(), params)
+                res = response.json()
+                slow_q = res.get("slowQueries", [])
+                if slow_q:
+                    return success(res, params)
+                else:
+                    return no_data(res, params)
             else:
                 return error(
                     msg=f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
@@ -196,12 +210,18 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listProjectEvents
 class ReturnEventsFromProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_events_from_project"
-    description: str = "Returns events for the specified project. Events identify significant database, security activities or status changes. maximum of 500 events from the last 24 hours."
+    description: str = "Returns events for the specified project. Events identify significant database, security activities or status changes. maximum of 500 events."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
+    parameters: Dict[str, ToolParameter] = {
+        "minDate": ToolParameter(
+            description="datetime when MongoDB Cloud starts returning events. This parameter uses the ISO 8601 timestamp format in UTC. minDate is the in the past, if not specified use 24 hours ago . call get_time()..",
+            type="string",
+            required=True,
+        )
+    }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
-        timestamp_24h_ago = datetime.now(timezone.utc) - timedelta(hours=24)
-        iso_timestamp = timestamp_24h_ago.strftime("%Y-%m-%dT%H:%M:%SZ")
+        params.update({"itemsPerPage": 500})
         try:
             url = self.url.format(projectId=self.toolset.config.get("project_id"))
             response = requests.get(
@@ -211,11 +231,16 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
                     self.toolset.config.get("public_key"),
                     self.toolset.config.get("private_key"),
                 ),
-                params={"minDate": iso_timestamp, "itemsPerPage": 500},
+                params=params,
             )
             response.raise_for_status()
             if response.ok:
-                return success(response.json(), params)
+                res = response.json()
+                count = res.get("totalCount", 0)
+                if count:
+                    return success(res, params)
+                else:
+                    return no_data(res, params)
             else:
                 return error(
                     f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
