@@ -176,9 +176,6 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
-            now = datetime.now(timezone.utc)
-            four_hours_ago = now - timedelta(hours=4)
-            four_hours_ago_ms = int(four_hours_ago.timestamp() * 1000)
             url = self.url.format(
                 project_id=self.toolset.config.get("project_id"),
                 process_id=params.pop("process_id", ""),
