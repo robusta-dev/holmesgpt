@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "holmesgpt"
-version = "0.1.0"
+version = "0.0.0"
 description = ""
 authors = ["Natan Yellin <natan@robusta.dev>"]
 readme = "README.md"
