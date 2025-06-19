@@ -100,20 +100,14 @@ def truncate_messages_to_fit_context(
     available_space = (
         max_context_size - message_size_without_tools - maximum_output_token
     )
-
-    # Find tool messages and sort by content length
-    tool_messages = [
-        (i, msg) for i, msg in enumerate(messages) if msg["role"] == "tool"
-    ]
-    tool_messages.sort(key=lambda x: len(x[1]["content"]))
-
     remaining_space = available_space
+    tool_call_messages.sort(key=lambda x: len(x["content"]))
 
     # Allocate space starting with small tools and going to larger tools, while maintaining fairness
     # Small tools can often get exactly what they need, while larger tools may need to be truncated
     # We ensure fairness (no tool gets more than others that need it) and also maximize utilization (we don't leave space unused)
-    for i, (_, msg) in enumerate(tool_messages):
-        remaining_tools = len(tool_messages) - i
+    for i, msg in enumerate(tool_call_messages):
+        remaining_tools = len(tool_call_messages) - i
         max_allocation = remaining_space // remaining_tools
         needed_space = len(msg["content"])
         allocated_space = min(needed_space, max_allocation)
