@@ -1,0 +1,15 @@
+user_prompt: "give me the top 10 slow queries on mongodb"
+
+expected_output: |
+
+  The answer should exactly 10 slow queries.
+#before_test: |
+#  kubectl apply -f./manifest.yaml
+#  sleep 10
+#after_test: kubectl delete -f./manifest.yaml
+
+evaluation:
+  correctness: 1
+include_files:
+  - atlas_runbook.md
+generate_mocks: True
