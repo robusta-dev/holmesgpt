@@ -56,6 +56,73 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     return tool_response
 
 
+# TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
+# However, in practice it works because we reserve enough space for the output tokens that the minor inconsistency does not matter
+# We should fix this in the future
+# TODO: we truncate using character counts not token counts - this means we're overly agressive with truncation - improve it by considering
+# token truncation and not character truncation
+def truncate_messages_to_fit_context(
+    messages: list, max_context_size: int, maximum_output_token: int, count_tokens_fn
+) -> list:
+    """
+    Helper function to truncate tool messages to fit within context limits.
+
+    Args:
+        messages: List of message dictionaries with roles and content
+        max_context_size: Maximum context window size for the model
+        maximum_output_token: Maximum tokens reserved for model output
+        count_tokens_fn: Function to count tokens for a list of messages
+
+    Returns:
+        Modified list of messages with truncated tool responses
+
+    Raises:
+        Exception: If non-tool messages exceed available context space
+    """
+    messages_except_tools = [
+        message for message in messages if message["role"] != "tool"
+    ]
+    message_size_without_tools = count_tokens_fn(messages_except_tools)
+
+    tool_call_messages = [message for message in messages if message["role"] == "tool"]
+
+    if message_size_without_tools >= (max_context_size - maximum_output_token):
+        logging.error(
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
+        )
+        raise Exception(
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - maximum_output_token} tokens available for input."
+        )
+
+    if len(tool_call_messages) == 0:
+        return messages
+
+    available_space = (
+        max_context_size - message_size_without_tools - maximum_output_token
+    )
+    remaining_space = available_space
+    tool_call_messages.sort(key=lambda x: len(x["content"]))
+
+    # Allocate space starting with small tools and going to larger tools, while maintaining fairness
+    # Small tools can often get exactly what they need, while larger tools may need to be truncated
+    # We ensure fairness (no tool gets more than others that need it) and also maximize utilization (we don't leave space unused)
+    for i, msg in enumerate(tool_call_messages):
+        remaining_tools = len(tool_call_messages) - i
+        max_allocation = remaining_space // remaining_tools
+        needed_space = len(msg["content"])
+        allocated_space = min(needed_space, max_allocation)
+
+        if needed_space > allocated_space:
+            logging.info(
+                f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
+            )
+            msg["content"] = msg["content"][:allocated_space]
+            msg.pop("token_count", None)  # Remove token_count if present
+
+        remaining_space -= allocated_space
+    return messages
+
+
 class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
@@ -383,39 +450,12 @@ class ToolCallingLLM:
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
     ) -> list:
-        messages_except_tools = [
-            message for message in messages if message["role"] != "tool"
-        ]
-        message_size_without_tools = self.llm.count_tokens_for_message(
-            messages_except_tools
+        return truncate_messages_to_fit_context(
+            messages,
+            max_context_size,
+            maximum_output_token,
+            self.llm.count_tokens_for_message,
         )
-
-        tool_call_messages = [
-            message for message in messages if message["role"] == "tool"
-        ]
-
-        if message_size_without_tools >= (max_context_size - maximum_output_token):
-            logging.error(
-                f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
-            )
-            raise Exception(
-                f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
-            )
-
-        tool_size = min(
-            10000,
-            int(
-                (max_context_size - message_size_without_tools - maximum_output_token)
-                / len(tool_call_messages)
-            ),
-        )
-
-        for message in messages:
-            if message["role"] == "tool" and len(message["content"]) > tool_size:
-                message["content"] = message["content"][:tool_size]
-                if "token_count" in message:
-                    del message["token_count"]
-        return messages
 
     def call_stream(
         self,
