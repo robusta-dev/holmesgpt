@@ -9,6 +9,14 @@
         "DNS"
       ],
       "link": "networking/dns_troubleshooting_instructions.md"
+    },
+    {
+      "Update_Date": "2025-06-17",
+      "Description": "Runbook to investigate node not ready issue in Kubernetes cluster",
+      "KeyWords": [
+        "node readiness"
+      ],
+      "link": "cluster/node_not_ready.md"
     }
   ]
 }
