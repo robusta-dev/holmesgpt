@@ -241,6 +241,16 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
                 res = response.json()
                 count = res.get("totalCount", 0)
                 if count:
+                    simplified_events = [
+                        {
+                            "id": event.get("id", ""),
+                            "created": event.get("created"),
+                            "eventTypeName": event.get("eventTypeName"),
+                            "database": event.get("database", ""),
+                        }
+                        for event in res.get("results", [])
+                    ]
+                    res["results"] = simplified_events
                     return success(res, params)
                 else:
                     return no_data(res, params)
