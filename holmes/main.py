@@ -25,10 +25,12 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+from prompt_toolkit import PromptSession
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
+
 
 from holmes import get_version  # type: ignore
 from holmes.config import (
@@ -346,6 +348,17 @@ def ask(
         initial_user_prompt = append_file_to_user_prompt(initial_user_prompt, path)
         console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
 
+    if interactive:
+        run_interactive_loop(
+            ai,
+            console,
+            system_prompt_rendered,
+            initial_user_prompt,
+            post_processing_prompt,
+            show_tool_output,
+        )
+        return
+
     messages = [
         {"role": "system", "content": system_prompt_rendered},
         {"role": "user", "content": initial_user_prompt},
@@ -355,14 +368,7 @@ def ask(
     messages = response.messages  # type: ignore # Update messages with the full history
 
     if json_output_file:
-        # Save only the first response to the JSON file if not interactive
-        # In interactive mode, saving the whole conversation might be complex, so we skip it for now.
-        if not interactive:
-            write_json_file(json_output_file, response.model_dump())
-        else:
-            logging.warning(
-                "JSON output is not supported in interactive mode yet. Skipping."
-            )
+        write_json_file(json_output_file, response.model_dump())
 
     issue = Issue(
         id=str(uuid.uuid4()),
@@ -381,63 +387,64 @@ def ask(
         False,  # type: ignore
     )
 
-    # Interactive loop
-    if interactive:
-        run_interactive_loop(
-            ai,
-            console,
-            destination,  # type: ignore
-            messages,
-            post_processing_prompt,
-            show_tool_output,
-        )
-
 
 def run_interactive_loop(
     ai,
     console: Console,
-    destination: DestinationType,
-    messages: list[dict],
+    system_prompt_rendered: str,
+    initial_user_prompt: str,
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
 ) -> None:
-    console.print(
-        Rule(
-            "[bold cyan]Entering interactive mode. Type 'exit' or 'quit' to end.[/bold cyan]"
-        )
-    )
+    initial_messages = [
+        {"role": "system", "content": system_prompt_rendered},
+    ]
+    messages = initial_messages.copy()
+    response = ai.call(messages, post_processing_prompt)
+    session = PromptSession()  # type: ignore
+    user_input = initial_user_prompt
+    first_iteration = True
+
     while True:
         try:
-            follow_up_prompt = typer.prompt("User")
-            if follow_up_prompt.lower() in ["exit", "quit"]:
-                break
-
-            messages.append({"role": "user", "content": follow_up_prompt})
-
-            # Subsequent calls in interactive mode
+            messages.append({"role": "user", "content": user_input})
             response = ai.call(messages, post_processing_prompt)
-            messages = response.messages  # Keep updating the history
+            messages = response.messages
 
-            # Handle response for interactive mode (simplified, adjust as needed)
-            if destination == DestinationType.CLI:
-                if show_tool_output and response.tool_calls:
-                    for tool_call in response.tool_calls:
-                        console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
-                        console.print(
-                            f"{tool_call.description}. Output=\n{tool_call.result}",
-                            markup=False,
-                        )
-                console.print("[bold green]AI:[/bold green]", end=" ")
-                console.print(Markdown(response.result))
-                console.print(Rule())
-            else:
-                # Handling other destinations in interactive mode might need specific logic
-                logging.warning(
-                    f"Interactive mode might not fully support destination '{destination}'. Displaying to CLI."
+            if show_tool_output and response.tool_calls:
+                for tool_call in response.tool_calls:
+                    console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
+                    console.print(
+                        f"{tool_call.description}. Output=\n{tool_call.result}",
+                        markup=False,
+                    )
+            console.print("[bold green]AI:[/bold green]", end=" ")
+            console.print(Markdown(response.result))
+
+            if first_iteration:
+                console.print(
+                    Rule(
+                        "[bold cyan]Entering interactive mode. Type '/exit' to exit, '/help' for more commands.[/bold cyan]"
+                    )
                 )
-                console.print("[bold green]AI:[/bold green]", end=" ")
-                console.print(Markdown(response.result))
-                console.print(Rule())
+                first_iteration = False
+
+            # fetch input until we get 'real input' that isn't a slash command
+            while True:
+                user_input = session.prompt("User: ")
+                if user_input.startswith("/"):
+                    command = user_input[1:].strip().lower()
+                    if command == "exit":
+                        return
+                    elif command == "help":
+                        print("Available commands: /exit, /help, /reset")
+                    elif command == "reset":
+                        messages = initial_messages.copy()
+                    else:
+                        print(f"Unknown command: /{command}")
+                    continue
+                else:
+                    break
 
         except typer.Abort:
             break
