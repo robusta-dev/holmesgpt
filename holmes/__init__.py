@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+from functools import cache
 
 # For relative imports to work in Python 3.6 - see https://stackoverflow.com/a/49375740
 this_path = os.path.dirname(os.path.realpath(__file__))
@@ -11,6 +12,7 @@ sys.path.append(this_path)
 __version__ = "0.0.0"
 
 
+@cache
 def get_version() -> str:
     # the version string was patched by a release - return __version__ which will be correct
     if not __version__.startswith("0.0.0"):
