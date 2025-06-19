@@ -1,0 +1,7 @@
+toolsets:
+  MongoDBAtlas:
+    enabled: true
+    config:
+      project_id: "{{env.MONGODBATLAS_PROJECT_ID}}"
+      public_key: "{{env.MONGODBATLAS_PUBLIC_KEY}}"
+      private_key: "{{env.MONGODBATLAS_PRIVATE_KEY}}"

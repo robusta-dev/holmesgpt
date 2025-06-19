@@ -1,8 +1,8 @@
-user_prompt: "give me the top 10 slow queries on mongodb"
+user_prompt: "Colscan queries present"
 
 expected_output: |
 
-  The answer should exactly 10 slow queries.
+  The answer should exactly 3 Colscan queries.
 #before_test: |
 #  kubectl apply -f./manifest.yaml
 #  sleep 10
