@@ -1,6 +1,6 @@
 # 'last week' can be expected to mean 'since the begining of the last week' but some people might also mean 'since 7 days ago'
 # This test case's intention is to accept both interpretation and thus validates that data for the last 7 days is found in the logs
-user_prompt: "Show me the logs for the pod `robusta-holmes`` since last week"
+user_prompt: "Show me the logs for the pod `robusta-holmes` since last week"
 tags:
   - logs
   - datetime

@@ -1,5 +1,5 @@
 # Today is Thursday, ask for logs since last week mentioning specific day
-user_prompt: "Show me the logs for the pod `robusta-holmes`` since last Thursday"
+user_prompt: "Show me the logs for the pod `robusta-holmes` since last Thursday"
 tags:
   - logs
   - datetime

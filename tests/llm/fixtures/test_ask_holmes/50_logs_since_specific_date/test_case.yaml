@@ -1,7 +1,7 @@
 # Expected:
 # - Show some examples of errors in the logs.
 # - Summarize the different types of errors if there are a lot of repeating.
-user_prompt: "What are the errors in my deployment"
+user_prompt: "What are the errors in pod robusta-holmes since June 12?"
 tags:
   - logs
   - synthetic
