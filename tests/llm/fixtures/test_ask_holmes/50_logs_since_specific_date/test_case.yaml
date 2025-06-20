@@ -1,7 +1,9 @@
-user_prompt: "Show me the logs for the pod `robusta-holmes`` since June 12th"
+# Expected:
+# - Show some examples of errors in the logs.
+# - Summarize the different types of errors if there are a lot of repeating.
+user_prompt: "What are the errors in my deployment"
 tags:
   - logs
-  - datetime
   - synthetic
 expected_output:
   - 2025-06-12 The database at my.postgresql.com has become unavailable
@@ -12,5 +14,5 @@ expected_output:
 
 evaluation:
   # Holmes SYSTEMATICALLY fetches the logs from 2023 instead of the current year (2025)
-  correctness: 1
-generate_mocks: True
+  correctness: 0
+generate_mocks: False

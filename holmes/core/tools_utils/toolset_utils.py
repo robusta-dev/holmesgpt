@@ -1,3 +1,4 @@
+import logging
 from holmes.core.tools import Toolset, ToolsetStatusEnum
 from holmes.plugins.toolsets.logging_utils.logging_api import BasePodLoggingToolset
 
@@ -28,10 +29,9 @@ def filter_out_default_logging_toolset(toolsets: list[Toolset]) -> list[Toolset]
             final_toolsets.append(ts)
 
     if not logging_toolsets:
-        print("NO ENABLED LOGGING TOOLSET")
+        logging.warning("NO ENABLED LOGGING TOOLSET")
         pass
     elif len(logging_toolsets) == 1:
-        print(f"ONLY ONE ENABLED LOGGING TOOLSET {logging_toolsets[0].name}")
         final_toolsets.append(logging_toolsets[0])
     else:
         non_k8s_logs_candidates = [
@@ -42,10 +42,10 @@ def filter_out_default_logging_toolset(toolsets: list[Toolset]) -> list[Toolset]
             # Prefer non-"kubernetes/logs" toolsets
             # Sort them to ensure the behaviour is "stable" and does not change across restarts
             non_k8s_logs_candidates.sort(key=lambda ts: ts.name)
-            print(f"Non k8s {non_k8s_logs_candidates[0].name}")
+            logging.info(f"Using logging toolset {non_k8s_logs_candidates[0].name}")
             final_toolsets.append(non_k8s_logs_candidates[0])
         else:
-            print(f"k8s {logging_toolsets[0].name}")
+            logging.info(f"Using logging toolset {logging_toolsets[0].name}")
             # If only "kubernetes/logs" toolsets
             final_toolsets.append(logging_toolsets[0])
 
