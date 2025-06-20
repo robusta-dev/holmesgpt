@@ -1,17 +1,17 @@
-import os
-
 import logging
+import os
+from typing import Any, Dict, List, Optional
 
-from typing import Optional, Dict, Any, List
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StaticPrerequisite,
+    StructuredToolResult,
     Tool,
     ToolParameter,
+    ToolResultStatus,
     Toolset,
     ToolsetTag,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
 PARAM_FINDING_ID = "id"
 START_TIME = "start_datetime"
@@ -233,3 +233,6 @@ class RobustaToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def init_config(self):
+        pass

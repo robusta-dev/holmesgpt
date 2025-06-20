@@ -1,8 +1,7 @@
-from holmes.core.tools import (
-    ToolParameter,
-)
 from mcp.types import ListToolsResult, Tool
-from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset, RemoteMCPTool
+
+from holmes.core.tools import ToolParameter
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPTool, RemoteMCPToolset
 
 
 def test_parse_mcp_tool():
@@ -49,10 +48,10 @@ def test_mcpserver_unreachable():
     assert (
         False,
         "Failed to load mcp server test_mcp http://0.0.0.0:3009/sse ('unhandled errors in a TaskGroup', [ConnectError('All connection attempts failed')])",
-    ) == mcp_toolset.init_server_tools(config=None)
+    ) == mcp_toolset.init_server_tools()
 
 
-def test_mcpserver_1tool(monkeypatch):
+def test_mcpserver_tool(monkeypatch):
     mcp_toolset = RemoteMCPToolset(
         url="http://0.0.0.0/3005",
         name="test_mcp",
@@ -76,7 +75,7 @@ def test_mcpserver_1tool(monkeypatch):
         )
 
     monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
-    mcp_toolset.init_server_tools(config=None)
+    mcp_toolset.init_server_tools()
     assert len(list(mcp_toolset.tools)) == 1
 
 

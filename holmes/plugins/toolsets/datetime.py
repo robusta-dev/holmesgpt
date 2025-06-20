@@ -1,8 +1,13 @@
-from holmes.core.tools import ToolsetTag
-from typing import Dict, Any
-from holmes.core.tools import Tool, Toolset
 import datetime
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from typing import Any, Dict
+
+from holmes.core.tools import (
+    StructuredToolResult,
+    Tool,
+    ToolResultStatus,
+    Toolset,
+    ToolsetTag,
+)
 
 
 class CurrentTime(Tool):
@@ -41,3 +46,6 @@ class DatetimeToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def init_config(self):
+        pass

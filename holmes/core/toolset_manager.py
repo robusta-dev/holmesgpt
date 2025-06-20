@@ -113,6 +113,7 @@ class ToolsetManager:
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
             return list(toolsets_by_name.values())
+
         for _, toolset in toolsets_by_name.items():
             if toolset.enabled:
                 toolset.check_prerequisites()
@@ -203,8 +204,10 @@ class ToolsetManager:
         toolset_tags: Optional[List[ToolsetTag]] = None,
     ) -> List[Toolset]:
         """
-        Load the toolset status from the cache file.
-        If the file does not exist, return an empty list.
+        Load the toolset with status from the cache file.
+        1. load the built-in toolsets
+        2. load the custom toolsets from config, and override the built-in toolsets
+        3. load the custom toolsets from CLI, and raise error if the custom toolset from CLI conflicts with existing toolsets
         """
 
         if not os.path.exists(self.toolset_status_location) or refresh_status:
@@ -237,6 +240,9 @@ class ToolsetManager:
                     cached_status.get("type", ToolsetType.BUILTIN)
                 )
                 toolset.path = cached_status.get("path", None)
+            # Initialize the config for enabled toolsets
+            if toolset.enabled and toolset.status == ToolsetStatusEnum.ENABLED:
+                toolset.init_config()
 
         # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
         custom_toolsets_from_cli = self._load_toolsets_from_paths(
@@ -250,6 +256,8 @@ class ToolsetManager:
                 raise ValueError(
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
+            custom_toolset_from_cli.check_prerequisites()
+
         all_toolsets_with_status.extend(custom_toolsets_from_cli)
 
         return all_toolsets_with_status
@@ -393,4 +401,5 @@ class ToolsetManager:
             if new_toolset.name in existing_toolsets_by_name.keys():
                 existing_toolsets_by_name[new_toolset.name].override_with(new_toolset)
             else:
+                existing_toolsets_by_name[new_toolset.name] = new_toolset
                 existing_toolsets_by_name[new_toolset.name] = new_toolset

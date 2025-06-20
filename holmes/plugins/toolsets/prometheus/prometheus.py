@@ -745,26 +745,8 @@ class PrometheusToolset(Toolset):
         )
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if config:
-            self.config = PrometheusConfig(**config)
-            self._reload_llm_instructions()
-            return self._is_healthy()
-
-        prometheus_url = os.environ.get("PROMETHEUS_URL")
-        if not prometheus_url:
-            prometheus_url = self.auto_detect_prometheus_url()
-            if not prometheus_url:
-                return (
-                    False,
-                    "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
-                )
-
-        self.config = PrometheusConfig(
-            prometheus_url=prometheus_url,
-            headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
-        )
-        logging.info(f"Prometheus auto discovered at url {prometheus_url}")
+    def prerequisites_callable(self) -> Tuple[bool, str]:
+        self.init_config()
         self._reload_llm_instructions()
         return self._is_healthy()
 
@@ -816,3 +798,16 @@ class PrometheusToolset(Toolset):
             prometheus_url="http://robusta-kube-prometheus-st-prometheus:9090"
         )
         return example_config.model_dump()
+
+    def init_config(self):
+        if self.config:
+            self.config = PrometheusConfig(**self.config)
+        else:
+            prometheus_url = os.environ.get("PROMETHEUS_URL")
+            if not prometheus_url:
+                prometheus_url = self.auto_detect_prometheus_url()
+            self.config = PrometheusConfig(
+                prometheus_url=prometheus_url,
+                headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
+            )
+            logging.info(f"Prometheus auto discovered at url {prometheus_url}")

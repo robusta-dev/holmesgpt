@@ -4,8 +4,7 @@ import os
 import random
 import re
 import string
-from typing import Dict, Any, Optional
-
+from typing import Any, Dict, Optional
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -200,9 +199,12 @@ class BashExecutorToolset(BaseBashExecutorToolset):
         )
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
-        if config:
-            self.config = BashExecutorConfig(**config)
+    def prerequisites_callable(self) -> tuple[bool, str]:
+        self.init_config()
+        return True, ""
+
+    def init_config(self):
+        if self.config:
+            self.config = BashExecutorConfig(**self.config)
         else:
             self.config = BashExecutorConfig()
-        return True, ""

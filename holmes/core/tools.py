@@ -297,7 +297,7 @@ class StaticPrerequisite(BaseModel):
 
 
 class CallablePrerequisite(BaseModel):
-    callable: Callable[[dict[str, Any]], Tuple[bool, str]]
+    callable: Callable[[], Tuple[bool, str]]
 
 
 class ToolsetCommandPrerequisite(BaseModel):
@@ -423,7 +423,7 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 try:
-                    (enabled, error_message) = prereq.callable(self.config)
+                    (enabled, error_message) = prereq.callable()
                     if not enabled:
                         self.status = ToolsetStatusEnum.FAILED
                     if error_message:
@@ -446,6 +446,15 @@ class Toolset(BaseModel):
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
+    @abstractmethod
+    def init_config(self):
+        """
+        Initialize the toolset configuration.
+        CallablePrerequisite can be used to initialize the configuration of a toolset, and validate the configuration prerequisites,
+        but when prerequisites check is not required, use init_config to initialize the configuration.
+        """
+        pass
+
     def _load_llm_instructions(self, jinja_template: str):
         tool_names = [t.name for t in self.tools]
         self.llm_instructions = load_and_render_prompt(
@@ -464,6 +473,9 @@ class YAMLToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def init_config(self):
+        pass
 
 
 class ToolExecutor:
@@ -545,6 +557,9 @@ class ToolsetYamlFromConfig(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
+
+    def init_config(self):
+        pass
 
 
 class ToolsetDBModel(BaseModel):
