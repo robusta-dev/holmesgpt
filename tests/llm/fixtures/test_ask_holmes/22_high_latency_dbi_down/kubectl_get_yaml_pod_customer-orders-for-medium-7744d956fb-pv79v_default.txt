@@ -1,0 +1,188 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_yaml","match_params":{"kind":"pod","name":"customer-orders-for-medium-7744d956fb-pv79v","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get -o yaml pod customer-orders-for-medium-7744d956fb-pv79v -n default", "params": {"kind": "pod", "name": "customer-orders-for-medium-7744d956fb-pv79v", "namespace": "default"}}
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2025-06-02T11:44:04Z"
+  generateName: customer-orders-for-medium-7744d956fb-
+  labels:
+    app: customer-orders-for-medium
+    pod-template-hash: 7744d956fb
+  name: customer-orders-for-medium-7744d956fb-pv79v
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: customer-orders-for-medium-7744d956fb
+    uid: 37287df8-59d1-418f-90c8-82773f23e1d2
+  resourceVersion: "2670294"
+  uid: 4e4c7770-27b3-47f8-a5dc-51a219c8af81
+spec:
+  containers:
+  - env:
+    - name: DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          key: username
+          name: db-secrets-for-medium
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          key: password
+          name: db-secrets-for-medium
+    - name: DB_HOST
+      valueFrom:
+        secretKeyRef:
+          key: host
+          name: db-secrets-for-medium
+    - name: DB_DATABASE
+      valueFrom:
+        secretKeyRef:
+          key: database
+          name: db-secrets-for-medium
+    image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo:v1
+    imagePullPolicy: IfNotPresent
+    name: fastapi-app
+    ports:
+    - containerPort: 8000
+      protocol: TCP
+    - containerPort: 8001
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-hmf8s
+      readOnly: true
+  - args:
+    - /bin/sh
+    - -c
+    - while true; do curl -s http://localhost:8000; sleep 60; done
+    image: curlimages/curl
+    imagePullPolicy: Always
+    name: curl-sidecar
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-hmf8s
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: kind-double-node-worker
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-hmf8s
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2025-06-13T07:08:30Z"
+    status: "True"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2025-06-02T11:44:04Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2025-06-13T07:08:30Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2025-06-13T07:08:30Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2025-06-02T11:44:04Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://1dbfe0a225ba4816add49b30ae134529159664b888fb6f9442e4aa2b56140841
+    image: docker.io/curlimages/curl:latest
+    imageID: docker.io/curlimages/curl@sha256:d43bdb28bae0be0998f3be83199bfb2b81e0a30b034b6d7586ce7e05de34c3fd
+    lastState:
+      terminated:
+        containerID: containerd://d16c3c781bca7dd77d2b238a52881733a1c6b47d7bc800c5aaa121f1aff67a6c
+        exitCode: 255
+        finishedAt: "2025-06-13T07:07:55Z"
+        reason: Unknown
+        startedAt: "2025-06-12T05:25:56Z"
+    name: curl-sidecar
+    ready: true
+    restartCount: 9
+    started: true
+    state:
+      running:
+        startedAt: "2025-06-13T07:08:30Z"
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-hmf8s
+      readOnly: true
+      recursiveReadOnly: Disabled
+  - containerID: containerd://7895cb6e1754c75f8c77e305c5aad586a013c3af3adb90048fb9c01a7038a9f8
+    image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo:v1
+    imageID: us-central1-docker.pkg.dev/genuine-flight-317411/devel/rds-demo@sha256:5252be9da6f74b44192e39e04200d0ee31b3364eb8868985a484506ab1d6abfe
+    lastState:
+      terminated:
+        containerID: containerd://ea3ba55361057c073c64a7b43a7ebbc90a01b2b9892b09f670db5671d7d03b08
+        exitCode: 255
+        finishedAt: "2025-06-13T07:07:55Z"
+        reason: Unknown
+        startedAt: "2025-06-12T05:25:43Z"
+    name: fastapi-app
+    ready: true
+    restartCount: 9
+    started: true
+    state:
+      running:
+        startedAt: "2025-06-13T07:08:16Z"
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-hmf8s
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 172.18.0.2
+  hostIPs:
+  - ip: 172.18.0.2
+  phase: Running
+  podIP: 10.244.1.74
+  podIPs:
+  - ip: 10.244.1.74
+  qosClass: BestEffort
+  startTime: "2025-06-02T11:44:04Z"

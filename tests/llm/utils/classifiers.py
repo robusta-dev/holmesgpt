@@ -1,17 +1,17 @@
-import os
-from typing import Dict, List, Optional, Union
-
-import openai
+from typing import List, Optional, Union
 from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
+import openai
+import os
+from braintrust import Span, SpanTypeAttribute
+
 import logging
 
 classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
 api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
 base_url = os.environ.get("AZURE_API_BASE", None)
 api_version = os.environ.get("AZURE_API_VERSION", None)
-
-if base_url:
+if base_url and classifier_model.startswith("azure"):
     if len(classifier_model.split("/")) != 2:
         raise ValueError(
             f"Current classifier model '{classifier_model}' does not meet the pattern 'azure/<deployment-name>' when using Azure OpenAI."
@@ -29,9 +29,12 @@ if base_url:
 def evaluate_correctness(
     expected_elements: Union[str, List[str]],
     output: Optional[str],
+    parent_span: Optional[Span],
     caplog,
     evaluation_type: str = "strict",
 ):
+    expected_elements_str = "\n- ".join(expected_elements)
+
     caplog.set_level("INFO", logger="classifier")
     logger = logging.getLogger("classifier")
 
@@ -59,9 +62,9 @@ present in the whole OUTPUT, even if it spans multiple sentences.
 
 Return a choice based on the number of EXPECTED ELEMENTS present in the OUTPUT.
 Possible choices:
-    - A: All elements are presents
-    - B: Either no element is present or only some but not all elements are present
-    """
+- A: All elements are presents
+- B: Either no element is present or only some but not all elements are present
+"""
 
     if evaluation_type == "loose":
         prompt_prefix = """
@@ -84,9 +87,9 @@ present in the whole OUTPUT, even if it spans multiple sentences.
 
 Return a choice based on the number of EXPECTED presence in the OUTPUT.
 Possible choices:
-    - A: The OUTPUT reasonably matches the EXPECTED content
-    - B: The OUTPUT does not match the EXPECTED content
-    """
+- A: The OUTPUT reasonably matches the EXPECTED content
+- B: The OUTPUT does not match the EXPECTED content
+"""
     if base_url:
         logger.info(
             f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
@@ -112,10 +115,33 @@ Possible choices:
         base_url=base_url,
         api_version=api_version,
     )
-    return classifier(input=input, output=output, expected=expected_elements_str)
+    if parent_span:
+        with parent_span.start_span(
+            name="Correctness", type=SpanTypeAttribute.SCORE
+        ) as span:
+            correctness_eval = classifier(
+                input=prompt_prefix, output=output, expected=expected_elements_str
+            )
+
+            span.log(
+                input=prompt_prefix,
+                output=correctness_eval.metadata.get("rationale", ""),
+                expected=expected_elements_str,
+                scores={
+                    "correctness": correctness_eval.score,
+                },
+                metadata=correctness_eval.metadata,
+            )
+            return correctness_eval
+    else:
+        return classifier(
+            input=prompt_prefix, output=output, expected=expected_elements_str
+        )
 
 
-def evaluate_sections(sections: Dict[str, bool], output: Optional[str]):
+def evaluate_sections(
+    sections: dict[str, bool], output: Optional[str], parent_span: Optional[Span]
+):
     expected_sections = [section for section, expected in sections.items() if expected]
     expected_sections_str = "\n".join([f"- {section}" for section in expected_sections])
     if not expected_sections_str:
@@ -159,20 +185,39 @@ If there are <No element> in UNEXPECTED SECTIONS assume the OUTPUT has no UNEXPE
 
 Return a choice based on the number of EXPECTED ELEMENTS present in the OUTPUT.
 Possible choices:
-    A. One or more of the EXPECTED SECTIONS is missing and one or more of the UNEXPECTED SECTIONS is present
-    B. All EXPECTED SECTIONS are present in the OUTPUT and no UNEXPECTED SECTIONS is present in the output
-    """
+A. One or more of the EXPECTED SECTIONS is missing and one or more of the UNEXPECTED SECTIONS is present
+B. All EXPECTED SECTIONS are present in the OUTPUT and no UNEXPECTED SECTIONS is present in the output
+"""
 
     classifier = LLMClassifier(
-        name="Correctness",
+        name="sections",
         prompt_template=prompt_prefix,
         choice_scores={"A": 0, "B": 1},
         use_cot=True,
         model=classifier_model,
-        api_key=api_key,
-        base_url=base_url,
-        api_version=api_version,
     )
-    return classifier(
-        input=unexpected_sections_str, output=output, expected=expected_sections_str
-    )
+    if parent_span:
+        with parent_span.start_span(
+            name="Sections", type=SpanTypeAttribute.SCORE
+        ) as span:
+            correctness_eval = classifier(
+                input=unexpected_sections_str,
+                output=output,
+                expected=expected_sections_str,
+            )
+
+            span.log(
+                input=prompt_prefix,
+                output=correctness_eval.metadata.get("rationale", ""),
+                expected=expected_sections_str,
+                scores={
+                    "sections": correctness_eval.score,
+                },
+                metadata=correctness_eval.metadata,
+            )
+
+            return correctness_eval
+    else:
+        return classifier(
+            input=unexpected_sections_str, output=output, expected=expected_sections_str
+        )

@@ -1,4 +1,4 @@
-user_prompt: 'What kubernetes events are related to << { "type": "pod", "name": "nginx-6958c5bdd8-69gtn" } >>'
+user_prompt: 'What kubernetes events are related to << { "type": "pod", "name": "nginx-6958c5bdd8-69gtn", "namespace": "default" } >>'
 #user_prompt: "What kubernetes events are related to the nginx pod >>"
 expected_output:
   - "Scheduled: Successfully assigned to node `aks-nodepool1-26081864-vmss000004`"

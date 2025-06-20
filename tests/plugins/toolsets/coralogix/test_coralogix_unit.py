@@ -5,7 +5,6 @@ from pathlib import Path
 from holmes.plugins.toolsets.coralogix.api import DEFAULT_LOG_COUNT, build_query_string
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
-    FetchLogs,
 )
 from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,
@@ -14,6 +13,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     normalize_datetime,
     stringify_flattened_logs,
 )
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures")
@@ -58,11 +58,6 @@ def coralogix_toolset(coralogix_config):
     return toolset
 
 
-@pytest.fixture
-def fetch_logs_tool(coralogix_toolset):
-    return FetchLogs(toolset=coralogix_toolset)
-
-
 def test_format_logs(raw_logs_result, formatted_logs):
     actual_output = stringify_flattened_logs(parse_logs(raw_logs_result))
     logs_match = actual_output.strip() == formatted_logs.strip()
@@ -105,28 +100,32 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
     "params, expected_query_part",
     [
         (
-            {"resource_type": "application", "resource_name": "my-app"},
-            f"source logs | lucene 'coralogix.metadata.applicationName:/my-app/' | limit {DEFAULT_LOG_COUNT}",
-        ),
-        (
-            {"resource_type": "pod", "resource_name": "pod-123"},
-            f"source logs | lucene 'kubernetes.pod_name:/pod-123/' | limit {DEFAULT_LOG_COUNT}",
+            {"namespace": "application", "pod_name": "my-app"},
+            f'source logs | lucene \'kubernetes.namespace_name:"application" AND kubernetes.pod_name:"my-app"\' | limit {DEFAULT_LOG_COUNT}',
         ),
         (
             {
-                "resource_type": "application",
-                "resource_name": "web",
-                "namespace_name": "staging",
-                "log_count": 20,
+                "pod_name": "web",
+                "namespace": "staging",
+                "limit": 20,
             },
-            "source logs | lucene 'kubernetes.namespace_name:staging AND coralogix.metadata.applicationName:/web/' | limit 20",
+            'source logs | lucene \'kubernetes.namespace_name:"staging" AND kubernetes.pod_name:"web"\' | limit 20',
+        ),
+        (
+            {
+                "pod_name": "web",
+                "namespace": "staging",
+                "limit": 30,
+                "filter": "foo bar",
+            },
+            'source logs | lucene \'kubernetes.namespace_name:"staging" AND kubernetes.pod_name:"web" AND log:"foo bar"\' | limit 30',
         ),
     ],
 )
-def test_build_query_string(
-    fetch_logs_tool, coralogix_config, params, expected_query_part
-):
-    query = build_query_string(coralogix_config, params)
+def test_build_query_string(coralogix_config, params, expected_query_part):
+    query = build_query_string(coralogix_config, FetchPodLogsParams(**params))
+    print(f"** EXPECTED: {expected_query_part}")
+    print(f"** ACTUAL: {query}")
     assert query == expected_query_part
 
 

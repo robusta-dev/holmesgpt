@@ -1,6 +1,7 @@
 {%- set loki_ts = toolsets | selectattr("name", "equalto", "grafana/loki") | first -%}
 {%- set coralogix_ts = toolsets | selectattr("name", "equalto", "coralogix/logs") | first -%}
-{%- set k8s_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | first -%}
+{%- set k8s_base_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | selectattr("fetch_pod_logs", "defined") | first -%}
+{%- set k8s_yaml_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | rejectattr("fetch_pod_logs", "defined") | first -%}
 {%- set opensearch_ts = toolsets | selectattr("name", "equalto", "opensearch/logs") | first -%}
 
 # Logs
@@ -15,25 +16,16 @@
 ** If there are too many logs, or not enough, narrow or widen the timestamps
 * If you are not provided with time information. Ignore start_timestamp and end_timestamp. Loki will default to the latest logs.
 {%- elif coralogix_ts and coralogix_ts.status == "enabled" -%}
-* For any logs, including for investigating kubernetes problems, use fetch_coralogix_logs_for_resource
-* Use the tool fetch_coralogix_logs_for_resource to get the logs of any kubernetes pod, coralogix application, or coralogix subsystem
-* Prefer fetching logs through coralogix and avoid using kubectl logs commands
-* Before fetching logs through coralogix, use `kubectl` commands to get the correct resource names.
-* If you have an issue id or finding id, use `fetch_finding_by_id` as it contains time information about the issue (`starts_at`, `updated_at` and `ends_at`).
-** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
-** If there are too many logs, or not enough, narrow or widen the timestamps
-* If no logs are found, retry with increasing the start/end time range by one hour.
-{%- elif k8s_ts and k8s_ts.status == "enabled" -%}
+{% include '_default_log_prompt.jinja2' %}
+{%- elif k8s_base_ts and k8s_base_ts.status == "enabled" -%}
+{% include '_default_log_prompt.jinja2' %}
+{%- elif k8s_yaml_ts and k8s_yaml_ts.status == "enabled" -%}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.
 * Check both kubectl_logs and kubectl_previous_logs because a pod restart mean kubectl_logs may not have relevant logs
 {%- elif opensearch_ts and opensearch_ts.status == "enabled" -%}
-* ALWAYS, first, use describe_opensearch_logs_fields to understand the documents fields, then base the opensearch query on that. You must filter by the fields names that appears here
-* The search query should always contain the root 'query' element in the search expression
-* if the user wants pod logs, use fetch_opensearch_logs
-* Always build the query with '.keyword' when doing exact match
-* if time range is not specified, get logs for the last hour
+{% include '_default_log_prompt.jinja2' %}
 {%- else -%}
 * You have not been given access to tools to fetch kubernetes logs for nodes, pods, services or apps. This is likely a misconfiguration.
 * If you need logs to answer questions or investigate issues, tell the user to configure the documentation and enable one of these toolsets:

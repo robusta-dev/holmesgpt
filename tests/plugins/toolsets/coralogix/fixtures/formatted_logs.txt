@@ -1,111 +1,123 @@
-2025-03-25T07:23:33.559983Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:24:33.566992Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:25:33.572060Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:25:33.572241Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:25:33.572296Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:26:33.577308Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:26:33.577356Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:26:33.577532Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:27:33.583264Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:28:28.058043Z Error: Cannot find module 'dist/telemetry.js'
-2025-03-25T07:28:28.058059Z     at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
-2025-03-25T07:28:28.058062Z     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
-2025-03-25T07:28:28.058093Z   code: 'MODULE_NOT_FOUND',
-2025-03-25T07:28:28.058096Z   requireStack: [ 'internal/preload' ]
-2025-03-25T07:28:28.058099Z }
-2025-03-25T07:28:33.587923Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:28:33.587966Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:29:33.594537Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:29:33.594750Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:29:33.594808Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:30:33.600329Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:30:33.600386Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:31:33.606712Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:31:33.606971Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:32:33.612338Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:32:33.612604Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:33:31.060162Z   throw err;
-2025-03-25T07:33:31.060185Z     at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
-2025-03-25T07:33:31.060188Z     at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
-2025-03-25T07:33:31.060199Z     at TracingChannel.traceSync (node:diagnostics_channel:322:14)
-2025-03-25T07:33:31.060215Z     at loadPreloadModules (node:internal/process/pre_execution:663:5)
-2025-03-25T07:33:31.060226Z   requireStack: [ 'internal/preload' ]
-2025-03-25T07:33:33.619092Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:34:33.624156Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:35:33.630836Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:35:33.631078Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:37:33.643659Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:37:33.643689Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:37:33.643920Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:38:32.063054Z   ^
-2025-03-25T07:38:32.063063Z Require stack:
-2025-03-25T07:38:32.063073Z     at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
-2025-03-25T07:38:32.063077Z     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
-2025-03-25T07:38:32.063080Z     at Function._load (node:internal/modules/cjs/loader:1215:37)
-2025-03-25T07:38:32.063095Z     at node:internal/modules/cjs/loader:2049:12
-2025-03-25T07:38:32.063105Z   code: 'MODULE_NOT_FOUND',
-2025-03-25T07:38:32.063117Z Node.js v23.10.0
-2025-03-25T07:39:33.656528Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:41:33.668531Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:43:33.679957Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:43:39.062892Z node:internal/modules/cjs/loader:1408
-2025-03-25T07:43:39.062945Z Require stack:
-2025-03-25T07:43:39.062959Z     at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
-2025-03-25T07:43:39.062962Z     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
-2025-03-25T07:43:39.062977Z     at Module.require (node:internal/modules/cjs/loader:1491:12)
-2025-03-25T07:43:39.062995Z   code: 'MODULE_NOT_FOUND',
-2025-03-25T07:43:39.062999Z   requireStack: [ 'internal/preload' ]
-2025-03-25T07:44:33.686879Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:44:33.686911Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:44:33.687135Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:45:33.692200Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:46:33.699492Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:47:33.705010Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:47:33.705066Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:48:33.709543Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T07:48:53.054818Z Error: Cannot find module 'dist/telemetry.js'
-2025-03-25T07:48:53.054829Z     at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
-2025-03-25T07:48:53.054836Z     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
-2025-03-25T07:48:53.054864Z     at setupUserModules (node:internal/process/pre_execution:173:5) {
-2025-03-25T07:48:53.054874Z   requireStack: [ 'internal/preload' ]
-2025-03-25T07:48:53.054884Z Node.js v23.10.0
-2025-03-25T07:49:33.714626Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:50:33.719283Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:51:33.723934Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:51:33.724180Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:52:33.731083Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:53:56.057654Z   ^
-2025-03-25T07:53:56.057662Z Error: Cannot find module 'dist/telemetry.js'
-2025-03-25T07:53:56.057669Z - internal/preload
-2025-03-25T07:53:56.057673Z     at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
-2025-03-25T07:53:56.057699Z     at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
-2025-03-25T07:53:56.057703Z     at Module.require (node:internal/modules/cjs/loader:1491:12)
-2025-03-25T07:54:33.741367Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:54:33.741584Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:56:33.752358Z                                  Dload  Upload   Total   Spent    Left  Speed
-2025-03-25T07:57:33.758016Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:58:33.763114Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T07:59:01.049843Z node:internal/modules/cjs/loader:1408
-2025-03-25T07:59:01.049878Z   throw err;
-2025-03-25T07:59:01.049894Z Error: Cannot find module 'dist/telemetry.js'
-2025-03-25T07:59:01.049910Z     at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
-2025-03-25T07:59:01.049916Z     at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
-2025-03-25T07:59:01.049947Z     at setupUserModules (node:internal/process/pre_execution:173:5) {
-2025-03-25T07:59:01.049959Z }
-2025-03-25T07:59:33.768315Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T07:59:33.768381Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
-2025-03-25T08:00:33.774705Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-2025-03-25T08:00:33.774914Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-                              0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-2025-03-25T08:00:33.774969Z curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+Error: Cannot find module 'dist/telemetry.js'
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ 'internal/preload' ]
+}
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  throw err;
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at loadPreloadModules (node:internal/process/pre_execution:663:5)
+  requireStack: [ 'internal/preload' ]
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+                                 Dload  Upload   Total   Spent    Left  Speed
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  ^
+Require stack:
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
+    at Function._load (node:internal/modules/cjs/loader:1215:37)
+    at node:internal/modules/cjs/loader:2049:12
+  code: 'MODULE_NOT_FOUND',
+Node.js v23.10.0
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+node:internal/modules/cjs/loader:1408
+Require stack:
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
+    at Module.require (node:internal/modules/cjs/loader:1491:12)
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ 'internal/preload' ]
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+Error: Cannot find module 'dist/telemetry.js'
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1066:22)
+    at setupUserModules (node:internal/process/pre_execution:173:5) {
+  requireStack: [ 'internal/preload' ]
+Node.js v23.10.0
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+                                 Dload  Upload   Total   Spent    Left  Speed
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  ^
+Error: Cannot find module 'dist/telemetry.js'
+- internal/preload
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1491:12)
+                                 Dload  Upload   Total   Spent    Left  Speed
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+node:internal/modules/cjs/loader:1408
+  throw err;
+Error: Cannot find module 'dist/telemetry.js'
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1405:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1061:19)
+    at setupUserModules (node:internal/process/pre_execution:173:5) {
+}
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+curl: (7) Failed to connect to localhost port 3003 after 0 ms: Could not connect to server

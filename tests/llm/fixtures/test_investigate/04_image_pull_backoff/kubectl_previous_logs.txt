@@ -1,3 +1,3 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"customer-relations-webapp-5d98ffcfd-tz4nc","namespace":"default"}}
+{"toolset_name":"kubernetes/logs","tool_name":"fetch_pod_logs","match_params":{"pod_name":"customer-relations-webapp-5d98ffcfd-tz4nc","namespace":"default"}}
 Command `kubectl logs customer-relations-webapp-5d98ffcfd-tz4nc -n default --previous` failed with return code 1
 Error from server (BadRequest): previous terminated container "crw-main-container" in pod "customer-relations-webapp-5d98ffcfd-tz4nc" not found

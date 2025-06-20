@@ -8,19 +8,18 @@ import requests  # type: ignore
 from holmes.plugins.toolsets.coralogix.utils import (
     CoralogixConfig,
     CoralogixQueryResult,
-    get_resource_label,
     merge_log_results,
     parse_logs,
     CoralogixLogsMethodology,
 )
+from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.utils import (
-    get_param_or_raise,
     process_timestamps_to_rfc3339,
 )
 
 
 DEFAULT_TIME_SPAN_SECONDS = 86400
-DEFAULT_LOG_COUNT = 1000
+DEFAULT_LOG_COUNT = 2000  # Coralogix's default is 2000
 
 
 class CoralogixTier(str, Enum):
@@ -54,35 +53,32 @@ def health_check(domain: str, api_key: str) -> Tuple[bool, str]:
         return False, f"Failed with status_code={response.status_code}. {response.text}"
 
 
-def build_query_string(config: CoralogixConfig, params: Any) -> str:
-    resource_name = get_param_or_raise(params, "resource_name")
-    label = get_resource_label(params, config)
-
-    namespace_name = params.get("namespace_name", None)
-
-    log_count = params.get("log_count", DEFAULT_LOG_COUNT)
-
+def build_query_string(config: CoralogixConfig, params: FetchPodLogsParams) -> str:
     query_filters = []
-    if namespace_name:
-        query_filters.append(f"{config.labels.namespace}:{namespace_name}")
-    query_filters.append(f"{label}:/{resource_name}/")
+    query_filters.append(f'{config.labels.namespace}:"{params.namespace}"')
+    query_filters.append(f'{config.labels.pod}:"{params.pod_name}"')
+
+    if params.filter:
+        query_filters.append(f'{config.labels.log_message}:"{params.filter}"')
 
     query_string = " AND ".join(query_filters)
-    query_string = f"source logs | lucene '{query_string}' | limit {log_count}"
+    query_string = f"source logs | lucene '{query_string}' | limit {params.limit or DEFAULT_LOG_COUNT}"
     return query_string
 
 
-def get_start_end(config: CoralogixConfig, params: dict):
+def get_start_end(params: FetchPodLogsParams):
     (start, end) = process_timestamps_to_rfc3339(
-        start_timestamp=params.get("start"),
-        end_timestamp=params.get("end"),
+        start_timestamp=params.start_time,
+        end_timestamp=params.end_time,
         default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
     )
     return (start, end)
 
 
-def build_query(config: CoralogixConfig, params: dict, tier: CoralogixTier):
-    (start, end) = get_start_end(config, params)
+def build_query(
+    config: CoralogixConfig, params: FetchPodLogsParams, tier: CoralogixTier
+):
+    (start, end) = get_start_end(params)
 
     query_string = build_query_string(config, params)
     return {
@@ -97,7 +93,7 @@ def build_query(config: CoralogixConfig, params: dict, tier: CoralogixTier):
 
 
 def query_logs_for_tier(
-    config: CoralogixConfig, params: dict, tier: CoralogixTier
+    config: CoralogixConfig, params: FetchPodLogsParams, tier: CoralogixTier
 ) -> CoralogixQueryResult:
     http_status = None
     try:
@@ -122,7 +118,7 @@ def query_logs_for_tier(
 
 
 def query_logs_for_all_tiers(
-    config: CoralogixConfig, params: dict
+    config: CoralogixConfig, params: FetchPodLogsParams
 ) -> CoralogixQueryResult:
     methodology = config.logs_retrieval_methodology
     result: CoralogixQueryResult

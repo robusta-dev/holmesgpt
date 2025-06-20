@@ -1,0 +1,3 @@
+{"toolset_name":"datetime","tool_name":"get_current_time","match_params":{}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": null, "invocation": null, "params": {}}
+The current UTC date and time are 2025-06-12 08:58:20.254974+00:00. The current UTC timestamp in seconds is 1749718700.
