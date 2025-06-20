@@ -101,7 +101,7 @@ def test_basic_query(coralogix_logs_toolset):
 def test_search_term(coralogix_logs_toolset):
     result = coralogix_logs_toolset.fetch_pod_logs(
         FetchPodLogsParams(
-            namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME, match=TEST_SEARCH_TERM
+            namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME, filter=TEST_SEARCH_TERM
         )
     )
 
@@ -119,7 +119,7 @@ def test_search_term_with_dates(coralogix_logs_toolset):
         FetchPodLogsParams(
             namespace=TEST_NAMESPACE,
             pod_name=TEST_POD_NAME,
-            match=TEST_SEARCH_TERM,
+            filter=TEST_SEARCH_TERM,
             start_time=TEST_START_TIME,
             end_time=TEST_END_TIME,
         )
