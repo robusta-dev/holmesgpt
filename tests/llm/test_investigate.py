@@ -24,6 +24,8 @@ from os import path
 from braintrust.span_types import SpanTypeAttribute
 from unittest.mock import patch
 
+from tests.llm.utils.tags import add_tags_to_eval
+
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
 )
@@ -67,11 +69,11 @@ def get_test_cases():
         test_cases_tuples = []
         for i in range(0, iterations):
             test_cases_tuples.extend(
-                [(experiment_name, test_case) for test_case in test_cases]
+                [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases]
             )
         return test_cases_tuples
     else:
-        return [(experiment_name, test_case) for test_case in test_cases]
+        return [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases]
 
 
 def idfn(val):
@@ -92,6 +94,7 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
         generate_mocks=test_case.generate_mocks,
         issue_data=test_case.issue_data,
         resource_instructions=test_case.resource_instructions,
+        global_instructions=test_case.global_instructions
     )
 
     input = test_case.investigate_request
@@ -130,12 +133,14 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
                     input=tool_call.description,
                     output=tool_call.result.model_dump_json(indent=2),
                     error=tool_call.result.error,
+                    tags=test_case.tags
                 )
             else:
                 tool_span.log(
                     input=tool_call.description,
                     output=tool_call.result,
                     error=tool_call.result.error,
+                    tags=test_case.tags
                 )
 
     output = result.analysis
@@ -163,6 +168,7 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
                 "correctness": correctness_eval.score,
             },
             metadata=correctness_eval.metadata,
+            tags=test_case.tags
         )
 
     if test_case.expected_sections:
@@ -180,6 +186,7 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
                 },
                 output=correctness_eval.metadata.get("rationale", ""),
                 metadata=sections_eval.metadata,
+                tags=test_case.tags
             )
 
     if bt_helper and eval:
@@ -189,6 +196,7 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
             expected=str(expected),
             id=test_case.id,
             scores=scores,
+            tags=test_case.tags
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")

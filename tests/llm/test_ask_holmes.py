@@ -18,6 +18,8 @@ from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 
+from tests.llm.utils.tags import add_tags_to_eval
+
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -39,9 +41,9 @@ def get_test_cases():
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
     if iterations:
-        return [(experiment_name, test_case) for test_case in test_cases] * iterations
+        return [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases] * iterations
     else:
-        return [(experiment_name, test_case) for test_case in test_cases]
+        return [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases]
 
 
 def idfn(val):
