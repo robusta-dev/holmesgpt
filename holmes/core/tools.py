@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
+import time
 
 
 class ToolResultStatus(str, Enum):
@@ -125,7 +126,17 @@ class Tool(ABC, BaseModel):
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
+        start_time = time.time()
         result = self._invoke(params)
+        elapsed = time.time() - start_time
+        output_str = (
+            result.get_stringified_data()
+            if hasattr(result, "get_stringified_data")
+            else str(result)
+        )
+        logging.info(
+            f"   Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n   {output_str[:80]!r}..."
+        )
         # return format_tool_output(result)
         return result
 

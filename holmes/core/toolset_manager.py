@@ -281,9 +281,9 @@ class ToolsetManager:
         server will sync the status of toolsets to DB during startup instead of local cache.
         Refreshing the status by default for server to keep the toolsets up-to-date instead of relying on local cache.
         """
-        toolsets_with_status = self.load_toolset_with_status(
+        toolsets_with_status = self._list_all_toolsets(
             dal,
-            refresh_status=refresh_status,
+            check_prerequisites=True,
             enable_all_toolsets=False,
             toolset_tags=self.server_tool_tags,
         )
