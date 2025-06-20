@@ -157,7 +157,12 @@ def stream_investigate_issues(req: InvestigateRequest):
         )
         return StreamingResponse(
             ai.call_stream(
-                system_prompt, user_prompt, False, response_format, runbooks
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                stream=False,
+                response_format=response_format,
+                sections=sections,
+                runbooks=runbooks,
             ),
             media_type="text/event-stream",
         )
