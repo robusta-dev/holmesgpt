@@ -73,7 +73,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            match=None,
+            filter=None,
         )
 
         result = self.toolset.fetch_pod_logs(params=params)
@@ -117,7 +117,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            match=None,
+            filter=None,
         )
 
         result = self.toolset.fetch_pod_logs(params=params)
@@ -167,7 +167,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            match=None,
+            filter=None,
         )
 
         result = self.toolset.fetch_pod_logs(params=params)
@@ -201,7 +201,7 @@ class TestKubernetesLogsToolset(unittest.TestCase):
             limit=2000,
             start_time=None,
             end_time=None,
-            match="ERROR",
+            filter="ERROR",
         )
 
         result = self.toolset.fetch_pod_logs(params=params)
