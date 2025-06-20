@@ -1,10 +1,10 @@
 # ruff: noqa: E402
 import os
-from holmes.core.prompt import append_file_to_user_prompt
 from collections import OrderedDict
 
 from tabulate import tabulate  # type: ignore
 
+from holmes.core.prompt import append_file_to_user_prompt
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -393,6 +393,7 @@ def ask(
     )
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
+        "runbooks": config.get_runbook_catalog(),
     }
 
     system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)  # type: ignore

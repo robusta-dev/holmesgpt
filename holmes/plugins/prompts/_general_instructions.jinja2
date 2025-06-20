@@ -33,6 +33,8 @@
 
 {% include '_fetch_logs.jinja2' %}
 
+{% include '_runbook_instructions.jinja2' %}
+
 # Handling Permission Errors
 
 If during the investigation you encounter a permissions error (e.g., `Error from server (Forbidden):`), **ALWAYS** follow these steps to ensure a thorough resolution:
@@ -75,4 +77,4 @@ Reminder:
 * That is different than - for example - fetching a pod's logs and seeing that the pod itself has permission errors. in that case, you explain say that permission errors are the cause of the problem and give details
 * Issues are a subset of findings. When asked about an issue or a finding and you have an id, use the tool `fetch_finding_by_id`.
 * For any question, try to make the answer specific to the user's cluster.
-** For example, if asked to port forward, find out the app or pod port (kubectl decribe) and provide a port forward command specific to the user's question
+** For example, if asked to port forward, find out the app or pod port (kubectl describe) and provide a port forward command specific to the user's question

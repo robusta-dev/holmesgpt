@@ -1,0 +1,15 @@
+{% if runbooks and runbooks.catalog|length > 0 %}
+# Available Runbooks
+
+{%- for runbook in runbooks.catalog -%}
+
+description: {{ runbook.description }}
+
+link: {{ runbook.link }}
+
+{%- endfor -%}
+
+Always try to find the matched runbooks from the available runbooks to troubleshoot the issue by comparing the runbook description with the user prompt.
+To fetch a runbook, you should call `fetch_runbook` tool under `runbook` toolset and pass the `fetch_runbook` tool with link of the runbook you want to fetch.
+Once the runbook is returned, you need to follow strictly the steps provided in the runbooks.
+{%- endif -%}

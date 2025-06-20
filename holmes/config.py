@@ -18,7 +18,11 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.destinations.slack import SlackDestination
-from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
+from holmes.plugins.runbooks import (
+    load_builtin_runbooks,
+    load_runbook_catalog,
+    load_runbooks_from_file,
+)
 from holmes.plugins.sources.github import GitHubSource
 from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
@@ -224,6 +228,16 @@ class Config(RobustaBaseConfig):
             return config.global_config.get("cluster_name")
 
         return None
+
+    @staticmethod
+    def get_runbook_catalog() -> str:
+        # TODO(mainred): besides the built-in runbooks, we need to allow the user to bring their own runbooks
+        runbook_catalog = load_runbook_catalog()
+        if runbook_catalog is not None:
+            return runbook_catalog.model_dump_json()
+        else:
+            logging.warning("Runbook catalog not found")
+            return json.dumps({"catalog": []})
 
     def create_console_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """
