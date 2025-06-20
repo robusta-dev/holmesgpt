@@ -79,7 +79,7 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
             base_url=base_url,
             api_key=self.grafana_config.api_key,
             headers=self.grafana_config.headers,
-            match=params.match,
+            filter=params.filter,
             namespace=params.namespace,
             namespace_search_key=self.grafana_config.labels.namespace,
             label=self.grafana_config.labels.pod,

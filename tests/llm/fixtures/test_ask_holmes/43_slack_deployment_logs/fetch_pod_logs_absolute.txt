@@ -1,5 +1,5 @@
 {"toolset_name":"kubernetes/logs","tool_name":"fetch_pod_logs","match_params":{"pod_name":"catalogue-f7687cb4-bjxf2","namespace":"sock-shop","start_time":"2025-05-22T04:06:36Z","end_time":"2025-05-22T10:06:36Z"}}
-{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": null, "invocation": null, "params": {"namespace": "sock-shop", "pod_name": "catalogue-f7687cb4-bjxf2", "start_time": "2025-05-22T04:06:36Z", "end_time": "2025-05-22T10:06:36Z", "match": null, "limit": null}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": null, "invocation": null, "params": {"namespace": "sock-shop", "pod_name": "catalogue-f7687cb4-bjxf2", "start_time": "2025-05-22T04:06:36Z", "end_time": "2025-05-22T10:06:36Z", "filter": null, "limit": null}}
 images: "./images/"
 Abs(images): "/images" (<nil>)
 Getwd: "/" (<nil>)

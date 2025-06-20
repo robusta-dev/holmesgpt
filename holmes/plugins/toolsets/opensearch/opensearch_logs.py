@@ -88,7 +88,7 @@ class OpenSearchLogsToolset(BasePodLoggingToolset):
                 pod_name=params.pod_name,
                 start_time=start_time,
                 end_time=end_time,
-                match=params.match,
+                match=params.filter,
                 limit=params.limit,
             )
 

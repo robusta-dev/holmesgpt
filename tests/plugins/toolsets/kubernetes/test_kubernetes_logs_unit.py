@@ -13,7 +13,7 @@ params_dict = {
     "pod_name": "alertmanager-robusta-kube-prometheus-st-alertmanager-0",
     "start_time": "2025-05-22T04:39:53Z",
     "end_time": "2025-05-23T13:39:53Z",
-    "match": None,
+    "filter": None,
     "limit": None,
 }
 
@@ -229,7 +229,9 @@ def test_parse_logs_basic(logs, container_name, expected):
                     timestamp_ms=3000, container="app", content="error: another failure"
                 ),
             ],
-            FetchPodLogsParams(namespace="default", pod_name="test-pod", match="error"),
+            FetchPodLogsParams(
+                namespace="default", pod_name="test-pod", filter="error"
+            ),
             2,
             ["error: something failed", "error: another failure"],
         ),
@@ -248,7 +250,9 @@ def test_parse_logs_basic(logs, container_name, expected):
         # Test 4: Empty logs list
         (
             [],
-            FetchPodLogsParams(namespace="default", pod_name="test-pod", match="error"),
+            FetchPodLogsParams(
+                namespace="default", pod_name="test-pod", filter="error"
+            ),
             0,
             [],
         ),
@@ -271,7 +275,7 @@ def test_parse_logs_basic(logs, container_name, expected):
                 StructuredLog(timestamp_ms=4000, container="app", content="error 3"),
             ],
             FetchPodLogsParams(
-                namespace="default", pod_name="test-pod", match="error", limit=2
+                namespace="default", pod_name="test-pod", filter="error", limit=2
             ),
             2,
             ["error 2", "error 3"],  # Last 2 matching logs
@@ -444,7 +448,7 @@ def test_filter_logs_all_filters_combined():
         pod_name="test-pod",
         start_time="2021-01-02T00:00:00",
         end_time="2021-01-04T23:59:59",
-        match="error",
+        filter="error",
         limit=2,
     )
 

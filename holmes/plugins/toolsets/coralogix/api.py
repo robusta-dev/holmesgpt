@@ -58,8 +58,8 @@ def build_query_string(config: CoralogixConfig, params: FetchPodLogsParams) -> s
     query_filters.append(f'{config.labels.namespace}:"{params.namespace}"')
     query_filters.append(f'{config.labels.pod}:"{params.pod_name}"')
 
-    if params.match:
-        query_filters.append(f'{config.labels.log_message}:"{params.match}"')
+    if params.filter:
+        query_filters.append(f'{config.labels.log_message}:"{params.filter}"')
 
     query_string = " AND ".join(query_filters)
     query_string = f"source logs | lucene '{query_string}' | limit {params.limit or DEFAULT_LOG_COUNT}"

@@ -29,7 +29,7 @@ class FetchPodLogsParams(BaseModel):
     pod_name: str
     start_time: Optional[str] = None
     end_time: Optional[str] = None
-    match: Optional[str] = None
+    filter: Optional[str] = None
     limit: Optional[int] = None
 
 
@@ -72,8 +72,8 @@ class PodLoggingTool(Tool):
                     type="integer",
                     required=False,
                 ),
-                "match": ToolParameter(
-                    description="An optional keyword or sentence to match the logs against",
+                "filter": ToolParameter(
+                    description="An optional keyword or sentence to filter the logs",
                     type="string",
                     required=False,
                 ),
@@ -87,7 +87,7 @@ class PodLoggingTool(Tool):
             pod_name=get_param_or_raise(params, "pod_name"),
             start_time=params.get("start_time"),
             end_time=params.get("end_time"),
-            match=params.get("match"),
+            filter=params.get("filter"),
             limit=params.get("limit"),
         )
 

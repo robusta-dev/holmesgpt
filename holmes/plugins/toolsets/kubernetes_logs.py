@@ -283,7 +283,7 @@ def filter_logs(
     logs.sort(key=lambda x: x.timestamp_ms or 0)
 
     for log in logs:
-        if params.match and params.match not in log.content:
+        if params.filter and params.filter.lower() not in log.content.lower():
             # exclude this log
             continue
 

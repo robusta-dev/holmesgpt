@@ -116,7 +116,7 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
                 "pod_name": "web",
                 "namespace": "staging",
                 "limit": 30,
-                "match": "foo bar",
+                "filter": "foo bar",
             },
             'source logs | lucene \'kubernetes.namespace_name:"staging" AND kubernetes.pod_name:"web" AND log:"foo bar"\' | limit 30',
         ),
