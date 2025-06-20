@@ -35,7 +35,7 @@ def test_prometheus_prompt_inclusion():
 
 
 def test_runbook_prompt():
-    template = "builtin://_general_instructions.jinja2"
+    template = "builtin://generic_ask.jinja2"
     context = {"runbooks": load_runbook_catalog()}
     rendered = load_and_render_prompt(template, context)
     assert "# Available Runbooks" in rendered

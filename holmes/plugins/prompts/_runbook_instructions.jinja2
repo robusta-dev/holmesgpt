@@ -1,15 +1,17 @@
 {% if runbooks and runbooks.catalog|length > 0 %}
+# Runbook Selection
+
 # Available Runbooks
 
 {%- for runbook in runbooks.catalog -%}
 
 description: {{ runbook.description }}
-
 link: {{ runbook.link }}
 
 {%- endfor -%}
 
-Always try to find the matched runbooks from the available runbooks to troubleshoot the issue by comparing the runbook description with the user prompt.
-To fetch a runbook, you should call `fetch_runbook` tool under `runbook` toolset and pass the `fetch_runbook` tool with link of the runbook you want to fetch.
-Once the runbook is returned, you need to follow strictly the steps provided in the runbooks.
+ALWAYS try to find the runbooks that can provide troubleshooting instructions when the user describes an operational issue, debugging scenario, or asks for step‑by‑step troubleshooting.
+To get the runbook details, use `fetch_runbook` tool by comparing the runbook description with the user prompt.
+ALWAYS follow the steps described in the runbook.
+If you decided not to follow one or more steps, ALWAYS explain why.
 {%- endif -%}

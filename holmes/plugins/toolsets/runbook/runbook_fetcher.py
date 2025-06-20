@@ -20,10 +20,11 @@ class RunbookFetcher(Tool):
     def __init__(self, toolset: "RunbookToolset"):
         super().__init__(
             name="fetch_runbook",
-            description="Reads a runbook from the runbook catalog",
+            description="Get runbook content by runbook link. Use this to get troubleshooting steps for incidents",
             parameters={
-                "path": ToolParameter(
-                    description="The path to the runbook",
+                # use link as a more generic term for runbook path, considering we may have external links in the future
+                "link": ToolParameter(
+                    description="The link to the runbook",
                     type="string",
                     required=True,
                 ),
@@ -32,7 +33,7 @@ class RunbookFetcher(Tool):
         )
 
     def _invoke(self, params: Any) -> StructuredToolResult:
-        path: str = params["path"]
+        path: str = params["link"]
 
         runbook_path = get_runbook_by_path(path)
         try:
@@ -53,7 +54,7 @@ class RunbookFetcher(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        path: str = params["path"]
+        path: str = params["link"]
         return f"fetched runbook {path}"
 
 
