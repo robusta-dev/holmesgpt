@@ -15,6 +15,7 @@ from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from tests.llm.utils.tags import ALLOWED_EVAL_TAGS
 
 
 def read_file(file_path: Path):
@@ -45,6 +46,7 @@ T = TypeVar("T")
 class HolmesTestCase(BaseModel):
     id: str
     folder: str
+    tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
     generate_mocks: bool = False  # If True, generate mocks
     add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected

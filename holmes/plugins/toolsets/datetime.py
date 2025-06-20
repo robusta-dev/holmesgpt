@@ -14,10 +14,30 @@ class CurrentTime(Tool):
         )
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
-        now = datetime.datetime.now(datetime.timezone.utc)
+        utc_now = datetime.datetime.now(datetime.timezone.utc)
+
+        # %A provides the full weekday name (e.g., "Thursday").
+        day_of_week = utc_now.strftime("%A")
+
+        # Get the week number of the year.
+        # %V provides the ISO 8601 week number (a string from "01" to "53").
+        # In the ISO 8601 standard, weeks start on Monday. Week 01 is the
+        # week containing the first Thursday of the year.
+        week_number = utc_now.strftime("%V")
+
+        # Get the month.
+        # %B provides the full month name (e.g., "June").
+        month_name = utc_now.strftime("%B")
+
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
-            data=f"The current UTC date and time are {now}. The current UTC timestamp in seconds is {int(now.timestamp())}.",
+            data=(
+                f"The current UTC date and time are {utc_now}.\n"
+                f"The current UTC timestamp in seconds is {int(utc_now.timestamp())}.\n"
+                f"Today is {day_of_week}.\n"
+                f"The month is {month_name}.\n"
+                f"The week number is {week_number}."
+            ),
             params=params,
         )
 
