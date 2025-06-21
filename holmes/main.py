@@ -1,6 +1,5 @@
 # ruff: noqa: E402
 import os
-from holmes.core.prompt import append_file_to_user_prompt
 from collections import OrderedDict
 
 from tabulate import tabulate  # type: ignore
@@ -25,7 +24,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-from prompt_toolkit import PromptSession
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.markdown import Markdown
@@ -39,6 +37,7 @@ from holmes.config import (
     SourceFactory,
     SupportedTicketSources,
 )
+from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.core.tools import Toolset
@@ -47,6 +46,7 @@ from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes.utils.file_utils import write_json_file
+from holmes.interactive import run_interactive_loop
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
@@ -327,7 +327,11 @@ def ask(
 
     system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)  # type: ignore
 
-    if prompt_file:
+    if prompt_file and prompt:
+        raise typer.BadParameter(
+            "You cannot provide both a prompt argument and a prompt file. Please use one or the other."
+        )
+    elif prompt_file:
         if not prompt_file.is_file():
             raise typer.BadParameter(f"Prompt file not found: {prompt_file}")
         with prompt_file.open("r") as f:
@@ -335,34 +339,32 @@ def ask(
         console.print(
             f"[bold yellow]Loaded prompt from file {prompt_file}[/bold yellow]"
         )
-    elif not prompt:
+    elif not prompt and not interactive:
         raise typer.BadParameter(
-            "Either the 'prompt' argument or the --prompt-file option must be provided."
+            "Either the 'prompt' argument or the --prompt-file option must be provided (unless using --interactive mode)."
         )
 
-    initial_user_prompt = prompt
-
-    if echo_request:
-        console.print("[bold yellow]User:[/bold yellow] " + initial_user_prompt)
-    for path in include_file:  # type: ignore
-        initial_user_prompt = append_file_to_user_prompt(initial_user_prompt, path)
-        console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
+    if echo_request and not interactive and prompt:
+        console.print("[bold yellow]User:[/bold yellow] " + prompt)
 
     if interactive:
         run_interactive_loop(
             ai,
             console,
             system_prompt_rendered,
-            initial_user_prompt,
+            prompt,
+            include_file,
             post_processing_prompt,
             show_tool_output,
         )
         return
 
-    messages = [
-        {"role": "system", "content": system_prompt_rendered},
-        {"role": "user", "content": initial_user_prompt},
-    ]
+    messages = build_initial_ask_messages(
+        console,
+        system_prompt_rendered,
+        prompt,  # type: ignore
+        include_file,
+    )
 
     response = ai.call(messages, post_processing_prompt)
     messages = response.messages  # type: ignore # Update messages with the full history
@@ -372,9 +374,9 @@ def ask(
 
     issue = Issue(
         id=str(uuid.uuid4()),
-        name=prompt,
+        name=prompt,  # type: ignore
         source_type="holmes-ask",
-        raw={"prompt": initial_user_prompt, "full_conversation": messages},
+        raw={"prompt": prompt, "full_conversation": messages},
         source_instance_id=socket.gethostname(),
     )
     handle_result(
@@ -386,74 +388,6 @@ def ask(
         show_tool_output,
         False,  # type: ignore
     )
-
-
-def run_interactive_loop(
-    ai,
-    console: Console,
-    system_prompt_rendered: str,
-    initial_user_prompt: str,
-    post_processing_prompt: Optional[str],
-    show_tool_output: bool,
-) -> None:
-    initial_messages = [
-        {"role": "system", "content": system_prompt_rendered},
-    ]
-    messages = initial_messages.copy()
-    response = ai.call(messages, post_processing_prompt)
-    session = PromptSession()  # type: ignore
-    user_input = initial_user_prompt
-    first_iteration = True
-
-    while True:
-        try:
-            messages.append({"role": "user", "content": user_input})
-            response = ai.call(messages, post_processing_prompt)
-            messages = response.messages
-
-            if show_tool_output and response.tool_calls:
-                for tool_call in response.tool_calls:
-                    console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
-                    console.print(
-                        f"{tool_call.description}. Output=\n{tool_call.result}",
-                        markup=False,
-                    )
-            console.print("[bold green]AI:[/bold green]", end=" ")
-            console.print(Markdown(response.result))
-
-            if first_iteration:
-                console.print(
-                    Rule(
-                        "[bold cyan]Entering interactive mode. Type '/exit' to exit, '/help' for more commands.[/bold cyan]"
-                    )
-                )
-                first_iteration = False
-
-            # fetch input until we get 'real input' that isn't a slash command
-            while True:
-                user_input = session.prompt("User: ")
-                if user_input.startswith("/"):
-                    command = user_input[1:].strip().lower()
-                    if command == "exit":
-                        return
-                    elif command == "help":
-                        print("Available commands: /exit, /help, /reset")
-                    elif command == "reset":
-                        messages = initial_messages.copy()
-                    else:
-                        print(f"Unknown command: /{command}")
-                    continue
-                else:
-                    break
-
-        except typer.Abort:
-            break
-        except EOFError:  # Handle Ctrl+D
-            break
-        except Exception as e:
-            logging.error("An error occurred during interactive mode:", exc_info=e)
-            console.print(f"[bold red]Error: {e}[/bold red]")
-    console.print("[bold cyan]Exiting interactive mode.[/bold cyan]")
 
 
 @investigate_app.command()
