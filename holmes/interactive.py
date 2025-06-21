@@ -43,7 +43,7 @@ def run_interactive_loop(
     ai: ToolCallingLLM,
     console: Console,
     system_prompt_rendered: str,
-    user_input: Optional[str],
+    initial_user_input: Optional[str],
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
@@ -59,17 +59,36 @@ def run_interactive_loop(
     input_prompt = [("class:prompt", "User> ")]
 
     console.print(WELCOME_BANNER)
-    if user_input:
-        console.print("[bold yellow]User:[/bold yellow] " + user_input)
-
-    if not user_input:
-        console.print(WELCOME_BANNER)
-        user_input = session.prompt(input_prompt, style=style)  # type: ignore
-
+    if initial_user_input:
+        console.print("[bold yellow]User:[/bold yellow] " + initial_user_input)
     messages = None
 
     while True:
         try:
+            if initial_user_input:
+                user_input = initial_user_input
+                initial_user_input = None
+            else:
+                user_input = session.prompt(input_prompt, style=style)  # type: ignore
+
+            if user_input.startswith("/"):
+                command = user_input.strip().lower()
+                if command == SlashCommands.EXIT.value:
+                    return
+                elif command == SlashCommands.HELP.value:
+                    console.print("Available commands: /exit, /help, /reset")
+                elif command == SlashCommands.RESET.value:
+                    console.print(
+                        "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
+                    )
+                    messages = None
+                    continue
+                else:
+                    console.print(f"Unknown command: {command}")
+                continue
+            elif not user_input.strip():
+                continue
+
             if messages is None:
                 messages = build_initial_ask_messages(
                     console, system_prompt_rendered, user_input, include_files
@@ -90,30 +109,6 @@ def run_interactive_loop(
                     )
             console.print("[bold green]AI:[/bold green]", end=" ")
             console.print(Markdown(response.result))  # type: ignore
-
-            # fetch input until we get 'real input' that isn't a slash command
-            while True:
-                user_input = session.prompt(input_prompt, style=style)  # type: ignore
-                if user_input.startswith("/"):
-                    command = user_input.strip().lower()
-                    if command == SlashCommands.EXIT.value:
-                        return
-                    elif command == SlashCommands.HELP.value:
-                        console.print("Available commands: /exit, /help, /reset")
-                    elif command == SlashCommands.RESET.value:
-                        console.print(
-                            "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
-                        )
-                        messages = None
-                        continue
-                    else:
-                        print(f"Unknown command: {command}")
-                    continue
-                elif not user_input.strip():
-                    continue
-                else:
-                    break
-
         except typer.Abort:
             break
         except EOFError:  # Handle Ctrl+D
