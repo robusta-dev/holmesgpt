@@ -66,13 +66,17 @@ def run_interactive_loop(
         console.print(WELCOME_BANNER)
         user_input = session.prompt(input_prompt, style=style)  # type: ignore
 
-    messages = build_initial_ask_messages(
-        console, system_prompt_rendered, user_input, include_files
-    )
+    messages = None
 
     while True:
         try:
-            messages.append({"role": "user", "content": user_input})
+            if messages is None:
+                messages = build_initial_ask_messages(
+                    console, system_prompt_rendered, user_input, include_files
+                )
+            else:
+                messages.append({"role": "user", "content": user_input})
+
             console.print("[bold blue]Thinking...[/bold blue]")
             response = ai.call(messages, post_processing_prompt)
             messages = response.messages  # type: ignore
@@ -100,10 +104,8 @@ def run_interactive_loop(
                         console.print(
                             "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
                         )
-                        user_input = session.prompt(input_prompt, style=style)  # type: ignore
-                        messages = build_initial_ask_messages(
-                            console, system_prompt_rendered, user_input, include_files
-                        )
+                        messages = None
+                        continue
                     else:
                         print(f"Unknown command: {command}")
                     continue
