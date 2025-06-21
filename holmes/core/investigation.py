@@ -118,6 +118,9 @@ def get_investigation_context(
     elif ai.llm.model and ai.llm.model.startswith("bedrock"):
         # Structured output does not work well with Bedrock Anthropic Sonnet 3.5 through litellm
         request_structured_output_from_llm = False
+    elif ai.llm.model and ai.llm.model.startswith("gemini"):
+        # Structured output does not work well with gemini
+        request_structured_output_from_llm = False
 
     if request_structured_output_from_llm:
         response_format = get_output_format_for_investigation(sections)
