@@ -15,6 +15,7 @@ from requests.auth import HTTPDigestAuth  # type: ignore
 import gzip
 import io
 from datetime import datetime, timedelta, timezone
+import os
 
 
 def success(msg: Any, params: Any) -> StructuredToolResult:
@@ -47,7 +48,7 @@ class MongoDBConfig(BaseModel):
     project_id: str
 
 
-# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/  using administration api.
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/
 class MongoDBAtlasToolset(Toolset):
     name: str = "MongoDBAtlas"
     description: str = "The MongoDB Atlas API allows access to Mongodb projects and processes. You can find logs, alerts, events, slow quereies and various metrics to understand the state of Mongodb projects."
@@ -68,6 +69,10 @@ class MongoDBAtlasToolset(Toolset):
                 ReturnLogsForProcessInPorject(toolset=self),
             ],
         )
+        instructions_filepath = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{instructions_filepath}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
