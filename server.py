@@ -3,7 +3,7 @@ import os
 from typing import List, Optional
 
 import sentry_sdk
-from holmes import is_official_release
+from holmes import get_version, is_official_release
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -103,6 +103,7 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
                 "account_id": dal.account_id,
                 "cluster_name": config.cluster_name,
                 "model_name": config.model,
+                "version": get_version(),
             }
         )
     else:

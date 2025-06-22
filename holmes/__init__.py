@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+from cachetools import cached  # type: ignore
 
 # For relative imports to work in Python 3.6 - see https://stackoverflow.com/a/49375740
 this_path = os.path.dirname(os.path.realpath(__file__))
@@ -15,6 +16,7 @@ def is_official_release() -> bool:
     return not __version__.startswith("0.0.0")
 
 
+@cached(cache=dict())
 def get_version() -> str:
     # the version string was patched by a release - return __version__ which will be correct
     if is_official_release():

@@ -58,6 +58,7 @@ pre-commit = "^4.0.1"
 responses = "^0.23.1"
 freezegun = "^1.5.1"
 mypy = "^1.16.0"
+pytest-cov = "^6.2.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -69,3 +70,21 @@ scripts_are_modules = true
 exclude = [
     "tests/llm/fixtures/.*",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "llm: Evaluate LLM behaviour (prompt, tools, etc.)",
+]
+addopts = [
+    "--cov-config=pyproject.toml",
+    "--cov=holmes",
+]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "tests/*",
+]
+
+[tool.coverage.report]
+fail_under = 40
