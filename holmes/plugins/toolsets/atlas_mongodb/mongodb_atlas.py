@@ -276,9 +276,8 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
     }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
-        import time
-
-        one_hour_ago = int(time.time()) - (1 * 3600)
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+        one_hour_ago = int(one_hour_ago.timestamp())
         try:
             url = self.url.format(
                 project_id=self.toolset.config.get("project_id"),
