@@ -84,10 +84,7 @@ class SaveMockTool(Tool):
             f.write(mock_metadata_json + "\n")
             f.write(json.dumps(structured_output_without_data) + "\n")
             if content:
-                content_to_write = str(content)
-                if isinstance(content, dict):
-                    content_to_write = json.dumps(content, indent=2)
-                f.write(content_to_write)
+                f.write(content)
 
         return output
 
