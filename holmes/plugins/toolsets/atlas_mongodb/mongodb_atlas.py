@@ -172,11 +172,6 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
             type="string",
             required=True,
         ),
-        # "since": ToolParameter(
-        #     description="timestamp from the past which the query start to retrieve the slow queries from. timestamp in the number of milliseconds that have elapsed since the UNIX epoch. since<now and if not specified use 24 hours ago.",
-        #     type="integer",
-        #     required=True,
-        # ),
     }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -192,14 +187,13 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
                     self.toolset.config.get("public_key"),
                     self.toolset.config.get("private_key"),
                 ),
-                # params={"since": four_hours_ago_ms},
             )
             response.raise_for_status()
             if response.ok:
                 res = response.json()
                 slow_q = res.get("slowQueries", [])
                 if slow_q:
-                    return success(res, params)
+                    return StructuredToolResult(res, params)
                 else:
                     return no_data(res, params)
             else:
@@ -217,13 +211,6 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_events_from_project"
     description: str = "Returns events for the specified project. Events identify significant database, security activities or status changes. maximum of 500 events. can only query the last 4 hours."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
-    # parameters: Dict[str, ToolParameter] = {
-    #     "minDate": ToolParameter(
-    #         description="datetime when MongoDB Cloud starts returning events. This parameter uses the ISO 8601 timestamp format in UTC. minDate is the in the past, if not specified use 24 hours ago . call get_time()..",
-    #         type="string",
-    #         required=True,
-    #     )
-    # }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         params.update({"itemsPerPage": 500})
@@ -269,7 +256,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
             return error(f"Exception {self.name}: {str(e)}", params=params)
 
 
-# TODO https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Monitoring-and-Logs/operation/getHostLogs logs from on project
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Monitoring-and-Logs/operation/getHostLogs
 class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_logs_for_host_in_project"
     description: str = "Returns log messages for the specified host for the specified project of the last 1 hour."
@@ -280,16 +267,6 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
             type="string",
             required=True,
         ),
-        # "endDate": ToolParameter(
-        #     description="Specifies the date and time for the starting point of the range of log messages to retrieve, in the number of seconds that have elapsed since the UNIX epoch. This value will default to 1 hour after the start date.",
-        #     type="string",
-        #     required=True,
-        # ),
-        # "startDate": ToolParameter(
-        #     description="Specifies the date and time for the ending point of the range of log messages to retrieve, in the number of seconds that have elapsed since the UNIX epoch. This value will default to 1 hour prior to the end date.",
-        #     type="string",
-        #     required=True,
-        # ),
     }
 
     def _invoke(self, params: Any) -> StructuredToolResult:
