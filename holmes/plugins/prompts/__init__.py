@@ -40,8 +40,8 @@ def load_and_render_prompt(prompt: str, context: Optional[dict] = None) -> str:
     template = env.from_string(prompt_as_str)
 
     if context is None:
-        context = {"now": datetime.now(timezone.utc)}
-    else:
-        context.update({"now": datetime.now(timezone.utc)})
+        context = {}
+
+    context.update({"now": datetime.now(timezone.utc)})
 
     return template.render(**context)
