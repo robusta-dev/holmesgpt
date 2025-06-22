@@ -2,6 +2,7 @@ import os
 import os.path
 from typing import Optional
 from jinja2 import Environment, FileSystemLoader
+from datetime import datetime, timezone
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -35,9 +36,12 @@ def load_and_render_prompt(prompt: str, context: Optional[dict] = None) -> str:
     env = Environment(
         loader=FileSystemLoader(THIS_DIR),
     )
+
     template = env.from_string(prompt_as_str)
 
     if context is None:
-        context = {}
+        context = {"now": datetime.now(timezone.utc)}
+    else:
+        context.update({"now": datetime.now(timezone.utc)})
 
     return template.render(**context)
