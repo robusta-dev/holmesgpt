@@ -102,14 +102,15 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
             else:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    msg=f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
+                    data=f"Failed {self.name}.\n{response.text}",
+                    return_code=response.status_code,
                     params=params,
                 )
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                msg=f"Exception {self.name}: {str(e)}",
+                data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
 
@@ -244,7 +245,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
                     else ToolResultStatus.NO_DATA
                 )
                 res["results"] = simplified_events
-                return StructuredToolResult(status=status, data=res, parms=params)
+                return StructuredToolResult(status=status, data=res, params=params)
             else:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,

@@ -1,8 +1,8 @@
-When a user request checking issues on Atlas mongodb project use these steps. 
+When a user request checking issues on Atlas mongodb project use these steps.
 
 1, Use atlas_return_project_alerts and atlas_return_events_from_project first to find any known potential issues on the project.
 2. for performance issues use atlas_return_project_slow_queries to see a list of slow queries YOU MUST check this for all processes of the project. ALWAYS show the query in the result for every slow query.
-3. atlas_return_project_slow_queries currently returns data from the last 24 hours. show that to the user and 
+3. atlas_return_project_slow_queries currently returns data from the last 24 hours. show that to the user and
 4. atlas_return_events_from_project from the last 4 hours.
 5. ONLY check logs for mongodb using atlas_return_logs_for_host_in_project if specifically asked to
 
