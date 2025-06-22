@@ -219,6 +219,8 @@ class FetchWebpage(Tool):
 
 
 class InternetBaseToolset(Toolset):
+    version = "0.0.1"
+
     additional_headers: Dict[str, str] = {}
 
     def __init__(

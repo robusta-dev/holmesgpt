@@ -200,6 +200,8 @@ class FetchConfigurationChanges(Tool):
 
 
 class RobustaToolset(Toolset):
+    version = "0.0.1"
+
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
             enabled=True if dal else False,
