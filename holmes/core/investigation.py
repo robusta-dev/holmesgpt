@@ -115,11 +115,8 @@ def get_investigation_context(
         logging.info(
             "No section received from the client. Default sections will be used."
         )
-    elif ai.llm.model and ai.llm.model.startswith("bedrock"):
-        # Structured output does not work well with Bedrock Anthropic Sonnet 3.5 through litellm
-        request_structured_output_from_llm = False
-    elif ai.llm.model and ai.llm.model.startswith("gemini"):
-        # Structured output does not work well with gemini
+    elif ai.llm.model and ai.llm.model.startswith(("bedrock", "gemini")):
+        # Structured output does not work well with Bedrock Anthropic Sonnet 3.5, or gemini through litellm
         request_structured_output_from_llm = False
 
     if request_structured_output_from_llm:
