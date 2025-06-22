@@ -1,8 +1,5 @@
 # ruff: noqa: E402
 import os
-from collections import OrderedDict
-
-from tabulate import tabulate  # type: ignore
 
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -40,7 +37,7 @@ from holmes.config import (
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tool_calling_llm import LLMResult
-from holmes.core.tools import Toolset
+from holmes.core.tools import pretty_print_toolset_status
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
@@ -1005,28 +1002,6 @@ def refresh_toolsets(
     config = Config.load_from_file(config_file)
     cli_toolsets = config.toolset_manager.list_console_toolsets(refresh_status=True)
     pretty_print_toolset_status(cli_toolsets, console)
-
-
-def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
-    status_fields = ["name", "status", "enabled", "type", "path", "error"]
-    toolsets_status = []
-    for toolset in toolsets:
-        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
-        order_toolset_status = OrderedDict(
-            (k.capitalize(), toolset_status[k])
-            for k in status_fields
-            if k in toolset_status
-        )
-        toolsets_status.append(order_toolset_status)
-
-    table = tabulate(
-        toolsets_status,
-        headers="keys",
-        tablefmt="simple",
-        disable_numparse=True,
-    )
-
-    console.print(table)
 
 
 @app.command()

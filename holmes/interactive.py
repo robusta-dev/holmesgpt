@@ -13,12 +13,17 @@ from rich.rule import Rule
 
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.core.tools import pretty_print_toolset_status
 
 
 class SlashCommands(Enum):
     EXIT = "/exit"
     HELP = "/help"
     RESET = "/reset"
+    TOOLS = "/tools"
+
+
+ALL_SLASH_COMMANDS = [cmd.value for cmd in SlashCommands]
 
 
 class SlashCommandCompleter(Completer):
@@ -76,13 +81,15 @@ def run_interactive_loop(
                 if command == SlashCommands.EXIT.value:
                     return
                 elif command == SlashCommands.HELP.value:
-                    console.print("Available commands: /exit, /help, /reset")
+                    console.print("Available commands: {ALL_SLASH_COMMANDS}")
                 elif command == SlashCommands.RESET.value:
                     console.print(
                         "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
                     )
                     messages = None
                     continue
+                elif command == SlashCommands.TOOLS.value:
+                    pretty_print_toolset_status(ai.tool_executor.toolsets, console)
                 else:
                     console.print(f"Unknown command: {command}")
                 continue
