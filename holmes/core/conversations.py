@@ -13,7 +13,6 @@ from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
 )
-import datetime
 
 DEFAULT_TOOL_SIZE = 10000
 
@@ -267,7 +266,6 @@ def add_or_update_system_prompt(
     template_path = "builtin://generic_ask_conversation.jinja2"
     context = {
         "toolsets": ai.tool_executor.toolsets,
-        "now": datetime.datetime.now(datetime.timezone.utc),
     }
 
     system_prompt = load_and_render_prompt(template_path, context)
