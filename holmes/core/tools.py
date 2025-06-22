@@ -137,7 +137,8 @@ class Tool(ABC, BaseModel):
         if len(output_str) == 0:
             preview = "<empty>"
         elif len(output_str) > 80:
-            preview = f"{(output_str[:80] + "...")!r}"
+            clipped = output_str[:80] + "..."
+            preview = f"{clipped!r}"
         else:
             preview = f"{output_str!r}"
         logging.info(
