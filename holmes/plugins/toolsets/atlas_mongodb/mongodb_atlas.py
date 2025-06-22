@@ -18,30 +18,6 @@ from datetime import datetime, timedelta, timezone
 import os
 
 
-def success(msg: Any, params: Any) -> StructuredToolResult:
-    return StructuredToolResult(
-        status=ToolResultStatus.SUCCESS,
-        data=msg,
-        params=params,
-    )
-
-
-def no_data(msg: Any, params: Any) -> StructuredToolResult:
-    return StructuredToolResult(
-        status=ToolResultStatus.NO_DATA,
-        data=msg,
-        params=params,
-    )
-
-
-def error(msg: str, params: Any) -> StructuredToolResult:
-    return StructuredToolResult(
-        status=ToolResultStatus.ERROR,
-        data=msg,
-        params=params,
-    )
-
-
 class MongoDBConfig(BaseModel):
     public_key: str
     private_key: str
@@ -116,19 +92,26 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
             response.raise_for_status()
             if response.ok:
                 res = response.json()
-                count = res.get("totalCount", 0)
-                if count:
-                    return success(res, params)
-                else:
-                    return no_data(res, params)
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS
+                    if res.get("totalCount", 0)
+                    else ToolResultStatus.NO_DATA,
+                    data=res,
+                    params=params,
+                )
             else:
-                return error(
-                    f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    msg=f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
                     params=params,
                 )
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
-            return error(f"Exception {self.name}: {str(e)}", params=params)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                msg=f"Exception {self.name}: {str(e)}",
+                params=params,
+            )
 
 
 class ReturnProjectProcesses(MongoDBAtlasBaseTool):
@@ -150,15 +133,23 @@ class ReturnProjectProcesses(MongoDBAtlasBaseTool):
             )
             response.raise_for_status()
             if response.ok:
-                return success(response.json(), params)
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS, data=response.json(), params=params
+                )
             else:
-                return error(
-                    f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed {self.name}. \n{response.text}",
+                    return_code=response.status_code,
                     params=params,
                 )
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
-            return error(f"Exception {self.name}: {str(e)}", params=params)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Exception {self.name}: {str(e)}",
+                params=params,
+            )
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Performance-Advisor/operation/listSlowQueries
@@ -191,19 +182,26 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
             response.raise_for_status()
             if response.ok:
                 res = response.json()
-                slow_q = res.get("slowQueries", [])
-                if slow_q:
-                    return StructuredToolResult(res, params)
-                else:
-                    return no_data(res, params)
+                status = (
+                    ToolResultStatus.SUCCESS
+                    if res.get("slowQueries", [])
+                    else ToolResultStatus.NO_DATA
+                )
+                return StructuredToolResult(status=status, data=res, params=params)
             else:
-                return error(
-                    msg=f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed {self.name}. \n{response.text}",
+                    return_code=response.status_code,
                     params=params,
                 )
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
-            return error(f"Exception {self.name}: {str(e)}", params=params)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Exception {self.name}: {str(e)}",
+                params=params,
+            )
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listProjectEvents
@@ -228,32 +226,39 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
                 ),
                 params={"minDate": iso_timestamp},
             )
+
+            # todo chagne to natan structure.
             response.raise_for_status()
             if response.ok:
                 res = response.json()
-                count = res.get("totalCount", 0)
-                if count:
-                    simplified_events = [
-                        {
-                            "id": event.get("id", ""),
-                            "created": event.get("created"),
-                            "eventTypeName": event.get("eventTypeName"),
-                            "database": event.get("database", ""),
-                        }
-                        for event in res.get("results", [])
-                    ]
-                    res["results"] = simplified_events
-                    return success(res, params)
-                else:
-                    return no_data(res, params)
+                simplified_events = [
+                    {
+                        "created": event.get("created"),
+                        "eventTypeName": event.get("eventTypeName"),
+                    }
+                    for event in res.get("results", [])
+                ]
+                status = (
+                    ToolResultStatus.SUCCESS
+                    if simplified_events
+                    else ToolResultStatus.NO_DATA
+                )
+                res["results"] = simplified_events
+                return StructuredToolResult(status=status, data=res, parms=params)
             else:
-                return error(
-                    f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed {self.name}. \n{response.text}",
+                    return_code=response.status_code,
                     params=params,
                 )
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
-            return error(f"Exception {self.name}: {str(e)}", params=params)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Exception {self.name}: {str(e)}",
+                params=params,
+            )
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Monitoring-and-Logs/operation/getHostLogs
@@ -291,12 +296,20 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
             if response.ok:
                 with gzip.GzipFile(fileobj=io.BytesIO(response.content)) as gz:
                     text_data = gz.read().decode("utf-8")
-                return success(text_data, params)
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS, data=text_data, params=params
+                )
             else:
-                return error(
-                    f"Failed {self.name}. Status code: {response.status_code}\n{response.text}",
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed {self.name}. \n{response.text}",
+                    return_code=response.status_code,
                     params=params,
                 )
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
-            return error(f"Exception {self.name}: {str(e)}", params=params)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Exception {self.name}: {str(e)}",
+                params=params,
+            )
