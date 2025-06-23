@@ -200,4 +200,5 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
     messages = build_chat_messages(ask=chat_request.ask, conversation_history=[], ai=ai)
+    print(f"PROMPT {messages[0].get('content')}")
     return ai.messages_call(messages=messages)

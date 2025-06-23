@@ -1,5 +1,0 @@
-toolsets:
-  datetime:
-    # ensure the datetime toolset is disabled because
-    # this eval tests the presence of the datetime in the system prompt
-    enabled: False
