@@ -103,7 +103,7 @@ poetry install --no-root
 [Setup an API key](./api-keys.md) and run HolmesGPT:
 
 ```
-poetry run python3 holmes.py ask "what pods are unhealthy and why?"
+poetry run python3 holmes_cli.py ask "what pods are unhealthy and why?"
 ```
 
 ### From Source (Docker)
