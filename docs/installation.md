@@ -69,7 +69,7 @@ First [Pipx](https://github.com/pypa/pipx)
 Then install HolmesGPT from git:
 
 ```
-pipx install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
+pipx install --force "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
 ```
 
 Verify that HolmesGPT was installed by checking the version:
@@ -87,7 +87,7 @@ holmes ask "what pods are unhealthy and why?"
 When new versions of HolmesGPT are released, you can upgrade HolmesGPT with pipx:
 
 ```
-pipx upgrade holmesgpt
+pipx install --force "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
 ```
 
 ### From Source (Python Poetry)

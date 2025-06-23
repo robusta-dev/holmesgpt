@@ -119,11 +119,18 @@ class Config(RobustaBaseConfig):
 
     @property
     def is_latest_version(self) -> bool:
-        if self._holmes_info and self._holmes_info.latest_version and self._version:
-            return self._version.startswith(self._holmes_info.latest_version)
+        if (
+            not self._holmes_info
+            or not self._holmes_info.latest_version
+            or not self._version
+        ):
+            # We couldn't resolve version, assume we are running the latest version
+            return True
+        if self._version.startswith("dev-"):
+            # dev versions are considered to be the latest version
+            return True
 
-        # We couldn't resolve version, assume we are running the latest version
-        return True
+        return self._version.startswith(self._holmes_info.latest_version)
 
     @property
     def toolset_manager(self) -> ToolsetManager:
@@ -148,9 +155,7 @@ class Config(RobustaBaseConfig):
 
         if not self.is_latest_version and self._holmes_info:
             logging.warning(
-                "You are running version %s of holmes, but the latest version is %s. Please update to the latest version.",
-                self._version,
-                self._holmes_info.latest_version,
+                f"You are running version {self._version} of holmes, but the latest version is {self._holmes_info.latest_version}. Please update.",
             )
 
     @classmethod
