@@ -132,7 +132,7 @@ def load_toolsets_from_config(
                 validated_toolset: RemoteMCPToolset = RemoteMCPToolset(
                     **config, name=name
                 )
-            if strict_check:
+            elif strict_check:
                 validated_toolset: YAMLToolset = YAMLToolset(**config, name=name)  # type: ignore
             else:
                 validated_toolset: ToolsetYamlFromConfig = ToolsetYamlFromConfig(  # type: ignore

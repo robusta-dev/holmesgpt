@@ -138,7 +138,8 @@ class ToolsetManager:
                 # build-in types was assigned when loaded
                 builtin_toolsets_dict[toolset_name] = toolset_config
             else:
-                toolset_config["type"] = ToolsetType.CUSTOMIZED.value
+                if toolset_config.get("type") is None:
+                    toolset_config["type"] = ToolsetType.CUSTOMIZED.value
                 # custom toolsets defaults to enabled when not explicitly disabled
                 if toolset_config.get("enabled", True) is False:
                     toolset_config["enabled"] = False
