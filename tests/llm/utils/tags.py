@@ -1,3 +1,4 @@
+# type: ignore
 from tests.llm.utils.mock_utils import HolmesTestCase
 import pytest
 
