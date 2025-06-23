@@ -10,7 +10,7 @@
       "alertname": "AppDown",
       "prometheus": "default/robusta-kube-prometheus-st-prometheus",
       "severity": "critical",
-      "namespace": "investigate-dns-resolution",
+      "namespace": "investigate-namespace-15",
       "pod": "client"
     },
     "annotations": {

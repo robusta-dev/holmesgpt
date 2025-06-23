@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: investigate-dns-resolution
+  name: investigate-namespace-15
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-egress
-  namespace: investigate-dns-resolution
+  namespace: investigate-namespace-15
 spec:
   podSelector: {}
   policyTypes:
@@ -18,7 +18,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: client
-  namespace: investigate-dns-resolution
+  namespace: investigate-namespace-15
   labels:
     app.kubernetes.io/name: client
 spec:
@@ -31,7 +31,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx
-  namespace: investigate-dns-resolution
+  namespace: investigate-namespace-15
   labels:
     app.kubernetes.io/name: server
 spec:
@@ -47,7 +47,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx-service
-  namespace: investigate-dns-resolution
+  namespace: investigate-namespace-15
 spec:
   selector:
     app.kubernetes.io/name: server

@@ -17,6 +17,6 @@ def add_tags_to_eval(experiment_name:str, test_case:HolmesTestCase):
         experiment_name,
         test_case,
         marks=get_tags(test_case), 
-        id=experiment_name
+        id=test_case.id
     )
 

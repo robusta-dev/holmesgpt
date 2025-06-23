@@ -65,6 +65,8 @@ def get_test_cases():
     test_cases = mh.load_investigate_test_cases()
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
+
+    # raise Exception("foo")
     if iterations:
         test_cases_tuples = []
         for i in range(0, iterations):
@@ -133,14 +135,12 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
                     input=tool_call.description,
                     output=tool_call.result.model_dump_json(indent=2),
                     error=tool_call.result.error,
-                    tags=test_case.tags
                 )
             else:
                 tool_span.log(
                     input=tool_call.description,
                     output=tool_call.result,
                     error=tool_call.result.error,
-                    tags=test_case.tags
                 )
 
     output = result.analysis
@@ -168,7 +168,6 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
                 "correctness": correctness_eval.score,
             },
             metadata=correctness_eval.metadata,
-            tags=test_case.tags
         )
 
     if test_case.expected_sections:
@@ -186,7 +185,6 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
                 },
                 output=correctness_eval.metadata.get("rationale", ""),
                 metadata=sections_eval.metadata,
-                tags=test_case.tags
             )
 
     if bt_helper and eval:
