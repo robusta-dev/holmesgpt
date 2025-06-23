@@ -26,7 +26,6 @@ from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
 
-
 from holmes import get_version  # type: ignore
 from holmes.config import (
     DEFAULT_CONFIG_LOCATION,
@@ -38,12 +37,12 @@ from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.core.tools import pretty_print_toolset_status
+from holmes.interactive import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes.utils.file_utils import write_json_file
-from holmes.interactive import run_interactive_loop
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
@@ -320,6 +319,7 @@ def ask(
     )
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
+        "runbooks": config.get_runbook_catalog(),
     }
 
     system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)  # type: ignore
