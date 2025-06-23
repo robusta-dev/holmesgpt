@@ -45,6 +45,7 @@ class MongoDBAtlasToolset(Toolset):
                 ReturnProjectSlowQueries(toolset=self),
                 ReturnEventsFromProject(toolset=self),
                 ReturnLogsForProcessInPorject(toolset=self),
+                ReturnEventTypeFromProject(toolset=self),
             ],
         )
         instructions_filepath = os.path.abspath(
@@ -177,7 +178,7 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listProjectEvents
 class ReturnEventsFromProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_events_from_project"
-    description: str = "Returns events occurrences for the specified project. Events identify significant database, security activities or status changes. can only query the last 4 hours."
+    description: str = "Returns all events occurrences for the specified project. Events identify significant database, security activities or status changes. can only query the last 4 hours."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -260,6 +261,41 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
                     return_code=response.status_code,
                     params=params,
                 )
+        except Exception as e:
+            logging.exception(self.get_parameterized_one_liner(params))
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Exception {self.name}: {str(e)}",
+                params=params,
+            )
+
+
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listProjectEvents
+class ReturnEventTypeFromProject(MongoDBAtlasBaseTool):
+    name: str = "atlas_return_events_type_from_project"
+    description: str = "Returns all events of specific EventType for the specified project. can only query the last 4 hours."
+    url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
+    parameters: Dict[str, ToolParameter] = {
+        "eventType": ToolParameter(
+            description="A label of an eventType, all capital letters with snake case. examples:  INSIDE_METRIC_THRESHOLD, PRIMARY_ELECTED and DATA_EXPLORER. NEVER call this before first calling atlas_return_events_from_project to get a list of last 4 hours eventTypes.",
+            type="string",
+            required=True,
+        ),
+    }
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        try:
+            url = self.url.format(projectId=self.toolset.config.get("project_id"))
+
+            now_utc = datetime.now(timezone.utc)
+            four_hours_ago = now_utc - timedelta(hours=4)
+            iso_timestamp = four_hours_ago.isoformat()
+            params.update({"itemsPerPage": 500, "minDate": iso_timestamp})
+            response = self.toolset._session.get(
+                url=url,
+                params=params,
+            )
+            return self.return_result(response, params)
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
