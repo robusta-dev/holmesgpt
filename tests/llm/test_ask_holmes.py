@@ -76,7 +76,12 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
             )
             with patch("holmes.plugins.prompts.datetime") as mock_datetime:
                 mock_datetime.now.return_value = mocked_datetime
-                mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+                mock_datetime.side_effect = None
+                mock_datetime.configure_mock(**{
+                    'now.return_value': mocked_datetime,
+                    'side_effect': None
+                })
                 result = ask_holmes(test_case)
         else:
             result = ask_holmes(test_case)
