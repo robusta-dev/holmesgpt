@@ -9,13 +9,14 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from requests.auth import HTTPDigestAuth  # type: ignore
 import gzip
 import io
 from datetime import datetime, timedelta, timezone
 import os
+from collections import Counter
 
 
 class MongoDBConfig(BaseModel):
@@ -33,6 +34,7 @@ class MongoDBAtlasToolset(Toolset):
     )
     icon_url: str = "https://webimages.mongodb.com/_com_assets/cms/kuyjf3vea2hg34taa-horizontal_default_slate_blue.svg?auto=format%252Ccompress"
     tags: List[ToolsetTag] = [ToolsetTag.CORE]
+    _session: requests.Session = PrivateAttr(default=requests.Session())
 
     def __init__(self):
         super().__init__(
@@ -56,6 +58,13 @@ class MongoDBAtlasToolset(Toolset):
 
         try:
             self.config: Dict = MongoDBConfig(**config).model_dump()
+            self._session.headers.update(
+                {"Accept": "application/vnd.atlas.2025-03-12+json"}
+            )
+            self._session.auth = HTTPDigestAuth(
+                self.config.get("public_key"),
+                self.config.get("private_key"),
+            )
             return True, ""
         except Exception:
             logging.exception("Failed to set up MongoDBAtlas toolset")
@@ -68,10 +77,32 @@ class MongoDBAtlasToolset(Toolset):
 class MongoDBAtlasBaseTool(Tool):
     toolset: MongoDBAtlasToolset
 
+    def return_result(
+        self, response: requests.Response, params: Any, field: str = "results"
+    ) -> StructuredToolResult:
+        response.raise_for_status()
+        if response.ok:
+            res = response.json()
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS
+                if res.get(field, [])
+                else ToolResultStatus.NO_DATA,
+                data=res,
+                params=params,
+            )
+        else:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                data=f"Failed {self.name}.\n{response.text}",
+                return_code=response.status_code,
+                params=params,
+            )
+
     def get_parameterized_one_liner(self, params) -> str:
         return f"MongoDB {self.name} project {self.toolset.config.get('project_id')} {params}"
 
 
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Alerts/operation/listAlertsByAlertConfigurationId
 class ReturnProjectAlerts(MongoDBAtlasBaseTool):
     name: str = "atlas_return_project_alerts"
     description: str = "Returns all project alerts. These alerts apply to all components in one project. You receive an alert when a monitored component meets or exceeds a value you set."
@@ -81,31 +112,8 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
             url = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/alerts".format(
                 project_id=self.toolset.config.get("project_id")
             )
-            response = requests.get(
-                url=url,
-                headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(
-                    self.toolset.config.get("public_key"),
-                    self.toolset.config.get("private_key"),
-                ),
-            )
-            response.raise_for_status()
-            if response.ok:
-                res = response.json()
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS
-                    if res.get("totalCount", 0)
-                    else ToolResultStatus.NO_DATA,
-                    data=res,
-                    params=params,
-                )
-            else:
-                return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    data=f"Failed {self.name}.\n{response.text}",
-                    return_code=response.status_code,
-                    params=params,
-                )
+            response = self.toolset._session.get(url=url)
+            return self.return_result(response, params)
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
@@ -115,6 +123,7 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
             )
 
 
+# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Monitoring-and-Logs/operation/listAtlasProcesses
 class ReturnProjectProcesses(MongoDBAtlasBaseTool):
     name: str = "atlas_return_project_processes"
     description: str = "Returns details of all processes for the specified project. Useful for getting logs and data for specific project"
@@ -124,26 +133,8 @@ class ReturnProjectProcesses(MongoDBAtlasBaseTool):
             url = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/processes".format(
                 project_id=self.toolset.config.get("project_id")
             )
-            response = requests.get(
-                url=url,
-                headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(
-                    self.toolset.config.get("public_key"),
-                    self.toolset.config.get("private_key"),
-                ),
-            )
-            response.raise_for_status()
-            if response.ok:
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS, data=response.json(), params=params
-                )
-            else:
-                return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Failed {self.name}. \n{response.text}",
-                    return_code=response.status_code,
-                    params=params,
-                )
+            response = self.toolset._session.get(url)
+            return self.return_result(response, params)
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
@@ -172,30 +163,8 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
                 project_id=self.toolset.config.get("project_id"),
                 process_id=params.pop("process_id", ""),
             )
-            response = requests.get(
-                url=url,
-                headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(
-                    self.toolset.config.get("public_key"),
-                    self.toolset.config.get("private_key"),
-                ),
-            )
-            response.raise_for_status()
-            if response.ok:
-                res = response.json()
-                status = (
-                    ToolResultStatus.SUCCESS
-                    if res.get("slowQueries", [])
-                    else ToolResultStatus.NO_DATA
-                )
-                return StructuredToolResult(status=status, data=res, params=params)
-            else:
-                return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Failed {self.name}. \n{response.text}",
-                    return_code=response.status_code,
-                    params=params,
-                )
+            response = self.toolset._session.get(url)
+            return self.return_result(response, params, "slowQueries")
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
@@ -208,7 +177,7 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Events/operation/listProjectEvents
 class ReturnEventsFromProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_events_from_project"
-    description: str = "Returns events for the specified project. Events identify significant database, security activities or status changes. maximum of 500 events. can only query the last 4 hours."
+    description: str = "Returns events occurrences for the specified project. Events identify significant database, security activities or status changes. can only query the last 4 hours."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
@@ -218,34 +187,23 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
             four_hours_ago = now_utc - timedelta(hours=4)
             iso_timestamp = four_hours_ago.isoformat()
             url = self.url.format(projectId=self.toolset.config.get("project_id"))
-            response = requests.get(
+            response = self.toolset._session.get(
                 url=url,
-                headers={"Accept": "application/vnd.atlas.2025-03-12+json"},
-                auth=HTTPDigestAuth(
-                    self.toolset.config.get("public_key"),
-                    self.toolset.config.get("private_key"),
-                ),
                 params={"minDate": iso_timestamp},
             )
-
-            # todo chagne to natan structure.
             response.raise_for_status()
             if response.ok:
                 res = response.json()
-                simplified_events = [
-                    {
-                        "created": event.get("created"),
-                        "eventTypeName": event.get("eventTypeName"),
-                    }
-                    for event in res.get("results", [])
-                ]
+                events_counter = Counter(
+                    [event.get("eventTypeName") for event in res.get("results", [])]
+                )
+                data = f"last 4 hours eventTypeName and # of occurrences list: {events_counter} \n to get more information about a given eventTypeName call get_mongo_extra_events_info(<EVENT_TYPE>)"
                 status = (
                     ToolResultStatus.SUCCESS
-                    if simplified_events
+                    if events_counter
                     else ToolResultStatus.NO_DATA
                 )
-                res["results"] = simplified_events
-                return StructuredToolResult(status=status, data=res, params=params)
+                return StructuredToolResult(status=status, data=data, params=params)
             else:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
@@ -283,13 +241,9 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
                 project_id=self.toolset.config.get("project_id"),
                 process_id=params.get("hostName", ""),
             )
-            response = requests.get(
+            response = self.toolset._session.get(
                 url=url,
                 headers={"Accept": "application/vnd.atlas.2025-03-12+gzip"},
-                auth=HTTPDigestAuth(
-                    self.toolset.config.get("public_key"),
-                    self.toolset.config.get("private_key"),
-                ),
                 params={"startDate": one_hour_ago},
             )
             response.raise_for_status()
