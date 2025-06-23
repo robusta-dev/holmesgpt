@@ -645,7 +645,7 @@ class ToolCallingLLM:
                     )
 
 
-# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
+# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes_cli.py
 class IssueInvestigator(ToolCallingLLM):
     """
     Thin wrapper around ToolCallingLLM which:
