@@ -236,7 +236,6 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
-        one_hour_ago = int(one_hour_ago.timestamp())
         try:
             url = self.url.format(
                 project_id=self.toolset.config.get("project_id"),
@@ -245,7 +244,7 @@ class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
             response = self.toolset._session.get(
                 url=url,
                 headers={"Accept": "application/vnd.atlas.2025-03-12+gzip"},
-                params={"startDate": one_hour_ago},
+                params={"startDate": int(one_hour_ago.timestamp())},
             )
             response.raise_for_status()
             if response.ok:
