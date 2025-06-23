@@ -81,7 +81,7 @@ def run_interactive_loop(
                 if command == SlashCommands.EXIT.value:
                     return
                 elif command == SlashCommands.HELP.value:
-                    console.print("Available commands: {ALL_SLASH_COMMANDS}")
+                    console.print(f"Available commands: {ALL_SLASH_COMMANDS}")
                 elif command == SlashCommands.RESET.value:
                     console.print(
                         "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
