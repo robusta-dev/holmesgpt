@@ -9,3 +9,6 @@ test-llm-investigate:
 
 test-llm-ask-holmes:
 	poetry run pytest tests/llm/test_ask_holmes.py -n 6 -vv
+
+test-without-llm:
+	poetry run pytest tests -m "not llm"
