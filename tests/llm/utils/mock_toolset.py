@@ -404,5 +404,5 @@ def sanitize_filename(original_file_name: str) -> str:
     filename = filename.strip("_")
     filename = filename.strip(".")
 
-    # conver to lowercase for consistency
+    # Convert to lowercase for consistency
     return filename.lower()
