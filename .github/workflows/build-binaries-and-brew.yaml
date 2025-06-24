@@ -68,7 +68,8 @@ jobs:
       # regarding the litellm part of the command, see https://github.com/pyinstaller/pyinstaller/issues/8620#issuecomment-2186540504
       run: |
 
-        pyinstaller holmes.py \
+        pyinstaller holmes_cli.py \
+          --name holmes
           --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' \
           --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' \
           --add-data 'holmes/plugins/toolsets:holmes/plugins/toolsets' \

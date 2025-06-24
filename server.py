@@ -3,6 +3,7 @@ import os
 from typing import List, Optional
 
 import sentry_sdk
+from holmes import get_version, is_official_release
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -89,20 +90,24 @@ def sync_before_server_start():
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
-    logging.info("Initializing sentry...")
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        send_default_pii=False,
-        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
-        profiles_sample_rate=0,
-    )
-    sentry_sdk.set_tags(
-        {
-            "account_id": dal.account_id,
-            "cluster_name": config.cluster_name,
-            "model_name": config.model,
-        }
-    )
+    if is_official_release():
+        logging.info("Initializing sentry...")
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            send_default_pii=False,
+            traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+            profiles_sample_rate=0,
+        )
+        sentry_sdk.set_tags(
+            {
+                "account_id": dal.account_id,
+                "cluster_name": config.cluster_name,
+                "model_name": config.model,
+                "version": get_version(),
+            }
+        )
+    else:
+        logging.info("Skipping sentry initialization for custom version")
 
 app = FastAPI()
 

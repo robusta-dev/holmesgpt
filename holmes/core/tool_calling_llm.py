@@ -113,10 +113,21 @@ def truncate_messages_to_fit_context(
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
-            logging.info(
-                f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
-            )
-            msg["content"] = msg["content"][:allocated_space]
+            truncation_notice = "\n\n[TRUNCATED]"
+            # Ensure the indicator fits in the allocated space
+            if allocated_space > len(truncation_notice):
+                msg["content"] = (
+                    msg["content"][: allocated_space - len(truncation_notice)]
+                    + truncation_notice
+                )
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
+                )
+            else:
+                msg["content"] = truncation_notice[:allocated_space]
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
+                )
             msg.pop("token_count", None)  # Remove token_count if present
 
         remaining_space -= allocated_space
@@ -599,13 +610,16 @@ class ToolCallingLLM:
                         return
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
+                logging.exception("Bad completion request")
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
                     )
+                raise e
             except Exception:
+                logging.exception("Completion request exception")
                 raise
 
             messages.append(
@@ -641,7 +655,7 @@ class ToolCallingLLM:
                     )
 
 
-# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
+# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes_cli.py
 class IssueInvestigator(ToolCallingLLM):
     """
     Thin wrapper around ToolCallingLLM which:
