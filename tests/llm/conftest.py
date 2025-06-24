@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import pytest
@@ -30,7 +29,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
     for test_suite in ["ask_holmes", "investigate"]:
         try:
-            print(f"* test_suite={test_suite}")
             result = get_experiment_results(PROJECT, test_suite)
             result.records.sort(key=lambda x: x.get("span_attributes", {}).get("name"))
             total_test_cases = 0
@@ -55,9 +53,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         .get("test_case", {})
                         .get("evaluation", {})
                         .get("correctness", 0)
-                    )
-                    print(
-                        f"** {span_name} expected_correctness_score={expected_correctness_score}, correctness_score={correctness_score}, metadata={json.dumps(test_case.get('metadata', {}))}"
                     )
                     if isinstance(expected_correctness_score, dict):
                         expected_correctness_score = expected_correctness_score.get(

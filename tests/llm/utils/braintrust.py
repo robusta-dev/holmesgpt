@@ -182,7 +182,6 @@ class ExperimentData(BaseModel):
 
 def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData:
     experiment_name = get_experiment_name(test_suite)
-    print(f"* experiment_name={experiment_name}")
     experiment = braintrust.init(
         project=project_name, experiment=experiment_name, open=True
     )
