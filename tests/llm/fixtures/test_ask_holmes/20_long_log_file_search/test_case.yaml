@@ -5,3 +5,4 @@ before_test: kubectl apply -f ./long-log-pod.yaml
 after_test: kubectl delete -f ./long-log-pod.yaml
 evaluation:
   correctness: 1
+generate_mocks: False

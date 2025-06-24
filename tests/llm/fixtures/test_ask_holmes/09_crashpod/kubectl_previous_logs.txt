@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"payment-processing-worker-747ccfb9db-78qds","namespace":"default"}}
-stdout:
-Environment variable DEPLOY_ENV is undefined
-
-stderr:

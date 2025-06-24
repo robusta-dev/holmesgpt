@@ -1,4 +1,4 @@
-user_prompt: "Why is meme-deployment not working"
+user_prompt: "Why is meme-deployment not responding to http requests from within the cluster?"
 expected_output:
   - The `meme-deployment` is experiencing issues due to a DNS resolution error.
   - This indicates that the hostname `memcom` cannot be resolved to an IP address.
@@ -15,3 +15,4 @@ after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/holmes-meme-generator/failure/curl.yaml
 evaluation:
   correctness: 1
+generate_mocks: False
