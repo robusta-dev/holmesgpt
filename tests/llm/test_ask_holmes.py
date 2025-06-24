@@ -85,9 +85,9 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                 mock_datetime.configure_mock(
                     **{"now.return_value": mocked_datetime, "side_effect": None}
                 )
-                result = ask_holmes(test_case)
+                result = ask_holmes(test_case=test_case, parent_span=eval_span)
         else:
-            result = ask_holmes(test_case)
+            result = ask_holmes(test_case=test_case, parent_span=eval_span)
 
         if result.tool_calls:
             for tool_call in result.tool_calls:
