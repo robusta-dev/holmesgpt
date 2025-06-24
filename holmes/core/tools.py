@@ -8,14 +8,17 @@ import tempfile
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Union
 
 import sentry_sdk
 from jinja2 import Template
 from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
+from rich.console import Console
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
+import time
+from rich.table import Table
 
 
 class ToolResultStatus(str, Enum):
@@ -125,7 +128,17 @@ class Tool(ABC, BaseModel):
         logging.info(
             f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
+        start_time = time.time()
         result = self._invoke(params)
+        elapsed = time.time() - start_time
+        output_str = (
+            result.get_stringified_data()
+            if hasattr(result, "get_stringified_data")
+            else str(result)
+        )
+        logging.info(
+            f"   Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n   {output_str[:80]!r}..."
+        )
         # return format_tool_output(result)
         return result
 
@@ -547,3 +560,41 @@ class ToolsetDBModel(BaseModel):
     docs_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     updated_at: str = Field(default_factory=datetime.now().isoformat)
+
+
+def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
+    status_fields = ["name", "enabled", "status", "type", "path", "error"]
+    toolsets_status = []
+    for toolset in sorted(toolsets, key=lambda ts: ts.status.value):
+        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
+
+        status_value = toolset_status.get("status", "")
+        error_value = toolset_status.get("error", "")
+        if status_value == "enabled":
+            toolset_status["status"] = "[green]enabled[/green]"
+        elif status_value == "failed":
+            toolset_status["status"] = "[red]failed[/red]"
+            toolset_status["error"] = f"[red]{error_value}[/red]"
+        else:
+            toolset_status["status"] = f"[yellow]{status_value}[/yellow]"
+
+        # Replace None with "" for Path and Error columns
+        for field in ["path", "error"]:
+            if toolset_status.get(field) is None:
+                toolset_status[field] = ""
+
+        order_toolset_status = OrderedDict(
+            (k.capitalize(), toolset_status[k])
+            for k in status_fields
+            if k in toolset_status
+        )
+        toolsets_status.append(order_toolset_status)
+
+    table = Table(show_header=True, header_style="bold")
+    for col in status_fields:
+        table.add_column(col.capitalize())
+
+    for row in toolsets_status:
+        table.add_row(*(str(row.get(col.capitalize(), "")) for col in status_fields))
+
+    console.print(table)

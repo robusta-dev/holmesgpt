@@ -2,6 +2,8 @@
 import os
 import pytest
 from pathlib import Path
+from unittest.mock import patch
+from datetime import datetime
 
 from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
@@ -17,9 +19,7 @@ from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
-
 from tests.llm.utils.tags import add_tags_to_eval
-
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -69,7 +69,21 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     try:
         before_test(test_case)
 
-        result = ask_holmes(test_case)
+        # Mock datetime if mocked_date is provided
+        if test_case.mocked_date:
+            mocked_datetime = datetime.fromisoformat(
+                test_case.mocked_date.replace("Z", "+00:00")
+            )
+            with patch("holmes.plugins.prompts.datetime") as mock_datetime:
+                mock_datetime.now.return_value = mocked_datetime
+
+                mock_datetime.side_effect = None
+                mock_datetime.configure_mock(
+                    **{"now.return_value": mocked_datetime, "side_effect": None}
+                )
+                result = ask_holmes(test_case)
+        else:
+            result = ask_holmes(test_case)
 
         if result.tool_calls:
             for tool_call in result.tool_calls:
@@ -190,4 +204,5 @@ def ask_holmes(test_case: AskHolmesTestCase) -> LLMResult:
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
     messages = build_chat_messages(ask=chat_request.ask, conversation_history=[], ai=ai)
+    print(f"PROMPT {messages[0].get('content')}")
     return ai.messages_call(messages=messages)
