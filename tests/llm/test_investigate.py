@@ -101,7 +101,6 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
         generate_mocks=test_case.generate_mocks,
         issue_data=test_case.issue_data,
         resource_instructions=test_case.resource_instructions,
-        global_instructions=test_case.global_instructions,
     )
 
     input = test_case.investigate_request

@@ -65,7 +65,6 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     investigate_request: InvestigateRequest
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
-    global_instructions: Optional[list[str]] = None
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
 
 
@@ -145,9 +144,6 @@ class MockHelper:
                 if config_dict.get("user_prompt"):
                     extra_prompt = load_include_files(
                         test_case_folder, config_dict.get("include_files", None)
-                    )
-                    config_dict["global_instructions"] = load_global_instructions(
-                        test_case_folder, config_dict.get("global_instructions", None)
                     )
                     config_dict["user_prompt"] = (
                         config_dict["user_prompt"] + extra_prompt
@@ -254,18 +250,3 @@ def load_include_files(
             extra_prompt = append_file_to_user_prompt(extra_prompt, file_path)
 
     return extra_prompt
-
-
-def load_global_instructions(
-    test_case_folder: Path, global_instructions_files: Optional[list[str]]
-) -> str:
-    global_instructions: Optional[list[str]] = None
-    if global_instructions_files:
-        global_instructions = []
-        for file_path_str in global_instructions_files:
-            file_path = Path(test_case_folder.joinpath(file_path_str))
-
-        with file_path.open("r") as f:
-            global_instructions.append(f"{f.read()}")
-
-    return global_instructions

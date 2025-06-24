@@ -19,14 +19,12 @@ class MockSupabaseDal(SupabaseDal):
         issue_data: Optional[Dict],
         resource_instructions: Optional[ResourceInstructions],
         generate_mocks: bool,
-        global_instructions: Optional[list[str]],
     ):
         super().__init__(cluster="test")
         self._issue_data = issue_data
         self._resource_instructions = resource_instructions
         self._test_case_folder = test_case_folder
         self._generate_mocks = generate_mocks
-        self._global_instructions = global_instructions
 
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         if self._issue_data is not None:
@@ -72,10 +70,7 @@ class MockSupabaseDal(SupabaseDal):
         )
 
     def get_global_instructions_for_account(self) -> Optional[Instructions]:
-        if self._global_instructions:
-            return Instructions(instructions=self._global_instructions)
-        else:
-            return None
+        return None
 
 
 pydantic_resource_instructions = TypeAdapter(ResourceInstructions)
