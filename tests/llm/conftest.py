@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import pytest
@@ -53,10 +54,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         test_case.get("metadata", {})
                         .get("test_case", {})
                         .get("evaluation", {})
-                        .get("correctness", 1)
+                        .get("correctness", 0)
                     )
                     print(
-                        f"** {span_name} expected_correctness_score={expected_correctness_score}, correctness_score={correctness_score}"
+                        f"** {span_name} expected_correctness_score={expected_correctness_score}, correctness_score={correctness_score}, metadata={json.dumps(test_case.get('metadata', {}))}"
                     )
                     if isinstance(expected_correctness_score, dict):
                         expected_correctness_score = expected_correctness_score.get(
