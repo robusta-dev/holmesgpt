@@ -6,6 +6,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
+import urllib
 
 from holmes.core.tools import (
     StructuredToolResult,
