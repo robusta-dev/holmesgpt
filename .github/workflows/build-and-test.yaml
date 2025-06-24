@@ -47,7 +47,8 @@ jobs:
           poetry install --no-root
 
           sudo apt-get install -y binutils
-          pyinstaller holmes.py \
+          pyinstaller holmes_cli.py \
+            --name holmes \
             --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' \
             --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' \
             --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' \
