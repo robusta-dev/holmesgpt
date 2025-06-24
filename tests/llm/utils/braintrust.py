@@ -111,7 +111,7 @@ class BraintrustEvalHelper:
         expected: str,
         id: str,
         scores: dict[str, Any],
-        tags: Optional[list[str]] = None
+        tags: Optional[list[str]] = None,
     ):
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")

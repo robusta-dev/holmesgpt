@@ -19,7 +19,7 @@ class MockSupabaseDal(SupabaseDal):
         issue_data: Optional[Dict],
         resource_instructions: Optional[ResourceInstructions],
         generate_mocks: bool,
-        global_instructions: Optional[list[str]]
+        global_instructions: Optional[list[str]],
     ):
         super().__init__(cluster="test")
         self._issue_data = issue_data

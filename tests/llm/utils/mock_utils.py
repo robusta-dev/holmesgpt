@@ -56,7 +56,7 @@ class HolmesTestCase(BaseModel):
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
-    user_prompt: str # The user's question to ask holmes
+    user_prompt: str  # The user's question to ask holmes
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
 
 
@@ -253,6 +253,7 @@ def load_include_files(
             extra_prompt = append_file_to_user_prompt(extra_prompt, file_path)
 
     return extra_prompt
+
 
 def load_global_instructions(
     test_case_folder: Path, global_instructions_files: Optional[list[str]]

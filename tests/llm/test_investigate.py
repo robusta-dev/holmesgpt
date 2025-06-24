@@ -71,11 +71,16 @@ def get_test_cases():
         test_cases_tuples = []
         for i in range(0, iterations):
             test_cases_tuples.extend(
-                [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases]
+                [
+                    add_tags_to_eval(experiment_name, test_case)
+                    for test_case in test_cases
+                ]
             )
         return test_cases_tuples
     else:
-        return [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases]
+        return [
+            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
+        ]
 
 
 def idfn(val):
@@ -96,7 +101,7 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
         generate_mocks=test_case.generate_mocks,
         issue_data=test_case.issue_data,
         resource_instructions=test_case.resource_instructions,
-        global_instructions=test_case.global_instructions
+        global_instructions=test_case.global_instructions,
     )
 
     input = test_case.investigate_request
@@ -194,7 +199,7 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
             expected=str(expected),
             id=test_case.id,
             scores=scores,
-            tags=test_case.tags
+            tags=test_case.tags,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")
