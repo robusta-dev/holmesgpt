@@ -6,6 +6,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
+import urllib
 
 from holmes.core.tools import (
     StructuredToolResult,
@@ -96,6 +97,7 @@ class FallbackToolWrapper(Tool):
         else:
             params_data = ""
 
+        params_data = sanitize_filename(params_data)
         return f"{self._test_case_folder}/{self.name}{params_data}.txt{AUTO_GENERATED_FILE_SUFFIX}"
 
     def _auto_generate_mock_file(self, tool_result: StructuredToolResult, params: Dict):
@@ -367,3 +369,40 @@ class MockToolsets:
             if not mocked:
                 enabled_toolsets.append(toolset)
         self.enabled_toolsets = enabled_toolsets
+
+
+def sanitize_filename(original_file_name: str) -> str:
+    """
+    Sanitizes a URL to create a valid filename.
+    http(s)://... -> scheme is removed.
+    Characters not suitable for filenames are replaced with underscores.
+    """
+
+    # Remove scheme (http, https) if present
+    filename = re.sub(r"^https?://", "", original_file_name, flags=re.IGNORECASE)
+
+    # URL decode percent-encoded characters
+    # (e.g., %20 becomes space, %2F becomes /)
+    filename = urllib.parse.unquote(filename)
+
+    # Replace characters not allowed in filenames.
+    # Allowed characters are:
+    #   - Alphanumeric (a-z, A-Z, 0-9)
+    #   - Underscore (_)
+    #   - Hyphen (-)
+    #   - Dot (.)
+    # The regex \w matches [a-zA-Z0-9_] in Python.
+    # So, [^\w.-] matches any character that is NOT alphanumeric, underscore, dot, or hyphen.
+    # These non-allowed characters are replaced with a single underscore.
+    filename = re.sub(r"[^\w.-]", "_", filename)
+
+    # Consolidate multiple consecutive underscores into one.
+    filename = re.sub(r"__+", "_", filename)
+
+    # Remove leading/trailing underscores and trailing dots.
+    # Trailing dots can be problematic on some OS (e.g., Windows treats "file." as "file").
+    filename = filename.strip("_")
+    filename = filename.strip(".")
+
+    # Convert to lowercase for consistency
+    return filename.lower()

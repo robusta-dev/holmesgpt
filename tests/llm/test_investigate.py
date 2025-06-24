@@ -24,6 +24,8 @@ from os import path
 from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
 
+from tests.llm.utils.tags import add_tags_to_eval
+
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
 )
@@ -69,11 +71,16 @@ def get_test_cases():
         test_cases_tuples = []
         for i in range(0, iterations):
             test_cases_tuples.extend(
-                [(experiment_name, test_case) for test_case in test_cases]
+                [
+                    add_tags_to_eval(experiment_name, test_case)
+                    for test_case in test_cases
+                ]
             )
         return test_cases_tuples
     else:
-        return [(experiment_name, test_case) for test_case in test_cases]
+        return [
+            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
+        ]
 
 
 def idfn(val):
@@ -84,10 +91,6 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.skipif(
-    not os.environ.get("BRAINTRUST_API_KEY"),
-    reason="BRAINTRUST_API_KEY must be set to run LLM evaluations",
-)
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("investigate")
@@ -181,6 +184,7 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
             id=test_case.id,
             scores=scores,
             prompt=None,
+            tags=test_case.tags,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")

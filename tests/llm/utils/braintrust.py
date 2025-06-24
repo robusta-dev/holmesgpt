@@ -133,6 +133,7 @@ class BraintrustEvalHelper:
         id: str,
         scores: dict[str, Any],
         prompt: Optional[str],
+        tags: Optional[list[str]] = None,
     ):
         if not self.dataset:
             # braintrust is disabled
@@ -154,6 +155,7 @@ class BraintrustEvalHelper:
             dataset_record_id=id,
             scores=scores,
             metadata={},
+            tags=tags,
         )
         self._root_span.end()
         self.experiment.flush()
