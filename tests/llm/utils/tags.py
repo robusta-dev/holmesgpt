@@ -1,9 +1,19 @@
-from typing import Literal
+# type: ignore
+from tests.llm.utils.mock_utils import HolmesTestCase
+import pytest
 
 
-ALLOWED_EVAL_TAGS = Literal[
-    "logs",  # An eval that tests HolmesGPT's ability to find the correct log and/or interpret logs correctly
-    "context_window",  # An eval that tests HolmesGPT's ability to find information despite the data not fitting the LLM's context window
-    "synthetic",  # An eval that cannot be run live because its mocked data has been manually generated
-    "datetime",  # An eval that tests HolmesGPT's ability to rely on or correctly use date and/or time information
-]
+def get_tags(test_case: HolmesTestCase):
+    """
+    Converts a list of tag strings into a list of pytest.mark objects.
+    Example: ["smoke", "ui"] -> [pytest.mark.smoke, pytest.mark.ui]
+    """
+    if not test_case.tags:
+        return []
+    return [getattr(pytest.mark, tag) for tag in test_case.tags]
+
+
+def add_tags_to_eval(experiment_name: str, test_case: HolmesTestCase):
+    return pytest.param(
+        experiment_name, test_case, marks=get_tags(test_case), id=test_case.id
+    )

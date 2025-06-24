@@ -14,7 +14,6 @@ from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
 from holmes.plugins.toolsets.datadog import DatadogToolset
-from holmes.plugins.toolsets.datetime import DatetimeToolset
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
@@ -32,6 +31,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTrace
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
+from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -67,13 +67,13 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         KafkaToolset(),
         DatadogToolset(),
         PrometheusToolset(),
-        DatetimeToolset(),
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
         CoralogixLogsToolset(),
         RabbitMQToolset(),
         GitToolset(),
         BashExecutorToolset(),
+        RunbookToolset(),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
@@ -144,7 +144,7 @@ def load_toolsets_from_config(
             validated_toolset: Optional[Toolset] = None
             if toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
-            if strict_check:
+            elif strict_check:
                 validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
             else:
                 validated_toolset = ToolsetYamlFromConfig(  # type: ignore

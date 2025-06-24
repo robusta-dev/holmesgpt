@@ -3,6 +3,8 @@ import os
 from typing import Optional
 import pytest
 from pathlib import Path
+from unittest.mock import patch
+from datetime import datetime
 
 from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
@@ -20,7 +22,7 @@ from braintrust import Span
 from pydantic import BaseModel
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
-
+from tests.llm.utils.tags import add_tags_to_eval
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -42,9 +44,13 @@ def get_test_cases():
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
     if iterations:
-        return [(experiment_name, test_case) for test_case in test_cases] * iterations
+        return [
+            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
+        ] * iterations
     else:
-        return [(experiment_name, test_case) for test_case in test_cases]
+        return [
+            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
+        ]
 
 
 def idfn(val):
@@ -67,7 +73,21 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     try:
         before_test(test_case)
 
-        result = ask_holmes(test_case, parent_span=eval_span)
+        # Mock datetime if mocked_date is provided
+        if test_case.mocked_date:
+            mocked_datetime = datetime.fromisoformat(
+                test_case.mocked_date.replace("Z", "+00:00")
+            )
+            with patch("holmes.plugins.prompts.datetime") as mock_datetime:
+                mock_datetime.now.return_value = mocked_datetime
+
+                mock_datetime.side_effect = None
+                mock_datetime.configure_mock(
+                    **{"now.return_value": mocked_datetime, "side_effect": None}
+                )
+                result = ask_holmes(test_case)
+        else:
+            result = ask_holmes(test_case)
 
         if result.tool_calls:
             for tool_call in result.tool_calls:
