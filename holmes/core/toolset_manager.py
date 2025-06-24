@@ -138,7 +138,8 @@ class ToolsetManager:
                 # build-in types was assigned when loaded
                 builtin_toolsets_dict[toolset_name] = toolset_config
             else:
-                toolset_config["type"] = ToolsetType.CUSTOMIZED.value
+                if toolset_config.get("type") is None:
+                    toolset_config["type"] = ToolsetType.CUSTOMIZED.value
                 # custom toolsets defaults to enabled when not explicitly disabled
                 if toolset_config.get("enabled", True) is False:
                     toolset_config["enabled"] = False
@@ -281,9 +282,9 @@ class ToolsetManager:
         server will sync the status of toolsets to DB during startup instead of local cache.
         Refreshing the status by default for server to keep the toolsets up-to-date instead of relying on local cache.
         """
-        toolsets_with_status = self.load_toolset_with_status(
+        toolsets_with_status = self._list_all_toolsets(
             dal,
-            refresh_status=refresh_status,
+            check_prerequisites=True,
             enable_all_toolsets=False,
             toolset_tags=self.server_tool_tags,
         )

@@ -12,7 +12,7 @@ from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest
 from holmes.core.prompt import append_file_to_user_prompt
 from holmes.core.tool_calling_llm import ResourceInstructions
-from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
+from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, AUTO_GENERATED_FILE_SUFFIX
 from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 
@@ -45,6 +45,8 @@ T = TypeVar("T")
 class HolmesTestCase(BaseModel):
     id: str
     folder: str
+    mocked_date: Optional[str] = None
+    tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
     generate_mocks: bool = False  # If True, generate mocks
     add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
