@@ -1,72 +1,41 @@
 # Grafana Loki
 
-By enabling this toolset, HolmesGPT will fetch pod logs from [Loki](https://grafana.com/oss/loki/). Loki can be accessed directly or by proxying through a [Grafana](https://grafana.com/oss/grafana/) instance.
+Connect HolmesGPT to Loki for log analysis through Grafana or direct API access. Provides access to historical logs and advanced log queries.
 
-You **should** enable this toolset to replace the default Kubernetes logs toolset if all your kubernetes/pod logs are consolidated inside Loki. It will make it easier for HolmesGPT to fetch incident logs, including the ability to precisely consult past logs.
+## When to Use This
+
+- ✅ Your Kubernetes logs are centralized in Loki
+- ✅ You need historical log data beyond what's in pods
+- ✅ You want advanced log search capabilities
+
+## Prerequisites
+
+- Loki instance with logs from your Kubernetes cluster
+- Grafana with Loki datasource configured (recommended) OR direct Loki API access
 
 !!! warning "Logging Toolsets"
     Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
 
 --8<-- "snippets/toolsets_that_provide_logging.md"
 
-## Proxying through Grafana
+## Configuration
 
-This is the recommended approach because we intend to add more capabilities to the toolset that are only available with Grafana.
+Choose one of the following methods:
 
-### Prerequisites
+### Option 1: Through Grafana (Recommended)
 
-A [Grafana service account token](https://grafana.com/docs/grafana/latest/administration/service-accounts/) with the following permissions:
+**Required:**
+- [Grafana service account token](https://grafana.com/docs/grafana/latest/administration/service-accounts/) with Viewer role
+- Loki datasource UID from Grafana
 
-* Basic role -> Viewer
-* Data sources -> Reader
-
-Check out this [video](https://www.loom.com/share/f969ab3af509444693802254ab040791?sid=aa8b3c65-2696-4f69-ae47-bb96e8e03c47) on creating a Grafana service account token.
-
-**Getting Grafana URL**
-
-You can find the Grafana URL required for Loki in your Grafana cloud account settings.
-
-**Obtaining the datasource UID**
-
-You may have multiple Loki data sources setup in Grafana. HolmesGPT uses a single Loki datasource to fetch the logs and it needs to know the UID of this datasource.
-
-A simple way to get the datasource UID is to access the Grafana API by running the following request:
-
+**Find your Loki datasource UID:**
 ```bash
-# port forward if you are using Robusta's grafana from your kubernetes cluster
-kubectl port-forward svc/robusta-grafana 3000:80
+# Port forward to Grafana
+kubectl port-forward svc/grafana 3000:80
 
-# List the loki data sources
-curl -s -u <username>:<password> http://localhost:3000/api/datasources | jq '.[] | select(.type == "loki")'
+# Get Loki datasource UID
+curl -s -u admin:admin http://localhost:3000/api/datasources | jq '.[] | select(.type == "loki") | .uid'
 ```
-
-This will return something like:
-
-```json
-{
-    "id": 2,
-    "uid": "klja8hsa-8a9c-4b35-1230-7baab22b02ee",
-    "orgId": 1,
-    "name": "Loki-kubernetes",
-    "type": "loki",
-    "typeName": "Loki",
-    "typeLogoUrl": "/public/app/plugins/datasource/loki/img/loki_icon.svg",
-    "access": "proxy",
-    "url": "http://loki.loki:3100",
-    "user": "",
-    "database": "",
-    "basicAuth": false,
-    "isDefault": false,
-    "jsonData": {
-        "httpHeaderName1": "admin",
-        "httpHeaderName2": "X-Scope-OrgID",
-        "tlsSkipVerify": true
-    },
-    "readOnly": false
-}
-```
-
-In this case, the Loki datasource UID is `klja8hsa-8a9c-4b35-1230-7baab22b02ee`.
 
 ### Configuration (Grafana Proxy)
 

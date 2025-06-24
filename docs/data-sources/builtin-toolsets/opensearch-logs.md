@@ -1,8 +1,12 @@
-# OpenSearch logs
+# OpenSearch Logs
 
-By enabling this toolset, HolmesGPT will fetch pod logs from [OpenSearch](https://opensearch.org/).
+Connect HolmesGPT to OpenSearch for centralized log analysis and historical log access.
 
-You **should** enable this toolset to replace the default Kubernetes logs toolset if all your kubernetes pod logs are consolidated inside OpenSearch/Elastic. It will make it easier for HolmesGPT to fetch incident logs, including the ability to precisely consult past logs.
+## Prerequisites
+
+- OpenSearch cluster with Kubernetes pod logs
+- API key with read access to log indices
+- Network connectivity from HolmesGPT to OpenSearch
 
 !!! warning "Logging Toolsets"
     Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
@@ -20,10 +24,10 @@ You **should** enable this toolset to replace the default Kubernetes logs toolse
       opensearch/logs:
         enabled: true
         config:
-          opensearch_url: https://your-opensearch-cluster.com:443
-          index_pattern: fluentd-*
-          opensearch_auth_header: "ApiKey your-api-key-here"
-          labels:
+          opensearch_url: https://opensearch.example.com:443
+          index_pattern: kubernetes-*  # Pattern matching log indices
+          opensearch_auth_header: "ApiKey YOUR_API_KEY"
+          labels:  # Map fields to match your log structure
             pod: "kubernetes.pod_name"
             namespace: "kubernetes.namespace_name"
             timestamp: "@timestamp"
@@ -41,10 +45,10 @@ You **should** enable this toolset to replace the default Kubernetes logs toolse
         opensearch/logs:
           enabled: true
           config:
-            opensearch_url: https://your-opensearch-cluster.com:443 # The URL to your opensearch cluster.
-            index_pattern: fluentd-* # The pattern matching the indexes containing the logs. Supports wildcards
-            opensearch_auth_header: "ApiKey your-api-key-here" # An optional header value set to the `Authorization` header for every request to opensearch.
-            labels: # set the labels according to how values are mapped in your opensearch cluster
+            opensearch_url: https://opensearch.example.com:443
+            index_pattern: kubernetes-*
+            opensearch_auth_header: "ApiKey YOUR_API_KEY"
+            labels:
               pod: "kubernetes.pod_name"
               namespace: "kubernetes.namespace_name"
               timestamp: "@timestamp"
@@ -55,6 +59,30 @@ You **should** enable this toolset to replace the default Kubernetes logs toolse
     ```
 
     --8<-- "snippets/helm_upgrade_command.md"
+
+## Validation
+
+Test your configuration:
+
+```bash
+holmes ask "show me recent errors from the payment service"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+- **Authentication errors**: Verify your API key has read access to the specified indices
+- **No logs found**: Check that `index_pattern` matches your actual OpenSearch indices
+- **Field mapping errors**: Ensure `labels` section maps to correct field names in your logs
+
+### Finding Your Index Pattern
+
+```bash
+# List indices to find the correct pattern
+curl -X GET "https://opensearch.example.com/_cat/indices?v" \
+  -H "Authorization: ApiKey YOUR_API_KEY"
+```
 
 ## Capabilities
 

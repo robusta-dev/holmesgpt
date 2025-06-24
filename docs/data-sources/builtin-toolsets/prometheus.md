@@ -1,8 +1,11 @@
 # Prometheus
 
-By enabling this toolset, HolmesGPT will be able to generate graphs from prometheus metrics as well as help you write and validate prometheus queries. HolmesGPT can also detect memory leak patterns, CPU throttling, lagging queues, and high latency issues.
+Connect HolmesGPT to Prometheus for metrics analysis and query generation. Enables detection of memory leaks, CPU throttling, queue backlogs, and performance issues.
 
-Prior to generating a PromQL query, HolmesGPT tends to list the available metrics. This is done to ensure the metrics used in PromQL are actually available.
+## Prerequisites
+
+- Prometheus server running and accessible
+- Network connectivity from HolmesGPT to Prometheus endpoint
 
 ## Configuration
 
@@ -15,8 +18,7 @@ Prior to generating a PromQL query, HolmesGPT tends to list the available metric
         prometheus/metrics:
             enabled: true
             config:
-                # see below how to find prometheus_url
-                prometheus_url: http://<prometheus host>:9090 # e.g. http://robusta-kube-prometheus-st-prometheus.default.svc.cluster.local:9090
+                prometheus_url: http://prometheus-server:9090
 
                 # optional
                 #headers:
@@ -31,8 +33,7 @@ Prior to generating a PromQL query, HolmesGPT tends to list the available metric
             prometheus/metrics:
                 enabled: true
                 config:
-                    # see below how to find prometheus_url
-                    prometheus_url: http://<prometheus host>:9090 # e.g. http://robusta-kube-prometheus-st-prometheus.default.svc.cluster.local:9090
+                    prometheus_url: http://prometheus-server:9090
 
                     # optional
                     #headers:
@@ -41,47 +42,34 @@ Prior to generating a PromQL query, HolmesGPT tends to list the available metric
 
     --8<-- "snippets/helm_upgrade_command.md"
 
-It is also possible to set the `PROMETHEUS_URL` environment variable instead of the above `prometheus_url` config key.
+💡 **Alternative**: Set `PROMETHEUS_URL` environment variable instead of the config file.
 
-## Advanced configuration
+## Validation
 
-Below is the full list of options for this toolset:
+Test your connection:
 
-```yaml
-prometheus/metrics:
-  enabled: true
-  config:
-    prometheus_url: http://localhost:9090
-    headers:
-      Authorization: "Basic <base_64_encoded_string>"
-    # Optional: timeout for requests in seconds
-    timeout: 30
-    # Optional: maximum number of metrics to fetch
-    max_metrics: 1000
-    # Optional: cache duration for metrics list
-    cache_duration: 300
+```bash
+holmes ask "show me CPU usage for the last hour"
 ```
 
-## Finding your Prometheus URL
+## Troubleshooting
 
-To find your Prometheus URL, you can:
+### Finding Your Prometheus URL
 
-1. **For Kubernetes clusters with Prometheus Operator:**
-   ```bash
-   kubectl get prometheus -A
-   kubectl get svc -A | grep prometheus
-   ```
+```bash
+# Find Prometheus services
+kubectl get svc -A | grep prometheus
 
-2. **Port forward to access Prometheus locally:**
-   ```bash
-   kubectl port-forward svc/prometheus-server 9090:80
-   # Then use: http://localhost:9090
-   ```
+# Port forward for testing
+kubectl port-forward svc/prometheus-server 9090:80
+# Then use: http://localhost:9090
+```
 
-3. **Check your Helm releases:**
-   ```bash
-   helm list -A | grep prometheus
-   ```
+### Common Issues
+
+- **Connection refused**: Check if Prometheus URL is accessible from HolmesGPT
+- **Authentication errors**: Verify headers configuration for secured Prometheus
+- **No metrics returned**: Ensure Prometheus is scraping your targets
 
 ## Capabilities
 

@@ -1,7 +1,9 @@
-HolmesGPT provides several out-of-the-box alternatives for log access. You can select from these options:
+**Available Log Sources:**
 
-* [kubernetes/logs](kubernetes.md): Access logs directly through Kubernetes. **This is the default toolset.**
-* [coralogix/logs](coralogix-logs.md): Access logs through Coralogix.
-* [grafana/loki](grafanaloki.md): Access Loki logs by proxying through a Grafana instance.
-* [opensearch/logs](opensearch-logs.md): Access logs through OpenSearch.
-* [datadog](datadog.md): Access logs through DataDog.
+- **[Kubernetes logs](kubernetes.md)** - Direct pod log access (enabled by default)
+- **[Grafana Loki](grafanaloki.md)** - Centralized logs via Loki
+- **[OpenSearch logs](opensearch-logs.md)** - Logs from OpenSearch/Elasticsearch
+- **[Coralogix logs](coralogix-logs.md)** - Logs via Coralogix platform
+- **[DataDog](datadog.md)** - Logs from DataDog
+
+💡 **Choose one**: Only enable one logging toolset at a time for best performance.

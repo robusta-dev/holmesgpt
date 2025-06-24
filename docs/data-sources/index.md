@@ -1,13 +1,27 @@
 # Data Sources
 
-HolmesGPT can incorporate data sources from various tools to improve its root cause analysis.
+HolmesGPT connects to your monitoring and observability tools to provide comprehensive root cause analysis.
+
+## Available Options
 
 <div class="grid cards" markdown>
 
 -   **[Built-in Toolsets](builtin-toolsets/)**
 
+    Pre-configured integrations for popular tools like Prometheus, Grafana, DataDog, and more.
+
 -   **[Custom Toolsets](custom-toolsets.md)**
+
+    Create your own integrations for proprietary or specialized tools.
 
 -   **[Remote MCP Servers](remote-mcp-servers.md)**
 
+    Connect to Model Context Protocol servers for extended capabilities.
+
 </div>
+
+## Getting Started
+
+1. **Review [Built-in Toolsets](builtin-toolsets/)** to see what's available
+2. **Configure authentication** for your external services
+3. **Test with a simple investigation** to verify data access

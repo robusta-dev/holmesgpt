@@ -1,6 +1,6 @@
 # DataDog
 
-By enabling this toolset, HolmesGPT will be able to fetch logs from DataDog. This allows Holmes to access your application logs stored in DataDog for investigation purposes.
+Connect HolmesGPT to DataDog for log analysis and metrics access from your DataDog dashboards.
 
 !!! warning "Logging Toolsets"
     Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
@@ -21,8 +21,8 @@ You can find these in your DataDog account under Organization Settings > API Key
     First, set the following environment variables:
 
     ```bash
-    export DD_API_KEY="<your DataDog API key>"
-    export DD_APP_KEY="<your DataDog application key>"
+    export DD_API_KEY="your-datadog-api-key"
+    export DD_APP_KEY="your-datadog-app-key"
     ```
 
     Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
@@ -59,17 +59,12 @@ You can find these in your DataDog account under Organization Settings > API Key
 
     --8<-- "snippets/helm_upgrade_command.md"
 
-## Advanced Configuration
+## Validation
 
-You can customize the DataDog site and other parameters:
+Test your configuration:
 
-```yaml
-toolsets:
-  datadog/logs:
-    enabled: true
-    config:
-      site: "datadoghq.com"  # Options: datadoghq.com, datadoghq.eu, us3.datadoghq.com, etc.
-      timeout: 30  # Request timeout in seconds
+```bash
+holmes ask "show me recent application errors"
 ```
 
 ## Capabilities

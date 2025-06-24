@@ -1,6 +1,6 @@
 # Built-in Toolsets
 
-Holmes allows defining integrations (toolsets) that fetch data from external sources. Some toolsets are enabled by default, while others require the user to add their own configuration/credentials.
+HolmesGPT includes pre-built integrations for popular monitoring and observability tools. Some work automatically with Kubernetes, while others require API keys or configuration.
 
 ## Available Toolsets
 
@@ -37,8 +37,8 @@ Holmes allows defining integrations (toolsets) that fetch data from external sou
 
 ## Getting Started
 
-1. **Review** the toolsets relevant to your infrastructure
-2. **Configure** authentication for external services
-3. **Test** investigations to see which data sources are accessed
+1. **Choose toolsets** that match your infrastructure (Prometheus, Grafana, etc.)
+2. **Configure authentication** - some need API keys, others work automatically
+3. **Run a test investigation** to verify data access
 
-Some toolsets work automatically with Kubernetes, while external services require API keys or credentials to be configured.
+💡 **Tip**: Start with [Kubernetes](kubernetes.md) and [Prometheus](prometheus.md) for basic cluster monitoring.

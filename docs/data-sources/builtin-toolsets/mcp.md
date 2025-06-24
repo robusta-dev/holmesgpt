@@ -1,8 +1,9 @@
 # Model Context Protocol (MCP)
 
-By enabling this toolset, HolmesGPT will be able to connect to external Model Context Protocol (MCP) servers, extending its capabilities with custom tools and data sources.
+!!! info "Tech Preview"
+    This feature is currently in tech preview. The configuration may change in future releases.
 
-MCP allows you to integrate external tools and services that implement the MCP specification, providing a standardized way to extend HolmesGPT's functionality.
+Connect HolmesGPT to external MCP servers to extend its capabilities with custom tools and data sources. MCP provides a standardized way to integrate external services.
 
 ## Prerequisites
 
@@ -24,11 +25,9 @@ MCP allows you to integrate external tools and services that implement the MCP s
           servers:
             - name: "custom-tools"
               endpoint: "http://your-mcp-server:8080"
-              # Optional authentication
+              mode: "sse"  # Server-Sent Events mode
               headers:
-                Authorization: "Bearer <your-token>"
-            - name: "another-server"
-              endpoint: "https://mcp.example.com"
+                Authorization: "Bearer your-token"
     ```
 
 === "Robusta Helm Chart"
@@ -42,11 +41,9 @@ MCP allows you to integrate external tools and services that implement the MCP s
             servers:
               - name: "custom-tools"
                 endpoint: "http://your-mcp-server:8080"
-                # Optional authentication
+                mode: "sse"
                 headers:
-                  Authorization: "Bearer <your-token>"
-              - name: "another-server"
-                endpoint: "https://mcp.example.com"
+                  Authorization: "Bearer your-token"
     ```
 
 ## Advanced Configuration
