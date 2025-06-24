@@ -114,21 +114,6 @@ curl -X POST http://localhost:8080/investigate \
 curl http://localhost:8080/health
 ```
 
-### Response Format
-
-```json
-{
-  "status": "success",
-  "result": "Analysis of your Kubernetes cluster shows...",
-  "investigation_id": "inv_123456",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "toolsets_used": ["kubernetes", "prometheus"],
-  "recommendations": [
-    "Scale up the deployment",
-    "Check resource limits"
-  ]
-}
-```
 
 ## Upgrading
 
@@ -145,6 +130,5 @@ helm uninstall holmesgpt
 
 ## Need Help?
 
-- Check our [Helm chart documentation](../../helm/)
 - Join our [Slack community](https://robustacommunity.slack.com)
 - Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)

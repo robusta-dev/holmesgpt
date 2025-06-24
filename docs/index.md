@@ -1,8 +1,8 @@
-# Installation
+# HolmesGPT
 
-Choose your installation method
+AI-powered Cloud-Native troubleshooting and investigation assistant.
 
-## Options
+## Quick Start
 
 <div class="grid cards" markdown>
 
@@ -22,22 +22,21 @@ Choose your installation method
 
     [:octicons-arrow-right-24: Install](installation/ui-installation.md)
 
-
 </div>
 
-## More Options
+## Advanced Options
 
-Using HolmesGPT via a HTTP API or Python SDK
+* **[Helm Chart](installation/kubernetes-installation.md)** - Deploy as a service with HTTP API
+* **[Python SDK](installation/python-installation.md)** - Embed in your applications
 
-* Deploy as an HTTP server using(API only) as a **[Helm Chart](installation/kubernetes-installation.md)**
-* Embed HolmesGPT in your applications with a **[Python SDK](installation/python-installation.md)**
+## Next Steps
+
+After installation:
+- **[Run Your First Investigation](installation/first-investigation.md)** - Complete walkthrough
+- **[Configure Data Sources](data-sources/)** - Add monitoring tools
+- **[API Keys Setup](api-keys.md)** - Configure your AI provider
 
 ## Need Help?
 
-If you encounter issues during setup:
-
-- Check our [troubleshooting guide](reference/troubleshooting.md)
-- Visit our [FAQ](../reference/)
 - Join our [Slack community](https://robustacommunity.slack.com)
-
-Ready to get started? Pick your installation method above! 🚀
+- Check our [troubleshooting guide](reference/troubleshooting.md)

@@ -96,100 +96,27 @@ This starts an interactive session where you can ask follow-up questions:
 > quit
 ```
 
-## Step 5: Investigate Different Scenarios
+## Step 5: Try More Scenarios
 
-Let's create and investigate different types of issues:
-
-### Image Pull Error
+Create different types of issues to see Holmes in action:
 
 ```bash
-# Create pod with non-existent image
+# Image Pull Error
 kubectl run bad-image --image=nonexistent:latest
-
-# Investigate
 holmes ask "why is the bad-image pod failing?"
-```
 
-### Resource Limits
-
-```bash
-# Create pod requesting too much memory
+# Resource Limits
 kubectl run memory-hog --image=nginx --requests='memory=100Gi'
-
-# Investigate
 holmes ask "what's wrong with the memory-hog pod?"
-```
 
-### Application Crash
-
-```bash
-# Create a crashing pod
+# Application Crash
 kubectl run crash-pod --image=busybox --command -- sh -c 'exit 1'
-
-# Investigate
 holmes ask "why does crash-pod keep restarting?"
 ```
 
-## Step 6: Investigate Real Alerts
+## Step 6: Advanced Usage
 
-If you have Prometheus AlertManager, investigate real alerts:
-
-### From AlertManager
-
-```bash
-# Port-forward to AlertManager (if running in cluster)
-kubectl port-forward -n monitoring svc/alertmanager 9093:9093 &
-
-# Investigate current alerts
-holmes investigate alertmanager --alertmanager-url http://localhost:9093
-```
-
-### From PagerDuty
-
-```bash
-# Investigate PagerDuty incidents
-holmes investigate pagerduty --pagerduty-api-key YOUR_API_KEY
-
-# Update incident with analysis
-holmes investigate pagerduty --pagerduty-api-key YOUR_API_KEY --update
-```
-
-### From OpsGenie
-
-```bash
-# Investigate OpsGenie alerts
-holmes investigate opsgenie --opsgenie-api-key YOUR_API_KEY
-```
-
-## Step 7: Advanced Questions
-
-Try these more advanced investigation scenarios:
-
-### Cluster-wide Issues
-
-```bash
-holmes ask "what nodes are having problems?"
-holmes ask "show me all unhealthy workloads"
-holmes ask "what's consuming the most resources?"
-```
-
-### Performance Issues
-
-```bash
-holmes ask "why is my application slow?"
-holmes ask "what pods are being throttled?"
-holmes ask "show me memory usage trends"
-```
-
-### Networking Issues
-
-```bash
-holmes ask "are there any networking problems?"
-holmes ask "why can't pods reach the database?"
-holmes ask "show me service connectivity issues"
-```
-
-## Step 8: Using Context Files
+### Using Context Files
 
 Provide additional context to Holmes:
 
@@ -199,68 +126,25 @@ kubectl logs user-profile-import > pod-logs.txt
 
 # Ask Holmes to analyze with context
 holmes ask "analyze this pod failure" --file pod-logs.txt
-
-# Multiple files
-holmes ask "investigate this deployment" \
-  --file deployment.yaml \
-  --file logs.txt \
-  --file metrics.json
 ```
 
-## Tips for Better Investigations
+### Cluster-wide Questions
 
-### 1. Be Specific
+```bash
+holmes ask "what nodes are having problems?"
+holmes ask "show me all unhealthy workloads"
+holmes ask "are there any networking problems?"
+```
 
-❌ **Vague:** "something is broken"
-✅ **Specific:** "why is the checkout service returning 500 errors?"
+## Tips for Better Results
 
-### 2. Include Context
+### Be Specific
+- ❌ "something is broken"
+- ✅ "why is the checkout service returning 500 errors?"
 
-❌ **No context:** "fix this"
-✅ **With context:** "the payment pod is crashing since the last deployment"
-
-### 3. Use Interactive Mode
-
-For complex issues, start broad and narrow down:
-
+### Use Interactive Mode
 ```bash
 holmes ask "what's wrong with my cluster?" --interactive
-> which namespace has the most issues?
-> what's wrong with the payment service?
-> how do I fix the database connection errors?
-```
-
-### 4. Provide Timeframes
-
-```bash
-holmes ask "what problems started in the last hour?"
-holmes ask "show me errors since yesterday"
-```
-
-## Common Patterns
-
-### Deployment Issues
-
-```bash
-# After a deployment
-holmes ask "are there any issues with the latest deployment?"
-holmes ask "did the rollout succeed in the production namespace?"
-```
-
-### Resource Problems
-
-```bash
-# Resource monitoring
-holmes ask "what pods are using too much memory?"
-holmes ask "which nodes are overloaded?"
-```
-
-### Application Errors
-
-```bash
-# Application debugging
-holmes ask "why are users getting timeout errors?"
-holmes ask "what's causing the high error rate?"
 ```
 
 ## Clean Up
@@ -268,34 +152,18 @@ holmes ask "what's causing the high error rate?"
 Remove the test resources:
 
 ```bash
-kubectl delete pod user-profile-import
-kubectl delete pod bad-image
-kubectl delete pod memory-hog
-kubectl delete pod crash-pod
+kubectl delete pod user-profile-import bad-image memory-hog crash-pod
 ```
 
 ## Next Steps
 
-Now that you've run your first investigations:
+🎉 **Congratulations!** You've successfully run your first HolmesGPT investigations.
 
-- **[Configure Custom Toolsets](../data-sources/)** - Add your monitoring tools
-- **[Set Up Runbooks](../data-sources/)** - Create organization-specific guidance
-- **[Integrate with CI/CD](python-installation.md)** - Automate investigation in pipelines
-- **[Deploy as a Service](kubernetes-installation.md)** - Use HTTP API for integrations
+- **[Configure Data Sources](../data-sources/)** - Add monitoring tools like Prometheus, Grafana
+- **[Python SDK](python-installation.md)** - Embed Holmes in your applications
+- **[Helm Chart](kubernetes-installation.md)** - Deploy as a service
 
 ## Need Help?
 
-- **Common issues**: Check our [troubleshooting guide](../reference/troubleshooting.md)
-- **Community support**: Join our [Slack community](https://robustacommunity.slack.com)
-- **Bug reports**: Create an issue on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
-
-## What's Next?
-
-🎉 **Congratulations!** You've successfully run your first HolmesGPT investigations.
-
-Holmes gets more powerful as you:
-- Connect more data sources (Prometheus, Grafana, etc.)
-- Add custom runbooks for your specific infrastructure
-- Integrate with your existing workflows and tools
-
-Happy investigating! 🕵️
+- Join our [Slack community](https://robustacommunity.slack.com)
+- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)

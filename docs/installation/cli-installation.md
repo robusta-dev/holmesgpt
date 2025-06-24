@@ -50,7 +50,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
     3. Run HolmesGPT:
        ```bash
-       poetry run python3 holmes.py ask "what pods are unhealthy and why?"
+       poetry run python3 holmes_cli.py ask "what pods are unhealthy and why?"
        ```
 
 === "Docker Container"
@@ -66,15 +66,11 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
       us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
     ```
 
-## Using HolmesGPT in a Shell Script
-
-## Using HolmesGPT in a CI/CD Pipeline
-
 ## Quick Start
 
 After installation, set up your AI provider and run your first investigation:
 
-1. **Set up API key** (View [AI Provider docs](/ai-providers/) for more options):
+1. **Set up API key** (see [supported AI providers](../ai-providers/)):
    ```bash
    export OPENAI_API_KEY="your-api-key"
    export ANTHROPIC_API_KEY="your-api-key"

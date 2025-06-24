@@ -1,11 +1,10 @@
 # Install UI/TUI
 
-Use HolmesGPT through graphical interfaces via third-party integrations.
+Use HolmesGPT through graphical and terminal interfaces via third-party integrations.
 
 ## K9s Plugin
-**TODO Video of installing and configuring K9s Plugin**
 
-Integrate HolmesGPT into your K9s Kubernetes terminal.
+Integrate HolmesGPT into your K9s Kubernetes terminal for instant analysis.
 
 ### Install
 
@@ -31,9 +30,8 @@ Integrate HolmesGPT into your K9s Kubernetes terminal.
 
 ### Usage
 
-- Open K9s, select a resource, and press `Ctrl+H` to invoke HolmesGPT.
-- Holmes will analyze the selected resource and display results.
-
+- Open K9s, select a resource, and press `Ctrl+H` to invoke HolmesGPT
+- Holmes will analyze the selected resource and display results
 
 ## Web UI (Robusta)
 
@@ -52,12 +50,10 @@ The fastest way to use HolmesGPT is via the managed Robusta SaaS platform.
 ---
 
 ## Slack Bot (Robusta)
-Tag HolmesGPT in any Slack message for instant analysis
 
+Tag HolmesGPT in any Slack message for instant analysis.
 
 [![Watch Slack Bot Demo](https://cdn.loom.com/sessions/thumbnails/7a60a42e854e45368e9b7f9d3c36ae5f-65bd123629db6922-full-play.gif)](https://www.loom.com/share/7a60a42e854e45368e9b7f9d3c36ae5f?sid=bfed9efb-b607-416c-b481-c2a63d314a4b)
-
----
 
 ## Need Help?
 

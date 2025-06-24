@@ -34,10 +34,7 @@ Using HolmesGPT via an API or Python SDK
 
 ## Need Help?
 
-If you encounter issues during setup:
-
-- Check our [troubleshooting guide](../reference/troubleshooting.md)
-- Visit our [FAQ](../reference/)
 - Join our [Slack community](https://robustacommunity.slack.com)
+- Check our [troubleshooting guide](../reference/troubleshooting.md)
 
 Ready to get started? Pick your installation method above! 🚀

@@ -24,60 +24,19 @@ Embed HolmesGPT in your own applications with the Python API for programmatic ro
 
 ## Quick Start
 
-### Basic Usage
-
 ```python
 from holmes import ask_holmes
 
-# Simple question
+# Ask a simple question
 result = ask_holmes("what pods are failing in production?")
 print(result)
 
-# With specific context
+# Analyze with additional context files
 result = ask_holmes(
     "analyze this pod failure",
     context_files=["pod.yaml", "logs.txt"]
 )
 print(result)
-```
-
-### Advanced Configuration
-
-```python
-from holmes.core import HolmesGPT
-from holmes.config import Config
-
-# Configure with custom settings
-config = Config(
-    ai_provider="openai",
-    api_key="your-api-key",
-    model="gpt-4",
-    max_tokens=2000
-)
-
-# Initialize Holmes
-holmes = HolmesGPT(config)
-
-# Run investigation
-result = holmes.investigate("what's wrong with my deployment?")
-```
-
-
-```python
-from holmes.core import HolmesGPT
-from holmes.toolsets import CustomToolset
-
-# Define custom toolset
-class MyCustomToolset(CustomToolset):
-    def get_custom_data(self):
-        # Your custom data collection logic
-        return {"custom_metrics": "data"}
-
-# Configure Holmes with custom toolset
-holmes = HolmesGPT()
-holmes.add_toolset(MyCustomToolset())
-
-result = holmes.investigate("analyze using my custom data")
 ```
 
 ## API Reference
