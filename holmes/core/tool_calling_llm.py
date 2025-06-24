@@ -114,10 +114,21 @@ def truncate_messages_to_fit_context(
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
-            logging.info(
-                f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
-            )
-            msg["content"] = msg["content"][:allocated_space]
+            truncation_notice = "\n\n[TRUNCATED]"
+            # Ensure the indicator fits in the allocated space
+            if allocated_space > len(truncation_notice):
+                msg["content"] = (
+                    msg["content"][: allocated_space - len(truncation_notice)]
+                    + truncation_notice
+                )
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
+                )
+            else:
+                msg["content"] = truncation_notice[:allocated_space]
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
+                )
             msg.pop("token_count", None)  # Remove token_count if present
 
         remaining_space -= allocated_space
