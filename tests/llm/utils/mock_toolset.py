@@ -279,7 +279,6 @@ class MockToolsets:
         toolset_definitions = self._load_toolsets_definitions(run_live)
 
         for toolset in self.unmocked_toolsets:
-
             if toolset.is_default or isinstance(toolset, YAMLToolset):
                 toolset.enabled = True
 
