@@ -6,8 +6,9 @@ from typing import List
 import pytest
 from pydantic import BaseModel
 
-from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
+from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.internet.internet import InternetToolset, html_to_markdown
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures", "test_internet")
@@ -119,4 +120,5 @@ def test_fetch_webpage():
     assert fetch_webpage_tool
     actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
     print(actual_output.data)
+    assert actual_output.data
     assert actual_output.data.strip() == EXPECTED_TEST_RESULT

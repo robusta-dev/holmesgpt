@@ -1,0 +1,12 @@
+user_prompt: "Find login failures in my-app-52"
+tags:
+  - logs
+expected_output: |
+  A summary with the following errors in whichever order:
+    1. Login issues due to redis timeouts
+    2. Login issues due to Identity provider certificate expired
+before_test: kubectl apply -f ./manifest.yaml
+after_test: kubectl delete -f ./manifest.yaml
+evaluation:
+  correctness: 0
+generate_mocks: False

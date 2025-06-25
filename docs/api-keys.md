@@ -136,7 +136,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="path/to/your/service_account_key.json"
 Once the environment variables are set, you can run the following command to interact with Vertex AI Gemini models:
 
 ```bash
-poetry run python holmes.py ask "what pods are unhealthy and why?" --model "vertex_ai/<MODEL_NAME>"
+poetry run python holmes_cli.py ask "what pods are unhealthy and why?" --model "vertex_ai/<MODEL_NAME>"
 ```
 
 Be sure to replace `MODEL_NAME` with a model you have access to - e.g., `gemini-pro`,`gemini-2.0-flash-exp`, etc.

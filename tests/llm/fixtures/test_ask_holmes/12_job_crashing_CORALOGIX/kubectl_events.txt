@@ -1,7 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_events"}
-{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl events --for pod/java-api-checker-v24k9 -n default", "params": {"resource_type": "pod", "pod_name": "java-api-checker-v24k9", "namespace": "default"}}
-  Type     Reason                Age   From            Message
-  ----     ------                ----  ----            -------
-  Normal   SuccessfulCreate      40m   job-controller  Created pod: java-api-checker-v24k9
-  Normal   SuccessfulCreate      39m   job-controller  Created pod: java-api-checker-l86dr
-  Warning  BackoffLimitExceeded  38m   job-controller  Job has reached the specified backoff limit

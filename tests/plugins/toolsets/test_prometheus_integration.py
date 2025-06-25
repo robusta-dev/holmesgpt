@@ -5,8 +5,9 @@ import os
 
 import pytest
 
-from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
+from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("PROMETHEUS_URL", None) is None, reason="PROMETHEUS_URL must be set"
