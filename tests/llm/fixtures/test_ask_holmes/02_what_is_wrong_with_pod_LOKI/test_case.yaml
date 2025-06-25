@@ -1,5 +1,0 @@
-user_prompt: 'What is wrong with << { "type": "pod", "name": "robusta-runner-6958c5bdd8-69gtn" } >> ?'
-expected_output:
-  - The pod was killed due to it being out of memory
-evaluation:
-  correctness: 1

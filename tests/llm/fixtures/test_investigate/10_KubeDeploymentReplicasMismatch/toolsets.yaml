@@ -1,3 +1,9 @@
 toolsets:
   prometheus/metrics:
     enabled: False
+  kubernetes/core:
+    enabled: true
+  robusta:
+    enabled: true
+  internet:
+    enabled: true

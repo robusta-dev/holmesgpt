@@ -1,7 +1,0 @@
-{"toolset_name":"coralogix/logs","tool_name":"fetch_coralogix_logs_for_resource"}
-{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "data": null, "url": "https://avi-test.app.eu2.coralogix.com/#/query-new/logs?query=source+logs+%7C+lucene+%27kubernetes.namespace_name%3Adefault+AND+kubernetes.pod_name%3Ajava-api-checker-v24k9%27+%7C+limit+1000&querySyntax=dataprime&time=from:2025-04-17T06:47:04Z,to:2025-04-17T07:47:04Z", "invocation": "source logs | lucene 'kubernetes.namespace_name:default AND kubernetes.pod_name:java-api-checker-v24k9' | limit 1000", "params": {"namespace_name": "default", "pod_name": "java-api-checker-v24k9", "start": "-3600"}}
-Java Network Exception:
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256

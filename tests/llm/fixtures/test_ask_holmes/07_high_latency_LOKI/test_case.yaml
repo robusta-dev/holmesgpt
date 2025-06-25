@@ -1,8 +1,0 @@
-user_prompt: "Why is there high latency with the customer-orders deployment?"
-expected_output:
-  - High latency in the `customer-orders` deployment is due to slow database calls
-  - The output mentions the time taken by some of the database calls
-before_test: kubectl apply -f ./helm/manifest.yaml
-after_test: kubectl delete -f ./helm/manifest.yaml
-evaluation:
-  correctness: 1
