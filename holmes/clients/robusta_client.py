@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 import requests  # type: ignore
 from functools import cache
@@ -22,5 +21,5 @@ def fetch_holmes_info() -> Optional[HolmesInfo]:
         result = response.json()
         return HolmesInfo(**result)
     except Exception:
-        logging.info("Failed to fetch holmes info")
+        # logging.info("Failed to fetch holmes info")
         return None
