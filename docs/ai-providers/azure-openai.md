@@ -8,57 +8,10 @@ Create an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-ser
 
 ## Configuration
 
-### Required Environment Variables
-
 ```bash
 export AZURE_API_VERSION="2024-02-15-preview"
-export AZURE_API_BASE="https://my-org.openai.azure.com/"
-export AZURE_API_KEY="your-azure-api-key"  # Optional, can use --api-key instead
+export AZURE_API_BASE="https://your-resource.openai.azure.com/"
+export AZURE_API_KEY="your-azure-api-key"
+
+holmes ask "what pods are failing?" --model="azure/<your-deployment-name>"
 ```
-
-### Usage
-
-```bash
-holmes ask "what pods are unhealthy and why?" --model=azure/<DEPLOYMENT_MODEL_NAME> --api-key=<API_KEY>
-```
-
-Replace `<DEPLOYMENT_NAME>` with your actual Azure OpenAI deployment name.
-
-
-## Available Models
-
-Azure OpenAI uses deployment names instead of model names:
-
-```bash
-# Using gpt-4 deployment
-holmes ask "analyze cluster issues" --model=azure/gpt-4-deployment
-
-# Using gpt-35-turbo deployment
-holmes ask "quick cluster check" --model=azure/gpt-35-turbo-deployment
-```
-
-
-## Troubleshooting
-
-**Authentication Errors**
-```
-Error: Azure authentication failed
-```
-- Verify environment variables are set correctly
-- Check that your Azure OpenAI resource is deployed
-- Ensure your API key has the correct permissions
-
-**Deployment Not Found**
-```
-Error: Deployment not found
-```
-- Verify your deployment name is correct
-- Check that the deployment is in the same region as your API base
-- Ensure the deployment is fully deployed and running
-
-**Regional Issues**
-```
-Error: Model not available in region
-```
-- Some models are only available in specific regions
-- Consider deploying in a different region
