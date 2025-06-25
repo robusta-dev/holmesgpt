@@ -1,4 +1,4 @@
-# Evaluations
+# HolmesGPT Evaluations
 
 HolmesGPT uses automated evaluations (evals) to ensure consistent performance across different LLM models and to catch regressions during development. These evaluations test the system's ability to correctly diagnose Kubernetes issues.
 
@@ -13,8 +13,6 @@ The eval system comprises two main test suites:
 - **Investigate**: Tests HolmesGPT's ability to investigate specific issues reported by AlertManager
 
 Evals use fixtures that simulate real Kubernetes environments and tool outputs, allowing comprehensive testing without requiring live clusters.
-
-While results are tracked and analyzed using Braintrust, Braintrust is not necessary to writing, running and debugging evals.
 
 ## Example
 
@@ -103,24 +101,30 @@ Evaluations serve several critical purposes:
 
 ## How to Run Evaluations
 
+### Prerequisites
+
+```bash
+poetry install
+```
+
 ### Basic Usage
 
 Run all evaluations:
 ```bash
-pytest ./tests/llm/test_*.py
+poetry run pytest ./tests/llm/test_*.py
 ```
 
 By default the tests load and present mock files to the LLM whenever it asks for them. If a mock file is not present for a tool call, the tool call is passed through to the live tool itself. In a lot of cases this can cause the eval to fail unless the live environment (k8s cluster) matches what the LLM expects.
 
 Run specific test suite:
 ```bash
-pytest ./tests/llm/test_ask_holmes.py
-pytest ./tests/llm/test_investigate.py
+poetry run pytest ./tests/llm/test_ask_holmes.py
+poetry run pytest ./tests/llm/test_investigate.py
 ```
 
 Run a specific test case:
 ```bash
-pytest ./tests/llm/test_ask_holmes.py -k "01_how_many_pods"
+poetry run pytest ./tests/llm/test_ask_holmes.py -k "01_how_many_pods"
 ```
 
 > It is possible to investigate and debug why an eval fails by the output provided in the console. The output includes the correctness score, the reasoning for the score, information about what tools were called, the expected answer, as well as the LLM's answer.
@@ -131,7 +135,7 @@ Configure evaluations using these environment variables:
 
 | Variable | Example | Description |
 |----------|---------|-------------|
-| `MODEL` | `MODEL=anthropic/claude-3.5` | Specify which LLM model to use |
+| `MODEL` | `MODEL=anthropic/claude-3-5-sonnet-20241022` | Specify which LLM model to use |
 | `CLASSIFIER_MODEL` | `CLASSIFIER_MODEL=gpt-4o` | The LLM model to use for scoring the answer (LLM as judge). Defaults to `MODEL` |
 | `ITERATIONS` | `ITERATIONS=3` | Run each test multiple times for consistency checking |
 | `RUN_LIVE` | `RUN_LIVE=true` | Execute `before-test` and `after-test` commands, ignore mock files |
@@ -147,7 +151,7 @@ Run a comprehensive evaluation:
 export MODEL=gpt-4o
 
 # Run with parallel execution for speed
-pytest -n 10 ./tests/llm/test_*.py
+poetry run pytest -n 10 ./tests/llm/test_*.py
 ```
 
 ### Live Testing
@@ -156,7 +160,7 @@ For tests that require actual Kubernetes resources:
 ```bash
 export RUN_LIVE=true
 
-pytest ./tests/llm/test_ask_holmes.py -k "specific_test"
+poetry run pytest ./tests/llm/test_ask_holmes.py -k "specific_test"
 ```
 
 Live testing requires a Kubernetes cluster and will execute `before-test` and `after-test` commands to set up/tear down resources. Not all tests support live testing. Some tests require manual setup.
@@ -165,12 +169,12 @@ Live testing requires a Kubernetes cluster and will execute `before-test` and `a
 
 1. **Create Baseline**: Run evaluations with a reference model
    ```bash
-   EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o pytest -n 10 ./tests/llm/test_*
+   EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o poetry run pytest -n 10 ./tests/llm/test_*
    ```
 
 2. **Test New Model**: Run evaluations with the model you want to compare
    ```bash
-   EXPERIMENT_ID=test_claude35 MODEL=anthropic/claude-3.5 pytest -n 10 ./tests/llm/test_*
+   EXPERIMENT_ID=test_claude35 MODEL=anthropic/claude-3-5-sonnet-20241022 poetry run pytest -n 10 ./tests/llm/test_*
    ```
 
 3. **Compare Results**: Use Braintrust dashboard to analyze performance differences
@@ -188,7 +192,7 @@ Live testing requires a Kubernetes cluster and will execute `before-test` and `a
 
 Enable verbose output:
 ```bash
-pytest -v -s ./tests/llm/test_ask_holmes.py -k "specific_test"
+poetry run pytest -v -s ./tests/llm/test_ask_holmes.py -k "specific_test"
 ```
 
 This shows detailed output including:
