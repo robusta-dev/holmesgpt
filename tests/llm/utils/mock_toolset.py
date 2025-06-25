@@ -14,6 +14,7 @@ from holmes.core.tools import (
     ToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
+    YAMLToolset,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
@@ -278,8 +279,9 @@ class MockToolsets:
         toolset_definitions = self._load_toolsets_definitions(run_live)
 
         for toolset in self.unmocked_toolsets:
-            if toolset.is_default:
+            if toolset.is_default or isinstance(toolset, YAMLToolset):
                 toolset.enabled = True
+
             definition = next(
                 (d for d in toolset_definitions if d.name == toolset.name), None
             )
@@ -373,7 +375,7 @@ class MockToolsets:
 
 def sanitize_filename(original_file_name: str) -> str:
     """
-    Sanitizes a URL to create a valid filename.
+    Sanitizes a potential filename to create a valid filename.
     http(s)://... -> scheme is removed.
     Characters not suitable for filenames are replaced with underscores.
     """
@@ -404,5 +406,4 @@ def sanitize_filename(original_file_name: str) -> str:
     filename = filename.strip("_")
     filename = filename.strip(".")
 
-    # Convert to lowercase for consistency
-    return filename.lower()
+    return filename

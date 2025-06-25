@@ -3,6 +3,10 @@ toolsets:
     enabled: false
   kubernetes/logs:
     enabled: true
+  kubernetes/kube-lineage-extras:
+    enabled: true
+  internet:
+    enabled: true
   bash:
     enabled: true
     config:
