@@ -1,3 +1,9 @@
 toolsets:
   prometheus/metrics:
     enabled: False
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  kubernetes/live-metrics:
+    enabled: true

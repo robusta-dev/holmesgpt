@@ -14,6 +14,7 @@ from holmes.core.tools import (
     ToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
+    YAMLToolset,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
@@ -278,8 +279,10 @@ class MockToolsets:
         toolset_definitions = self._load_toolsets_definitions(run_live)
 
         for toolset in self.unmocked_toolsets:
-            if toolset.is_default:
+
+            if toolset.is_default or isinstance(toolset, YAMLToolset):
                 toolset.enabled = True
+
             definition = next(
                 (d for d in toolset_definitions if d.name == toolset.name), None
             )

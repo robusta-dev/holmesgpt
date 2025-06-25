@@ -1,7 +1,8 @@
 # type: ignore
 import pytest
 
-from tests.llm.utils.mock_toolset import sanitize_filename
+from holmes.core.tools import ToolsetStatusEnum
+from tests.llm.utils.mock_toolset import MockToolsets, sanitize_filename
 
 
 class TestSanitizeFilename:
@@ -81,3 +82,24 @@ class TestSanitizeFilename:
         """Test sanitize_filename with various input scenarios."""
         result = sanitize_filename(input_filename)
         assert result == expected
+
+
+def assert_toolset_enabled(mock_toolsets:MockToolsets, toolset_name:str):
+    for toolset in mock_toolsets.enabled_toolsets:
+        if toolset.name == toolset_name:
+            assert toolset.status == ToolsetStatusEnum.ENABLED, f"Expected toolset {toolset_name} to be enabled but it is disabled"
+            return
+    assert False, f"Expected toolset {toolset_name} to be enabled but it missing from the list of enabled toolsets"
+    
+
+def test_enabled_toolsets():
+    # This test ensures `MockToolsets` behaves like HolmesGPT and that it returns the same
+    # list of enabled toolsets as HolmesGPT in production 
+    mock_toolsets = MockToolsets(
+        test_case_folder="../fixtures/test_ask_holmes/01_how_many_pods"
+    )
+    # These toolsets are expected to be enabled by default
+    # If this changes it's ok to update the list below
+    assert_toolset_enabled(mock_toolsets, "kubernetes/core")
+    assert_toolset_enabled(mock_toolsets, "kubernetes/logs")
+    assert_toolset_enabled(mock_toolsets, "internet")
