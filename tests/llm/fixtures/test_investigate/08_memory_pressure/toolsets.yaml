@@ -1,4 +1,8 @@
 toolsets:
+  prometheus/metrics:
+    enabled: False
+  aks/node-health:
+    enabled: False
   kubernetes/core:
     enabled: true
   robusta:
