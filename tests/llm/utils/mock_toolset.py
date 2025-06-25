@@ -373,7 +373,7 @@ class MockToolsets:
 
 def sanitize_filename(original_file_name: str) -> str:
     """
-    Sanitizes a URL to create a valid filename.
+    Sanitizes a potential filename to create a valid filename.
     http(s)://... -> scheme is removed.
     Characters not suitable for filenames are replaced with underscores.
     """
@@ -404,5 +404,4 @@ def sanitize_filename(original_file_name: str) -> str:
     filename = filename.strip("_")
     filename = filename.strip(".")
 
-    # Convert to lowercase for consistency
-    return filename.lower()
+    return filename
