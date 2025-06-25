@@ -52,7 +52,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         test_case.get("metadata", {})
                         .get("test_case", {})
                         .get("evaluation", {})
-                        .get("correctness", 1)
+                        .get("correctness", 0)
                     )
                     if isinstance(expected_correctness_score, dict):
                         expected_correctness_score = expected_correctness_score.get(

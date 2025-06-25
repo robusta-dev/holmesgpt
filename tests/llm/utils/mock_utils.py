@@ -54,6 +54,7 @@ class HolmesTestCase(BaseModel):
     tool_mocks: List[ToolMock] = []
     before_test: Optional[str] = None
     after_test: Optional[str] = None
+    conversation_history: Optional[list[dict]] = None
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
@@ -142,6 +143,9 @@ class MockHelper:
                 config_dict["folder"] = str(test_case_folder)
 
                 if config_dict.get("user_prompt"):
+                    config_dict["conversation_history"] = load_conversation_history(
+                        test_case_folder
+                    )
                     extra_prompt = load_include_files(
                         test_case_folder, config_dict.get("include_files", None)
                     )
@@ -238,6 +242,54 @@ def load_investigate_request(test_case_folder: Path) -> InvestigateRequest:
     raise Exception(
         f"Investigate test case declared in folder {str(test_case_folder)} should have an investigate_request.json file but none is present"
     )
+
+
+def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
+    """
+    Loads conversation history from .md files in a specified folder structure.
+
+    The folder structure is expected to be:
+    test_case_folder/
+        conversation_history/
+            <index>_<role>.md
+            ...
+    """
+    conversation_history_dir = test_case_folder / "conversation_history"
+
+    if not conversation_history_dir.is_dir():
+        return None
+
+    md_files = sorted(list(conversation_history_dir.glob("*.md")))
+
+    # If no .md files are found in the directory, return None.
+    if not md_files:
+        return None
+
+    conversation_history: list[dict[str, str]] = []
+    for md_file_path in md_files:
+        # Get the filename without the .md extension (the "stem")
+        # e.g., "01_system.md" -> "01_system"
+        stem = md_file_path.stem
+
+        # The filename pattern is "<index>_<role>.md".
+        # The role is the part of the stem after the first underscore.
+        # Example: "01_system" -> role is "system"
+        # str.split("_", 1) splits the string at the first underscore.
+        # It will return a list of two strings if an underscore is present.
+        # e.g., "01_system".split("_", 1) -> ["01", "system"]
+        try:
+            _index_part, role = stem.split("_", 1)
+        except ValueError:
+            raise ValueError(
+                f"Filename '{md_file_path.name}' in '{conversation_history_dir}' "
+                f"does not conform to the expected '<index>_<role>.md' pattern."
+            )
+
+        content = md_file_path.read_text(encoding="utf-8")
+
+        conversation_history.append({"role": role, "content": content})
+
+    return conversation_history
 
 
 def load_include_files(
