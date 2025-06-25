@@ -11,6 +11,7 @@ sys.path.append(this_path)
 # This is patched by github actions during release
 __version__ = "0.0.0"
 
+
 def is_official_release() -> bool:
     return not __version__.startswith("0.0.0")
 
