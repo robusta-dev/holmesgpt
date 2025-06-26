@@ -44,7 +44,7 @@ class MongoDBAtlasToolset(Toolset):
                 ReturnProjectProcesses(toolset=self),
                 ReturnProjectSlowQueries(toolset=self),
                 ReturnEventsFromProject(toolset=self),
-                ReturnLogsForProcessInPorject(toolset=self),
+                ReturnLogsForProcessInProject(toolset=self),
                 ReturnEventTypeFromProject(toolset=self),
             ],
         )
@@ -222,7 +222,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/#tag/Monitoring-and-Logs/operation/getHostLogs
-class ReturnLogsForProcessInPorject(MongoDBAtlasBaseTool):
+class ReturnLogsForProcessInProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_logs_for_host_in_project"
     description: str = "Returns log messages for the specified host for the specified project of the last 1 hour."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/clusters/{process_id}/logs/mongodb.gz"
