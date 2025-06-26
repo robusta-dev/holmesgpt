@@ -1,9 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"java-api-checker-mdr44","namespace":"default"}}
-stdout:
-Java Network Exception:
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
-All host(s) tried for db query failed (tried: prod-db:3333) - no available connection and the queue has reached its max size 256
-
-stderr:

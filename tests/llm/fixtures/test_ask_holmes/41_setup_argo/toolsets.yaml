@@ -1,3 +1,5 @@
 toolsets:
   argocd/core: # ensure this toolset is in the prompt
     enabled: false
+  internet:
+    enabled: true

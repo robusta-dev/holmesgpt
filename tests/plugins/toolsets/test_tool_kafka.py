@@ -87,7 +87,6 @@ def test_topic(admin_client):
 def test_list_kafka_consumers(kafka_toolset):
     tool = ListKafkaConsumers(kafka_toolset)
     result = tool.invoke({})
-    print(result)
     assert "consumer_groups:" in result
     assert (
         tool.get_parameterized_one_liner({})
@@ -136,7 +135,6 @@ def test_describe_topic_with_configuration(kafka_toolset, test_topic):
     tool = DescribeTopic(kafka_toolset)
     result = tool.invoke({"topic_name": test_topic, "fetch_configuration": True})
 
-    print(result)
     assert "configuration:" in result
     assert "partitions:" in result
     assert "topic:" in result
@@ -162,6 +160,5 @@ def test_tool_error_handling(kafka_toolset):
     tool = DescribeTopic(kafka_toolset)
     result = tool.invoke({"topic_name": "non_existent_topic"})
 
-    print(result)
     assert isinstance(result, str)
     assert "topic: non_existent_topic" in result
