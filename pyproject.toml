@@ -47,6 +47,11 @@ python_multipart = "^0.0.18"
 kubernetes = "^32.0.1"
 mcp = "v1.9.0"
 prompt-toolkit = "^3.0.51"
+azure-identity = "^1.23.0"
+azure-core = "^1.34.0"
+requests = "^2.32.4"
+azure-mgmt-sql = "^3.0.1"
+pyodbc = "^5.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
