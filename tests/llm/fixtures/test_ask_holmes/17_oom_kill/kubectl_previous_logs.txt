@@ -1,4 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"analytics-exporter-fast-76897854c-jx42x","namespace":"default"}}
-stdout:
-
-stderr:

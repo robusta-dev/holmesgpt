@@ -1,2 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"robusta-runner-6958c5bdd8-69gtn","namespace":"default"}}
-Error from server (BadRequest): previous terminated container "runner" in pod "robusta-runner-6958c5bdd8-69gtn" not found

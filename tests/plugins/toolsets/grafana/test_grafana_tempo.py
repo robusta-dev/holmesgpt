@@ -1,10 +1,10 @@
 import json
 import os
+from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 
 import pytest
 
 from holmes.core.tools import ToolsetStatusEnum
-from holmes.plugins.toolsets.grafana.grafana_api import get_health
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     GetTempoTraces,
     GrafanaTempoConfig,
@@ -100,7 +100,7 @@ def test_grafana_loki_health_check():
         grafana_datasource_uid=GRAFANA_TEMPO_DATASOURCE_UID,
     )
 
-    success, error_message = get_health(config)
+    success, error_message = grafana_health_check(config)
 
     assert not error_message
     assert success

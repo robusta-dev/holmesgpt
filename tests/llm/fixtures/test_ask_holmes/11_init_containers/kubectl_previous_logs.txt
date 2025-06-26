@@ -1,7 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"logging-agent","namespace":"default"}}
-Command `kubectl logs logging-agent -n default --previous` failed with return code 1
-stdout:
-
-stderr:
-Defaulted container "exporter" out of: exporter, downloader (init)
-Error from server (BadRequest): previous terminated container "exporter" in pod "logging-agent" not found

@@ -8,15 +8,16 @@ import tempfile
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Union
 
-import sentry_sdk
 from jinja2 import Template
 from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
+from rich.console import Console
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
 import time
+from rich.table import Table
 
 
 class ToolResultStatus(str, Enum):
@@ -134,8 +135,15 @@ class Tool(ABC, BaseModel):
             if hasattr(result, "get_stringified_data")
             else str(result)
         )
+        if len(output_str) == 0:
+            preview = "<empty>"
+        elif len(output_str) > 80:
+            clipped = output_str[:80] + "..."
+            preview = f"{clipped!r}"
+        else:
+            preview = f"{output_str!r}"
         logging.info(
-            f"   Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n   {output_str[:80]!r}..."
+            f"|--- Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n     {preview}"
         )
         # return format_tool_output(result)
         return result
@@ -466,54 +474,6 @@ class YAMLToolset(Toolset):
         return {}
 
 
-class ToolExecutor:
-    def __init__(self, toolsets: List[Toolset]):
-        self.toolsets = toolsets
-
-        self.enabled_toolsets: list[Toolset] = list(
-            filter(
-                lambda toolset: toolset.status == ToolsetStatusEnum.ENABLED,
-                toolsets,
-            )
-        )
-
-        toolsets_by_name: dict[str, Toolset] = {}
-        for ts in self.enabled_toolsets:
-            if ts.name in toolsets_by_name:
-                logging.warning(f"Overriding toolset '{ts.name}'!")
-            toolsets_by_name[ts.name] = ts
-
-        self.tools_by_name: dict[str, Tool] = {}
-        for ts in toolsets_by_name.values():
-            for tool in ts.tools:
-                if tool.name in self.tools_by_name:
-                    logging.warning(
-                        f"Overriding existing tool '{tool.name} with new tool from {ts.name} at {ts.path}'!"
-                    )
-                self.tools_by_name[tool.name] = tool
-
-    def invoke(self, tool_name: str, params: Dict) -> StructuredToolResult:
-        tool = self.get_tool_by_name(tool_name)
-        return (
-            tool.invoke(params)
-            if tool
-            else StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Could not find tool named {tool_name}",
-            )
-        )
-
-    def get_tool_by_name(self, name: str) -> Optional[Tool]:
-        if name in self.tools_by_name:
-            return self.tools_by_name[name]
-        logging.warning(f"could not find tool {name}. skipping")
-        return None
-
-    @sentry_sdk.trace
-    def get_all_tools_openai_format(self):
-        return [tool.get_openai_format() for tool in self.tools_by_name.values()]
-
-
 class ToolsetYamlFromConfig(Toolset):
     """
     ToolsetYamlFromConfig represents a toolset loaded from a YAML configuration file.
@@ -558,3 +518,41 @@ class ToolsetDBModel(BaseModel):
     docs_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     updated_at: str = Field(default_factory=datetime.now().isoformat)
+
+
+def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
+    status_fields = ["name", "enabled", "status", "type", "path", "error"]
+    toolsets_status = []
+    for toolset in sorted(toolsets, key=lambda ts: ts.status.value):
+        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
+
+        status_value = toolset_status.get("status", "")
+        error_value = toolset_status.get("error", "")
+        if status_value == "enabled":
+            toolset_status["status"] = "[green]enabled[/green]"
+        elif status_value == "failed":
+            toolset_status["status"] = "[red]failed[/red]"
+            toolset_status["error"] = f"[red]{error_value}[/red]"
+        else:
+            toolset_status["status"] = f"[yellow]{status_value}[/yellow]"
+
+        # Replace None with "" for Path and Error columns
+        for field in ["path", "error"]:
+            if toolset_status.get(field) is None:
+                toolset_status[field] = ""
+
+        order_toolset_status = OrderedDict(
+            (k.capitalize(), toolset_status[k])
+            for k in status_fields
+            if k in toolset_status
+        )
+        toolsets_status.append(order_toolset_status)
+
+    table = Table(show_header=True, header_style="bold")
+    for col in status_fields:
+        table.add_column(col.capitalize())
+
+    for row in toolsets_status:
+        table.add_row(*(str(row.get(col.capitalize(), "")) for col in status_fields))
+
+    console.print(table)

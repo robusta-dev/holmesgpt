@@ -1,0 +1,12 @@
+user_prompt: "Find 'query failed' in the logs of my-app-53"
+tags:
+  - logs
+expected_output: |
+  A summary with the following errors in whichever order:
+    1. DB query issues due to a syntax error
+    2. DB query issues due unicity constraint volation
+before_test: kubectl apply -f ./manifest.yaml && sleep 60
+after_test: kubectl delete -f ./manifest.yaml
+evaluation:
+  correctness: 0
+generate_mocks: False

@@ -136,7 +136,7 @@ RUN rm -rf /usr/local/lib/python3.11/ensurepip/_bundled/setuptools-65.5.0-py3-no
 
 COPY ./holmes /app/holmes
 COPY ./server.py /app/server.py
-COPY ./holmes.py /app/holmes.py
+COPY ./holmes_cli.py /app/holmes_cli.py
 
-ENTRYPOINT ["python", "holmes.py"]
+ENTRYPOINT ["python", "holmes_cli.py"]
 #CMD ["http://docker.for.mac.localhost:9093"]
