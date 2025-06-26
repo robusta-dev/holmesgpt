@@ -94,7 +94,7 @@ class MongoDBAtlasBaseTool(Tool):
         else:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                data=f"Failed {self.name}.\n{response.text}",
+                error=f"Failed {self.name}.\n{response.text}",
                 return_code=response.status_code,
                 params=params,
             )
