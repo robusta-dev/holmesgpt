@@ -5,6 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
+import textwrap
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
@@ -24,6 +25,22 @@ class ToolResultStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
     NO_DATA = "no_data"
+
+    def to_color(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "green"
+        elif self == ToolResultStatus.ERROR:
+            return "red"
+        else:
+            return "white"
+
+    def to_emoji(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "✔"
+        elif self == ToolResultStatus.ERROR:
+            return "❌"
+        else:
+            return "⚪️"
 
 
 class StructuredToolResult(BaseModel):
@@ -125,7 +142,7 @@ class Tool(ABC, BaseModel):
 
     def invoke(self, params: Dict) -> StructuredToolResult:
         logging.info(
-            f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
+            f"⏺ Running [yellow]{self.name}[/yellow]: {self.get_parameterized_one_liner(sanitize_params(params))}"
         )
         start_time = time.time()
         result = self._invoke(params)
@@ -135,16 +152,29 @@ class Tool(ABC, BaseModel):
             if hasattr(result, "get_stringified_data")
             else str(result)
         )
+
+        color = result.status.to_color()
+        prefix = "[dim]Output:[/dim] "
+        spacing = len("Output: ") * " "
+        output_str = output_str.replace("\n", f"\n{spacing}")
+
         if len(output_str) == 0:
-            preview = "<empty>"
-        elif len(output_str) > 80:
-            clipped = output_str[:80] + "..."
-            preview = f"{clipped!r}"
+            preview = f"{prefix}{color}<empty>[/{color}]"
+        elif len(output_str) > 100:
+            truncated = output_str[:100].strip()
+            preview = (
+                f"{prefix}[{color}]{truncated}[/{color}][dim]... (truncated)[/dim]"
+            )
         else:
-            preview = f"{output_str!r}"
+            preview = f"{prefix}[{color}]{output_str}[/{color}]"
+
+        preview = textwrap.indent(preview, "  ")
+        emoji = result.status.to_emoji()
+
         logging.info(
-            f"|--- Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n     {preview}"
+            f"  {emoji} completed in {elapsed:.2f}s, output length {len(output_str):,} chars"
         )
+        logging.info(f"{preview}\n")
         # return format_tool_output(result)
         return result
 
