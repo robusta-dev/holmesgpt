@@ -198,7 +198,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
                 events_counter = Counter(
                     [event.get("eventTypeName") for event in res.get("results", [])]
                 )
-                data = f"last 4 hours eventTypeName and # of occurrences list: {events_counter} \n to get more information about a given eventTypeName call get_mongo_extra_events_info(<EVENT_TYPE>)"
+                data = f"last 4 hours eventTypeName and # of occurrences list: {events_counter} \n to get more information about a given eventTypeName call atlas_return_events_type_from_project"
                 status = (
                     ToolResultStatus.SUCCESS
                     if events_counter
