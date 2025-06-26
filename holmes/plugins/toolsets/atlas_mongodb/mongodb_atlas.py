@@ -28,7 +28,7 @@ class MongoDBConfig(BaseModel):
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/
 class MongoDBAtlasToolset(Toolset):
     name: str = "MongoDBAtlas"
-    description: str = "The MongoDB Atlas API allows access to Mongodb projects and processes. You can find logs, alerts, events, slow quereies and various metrics to understand the state of Mongodb projects."
+    description: str = "The MongoDB Atlas API allows access to Mongodb projects and processes. You can find logs, alerts, events, slow queries and various metrics to understand the state of Mongodb projects."
     docs_url: str = (
         "https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/"
     )
@@ -72,7 +72,7 @@ class MongoDBAtlasToolset(Toolset):
             logging.exception(
                 "Invalid Atlas config. Failed to set up MongoDBAtlas toolset"
             )
-            return False, ""
+            return False, "Invalid Atlas config"
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
