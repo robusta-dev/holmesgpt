@@ -39,6 +39,7 @@ class MongoDBAtlasToolset(Toolset):
     def __init__(self):
         super().__init__(
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            experimental=True,
             tools=[
                 ReturnProjectAlerts(toolset=self),
                 ReturnProjectProcesses(toolset=self),
@@ -68,7 +69,9 @@ class MongoDBAtlasToolset(Toolset):
             )
             return True, ""
         except Exception:
-            logging.exception("Failed to set up MongoDBAtlas toolset")
+            logging.exception(
+                "Invalid Atlas config. Failed to set up MongoDBAtlas toolset"
+            )
             return False, ""
 
     def get_example_config(self) -> Dict[str, Any]:
