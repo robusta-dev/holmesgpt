@@ -1,0 +1,91 @@
+# Azure SQL Database Troubleshooting Guidelines
+
+## Goal
+Your primary goal when using these tools is to diagnose Azure SQL Database performance, health, and operational issues. Use these tools systematically to identify problems and provide actionable insights.
+
+## Diagnostic Workflow
+
+### 1. Start with Health Assessment
+- **Always begin** with `analyze_database_health_status` to get overall database health
+- Look for:
+  - Active operations that might indicate ongoing maintenance or issues
+  - Resource usage warnings (high CPU, memory, storage usage >90%)
+  - Any error messages in operations or usage retrieval
+
+### 2. Performance Analysis
+- Use `analyze_database_performance` to examine:
+  - **Automatic tuning status** - check if desired and actual states match
+  - **Performance advisors** - look for active recommendations
+  - **Performance recommendations** - pay attention to high-impact suggestions
+- Focus on recommendations with "High" impact and "Active" or "Pending" status
+
+### 3. Query Performance Deep Dive
+When performance issues are detected, use these tools to identify problematic queries:
+- `get_top_cpu_queries` - Start here for CPU performance issues
+- `get_slow_queries` - For response time problems
+- `get_top_data_io_queries` - For storage I/O bottlenecks
+- `get_top_log_io_queries` - For transaction log performance issues
+
+**Query Analysis Best Practices:**
+- Use `hours_back=24` for trend analysis, `hours_back=2` for recent issues
+- Look for queries with high execution counts AND high resource usage
+- Pay attention to query patterns that might indicate inefficient application logic
+
+### 4. Connection Issues
+- Use `analyze_database_connections` when investigating:
+  - Connection pool exhaustion
+  - Blocking sessions
+  - High concurrent user loads
+- Look for blocked connections and identify blocking sessions
+
+### 5. Storage Problems
+- Use `analyze_database_storage` for:
+  - Storage capacity planning
+  - Growth rate analysis
+  - File-level storage issues
+  - TempDB usage problems
+
+## Key Indicators to Flag
+
+### Critical Issues (🚨)
+- **Blocked connections** with blocking_session_id > 0
+- **Storage usage > 90%** in any file
+- **Active performance recommendations** with High impact
+- **Resource alarms** (memory, disk space)
+- **Auto-tuning mismatches** (desired ≠ actual state)
+
+### Warning Signs (⚠️)
+- **Storage usage 70-90%**
+- **High daily growth rates** (>100MB/day)
+- **Many concurrent connections** without proper pooling
+- **Long-running queries** (>10 seconds average duration)
+
+## Recommendations Framework
+
+### Performance Issues
+1. **Index recommendations**: Apply suggested indexes from performance advisors
+2. **Query optimization**: Rewrite queries identified in top CPU/IO reports
+3. **Auto-tuning**: Enable automatic tuning options if they're disabled
+
+### Storage Issues
+1. **Immediate**: Address files >90% full
+2. **Planning**: Monitor growth trends and plan capacity increases
+3. **Optimization**: Review top space-consuming tables for archiving opportunities
+
+### Connection Issues
+1. **Connection pooling**: Implement proper connection pooling in applications
+2. **Blocking resolution**: Identify and optimize long-running transactions
+3. **Monitoring**: Set up alerts for connection count thresholds
+
+## Analysis Structure
+Present findings in this order:
+1. **Executive Summary** - High-level status and critical issues
+2. **Detailed Findings** - Tool-by-tool analysis with specific metrics
+3. **Prioritized Recommendations** - Critical first, then important
+4. **Monitoring Suggestions** - Ongoing observability improvements
+
+## Important Notes
+- **Time ranges**: Adjust `hours_back` based on issue timeline (2h for immediate, 24h+ for trends)
+- **Multiple tools**: Use complementary tools together (e.g., health + performance reports)
+- **Resource context**: Always consider database tier and limits when interpreting metrics
+- **Correlation**: Look for patterns across different metrics (CPU high + IO high = query optimization needed)
