@@ -7,10 +7,34 @@ from .azure_sql_api import AzureSQLAPIClient
 
 
 class ConnectionMonitoringAPI:
-    def __init__(self, credential: TokenCredential, subscription_id: str, sql_username: str = None, sql_password: str = None):
+    def __init__(self, credential: TokenCredential, subscription_id: str, sql_username: Optional[str] = None, sql_password: Optional[str] = None):
         self.sql_api_client = AzureSQLAPIClient(credential, subscription_id, sql_username, sql_password)
         self.metrics_client = MetricsQueryClient(credential)
         self.subscription_id = subscription_id
+    
+    def _format_sql_error(self, error: Exception) -> str:
+        """Format SQL errors with helpful permission guidance."""
+        error_str = str(error)
+        
+        # Detect common permission issues
+        if "Login failed for user" in error_str and "token-identified principal" in error_str:
+            return (
+                f"Azure AD authentication failed - the service principal lacks database permissions. "
+                f"Please ensure the service principal is added as a database user with VIEW SERVER STATE permission. "
+                f"Original error: {error_str}"
+            )
+        elif "permission was denied" in error_str.lower() or "view server state" in error_str.lower():
+            return (
+                f"Insufficient database permissions - the user needs VIEW SERVER STATE permission to access system views. "
+                f"Original error: {error_str}"
+            )
+        elif "login failed" in error_str.lower():
+            return (
+                f"Database login failed - check authentication credentials and database access permissions. "
+                f"Original error: {error_str}"
+            )
+        else:
+            return error_str
     
     def get_connection_metrics(self, resource_group: str, server_name: str, database_name: str, hours_back: int = 2) -> Dict:
         """Get connection-related metrics from Azure Monitor."""
@@ -22,19 +46,20 @@ class ConnectionMonitoringAPI:
         )
         
         end_time = datetime.now()
-        start_time = end_time - timedelta(hours=hours_back)
+        # Use longer timespan for better data availability
+        start_time = end_time - timedelta(hours=max(hours_back, 24))
         
         try:
-            metrics_data = self.metrics_client.query(
+            metrics_data = self.metrics_client.query_resource(
                 resource_uri=resource_id,
                 metric_names=[
-                    "connection_successful", 
-                    "connection_failed", 
-                    "sessions_count",
-                    "blocked_by_firewall"
+                    "connection_successful",  # This exists
+                    "sessions_count",         # This exists  
+                    "cpu_percent",           # This exists
+                    "storage_percent"        # This exists
                 ],
                 timespan=(start_time, end_time),
-                granularity=timedelta(minutes=5),
+                granularity=timedelta(hours=1),  # Larger granularity for better data
                 aggregations=["Maximum", "Average", "Total"]
             )
             
@@ -43,12 +68,14 @@ class ConnectionMonitoringAPI:
                 metric_data = []
                 for timeseries in metric.timeseries:
                     for data_point in timeseries.data:
-                        metric_data.append({
-                            "timestamp": data_point.time_stamp.isoformat(),
-                            "maximum": data_point.maximum,
-                            "average": data_point.average,
-                            "total": data_point.total
-                        })
+                        # Handle None values and pick the best available aggregation
+                        value_data = {
+                            "timestamp": data_point.timestamp.isoformat(),
+                            "maximum": data_point.maximum if data_point.maximum is not None else 0,
+                            "average": data_point.average if data_point.average is not None else 0,
+                            "total": data_point.total if data_point.total is not None else 0
+                        }
+                        metric_data.append(value_data)
                 result[metric.name] = metric_data
             
             return result
@@ -93,7 +120,8 @@ class ConnectionMonitoringAPI:
         try:
             return self.sql_api_client._execute_query(server_name, database_name, query)
         except Exception as e:
-            logging.error(f"Failed to get active connections: {str(e)}")
+            formatted_error = self._format_sql_error(e)
+            logging.error(f"Failed to get active connections: {formatted_error}")
             return []
     
     def get_connection_summary(self, server_name: str, database_name: str) -> Dict:
@@ -117,8 +145,9 @@ class ConnectionMonitoringAPI:
             result = self.sql_api_client._execute_query(server_name, database_name, query)
             return result[0] if result else {}
         except Exception as e:
-            logging.error(f"Failed to get connection summary: {str(e)}")
-            return {"error": str(e)}
+            formatted_error = self._format_sql_error(e)
+            logging.error(f"Failed to get connection summary: {formatted_error}")
+            return {"error": formatted_error}
     
     def get_failed_connections(self, server_name: str, database_name: str, hours_back: int = 24) -> List[Dict]:
         """Get failed connection attempts from extended events or system health."""
@@ -182,5 +211,6 @@ class ConnectionMonitoringAPI:
             results = self.sql_api_client._execute_query(server_name, database_name, query)
             return {row['metric_name']: {"value": row['current_value'], "unit": row['unit']} for row in results}
         except Exception as e:
-            logging.error(f"Failed to get connection pool stats: {str(e)}")
-            return {"error": str(e)}
+            formatted_error = self._format_sql_error(e)
+            logging.error(f"Failed to get connection pool stats: {formatted_error}")
+            return {"error": formatted_error}

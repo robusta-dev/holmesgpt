@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 import pyodbc
 import logging
+import struct
 from azure.core.credentials import TokenCredential
 from azure.mgmt.sql import SqlManagementClient
 
@@ -12,13 +13,17 @@ class AzureSQLAPIClient:
         self.sql_username = sql_username
         self.sql_password = sql_password
     
-    def _get_access_token(self) -> str:
-        """Get access token for Azure SQL Database authentication."""
+    def _get_access_token_struct(self) -> bytes:
+        """Get access token formatted as struct for Azure SQL Database ODBC authentication."""
         try:
-            token = self.credential.get_token("https://database.windows.net/")
+            token = self.credential.get_token("https://database.windows.net/.default")
             if not token or not token.token:
                 raise ValueError("Failed to obtain valid access token from Azure credential")
-            return token.token
+            
+            # Encode token as UTF-16-LE and pack as struct with length prefix
+            token_bytes = token.token.encode("UTF-16-LE")
+            token_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)
+            return token_struct
         except Exception as e:
             logging.error(f"Failed to get access token: {str(e)}")
             raise ConnectionError(f"Azure authentication failed: {str(e)}") from e
@@ -38,11 +43,7 @@ class AzureSQLAPIClient:
         
         # Fall back to Azure AD token authentication only if no SQL credentials
         try:
-            access_token = self._get_access_token()
-            
-            # Validate access token
-            if not access_token or not isinstance(access_token, str):
-                raise ValueError("Invalid access token received from Azure credential")
+            access_token_struct = self._get_access_token_struct()
             
             # Build connection string with access token
             connection_string = (
@@ -56,8 +57,9 @@ class AzureSQLAPIClient:
             
             logging.info(f"Attempting to connect to {server_name}.database.windows.net with Azure AD token")
             
-            # Create connection with access token
-            conn = pyodbc.connect(connection_string, attrs_before={1256: access_token}, timeout=10)
+            # Create connection with properly formatted access token
+            SQL_COPT_SS_ACCESS_TOKEN = 1256  # This connection option is defined by microsoft in msodbcsql.h
+            conn = pyodbc.connect(connection_string, attrs_before={SQL_COPT_SS_ACCESS_TOKEN: access_token_struct}, timeout=10)
             cursor = conn.cursor()
             
             cursor.execute(query)
@@ -229,6 +231,58 @@ class AzureSQLAPIClient:
         JOIN sys.query_store_runtime_stats rs ON p.plan_id = rs.plan_id
         WHERE rs.last_execution_time > DATEADD(hour, -{hours_back}, GETDATE())
         ORDER BY rs.avg_duration DESC;
+        """
+        
+        return self._execute_query(server_name, database_name, query)
+    
+    def get_top_data_io_queries(self, subscription_id: str, resource_group: str, server_name: str, database_name: str,
+                               top_count: int = 15, hours_back: int = 2) -> List[Dict]:
+        """Get top data I/O consuming queries from Query Store."""
+        query = f"""
+        SELECT TOP {top_count}
+            qt.query_sql_text,
+            rs.avg_logical_io_reads as avg_logical_reads,
+            rs.count_executions as execution_count,
+            (rs.avg_logical_io_reads * rs.count_executions) as total_logical_reads,
+            rs.max_logical_io_reads as max_logical_reads,
+            rs.min_logical_io_reads as min_logical_reads,
+            rs.avg_logical_io_writes as avg_logical_writes,
+            (rs.avg_logical_io_writes * rs.count_executions) as total_logical_writes,
+            rs.max_logical_io_writes as max_logical_writes,
+            rs.min_logical_io_writes as min_logical_writes,
+            CAST(rs.last_execution_time as DATETIME2) as last_execution_time,
+            rs.avg_cpu_time,
+            rs.avg_duration
+        FROM sys.query_store_query_text qt
+        JOIN sys.query_store_query q ON qt.query_text_id = q.query_text_id
+        JOIN sys.query_store_plan p ON q.query_id = p.query_id
+        JOIN sys.query_store_runtime_stats rs ON p.plan_id = rs.plan_id
+        WHERE rs.last_execution_time > DATEADD(hour, -{hours_back}, GETDATE())
+        ORDER BY rs.avg_logical_io_reads DESC;
+        """
+        
+        return self._execute_query(server_name, database_name, query)
+    
+    def get_top_log_io_queries(self, subscription_id: str, resource_group: str, server_name: str, database_name: str,
+                              top_count: int = 15, hours_back: int = 2) -> List[Dict]:
+        """Get top log I/O consuming queries from Query Store."""
+        query = f"""
+        SELECT TOP {top_count}
+            qt.query_sql_text,
+            rs.avg_log_bytes_used,
+            rs.count_executions as execution_count,
+            (rs.avg_log_bytes_used * rs.count_executions) as total_log_bytes_used,
+            rs.max_log_bytes_used,
+            rs.min_log_bytes_used,
+            CAST(rs.last_execution_time as DATETIME2) as last_execution_time,
+            rs.avg_cpu_time,
+            rs.avg_duration
+        FROM sys.query_store_query_text qt
+        JOIN sys.query_store_query q ON qt.query_text_id = q.query_text_id
+        JOIN sys.query_store_plan p ON q.query_id = p.query_id
+        JOIN sys.query_store_runtime_stats rs ON p.plan_id = rs.plan_id
+        WHERE rs.last_execution_time > DATEADD(hour, -{hours_back}, GETDATE())
+        ORDER BY rs.avg_log_bytes_used DESC;
         """
         
         return self._execute_query(server_name, database_name, query)

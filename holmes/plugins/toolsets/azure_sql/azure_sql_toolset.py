@@ -1,11 +1,10 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 
 import yaml
 from pydantic import BaseModel, ConfigDict
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
-from azure.core.credentials import TokenCredential
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -17,14 +16,12 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
-from holmes.plugins.toolsets.utils import get_param_or_raise
 from holmes.plugins.toolsets.azure_sql.azure_sql_api import AzureSQLAPIClient
 from holmes.plugins.toolsets.azure_sql.connection_monitoring_api import ConnectionMonitoringAPI
 from holmes.plugins.toolsets.azure_sql.storage_analysis_api import StorageAnalysisAPI
 
 
 class AzureSQLDatabaseConfig(BaseModel):
-    name: str
     subscription_id: str
     resource_group: str
     server_name: str
@@ -32,23 +29,25 @@ class AzureSQLDatabaseConfig(BaseModel):
 
 
 class AzureSQLConfig(BaseModel):
-    azure_sql_databases: List[AzureSQLDatabaseConfig]
-    tenant_id: Optional[str] = None
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
+    database: AzureSQLDatabaseConfig
+    tenant_id: str
+    client_id: str
+    client_secret: str
 
+
+
+def _format_timing(microseconds: float) -> str:
+    """Format timing values with appropriate units (seconds, milliseconds, microseconds)."""
+    if microseconds >= 1_000_000:  # >= 1 second
+        return f"{microseconds / 1_000_000:.2f} s"
+    elif microseconds >= 1_000:  # >= 1 millisecond
+        return f"{microseconds / 1_000:.2f} ms"
+    else:  # < 1 millisecond
+        return f"{microseconds:.0f} μs"
 
 
 class BaseAzureSQLTool(Tool):
     toolset: "AzureSQLToolset"
-
-    def get_database_config(self, database_name: str) -> AzureSQLDatabaseConfig:
-        """
-        Retrieves the database configuration based on the database name.
-        """
-        if database_name not in self.toolset.database_configs:
-            raise Exception(f"Database configuration not found: {database_name}")
-        return self.toolset.database_configs[database_name]
 
 
 class GenerateHealthReport(BaseAzureSQLTool):
@@ -56,13 +55,7 @@ class GenerateHealthReport(BaseAzureSQLTool):
         super().__init__(
             name="generate_health_report",
             description="Generates a comprehensive health report for an Azure SQL database including operations, usage, and overall status",
-            parameters={
-                "database_name": ToolParameter(
-                    description="The name of the Azure SQL database to investigate",
-                    type="string",
-                    required=True,
-                ),
-            },
+            parameters={},
             toolset=toolset,
         )
 
@@ -134,8 +127,8 @@ class GenerateHealthReport(BaseAzureSQLTool):
             usages = health_data.get("resource_usage", [])
             if usages:
                 for usage in usages:
-                    name = usage.get("displayName", "Unknown Metric")
-                    current = usage.get("currentValue", 0)
+                    name = usage.get("display_name", usage.get("displayName", "Unknown Metric"))
+                    current = usage.get("current_value", usage.get("currentValue", 0))
                     limit = usage.get("limit", 0)
                     unit = usage.get("unit", "")
                     
@@ -152,9 +145,8 @@ class GenerateHealthReport(BaseAzureSQLTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
-            database_name = get_param_or_raise(params, "database_name")
-            db_config = self.get_database_config(database_name)
-            client = self.toolset.api_clients[db_config.subscription_id]
+            db_config = self.toolset.database_config()
+            client = self.toolset.api_client()
             
             # Gather health-related data
             health_data = self._gather_health_data(db_config, client)
@@ -177,21 +169,15 @@ class GenerateHealthReport(BaseAzureSQLTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Generated health report for database {params['database_name']}"
-
+        db_config = self.toolset.database_config()
+        return f"Generated health report for database {db_config.server_name}/{db_config.database_name}"
 
 class GeneratePerformanceReport(BaseAzureSQLTool):
     def __init__(self, toolset: "AzureSQLToolset"):
         super().__init__(
             name="generate_performance_report",
             description="Generates a comprehensive performance report including advisors, recommendations, and automatic tuning status",
-            parameters={
-                "database_name": ToolParameter(
-                    description="The name of the Azure SQL database to investigate",
-                    type="string",
-                    required=True,
-                ),
-            },
+            parameters={},
             toolset=toolset,
         )
 
@@ -257,18 +243,18 @@ class GeneratePerformanceReport(BaseAzureSQLTool):
             report_sections.append(f"⚠️ **Error retrieving auto-tuning data:** {performance_data['auto_tuning_error']}")
         else:
             auto_tuning = performance_data.get("automatic_tuning", {})
-            properties = auto_tuning.get("properties", {})
-            desired_state = properties.get("desiredState", "Unknown")
-            actual_state = properties.get("actualState", "Unknown")
+            # Handle both camelCase and snake_case field names
+            desired_state = auto_tuning.get("desired_state", auto_tuning.get("desiredState", "Unknown"))
+            actual_state = auto_tuning.get("actual_state", auto_tuning.get("actualState", "Unknown"))
             
             status_icon = "✅" if desired_state == actual_state else "⚠️"
             report_sections.append(f"- **Desired State**: {desired_state}")
             report_sections.append(f"- **Actual State**: {actual_state} {status_icon}")
             
-            options = properties.get("options", {})
+            options = auto_tuning.get("options", {})
             for option_name, option_data in options.items():
-                desired = option_data.get("desiredState", "Unknown")
-                actual = option_data.get("actualState", "Unknown")
+                desired = option_data.get("desired_state", option_data.get("desiredState", "Unknown"))
+                actual = option_data.get("actual_state", option_data.get("actualState", "Unknown"))
                 option_icon = "✅" if desired == actual else "⚠️"
                 report_sections.append(f"  - **{option_name}**: {actual} {option_icon}")
         report_sections.append("")
@@ -282,9 +268,9 @@ class GeneratePerformanceReport(BaseAzureSQLTool):
             if advisors:
                 for advisor in advisors:
                     name = advisor.get("name", "Unknown")
-                    properties = advisor.get("properties", {})
-                    auto_execute = properties.get("autoExecuteStatus", "Unknown")
-                    last_checked = properties.get("lastChecked", "Never")
+                    # Handle both camelCase and snake_case field names
+                    auto_execute = advisor.get("auto_execute_status", advisor.get("autoExecuteStatus", "Unknown"))
+                    last_checked = advisor.get("last_checked", advisor.get("lastChecked", "Never"))
                     
                     report_sections.append(f"### {name}")
                     report_sections.append(f"- **Auto Execute**: {auto_execute}")
@@ -323,9 +309,8 @@ class GeneratePerformanceReport(BaseAzureSQLTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
-            database_name = get_param_or_raise(params, "database_name")
-            db_config = self.get_database_config(database_name)
-            client = self.toolset.api_clients[db_config.subscription_id]
+            db_config = self.toolset.database_config()
+            client = self.toolset.api_client()
             
             # Gather performance-related data
             performance_data = self._gather_performance_data(db_config, client)
@@ -348,7 +333,8 @@ class GeneratePerformanceReport(BaseAzureSQLTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Generated performance report for database {params['database_name']}"
+        db_config = self.toolset.database_config()
+        return f"Generated performance report for database {db_config.server_name}/{db_config.database_name}"
 
 class GetTopCPUQueries(BaseAzureSQLTool):
     def __init__(self, toolset: "AzureSQLToolset"):
@@ -356,11 +342,6 @@ class GetTopCPUQueries(BaseAzureSQLTool):
             name="get_top_cpu_queries",
             description="Gets the top CPU consuming queries from Query Store for performance analysis",
             parameters={
-                "database_name": ToolParameter(
-                    description="The name of the Azure SQL database to investigate",
-                    type="string",
-                    required=True,
-                ),
                 "top_count": ToolParameter(
                     description="Number of top queries to return (default: 15)",
                     type="integer",
@@ -398,7 +379,7 @@ class GetTopCPUQueries(BaseAzureSQLTool):
         
         report_sections.append("## Summary")
         report_sections.append(f"- **Total Queries Analyzed:** {len(queries)}")
-        report_sections.append(f"- **Total CPU Time:** {total_cpu_time:,.0f} microseconds")
+        report_sections.append(f"- **Total CPU Time:** {_format_timing(total_cpu_time)}")
         report_sections.append(f"- **Total Executions:** {total_executions:,}")
         report_sections.append("")
         
@@ -419,14 +400,14 @@ class GetTopCPUQueries(BaseAzureSQLTool):
                 query_text = query_text[:200] + "..."
             
             report_sections.append(f"### Query #{i}")
-            report_sections.append(f"- **Average CPU Time:** {avg_cpu:,.0f} μs")
-            report_sections.append(f"- **Total CPU Time:** {total_cpu:,.0f} μs")
-            report_sections.append(f"- **Max CPU Time:** {max_cpu:,.0f} μs")
+            report_sections.append(f"- **Average CPU Time:** {_format_timing(avg_cpu)}")
+            report_sections.append(f"- **Total CPU Time:** {_format_timing(total_cpu)}")
+            report_sections.append(f"- **Max CPU Time:** {_format_timing(max_cpu)}")
             report_sections.append(f"- **Execution Count:** {execution_count:,}")
-            report_sections.append(f"- **Average Duration:** {avg_duration:,.0f} μs")
+            report_sections.append(f"- **Average Duration:** {_format_timing(avg_duration)}")
             report_sections.append(f"- **Last Execution:** {last_execution}")
-            report_sections.append(f"- **Query Text:**")
-            report_sections.append(f"```sql")
+            report_sections.append("- **Query Text:**")
+            report_sections.append("```sql")
             report_sections.append(query_text)
             report_sections.append("```")
             report_sections.append("")
@@ -435,12 +416,11 @@ class GetTopCPUQueries(BaseAzureSQLTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
-            database_name = get_param_or_raise(params, "database_name")
             top_count = params.get("top_count", 15)
             hours_back = params.get("hours_back", 2)
             
-            db_config = self.get_database_config(database_name)
-            client = self.toolset.api_clients[db_config.subscription_id]
+            db_config = self.toolset.database_config()
+            client = self.toolset.api_client()
             
             # Get top CPU queries
             queries = client.get_top_cpu_queries(
@@ -467,7 +447,8 @@ class GetTopCPUQueries(BaseAzureSQLTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Retrieved top CPU consuming queries for database {params['database_name']}"
+        db_config = self.toolset.database_config()
+        return f"Retrieved top CPU consuming queries for database {db_config.server_name}/{db_config.database_name}"
 
 
 class GetSlowQueries(BaseAzureSQLTool):
@@ -476,11 +457,6 @@ class GetSlowQueries(BaseAzureSQLTool):
             name="get_slow_queries",
             description="Gets the slowest/longest-running queries from Query Store for performance analysis",
             parameters={
-                "database_name": ToolParameter(
-                    description="The name of the Azure SQL database to investigate",
-                    type="string",
-                    required=True,
-                ),
                 "top_count": ToolParameter(
                     description="Number of top queries to return (default: 15)",
                     type="integer",
@@ -518,7 +494,7 @@ class GetSlowQueries(BaseAzureSQLTool):
         
         report_sections.append("## Summary")
         report_sections.append(f"- **Total Queries Analyzed:** {len(queries)}")
-        report_sections.append(f"- **Total Duration:** {total_duration:,.0f} microseconds")
+        report_sections.append(f"- **Total Duration:** {_format_timing(total_duration)}")
         report_sections.append(f"- **Total Executions:** {total_executions:,}")
         report_sections.append("")
         
@@ -539,14 +515,14 @@ class GetSlowQueries(BaseAzureSQLTool):
                 query_text = query_text[:200] + "..."
             
             report_sections.append(f"### Query #{i}")
-            report_sections.append(f"- **Average Duration:** {avg_duration:,.0f} μs")
-            report_sections.append(f"- **Total Duration:** {total_duration:,.0f} μs")
-            report_sections.append(f"- **Max Duration:** {max_duration:,.0f} μs")
+            report_sections.append(f"- **Average Duration:** {_format_timing(avg_duration)}")
+            report_sections.append(f"- **Total Duration:** {_format_timing(total_duration)}")
+            report_sections.append(f"- **Max Duration:** {_format_timing(max_duration)}")
             report_sections.append(f"- **Execution Count:** {execution_count:,}")
-            report_sections.append(f"- **Average CPU Time:** {avg_cpu:,.0f} μs")
+            report_sections.append(f"- **Average CPU Time:** {_format_timing(avg_cpu)}")
             report_sections.append(f"- **Last Execution:** {last_execution}")
-            report_sections.append(f"- **Query Text:**")
-            report_sections.append(f"```sql")
+            report_sections.append("- **Query Text:**")
+            report_sections.append("```sql")
             report_sections.append(query_text)
             report_sections.append("```")
             report_sections.append("")
@@ -555,12 +531,11 @@ class GetSlowQueries(BaseAzureSQLTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
-            database_name = get_param_or_raise(params, "database_name")
             top_count = params.get("top_count", 15)
             hours_back = params.get("hours_back", 2)
             
-            db_config = self.get_database_config(database_name)
-            client = self.toolset.api_clients[db_config.subscription_id]
+            db_config = self.toolset.database_config()
+            client = self.toolset.api_client()
             
             # Get slow queries
             queries = client.get_slow_queries(
@@ -587,7 +562,251 @@ class GetSlowQueries(BaseAzureSQLTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Retrieved slowest queries for database {params['database_name']}"
+        db_config = self.toolset.database_config()
+        return f"Retrieved slowest queries for database {db_config.server_name}/{db_config.database_name}"
+
+
+class GetTopDataIOQueries(BaseAzureSQLTool):
+    def __init__(self, toolset: "AzureSQLToolset"):
+        super().__init__(
+            name="get_top_data_io_queries",
+            description="Gets the top data I/O consuming queries from Query Store for storage performance analysis",
+            parameters={
+                "top_count": ToolParameter(
+                    description="Number of top queries to return (default: 15)",
+                    type="integer",
+                    required=False,
+                ),
+                "hours_back": ToolParameter(
+                    description="Number of hours back to analyze (default: 2)",
+                    type="integer", 
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _format_data_io_queries_report(self, queries: List[Dict], db_config: AzureSQLDatabaseConfig, 
+                                     top_count: int, hours_back: int) -> str:
+        """Format the data I/O queries data into a readable report."""
+        report_sections = []
+        
+        # Header
+        report_sections.append("# Top Data I/O Consuming Queries Report")
+        report_sections.append(f"**Database:** {db_config.database_name}")
+        report_sections.append(f"**Server:** {db_config.server_name}")
+        report_sections.append(f"**Analysis Period:** Last {hours_back} hours")
+        report_sections.append(f"**Top Queries:** {top_count}")
+        report_sections.append("")
+        
+        if not queries:
+            report_sections.append("No queries found for the specified time period.")
+            return "\n".join(report_sections)
+        
+        # Summary
+        total_reads = sum(float(q.get('total_logical_reads', 0)) for q in queries)
+        total_writes = sum(float(q.get('total_logical_writes', 0)) for q in queries)
+        total_executions = sum(int(q.get('execution_count', 0)) for q in queries)
+        
+        report_sections.append("## Summary")
+        report_sections.append(f"- **Total Queries Analyzed:** {len(queries)}")
+        report_sections.append(f"- **Total Logical Reads:** {total_reads:,.0f} pages")
+        report_sections.append(f"- **Total Logical Writes:** {total_writes:,.0f} pages")
+        report_sections.append(f"- **Total Executions:** {total_executions:,}")
+        report_sections.append("")
+        
+        # Query Details
+        report_sections.append("## Query Details")
+        
+        for i, query in enumerate(queries[:top_count], 1):
+            avg_reads = float(query.get('avg_logical_reads', 0))
+            avg_writes = float(query.get('avg_logical_writes', 0))
+            execution_count = int(query.get('execution_count', 0))
+            total_reads = float(query.get('total_logical_reads', 0))
+            total_writes = float(query.get('total_logical_writes', 0))
+            max_reads = float(query.get('max_logical_reads', 0))
+            max_writes = float(query.get('max_logical_writes', 0))
+            avg_cpu = float(query.get('avg_cpu_time', 0))
+            avg_duration = float(query.get('avg_duration', 0))
+            query_text = query.get('query_sql_text', 'N/A')
+            last_execution = query.get('last_execution_time', 'N/A')
+            
+            # Truncate long queries
+            if len(query_text) > 200:
+                query_text = query_text[:200] + "..."
+            
+            report_sections.append(f"### Query #{i}")
+            report_sections.append(f"- **Average Logical Reads:** {avg_reads:,.0f} pages")
+            report_sections.append(f"- **Total Logical Reads:** {total_reads:,.0f} pages")
+            report_sections.append(f"- **Max Logical Reads:** {max_reads:,.0f} pages")
+            report_sections.append(f"- **Average Logical Writes:** {avg_writes:,.0f} pages")
+            report_sections.append(f"- **Total Logical Writes:** {total_writes:,.0f} pages")
+            report_sections.append(f"- **Max Logical Writes:** {max_writes:,.0f} pages")
+            report_sections.append(f"- **Execution Count:** {execution_count:,}")
+            report_sections.append(f"- **Average CPU Time:** {_format_timing(avg_cpu)}")
+            report_sections.append(f"- **Average Duration:** {_format_timing(avg_duration)}")
+            report_sections.append(f"- **Last Execution:** {last_execution}")
+            report_sections.append("- **Query Text:**")
+            report_sections.append("```sql")
+            report_sections.append(query_text)
+            report_sections.append("```")
+            report_sections.append("")
+        
+        return "\n".join(report_sections)
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            top_count = params.get("top_count", 15)
+            hours_back = params.get("hours_back", 2)
+            
+            db_config = self.toolset.database_config()
+            client = self.toolset.api_client()
+            
+            # Get top data I/O queries
+            queries = client.get_top_data_io_queries(
+                db_config.subscription_id, db_config.resource_group,
+                db_config.server_name, db_config.database_name,
+                top_count, hours_back
+            )
+            
+            # Format the report
+            report_text = self._format_data_io_queries_report(queries, db_config, top_count, hours_back)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=report_text,
+                params=params,
+            )
+        except Exception as e:
+            error_msg = f"Failed to get top data I/O queries: {str(e)}"
+            logging.error(error_msg)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=error_msg,
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        db_config = self.toolset.database_config()
+        return f"Retrieved top data I/O consuming queries for database {db_config.server_name}/{db_config.database_name}"
+
+
+class GetTopLogIOQueries(BaseAzureSQLTool):
+    def __init__(self, toolset: "AzureSQLToolset"):
+        super().__init__(
+            name="get_top_log_io_queries",
+            description="Gets the top log I/O consuming queries from Query Store for transaction log performance analysis",
+            parameters={
+                "top_count": ToolParameter(
+                    description="Number of top queries to return (default: 15)",
+                    type="integer",
+                    required=False,
+                ),
+                "hours_back": ToolParameter(
+                    description="Number of hours back to analyze (default: 2)",
+                    type="integer", 
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _format_log_io_queries_report(self, queries: List[Dict], db_config: AzureSQLDatabaseConfig, 
+                                    top_count: int, hours_back: int) -> str:
+        """Format the log I/O queries data into a readable report."""
+        report_sections = []
+        
+        # Header
+        report_sections.append("# Top Log I/O Consuming Queries Report")
+        report_sections.append(f"**Database:** {db_config.database_name}")
+        report_sections.append(f"**Server:** {db_config.server_name}")
+        report_sections.append(f"**Analysis Period:** Last {hours_back} hours")
+        report_sections.append(f"**Top Queries:** {top_count}")
+        report_sections.append("")
+        
+        if not queries:
+            report_sections.append("No queries found for the specified time period.")
+            return "\n".join(report_sections)
+        
+        # Summary
+        total_log_writes = sum(float(q.get('total_log_bytes_used', 0)) for q in queries)
+        total_executions = sum(int(q.get('execution_count', 0)) for q in queries)
+        
+        report_sections.append("## Summary")
+        report_sections.append(f"- **Total Queries Analyzed:** {len(queries)}")
+        report_sections.append(f"- **Total Log Bytes Used:** {total_log_writes:,.0f} bytes")
+        report_sections.append(f"- **Total Executions:** {total_executions:,}")
+        report_sections.append("")
+        
+        # Query Details
+        report_sections.append("## Query Details")
+        
+        for i, query in enumerate(queries[:top_count], 1):
+            avg_log_bytes = float(query.get('avg_log_bytes_used', 0))
+            execution_count = int(query.get('execution_count', 0))
+            total_log_bytes = float(query.get('total_log_bytes_used', 0))
+            max_log_bytes = float(query.get('max_log_bytes_used', 0))
+            avg_cpu = float(query.get('avg_cpu_time', 0))
+            avg_duration = float(query.get('avg_duration', 0))
+            query_text = query.get('query_sql_text', 'N/A')
+            last_execution = query.get('last_execution_time', 'N/A')
+            
+            # Truncate long queries
+            if len(query_text) > 200:
+                query_text = query_text[:200] + "..."
+            
+            report_sections.append(f"### Query #{i}")
+            report_sections.append(f"- **Average Log Bytes Used:** {avg_log_bytes:,.0f} bytes")
+            report_sections.append(f"- **Total Log Bytes Used:** {total_log_bytes:,.0f} bytes")
+            report_sections.append(f"- **Max Log Bytes Used:** {max_log_bytes:,.0f} bytes")
+            report_sections.append(f"- **Execution Count:** {execution_count:,}")
+            report_sections.append(f"- **Average CPU Time:** {_format_timing(avg_cpu)}")
+            report_sections.append(f"- **Average Duration:** {_format_timing(avg_duration)}")
+            report_sections.append(f"- **Last Execution:** {last_execution}")
+            report_sections.append("- **Query Text:**")
+            report_sections.append("```sql")
+            report_sections.append(query_text)
+            report_sections.append("```")
+            report_sections.append("")
+        
+        return "\n".join(report_sections)
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            top_count = params.get("top_count", 15)
+            hours_back = params.get("hours_back", 2)
+            
+            db_config = self.toolset.database_config()
+            client = self.toolset.api_client()
+            
+            # Get top log I/O queries
+            queries = client.get_top_log_io_queries(
+                db_config.subscription_id, db_config.resource_group,
+                db_config.server_name, db_config.database_name,
+                top_count, hours_back
+            )
+            
+            # Format the report
+            report_text = self._format_log_io_queries_report(queries, db_config, top_count, hours_back)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=report_text,
+                params=params,
+            )
+        except Exception as e:
+            error_msg = f"Failed to get top log I/O queries: {str(e)}"
+            logging.error(error_msg)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=error_msg,
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        db_config = self.toolset.database_config()
+        return f"Retrieved top log I/O consuming queries for database {db_config.server_name}/{db_config.database_name}"
+
 
 class GenerateConnectionReport(BaseAzureSQLTool):
     def __init__(self, toolset: "AzureSQLToolset"):
@@ -595,11 +814,6 @@ class GenerateConnectionReport(BaseAzureSQLTool):
             name="generate_connection_report",
             description="Generates a comprehensive connection monitoring report including active connections, connection metrics, and connection pool statistics",
             parameters={
-                "database_name": ToolParameter(
-                    description="The name of the Azure SQL database to investigate",
-                    type="string",
-                    required=True,
-                ),
                 "hours_back": ToolParameter(
                     description="Number of hours back to analyze (default: 2)",
                     type="integer",
@@ -707,13 +921,12 @@ class GenerateConnectionReport(BaseAzureSQLTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
-            database_name = get_param_or_raise(params, "database_name")
             hours_back = params.get("hours_back", 2)
             
-            db_config = self.get_database_config(database_name)
+            db_config = self.toolset.database_config()
             
             # Create connection monitoring API client
-            api_client = self.toolset.api_clients[db_config.subscription_id]
+            api_client = self.toolset.api_client()
             connection_api = ConnectionMonitoringAPI(
                 credential=api_client.credential,
                 subscription_id=db_config.subscription_id,
@@ -763,7 +976,8 @@ class GenerateConnectionReport(BaseAzureSQLTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Generated connection monitoring report for database {params['database_name']}"
+        db_config = self.toolset.database_config()
+        return f"Generated connection monitoring report for database {db_config.server_name}/{db_config.database_name}"
 
 
 class GenerateStorageReport(BaseAzureSQLTool):
@@ -772,11 +986,6 @@ class GenerateStorageReport(BaseAzureSQLTool):
             name="generate_storage_report",
             description="Generates a comprehensive storage analysis report including disk usage, growth trends, and table space utilization",
             parameters={
-                "database_name": ToolParameter(
-                    description="The name of the Azure SQL database to investigate",
-                    type="string",
-                    required=True,
-                ),
                 "hours_back": ToolParameter(
                     description="Number of hours back to analyze for metrics (default: 24)",
                     type="integer",
@@ -941,14 +1150,13 @@ class GenerateStorageReport(BaseAzureSQLTool):
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
-            database_name = get_param_or_raise(params, "database_name")
             hours_back = params.get("hours_back", 24)
             top_tables = params.get("top_tables", 20)
             
-            db_config = self.get_database_config(database_name)
+            db_config = self.toolset.database_config()
             
             # Create storage analysis API client
-            api_client = self.toolset.api_clients[db_config.subscription_id]
+            api_client = self.toolset.api_client()
             storage_api = StorageAnalysisAPI(
                 credential=api_client.credential,
                 subscription_id=db_config.subscription_id,
@@ -1008,18 +1216,19 @@ class GenerateStorageReport(BaseAzureSQLTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Generated storage analysis report for database {params['database_name']}"
+        db_config = self.toolset.database_config()
+        return f"Generated storage analysis report for database {db_config.server_name}/{db_config.database_name}"
 
 
 
 class AzureSQLToolset(Toolset):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    api_clients: Dict[str, AzureSQLAPIClient] = {}
-    database_configs: Dict[str, AzureSQLDatabaseConfig] = {}
+    _api_client: Optional[AzureSQLAPIClient] = None
+    _database_config: Optional[AzureSQLDatabaseConfig] = None
 
     def __init__(self):
         super().__init__(
-            name="azure-sql",
+            name="azure/sql",
             description="Monitors Azure SQL Database performance, health, and security using Azure REST APIs",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/azure-sql.html",
@@ -1032,8 +1241,22 @@ class AzureSQLToolset(Toolset):
                 GenerateStorageReport(self),
                 GetTopCPUQueries(self),
                 GetSlowQueries(self),
+                GetTopDataIOQueries(self),
+                GetTopLogIOQueries(self),
             ],
         )
+
+    def api_client(self):
+        if not self._api_client:
+            raise Exception("Toolset is missing api_client. This is likely a code issue and not a configuration issue")
+        else:
+            return self._api_client
+
+    def database_config(self):
+        if not self._database_config:
+            raise Exception("Toolset is missing database_config. This is likely a code issue and not a configuration issue")
+        else:
+            return self._database_config
 
     def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         if not config:
@@ -1056,10 +1279,15 @@ class AzureSQLToolset(Toolset):
                     credential = DefaultAzureCredential()
                     logging.info("Using DefaultAzureCredential for Azure authentication")
                 
-                # Test the credential by attempting to get a token
-                test_token = credential.get_token("https://management.azure.com/.default")
-                if not test_token.token:
-                    raise Exception("Failed to obtain Azure access token")
+                # Test the credential by attempting to get tokens for both required scopes
+                mgmt_token = credential.get_token("https://management.azure.com/.default")
+                if not mgmt_token.token:
+                    raise Exception("Failed to obtain Azure management token")
+                
+                # Test SQL database token as well
+                sql_token = credential.get_token("https://database.windows.net/.default")
+                if not sql_token.token:
+                    raise Exception("Failed to obtain Azure SQL database token")
                     
             except Exception as e:
                 message = f"Failed to set up Azure authentication: {str(e)}"
@@ -1067,19 +1295,12 @@ class AzureSQLToolset(Toolset):
                 errors.append(message)
                 return False, message
             
-            # Store database configurations and create API clients per subscription
-            subscription_ids = set()
-            for db_config in azure_sql_config.azure_sql_databases:
-                self.database_configs[db_config.name] = db_config
-                subscription_ids.add(db_config.subscription_id)
-                logging.info(f"Configured Azure SQL database: {db_config.name}")
-            
-            # Create API clients for each unique subscription
-            for subscription_id in subscription_ids:
-                self.api_clients[subscription_id] = AzureSQLAPIClient(credential, subscription_id)
-                logging.info(f"Created API client for subscription: {subscription_id}")
+            # Store single database configuration and create API client
+            self._database_config = azure_sql_config.database
+            self._api_client = AzureSQLAPIClient(credential, azure_sql_config.database.subscription_id)
+            logging.info(f"Configured Azure SQL database: {azure_sql_config.database.server_name}/{azure_sql_config.database.database_name}")
 
-            return len(self.database_configs) > 0, "\n".join(errors)
+            return len(errors) == 0, "\n".join(errors)
         except Exception as e:
             logging.exception("Failed to set up Azure SQL toolset")
             return False, str(e)
@@ -1089,22 +1310,12 @@ class AzureSQLToolset(Toolset):
             tenant_id="{{ env.AZURE_TENANT_ID }}",
             client_id="{{ env.AZURE_CLIENT_ID }}",
             client_secret="{{ env.AZURE_CLIENT_SECRET }}",
-            azure_sql_databases=[
-                AzureSQLDatabaseConfig(
-                    name="production-db",
-                    subscription_id="12345678-1234-1234-1234-123456789012",
-                    resource_group="my-resource-group",
-                    server_name="myserver",
-                    database_name="mydatabase",
-                ),
-                AzureSQLDatabaseConfig(
-                    name="staging-db",
-                    subscription_id="12345678-1234-1234-1234-123456789012",
-                    resource_group="my-staging-rg",
-                    server_name="mystaging-server",
-                    database_name="staging-db",
-                ),
-            ]
+            database=AzureSQLDatabaseConfig(
+                subscription_id="12345678-1234-1234-1234-123456789012",
+                resource_group="my-resource-group",
+                server_name="myserver",
+                database_name="mydatabase",
+            )
         )
         return example_config.model_dump()
 

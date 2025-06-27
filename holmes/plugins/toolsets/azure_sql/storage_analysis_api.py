@@ -7,10 +7,34 @@ from .azure_sql_api import AzureSQLAPIClient
 
 
 class StorageAnalysisAPI:
-    def __init__(self, credential: TokenCredential, subscription_id: str, sql_username: str = None, sql_password: str = None):
+    def __init__(self, credential: TokenCredential, subscription_id: str, sql_username: Optional[str] = None, sql_password: Optional[str] = None):
         self.sql_api_client = AzureSQLAPIClient(credential, subscription_id, sql_username, sql_password)
         self.metrics_client = MetricsQueryClient(credential)
         self.subscription_id = subscription_id
+    
+    def _format_sql_error(self, error: Exception) -> str:
+        """Format SQL errors with helpful permission guidance."""
+        error_str = str(error)
+        
+        # Detect common permission issues
+        if "Login failed for user" in error_str and "token-identified principal" in error_str:
+            return (
+                f"Azure AD authentication failed - the service principal lacks database permissions. "
+                f"Please ensure the service principal is added as a database user with appropriate permissions. "
+                f"Original error: {error_str}"
+            )
+        elif "permission was denied" in error_str.lower():
+            return (
+                f"Insufficient database permissions - check user access rights. "
+                f"Original error: {error_str}"
+            )
+        elif "login failed" in error_str.lower():
+            return (
+                f"Database login failed - check authentication credentials and database access permissions. "
+                f"Original error: {error_str}"
+            )
+        else:
+            return error_str
     
     def get_storage_metrics(self, resource_group: str, server_name: str, database_name: str, hours_back: int = 24) -> Dict:
         """Get storage-related metrics from Azure Monitor."""
@@ -25,7 +49,7 @@ class StorageAnalysisAPI:
         start_time = end_time - timedelta(hours=hours_back)
         
         try:
-            metrics_data = self.metrics_client.query(
+            metrics_data = self.metrics_client.query_resource(
                 resource_uri=resource_id,
                 metric_names=[
                     "storage_percent", 
@@ -48,7 +72,7 @@ class StorageAnalysisAPI:
                 for timeseries in metric.timeseries:
                     for data_point in timeseries.data:
                         metric_data.append({
-                            "timestamp": data_point.time_stamp.isoformat(),
+                            "timestamp": data_point.timestamp.isoformat(),
                             "maximum": data_point.maximum,
                             "average": data_point.average,
                             "minimum": data_point.minimum
