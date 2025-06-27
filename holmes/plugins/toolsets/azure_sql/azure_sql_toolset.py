@@ -30,9 +30,9 @@ class AzureSQLDatabaseConfig(BaseModel):
 
 class AzureSQLConfig(BaseModel):
     database: AzureSQLDatabaseConfig
-    tenant_id: str
-    client_id: str
-    client_secret: str
+    tenant_id: Optional[str]
+    client_id: Optional[str]
+    client_secret: Optional[str]
 
 
 
@@ -1269,15 +1269,15 @@ class AzureSQLToolset(Toolset):
             # Set up Azure credentials
             try:
                 if azure_sql_config.tenant_id and azure_sql_config.client_id and azure_sql_config.client_secret:
+                    logging.info("Using ClientSecretCredential for Azure authentication")
                     credential = ClientSecretCredential(
                         tenant_id=azure_sql_config.tenant_id,
                         client_id=azure_sql_config.client_id,
                         client_secret=azure_sql_config.client_secret
                     )
-                    logging.info("Using ClientSecretCredential for Azure authentication")
                 else:
-                    credential = DefaultAzureCredential()
                     logging.info("Using DefaultAzureCredential for Azure authentication")
+                    credential = DefaultAzureCredential()
                 
                 # Test the credential by attempting to get tokens for both required scopes
                 mgmt_token = credential.get_token("https://management.azure.com/.default")
