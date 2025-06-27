@@ -52,6 +52,7 @@ azure-core = "^1.34.0"
 requests = "^2.32.4"
 azure-mgmt-sql = "^3.0.1"
 pyodbc = "^5.0.1"
+azure-monitor-query = "^1.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"

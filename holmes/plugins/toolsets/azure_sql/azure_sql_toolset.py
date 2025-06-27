@@ -19,6 +19,8 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.utils import get_param_or_raise
 from holmes.plugins.toolsets.azure_sql.azure_sql_api import AzureSQLAPIClient
+from holmes.plugins.toolsets.azure_sql.connection_monitoring_api import ConnectionMonitoringAPI
+from holmes.plugins.toolsets.azure_sql.storage_analysis_api import StorageAnalysisAPI
 
 
 class AzureSQLDatabaseConfig(BaseModel):
@@ -348,180 +350,6 @@ class GeneratePerformanceReport(BaseAzureSQLTool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Generated performance report for database {params['database_name']}"
 
-
-class GenerateSecurityReport(BaseAzureSQLTool):
-    def __init__(self, toolset: "AzureSQLToolset"):
-        super().__init__(
-            name="generate_security_report",
-            description="Generates a comprehensive security report including vulnerability assessments, security alerts, and threat detection status",
-            parameters={
-                "database_name": ToolParameter(
-                    description="The name of the Azure SQL database to investigate",
-                    type="string",
-                    required=True,
-                ),
-            },
-            toolset=toolset,
-        )
-
-    def _gather_security_data(self, db_config: AzureSQLDatabaseConfig, client: AzureSQLAPIClient) -> Dict:
-        """Gather security-related data from Azure SQL API."""
-        security_data = {
-            "database_info": {
-                "name": db_config.database_name,
-                "server": db_config.server_name,
-                "resource_group": db_config.resource_group
-            },
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        
-        try:
-            vulnerability_assessments = client.get_database_vulnerability_assessments(
-                db_config.subscription_id, db_config.resource_group,
-                db_config.server_name, db_config.database_name
-            )
-            security_data["vulnerability_assessments"] = vulnerability_assessments.get("value", [])
-        except Exception as e:
-            security_data["vulnerability_error"] = str(e)
-        
-        try:
-            security_alerts = client.get_database_security_alert_policies(
-                db_config.subscription_id, db_config.resource_group,
-                db_config.server_name, db_config.database_name
-            )
-            security_data["security_alert_policies"] = security_alerts.get("value", [])
-        except Exception as e:
-            security_data["security_alerts_error"] = str(e)
-        
-        return security_data
-
-    def _build_security_report(self, security_data: Dict, db_config: AzureSQLDatabaseConfig) -> str:
-        """Build the formatted security report from gathered data."""
-        report_sections = []
-        
-        # Security Report Header
-        report_sections.append("# Azure SQL Database Security Report")
-        report_sections.append(f"**Database:** {db_config.database_name}")
-        report_sections.append(f"**Server:** {db_config.server_name}")
-        report_sections.append(f"**Generated:** {security_data['timestamp']}")
-        report_sections.append("")
-        
-        # Security Alert Policies Section
-        report_sections.append("## Security Alert Policies")
-        if "security_alerts_error" in security_data:
-            report_sections.append(f"⚠️ **Error retrieving security alerts:** {security_data['security_alerts_error']}")
-        else:
-            alert_policies = security_data.get("security_alert_policies", [])
-            if alert_policies:
-                for policy in alert_policies:
-                    properties = policy.get("properties", {})
-                    state = properties.get("state", "Unknown")
-                    policy_name = policy.get("name", "Default")
-                    
-                    status_icon = "✅" if state == "Enabled" else "⚠️" if state == "Disabled" else "❓"
-                    report_sections.append(f"- **{policy_name} Policy**: {state} {status_icon}")
-                    
-                    # Show enabled detection types
-                    disabled_alerts = properties.get("disabledAlerts", [])
-                    email_addresses = properties.get("emailAddresses", [])
-                    
-                    if state == "Enabled":
-                        if email_addresses:
-                            report_sections.append(f"  - **Email Recipients**: {', '.join(email_addresses)}")
-                        if disabled_alerts:
-                            report_sections.append(f"  - **Disabled Alert Types**: {', '.join(disabled_alerts)}")
-                        else:
-                            report_sections.append("  - **All Alert Types**: Enabled")
-            else:
-                report_sections.append("⚠️ **No security alert policies configured**")
-        report_sections.append("")
-        
-        # Vulnerability Assessments Section
-        report_sections.append("## Vulnerability Assessments")
-        if "vulnerability_error" in security_data:
-            report_sections.append(f"⚠️ **Error retrieving vulnerability assessments:** {security_data['vulnerability_error']}")
-        else:
-            vulnerability_assessments = security_data.get("vulnerability_assessments", [])
-            if vulnerability_assessments:
-                for assessment in vulnerability_assessments:
-                    properties = assessment.get("properties", {})
-                    scan_trigger_type = properties.get("scanTriggerType", "Unknown")
-                    
-                    report_sections.append(f"- **Vulnerability Assessment**: Configured")
-                    report_sections.append(f"  - **Scan Trigger**: {scan_trigger_type}")
-                    
-                    # Check if recurring scans are enabled
-                    recurring_scans = properties.get("recurringScans", {})
-                    if recurring_scans:
-                        is_enabled = recurring_scans.get("isEnabled", False)
-                        email_subscription_admins = recurring_scans.get("emailSubscriptionAdmins", False)
-                        emails = recurring_scans.get("emails", [])
-                        
-                        scan_icon = "✅" if is_enabled else "⚠️"
-                        report_sections.append(f"  - **Recurring Scans**: {'Enabled' if is_enabled else 'Disabled'} {scan_icon}")
-                        
-                        if is_enabled:
-                            if email_subscription_admins or emails:
-                                report_sections.append("  - **Email Notifications**: Configured")
-                            else:
-                                report_sections.append("  - **Email Notifications**: ⚠️ Not configured")
-            else:
-                report_sections.append("⚠️ **No vulnerability assessments configured**")
-                report_sections.append("  - Consider enabling vulnerability assessments for security monitoring")
-        report_sections.append("")
-        
-        # Security Recommendations Section
-        report_sections.append("## Security Recommendations")
-        recommendations = []
-        
-        # Check if security monitoring is properly configured
-        alert_policies = security_data.get("security_alert_policies", [])
-        vulnerability_assessments = security_data.get("vulnerability_assessments", [])
-        
-        if not alert_policies or not any(p.get("properties", {}).get("state") == "Enabled" for p in alert_policies):
-            recommendations.append("⚠️ Enable security alert policies for threat detection")
-        
-        if not vulnerability_assessments:
-            recommendations.append("⚠️ Configure vulnerability assessments for security scanning")
-        
-        if not recommendations:
-            report_sections.append("✅ **Security configuration appears to be properly set up**")
-        else:
-            for rec in recommendations:
-                report_sections.append(f"- {rec}")
-        
-        return "\n".join(report_sections)
-
-    def _invoke(self, params: Dict) -> StructuredToolResult:
-        try:
-            database_name = get_param_or_raise(params, "database_name")
-            db_config = self.get_database_config(database_name)
-            client = self.toolset.api_clients[db_config.subscription_id]
-            
-            # Gather security-related data
-            security_data = self._gather_security_data(db_config, client)
-            
-            # Build the formatted report
-            report_text = self._build_security_report(security_data, db_config)
-            
-            return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=report_text,
-                params=params,
-            )
-        except Exception as e:
-            error_msg = f"Failed to generate security report: {str(e)}"
-            logging.error(error_msg)
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=error_msg,
-                params=params,
-            )
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Generated security report for database {params['database_name']}"
-
-
 class GetTopCPUQueries(BaseAzureSQLTool):
     def __init__(self, toolset: "AzureSQLToolset"):
         super().__init__(
@@ -761,45 +589,427 @@ class GetSlowQueries(BaseAzureSQLTool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Retrieved slowest queries for database {params['database_name']}"
 
-
-class ListAzureSQLDatabases(BaseAzureSQLTool):
+class GenerateConnectionReport(BaseAzureSQLTool):
     def __init__(self, toolset: "AzureSQLToolset"):
         super().__init__(
-            name="list_azure_sql_databases",
-            description="Lists all available Azure SQL databases configured in HolmesGPT",
-            parameters={},
+            name="generate_connection_report",
+            description="Generates a comprehensive connection monitoring report including active connections, connection metrics, and connection pool statistics",
+            parameters={
+                "database_name": ToolParameter(
+                    description="The name of the Azure SQL database to investigate",
+                    type="string",
+                    required=True,
+                ),
+                "hours_back": ToolParameter(
+                    description="Number of hours back to analyze (default: 2)",
+                    type="integer",
+                    required=False,
+                ),
+            },
             toolset=toolset,
         )
 
+    def _build_connection_report(self, db_config: AzureSQLDatabaseConfig, 
+                               connection_data: Dict, hours_back: int) -> str:
+        """Build the formatted connection report from gathered data."""
+        report_sections = []
+        
+        # Header
+        report_sections.append("# Azure SQL Database Connection Report")
+        report_sections.append(f"**Database:** {db_config.database_name}")
+        report_sections.append(f"**Server:** {db_config.server_name}")
+        report_sections.append(f"**Analysis Period:** Last {hours_back} hours")
+        report_sections.append(f"**Generated:** {datetime.now(timezone.utc).isoformat()}")
+        report_sections.append("")
+        
+        # Connection Summary
+        report_sections.append("## Connection Summary")
+        summary = connection_data.get("summary", {})
+        if "error" in summary:
+            report_sections.append(f"⚠️ **Error retrieving connection summary:** {summary['error']}")
+        else:
+            total_conn = summary.get("total_connections", 0)
+            active_conn = summary.get("active_connections", 0)
+            idle_conn = summary.get("idle_connections", 0)
+            blocked_conn = summary.get("blocked_connections", 0)
+            
+            report_sections.append(f"- **Total Connections**: {total_conn}")
+            report_sections.append(f"- **Active Connections**: {active_conn}")
+            report_sections.append(f"- **Idle Connections**: {idle_conn}")
+            if blocked_conn > 0:
+                report_sections.append(f"- **🚨 Blocked Connections**: {blocked_conn}")
+            else:
+                report_sections.append(f"- **Blocked Connections**: {blocked_conn}")
+            report_sections.append(f"- **Unique Users**: {summary.get('unique_users', 0)}")
+            report_sections.append(f"- **Unique Hosts**: {summary.get('unique_hosts', 0)}")
+        report_sections.append("")
+        
+        # Connection Pool Statistics
+        report_sections.append("## Connection Pool Statistics")
+        pool_stats = connection_data.get("pool_stats", {})
+        if "error" in pool_stats:
+            report_sections.append(f"⚠️ **Error retrieving pool stats:** {pool_stats['error']}")
+        else:
+            for metric_name, metric_data in pool_stats.items():
+                if isinstance(metric_data, dict) and "value" in metric_data:
+                    value = metric_data["value"]
+                    unit = metric_data.get("unit", "")
+                    report_sections.append(f"- **{metric_name}**: {value:,} {unit}")
+        report_sections.append("")
+        
+        # Active Connections Detail
+        report_sections.append("## Active Connections Detail")
+        active_connections = connection_data.get("active_connections", [])
+        if active_connections:
+            active_count = len([conn for conn in active_connections if conn.get("connection_status") == "Active"])
+            report_sections.append(f"**{active_count} active connections found:**")
+            report_sections.append("")
+            
+            for i, conn in enumerate(active_connections[:10], 1):  # Show top 10
+                if conn.get("connection_status") == "Active":
+                    login_name = conn.get("login_name", "Unknown")
+                    host_name = conn.get("host_name", "Unknown")
+                    status = conn.get("status", "Unknown")
+                    cpu_time = conn.get("cpu_time", 0)
+                    wait_type = conn.get("wait_type", "")
+                    blocking_session = conn.get("blocking_session_id", 0)
+                    
+                    report_sections.append(f"### Connection #{i}")
+                    report_sections.append(f"- **User**: {login_name}@{host_name}")
+                    report_sections.append(f"- **Status**: {status}")
+                    report_sections.append(f"- **CPU Time**: {cpu_time:,} ms")
+                    if wait_type:
+                        report_sections.append(f"- **Wait Type**: {wait_type}")
+                    if blocking_session and blocking_session > 0:
+                        report_sections.append(f"- **🚨 Blocked by Session**: {blocking_session}")
+                    report_sections.append("")
+        else:
+            report_sections.append("No active connections found")
+        
+        # Azure Monitor Metrics (if available)
+        report_sections.append("## Azure Monitor Connection Metrics")
+        metrics = connection_data.get("metrics", {})
+        if "error" in metrics:
+            report_sections.append(f"⚠️ **Metrics unavailable:** {metrics['error']}")
+        else:
+            for metric_name, metric_data in metrics.items():
+                if metric_data:
+                    recent_values = metric_data[-5:]  # Last 5 data points
+                    if recent_values:
+                        avg_value = sum(point.get("average", 0) or 0 for point in recent_values) / len(recent_values)
+                        max_value = max(point.get("maximum", 0) or 0 for point in recent_values)
+                        report_sections.append(f"- **{metric_name}**: Avg {avg_value:.1f}, Max {max_value:.1f}")
+            
+            if not any(metrics.values()):
+                report_sections.append("No recent metric data available")
+        
+        return "\n".join(report_sections)
+
     def _invoke(self, params: Dict) -> StructuredToolResult:
-        database_names = list(self.toolset.database_configs.keys())
-        database_details = []
-        
-        for name, config in self.toolset.database_configs.items():
-            database_details.append({
-                "name": name,
-                "database": config.database_name,
-                "server": config.server_name,
-                "resource_group": config.resource_group,
-                "subscription_id": config.subscription_id
-            })
-        
-        report = "# Available Azure SQL Databases\n\n"
-        for db in database_details:
-            report += f"## {db['name']}\n"
-            report += f"- **Database**: {db['database']}\n"
-            report += f"- **Server**: {db['server']}\n"
-            report += f"- **Resource Group**: {db['resource_group']}\n"
-            report += f"- **Subscription**: {db['subscription_id']}\n\n"
-        
-        return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
-            data=report,
-            params=params,
-        )
+        try:
+            database_name = get_param_or_raise(params, "database_name")
+            hours_back = params.get("hours_back", 2)
+            
+            db_config = self.get_database_config(database_name)
+            
+            # Create connection monitoring API client
+            api_client = self.toolset.api_clients[db_config.subscription_id]
+            connection_api = ConnectionMonitoringAPI(
+                credential=api_client.credential,
+                subscription_id=db_config.subscription_id,
+                sql_username=api_client.sql_username,
+                sql_password=api_client.sql_password
+            )
+            
+            # Gather connection data
+            connection_data = {}
+            
+            # Get connection summary
+            connection_data["summary"] = connection_api.get_connection_summary(
+                db_config.server_name, db_config.database_name
+            )
+            
+            # Get active connections
+            connection_data["active_connections"] = connection_api.get_active_connections(
+                db_config.server_name, db_config.database_name
+            )
+            
+            # Get connection pool stats
+            connection_data["pool_stats"] = connection_api.get_connection_pool_stats(
+                db_config.server_name, db_config.database_name
+            )
+            
+            # Get Azure Monitor metrics
+            connection_data["metrics"] = connection_api.get_connection_metrics(
+                db_config.resource_group, db_config.server_name, 
+                db_config.database_name, hours_back
+            )
+            
+            # Build the formatted report
+            report_text = self._build_connection_report(db_config, connection_data, hours_back)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=report_text,
+                params=params,
+            )
+        except Exception as e:
+            error_msg = f"Failed to generate connection report: {str(e)}"
+            logging.error(error_msg)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=error_msg,
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Listed all available Azure SQL databases"
+        return f"Generated connection monitoring report for database {params['database_name']}"
+
+
+class GenerateStorageReport(BaseAzureSQLTool):
+    def __init__(self, toolset: "AzureSQLToolset"):
+        super().__init__(
+            name="generate_storage_report",
+            description="Generates a comprehensive storage analysis report including disk usage, growth trends, and table space utilization",
+            parameters={
+                "database_name": ToolParameter(
+                    description="The name of the Azure SQL database to investigate",
+                    type="string",
+                    required=True,
+                ),
+                "hours_back": ToolParameter(
+                    description="Number of hours back to analyze for metrics (default: 24)",
+                    type="integer",
+                    required=False,
+                ),
+                "top_tables": ToolParameter(
+                    description="Number of top tables to analyze for space usage (default: 20)",
+                    type="integer",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _build_storage_report(self, db_config: AzureSQLDatabaseConfig, 
+                            storage_data: Dict, hours_back: int, top_tables: int) -> str:
+        """Build the formatted storage report from gathered data."""
+        report_sections = []
+        
+        # Header
+        report_sections.append("# Azure SQL Database Storage Analysis Report")
+        report_sections.append(f"**Database:** {db_config.database_name}")
+        report_sections.append(f"**Server:** {db_config.server_name}")
+        report_sections.append(f"**Analysis Period:** Last {hours_back} hours")
+        report_sections.append(f"**Generated:** {datetime.now(timezone.utc).isoformat()}")
+        report_sections.append("")
+        
+        # Storage Summary
+        report_sections.append("## Storage Summary")
+        summary = storage_data.get("summary", {})
+        if "error" in summary:
+            report_sections.append(f"⚠️ **Error retrieving storage summary:** {summary['error']}")
+        else:
+            total_size = summary.get("total_database_size_mb", 0)
+            used_size = summary.get("total_used_size_mb", 0)
+            data_size = summary.get("total_data_size_mb", 0)
+            log_size = summary.get("total_log_size_mb", 0)
+            
+            if total_size:
+                used_percent = (used_size / total_size) * 100
+                free_size = total_size - used_size
+                
+                report_sections.append(f"- **Total Database Size**: {total_size:,.1f} MB")
+                report_sections.append(f"- **Used Space**: {used_size:,.1f} MB ({used_percent:.1f}%)")
+                report_sections.append(f"- **Free Space**: {free_size:,.1f} MB")
+                report_sections.append(f"- **Data Files**: {data_size:,.1f} MB")
+                report_sections.append(f"- **Log Files**: {log_size:,.1f} MB")
+                report_sections.append(f"- **Data Files Count**: {summary.get('data_files_count', 0)}")
+                report_sections.append(f"- **Log Files Count**: {summary.get('log_files_count', 0)}")
+            else:
+                report_sections.append("No storage summary data available")
+        report_sections.append("")
+        
+        # File Details
+        report_sections.append("## Database Files Details")
+        file_details = storage_data.get("file_details", [])
+        if isinstance(file_details, dict) and "error" in file_details:
+            report_sections.append(f"⚠️ **Error retrieving file details:** {file_details['error']}")
+        elif file_details:
+            for file_info in file_details:
+                file_type = file_info.get("file_type", "Unknown")
+                logical_name = file_info.get("logical_name", "Unknown")
+                size_mb = file_info.get("size_mb", 0)
+                used_mb = file_info.get("used_mb", 0)
+                used_percent = file_info.get("used_percent", 0)
+                max_size = file_info.get("max_size", "Unknown")
+                growth = file_info.get("growth_setting", "Unknown")
+                
+                status_icon = "🔴" if used_percent > 90 else "🟡" if used_percent > 75 else "🟢"
+                
+                report_sections.append(f"### {file_type} File: {logical_name}")
+                report_sections.append(f"- **Size**: {size_mb:,.1f} MB")
+                report_sections.append(f"- **Used**: {used_mb:,.1f} MB ({used_percent:.1f}%) {status_icon}")
+                report_sections.append(f"- **Max Size**: {max_size}")
+                report_sections.append(f"- **Growth**: {growth}")
+                report_sections.append("")
+        else:
+            report_sections.append("No file details available")
+        
+        # Growth Trend Analysis
+        report_sections.append("## Storage Growth Analysis")
+        growth_data = storage_data.get("growth_trend", {})
+        if "error" in growth_data:
+            report_sections.append(f"⚠️ **Growth analysis unavailable:** {growth_data['error']}")
+        elif growth_data.get("growth_analysis"):
+            analysis = growth_data["growth_analysis"]
+            total_growth = analysis.get("total_growth_mb", 0)
+            growth_percent = analysis.get("growth_percent", 0)
+            days_analyzed = analysis.get("days_analyzed", 0)
+            daily_growth = analysis.get("avg_daily_growth_mb", 0)
+            
+            growth_icon = "🔴" if daily_growth > 100 else "🟡" if daily_growth > 50 else "🟢"
+            
+            report_sections.append(f"- **Analysis Period**: {days_analyzed} days")
+            report_sections.append(f"- **Total Growth**: {total_growth:,.1f} MB ({growth_percent:.1f}%)")
+            report_sections.append(f"- **Daily Average Growth**: {daily_growth:,.1f} MB {growth_icon}")
+            
+            # Growth projection
+            if daily_growth > 0:
+                days_to_double = (summary.get("total_database_size_mb", 0) / daily_growth) if daily_growth > 0 else 0
+                report_sections.append(f"- **Projected to Double**: {days_to_double:,.0f} days")
+        else:
+            report_sections.append("Growth analysis requires backup history (not available)")
+        report_sections.append("")
+        
+        # Top Tables by Space Usage
+        report_sections.append(f"## Top {top_tables} Tables by Space Usage")
+        table_usage = storage_data.get("table_usage", [])
+        if table_usage:
+            report_sections.append("")
+            for i, table in enumerate(table_usage[:top_tables], 1):
+                schema_name = table.get("schema_name", "unknown")
+                table_name = table.get("table_name", "unknown")
+                total_space = table.get("total_space_mb", 0)
+                row_count = table.get("row_count", 0)
+                index_type = table.get("index_type", "unknown")
+                
+                report_sections.append(f"### {i}. {schema_name}.{table_name}")
+                report_sections.append(f"- **Total Space**: {total_space:,.1f} MB")
+                report_sections.append(f"- **Row Count**: {row_count:,}")
+                report_sections.append(f"- **Index Type**: {index_type}")
+                report_sections.append("")
+        else:
+            report_sections.append("No table usage data available")
+        
+        # Azure Monitor Storage Metrics
+        report_sections.append("## Azure Monitor Storage Metrics")
+        metrics = storage_data.get("metrics", {})
+        if "error" in metrics:
+            report_sections.append(f"⚠️ **Metrics unavailable:** {metrics['error']}")
+        else:
+            metric_found = False
+            for metric_name, metric_data in metrics.items():
+                if metric_data:
+                    metric_found = True
+                    recent_values = metric_data[-5:]  # Last 5 data points
+                    if recent_values:
+                        avg_value = sum(point.get("average", 0) or 0 for point in recent_values) / len(recent_values)
+                        max_value = max(point.get("maximum", 0) or 0 for point in recent_values)
+                        
+                        # Format based on metric type
+                        if "percent" in metric_name:
+                            report_sections.append(f"- **{metric_name}**: Avg {avg_value:.1f}%, Max {max_value:.1f}%")
+                        else:
+                            report_sections.append(f"- **{metric_name}**: Avg {avg_value:,.1f}, Max {max_value:,.1f}")
+            
+            if not metric_found:
+                report_sections.append("No recent storage metric data available")
+        
+        # TempDB Usage
+        tempdb_data = storage_data.get("tempdb", {})
+        if tempdb_data and "error" not in tempdb_data:
+            report_sections.append("")
+            report_sections.append("## TempDB Usage")
+            for metric_type, data in tempdb_data.items():
+                if isinstance(data, dict):
+                    used_percent = data.get("used_percent", 0)
+                    status_icon = "🔴" if used_percent > 90 else "🟡" if used_percent > 75 else "🟢"
+                    report_sections.append(f"- **{metric_type}**: {data.get('used_size_mb', 0):,.1f} MB / {data.get('total_size_mb', 0):,.1f} MB ({used_percent:.1f}%) {status_icon}")
+        
+        return "\n".join(report_sections)
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            database_name = get_param_or_raise(params, "database_name")
+            hours_back = params.get("hours_back", 24)
+            top_tables = params.get("top_tables", 20)
+            
+            db_config = self.get_database_config(database_name)
+            
+            # Create storage analysis API client
+            api_client = self.toolset.api_clients[db_config.subscription_id]
+            storage_api = StorageAnalysisAPI(
+                credential=api_client.credential,
+                subscription_id=db_config.subscription_id,
+                sql_username=api_client.sql_username,
+                sql_password=api_client.sql_password
+            )
+            
+            # Gather storage data
+            storage_data = {}
+            
+            # Get storage summary
+            storage_data["summary"] = storage_api.get_storage_summary(
+                db_config.server_name, db_config.database_name
+            )
+            
+            # Get file details
+            storage_data["file_details"] = storage_api.get_database_size_details(
+                db_config.server_name, db_config.database_name
+            )
+            
+            # Get table space usage
+            storage_data["table_usage"] = storage_api.get_table_space_usage(
+                db_config.server_name, db_config.database_name, top_tables
+            )
+            
+            # Get growth trend
+            storage_data["growth_trend"] = storage_api.get_storage_growth_trend(
+                db_config.server_name, db_config.database_name
+            )
+            
+            # Get Azure Monitor storage metrics
+            storage_data["metrics"] = storage_api.get_storage_metrics(
+                db_config.resource_group, db_config.server_name, 
+                db_config.database_name, hours_back
+            )
+            
+            # Get TempDB usage
+            storage_data["tempdb"] = storage_api.get_tempdb_usage(
+                db_config.server_name, db_config.database_name
+            )
+            
+            # Build the formatted report
+            report_text = self._build_storage_report(db_config, storage_data, hours_back, top_tables)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=report_text,
+                params=params,
+            )
+        except Exception as e:
+            error_msg = f"Failed to generate storage report: {str(e)}"
+            logging.error(error_msg)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=error_msg,
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Generated storage analysis report for database {params['database_name']}"
+
 
 
 class AzureSQLToolset(Toolset):
@@ -816,10 +1026,10 @@ class AzureSQLToolset(Toolset):
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Azure_SQL_Database_logo.svg/1200px-Azure_SQL_Database_logo.svg.png",
             tags=[ToolsetTag.CORE],
             tools=[
-                ListAzureSQLDatabases(self),
                 GenerateHealthReport(self),
                 GeneratePerformanceReport(self),
-                GenerateSecurityReport(self),
+                GenerateConnectionReport(self),
+                GenerateStorageReport(self),
                 GetTopCPUQueries(self),
                 GetSlowQueries(self),
             ],

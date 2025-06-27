@@ -7,6 +7,7 @@ from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 import yaml  # type: ignore
 from pydantic import ValidationError
 
+from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 import holmes.utils.env as env_utils
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
@@ -74,6 +75,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         GitToolset(),
         BashExecutorToolset(),
         RunbookToolset(),
+        AzureSQLToolset()
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())

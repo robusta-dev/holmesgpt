@@ -6,7 +6,7 @@ from azure.mgmt.sql import SqlManagementClient
 
 
 class AzureSQLAPIClient:
-    def __init__(self, credential: TokenCredential, subscription_id: str, sql_username: str = None, sql_password: str = None):
+    def __init__(self, credential: TokenCredential, subscription_id: str, sql_username: Optional[str] = None, sql_password: Optional[str] = None):
         self.sql_client = SqlManagementClient(credential, subscription_id)
         self.credential = credential
         self.sql_username = sql_username
@@ -176,22 +176,6 @@ class AzureSQLAPIClient:
             database_name=database_name
         )
         return {"value": [op.as_dict() for op in operations]}
-    
-    def get_database_vulnerability_assessments(self, subscription_id: str, resource_group: str, server_name: str, database_name: str) -> Dict:
-        assessments = self.sql_client.database_vulnerability_assessments.list_by_database(
-            resource_group_name=resource_group,
-            server_name=server_name,
-            database_name=database_name
-        )
-        return {"value": [assessment.as_dict() for assessment in assessments]}
-    
-    def get_database_security_alert_policies(self, subscription_id: str, resource_group: str, server_name: str, database_name: str) -> Dict:
-        policies = self.sql_client.database_security_alert_policies.list_by_database(
-            resource_group_name=resource_group,
-            server_name=server_name,
-            database_name=database_name
-        )
-        return {"value": [policy.as_dict() for policy in policies]}
     
     def get_database_automatic_tuning(self, subscription_id: str, resource_group: str, server_name: str, database_name: str) -> Dict:
         tuning = self.sql_client.database_automatic_tuning.get(
