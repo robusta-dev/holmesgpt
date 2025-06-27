@@ -117,8 +117,6 @@ def run_interactive_loop(
                         f"{tool_call.description}. Output=\n{tool_call.result}",
                         markup=False,
                     )
-            # console.print(f"\n⏺ [bold {AI_COLOR}]AI:[/bold {AI_COLOR}]", end=" ")
-            # console.print(Markdown(response.result))  # type: ignore
             console.print(
                 Panel(
                     Markdown(f"{response.result}"),
