@@ -75,7 +75,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         GitToolset(),
         BashExecutorToolset(),
         RunbookToolset(),
-        AzureSQLToolset()
+        AzureSQLToolset(),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())

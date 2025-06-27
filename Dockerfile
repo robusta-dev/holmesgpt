@@ -79,19 +79,6 @@ RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     fi \
     && poetry install --no-interaction --no-ansi --no-root
 
-# Microsoft ODBC for Azure SQL
-RUN VERSION_ID=$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2 | cut -d '.' -f 1) && \
-    if ! echo "11 12" | grep -q "$VERSION_ID"; then \
-        echo "Debian $VERSION_ID is not currently supported."; \
-        exit 1; \
-    fi && \
-    curl -sSL -O https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb && \
-    dpkg -i packages-microsoft-prod.deb && \
-    rm packages-microsoft-prod.deb && \
-    apt-get update && \
-    ACCEPT_EULA=Y apt-get install -y msodbcsql18 && \
-    apt-get install -y libgssapi-krb5-2 && \
-    rm -rf /var/lib/apt/lists/*
 
 # Final stage
 FROM python:3.11-slim
@@ -123,16 +110,21 @@ RUN cat Release.key |  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring
     && apt-get update
 RUN apt-get install -y kubectl
 
-# Copy ODBC driver libraries from builder stage
-COPY --from=builder /opt/microsoft/msodbcsql18 /opt/microsoft/msodbcsql18
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libodbc.so.2* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libltdl.so.7* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libkrb5.so.3* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libk5crypto.so.3* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libcom_err.so.2* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libkrb5support.so.0* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libkeyutils.so.1* /usr/lib/x86_64-linux-gnu/
+
+# Microsoft ODBC for Azure SQL. Required for azure/sql toolset
+RUN VERSION_ID=$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2 | cut -d '.' -f 1) && \
+    if ! echo "11 12" | grep -q "$VERSION_ID"; then \
+        echo "Debian $VERSION_ID is not currently supported."; \
+        exit 1; \
+    fi && \
+    curl -sSL -O https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
+    apt-get update && \
+    ACCEPT_EULA=Y apt-get install -y msodbcsql18 && \
+    apt-get install -y libgssapi-krb5-2 && \
+    rm -rf /var/lib/apt/lists/*
+
 
 # Set up kube lineage
 COPY --from=builder /app/kube-lineage /usr/local/bin

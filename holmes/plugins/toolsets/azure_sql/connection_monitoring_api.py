@@ -7,23 +7,37 @@ from .azure_sql_api import AzureSQLAPIClient
 
 
 class ConnectionMonitoringAPI:
-    def __init__(self, credential: TokenCredential, subscription_id: str, sql_username: Optional[str] = None, sql_password: Optional[str] = None):
-        self.sql_api_client = AzureSQLAPIClient(credential, subscription_id, sql_username, sql_password)
+    def __init__(
+        self,
+        credential: TokenCredential,
+        subscription_id: str,
+        sql_username: Optional[str] = None,
+        sql_password: Optional[str] = None,
+    ):
+        self.sql_api_client = AzureSQLAPIClient(
+            credential, subscription_id, sql_username, sql_password
+        )
         self.metrics_client = MetricsQueryClient(credential)
         self.subscription_id = subscription_id
-    
+
     def _format_sql_error(self, error: Exception) -> str:
         """Format SQL errors with helpful permission guidance."""
         error_str = str(error)
-        
+
         # Detect common permission issues
-        if "Login failed for user" in error_str and "token-identified principal" in error_str:
+        if (
+            "Login failed for user" in error_str
+            and "token-identified principal" in error_str
+        ):
             return (
                 f"Azure AD authentication failed - the service principal lacks database permissions. "
                 f"Please ensure the service principal is added as a database user with VIEW SERVER STATE permission. "
                 f"Original error: {error_str}"
             )
-        elif "permission was denied" in error_str.lower() or "view server state" in error_str.lower():
+        elif (
+            "permission was denied" in error_str.lower()
+            or "view server state" in error_str.lower()
+        ):
             return (
                 f"Insufficient database permissions - the user needs VIEW SERVER STATE permission to access system views. "
                 f"Original error: {error_str}"
@@ -35,8 +49,14 @@ class ConnectionMonitoringAPI:
             )
         else:
             return error_str
-    
-    def get_connection_metrics(self, resource_group: str, server_name: str, database_name: str, hours_back: int = 2) -> Dict:
+
+    def get_connection_metrics(
+        self,
+        resource_group: str,
+        server_name: str,
+        database_name: str,
+        hours_back: int = 2,
+    ) -> Dict:
         """Get connection-related metrics from Azure Monitor."""
         resource_id = (
             f"subscriptions/{self.subscription_id}/"
@@ -44,25 +64,25 @@ class ConnectionMonitoringAPI:
             f"providers/Microsoft.Sql/servers/{server_name}/"
             f"databases/{database_name}"
         )
-        
+
         end_time = datetime.now()
         # Use longer timespan for better data availability
         start_time = end_time - timedelta(hours=max(hours_back, 24))
-        
+
         try:
             metrics_data = self.metrics_client.query_resource(
                 resource_uri=resource_id,
                 metric_names=[
                     "connection_successful",  # This exists
-                    "sessions_count",         # This exists  
-                    "cpu_percent",           # This exists
-                    "storage_percent"        # This exists
+                    "sessions_count",  # This exists
+                    "cpu_percent",  # This exists
+                    "storage_percent",  # This exists
                 ],
                 timespan=(start_time, end_time),
                 granularity=timedelta(hours=1),  # Larger granularity for better data
-                aggregations=["Maximum", "Average", "Total"]
+                aggregations=["Maximum", "Average", "Total"],
             )
-            
+
             result = {}
             for metric in metrics_data.metrics:
                 metric_data = []
@@ -71,23 +91,31 @@ class ConnectionMonitoringAPI:
                         # Handle None values and pick the best available aggregation
                         value_data = {
                             "timestamp": data_point.timestamp.isoformat(),
-                            "maximum": data_point.maximum if data_point.maximum is not None else 0,
-                            "average": data_point.average if data_point.average is not None else 0,
-                            "total": data_point.total if data_point.total is not None else 0
+                            "maximum": data_point.maximum
+                            if data_point.maximum is not None
+                            else 0,
+                            "average": data_point.average
+                            if data_point.average is not None
+                            else 0,
+                            "total": data_point.total
+                            if data_point.total is not None
+                            else 0,
                         }
                         metric_data.append(value_data)
                 result[metric.name] = metric_data
-            
+
             return result
-            
+
         except Exception as e:
             logging.error(f"Failed to get connection metrics: {str(e)}")
             return {"error": str(e)}
-    
-    def get_active_connections(self, server_name: str, database_name: str) -> List[Dict]:
+
+    def get_active_connections(
+        self, server_name: str, database_name: str
+    ) -> List[Dict]:
         """Get currently active connections using DMV."""
         query = """
-        SELECT 
+        SELECT
             s.session_id,
             s.login_name,
             s.host_name,
@@ -103,7 +131,7 @@ class ConnectionMonitoringAPI:
             s.reads,
             s.writes,
             s.logical_reads,
-            CASE 
+            CASE
                 WHEN r.session_id IS NOT NULL THEN 'Active'
                 ELSE 'Inactive'
             END as connection_status,
@@ -116,18 +144,18 @@ class ConnectionMonitoringAPI:
         WHERE s.is_user_process = 1
         ORDER BY s.login_time DESC;
         """
-        
+
         try:
             return self.sql_api_client._execute_query(server_name, database_name, query)
         except Exception as e:
             formatted_error = self._format_sql_error(e)
             logging.error(f"Failed to get active connections: {formatted_error}")
             return []
-    
+
     def get_connection_summary(self, server_name: str, database_name: str) -> Dict:
         """Get connection summary statistics."""
         query = """
-        SELECT 
+        SELECT
             COUNT(*) as total_connections,
             COUNT(CASE WHEN r.session_id IS NOT NULL THEN 1 END) as active_connections,
             COUNT(CASE WHEN r.session_id IS NULL THEN 1 END) as idle_connections,
@@ -140,21 +168,25 @@ class ConnectionMonitoringAPI:
         LEFT JOIN sys.dm_exec_requests r ON s.session_id = r.session_id
         WHERE s.is_user_process = 1;
         """
-        
+
         try:
-            result = self.sql_api_client._execute_query(server_name, database_name, query)
+            result = self.sql_api_client._execute_query(
+                server_name, database_name, query
+            )
             return result[0] if result else {}
         except Exception as e:
             formatted_error = self._format_sql_error(e)
             logging.error(f"Failed to get connection summary: {formatted_error}")
             return {"error": formatted_error}
-    
-    def get_failed_connections(self, server_name: str, database_name: str, hours_back: int = 24) -> List[Dict]:
+
+    def get_failed_connections(
+        self, server_name: str, database_name: str, hours_back: int = 24
+    ) -> List[Dict]:
         """Get failed connection attempts from extended events or system health."""
         # Note: This query looks for connectivity ring buffer events
         query = f"""
         WITH ConnectivityEvents AS (
-            SELECT 
+            SELECT
                 CAST(event_data AS XML) as event_xml,
                 timestamp_utc
             FROM sys.fn_xe_file_target_read_file('system_health*.xel', null, null, null)
@@ -174,42 +206,49 @@ class ConnectionMonitoringAPI:
         WHERE event_xml.value('(/Record/ConnectivityTraceRecord/RecordType)[1]', 'varchar(50)') LIKE '%Error%'
         ORDER BY timestamp_utc DESC;
         """
-        
+
         try:
             return self.sql_api_client._execute_query(server_name, database_name, query)
         except Exception as e:
-            logging.warning(f"Failed to get failed connections (extended events may not be available): {str(e)}")
+            logging.warning(
+                f"Failed to get failed connections (extended events may not be available): {str(e)}"
+            )
             # Fallback to a simpler approach using error log if available
             return []
-    
+
     def get_connection_pool_stats(self, server_name: str, database_name: str) -> Dict:
         """Get connection pool related statistics."""
         query = """
-        SELECT 
+        SELECT
             'Database Connections' as metric_name,
             COUNT(*) as current_value,
             'connections' as unit
         FROM sys.dm_exec_sessions
         WHERE is_user_process = 1
         UNION ALL
-        SELECT 
+        SELECT
             'Active Requests' as metric_name,
             COUNT(*) as current_value,
             'requests' as unit
         FROM sys.dm_exec_requests
         WHERE session_id > 50
         UNION ALL
-        SELECT 
+        SELECT
             'Waiting Tasks' as metric_name,
             COUNT(*) as current_value,
             'tasks' as unit
         FROM sys.dm_os_waiting_tasks
         WHERE session_id > 50;
         """
-        
+
         try:
-            results = self.sql_api_client._execute_query(server_name, database_name, query)
-            return {row['metric_name']: {"value": row['current_value'], "unit": row['unit']} for row in results}
+            results = self.sql_api_client._execute_query(
+                server_name, database_name, query
+            )
+            return {
+                row["metric_name"]: {"value": row["current_value"], "unit": row["unit"]}
+                for row in results
+            }
         except Exception as e:
             formatted_error = self._format_sql_error(e)
             logging.error(f"Failed to get connection pool stats: {formatted_error}")
