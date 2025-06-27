@@ -19,6 +19,8 @@ holmes:
           database_name: "<azure sql database name>"
 ```
 
+With AD workload identity,
+
 ### Service Principal
 
 ```yaml

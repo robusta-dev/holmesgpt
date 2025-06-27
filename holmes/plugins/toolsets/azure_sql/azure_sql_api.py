@@ -108,12 +108,12 @@ class AzureSQLAPIClient:
             if cursor:
                 try:
                     cursor.close()
-                except:
+                except Exception:
                     pass
             if conn:
                 try:
                     conn.close()
-                except:
+                except Exception:
                     pass
 
     def _execute_query_with_sql_auth(
@@ -166,12 +166,12 @@ class AzureSQLAPIClient:
             if cursor:
                 try:
                     cursor.close()
-                except:
+                except Exception:
                     pass
             if conn:
                 try:
                     conn.close()
-                except:
+                except Exception:
                     pass
 
     def get_database_advisors(

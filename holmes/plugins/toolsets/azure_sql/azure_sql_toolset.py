@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict
@@ -243,10 +243,14 @@ class AnalyzeDatabasePerformance(BaseAzureSQLTool):
             performance_data["auto_tuning_error"] = str(e)
 
         # Get recommendations for each advisor
-        performance_data["recommendations"] = []
+        recommendations_list: List[Dict[str, Any]] = []
+        performance_data["recommendations"] = cast(Any, recommendations_list)
         if "advisors" in performance_data:
             for advisor in performance_data["advisors"]:
-                advisor_name = advisor.get("name", "")
+                if isinstance(advisor, dict):
+                    advisor_name = advisor.get("name", "")
+                else:
+                    advisor_name = str(advisor)
                 try:
                     recommendations = client.get_database_recommended_actions(
                         db_config.subscription_id,
@@ -255,9 +259,7 @@ class AnalyzeDatabasePerformance(BaseAzureSQLTool):
                         db_config.database_name,
                         advisor_name,
                     )
-                    performance_data["recommendations"].extend(
-                        recommendations.get("value", [])
-                    )
+                    recommendations_list.extend(recommendations.get("value", []))
                 except Exception as e:
                     logging.warning(
                         f"Failed to get recommendations for advisor {advisor_name}: {e}"
@@ -339,11 +341,11 @@ class AnalyzeDatabasePerformance(BaseAzureSQLTool):
 
         # Recommendations Section
         report_sections.append("## Performance Recommendations")
-        recommendations = performance_data.get("recommendations", [])
-        if recommendations:
+        all_recommendations = performance_data.get("recommendations", [])
+        if all_recommendations:
             active_recommendations = [
                 r
-                for r in recommendations
+                for r in all_recommendations
                 if r.get("properties", {}).get("state", {}).get("currentValue")
                 in ["Active", "Pending"]
             ]
@@ -1102,7 +1104,7 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
             )
 
             # Gather connection data
-            connection_data = {}
+            connection_data: Dict[str, Any] = {}
 
             # Get connection summary
             connection_data["summary"] = connection_api.get_connection_summary(
@@ -1201,10 +1203,10 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
                 f"⚠️ **Error retrieving storage summary:** {summary['error']}"
             )
         else:
-            total_size = summary.get("total_database_size_mb", 0)
-            used_size = summary.get("total_used_size_mb", 0)
-            data_size = summary.get("total_data_size_mb", 0)
-            log_size = summary.get("total_log_size_mb", 0)
+            total_size = summary.get("total_database_size_mb", 0) or 0
+            used_size = summary.get("total_used_size_mb", 0) or 0
+            data_size = summary.get("total_data_size_mb", 0) or 0
+            log_size = summary.get("total_log_size_mb", 0) or 0
 
             if total_size:
                 used_percent = (used_size / total_size) * 100
@@ -1240,21 +1242,32 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
             for file_info in file_details:
                 file_type = file_info.get("file_type", "Unknown")
                 logical_name = file_info.get("logical_name", "Unknown")
-                size_mb = file_info.get("size_mb", 0)
-                used_mb = file_info.get("used_mb", 0)
-                used_percent = file_info.get("used_percent", 0)
+                size_mb = file_info.get("size_mb", 0) or 0
+                used_mb = file_info.get("used_mb")
+                used_percent = file_info.get("used_percent")
                 max_size = file_info.get("max_size", "Unknown")
                 growth = file_info.get("growth_setting", "Unknown")
 
-                status_icon = (
-                    "🔴" if used_percent > 90 else "🟡" if used_percent > 75 else "🟢"
-                )
+                # Only calculate status icon if we have used_percent data
+                if used_percent is not None:
+                    status_icon = (
+                        "🔴"
+                        if used_percent > 90
+                        else "🟡"
+                        if used_percent > 75
+                        else "🟢"
+                    )
+                else:
+                    status_icon = ""
 
                 report_sections.append(f"### {file_type} File: {logical_name}")
                 report_sections.append(f"- **Size**: {size_mb:,.1f} MB")
-                report_sections.append(
-                    f"- **Used**: {used_mb:,.1f} MB ({used_percent:.1f}%) {status_icon}"
-                )
+                if used_mb is not None and used_percent is not None:
+                    report_sections.append(
+                        f"- **Used**: {used_mb:,.1f} MB ({used_percent:.1f}%) {status_icon}"
+                    )
+                else:
+                    report_sections.append("- **Used**: N/A (FILESTREAM file)")
                 report_sections.append(f"- **Max Size**: {max_size}")
                 report_sections.append(f"- **Growth**: {growth}")
                 report_sections.append("")
@@ -1270,10 +1283,10 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
             )
         elif growth_data.get("growth_analysis"):
             analysis = growth_data["growth_analysis"]
-            total_growth = analysis.get("total_growth_mb", 0)
-            growth_percent = analysis.get("growth_percent", 0)
-            days_analyzed = analysis.get("days_analyzed", 0)
-            daily_growth = analysis.get("avg_daily_growth_mb", 0)
+            total_growth = analysis.get("total_growth_mb", 0) or 0
+            growth_percent = analysis.get("growth_percent", 0) or 0
+            days_analyzed = analysis.get("days_analyzed", 0) or 0
+            daily_growth = analysis.get("avg_daily_growth_mb", 0) or 0
 
             growth_icon = (
                 "🔴" if daily_growth > 100 else "🟡" if daily_growth > 50 else "🟢"
@@ -1362,7 +1375,7 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
             report_sections.append("## TempDB Usage")
             for metric_type, data in tempdb_data.items():
                 if isinstance(data, dict):
-                    used_percent = data.get("used_percent", 0)
+                    used_percent = data.get("used_percent", 0) or 0
                     status_icon = (
                         "🔴"
                         if used_percent > 90
@@ -1371,7 +1384,7 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
                         else "🟢"
                     )
                     report_sections.append(
-                        f"- **{metric_type}**: {data.get('used_size_mb', 0):,.1f} MB / {data.get('total_size_mb', 0):,.1f} MB ({used_percent:.1f}%) {status_icon}"
+                        f"- **{metric_type}**: {data.get('used_size_mb', 0) or 0:,.1f} MB / {data.get('total_size_mb', 0) or 0:,.1f} MB ({used_percent:.1f}%) {status_icon}"
                     )
 
         return "\n".join(report_sections)
@@ -1393,7 +1406,7 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
             )
 
             # Gather storage data
-            storage_data = {}
+            storage_data: Dict[str, Any] = {}
 
             # Get storage summary
             storage_data["summary"] = storage_api.get_storage_summary(
@@ -1458,6 +1471,14 @@ class AzureSQLToolset(Toolset):
     _database_config: Optional[AzureSQLDatabaseConfig] = None
 
     def __init__(self):
+        # Reduce Azure SDK HTTP logging verbosity
+        logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
+            logging.WARNING
+        )
+        logging.getLogger("azure.identity").setLevel(logging.WARNING)
+        logging.getLogger("azure.mgmt").setLevel(logging.WARNING)
+        logging.getLogger("azure.monitor").setLevel(logging.WARNING)
+
         super().__init__(
             name="azure/sql",
             description="Analyzes Azure SQL Database performance, health, and operational issues using Azure REST APIs and Query Store data",
@@ -1504,6 +1525,7 @@ class AzureSQLToolset(Toolset):
 
             # Set up Azure credentials
             try:
+                credential: Union[ClientSecretCredential, DefaultAzureCredential]
                 if (
                     azure_sql_config.tenant_id
                     and azure_sql_config.client_id

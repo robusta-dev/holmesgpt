@@ -104,7 +104,9 @@ class StorageAnalysisAPI:
             logging.error(f"Failed to get storage metrics: {str(e)}")
             return {"error": str(e)}
 
-    def get_database_size_details(self, server_name: str, database_name: str) -> Dict:
+    def get_database_size_details(
+        self, server_name: str, database_name: str
+    ) -> List[Dict]:
         """Get detailed database size information using DMV."""
         query = """
         SELECT
@@ -139,7 +141,7 @@ class StorageAnalysisAPI:
             return self.sql_api_client._execute_query(server_name, database_name, query)
         except Exception as e:
             logging.error(f"Failed to get database size details: {str(e)}")
-            return {"error": str(e)}
+            return [{"error": str(e)}]
 
     def get_storage_summary(self, server_name: str, database_name: str) -> Dict:
         """Get storage summary statistics."""
