@@ -172,7 +172,7 @@ class Tool(ABC, BaseModel):
         emoji = result.status.to_emoji()
 
         logging.info(
-            f"  {emoji} completed in {elapsed:.2f}s, output length {len(output_str):,} chars"
+            f"  [dim]{emoji} completed in {elapsed:.2f}s, output length {len(output_str):,} chars[/dim]"
         )
         logging.info(f"{preview}\n")
         # return format_tool_output(result)
