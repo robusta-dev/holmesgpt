@@ -23,18 +23,20 @@ def check_llm_api_with_test_call():
         )
 
         if azure_base:
-            api_type = "AzureAI"
-            relevant_env_vars = "Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION or unset AZURE_API_BASE to use OpenAI"
-        else:
-            api_type = "OpenAI"
-            relevant_env_vars = "Check OPENAI_API_KEY or use AzureAI by setting AZURE_API_BASE, AZURE_API_KEY, and AZURE_API_VERSION"
+            error_msg = f"Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set - and failed. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI. Exception: {type(e).__name__}: {str(e)}"
 
-        error_msg = f"Tried to use {api_type} (model: {classifier_model})\n  Exception: {type(e).__name__}: {str(e)[:200]}...\n  How to fix: {relevant_env_vars}"
+        else:
+            error_msg = f"Tried to use OpenAI (model: {classifier_model}) Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI. Exception: {type(e).__name__}: {str(e)}"
+
         return False, error_msg
 
 
 def pytest_collection_modifyitems(config, items):
     """Show warning when LLM evaluation tests are collected"""
+    # Don't show messages during collection-only mode
+    if config.getoption("--collect-only"):
+        return
+
     # Check if LLM marker is being excluded
     markexpr = config.getoption("-m", default="")
     if "not llm" in markexpr:
@@ -50,13 +52,34 @@ def pytest_collection_modifyitems(config, items):
             print("\n" + "=" * 70)
             print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
             print("These tests use AI models and may take 10-30+ minutes.")
-            print("Skip with: poetry run pytest -m 'not llm'")
+            print()
+            print("To see all available tests:")
+            print(
+                "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+            )
+            print()
+            print("To run just one test for faster execution:")
+            print(
+                "  poetry run pytest --no-cov 'tests/llm/test_ask_holmes.py::test_ask_holmes[01_how_many_pods]'"
+            )
+            print()
+            print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
             print("=" * 70 + "\n")
         else:
             print("\n" + "=" * 70)
             print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
             print()
             print(f"  Reason: {error_msg}")
+            print()
+            print("To see all available tests:")
+            print(
+                "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+            )
+            print()
+            print("To run a specific test:")
+            print(
+                "  poetry run pytest --no-cov 'tests/llm/test_ask_holmes.py::test_ask_holmes[01_how_many_pods]'"
+            )
             print("=" * 70 + "\n")
 
 
