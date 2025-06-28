@@ -68,7 +68,7 @@ def llm_api_check():
     if not api_available:
         pytest.skip(error_msg)
 
-    return True
+    # Fixture succeeds silently when API is available
 
 
 def markdown_table(headers, rows):
