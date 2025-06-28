@@ -7,16 +7,14 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
 
 
-@pytest.fixture(scope="session")
-def llm_api_check():
-    """Test LLM API connectivity once per session"""
+def check_llm_api_with_test_call():
+    """Check if LLM API is available by creating client and making test call"""
     try:
         client, model = create_llm_client()
-        # Test minimal API call
         client.chat.completions.create(
             model=model, messages=[{"role": "user", "content": "test"}], max_tokens=1
         )
-        return True
+        return True, None
     except Exception as e:
         # Gather environment info for better error message
         azure_base = os.environ.get("AZURE_API_BASE")
@@ -26,14 +24,51 @@ def llm_api_check():
 
         if azure_base:
             api_type = "AzureAI"
-            relevant_env_vars = "AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION or unset AZURE_API_BASE to use OpenAI"
+            relevant_env_vars = "Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION or unset AZURE_API_BASE to use OpenAI"
         else:
             api_type = "OpenAI"
-            relevant_env_vars = "OPENAI_API_KEY or use AzureAI by setting AZURE_API_BASE, AZURE_API_KEY, and AZURE_API_VERSION"
+            relevant_env_vars = "Check OPENAI_API_KEY or use AzureAI by setting AZURE_API_BASE, AZURE_API_KEY, and AZURE_API_VERSION"
 
-        pytest.skip(
-            f"Cannot run evals - Tried to use {api_type} (model: {classifier_model}) and failed: {type(e).__name__}: {str(e)[:200]}... | Check {relevant_env_vars}"
-        )
+        error_msg = f"Tried to use {api_type} (model: {classifier_model})\n  Exception: {type(e).__name__}: {str(e)[:200]}...\n  How to fix: {relevant_env_vars}"
+        return False, error_msg
+
+
+def pytest_collection_modifyitems(config, items):
+    """Show warning when LLM evaluation tests are collected"""
+    # Check if LLM marker is being excluded
+    markexpr = config.getoption("-m", default="")
+    if "not llm" in markexpr:
+        return  # Don't show warning if explicitly excluding LLM tests
+
+    llm_tests = [item for item in items if item.get_closest_marker("llm")]
+
+    if llm_tests:
+        # Do EXACT same check as session fixture - create client and make API test call
+        api_available, error_msg = check_llm_api_with_test_call()
+
+        if api_available:
+            print("\n" + "=" * 70)
+            print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
+            print("These tests use AI models and may take 10-30+ minutes.")
+            print("Skip with: poetry run pytest -m 'not llm'")
+            print("=" * 70 + "\n")
+        else:
+            print("\n" + "=" * 70)
+            print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
+            print()
+            print(f"  Reason: {error_msg}")
+            print("=" * 70 + "\n")
+
+
+@pytest.fixture(scope="session")
+def llm_api_check():
+    """Test LLM API connectivity once per session"""
+    api_available, error_msg = check_llm_api_with_test_call()
+
+    if not api_available:
+        pytest.skip(error_msg)
+
+    return True
 
 
 def markdown_table(headers, rows):
