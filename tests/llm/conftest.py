@@ -4,6 +4,36 @@ import pytest
 from tests.llm.utils.braintrust import get_experiment_results
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
+from tests.llm.utils.classifiers import create_llm_client
+
+
+@pytest.fixture(scope="session")
+def llm_api_check():
+    """Test LLM API connectivity once per session"""
+    try:
+        client, model = create_llm_client()
+        # Test minimal API call
+        client.chat.completions.create(
+            model=model, messages=[{"role": "user", "content": "test"}], max_tokens=1
+        )
+        return True
+    except Exception as e:
+        # Gather environment info for better error message
+        azure_base = os.environ.get("AZURE_API_BASE")
+        classifier_model = os.environ.get(
+            "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o")
+        )
+
+        if azure_base:
+            api_type = "AzureAI"
+            relevant_env_vars = "AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION or unset AZURE_API_BASE to use OpenAI"
+        else:
+            api_type = "OpenAI"
+            relevant_env_vars = "OPENAI_API_KEY or use AzureAI by setting AZURE_API_BASE, AZURE_API_KEY, and AZURE_API_VERSION"
+
+        pytest.skip(
+            f"Cannot run evals - Tried to use {api_type} (model: {classifier_model}) and failed: {type(e).__name__}: {str(e)[:200]}... | Check {relevant_env_vars}"
+        )
 
 
 def markdown_table(headers, rows):
