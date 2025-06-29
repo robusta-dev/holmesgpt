@@ -2,6 +2,7 @@
 import os
 from typing import Optional
 import pytest
+import textwrap
 from pathlib import Path
 from unittest.mock import patch
 from datetime import datetime
@@ -14,7 +15,6 @@ from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
-from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust.span_types import SpanTypeAttribute
@@ -62,9 +62,7 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_ask_holmes(
-    llm_api_check, experiment_name: str, test_case: AskHolmesTestCase, caplog
-):
+def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -73,8 +71,6 @@ def test_ask_holmes(
     eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
     result: Optional[LLMResult] = None
     try:
-        before_test(test_case)
-
         # Mock datetime if mocked_date is provided
         if test_case.mocked_date:
             mocked_datetime = datetime.fromisoformat(
@@ -120,11 +116,7 @@ def test_ask_holmes(
             scores={},
             prompt=None,
         )
-        after_test(test_case)
         raise
-
-    finally:
-        after_test(test_case)
 
     input = test_case.user_prompt
     output = result.result
@@ -171,7 +163,12 @@ def test_ask_holmes(
     )
 
     if result.tool_calls:
-        tools_called = [tc.description for tc in result.tool_calls]
+        tools_called = "\n\n".join(
+            [
+                f"<tool description='{tc.description}'>\n{textwrap.indent(tc.result.data, '  ')}\n</tool>"
+                for tc in result.tool_calls
+            ]
+        )
     else:
         tools_called = "None"
     print(f"\n** TOOLS CALLED **\n{tools_called}")

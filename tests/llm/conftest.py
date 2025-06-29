@@ -23,52 +23,118 @@ def check_llm_api_with_test_call():
         )
 
         if azure_base:
-            api_type = "AzureAI"
-            relevant_env_vars = "Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION or unset AZURE_API_BASE to use OpenAI"
-        else:
-            api_type = "OpenAI"
-            relevant_env_vars = "Check OPENAI_API_KEY or use AzureAI by setting AZURE_API_BASE, AZURE_API_KEY, and AZURE_API_VERSION"
+            error_msg = f"Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set - and failed. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI. Exception: {type(e).__name__}: {str(e)}"
 
-        error_msg = f"Tried to use {api_type} (model: {classifier_model})\n  Exception: {type(e).__name__}: {str(e)[:200]}...\n  How to fix: {relevant_env_vars}"
+        else:
+            error_msg = f"Tried to use OpenAI (model: {classifier_model}) Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI. Exception: {type(e).__name__}: {str(e)}"
+
         return False, error_msg
 
 
-def pytest_collection_modifyitems(config, items):
-    """Show warning when LLM evaluation tests are collected"""
+@pytest.fixture(scope="session", autouse=True)
+def llm_session_setup(request):
+    """Handle LLM test session setup: show warning, check API, and skip if needed"""
+    # Don't show messages during collection-only mode
+    if request.config.getoption("--collect-only"):
+        yield
+        return
+
     # Check if LLM marker is being excluded
-    markexpr = config.getoption("-m", default="")
+    markexpr = request.config.getoption("-m", default="")
     if "not llm" in markexpr:
+        yield
         return  # Don't show warning if explicitly excluding LLM tests
 
-    llm_tests = [item for item in items if item.get_closest_marker("llm")]
+    # session.items contains the final filtered list of tests that will actually run
+    session = request.session
+    llm_tests = [item for item in session.items if item.get_closest_marker("llm")]
 
     if llm_tests:
-        # Do EXACT same check as session fixture - create client and make API test call
+        # Check API connectivity and show appropriate message
         api_available, error_msg = check_llm_api_with_test_call()
 
         if api_available:
             print("\n" + "=" * 70)
             print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
-            print("These tests use AI models and may take 10-30+ minutes.")
-            print("Skip with: poetry run pytest -m 'not llm'")
+            print(
+                "These tests use AI models and may take 10-30+ minutes when all evals run."
+            )
+            print()
+            print("To see all available evals:")
+            print(
+                "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+            )
+            print()
+            print("To run just one eval for faster execution:")
+            print("  poetry run pytest --no-cov -k 01_how_many_pods")
+            print()
+            print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
             print("=" * 70 + "\n")
         else:
             print("\n" + "=" * 70)
             print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
             print()
             print(f"  Reason: {error_msg}")
+            print()
+            print("To see all available evals:")
+            print(
+                "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+            )
+            print()
+            print("To run a specific eval:")
+            print("  poetry run pytest --no-cov -k 01_how_many_pods")
             print("=" * 70 + "\n")
 
+            # Skip all LLM tests if API is not available
+            pytest.skip(error_msg)
 
-@pytest.fixture(scope="session")
-def llm_api_check():
-    """Test LLM API connectivity once per session"""
-    api_available, error_msg = check_llm_api_with_test_call()
+    yield  # Tests run here
 
-    if not api_available:
-        pytest.skip(error_msg)
 
-    # Fixture succeeds silently when API is available
+@pytest.fixture(scope="session", autouse=True)
+def setup_all_test_infrastructure(request):
+    """Run before_test setups once for collected test cases, then after_test teardowns once"""
+
+    # Check if RUN_LIVE is set, otherwise skip session setup
+    if not os.environ.get("RUN_LIVE"):
+        yield
+        return
+
+    # Extract test cases from the filtered test items directly from session
+    test_cases_needing_setup = []
+    session = request.session
+    llm_tests = [item for item in session.items if item.get_closest_marker("llm")]
+
+    if llm_tests:
+        from tests.llm.utils.mock_utils import HolmesTestCase
+
+        seen_test_case_ids = set()
+        for item in llm_tests:
+            # Get the test_case parameter from parametrized tests
+            if hasattr(item, "callspec") and "test_case" in item.callspec.params:
+                test_case = item.callspec.params["test_case"]
+                if isinstance(test_case, HolmesTestCase) and test_case.before_test:
+                    if test_case.id not in seen_test_case_ids:
+                        test_cases_needing_setup.append(test_case)
+                        seen_test_case_ids.add(test_case.id)
+
+    # If no test cases need setup, skip
+    if not test_cases_needing_setup:
+        yield
+        return
+
+    # Import here to avoid circular imports
+    from tests.llm.utils.commands import before_test, after_test
+
+    # Run before_test for each unique test case
+    for test_case in test_cases_needing_setup:
+        before_test(test_case)
+
+    yield  # Tests run here
+
+    # Run after_test for each unique test case in reverse order
+    for test_case in reversed(test_cases_needing_setup):
+        after_test(test_case)
 
 
 def markdown_table(headers, rows):
