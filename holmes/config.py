@@ -151,6 +151,8 @@ class Config(RobustaBaseConfig):
             self._model_list["Robusta"] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
+
+    def log_useful_info(self):
         if self._model_list:
             logging.info(f"loaded models: {list(self._model_list.keys())}")
 
@@ -179,12 +181,15 @@ class Config(RobustaBaseConfig):
         cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
 
         if config_from_file is None:
-            return cls(**cli_options)
+            result = cls(**cli_options)
+        else:
+            logging.debug(f"Overriding config from cli options {cli_options}")
+            merged_config = config_from_file.dict()
+            merged_config.update(cli_options)
+            result = cls(**merged_config)
 
-        logging.debug(f"Overriding config from cli options {cli_options}")
-        merged_config = config_from_file.dict()
-        merged_config.update(cli_options)
-        return cls(**merged_config)
+        result.log_useful_info()
+        return result
 
     @classmethod
     def load_from_env(cls):
@@ -214,7 +219,9 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
         kwargs["cluster_name"] = Config.__get_cluster_name()
-        return cls(**kwargs)
+        result = cls(**kwargs)
+        result.log_useful_info()
+        return result
 
     @staticmethod
     def __get_cluster_name() -> Optional[str]:
