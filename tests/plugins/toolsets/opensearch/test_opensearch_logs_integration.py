@@ -35,19 +35,15 @@ TEST_END_TIME = "2025-05-05T13:21:00Z"
 # Check if any required environment variables are missing
 missing_vars = [var for var in REQUIRED_ENV_VARS if os.environ.get(var) is None]
 
-pytestmark = pytest.mark.skipif(
-    len(missing_vars) > 0,
-    reason=f"Missing required environment variables: {', '.join(missing_vars)}",
-)
+# Use pytest.mark.skip (not skipif) to show a single grouped skip line for the entire module
+# Will show: "SKIPPED [4] module.py: reason" instead of 4 separate skip lines
+if missing_vars:
+    pytestmark = pytest.mark.skip(reason=f"{', '.join(missing_vars)} must be set")
 
 
 @pytest.fixture
 def opensearch_config() -> OpenSearchLoggingConfig:
-    # All required env vars should be present due to the pytestmark skipif
-    # This is defensive programming in case the test is run directly
-    for var in REQUIRED_ENV_VARS:
-        if os.environ.get(var) is None:
-            pytest.skip(f"Missing required environment variable: {var}")
+    """Create config - env vars guaranteed to be present due to module-level skip check"""
 
     return OpenSearchLoggingConfig(
         opensearch_url=os.environ["TEST_OPENSEARCH_URL"],
