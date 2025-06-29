@@ -1,0 +1,8 @@
+When a user requests checking issues on Atlas mongodb project use these steps.
+
+* Use atlas_return_project_alerts and atlas_return_events_from_project first to find any known potential issues on the project.
+* For performance issues or collscan queries use atlas_return_project_slow_queries to see a list of slow queries. YOU MUST check this for all processes of the project. ALWAYS show the query in the result for every slow query.
+* atlas_return_project_slow_queries currently returns data from the last 24 hours. If the user asks for a different time range, mention its not supported.
+* atlas_return_events_from_project currently returns data from the last 24 hours, if the user asks for a different time range, mention its not supported.
+* CHECK logs for mongodb using atlas_return_logs_for_host_in_project if the user mentions checking the logs.
+* When asked for a specific number of slow queries. for example top 10 slow queries. DO NOT duplicate queries from different processes.

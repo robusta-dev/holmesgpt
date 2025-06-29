@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.markdown import Markdown
@@ -60,7 +61,10 @@ def run_interactive_loop(
     )
 
     command_completer = SlashCommandCompleter([c.value for c in SlashCommands])
-    session = PromptSession(completer=command_completer)  # type: ignore
+    history = InMemoryHistory()
+    if initial_user_input:
+        history.append_string(initial_user_input)
+    session = PromptSession(completer=command_completer, history=history)  # type: ignore
     input_prompt = [("class:prompt", "User> ")]
 
     console.print(WELCOME_BANNER)

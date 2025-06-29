@@ -294,10 +294,10 @@ def ask(
     echo_request: bool = opt_echo_request,
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
     interactive: bool = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help="Enter interactive mode after the initial question to ask follow-up questions.",
+        True,
+        "--interactive/--no-interactive",
+        "-i/-n",
+        help="Enter interactive mode after the initial question? For scripting, disable this with --no-interactive",
     ),
 ):
     """
