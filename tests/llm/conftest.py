@@ -53,15 +53,13 @@ def pytest_collection_modifyitems(config, items):
             print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
             print("These tests use AI models and may take 10-30+ minutes.")
             print()
-            print("To see all available tests:")
+            print("To see all available evals:")
             print(
                 "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
             )
             print()
-            print("To run just one test for faster execution:")
-            print(
-                "  poetry run pytest --no-cov 'tests/llm/test_ask_holmes.py::test_ask_holmes[01_how_many_pods]'"
-            )
+            print("To run just one eval for faster execution:")
+            print("  poetry run pytest --no-cov -k 01_how_many_pods")
             print()
             print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
             print("=" * 70 + "\n")
@@ -71,15 +69,13 @@ def pytest_collection_modifyitems(config, items):
             print()
             print(f"  Reason: {error_msg}")
             print()
-            print("To see all available tests:")
+            print("To see all available evals:")
             print(
                 "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
             )
             print()
-            print("To run a specific test:")
-            print(
-                "  poetry run pytest --no-cov 'tests/llm/test_ask_holmes.py::test_ask_holmes[01_how_many_pods]'"
-            )
+            print("To run a specific eval:")
+            print("  poetry run pytest --no-cov -k 01_how_many_pods")
             print("=" * 70 + "\n")
 
 
