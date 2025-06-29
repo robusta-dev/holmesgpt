@@ -62,9 +62,7 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_ask_holmes(
-    llm_api_check, experiment_name: str, test_case: AskHolmesTestCase, caplog
-):
+def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name

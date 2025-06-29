@@ -31,21 +31,26 @@ def check_llm_api_with_test_call():
         return False, error_msg
 
 
-def pytest_collection_modifyitems(config, items):
-    """Show warning when LLM evaluation tests are collected"""
+@pytest.fixture(scope="session", autouse=True)
+def llm_session_setup(request):
+    """Handle LLM test session setup: show warning, check API, and skip if needed"""
     # Don't show messages during collection-only mode
-    if config.getoption("--collect-only"):
+    if request.config.getoption("--collect-only"):
+        yield
         return
 
     # Check if LLM marker is being excluded
-    markexpr = config.getoption("-m", default="")
+    markexpr = request.config.getoption("-m", default="")
     if "not llm" in markexpr:
+        yield
         return  # Don't show warning if explicitly excluding LLM tests
 
-    llm_tests = [item for item in items if item.get_closest_marker("llm")]
+    # session.items contains the final filtered list of tests that will actually run
+    session = request.session
+    llm_tests = [item for item in session.items if item.get_closest_marker("llm")]
 
     if llm_tests:
-        # Do EXACT same check as session fixture - create client and make API test call
+        # Check API connectivity and show appropriate message
         api_available, error_msg = check_llm_api_with_test_call()
 
         if api_available:
@@ -78,16 +83,10 @@ def pytest_collection_modifyitems(config, items):
             print("  poetry run pytest --no-cov -k 01_how_many_pods")
             print("=" * 70 + "\n")
 
+            # Skip all LLM tests if API is not available
+            pytest.skip(error_msg)
 
-@pytest.fixture(scope="session")
-def llm_api_check():
-    """Test LLM API connectivity once per session"""
-    api_available, error_msg = check_llm_api_with_test_call()
-
-    if not api_available:
-        pytest.skip(error_msg)
-
-    # Fixture succeeds silently when API is available
+    yield  # Tests run here
 
 
 def markdown_table(headers, rows):
