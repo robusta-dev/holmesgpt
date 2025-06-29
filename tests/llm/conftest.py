@@ -56,7 +56,9 @@ def llm_session_setup(request):
         if api_available:
             print("\n" + "=" * 70)
             print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
-            print("These tests use AI models and may take 10-30+ minutes.")
+            print(
+                "These tests use AI models and may take 10-30+ minutes when all evals run."
+            )
             print()
             print("To see all available evals:")
             print(
