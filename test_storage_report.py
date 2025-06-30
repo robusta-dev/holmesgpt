@@ -66,7 +66,7 @@ def main():
         db_config = toolset.database_config()
         api_client = toolset.api_client()
 
-        from holmes.plugins.toolsets.azure_sql.storage_analysis_api import (
+        from holmes.plugins.toolsets.azure_sql.apis.storage_analysis_api import (
             StorageAnalysisAPI,
         )
 

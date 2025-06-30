@@ -72,7 +72,6 @@ class StorageAnalysisAPI:
                     "storage_percent",
                     "storage",
                     "allocated_data_storage",
-                    "storage_used",
                     "log_write_percent",
                     "tempdb_data_size",
                     "tempdb_log_size",
