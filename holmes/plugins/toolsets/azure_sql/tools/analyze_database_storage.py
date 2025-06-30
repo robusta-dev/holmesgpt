@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from datetime import datetime, timezone
 
 from holmes.core.tools import StructuredToolResult, ToolParameter, ToolResultStatus
@@ -8,7 +8,10 @@ from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLToolset,
     AzureSQLDatabaseConfig,
 )
-from holmes.plugins.toolsets.azure_sql.apis.storage_analysis_api import StorageAnalysisAPI
+from holmes.plugins.toolsets.azure_sql.apis.storage_analysis_api import (
+    StorageAnalysisAPI,
+)
+from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
 
 
 class AnalyzeDatabaseStorage(BaseAzureSQLTool):
@@ -319,3 +322,56 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
         return f"Analyzed database storage for database {db_config.server_name}/{db_config.database_name}"
+
+    @staticmethod
+    def validate_config(
+        api_client: AzureSQLAPIClient, database_config: AzureSQLDatabaseConfig
+    ) -> Tuple[bool, str]:
+        errors = []
+
+        # Create storage analysis API client for validation
+        storage_api = StorageAnalysisAPI(
+            credential=api_client.credential,
+            subscription_id=database_config.subscription_id,
+            sql_username=api_client.sql_username,
+            sql_password=api_client.sql_password,
+        )
+
+        # Test SQL database connection (storage queries)
+        try:
+            storage_api.get_storage_summary(
+                database_config.server_name, database_config.database_name
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if "authentication" in error_msg.lower() or "login" in error_msg.lower():
+                errors.append(f"SQL database authentication failed: {error_msg}")
+            elif (
+                "permission" in error_msg.lower()
+                or "authorization" in error_msg.lower()
+            ):
+                errors.append(f"SQL database permissions insufficient: {error_msg}")
+            else:
+                errors.append(f"SQL database connection failed: {error_msg}")
+
+        # Test Azure Monitor API access (storage metrics)
+        try:
+            storage_api.get_storage_metrics(
+                database_config.resource_group,
+                database_config.server_name,
+                database_config.database_name,
+                1,  # Test with 1 hour
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if (
+                "authorization" in error_msg.lower()
+                or "permission" in error_msg.lower()
+            ):
+                errors.append(f"Azure Monitor API access denied: {error_msg}")
+            else:
+                errors.append(f"Azure Monitor API connection failed: {error_msg}")
+
+        if errors:
+            return False, "\n".join(errors)
+        return True, ""

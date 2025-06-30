@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from datetime import datetime, timezone
 
 from holmes.core.tools import StructuredToolResult, ToolParameter, ToolResultStatus
@@ -8,7 +8,10 @@ from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLToolset,
     AzureSQLDatabaseConfig,
 )
-from holmes.plugins.toolsets.azure_sql.apis.connection_monitoring_api import ConnectionMonitoringAPI
+from holmes.plugins.toolsets.azure_sql.apis.connection_monitoring_api import (
+    ConnectionMonitoringAPI,
+)
+from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
 
 
 class AnalyzeDatabaseConnections(BaseAzureSQLTool):
@@ -212,3 +215,31 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
         return f"Analyze database connections for {db_config.server_name}/{db_config.database_name}"
+
+    @staticmethod
+    def validate_config(
+        api_client: AzureSQLAPIClient, database_config: AzureSQLDatabaseConfig
+    ) -> Tuple[bool, str]:
+        error = ""
+
+        try:
+            # Test database advisors API access
+            api_client.get_database_advisors(
+                database_config.subscription_id,
+                database_config.resource_group,
+                database_config.server_name,
+                database_config.database_name,
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if (
+                "authorization" in error_msg.lower()
+                or "permission" in error_msg.lower()
+            ):
+                error = f"Database management API access denied: {error_msg}"
+            else:
+                error = f"Database management API connection failed: {error_msg}"
+
+        if error:
+            return False, error
+        return True, ""

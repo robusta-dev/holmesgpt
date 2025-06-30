@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Tuple, cast
 from datetime import datetime, timezone
 
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
@@ -219,3 +219,31 @@ class AnalyzeDatabasePerformance(BaseAzureSQLTool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
         return f"Analyze performance for database {db_config.server_name}/{db_config.database_name}"
+
+    @staticmethod
+    def validate_config(
+        api_client: AzureSQLAPIClient, database_config: AzureSQLDatabaseConfig
+    ) -> Tuple[bool, str]:
+        errors = []
+
+        try:
+            # Test database advisors API access
+            api_client.get_database_advisors(
+                database_config.subscription_id,
+                database_config.resource_group,
+                database_config.server_name,
+                database_config.database_name,
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if (
+                "authorization" in error_msg.lower()
+                or "permission" in error_msg.lower()
+            ):
+                errors.append(f"Database management API access denied: {error_msg}")
+            else:
+                errors.append(f"Database management API connection failed: {error_msg}")
+
+        if errors:
+            return False, "\n".join(errors)
+        return True, ""

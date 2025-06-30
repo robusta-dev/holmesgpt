@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from holmes.core.tools import StructuredToolResult, ToolParameter, ToolResultStatus
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
@@ -7,6 +7,7 @@ from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLToolset,
     AzureSQLDatabaseConfig,
 )
+from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
 
 
 def _format_timing(microseconds: float) -> str:
@@ -154,3 +155,35 @@ class GetTopLogIOQueries(BaseAzureSQLTool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
         return f"Fetch top log I/O consuming queries for database {db_config.server_name}/{db_config.database_name}"
+
+    @staticmethod
+    def validate_config(
+        api_client: AzureSQLAPIClient, database_config: AzureSQLDatabaseConfig
+    ) -> Tuple[bool, str]:
+        errors = []
+
+        try:
+            # Test direct database connection for Query Store access
+            test_query = (
+                "SELECT TOP 1 query_id FROM sys.query_store_query WHERE query_id > 0"
+            )
+            api_client._execute_query(
+                database_config.server_name, database_config.database_name, test_query
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if (
+                "login failed" in error_msg.lower()
+                or "authentication" in error_msg.lower()
+            ):
+                errors.append(f"Database authentication failed: {error_msg}")
+            elif "permission" in error_msg.lower() or "denied" in error_msg.lower():
+                errors.append(f"Query Store access denied: {error_msg}")
+            elif "query store" in error_msg.lower():
+                errors.append(f"Query Store not available or disabled: {error_msg}")
+            else:
+                errors.append(f"Database connection failed: {error_msg}")
+
+        if errors:
+            return False, "\n".join(errors)
+        return True, ""

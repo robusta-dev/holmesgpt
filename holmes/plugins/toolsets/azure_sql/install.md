@@ -38,3 +38,6 @@ holmes:
           server_name: "<azure sql server name>"
           database_name: "<azure sql database name>"
 ```
+
+
+### Roles / Access controls

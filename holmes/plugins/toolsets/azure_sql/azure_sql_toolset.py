@@ -1,42 +1,47 @@
 import os
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
-from datetime import datetime, timezone
+from typing import Any, Dict, Tuple, Union, cast
 
-from pydantic import BaseModel, ConfigDict
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 
 from holmes.core.tools import (
     CallablePrerequisite,
-    StructuredToolResult,
-    Tool,
-    ToolParameter,
-    ToolResultStatus,
-    Toolset,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
+    BaseAzureSQLTool,
     BaseAzureSQLToolset,
     AzureSQLConfig,
     AzureSQLDatabaseConfig,
 )
+
 # Import all tool classes
-from holmes.plugins.toolsets.azure_sql.tools.analyze_database_health_status import AnalyzeDatabaseHealthStatus
-from holmes.plugins.toolsets.azure_sql.tools.analyze_database_performance import AnalyzeDatabasePerformance
-from holmes.plugins.toolsets.azure_sql.tools.analyze_database_connections import AnalyzeDatabaseConnections
-from holmes.plugins.toolsets.azure_sql.tools.analyze_database_storage import AnalyzeDatabaseStorage
+from holmes.plugins.toolsets.azure_sql.tools.analyze_database_health_status import (
+    AnalyzeDatabaseHealthStatus,
+)
+from holmes.plugins.toolsets.azure_sql.tools.analyze_database_performance import (
+    AnalyzeDatabasePerformance,
+)
+from holmes.plugins.toolsets.azure_sql.tools.analyze_database_connections import (
+    AnalyzeDatabaseConnections,
+)
+from holmes.plugins.toolsets.azure_sql.tools.analyze_database_storage import (
+    AnalyzeDatabaseStorage,
+)
 from holmes.plugins.toolsets.azure_sql.tools.get_top_cpu_queries import GetTopCPUQueries
 from holmes.plugins.toolsets.azure_sql.tools.get_slow_queries import GetSlowQueries
-from holmes.plugins.toolsets.azure_sql.tools.get_top_data_io_queries import GetTopDataIOQueries
-from holmes.plugins.toolsets.azure_sql.tools.get_top_log_io_queries import GetTopLogIOQueries
+from holmes.plugins.toolsets.azure_sql.tools.get_top_data_io_queries import (
+    GetTopDataIOQueries,
+)
+from holmes.plugins.toolsets.azure_sql.tools.get_top_log_io_queries import (
+    GetTopLogIOQueries,
+)
 from holmes.plugins.toolsets.azure_sql.tools.get_active_alerts import GetActiveAlerts
-from holmes.plugins.toolsets.azure_sql.tools.get_alert_history import GetAlertHistory
 
 
 class AzureSQLToolset(BaseAzureSQLToolset):
-
     def __init__(self):
         # Reduce Azure SDK HTTP logging verbosity
         logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -50,7 +55,7 @@ class AzureSQLToolset(BaseAzureSQLToolset):
             name="azure/sql",
             description="Analyzes Azure SQL Database performance, health, and operational issues using Azure REST APIs and Query Store data",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/azure-sql.html",
+            docs_url="https://kagi.com/proxy/png-clipart-microsoft-sql-server-microsoft-azure-sql-database-microsoft-text-logo-thumbnail.png?c=4Sg1bvcUGOrhnDzXgoBBa0G0j27ykgskX4a8cLrZp_quzqlpVGVG02OqQtezTxy7lB6ydmTKgbVAn_F7BxofxK6LKKUZSpjJ1huIAsXPVaXyakO4sWXFiX0Wz_8WjkA0AIlO_oFfW31AKaj5RcvGcr3siy0n5kW-GcqdpeBWsmm_huxUT6RycULFCDFBwuUzHvVl5TW3cYqlMxT8ecPZfg%3D%3D",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Azure_SQL_Database_logo.svg/1200px-Azure_SQL_Database_logo.svg.png",
             tags=[ToolsetTag.CORE],
             tools=[
@@ -63,7 +68,6 @@ class AzureSQLToolset(BaseAzureSQLToolset):
                 GetTopDataIOQueries(self),
                 GetTopLogIOQueries(self),
                 GetActiveAlerts(self),
-                GetAlertHistory(self),
             ],
         )
         self._reload_llm_instructions()
@@ -127,7 +131,28 @@ class AzureSQLToolset(BaseAzureSQLToolset):
                 f"Configured Azure SQL database: {azure_sql_config.database.server_name}/{azure_sql_config.database.database_name}"
             )
 
-            return len(errors) == 0, "\n".join(errors)
+            # Validate each tool's configuration requirements
+            tool_validation_errors = []
+            for tool in self.tools:
+                if isinstance(tool, BaseAzureSQLTool):
+                    azure_tool = cast(BaseAzureSQLTool, tool)
+                    try:
+                        is_valid, error_msg = azure_tool.validate_config(
+                            self._api_client, self._database_config
+                        )
+                        if not is_valid:
+                            tool_validation_errors.append(
+                                f"Tool '{azure_tool.name}' validation failed: {error_msg}"
+                            )
+                    except Exception as e:
+                        tool_validation_errors.append(
+                            f"Tool '{azure_tool.name}' validation error: {str(e)}"
+                        )
+
+            # Combine all errors
+            all_errors = errors + tool_validation_errors
+
+            return len(all_errors) == 0, "\n".join(all_errors)
         except Exception as e:
             logging.exception("Failed to set up Azure SQL toolset")
             return False, str(e)
