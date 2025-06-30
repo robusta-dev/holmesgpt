@@ -47,6 +47,7 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#logs",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
             prerequisites=[prerequisite],
+            is_default=True,
             tools=[
                 PodLoggingTool(self),
             ],

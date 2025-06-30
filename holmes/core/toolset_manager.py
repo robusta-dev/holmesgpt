@@ -209,12 +209,14 @@ class ToolsetManager:
         """
 
         if not os.path.exists(self.toolset_status_location) or refresh_status:
-            logging.info("refreshing toolset status")
+            logging.info("Refreshing available datasources (toolsets)")
             self.refresh_toolset_status(
                 dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
             )
+            using_cached = False
+        else:
+            using_cached = True
 
-        logging.info("loading toolset status from cache")
         cached_toolsets: List[dict[str, Any]] = []
         with open(self.toolset_status_location, "r") as f:
             cached_toolsets = json.load(f)
@@ -252,7 +254,13 @@ class ToolsetManager:
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
         all_toolsets_with_status.extend(custom_toolsets_from_cli)
-
+        if using_cached:
+            num_available_toolsets = len(
+                [toolset for toolset in all_toolsets_with_status if toolset.enabled]
+            )
+            logging.info(
+                f"Using {num_available_toolsets} datasources (toolsets). To refresh: `holmes toolset refresh`"
+            )
         return all_toolsets_with_status
 
     def list_console_toolsets(

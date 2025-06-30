@@ -135,8 +135,15 @@ class Tool(ABC, BaseModel):
             if hasattr(result, "get_stringified_data")
             else str(result)
         )
+        if len(output_str) == 0:
+            preview = "<empty>"
+        elif len(output_str) > 80:
+            clipped = output_str[:80] + "..."
+            preview = f"{clipped!r}"
+        else:
+            preview = f"{output_str!r}"
         logging.info(
-            f"   Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n   {output_str[:80]!r}..."
+            f"|--- Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n     {preview}"
         )
         # return format_tool_output(result)
         return result
