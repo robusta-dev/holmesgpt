@@ -44,5 +44,19 @@ holmes:
 
 The service principal requires these roles:
 
-- Monitoring Reader
--
+#### 1. Azure
+
+Azure Level (RBAC):
+├── Monitoring Reader (subscription)
+├── SQL DB Contributor (resource group)
+
+#### 2. SQL
+
+Database Level (SQL permissions):
+├── CREATE USER [holmes-service-principal] FROM EXTERNAL PROVIDER
+├── GRANT VIEW SERVER STATE TO [holmes-service-principal]
+└── ALTER ROLE db_datareader ADD MEMBER [holmes-service-principal]
+
+#### 3. Query Store
+
+In addition, Query Store should be enabled on target databases
