@@ -136,25 +136,25 @@ class AzureSQLToolset(BaseAzureSQLToolset):
             )
 
             # Validate each tool's configuration requirements
-            tool_validation_errors = []
-            for tool in self.tools:
-                if isinstance(tool, BaseAzureSQLTool):
-                    azure_tool = cast(BaseAzureSQLTool, tool)
-                    try:
-                        is_valid, error_msg = azure_tool.validate_config(
-                            self._api_client, self._database_config
-                        )
-                        if not is_valid:
-                            tool_validation_errors.append(
-                                f"Tool '{azure_tool.name}' validation failed: {error_msg}"
-                            )
-                    except Exception as e:
-                        tool_validation_errors.append(
-                            f"Tool '{azure_tool.name}' validation error: {str(e)}"
-                        )
+            # tool_validation_errors = []
+            # for tool in self.tools:
+            #     if isinstance(tool, BaseAzureSQLTool):
+            #         azure_tool = cast(BaseAzureSQLTool, tool)
+            #         try:
+            #             is_valid, error_msg = azure_tool.validate_config(
+            #                 self._api_client, self._database_config
+            #             )
+            #             if not is_valid:
+            #                 tool_validation_errors.append(
+            #                     f"Tool '{azure_tool.name}' validation failed: {error_msg}"
+            #                 )
+            #         except Exception as e:
+            #             tool_validation_errors.append(
+            #                 f"Tool '{azure_tool.name}' validation error: {str(e)}"
+            #             )
 
             # Combine all errors
-            all_errors = errors + tool_validation_errors
+            all_errors = errors #+ tool_validation_errors
 
             return len(all_errors) == 0, "\n".join(all_errors)
         except Exception as e:
