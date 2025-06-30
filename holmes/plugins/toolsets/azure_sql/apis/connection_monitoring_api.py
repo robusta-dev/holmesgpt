@@ -146,7 +146,7 @@ class ConnectionMonitoringAPI:
         """
 
         try:
-            return self.sql_api_client._execute_query(server_name, database_name, query)
+            return self.sql_api_client.execute_query(server_name, database_name, query)
         except Exception as e:
             formatted_error = self._format_sql_error(e)
             logging.error(f"Failed to get active connections: {formatted_error}")
@@ -170,7 +170,7 @@ class ConnectionMonitoringAPI:
         """
 
         try:
-            result = self.sql_api_client._execute_query(
+            result = self.sql_api_client.execute_query(
                 server_name, database_name, query
             )
             return result[0] if result else {}
@@ -208,7 +208,7 @@ class ConnectionMonitoringAPI:
         """
 
         try:
-            return self.sql_api_client._execute_query(server_name, database_name, query)
+            return self.sql_api_client.execute_query(server_name, database_name, query)
         except Exception as e:
             logging.warning(
                 f"Failed to get failed connections (extended events may not be available): {str(e)}"
@@ -242,7 +242,7 @@ class ConnectionMonitoringAPI:
         """
 
         try:
-            results = self.sql_api_client._execute_query(
+            results = self.sql_api_client.execute_query(
                 server_name, database_name, query
             )
             return {

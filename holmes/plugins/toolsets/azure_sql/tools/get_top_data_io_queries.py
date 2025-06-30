@@ -8,16 +8,7 @@ from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     AzureSQLDatabaseConfig,
 )
 from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
-
-
-def _format_timing(microseconds: float) -> str:
-    """Format timing values with appropriate units (seconds, milliseconds, microseconds)."""
-    if microseconds >= 1_000_000:  # >= 1 second
-        return f"{microseconds / 1_000_000:.2f} s"
-    elif microseconds >= 1_000:  # >= 1 millisecond
-        return f"{microseconds / 1_000:.2f} ms"
-    else:  # < 1 millisecond
-        return f"{microseconds:.0f} μs"
+from holmes.plugins.toolsets.azure_sql.utils import format_timing
 
 
 class GetTopDataIOQueries(BaseAzureSQLTool):
@@ -110,9 +101,9 @@ class GetTopDataIOQueries(BaseAzureSQLTool):
             )
             report_sections.append(f"- **Max Logical Writes:** {max_writes:,.0f} pages")
             report_sections.append(f"- **Execution Count:** {execution_count:,}")
-            report_sections.append(f"- **Average CPU Time:** {_format_timing(avg_cpu)}")
+            report_sections.append(f"- **Average CPU Time:** {format_timing(avg_cpu)}")
             report_sections.append(
-                f"- **Average Duration:** {_format_timing(avg_duration)}"
+                f"- **Average Duration:** {format_timing(avg_duration)}"
             )
             report_sections.append(f"- **Last Execution:** {last_execution}")
             report_sections.append("- **Query Text:**")
@@ -175,7 +166,7 @@ class GetTopDataIOQueries(BaseAzureSQLTool):
             test_query = (
                 "SELECT TOP 1 query_id FROM sys.query_store_query WHERE query_id > 0"
             )
-            api_client._execute_query(
+            api_client.execute_query(
                 database_config.server_name, database_config.database_name, test_query
             )
         except Exception as e:

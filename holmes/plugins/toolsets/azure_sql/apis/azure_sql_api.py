@@ -38,7 +38,7 @@ class AzureSQLAPIClient:
             logging.error(f"Failed to get access token: {str(e)}")
             raise ConnectionError(f"Azure authentication failed: {str(e)}") from e
 
-    def _execute_query(
+    def execute_query(
         self, server_name: str, database_name: str, query: str
     ) -> List[Dict]:
         """Execute a T-SQL query against the Azure SQL database."""
@@ -275,7 +275,7 @@ class AzureSQLAPIClient:
         ORDER BY rs.avg_cpu_time DESC;
         """
 
-        return self._execute_query(server_name, database_name, query)
+        return self.execute_query(server_name, database_name, query)
 
     def get_slow_queries(
         self,
@@ -306,7 +306,7 @@ class AzureSQLAPIClient:
         ORDER BY rs.avg_duration DESC;
         """
 
-        return self._execute_query(server_name, database_name, query)
+        return self.execute_query(server_name, database_name, query)
 
     def get_top_data_io_queries(
         self,
@@ -341,7 +341,7 @@ class AzureSQLAPIClient:
         ORDER BY rs.avg_logical_io_reads DESC;
         """
 
-        return self._execute_query(server_name, database_name, query)
+        return self.execute_query(server_name, database_name, query)
 
     def get_top_log_io_queries(
         self,
@@ -372,4 +372,4 @@ class AzureSQLAPIClient:
         ORDER BY rs.avg_log_bytes_used DESC;
         """
 
-        return self._execute_query(server_name, database_name, query)
+        return self.execute_query(server_name, database_name, query)

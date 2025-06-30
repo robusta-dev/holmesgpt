@@ -287,11 +287,8 @@ class AlertMonitoringAPI:
                             time_range=f"PT{hours_back}H"  # ISO 8601 duration format
                         )
 
-                        print(f"** alert_instances:\n{alert_instances}")
-
                         instance_count = 0
                         for alert_instance in alert_instances:
-                            print(f"** alert_instance:\n{alert_instance}")
                             instance_count += 1
                             # Check if this instance relates to our resources
                             instance_resource = str(
@@ -309,7 +306,6 @@ class AlertMonitoringAPI:
                                     else "server",
                                 )
                                 historical_alerts.append(instance_data)
-                                print(f"** instance_data:\n{instance_data}")
                                 logging.info(
                                     f"Added alert instance: {instance_data.get('name', 'Unknown')}"
                                 )

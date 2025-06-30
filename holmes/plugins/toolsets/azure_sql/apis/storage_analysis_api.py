@@ -137,7 +137,7 @@ class StorageAnalysisAPI:
         """
 
         try:
-            return self.sql_api_client._execute_query(server_name, database_name, query)
+            return self.sql_api_client.execute_query(server_name, database_name, query)
         except Exception as e:
             logging.error(f"Failed to get database size details: {str(e)}")
             return [{"error": str(e)}]
@@ -161,7 +161,7 @@ class StorageAnalysisAPI:
         """
 
         try:
-            result = self.sql_api_client._execute_query(
+            result = self.sql_api_client.execute_query(
                 server_name, database_name, query
             )
             return result[0] if result else {}
@@ -209,7 +209,7 @@ class StorageAnalysisAPI:
         """
 
         try:
-            return self.sql_api_client._execute_query(server_name, database_name, query)
+            return self.sql_api_client.execute_query(server_name, database_name, query)
         except Exception as e:
             logging.error(f"Failed to get table space usage: {str(e)}")
             return []
@@ -242,7 +242,7 @@ class StorageAnalysisAPI:
         """
 
         try:
-            results = self.sql_api_client._execute_query(
+            results = self.sql_api_client.execute_query(
                 server_name, database_name, query
             )
 
@@ -302,7 +302,7 @@ class StorageAnalysisAPI:
         """
 
         try:
-            results = self.sql_api_client._execute_query(
+            results = self.sql_api_client.execute_query(
                 server_name, database_name, query
             )
             return {

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from holmes.core.tools import StructuredToolResult, ToolParameter, ToolResultStatus
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
@@ -8,17 +8,7 @@ from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     AzureSQLDatabaseConfig,
 )
 from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
-from typing import Tuple
-
-
-def _format_timing(microseconds: float) -> str:
-    """Format timing values with appropriate units (seconds, milliseconds, microseconds)."""
-    if microseconds >= 1_000_000:  # >= 1 second
-        return f"{microseconds / 1_000_000:.2f} s"
-    elif microseconds >= 1_000:  # >= 1 millisecond
-        return f"{microseconds / 1_000:.2f} ms"
-    else:  # < 1 millisecond
-        return f"{microseconds:.0f} μs"
+from holmes.plugins.toolsets.azure_sql.utils import format_timing
 
 
 class GetTopCPUQueries(BaseAzureSQLTool):
@@ -69,9 +59,7 @@ class GetTopCPUQueries(BaseAzureSQLTool):
 
         report_sections.append("## Summary")
         report_sections.append(f"- **Total Queries Analyzed:** {len(queries)}")
-        report_sections.append(
-            f"- **Total CPU Time:** {_format_timing(total_cpu_time)}"
-        )
+        report_sections.append(f"- **Total CPU Time:** {format_timing(total_cpu_time)}")
         report_sections.append(f"- **Total Executions:** {total_executions:,}")
         report_sections.append("")
 
@@ -92,12 +80,12 @@ class GetTopCPUQueries(BaseAzureSQLTool):
                 query_text = query_text[:200] + "..."
 
             report_sections.append(f"### Query #{i}")
-            report_sections.append(f"- **Average CPU Time:** {_format_timing(avg_cpu)}")
-            report_sections.append(f"- **Total CPU Time:** {_format_timing(total_cpu)}")
-            report_sections.append(f"- **Max CPU Time:** {_format_timing(max_cpu)}")
+            report_sections.append(f"- **Average CPU Time:** {format_timing(avg_cpu)}")
+            report_sections.append(f"- **Total CPU Time:** {format_timing(total_cpu)}")
+            report_sections.append(f"- **Max CPU Time:** {format_timing(max_cpu)}")
             report_sections.append(f"- **Execution Count:** {execution_count:,}")
             report_sections.append(
-                f"- **Average Duration:** {_format_timing(avg_duration)}"
+                f"- **Average Duration:** {format_timing(avg_duration)}"
             )
             report_sections.append(f"- **Last Execution:** {last_execution}")
             report_sections.append("- **Query Text:**")
@@ -160,7 +148,7 @@ class GetTopCPUQueries(BaseAzureSQLTool):
             test_query = (
                 "SELECT TOP 1 query_id FROM sys.query_store_query WHERE query_id > 0"
             )
-            api_client._execute_query(
+            api_client.execute_query(
                 database_config.server_name, database_config.database_name, test_query
             )
         except Exception as e:
