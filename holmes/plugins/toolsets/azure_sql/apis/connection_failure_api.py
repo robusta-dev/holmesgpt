@@ -58,11 +58,11 @@ class ConnectionFailureAPI:
             # Connection-related metrics to analyze (database-level only)
             connection_metrics = [
                 "connection_failed",
-                "connection_successful", 
+                "connection_successful",
                 "blocked_by_firewall",
                 "connection_failed_user_error",
                 "sessions_count",
-                "sessions_percent", 
+                "sessions_percent",
                 "workers_percent",
             ]
 
@@ -73,7 +73,9 @@ class ConnectionFailureAPI:
 
             # Server-level metrics are not available for connection failures
             # Only DTU and storage metrics are available at server level
-            server_connection_data = {"note": "Connection metrics only available at database level"}
+            server_connection_data = {
+                "note": "Connection metrics only available at database level"
+            }
 
             # Analyze activity logs for connection-related events
             activity_log_data = self._analyze_connection_activity_logs(
@@ -115,7 +117,7 @@ class ConnectionFailureAPI:
         """Get connection-related metrics from Azure Monitor."""
         try:
             metrics_data = {}
-            
+
             for metric_name in metric_names:
                 try:
                     # Get metric data with proper ISO 8601 format
@@ -134,12 +136,14 @@ class ConnectionFailureAPI:
                             for timeseries in metric.timeseries:
                                 for data_point in timeseries.data:
                                     if data_point.time_stamp:
-                                        metric_values.append({
-                                            "timestamp": data_point.time_stamp.isoformat(),
-                                            "total": data_point.total,
-                                            "average": data_point.average,
-                                            "maximum": data_point.maximum,
-                                        })
+                                        metric_values.append(
+                                            {
+                                                "timestamp": data_point.time_stamp.isoformat(),
+                                                "total": data_point.total,
+                                                "average": data_point.average,
+                                                "maximum": data_point.maximum,
+                                            }
+                                        )
 
                     metrics_data[metric_name] = {
                         "values": metric_values,
@@ -150,10 +154,12 @@ class ConnectionFailureAPI:
                     # Only log as warning if it's not a known metric availability issue
                     error_msg = str(e)
                     if "Failed to find metric configuration" in error_msg:
-                        logging.info(f"Metric {metric_name} not available for this resource type")
+                        logging.info(
+                            f"Metric {metric_name} not available for this resource type"
+                        )
                     else:
                         logging.warning(f"Failed to get metric {metric_name}: {e}")
-                    
+
                     metrics_data[metric_name] = {
                         "error": str(e),
                         "values": [],
@@ -174,8 +180,12 @@ class ConnectionFailureAPI:
         # Server level only has DTU and storage metrics
         return {
             "note": "Connection failure metrics are only available at database level",
-            "available_server_metrics": ["dtu_consumption_percent", "storage_used", "dtu_used"],
-            "connection_metrics_location": "database_level_only"
+            "available_server_metrics": [
+                "dtu_consumption_percent",
+                "storage_used",
+                "dtu_used",
+            ],
+            "connection_metrics_location": "database_level_only",
         }
 
     def _analyze_connection_activity_logs(
@@ -189,7 +199,7 @@ class ConnectionFailureAPI:
         try:
             # Connection-related operation names to look for
             connection_operations = [
-                "Microsoft.Sql/servers/databases/connect",  
+                "Microsoft.Sql/servers/databases/connect",
                 "Microsoft.Sql/servers/connect",
                 "Microsoft.Sql/servers/databases/disconnect",
                 "Microsoft.Sql/servers/firewallRules/write",
@@ -208,25 +218,46 @@ class ConnectionFailureAPI:
             connection_events = []
             for log_entry in activity_logs:
                 if hasattr(log_entry, "operation_name") and log_entry.operation_name:
-                    operation_name = log_entry.operation_name.value if hasattr(log_entry.operation_name, 'value') else str(log_entry.operation_name)
-                    
+                    operation_name = (
+                        log_entry.operation_name.value
+                        if hasattr(log_entry.operation_name, "value")
+                        else str(log_entry.operation_name)
+                    )
+
                     # Check if this is a connection-related operation
                     is_connection_related = any(
                         op in operation_name for op in connection_operations
                     ) or any(
                         keyword in operation_name.lower()
-                        for keyword in ["connect", "firewall", "auth", "login", "security"]
+                        for keyword in [
+                            "connect",
+                            "firewall",
+                            "auth",
+                            "login",
+                            "security",
+                        ]
                     )
 
                     # Filter by level after getting the data, since level filter isn't supported in query
-                    if is_connection_related or (hasattr(log_entry, 'level') and log_entry.level in ["Warning", "Error", "Critical"]):
+                    if is_connection_related or (
+                        hasattr(log_entry, "level")
+                        and log_entry.level in ["Warning", "Error", "Critical"]
+                    ):
                         event_data = {
-                            "timestamp": getattr(log_entry, "event_timestamp", end_time).isoformat(),
+                            "timestamp": getattr(
+                                log_entry, "event_timestamp", end_time
+                            ).isoformat(),
                             "operation_name": operation_name,
                             "level": getattr(log_entry, "level", "Unknown"),
-                            "status": getattr(log_entry, "status", {}).get("value", "Unknown") if hasattr(getattr(log_entry, "status", {}), "get") else "Unknown",
+                            "status": getattr(log_entry, "status", {}).get(
+                                "value", "Unknown"
+                            )
+                            if hasattr(getattr(log_entry, "status", {}), "get")
+                            else "Unknown",
                             "caller": getattr(log_entry, "caller", "Unknown"),
-                            "description": getattr(log_entry, "description", "No description"),
+                            "description": getattr(
+                                log_entry, "description", "No description"
+                            ),
                             "resource_id": getattr(log_entry, "resource_id", ""),
                             "correlation_id": getattr(log_entry, "correlation_id", ""),
                             "is_connection_related": is_connection_related,
@@ -239,9 +270,19 @@ class ConnectionFailureAPI:
             return {
                 "events": connection_events,
                 "total_events": len(connection_events),
-                "connection_related_events": len([e for e in connection_events if e["is_connection_related"]]),
-                "error_events": len([e for e in connection_events if e["level"] in ["Error", "Critical"]]),
-                "warning_events": len([e for e in connection_events if e["level"] == "Warning"]),
+                "connection_related_events": len(
+                    [e for e in connection_events if e["is_connection_related"]]
+                ),
+                "error_events": len(
+                    [
+                        e
+                        for e in connection_events
+                        if e["level"] in ["Error", "Critical"]
+                    ]
+                ),
+                "warning_events": len(
+                    [e for e in connection_events if e["level"] == "Warning"]
+                ),
             }
 
         except Exception as e:
@@ -251,11 +292,11 @@ class ConnectionFailureAPI:
     def _analyze_connection_patterns(
         self,
         connection_data: Dict[str, Any],
-        server_data: Dict[str, Any], 
+        server_data: Dict[str, Any],
         activity_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Analyze connection patterns and identify issues."""
-        analysis = {
+        analysis: dict = {
             "summary": {},
             "issues_detected": [],
             "recommendations": [],
@@ -264,80 +305,138 @@ class ConnectionFailureAPI:
 
         try:
             # Analyze connection failure metrics
-            if "connection_failed" in connection_data and connection_data["connection_failed"].get("values"):
+            if "connection_failed" in connection_data and connection_data[
+                "connection_failed"
+            ].get("values"):
                 failed_connections = connection_data["connection_failed"]["values"]
-                total_failures = sum(dp.get("total", 0) or 0 for dp in failed_connections)
-                max_failures_per_hour = max((dp.get("maximum", 0) or 0 for dp in failed_connections), default=0)
-                
+                total_failures = sum(
+                    dp.get("total", 0) or 0 for dp in failed_connections
+                )
+                max_failures_per_hour = max(
+                    (dp.get("maximum", 0) or 0 for dp in failed_connections), default=0
+                )
+
                 analysis["metrics_analysis"]["connection_failures"] = {
                     "total_failed_connections": total_failures,
                     "max_failures_per_hour": max_failures_per_hour,
-                    "failure_trend": "increasing" if len(failed_connections) > 1 and 
-                                   (failed_connections[-1].get("total", 0) or 0) > (failed_connections[0].get("total", 0) or 0) else "stable"
+                    "failure_trend": "increasing"
+                    if len(failed_connections) > 1
+                    and (failed_connections[-1].get("total", 0) or 0)
+                    > (failed_connections[0].get("total", 0) or 0)
+                    else "stable",
                 }
 
                 if total_failures > 0:
-                    analysis["issues_detected"].append(f"🔴 {int(total_failures)} connection failures detected")
+                    analysis["issues_detected"].append(
+                        f"🔴 {int(total_failures)} connection failures detected"
+                    )
                     if max_failures_per_hour > 10:
-                        analysis["issues_detected"].append(f"⚠️ High failure rate: {int(max_failures_per_hour)} failures in single hour")
+                        analysis["issues_detected"].append(
+                            f"⚠️ High failure rate: {int(max_failures_per_hour)} failures in single hour"
+                        )
 
             # Analyze firewall blocks
-            if "blocked_by_firewall" in connection_data and connection_data["blocked_by_firewall"].get("values"):
+            if "blocked_by_firewall" in connection_data and connection_data[
+                "blocked_by_firewall"
+            ].get("values"):
                 firewall_blocks = connection_data["blocked_by_firewall"]["values"]
                 total_blocks = sum(dp.get("total", 0) or 0 for dp in firewall_blocks)
-                
+
                 if total_blocks > 0:
-                    analysis["issues_detected"].append(f"🚫 {int(total_blocks)} connections blocked by firewall")
-                    analysis["recommendations"].append("Review firewall rules - clients may be connecting from unauthorized IP addresses")
+                    analysis["issues_detected"].append(
+                        f"🚫 {int(total_blocks)} connections blocked by firewall"
+                    )
+                    analysis["recommendations"].append(
+                        "Review firewall rules - clients may be connecting from unauthorized IP addresses"
+                    )
 
             # Analyze successful connections for context
-            if "connection_successful" in connection_data and connection_data["connection_successful"].get("values"):
-                successful_connections = connection_data["connection_successful"]["values"]
-                total_successful = sum(dp.get("total", 0) or 0 for dp in successful_connections)
-                
+            if "connection_successful" in connection_data and connection_data[
+                "connection_successful"
+            ].get("values"):
+                successful_connections = connection_data["connection_successful"][
+                    "values"
+                ]
+                total_successful = sum(
+                    dp.get("total", 0) or 0 for dp in successful_connections
+                )
+
                 analysis["metrics_analysis"]["successful_connections"] = {
                     "total_successful_connections": total_successful
                 }
 
                 # Calculate failure rate if we have both metrics
                 if "connection_failures" in analysis["metrics_analysis"]:
-                    total_failures = analysis["metrics_analysis"]["connection_failures"]["total_failed_connections"]
+                    total_failures = analysis["metrics_analysis"][
+                        "connection_failures"
+                    ]["total_failed_connections"]
                     if total_successful + total_failures > 0:
-                        failure_rate = (total_failures / (total_successful + total_failures)) * 100
-                        analysis["metrics_analysis"]["failure_rate_percent"] = round(failure_rate, 2)
-                        
+                        failure_rate = (
+                            total_failures / (total_successful + total_failures)
+                        ) * 100
+                        analysis["metrics_analysis"]["failure_rate_percent"] = round(
+                            failure_rate, 2
+                        )
+
                         if failure_rate > 5:
-                            analysis["issues_detected"].append(f"📊 High connection failure rate: {failure_rate:.1f}%")
+                            analysis["issues_detected"].append(
+                                f"📊 High connection failure rate: {failure_rate:.1f}%"
+                            )
 
             # Analyze activity log events
             if "events" in activity_data and activity_data["events"]:
-                error_events = [e for e in activity_data["events"] if e["level"] in ["Error", "Critical"]]
+                error_events = [
+                    e
+                    for e in activity_data["events"]
+                    if e["level"] in ["Error", "Critical"]
+                ]
                 if error_events:
-                    analysis["issues_detected"].append(f"📋 {len(error_events)} error-level events in activity logs")
+                    analysis["issues_detected"].append(
+                        f"📋 {len(error_events)} error-level events in activity logs"
+                    )
 
                 # Look for specific patterns
-                auth_events = [e for e in activity_data["events"] if "auth" in e["operation_name"].lower() or "login" in e["operation_name"].lower()]
+                auth_events = [
+                    e
+                    for e in activity_data["events"]
+                    if "auth" in e["operation_name"].lower()
+                    or "login" in e["operation_name"].lower()
+                ]
                 if auth_events:
-                    analysis["issues_detected"].append(f"🔐 {len(auth_events)} authentication-related events detected")
+                    analysis["issues_detected"].append(
+                        f"🔐 {len(auth_events)} authentication-related events detected"
+                    )
 
             # Generate recommendations based on findings
             if not analysis["issues_detected"]:
                 analysis["summary"]["status"] = "healthy"
-                analysis["summary"]["message"] = "✅ No significant connection issues detected"
+                analysis["summary"]["message"] = (
+                    "✅ No significant connection issues detected"
+                )
             else:
                 analysis["summary"]["status"] = "issues_detected"
-                analysis["summary"]["message"] = f"⚠️ {len(analysis['issues_detected'])} connection issues detected"
-                
-                # Add general recommendations
-                if any("failure" in issue.lower() for issue in analysis["issues_detected"]):
-                    analysis["recommendations"].extend([
-                        "Monitor application connection pooling configuration",
-                        "Check for network connectivity issues between client and server",
-                        "Review connection timeout settings in application"
-                    ])
+                analysis["summary"]["message"] = (
+                    f"⚠️ {len(analysis['issues_detected'])} connection issues detected"
+                )
 
-                if any("firewall" in issue.lower() for issue in analysis["issues_detected"]):
-                    analysis["recommendations"].append("Validate client IP addresses against firewall rules")
+                # Add general recommendations
+                if any(
+                    "failure" in issue.lower() for issue in analysis["issues_detected"]
+                ):
+                    analysis["recommendations"].extend(
+                        [
+                            "Monitor application connection pooling configuration",
+                            "Check for network connectivity issues between client and server",
+                            "Review connection timeout settings in application",
+                        ]
+                    )
+
+                if any(
+                    "firewall" in issue.lower() for issue in analysis["issues_detected"]
+                ):
+                    analysis["recommendations"].append(
+                        "Validate client IP addresses against firewall rules"
+                    )
 
         except Exception as e:
             logging.error(f"Failed to analyze connection patterns: {e}")

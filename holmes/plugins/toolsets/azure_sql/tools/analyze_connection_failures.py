@@ -54,10 +54,14 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
 
         report_sections.append("## Executive Summary")
         if summary.get("status") == "healthy":
-            report_sections.append("✅ **Status: HEALTHY** - No significant connection issues detected")
+            report_sections.append(
+                "✅ **Status: HEALTHY** - No significant connection issues detected"
+            )
         else:
-            report_sections.append("⚠️ **Status: ISSUES DETECTED** - Connection problems identified")
-            
+            report_sections.append(
+                "⚠️ **Status: ISSUES DETECTED** - Connection problems identified"
+            )
+
         if summary.get("message"):
             report_sections.append(f"- {summary['message']}")
         report_sections.append("")
@@ -73,71 +77,108 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
         metrics_analysis = analysis.get("metrics_analysis", {})
         if metrics_analysis:
             report_sections.append("## Connection Metrics Analysis")
-            
+
             # Connection failures
             if "connection_failures" in metrics_analysis:
                 failures = metrics_analysis["connection_failures"]
                 report_sections.append("### Connection Failures")
-                report_sections.append(f"- **Total Failed Connections:** {int(failures.get('total_failed_connections', 0))}")
-                report_sections.append(f"- **Peak Failures (1 hour):** {int(failures.get('max_failures_per_hour', 0))}")
-                report_sections.append(f"- **Trend:** {failures.get('failure_trend', 'Unknown').title()}")
+                report_sections.append(
+                    f"- **Total Failed Connections:** {int(failures.get('total_failed_connections', 0))}"
+                )
+                report_sections.append(
+                    f"- **Peak Failures (1 hour):** {int(failures.get('max_failures_per_hour', 0))}"
+                )
+                report_sections.append(
+                    f"- **Trend:** {failures.get('failure_trend', 'Unknown').title()}"
+                )
                 report_sections.append("")
 
             # Successful connections
             if "successful_connections" in metrics_analysis:
                 successful = metrics_analysis["successful_connections"]
                 report_sections.append("### Successful Connections")
-                report_sections.append(f"- **Total Successful Connections:** {int(successful.get('total_successful_connections', 0))}")
+                report_sections.append(
+                    f"- **Total Successful Connections:** {int(successful.get('total_successful_connections', 0))}"
+                )
                 report_sections.append("")
 
             # Failure rate
             if "failure_rate_percent" in metrics_analysis:
                 failure_rate = metrics_analysis["failure_rate_percent"]
-                status_icon = "🔴" if failure_rate > 5 else "🟡" if failure_rate > 1 else "🟢"
+                status_icon = (
+                    "🔴" if failure_rate > 5 else "🟡" if failure_rate > 1 else "🟢"
+                )
                 report_sections.append("### Overall Connection Health")
-                report_sections.append(f"- **Failure Rate:** {failure_rate}% {status_icon}")
+                report_sections.append(
+                    f"- **Failure Rate:** {failure_rate}% {status_icon}"
+                )
                 report_sections.append("")
 
         # Activity Log Events
         activity_data = analysis_data.get("activity_events", {})
         if activity_data.get("events"):
             report_sections.append("## Activity Log Events")
-            report_sections.append(f"- **Total Events:** {activity_data.get('total_events', 0)}")
-            report_sections.append(f"- **Connection-Related Events:** {activity_data.get('connection_related_events', 0)}")
-            report_sections.append(f"- **Error Events:** {activity_data.get('error_events', 0)}")
-            report_sections.append(f"- **Warning Events:** {activity_data.get('warning_events', 0)}")
-            
+            report_sections.append(
+                f"- **Total Events:** {activity_data.get('total_events', 0)}"
+            )
+            report_sections.append(
+                f"- **Connection-Related Events:** {activity_data.get('connection_related_events', 0)}"
+            )
+            report_sections.append(
+                f"- **Error Events:** {activity_data.get('error_events', 0)}"
+            )
+            report_sections.append(
+                f"- **Warning Events:** {activity_data.get('warning_events', 0)}"
+            )
+
             # Show recent critical events
             critical_events = [
-                e for e in activity_data["events"][:10] 
+                e
+                for e in activity_data["events"][:10]
                 if e["level"] in ["Error", "Critical"]
             ]
-            
+
             if critical_events:
                 report_sections.append("")
                 report_sections.append("### Recent Critical Events")
                 for event in critical_events:
-                    report_sections.append(f"- **{event['timestamp']}** - {event['operation_name']}")
+                    report_sections.append(
+                        f"- **{event['timestamp']}** - {event['operation_name']}"
+                    )
                     report_sections.append(f"  - Level: {event['level']}")
                     report_sections.append(f"  - Status: {event['status']}")
-                    if event.get('description') and event['description'] != "No description":
-                        report_sections.append(f"  - Description: {event['description']}")
+                    if (
+                        event.get("description")
+                        and event["description"] != "No description"
+                    ):
+                        report_sections.append(
+                            f"  - Description: {event['description']}"
+                        )
                     report_sections.append("")
 
         # Detailed Metrics Data
         connection_metrics = analysis_data.get("connection_metrics", {})
         if connection_metrics:
             report_sections.append("## Detailed Metrics")
-            
+
             for metric_name, metric_data in connection_metrics.items():
                 if metric_data.get("values") and not metric_data.get("error"):
                     values = metric_data["values"]
                     if values:
                         total_value = sum(dp.get("total", 0) or 0 for dp in values)
-                        max_value = max((dp.get("maximum", 0) or 0 for dp in values), default=0)
-                        avg_value = sum(dp.get("average", 0) or 0 for dp in values) / len(values) if values else 0
-                        
-                        report_sections.append(f"### {metric_name.replace('_', ' ').title()}")
+                        max_value = max(
+                            (dp.get("maximum", 0) or 0 for dp in values), default=0
+                        )
+                        avg_value = (
+                            sum(dp.get("average", 0) or 0 for dp in values)
+                            / len(values)
+                            if values
+                            else 0
+                        )
+
+                        report_sections.append(
+                            f"### {metric_name.replace('_', ' ').title()}"
+                        )
                         report_sections.append(f"- **Total:** {int(total_value)}")
                         report_sections.append(f"- **Peak (1 hour):** {int(max_value)}")
                         report_sections.append(f"- **Average:** {avg_value:.1f}")
@@ -153,13 +194,21 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
 
         # Resource Information
         report_sections.append("## Resource Information")
-        report_sections.append(f"- **Database Resource ID:** {analysis_data.get('database_resource_id', 'N/A')}")
-        report_sections.append(f"- **Server Resource ID:** {analysis_data.get('server_resource_id', 'N/A')}")
-        
+        report_sections.append(
+            f"- **Database Resource ID:** {analysis_data.get('database_resource_id', 'N/A')}"
+        )
+        report_sections.append(
+            f"- **Server Resource ID:** {analysis_data.get('server_resource_id', 'N/A')}"
+        )
+
         time_range = analysis_data.get("time_range", {})
         if time_range:
-            report_sections.append(f"- **Analysis Start:** {time_range.get('start', 'N/A')}")
-            report_sections.append(f"- **Analysis End:** {time_range.get('end', 'N/A')}")
+            report_sections.append(
+                f"- **Analysis Start:** {time_range.get('start', 'N/A')}"
+            )
+            report_sections.append(
+                f"- **Analysis End:** {time_range.get('end', 'N/A')}"
+            )
 
         return "\n".join(report_sections)
 
@@ -207,7 +256,9 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
             )
 
         except Exception as e:
-            logging.error(f"Error in analyze_connection_failures: {str(e)}", exc_info=True)
+            logging.error(
+                f"Error in analyze_connection_failures: {str(e)}", exc_info=True
+            )
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to analyze connection failures: {str(e)}",
@@ -246,9 +297,13 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
                     "authorization" in error_msg.lower()
                     or "permission" in error_msg.lower()
                 ):
-                    errors.append(f"Connection failure monitoring access denied: {error_msg}")
+                    errors.append(
+                        f"Connection failure monitoring access denied: {error_msg}"
+                    )
                 else:
-                    errors.append(f"Connection failure monitoring API failed: {error_msg}")
+                    errors.append(
+                        f"Connection failure monitoring API failed: {error_msg}"
+                    )
 
         except Exception as e:
             error_msg = str(e)
@@ -256,9 +311,13 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
                 "authorization" in error_msg.lower()
                 or "permission" in error_msg.lower()
             ):
-                errors.append(f"Connection failure monitoring API access denied: {error_msg}")
+                errors.append(
+                    f"Connection failure monitoring API access denied: {error_msg}"
+                )
             else:
-                errors.append(f"Connection failure monitoring API connection failed: {error_msg}")
+                errors.append(
+                    f"Connection failure monitoring API connection failed: {error_msg}"
+                )
 
         if errors:
             return False, "\n".join(errors)
