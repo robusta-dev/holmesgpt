@@ -50,8 +50,8 @@ class GetActiveAlerts(BaseAzureSQLTool):
         if total_alerts == 0:
             report_sections.append("✅ **No active alerts** - System appears healthy")
         else:
-            severity_counts = {}
-            scope_counts = {}
+            severity_counts: dict = {}
+            scope_counts: dict = {}
             for alert in active_alerts:
                 severity = alert.get("severity", "Unknown")
                 scope = alert.get("scope", "Unknown")

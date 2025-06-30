@@ -39,6 +39,9 @@ from holmes.plugins.toolsets.azure_sql.tools.get_top_log_io_queries import (
     GetTopLogIOQueries,
 )
 from holmes.plugins.toolsets.azure_sql.tools.get_active_alerts import GetActiveAlerts
+from holmes.plugins.toolsets.azure_sql.tools.analyze_connection_failures import (
+    AnalyzeConnectionFailures,
+)
 
 
 class AzureSQLToolset(BaseAzureSQLToolset):
@@ -68,6 +71,7 @@ class AzureSQLToolset(BaseAzureSQLToolset):
                 GetTopDataIOQueries(self),
                 GetTopLogIOQueries(self),
                 GetActiveAlerts(self),
+                AnalyzeConnectionFailures(self),
             ],
         )
         self._reload_llm_instructions()

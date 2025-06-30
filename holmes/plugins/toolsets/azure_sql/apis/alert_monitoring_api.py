@@ -552,7 +552,7 @@ class AlertMonitoringAPI:
             )
 
         # Find most frequent alert names
-        alert_names = {}
+        alert_names: dict = {}
         for alert in alerts:
             name = alert.get("name", "Unknown")
             alert_names[name] = alert_names.get(name, 0) + 1

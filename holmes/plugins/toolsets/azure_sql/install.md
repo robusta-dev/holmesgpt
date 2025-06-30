@@ -41,3 +41,8 @@ holmes:
 
 
 ### Roles / Access controls
+
+The service principal requires these roles:
+
+- Monitoring Reader
+-
