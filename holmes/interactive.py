@@ -9,8 +9,7 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import Style
 from rich.console import Console
-from rich.markdown import Markdown
-from rich.rule import Rule
+from rich.markdown import Markdown, Panel
 
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM
@@ -40,9 +39,11 @@ class SlashCommandCompleter(Completer):
                     yield Completion(cmd, start_position=-len(word))
 
 
-WELCOME_BANNER = Rule(
-    "[bold cyan]Entering interactive mode. Type '/exit' to exit, '/help' for more commands.[/bold cyan]"
-)
+WELCOME_BANNER = "[bold cyan]Welcome to HolmesGPT:[/bold cyan] Type '/exit' to exit, '/help' for commands."
+
+
+USER_COLOR = "#DEFCC0"  # light green
+AI_COLOR = "#00FFFF"  # cyan
 
 
 def run_interactive_loop(
@@ -56,7 +57,7 @@ def run_interactive_loop(
 ) -> None:
     style = Style.from_dict(
         {
-            "prompt": "#00ffff",  # cyan
+            "prompt": USER_COLOR,
         }
     )
 
@@ -65,11 +66,13 @@ def run_interactive_loop(
     if initial_user_input:
         history.append_string(initial_user_input)
     session = PromptSession(completer=command_completer, history=history)  # type: ignore
-    input_prompt = [("class:prompt", "User> ")]
+    input_prompt = [("class:prompt", "User: ")]
 
     console.print(WELCOME_BANNER)
     if initial_user_input:
-        console.print("[bold yellow]User:[/bold yellow] " + initial_user_input)
+        console.print(
+            f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {initial_user_input}"
+        )
     messages = None
 
     while True:
@@ -107,7 +110,7 @@ def run_interactive_loop(
             else:
                 messages.append({"role": "user", "content": user_input})
 
-            console.print("[bold blue]Thinking...[/bold blue]")
+            console.print("\n[bold blue]Thinking...[/bold blue]\n")
             response = ai.call(messages, post_processing_prompt)
             messages = response.messages  # type: ignore
 
@@ -118,8 +121,14 @@ def run_interactive_loop(
                         f"{tool_call.description}. Output=\n{tool_call.result}",
                         markup=False,
                     )
-            console.print("[bold green]AI:[/bold green]", end=" ")
-            console.print(Markdown(response.result))  # type: ignore
+            console.print(
+                Panel(
+                    Markdown(f"{response.result}"),
+                    padding=(1, 2),
+                    border_style=AI_COLOR,
+                )
+            )
+            console.print("")
         except typer.Abort:
             break
         except EOFError:  # Handle Ctrl+D
