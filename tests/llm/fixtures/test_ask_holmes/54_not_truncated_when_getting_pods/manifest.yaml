@@ -11,17 +11,17 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: massive-pod-deployment
+  name: massive-pod-deployment-with-very-long-name
   namespace: ask-holmes-namespace-54a
 spec:
-  replicas: 1000
+  replicas: 2000
   selector:
     matchLabels:
-      app: test-pods
+      app: massive-pod-deployment-with-very-long-name
   template:
     metadata:
       labels:
-        app: test-pods
+        app: massive-pod-deployment-with-very-long-name
     spec:
       nodeSelector:
         non-existent-label: "true"   # no node has this, will stay Pending
