@@ -198,7 +198,7 @@ class TestIncorrectCommands:
             (
                 "kubectl logs coredns-5967b8b7b8-dh582 -n kube-system --tail=100",
                 ValueError,
-                "kubectl_logs",
+                "fetch_pod_logs",
             ),
             # Commands that should fail even when piped with allowed commands
             ("rm -rf / | grep error", argparse.ArgumentError, None),
