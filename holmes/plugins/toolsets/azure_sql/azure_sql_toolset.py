@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Any, Dict, Tuple, Union, cast
+from typing import Any, Dict, Tuple, Union
 
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 
@@ -11,7 +11,6 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
-    BaseAzureSQLTool,
     BaseAzureSQLToolset,
     AzureSQLConfig,
     AzureSQLDatabaseConfig,
@@ -154,7 +153,7 @@ class AzureSQLToolset(BaseAzureSQLToolset):
             #             )
 
             # Combine all errors
-            all_errors = errors #+ tool_validation_errors
+            all_errors = errors  # + tool_validation_errors
 
             return len(all_errors) == 0, "\n".join(all_errors)
         except Exception as e:
