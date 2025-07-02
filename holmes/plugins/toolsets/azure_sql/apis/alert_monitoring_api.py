@@ -127,7 +127,7 @@ class AlertMonitoringAPI:
                 f"eventTimestamp ge '{start_time.isoformat()}' and "
                 f"eventTimestamp le '{end_time.isoformat()}' and "
                 f"(resourceId eq '{database_resource_id}' or resourceId eq '{server_resource_id}') and "
-                f"level eq 'Warning' or level eq 'Error'"
+                f"(level eq 'Warning' or level eq 'Error')"
             )
 
             activity_logs = self.monitor_client.activity_logs.list(filter=filter_query)
