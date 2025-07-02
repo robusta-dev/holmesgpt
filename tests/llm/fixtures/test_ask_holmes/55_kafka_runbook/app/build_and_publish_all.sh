@@ -23,9 +23,9 @@ for app_dir in $APP_DIRS; do
     echo "=========================================="
     echo "Building $app_name"
     echo "=========================================="
-    
+
     cd "$app_dir"
-    
+
     if [ -x "./build_and_publish.sh" ]; then
         ./build_and_publish.sh
         if [ $? -eq 0 ]; then
@@ -38,7 +38,7 @@ for app_dir in $APP_DIRS; do
         echo "✗ build_and_publish.sh not executable in $app_dir"
         exit 1
     fi
-    
+
     echo ""
 done
 

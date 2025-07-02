@@ -3,15 +3,15 @@
 ## Topics and Data Flow
 
 ### `finance` Topic
-**Purpose**: Order processing pipeline  
+**Purpose**: Order processing pipeline
 **Producer**: `orders-app`
 **Consumer**: `invoices-app`
 
 - **orders-app** generates customer orders
 - **invoices-app** consumes orders
 
-### `payments` Topic  
-**Purpose**: Payment processing pipeline  
+### `payments` Topic
+**Purpose**: Payment processing pipeline
 **Producer**: `finance-app`
 **Consumer**: `accounting-app`
 

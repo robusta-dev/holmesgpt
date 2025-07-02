@@ -5,30 +5,30 @@ This setup simulates a realistic Kafka environment with multiple producers and c
 ## System Architecture
 
 ### `finance` Topic
-**Purpose**: Order-to-invoice processing pipeline  
-**Producer**: `orders-app` (fast producer)  
+**Purpose**: Order-to-invoice processing pipeline
+**Producer**: `orders-app` (fast producer)
 **Consumer**: `invoices-app` (slow consumer - **LAG SIMULATION**)
 
 - **orders-app**: Fast producer that generates customer orders every 100ms
   - Creates orders with product details, customer info, pricing
   - Sends to `finance` topic with high throughput
-  
+
 - **invoices-app**: Consumer that processes orders for invoice generation
   - Simulates email server processing (0.1-0.2 second delays per message)
   - Sends invoice emails to customers
   - **Intentionally slower than producer rate to create lag** for testing purposes
   - Consumer group: `invoices-processor`
 
-### `payments` Topic  
-**Purpose**: Payment processing pipeline  
-**Producer**: `finance-app` (moderate producer)  
+### `payments` Topic
+**Purpose**: Payment processing pipeline
+**Producer**: `finance-app` (moderate producer)
 **Consumer**: `accounting-app` (fast consumer)
 
 - **finance-app**: Moderate-speed producer generating payment transactions every 1 second
   - Creates payment data with various payment methods, amounts, bank codes
   - Includes customer info and transaction references
-  
-- **accounting-app**: Fast consumer that processes payments efficiently  
+
+- **accounting-app**: Fast consumer that processes payments efficiently
   - Calculates processing fees (70-130ms per message)
   - Performs risk scoring and database operations
   - Updates account balances quickly
@@ -42,7 +42,7 @@ The **`finance` topic intentionally creates consumer lag** because:
 - Producer rate (100ms) < Consumer rate (150ms+) creates growing lag that can be observed and investigated
 
 The **`payments` topic operates normally** with:
-- **finance-app** producing every 1 second 
+- **finance-app** producing every 1 second
 - **accounting-app** consuming in 70-130ms
 - No significant lag under normal conditions
 
@@ -70,7 +70,7 @@ GROUP              TOPIC    PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
 invoices-processor finance  0          177             758             581
 ```
 
-### Check payments topic lag (should show LAG ≈ 0-1)  
+### Check payments topic lag (should show LAG ≈ 0-1)
 ```bash
 kubectl exec kafka-xxx -n ask-holmes-namespace-XX -- /opt/bitnami/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group accounting-processor
 ```
