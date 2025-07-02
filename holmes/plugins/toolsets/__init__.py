@@ -33,6 +33,7 @@ from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
+from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -76,6 +77,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         BashExecutorToolset(),
         MongoDBAtlasToolset(),
         RunbookToolset(),
+        ServiceNowToolset(),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
