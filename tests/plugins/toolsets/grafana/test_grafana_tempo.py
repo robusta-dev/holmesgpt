@@ -11,10 +11,17 @@ from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     GrafanaTempoToolset,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import process_trace
+from tests.plugins.toolsets.grafana.conftest import check_grafana_connectivity
 
 GRAFANA_API_KEY = os.environ.get("GRAFANA_API_KEY", "")
 GRAFANA_URL = os.environ.get("GRAFANA_URL", "")
 GRAFANA_TEMPO_DATASOURCE_UID = os.environ.get("GRAFANA_TEMPO_DATASOURCE_UID", "")
+
+# Use pytest.mark.skip (not skipif) to show a single grouped skip line for the entire module
+# Will show: "SKIPPED [4] module.py: reason" instead of 4 separate skip lines
+skip_reason = check_grafana_connectivity()
+if skip_reason:
+    pytestmark = pytest.mark.skip(reason=skip_reason)
 
 
 def test_process_trace_json():
@@ -59,10 +66,6 @@ def test_grafana_tempo_has_prompt():
     assert tool.name in toolset.llm_instructions
 
 
-@pytest.mark.skipif(
-    not GRAFANA_URL,
-    reason="'GRAFANA_URL' must be set to run Grafana tests",
-)
 def test_grafana_query_loki_logs_by_pod():
     config = {
         "api_key": GRAFANA_API_KEY,
@@ -88,10 +91,6 @@ def test_grafana_query_loki_logs_by_pod():
     tool.invoke(params={"min_duration": "5"})
 
 
-@pytest.mark.skipif(
-    not GRAFANA_URL,
-    reason="'GRAFANA_URL' must be set",
-)
 def test_grafana_loki_health_check():
     config = GrafanaTempoConfig(
         api_key=GRAFANA_API_KEY,
