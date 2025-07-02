@@ -456,7 +456,7 @@ class ListAvailableMetrics(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'list available prometheus metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
+        return f'Search Available Prometheus Metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
 
 
 class ExecuteInstantQuery(BasePrometheusTool):
@@ -567,7 +567,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
     def get_parameterized_one_liner(self, params) -> str:
         query = params.get("query")
         description = params.get("description")
-        return f"Prometheus query. query={query}, description={description}"
+        return f"Execute Prometheus Query (instant): promql='{query}', description='{description}'"
 
 
 class ExecuteRangeQuery(BasePrometheusTool):
@@ -716,7 +716,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
         end = params.get("end")
         step = params.get("step")
         description = params.get("description")
-        return f"Prometheus query_range. query={query}, start={start}, end={end}, step={step}, description={description}"
+        return f"Execute Prometheus Query (range): promql='{query}', start={start}, end={end}, step={step}, description='{description}'"
 
 
 class PrometheusToolset(Toolset):
