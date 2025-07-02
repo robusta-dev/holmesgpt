@@ -1,10 +1,11 @@
 import logging
-from kubernetes import client  # type: ignore
-from kubernetes.client import V1ServiceList  # type: ignore
-from kubernetes.client.models.v1_service import V1Service  # type: ignore
 import os
 from typing import List, Optional
+
+from kubernetes import client  # type: ignore
 from kubernetes import config  # type: ignore
+from kubernetes.client import V1ServiceList  # type: ignore
+from kubernetes.client.models.v1_service import V1Service  # type: ignore
 
 CLUSTER_DOMAIN = os.environ.get("CLUSTER_DOMAIN", "cluster.local")
 
@@ -24,7 +25,7 @@ def find_service_url(label_selector):
     # we do it this way because there is a weird issue with hikaru's ServiceList.listServiceForAllNamespaces()
     try:
         v1 = client.CoreV1Api()
-        svc_list: V1ServiceList = v1.list_service_for_all_namespaces(
+        svc_list: V1ServiceList = v1.list_service_for_all_namespaces(  # type: ignore
             label_selector=label_selector
         )
         if not svc_list.items:
