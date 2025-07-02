@@ -78,7 +78,7 @@ kubectl exec kafka-xxx -n ask-holmes-namespace-XX -- /opt/bitnami/kafka/bin/kafk
 Expected output:
 ```
 GROUP                TOPIC    PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
-accounting-processor payments 0          5141            5142            1
+accounting-processor payments 0          83              88              5
 ```
 
 ## Testing Scenarios

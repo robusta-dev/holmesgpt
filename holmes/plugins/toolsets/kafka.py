@@ -122,6 +122,27 @@ class BaseKafkaTool(Tool):
             f"Failed to resolve Kafka client. No matching cluster: {cluster_name}"
         )
 
+    def get_bootstrap_servers(self, cluster_name: Optional[str]) -> str:
+        """
+        Retrieves the bootstrap servers for a given cluster.
+        """
+        if not self.toolset.kafka_config:
+            raise Exception("Kafka configuration not available")
+
+        if len(self.toolset.kafka_config.kafka_clusters) == 1:
+            return self.toolset.kafka_config.kafka_clusters[0].kafka_broker
+
+        if not cluster_name:
+            raise Exception("Missing cluster name to resolve bootstrap servers")
+
+        for cluster in self.toolset.kafka_config.kafka_clusters:
+            if cluster.name == cluster_name:
+                return cluster.kafka_broker
+
+        raise Exception(
+            f"Failed to resolve bootstrap servers. No matching cluster: {cluster_name}"
+        )
+
 
 class ListKafkaConsumers(BaseKafkaTool):
     def __init__(self, toolset: "KafkaToolset"):
@@ -368,6 +389,7 @@ def group_has_topic(
     client: AdminClient,
     consumer_group_description: ConsumerGroupDescription,
     topic_name: str,
+    bootstrap_servers: str,
 ):
     # Check active member assignments
     for member in consumer_group_description.members:
@@ -382,7 +404,7 @@ def group_has_topic(
         # Create a consumer with the same group.id as the one we're checking
         # This allows us to check its committed offsets
         consumer_config = {
-            "bootstrap.servers": "kafka:9092",  # Use the known server
+            "bootstrap.servers": bootstrap_servers,
             "group.id": consumer_group_description.group_id,
             "auto.offset.reset": "earliest",
             "enable.auto.commit": False,  # Don't auto-commit to avoid side effects
@@ -473,7 +495,13 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
                     consumer_group_description = (
                         consumer_group_description_future.result()
                     )
-                    if group_has_topic(client, consumer_group_description, topic_name):
+                    bootstrap_servers = self.get_bootstrap_servers(kafka_cluster_name)
+                    if group_has_topic(
+                        client,
+                        consumer_group_description,
+                        topic_name,
+                        bootstrap_servers,
+                    ):
                         consumer_groups.append(
                             convert_to_dict(consumer_group_description)
                         )
@@ -533,6 +561,7 @@ class ListKafkaClusters(BaseKafkaTool):
 class KafkaToolset(Toolset):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     clients: Dict[str, AdminClient] = {}
+    kafka_config: Optional[KafkaConfig] = None
 
     def __init__(self):
         super().__init__(
@@ -558,6 +587,7 @@ class KafkaToolset(Toolset):
         errors = []
         try:
             kafka_config = KafkaConfig(**config)
+            self.kafka_config = kafka_config
 
             for cluster in kafka_config.kafka_clusters:
                 try:
