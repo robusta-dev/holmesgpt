@@ -91,6 +91,52 @@ def llm_session_setup(request):
     yield  # Tests run here
 
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_all_test_infrastructure(request):
+    """Run before_test setups once for collected test cases, then after_test teardowns once"""
+
+    # Check if RUN_LIVE is set, otherwise skip session setup
+    if not os.environ.get("RUN_LIVE"):
+        yield
+        return
+
+    # Extract test cases from the filtered test items directly from session
+    test_cases_needing_setup = []
+    session = request.session
+    llm_tests = [item for item in session.items if item.get_closest_marker("llm")]
+
+    if llm_tests:
+        from tests.llm.utils.mock_utils import HolmesTestCase
+
+        seen_test_case_ids = set()
+        for item in llm_tests:
+            # Get the test_case parameter from parametrized tests
+            if hasattr(item, "callspec") and "test_case" in item.callspec.params:
+                test_case = item.callspec.params["test_case"]
+                if isinstance(test_case, HolmesTestCase) and test_case.before_test:
+                    if test_case.id not in seen_test_case_ids:
+                        test_cases_needing_setup.append(test_case)
+                        seen_test_case_ids.add(test_case.id)
+
+    # If no test cases need setup, skip
+    if not test_cases_needing_setup:
+        yield
+        return
+
+    # Import here to avoid circular imports
+    from tests.llm.utils.commands import before_test, after_test
+
+    # Run before_test for each unique test case
+    for test_case in test_cases_needing_setup:
+        before_test(test_case)
+
+    yield  # Tests run here
+
+    # Run after_test for each unique test case in reverse order
+    for test_case in reversed(test_cases_needing_setup):
+        after_test(test_case)
+
+
 def markdown_table(headers, rows):
     markdown = "| " + " | ".join(headers) + " |\n"
     markdown += "| " + " | ".join(["---" for _ in headers]) + " |\n"
