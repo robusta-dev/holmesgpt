@@ -204,17 +204,21 @@ class ToolsetManager:
         toolset_tags: Optional[List[ToolsetTag]] = None,
     ) -> List[Toolset]:
         """
-        Load the toolset status from the cache file.
-        If the file does not exist, return an empty list.
+        Load the toolset with status from the cache file.
+        1. load the built-in toolsets
+        2. load the custom toolsets from config, and override the built-in toolsets
+        3. load the custom toolsets from CLI, and raise error if the custom toolset from CLI conflicts with existing toolsets
         """
 
         if not os.path.exists(self.toolset_status_location) or refresh_status:
-            logging.info("refreshing toolset status")
+            logging.info("Refreshing available datasources (toolsets)")
             self.refresh_toolset_status(
                 dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
             )
+            using_cached = False
+        else:
+            using_cached = True
 
-        logging.info("loading toolset status from cache")
         cached_toolsets: List[dict[str, Any]] = []
         with open(self.toolset_status_location, "r") as f:
             cached_toolsets = json.load(f)
@@ -238,6 +242,13 @@ class ToolsetManager:
                     cached_status.get("type", ToolsetType.BUILTIN)
                 )
                 toolset.path = cached_status.get("path", None)
+            # check prerequisites for only enabled toolset when the toolset is loaded from cache
+            if (
+                toolset.enabled
+                and toolset.status == ToolsetStatusEnum.ENABLED
+                and using_cached
+            ):
+                toolset.check_prerequisites()  # type: ignore
 
         # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
         custom_toolsets_from_cli = self._load_toolsets_from_paths(
@@ -251,8 +262,17 @@ class ToolsetManager:
                 raise ValueError(
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
-        all_toolsets_with_status.extend(custom_toolsets_from_cli)
+            # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
+            custom_toolset_from_cli.check_prerequisites()
 
+        all_toolsets_with_status.extend(custom_toolsets_from_cli)
+        if using_cached:
+            num_available_toolsets = len(
+                [toolset for toolset in all_toolsets_with_status if toolset.enabled]
+            )
+            logging.info(
+                f"Using {num_available_toolsets} datasources (toolsets). To refresh: `holmes toolset refresh`"
+            )
         return all_toolsets_with_status
 
     def list_console_toolsets(
@@ -394,4 +414,5 @@ class ToolsetManager:
             if new_toolset.name in existing_toolsets_by_name.keys():
                 existing_toolsets_by_name[new_toolset.name].override_with(new_toolset)
             else:
+                existing_toolsets_by_name[new_toolset.name] = new_toolset
                 existing_toolsets_by_name[new_toolset.name] = new_toolset

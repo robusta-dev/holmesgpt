@@ -10,7 +10,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Union
 
-import sentry_sdk
 from jinja2 import Template
 from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
 from rich.console import Console
@@ -136,8 +135,15 @@ class Tool(ABC, BaseModel):
             if hasattr(result, "get_stringified_data")
             else str(result)
         )
+        if len(output_str) == 0:
+            preview = "<empty>"
+        elif len(output_str) > 80:
+            clipped = output_str[:80] + "..."
+            preview = f"{clipped!r}"
+        else:
+            preview = f"{output_str!r}"
         logging.info(
-            f"   Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n   {output_str[:80]!r}..."
+            f"|--- Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n     {preview}"
         )
         # return format_tool_output(result)
         return result
@@ -466,54 +472,6 @@ class YAMLToolset(Toolset):
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
-
-
-class ToolExecutor:
-    def __init__(self, toolsets: List[Toolset]):
-        self.toolsets = toolsets
-
-        self.enabled_toolsets: list[Toolset] = list(
-            filter(
-                lambda toolset: toolset.status == ToolsetStatusEnum.ENABLED,
-                toolsets,
-            )
-        )
-
-        toolsets_by_name: dict[str, Toolset] = {}
-        for ts in self.enabled_toolsets:
-            if ts.name in toolsets_by_name:
-                logging.warning(f"Overriding toolset '{ts.name}'!")
-            toolsets_by_name[ts.name] = ts
-
-        self.tools_by_name: dict[str, Tool] = {}
-        for ts in toolsets_by_name.values():
-            for tool in ts.tools:
-                if tool.name in self.tools_by_name:
-                    logging.warning(
-                        f"Overriding existing tool '{tool.name} with new tool from {ts.name} at {ts.path}'!"
-                    )
-                self.tools_by_name[tool.name] = tool
-
-    def invoke(self, tool_name: str, params: Dict) -> StructuredToolResult:
-        tool = self.get_tool_by_name(tool_name)
-        return (
-            tool.invoke(params)
-            if tool
-            else StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Could not find tool named {tool_name}",
-            )
-        )
-
-    def get_tool_by_name(self, name: str) -> Optional[Tool]:
-        if name in self.tools_by_name:
-            return self.tools_by_name[name]
-        logging.warning(f"could not find tool {name}. skipping")
-        return None
-
-    @sentry_sdk.trace
-    def get_all_tools_openai_format(self):
-        return [tool.get_openai_format() for tool in self.tools_by_name.values()]
 
 
 class ToolsetYamlFromConfig(Toolset):

@@ -1,5 +1,6 @@
 toolsets:
   rabbitmq/core:
+    enabled: true
     config:
       clusters:
         - id: rabbitmq

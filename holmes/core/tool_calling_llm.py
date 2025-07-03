@@ -30,13 +30,14 @@ from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tools import StructuredToolResult, ToolExecutor, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -113,10 +114,21 @@ def truncate_messages_to_fit_context(
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
-            logging.info(
-                f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
-            )
-            msg["content"] = msg["content"][:allocated_space]
+            truncation_notice = "\n\n[TRUNCATED]"
+            # Ensure the indicator fits in the allocated space
+            if allocated_space > len(truncation_notice):
+                msg["content"] = (
+                    msg["content"][: allocated_space - len(truncation_notice)]
+                    + truncation_notice
+                )
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
+                )
+            else:
+                msg["content"] = truncation_notice[:allocated_space]
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
+                )
             msg.pop("token_count", None)  # Remove token_count if present
 
         remaining_space -= allocated_space

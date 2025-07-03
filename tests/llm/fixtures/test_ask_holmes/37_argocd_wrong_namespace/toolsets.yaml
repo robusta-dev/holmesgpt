@@ -3,4 +3,6 @@
 # ARGOCD_OPTS="--port-forward --port-forward-namespace argocd --grpc-web"
 toolsets:
   argocd/core:
-    enabled: True
+    enabled: true
+  kubernetes/core:
+    enabled: true

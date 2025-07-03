@@ -15,10 +15,12 @@ from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CON
 from holmes.core.llm import LLM, DefaultLLM
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
+from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import (
+    RunbookCatalog,
     load_builtin_runbooks,
     load_runbook_catalog,
     load_runbooks_from_file,
@@ -150,6 +152,8 @@ class Config(RobustaBaseConfig):
             self._model_list["Robusta"] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
+
+    def log_useful_info(self):
         if self._model_list:
             logging.info(f"loaded models: {list(self._model_list.keys())}")
 
@@ -178,12 +182,15 @@ class Config(RobustaBaseConfig):
         cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
 
         if config_from_file is None:
-            return cls(**cli_options)
+            result = cls(**cli_options)
+        else:
+            logging.debug(f"Overriding config from cli options {cli_options}")
+            merged_config = config_from_file.dict()
+            merged_config.update(cli_options)
+            result = cls(**merged_config)
 
-        logging.debug(f"Overriding config from cli options {cli_options}")
-        merged_config = config_from_file.dict()
-        merged_config.update(cli_options)
-        return cls(**merged_config)
+        result.log_useful_info()
+        return result
 
     @classmethod
     def load_from_env(cls):
@@ -213,7 +220,9 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
         kwargs["cluster_name"] = Config.__get_cluster_name()
-        return cls(**kwargs)
+        result = cls(**kwargs)
+        result.log_useful_info()
+        return result
 
     @staticmethod
     def __get_cluster_name() -> Optional[str]:
@@ -235,14 +244,10 @@ class Config(RobustaBaseConfig):
         return None
 
     @staticmethod
-    def get_runbook_catalog() -> str:
+    def get_runbook_catalog() -> Optional[RunbookCatalog]:
         # TODO(mainred): besides the built-in runbooks, we need to allow the user to bring their own runbooks
         runbook_catalog = load_runbook_catalog()
-        if runbook_catalog is not None:
-            return runbook_catalog.model_dump_json()
-        else:
-            logging.warning("Runbook catalog not found")
-            return json.dumps({"catalog": []})
+        return runbook_catalog
 
     def create_console_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """

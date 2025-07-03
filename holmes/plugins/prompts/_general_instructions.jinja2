@@ -13,7 +13,7 @@
 * if you don't know, say that the analysis was inconclusive.
 * if there are multiple possible causes list them in a numbered list.
 * there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.
-* ALWAYS check a pod's logs when checking if it is healthy. A pod in "running" state and reporting healthy does not mean it is running without issues.
+* ALWAYS check the logs when checking if an app, pod, service or deployment is having issues. Something "running" and reporting healthy does not mean it is without issues.
 
 # If investigating Kubernetes problems
 
@@ -21,13 +21,14 @@
 * if possible, do so repeatedly on different Kubernetes objects.
 * for example, for deployments first run kubectl on the deployment then a replicaset inside it, then a pod inside that.
 * when investigating a pod that crashed or application errors, always run kubectl_describe and fetch the logs
+* Do check both the status of the kubernetes resources and the application runtime as well, by investigating logs
 * do not give an answer like "The pod is pending" as that doesn't state why the pod is pending and how to fix it.
 * do not give an answer like "Pod's node affinity/selector doesn't match any available nodes" because that doesn't include data on WHICH label doesn't match
 * if investigating an issue on many pods, there is no need to check more than 3 individual pods in the same deployment. pick up to a representative 3 from each deployment if relevant
 * if the user says something isn't working, ALWAYS:
 ** use kubectl_describe on the owner workload + individual pods and look for any transient issues they might have been referring to
-** check the application aspects through the logs
 ** look for misconfigured ingresses/services etc
+** check the application logs because there may be runtime issues
 
 {% include '_toolsets_instructions.jinja2' %}
 

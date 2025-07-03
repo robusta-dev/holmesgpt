@@ -1,15 +1,11 @@
 {% if runbooks and runbooks.catalog|length > 0 %}
 # Runbook Selection
 
-# Available Runbooks
-
-{%- for runbook in runbooks.catalog -%}
-
-description: {{ runbook.description }}
+## Available Runbooks
+{% for runbook in runbooks.catalog %}
+### description: {{ runbook.description }}
 link: {{ runbook.link }}
-
-{%- endfor -%}
-
+{% endfor %}
 ALWAYS try to find the runbooks that can provide troubleshooting instructions when the user describes an operational issue, debugging scenario, or asks for step‑by‑step troubleshooting.
 To get the runbook details, use `fetch_runbook` tool by comparing the runbook description with the user prompt.
 ALWAYS follow the steps described in the runbook.

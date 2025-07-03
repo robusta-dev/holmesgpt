@@ -3,19 +3,21 @@ import os
 import os.path
 from typing import Any, List, Optional, Union
 
+from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 import yaml  # type: ignore
 from pydantic import ValidationError
 
 import holmes.utils.env as env_utils
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
-from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
 from holmes.plugins.toolsets.datadog import DatadogToolset
+from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
+from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet.internet import InternetToolset
@@ -29,6 +31,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTrace
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
+from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -71,17 +74,27 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         RabbitMQToolset(),
         GitToolset(),
         BashExecutorToolset(),
+        MongoDBAtlasToolset(),
         RunbookToolset(),
     ]
+    if not USE_LEGACY_KUBERNETES_LOGS:
+        toolsets.append(KubernetesLogsToolset())
 
     return toolsets
 
 
 def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
-    all_toolsets = []
+    all_toolsets: List[Toolset] = []
+    logging.debug(f"loading toolsets from {THIS_DIR}")
+
+    # Handle YAML toolsets
     for filename in os.listdir(THIS_DIR):
         if not filename.endswith(".yaml"):
             continue
+
+        if filename == "kubernetes_logs.yaml" and not USE_LEGACY_KUBERNETES_LOGS:
+            continue
+
         path = os.path.join(THIS_DIR, filename)
         toolsets_from_file = load_toolsets_from_file(path, strict_check=True)
         all_toolsets.extend(toolsets_from_file)
@@ -130,14 +143,13 @@ def load_toolsets_from_config(
         try:
             toolset_type = config.get("type", ToolsetType.BUILTIN.value)
             # MCP server is not a built-in toolset, so we need to set the type explicitly
+            validated_toolset: Optional[Toolset] = None
             if toolset_type is ToolsetType.MCP:
-                validated_toolset: RemoteMCPToolset = RemoteMCPToolset(
-                    **config, name=name
-                )
+                validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
-                validated_toolset: YAMLToolset = YAMLToolset(**config, name=name)  # type: ignore
+                validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
             else:
-                validated_toolset: ToolsetYamlFromConfig = ToolsetYamlFromConfig(  # type: ignore
+                validated_toolset = ToolsetYamlFromConfig(  # type: ignore
                     **config, name=name
                 )
 

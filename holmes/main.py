@@ -109,13 +109,29 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
         logging.basicConfig(
             level=logging.DEBUG,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[
+                RichHandler(
+                    show_level=False,
+                    markup=True,
+                    show_time=False,
+                    show_path=False,
+                    console=Console(width=None),
+                )
+            ],
         )
     elif verbosity == Verbosity.VERBOSE:
         logging.basicConfig(
             level=logging.INFO,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[
+                RichHandler(
+                    show_level=False,
+                    markup=True,
+                    show_time=False,
+                    show_path=False,
+                    console=Console(width=None),
+                )
+            ],
         )
         logging.getLogger().setLevel(logging.DEBUG)
         suppress_noisy_logs()
@@ -123,7 +139,15 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
         logging.basicConfig(
             level=logging.INFO,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[
+                RichHandler(
+                    show_level=False,
+                    markup=True,
+                    show_time=False,
+                    show_path=False,
+                    console=Console(width=None),
+                )
+            ],
         )
         suppress_noisy_logs()
 
@@ -294,10 +318,10 @@ def ask(
     echo_request: bool = opt_echo_request,
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
     interactive: bool = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help="Enter interactive mode after the initial question to ask follow-up questions.",
+        True,
+        "--interactive/--no-interactive",
+        "-i/-n",
+        help="Enter interactive mode after the initial question? For scripting, disable this with --no-interactive",
     ),
 ):
     """

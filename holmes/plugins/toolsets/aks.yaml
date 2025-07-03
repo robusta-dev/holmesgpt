@@ -4,7 +4,7 @@ toolsets:
     tags:
       - cli
     prerequisites:
-      - command: "az account list"
+      - command: "az account show"
       - command: "az aks --help"
       - command: "kubectl version --client"
     tools:
@@ -64,6 +64,16 @@ toolsets:
         user_description: "get resource group for cluster {{ CLUSTER_NAME }}"
         command: |
            az aks list --subscription {{ SUBSCRIPTION_ID }} --only-show-errors --query "[?name=='{{ CLUSTER_NAME }}'].resourceGroup | [0]" -o tsv
+      - name: "get_node_resource_group"
+        description: "Retrieves the node resource group name for the AKS cluster"
+        user_description: "get the node resource group name for cluster {{ CLUSTER_NAME }}"
+        command: |
+          az aks list --subscription {{ SUBSCRIPTION_ID }} --only-show-errors --query "[?name=='{{ CLUSTER_NAME }}'].nodeResourceGroup | [0]" -o tsv
+      - name: "get_api_server_public_ip"
+        description: "get the public IP of kube-apiserver for a public AKS cluster"
+        user_description: "get the public IP of kube-apiserver for a public AS cluster {{ CLUSTER_NAME }}"
+        command: |
+          API_SERVER=$(kubectl cluster-info | grep 'Kubernetes control plane' | sed -E 's|.*https://([^:]+):.*|\1|') && dig +short "${API_SERVER}"
       - name: "get_all_nsgs"
         description: "Gets all Network Security Group (NSG) instances in a subscription"
         user_description: "list NSG instances in current Azure subscription {{ SUBSCRIPTION_ID }} context"

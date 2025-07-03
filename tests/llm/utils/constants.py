@@ -10,4 +10,6 @@ ALLOWED_EVAL_TAGS = Literal[
     "context_window",  # An eval that tests HolmesGPT's ability to find information despite the data not fitting the LLM's context window
     "synthetic",  # An eval that cannot be run live because its mocked data has been manually generated
     "datetime",  # An eval that tests HolmesGPT's ability to rely on or correctly use date and/or time information
+    "network",  # An eval related to networking issues
+    "runbooks",  # An eval that relies on runbooks
 ]
