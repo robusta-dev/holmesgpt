@@ -40,6 +40,30 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
   }'
 ```
 
+#### Example Response
+```json
+{
+  "analysis": "The pod 'my-pod' in namespace 'default' is crashing due to an OOMKilled event. Consider increasing memory limits.",
+  "sections": {
+    "Alert Explanation": "...",
+    "Key Findings": "...",
+    "Conclusions and Possible Root Causes": "...",
+    "Next Steps": "...",
+    "App or Infra?": "...",
+    "External links": "..."
+  },
+  "tool_calls": [
+    {
+      "tool_call_id": "1",
+      "tool_name": "kubectl_logs",
+      "description": "Fetch pod logs",
+      "result": {"logs": "..."}
+    }
+  ],
+  "instructions": [...]
+}
+```
+
 ---
 
 ### 2. `/api/stream/investigate` (POST)
@@ -63,6 +87,36 @@ curl -N -X POST http://<HOLMES-URL>/api/stream/investigate \
   }'
 ```
 
+#### Example Response (streamed)
+```json
+event: start_tool_calling
+data: {"tool_name": "kubectl_describe", "id": "call_0"}
+
+event: start_tool_calling
+data: {"tool_name": "kubectl_logs", "id": "call_1"}
+
+event: start_tool_calling
+data: {"tool_name": "kubectl_previous_logs", "id": "call_3"}
+
+event: start_tool_calling
+data: {"tool_name": "kubectl_memory_requests_namespace", "id": "call_4"}
+
+event: tool_calling_result
+data: {"tool_call_id": "call_4", "role": "tool", "description": "kubectl get pods -n default -o ...", "name": "kubectl_memory_requests_namespace", "result": {...}}
+
+event: tool_calling_result
+data: {"tool_call_id": "call_0", "role": "tool", "description": "kubectl describe pod my-pod -n default", "name": "kubectl_describe", "result": {...}}
+
+event: tool_calling_result
+data: {"tool_call_id": "call_3", "role": "tool", "description": "kubectl logs my-pod -n default --previous", "name": "kubectl_previous_logs", "result": {...}}
+
+event: tool_calling_result
+data: {"tool_call_id": "call_1", "role": "tool", "description": "kubectl logs my-pod -n default", "name": "kubectl_logs", "result": {...}}
+
+event: ai_answer_end
+data: {"sections": {"Alert Explanation": ...}}
+```
+
 ---
 
 ### 3. `/api/workload_health_check` (POST)
@@ -73,12 +127,12 @@ curl -N -X POST http://<HOLMES-URL>/api/stream/investigate \
 |-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
 | ask                     | Yes      |                                            | string    | User's question                                  |
 | resource                | Yes      |                                            | object    | Resource details (e.g., name, kind)              |
-| alert_history_since_hours| No      | 24                                         | float     | How many hours back to check alerts              |
+| alert_history_since_hours| No       | 24                                         | float     | How many hours back to check alerts              |
 | alert_history           | No       | true                                       | boolean   | Whether to include alert history                 |
 | stored_instrucitons     | No       | true                                       | boolean   | Use stored instructions                          |
 | instructions            | No       | []                                         | list      | Additional instructions                          |
 | include_tool_calls      | No       | false                                      | boolean   | Include tool calls in response                   |
-| include_tool_call_results| No      | false                                      | boolean   | Include tool call results in response            |
+| include_tool_call_results| No       | false                                      | boolean   | Include tool call results in response            |
 | prompt_template         | No       | "builtin://kubernetes_workload_ask.jinja2" | string    | Prompt template to use                           |
 | model                   | No       |                                            | string    | Model name to use                                |
 
@@ -91,6 +145,23 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_check \
     "resource": {"name": "my-deployment", "kind": "Deployment"},
     "alert_history_since_hours": 12
   }'
+```
+
+#### Example Response
+```json
+{
+  "analysis": "Deployment 'my-deployment' is unhealthy due to repeated CrashLoopBackOff events.",
+  "sections": null,
+  "tool_calls": [
+    {
+      "tool_call_id": "2",
+      "tool_name": "kubectl_get_events",
+      "description": "Fetch recent events",
+      "result": {"events": "..."}
+    }
+  ],
+  "instructions": [...]
+}
 ```
 
 ---
@@ -128,6 +199,19 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_chat \
   }'
 ```
 
+#### Example Response
+```json
+{
+  "analysis": "The deployment 'my-deployment' is healthy. No recent issues detected.",
+  "conversation_history": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Check the workload health."},
+    {"role": "assistant", "content": "The deployment 'my-deployment' is healthy. No recent issues detected."}
+  ],
+  "tool_calls": [...]
+}
+```
+
 ---
 
 ### 5. `/api/issue_chat` (POST)
@@ -163,6 +247,20 @@ curl -X POST http://<HOLMES-URL>/api/issue_chat \
   }'
 ```
 
+#### Example Response
+```json
+{
+  "analysis": "To fix the CrashLoopBackOff, increase the memory limit for the pod and check for memory leaks in the application.",
+  "conversation_history": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "How do I fix this issue?"},
+    {"role": "assistant", "content": "To fix the CrashLoopBackOff, increase the memory limit for the pod and check for memory leaks in the application."}
+  ],
+  "tool_calls": [...],
+  "follow_up_actions": [...]
+}
+```
+
 ---
 
 ### 6. `/api/chat` (POST)
@@ -187,6 +285,20 @@ curl -X POST http://<HOLMES-URL>/api/chat \
   }'
 ```
 
+#### Example Response
+```json
+{
+  "analysis": "Your cluster is healthy. All nodes are ready and workloads are running as expected.",
+  "conversation_history": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is the status of my cluster?"},
+    {"role": "assistant", "content": "Your cluster is healthy. All nodes are ready and workloads are running as expected."}
+  ],
+  "tool_calls": [...],
+  "follow_up_actions": [...]
+}
+```
+
 ---
 
 ### 7. `/api/model` (GET)
@@ -197,5 +309,10 @@ curl -X POST http://<HOLMES-URL>/api/chat \
 curl http://<HOLMES-URL>/api/model
 ```
 
----
+#### Example Response
+```json
+{
+  "model_name": ["gpt-4o", "azure/gpt-4o", "robusta"]
+}
+```
 
