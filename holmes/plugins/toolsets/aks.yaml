@@ -84,3 +84,15 @@ toolsets:
         user_description: "list NSG rules for NSG {{ NSG_NAME }} in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
         command: |
             az network nsg rule list --resource-group {{ RESOURCE_GROUP_NAME }} --nsg-name {{ NSG_NAME }} --subscription {{ SUBSCRIPTION_ID }} --include-default -o table
+
+      - name: "aks_get_cluster_health_events"
+        description: "Retrieves resource health events for an AKS cluster"
+        user_description: "get resource health events for AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }} in subscription {{ SUBSCRIPTION_ID }}"
+        command: |
+          az monitor activity-log list --resource-group {{ RESOURCE_GROUP_NAME }} --resource-id /subscriptions/{{ SUBSCRIPTION_ID }}/resourceGroups/{{ RESOURCE_GROUP_NAME }}/providers/Microsoft.ContainerService/managedClusters/{{ CLUSTER_NAME }} --query "[?category.value=='ResourceHealth']"
+
+      - name: "aks_get_cluster_health_events_since"
+        description: "Retrieves resource health events for an AKS cluster since a specific date"
+        user_description: "get resource health events for AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }} in subscription {{ SUBSCRIPTION_ID }} since {{ START_DATE }}"
+        command: |
+          az monitor activity-log list --resource-group {{ RESOURCE_GROUP_NAME }} --resource-id /subscriptions/{{ SUBSCRIPTION_ID }}/resourceGroups/{{ RESOURCE_GROUP_NAME }}/providers/Microsoft.ContainerService/managedClusters/{{ CLUSTER_NAME }} --start-time {{ START_DATE }} --query "[?category.value=='ResourceHealth']"
