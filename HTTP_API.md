@@ -88,7 +88,7 @@ curl -N -X POST http://<HOLMES-URL>/api/stream/investigate \
 ```
 
 #### Example Response (streamed)
-```json
+```bash
 event: start_tool_calling
 data: {"tool_name": "kubectl_describe", "id": "call_0"}
 
