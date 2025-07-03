@@ -1,12 +1,11 @@
-# HolmesGPT Evaluations - Introduction
-
-
-- [Docs on writing your own evals](./evals-writing.md).
-- [Use Braintrust to view analyze results (optional)](./evals-reporting.md).
-
-## Overview
+# HolmesGPT Evaluations
 
 HolmesGPT uses automated evaluations (evals) to ensure consistent performance across different LLM models and to catch regressions during development. These evaluations test the system's ability to correctly diagnose Kubernetes issues.
+
+- [Writing Evaluations](writing.md) - Learn how to create new test cases and evaluations
+- [Reporting with Braintrust](reporting.md) - Analyze results and debug failures using Braintrust
+
+## Overview
 
 The eval system comprises two main test suites:
 
@@ -14,8 +13,6 @@ The eval system comprises two main test suites:
 - **Investigate**: Tests HolmesGPT's ability to investigate specific issues reported by AlertManager
 
 Evals use fixtures that simulate real Kubernetes environments and tool outputs, allowing comprehensive testing without requiring live clusters.
-
-While results are tracked and analyzed using Braintrust, Braintrust is not necessary to writing, running and debugging evals.
 
 ## Example
 
@@ -104,12 +101,13 @@ Evaluations serve several critical purposes:
 
 ## How to Run Evaluations
 
-### Basic Usage
+### Prerequisites
 
-Install dependencies:
 ```bash
 poetry install
 ```
+
+### Basic Usage
 
 Run all evaluations:
 ```bash
@@ -137,8 +135,8 @@ Configure evaluations using these environment variables:
 
 | Variable | Example | Description |
 |----------|---------|-------------|
-| `MODEL` | `MODEL=anthropic/claude-3.5` | Specify which LLM model to use |
-| `CLASSIFIER_MODEL` | `CLASSIFIER_MODEL=gpt-4o` | The LLM model to use for scoring the answer (LLM as judge). Supported LLM providers are OpenAI and Azure OpenAI. Defaults to `MODEL` |
+| `MODEL` | `MODEL=anthropic/claude-3-5-sonnet-20241022` | Specify which LLM model to use |
+| `CLASSIFIER_MODEL` | `CLASSIFIER_MODEL=gpt-4o` | The LLM model to use for scoring the answer (LLM as judge). Defaults to `MODEL` |
 | `ITERATIONS` | `ITERATIONS=3` | Run each test multiple times for consistency checking |
 | `RUN_LIVE` | `RUN_LIVE=true` | Execute `before-test` and `after-test` commands, ignore mock files |
 | `BRAINTRUST_API_KEY` | `BRAINTRUST_API_KEY=sk-1dh1...swdO02` | API key for Braintrust integration |
@@ -176,18 +174,10 @@ Live testing requires a Kubernetes cluster and will execute `before-test` and `a
 
 2. **Test New Model**: Run evaluations with the model you want to compare
    ```bash
-   EXPERIMENT_ID=test_claude35 MODEL=anthropic/claude-3.5 poetry run pytest -n 10 ./tests/llm/test_* --no-cov --disable-warnings
+   EXPERIMENT_ID=test_claude35 MODEL=anthropic/claude-3-5-sonnet-20241022 poetry run pytest -n 10 ./tests/llm/test_*  --no-cov --disable-warnings
    ```
 
 3. **Compare Results**: Use Braintrust dashboard to analyze performance differences
-
-## Writing Evaluations
-
-For detailed information on creating new evaluations, see the [Writing Evaluations Guide](evals-writing.md).
-
-## Reporting and Analysis
-
-Learn how to analyze evaluation results using Braintrust in the [Reporting Guide](evals-reporting.md).
 
 ## Troubleshooting
 
