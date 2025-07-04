@@ -27,7 +27,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 kafka_config = {
-    "kafka_broker": KAFKA_BOOTSTRAP_SERVER,
+    "kafka_clusters": [
+        {
+            "name": "kafka",
+            "kafka_broker": KAFKA_BOOTSTRAP_SERVER,
+        }
+    ]
 }
 
 
@@ -38,14 +43,14 @@ def kafka_toolset():
     kafka_toolset.check_prerequisites()
     assert (
         kafka_toolset.status == ToolsetStatusEnum.ENABLED
-    ), "Prerequisites check failed for Kafka toolset"
-    assert kafka_toolset.admin_client is not None, "Missing admin client"
+    ), f"Prerequisites check failed for Kafka toolset: {kafka_toolset.status} / {kafka_toolset.error}"
+    assert kafka_toolset.clients["kafka"] is not None, "Missing admin client"
     return kafka_toolset
 
 
 @pytest.fixture(scope="module", autouse=True)
 def admin_client(kafka_toolset):
-    return kafka_toolset.admin_client
+    return kafka_toolset.clients["kafka"]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -58,7 +63,7 @@ def docker_compose(kafka_toolset):
             stderr=subprocess.PIPE,
         )
 
-        if not wait_for_kafka_ready(kafka_toolset.admin_client):
+        if not wait_for_kafka_ready(kafka_toolset.clients["kafka"]):
             raise Exception("Kafka failed to initialize properly")
 
         yield
