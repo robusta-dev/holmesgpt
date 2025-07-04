@@ -1,4 +1,4 @@
-expected_output: 
+expected_output:
   - mention lack of tool and user should enable either kubernetes toolsets or bash toolset or both
 before_test: |
   kubectl apply -f./manifest.yaml
