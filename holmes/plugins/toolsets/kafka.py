@@ -384,6 +384,7 @@ def group_has_topic(
     consumer_group_description: ConsumerGroupDescription,
     topic_name: str,
     bootstrap_servers: str,
+    topic_metadata: Any
 ):
     # Check active member assignments
     for member in consumer_group_description.members:
@@ -405,8 +406,7 @@ def group_has_topic(
         }
         consumer = Consumer(consumer_config)
 
-        # Get topic metadata to know which partitions exist
-        topic_metadata = client.list_topics(topic_name, timeout=10)
+        # Check topic metadata to know which partitions exist
         if topic_name not in topic_metadata.topics:
             consumer.close()
             return False
@@ -490,11 +490,13 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
                         consumer_group_description_future.result()
                     )
                     bootstrap_servers = self.get_bootstrap_servers(kafka_cluster_name)
+                    topic_metadata = client.list_topics(topic_name, timeout=10)
                     if group_has_topic(
-                        client,
-                        consumer_group_description,
-                        topic_name,
-                        bootstrap_servers,
+                        client=client,
+                        consumer_group_description=consumer_group_description,
+                        topic_name=topic_name,
+                        bootstrap_servers=bootstrap_servers,
+                        topic_metadata=topic_metadata
                     ):
                         consumer_groups.append(
                             convert_to_dict(consumer_group_description)
