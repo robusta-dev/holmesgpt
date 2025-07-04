@@ -1,10 +1,10 @@
 import logging
 import re
-from typing import Optional, List, Any, Tuple
-from kubernetes import client, config
-from kubernetes.client.exceptions import ApiException
+import subprocess
+from typing import Optional, List, Tuple
 from pydantic import BaseModel
 
+from holmes.common.env_vars import KUBERNETES_LOGS_TIMEOUT_SECONDS
 from holmes.core.tools import (
     StaticPrerequisite,
     StructuredToolResult,
@@ -37,7 +37,7 @@ class StructuredLog(BaseModel):
 
 
 class KubernetesLogsToolset(BasePodLoggingToolset):
-    """Implementation of the unified logging API for Kubernetes logs using the official Python client"""
+    """Implementation of the unified logging API for Kubernetes logs using kubectl commands"""
 
     def __init__(self):
         prerequisite = StaticPrerequisite(enabled=False, disabled_reason="Initializing")
@@ -53,79 +53,79 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             ],
             tags=[ToolsetTag.CORE],
         )
-        self._api_client = None
-        self._core_v1_api = None
-        self._initialize_client()
         enabled, disabled_reason = self.health_check()
         prerequisite.enabled = enabled
         prerequisite.disabled_reason = disabled_reason
 
     def health_check(self) -> Tuple[bool, str]:
-        if self._api_client is None:
-            return False, "Kubernetes client not initialized"
         try:
-            # Try to load the kubeconfig and access the API
-            self._api_client.call_api(
-                "/version",
-                "GET",
-                auth_settings=["BearerToken"],
-                response_type="object",
-                _return_http_data_only=True,
+            # Check if kubectl is available
+            result = subprocess.run(
+                ["kubectl", "version", "--client"],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
-            return True, ""
+            if result.returncode == 0:
+                return True, ""
+            else:
+                return False, f"kubectl command failed: {result.stderr}"
+        except subprocess.TimeoutExpired:
+            return False, "kubectl command timed out"
+        except FileNotFoundError:
+            return False, "kubectl command not found"
         except Exception as e:
-            return False, f"Kubernetes client initialization error: {str(e)}"
+            return False, f"kubectl health check error: {str(e)}"
 
     def get_example_config(self):
         return LoggingConfig().model_dump()
 
-    def _initialize_client(self):
-        try:
-            try:
-                config.load_incluster_config()
-            except config.ConfigException:
-                logging.debug(
-                    f"_initialize_client for {self.name} toolset falling back to loading kube_config"
-                )
-                config.load_kube_config()
-
-            self._api_client = client.ApiClient()
-            self._core_v1_api = client.CoreV1Api(self._api_client)
-        except Exception:
-            logging.error("Failed to initialize Kubernetes client", exc_info=True)
-
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         try:
-            multi_containers: bool = False
-            pod = self._find_pod(params.namespace, params.pod_name)
             all_logs: list[StructuredLog] = []
-            multi_containers_previous = False
-            logs_previous: list[StructuredLog] = []
-            try:
-                multi_containers_previous, logs_previous = self._fetch_pod_logs(
-                    params=params,
-                    containers=pod.containers if pod else None,
-                    previous=True,
-                )
-            except Exception:
-                # previous logs can fail for a number of reason, for example if the previous pod does not have the same containers as the current one
-                pass
 
-            multi_containers_current, logs_current = self._fetch_pod_logs(
+            # Fetch previous logs
+            logs_previous, error_previous = self._fetch_kubectl_logs(
                 params=params,
-                containers=pod.containers if pod else None,
+                previous=True,
+            )
+
+            # Fetch current logs
+            logs_current, error_current = self._fetch_kubectl_logs(
+                params=params,
                 previous=False,
             )
 
+            # Combine logs
             if logs_previous:
-                multi_containers = multi_containers or multi_containers_previous
-                all_logs = all_logs + logs_previous
+                all_logs.extend(logs_previous)
             if logs_current:
-                multi_containers = multi_containers or multi_containers_current
-                all_logs = all_logs + logs_current
+                all_logs.extend(logs_current)
 
+            # Check if both commands failed
+            if not all_logs and error_current and error_previous:
+                # Both commands failed - return error from current logs
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=error_current,
+                    params=params.model_dump(),
+                )
+
+            # If we have no logs but no errors, it means the pod exists but has no logs
+            if not all_logs:
+                return StructuredToolResult(
+                    status=ToolResultStatus.NO_DATA,
+                    params=params.model_dump(),
+                )
+
+            # Filter logs based on parameters
             all_logs = filter_logs(all_logs, params)
 
+            # Check if there are multiple containers
+            containers = set(log.container for log in all_logs if log.container)
+            multi_containers = len(containers) > 1
+
+            # Format logs
             formatted_logs = format_logs(
                 logs=all_logs, display_container_name=multi_containers
             )
@@ -137,12 +137,6 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 data=formatted_logs,
                 params=params.model_dump(),
             )
-        except ApiException as e:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Kubernetes API error: {str(e)}",
-                params=params.model_dump(),
-            )
         except Exception as e:
             logging.exception(f"Error fetching logs for pod {params.pod_name}")
             return StructuredToolResult(
@@ -151,109 +145,130 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 params=params.model_dump(),
             )
 
-    def _find_pod(self, namespace: str, pod_name: str) -> Optional[Pod]:
-        if not self._core_v1_api:
-            logging.warning(f"Toolset {self.name} failed to initialize.")
-            return None
-        try:
-            pod: Any = self._core_v1_api.read_namespaced_pod(
-                name=pod_name, namespace=namespace
-            )
-            return Pod(containers=[container.name for container in pod.spec.containers])
-        except ApiException as e:
-            if e.status == 404:
-                return None
-            else:
-                raise
-        except Exception:
-            logging.exception(f"Error getting pod {pod_name}", exc_info=True)
-            raise
-
-    def _fetch_pod_logs(
+    def _fetch_kubectl_logs(
         self,
         params: FetchPodLogsParams,
-        containers: Optional[List[str]] = None,
         previous: bool = False,
-    ) -> tuple[bool, list[StructuredLog]]:
-        pod_logs = []
-        multi_container = False
-        if containers:
-            if len(containers) > 1:
-                multi_container = True
-            # Fetch logs for each container, try current logs first then previous if none found
-            for container_name in containers:
-                container_logs = self._fetch_logs_from_kubernetes(
-                    params=params,
-                    container_name=container_name,
-                    previous=previous,
-                )
+    ) -> Tuple[List[StructuredLog], Optional[str]]:
+        """Fetch logs using kubectl command
 
-                pod_logs.extend(container_logs)
+        Returns:
+            Tuple of (logs, error_message)
+        """
+        cmd = [
+            "kubectl",
+            "logs",
+            params.pod_name,
+            "-n",
+            params.namespace,
+            "--all-containers=true",
+            "--timestamps=true",
+            "--prefix=true",
+        ]
 
-        if not pod_logs:
-            # Previous pods may have had different containers
-            # fall back to fetching the 'default' pod logs in a attempt to be as resilient as possible
-            pod_logs = self._fetch_logs_from_kubernetes(
-                params=params,
-                previous=previous,
+        if previous:
+            cmd.append("--previous")
+
+        try:
+            result = subprocess.run(
+                cmd,
+                text=True,
+                timeout=KUBERNETES_LOGS_TIMEOUT_SECONDS,
+                check=False,  # do not throw error, we just return the error code
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
 
-        return multi_container, pod_logs
-
-    def _fetch_logs_from_kubernetes(
-        self,
-        params: FetchPodLogsParams,
-        container_name: Optional[str] = None,
-        previous: bool = False,
-    ) -> List[StructuredLog]:
-        """Fetch logs for a specific container in a pod"""
-        if not self._core_v1_api:
-            logging.warning(f"Toolset {self.name} failed to initialize.")
-            return []
-
-        query_params = {
-            "name": params.pod_name,
-            "namespace": params.namespace,
-            "previous": previous,
-            "timestamps": True,
-        }
-        try:
-            if container_name:
-                query_params["container"] = container_name
-
-            logs = self._core_v1_api.read_namespaced_pod_log(**query_params)
-            return parse_logs(logs, container_name)
-        except ApiException as e:
-            logs = []
-            if e.body and e.body:
-                logs.append(
-                    StructuredLog(
-                        timestamp_ms=None, container=container_name, content=e.body
-                    )
-                )
-            if e.status == 400 and "previous terminated container" in str(e).lower():
-                return logs
-            elif (
-                e.status == 400
-                and "a container name must be specified for pod" in str(e).lower()
-            ):
-                # disregard this because we first try to explicitely fetch logs for all containers and only
-                # if there is no result do we not request logs for a specific container
-                return logs
-            elif e.status == 400 and "is waiting to start" in str(e).lower():
-                return logs
-            elif e.status == 404:
-                return logs
+            if result.returncode == 0:
+                # Parse the logs - kubectl with --all-containers prefixes lines with container name
+                return self._parse_kubectl_logs(result.stdout), None
             else:
-                logging.warning(
-                    f"API error fetching logs. params={query_params}. Error: {str(e)}"
+                # Return error message
+                error_msg = (
+                    result.stdout.strip()
+                    or f"kubectl logs command failed with return code {result.returncode}"
                 )
-                raise e
+                logging.debug(
+                    f"kubectl logs command failed for pod {params.pod_name} "
+                    f"(previous={previous}): {error_msg}"
+                )
+                return [], error_msg
+
+        except subprocess.TimeoutExpired:
+            error_msg = f"kubectl logs command timed out after {KUBERNETES_LOGS_TIMEOUT_SECONDS} seconds"
+            logging.warning(
+                f"kubectl logs command timed out for pod {params.pod_name} "
+                f"(previous={previous})"
+            )
+            return [], error_msg
         except Exception as e:
+            error_msg = f"Error executing kubectl: {str(e)}"
             logging.error(
-                f"Error fetching logs. params={query_params}. Error: {str(e)}"
+                f"Error executing kubectl logs for pod {params.pod_name} "
+                f"(previous={previous}): {str(e)}"
             )
-            raise
+            return [], error_msg
+
+    def _parse_kubectl_logs(self, logs: str) -> List[StructuredLog]:
+        """Parse kubectl logs output with container prefixes"""
+        structured_logs: List[StructuredLog] = []
+
+        if not logs:
+            return structured_logs
+
+        for line in logs.strip().split("\n"):
+            if not line:
+                continue
+
+            # kubectl with --all-containers prefixes lines with [pod/container]
+            # Format: [pod/container] timestamp content
+            container_match = re.match(r"^\[([^/]+)/([^\]]+)\]\s+(.*)$", line)
+
+            if container_match:
+                pod_name, container_name, rest_of_line = container_match.groups()
+
+                # Now extract timestamp from rest_of_line
+                timestamp_match = timestamp_pattern.match(rest_of_line)
+
+                if timestamp_match:
+                    timestamp_str = timestamp_match.group(0)
+                    try:
+                        log_unix_ts = to_unix_ms(timestamp_str)
+                        prefix_length = len(timestamp_str)
+                        content = rest_of_line[prefix_length:].lstrip()
+
+                        structured_logs.append(
+                            StructuredLog(
+                                timestamp_ms=log_unix_ts,
+                                content=content,
+                                container=container_name,
+                            )
+                        )
+                    except ValueError:
+                        # Keep the line with container info but no timestamp
+                        structured_logs.append(
+                            StructuredLog(
+                                timestamp_ms=None,
+                                content=rest_of_line,
+                                container=container_name,
+                            )
+                        )
+                else:
+                    # No timestamp but has container info
+                    structured_logs.append(
+                        StructuredLog(
+                            timestamp_ms=None,
+                            content=rest_of_line,
+                            container=container_name,
+                        )
+                    )
+            else:
+                # No container prefix - parse as regular log line
+                parsed = parse_logs(line, None)
+                structured_logs.extend(parsed)
+
+        return structured_logs
 
 
 def format_logs(logs: List[StructuredLog], display_container_name: bool) -> str:
