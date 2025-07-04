@@ -384,7 +384,7 @@ def group_has_topic(
     consumer_group_description: ConsumerGroupDescription,
     topic_name: str,
     bootstrap_servers: str,
-    topic_metadata: Any
+    topic_metadata: Any,
 ):
     # Check active member assignments
     for member in consumer_group_description.members:
@@ -496,7 +496,7 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
                         consumer_group_description=consumer_group_description,
                         topic_name=topic_name,
                         bootstrap_servers=bootstrap_servers,
-                        topic_metadata=topic_metadata
+                        topic_metadata=topic_metadata,
                     ):
                         consumer_groups.append(
                             convert_to_dict(consumer_group_description)
