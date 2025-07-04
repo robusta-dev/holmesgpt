@@ -122,18 +122,12 @@ class BaseKafkaTool(Tool):
             f"Failed to resolve Kafka client. No matching cluster: {cluster_name}"
         )
 
-    def get_bootstrap_servers(self, cluster_name: Optional[str]) -> str:
+    def get_bootstrap_servers(self, cluster_name: str) -> str:
         """
         Retrieves the bootstrap servers for a given cluster.
         """
         if not self.toolset.kafka_config:
             raise Exception("Kafka configuration not available")
-
-        if len(self.toolset.kafka_config.kafka_clusters) == 1:
-            return self.toolset.kafka_config.kafka_clusters[0].kafka_broker
-
-        if not cluster_name:
-            raise Exception("Missing cluster name to resolve bootstrap servers")
 
         for cluster in self.toolset.kafka_config.kafka_clusters:
             if cluster.name == cluster_name:

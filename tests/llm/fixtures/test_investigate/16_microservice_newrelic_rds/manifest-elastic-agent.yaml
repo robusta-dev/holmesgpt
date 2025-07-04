@@ -1,0 +1,109 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: elastic-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elastic-agent
+  namespace: elastic-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: elastic-agent
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/metrics
+  - nodes/proxy
+  - nodes/stats
+  - services
+  - pods
+  - events
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources:
+  - replicasets
+  - statefulsets
+  - deployments
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources:
+  - leases
+  verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: elastic-agent
+subjects:
+- kind: ServiceAccount
+  name: elastic-agent
+  namespace: elastic-system
+roleRef:
+  kind: ClusterRole
+  name: elastic-agent
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: elastic-agent
+  namespace: elastic-system
+  labels:
+    k8s-app: elastic-agent
+spec:
+  selector:
+    matchLabels:
+      k8s-app: elastic-agent
+  template:
+    metadata:
+      labels:
+        k8s-app: elastic-agent
+    spec:
+      serviceAccountName: elastic-agent
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: agent
+        image: docker.elastic.co/beats/elastic-agent:8.13.4 # Check for the latest version in your Fleet UI
+        securityContext:
+          runAsUser: 0
+          privileged: true
+        env:
+        - name: FLEET_URL
+          valueFrom:
+            secretKeyRef:
+              name: fleet-credentials
+              key: FLEET_URL
+              namespace: kube-system
+        - name: FLEET_ENROLLMENT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: fleet-credentials
+              key: ENROLLMENT_TOKEN
+              namespace: kube-system
+        - name: FLEET_INSECURE
+          value: "false" # Set to true only if you have TLS issues, not recommended
+        - name: KUBERNETES_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: host-var-lib-docker-containers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: host-var-log
+          mountPath: /var/log
+          readOnly: true
+      volumes:
+      - name: host-var-lib-docker-containers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: host-var-log
+        hostPath:
+          path: /var/log

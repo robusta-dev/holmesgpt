@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Checkout</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            .checkout-form {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            button {
+                padding: 10px;
+                background-color: #4caf50;
+                color: white;
+                border: none;
+                cursor: pointer;
+                font-size: 16px;
+            }
+            .result {
+                margin-top: 20px;
+                padding: 15px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Checkout</h1>
+
+        <form id="checkoutForm" class="checkout-form">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value="John Doe"
+                    required
+                />
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value="john.doe@example.com"
+                    required
+                />
+            </div>
+
+            <div class="form-group">
+                <label for="address">Address</label>
+                <textarea id="address" name="address" required>
+main street</textarea
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="cardNumber">Card Number</label>
+                <input
+                    type="text"
+                    id="cardNumber"
+                    name="cardNumber"
+                    placeholder="XXXX-XXXX-XXXX-XXXX"
+                    value="1234-5678-9101-1121"
+                    required
+                />
+            </div>
+
+            <button type="submit">Complete Checkout</button>
+        </form>
+
+        <div id="result" class="result"></div>
+
+        <script src="/js/main.js"></script>
+    </body>
+</html>

@@ -26,3 +26,5 @@ finance-app → payments → accounting-app
 ```
 
 Both topics operate independently and handle different aspects of the business workflow.
+
+When investigating lag, find and identify the producer and consumer pods and check their logs.

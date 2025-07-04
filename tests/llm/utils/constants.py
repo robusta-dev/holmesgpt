@@ -12,5 +12,6 @@ ALLOWED_EVAL_TAGS = Literal[
     "datetime",  # An eval that tests HolmesGPT's ability to rely on or correctly use date and/or time information
     "network",  # An eval related to networking issues
     "runbooks",  # An eval that relies on runbooks
-    "kafka",  # An eval that relies on runbooks
+    "kafka",  # An eval that uses kafka
+    "missing-tool",  # An eval that does not have the required tool(s) to investigate the issue
 ]

@@ -1,0 +1,102 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-conf
+data:
+  otel-collector-config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    exporters:
+      elasticsearch:
+        endpoints: ["${APM_SERVER_URL}"]
+        api_key: "${SECRET_TOKEN}"
+        traces_index: "traces-apm"
+        logs_index: "logs-apm"
+      debug:
+        verbosity: detailed
+
+    processors:
+      batch:
+
+    service:
+      telemetry:
+        logs:
+          level: debug
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [elasticsearch, debug]
+---
+# 2. The Deployment for the OpenTelemetry Collector
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:latest
+        # Point the collector to the config file from the ConfigMap
+        command: ["/otelcol-contrib", "--config=/conf/otel-collector-config"]
+        volumeMounts:
+        - name: otel-collector-config-vol
+          mountPath: /conf
+        ports:
+        - name: otlp-grpc
+          containerPort: 4317
+          protocol: TCP
+        - name: otlp-http
+          containerPort: 4318
+          protocol: TCP
+        env:
+          # Populate environment variables from the Kubernetes secret
+          - name: APM_SERVER_URL
+            valueFrom:
+              secretKeyRef:
+                name: elastic-apm-credentials
+                key: APM_SERVER_URL
+          - name: SECRET_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: elastic-apm-credentials
+                key: SECRET_TOKEN
+      volumes:
+      - name: otel-collector-config-vol
+        configMap:
+          name: otel-collector-conf
+          items:
+          - key: otel-collector-config
+            path: otel-collector-config
+---
+# 3. The Service to expose the Collector within the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+spec:
+  selector:
+    app: otel-collector
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
