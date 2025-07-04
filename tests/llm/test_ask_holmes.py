@@ -44,7 +44,6 @@ def get_test_cases():
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
     if iterations:
-<<<<<<< Updated upstream
         return [
             add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
         ] * iterations
@@ -52,11 +51,6 @@ def get_test_cases():
         return [
             add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
         ]
-=======
-        return [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases] * iterations
-    else:
-        return [add_tags_to_eval(experiment_name, test_case) for test_case in test_cases]
->>>>>>> Stashed changes
 
 
 def idfn(val):
