@@ -74,10 +74,19 @@ exclude = [
 [tool.pytest.ini_options]
 markers = [
     "llm: Evaluate LLM behaviour (prompt, tools, etc.)",
+    "datetime: Tests involving datetime functionality",
+    "logs: Tests involving log processing",
+    "context_window: Tests involving context window handling",
+    "synthetic: Tests using synthetic data",
+    "network: Tests requiring network connectivity",
+    "runbooks: Tests involving runbook functionality",
 ]
 addopts = [
     "--cov-config=pyproject.toml",
     "--cov=holmes",
+    "-rs",  # Show skip reasons by default
+    "--tb=short",  # Show shorter tracebacks by default
+    "--durations=5",  # Show 5 slowest tests after each run
 ]
 
 [tool.coverage.run]
