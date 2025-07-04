@@ -42,6 +42,14 @@ class Message(BaseModel):
 T = TypeVar("T")
 
 
+ALLOWED_EVAL_TAGS = Literal[
+    "logs",  # An eval that tests HolmesGPT's ability to find the correct log and/or interpret logs correctly
+    "context_window",  # An eval that tests HolmesGPT's ability to find information despite the data not fitting the LLM's context window
+    "synthetic",  # An eval that cannot be run live because its mocked data has been manually generated
+    "datetime",  # An eval that tests HolmesGPT's ability to rely on or correctly use date and/or time information
+]
+
+
 class HolmesTestCase(BaseModel):
     id: str
     folder: str
