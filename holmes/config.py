@@ -16,9 +16,11 @@ from holmes.core.llm import LLM, DefaultLLM
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import (
+    RunbookCatalog,
     load_builtin_runbooks,
     load_runbook_catalog,
     load_runbooks_from_file,
@@ -32,7 +34,6 @@ from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
-from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
@@ -243,14 +244,10 @@ class Config(RobustaBaseConfig):
         return None
 
     @staticmethod
-    def get_runbook_catalog() -> str:
+    def get_runbook_catalog() -> Optional[RunbookCatalog]:
         # TODO(mainred): besides the built-in runbooks, we need to allow the user to bring their own runbooks
         runbook_catalog = load_runbook_catalog()
-        if runbook_catalog is not None:
-            return runbook_catalog.model_dump_json()
-        else:
-            logging.warning("Runbook catalog not found")
-            return json.dumps({"catalog": []})
+        return runbook_catalog
 
     def create_console_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """

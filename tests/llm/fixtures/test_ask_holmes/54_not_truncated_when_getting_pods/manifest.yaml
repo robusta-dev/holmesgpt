@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ask-holmes-namespace-54a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ask-holmes-namespace-54b
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: massive-pod-deployment-with-very-long-name
+  namespace: ask-holmes-namespace-54a
+spec:
+  replicas: 2000
+  selector:
+    matchLabels:
+      app: massive-pod-deployment-with-very-long-name
+  template:
+    metadata:
+      labels:
+        app: massive-pod-deployment-with-very-long-name
+    spec:
+      nodeSelector:
+        non-existent-label: "true"   # no node has this, will stay Pending
+      containers:
+      - name: dummy-container
+        image: nginx  # a valid image to avoid ImagePull errors
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fast-fail-pod
+  namespace: ask-holmes-namespace-54b
+spec:
+  containers:
+  - name: fail-container
+    image: totallynonexistentregistry12345.io/doesnotexist/invalid:latest
+    imagePullPolicy: Always
