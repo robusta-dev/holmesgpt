@@ -1,6 +1,6 @@
 import requests  # type: ignore
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Optional, Dict, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -116,8 +116,8 @@ class DatadogConfig(BaseModel):
 
 
 class DatadogToolset(Toolset):
-    dd_api_key: str
-    dd_app_key: str
+    dd_api_key: Optional[str] = None
+    dd_app_key: Optional[str] = None
 
     def __init__(self):
         super().__init__(
