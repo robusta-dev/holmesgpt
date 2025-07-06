@@ -133,5 +133,5 @@ class NotionToolset(InternetBaseToolset):
                 False,
                 "Notion toolset is misconfigured. Authorization header is required.",
             )
-        self.additional_headers = config.get("additional_headers", {})
+        self.additional_headers = config["additional_headers"]
         return True, ""
