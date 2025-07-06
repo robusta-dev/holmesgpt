@@ -1,6 +1,6 @@
 import requests  # type: ignore
 import logging
-from typing import Any, Optional, Dict, Tuple
+from typing import Any, Dict, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
