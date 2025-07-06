@@ -1,0 +1,68 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"front-end-6bc5876d74-bb4nh","namespace":"sock-shop"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe pod front-end-6bc5876d74-bb4nh -n sock-shop", "params": {"kind": "pod", "name": "front-end-6bc5876d74-bb4nh", "namespace": "sock-shop"}}
+Name:             front-end-6bc5876d74-bb4nh
+Namespace:        sock-shop
+Priority:         0
+Service Account:  default
+Node:             ip-172-31-24-130.us-east-2.compute.internal/172.31.24.130
+Start Time:       Thu, 29 May 2025 14:51:15 +0300
+Labels:           name=front-end
+                  pod-template-hash=6bc5876d74
+Annotations:      admission.datadoghq.com/dotnet-lib.version: v2.53.2-musl
+Status:           Running
+IP:               172.31.20.130
+IPs:
+  IP:           172.31.20.130
+Controlled By:  ReplicaSet/front-end-6bc5876d74
+Containers:
+  front-end:
+    Container ID:   containerd://2ccc1fe7625b9d1085bde5c783ddbb643cc18edd79b41eb3e544f54a52ddb99a
+    Image:          weaveworksdemos/front-end:0.3.12
+    Image ID:       docker.io/weaveworksdemos/front-end@sha256:26a2d9b6b291dee2dca32fca3f5bff6c2fa07bb5954359afcbc8001cc70eac71
+    Port:           8079/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Sun, 06 Jul 2025 17:37:17 +0300
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Thu, 29 May 2025 14:51:26 +0300
+      Finished:     Sun, 06 Jul 2025 17:37:17 +0300
+    Ready:          True
+    Restart Count:  1
+    Limits:
+      cpu:     300m
+      memory:  1000Mi
+    Requests:
+      cpu:      100m
+      memory:   300Mi
+    Liveness:   http-get http://:8079/ delay=300s timeout=1s period=3s #success=1 #failure=3
+    Readiness:  http-get http://:8079/ delay=30s timeout=1s period=3s #success=1 #failure=3
+    Environment:
+      SESSION_REDIS:  true
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-z2gqd (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  kube-api-access-z2gqd:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              beta.kubernetes.io/os=linux
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason   Age                From     Message
+  ----    ------   ----               ----     -------
+  Normal  Created  26m (x2 over 38d)  kubelet  Created container front-end
+  Normal  Started  26m (x2 over 38d)  kubelet  Started container front-end
+  Normal  Pulled   26m                kubelet  Container image "weaveworksdemos/front-end:0.3.12" already present on machine

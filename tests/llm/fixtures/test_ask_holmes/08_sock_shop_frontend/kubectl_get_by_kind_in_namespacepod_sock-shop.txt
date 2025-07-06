@@ -1,0 +1,17 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_namespace","match_params":{"kind":"pod","namespace":"sock-shop"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get --show-labels -o wide pod -n sock-shop", "params": {"kind": "pod", "namespace": "sock-shop"}}
+NAME                            READY   STATUS    RESTARTS      AGE   IP              NODE                                          NOMINATED NODE   READINESS GATES   LABELS
+carts-db-676c6b5865-2gxjh       1/1     Running   0             38d   172.31.23.25    ip-172-31-24-130.us-east-2.compute.internal   <none>           <none>            name=carts-db,pod-template-hash=676c6b5865
+carts-f54496f6d-9hc6c           1/1     Running   0             38d   172.31.37.205   ip-172-31-47-239.us-east-2.compute.internal   <none>           <none>            name=carts,pod-template-hash=f54496f6d
+catalogue-db-c948fd796-5vmnr    1/1     Running   0             38d   172.31.32.167   ip-172-31-47-239.us-east-2.compute.internal   <none>           <none>            name=catalogue-db,pod-template-hash=c948fd796
+catalogue-f7687cb4-69jfn        1/1     Running   0             38d   172.31.43.211   ip-172-31-47-239.us-east-2.compute.internal   <none>           <none>            name=catalogue,pod-template-hash=f7687cb4
+front-end-6bc5876d74-bb4nh      1/1     Running   1 (25m ago)   38d   172.31.20.130   ip-172-31-24-130.us-east-2.compute.internal   <none>           <none>            name=front-end,pod-template-hash=6bc5876d74
+orders-697cb4957d-ch7kq         1/1     Running   0             38d   172.31.37.165   ip-172-31-47-239.us-east-2.compute.internal   <none>           <none>            name=orders,pod-template-hash=697cb4957d
+orders-db-658fc79675-b45k7      1/1     Running   0             38d   172.31.16.105   ip-172-31-24-130.us-east-2.compute.internal   <none>           <none>            name=orders-db,pod-template-hash=658fc79675
+payment-84bbbfd97f-2brqd        1/1     Running   0             38d   172.31.26.1     ip-172-31-24-130.us-east-2.compute.internal   <none>           <none>            name=payment,pod-template-hash=84bbbfd97f
+queue-master-566bfb8644-nfdtp   1/1     Running   0             38d   172.31.17.86    ip-172-31-24-130.us-east-2.compute.internal   <none>           <none>            name=queue-master,pod-template-hash=566bfb8644
+rabbitmq-556cb847-7nnn8         2/2     Running   0             38d   172.31.12.146   ip-172-31-5-104.us-east-2.compute.internal    <none>           <none>            name=rabbitmq,pod-template-hash=556cb847
+session-db-59cc4b855f-2clpr     1/1     Running   0             38d   172.31.12.12    ip-172-31-5-104.us-east-2.compute.internal    <none>           <none>            name=session-db,pod-template-hash=59cc4b855f
+shipping-c4d77b86d-xjmjm        1/1     Running   0             38d   172.31.13.252   ip-172-31-5-104.us-east-2.compute.internal    <none>           <none>            name=shipping,pod-template-hash=c4d77b86d
+user-574f64957c-p7mvp           1/1     Running   0             38d   172.31.4.105    ip-172-31-5-104.us-east-2.compute.internal    <none>           <none>            name=user,pod-template-hash=574f64957c
+user-db-7f98f68489-skp7v        1/1     Running   0             38d   172.31.21.25    ip-172-31-24-130.us-east-2.compute.internal   <none>           <none>            name=user-db,pod-template-hash=7f98f68489
