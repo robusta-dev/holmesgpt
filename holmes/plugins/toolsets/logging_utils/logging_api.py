@@ -46,7 +46,7 @@ class PodLoggingTool(Tool):
 
     def __init__(self, toolset: BasePodLoggingToolset):
         super().__init__(
-            name="fetch_pod_logs",
+            name="fetch_pod_logs_unified",
             description="Fetch logs for a Kubernetes pod",
             parameters={
                 "pod_name": ToolParameter(

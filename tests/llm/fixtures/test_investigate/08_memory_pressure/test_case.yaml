@@ -5,5 +5,5 @@ expected_sections:
 evaluation:
   # Unreliable test
   # The mocks need to be re-generated and we need to add instructions to replicate the context for the eval
-  correctness: 0
+  correctness: 1
 generate_mocks: False
