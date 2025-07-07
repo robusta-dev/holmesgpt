@@ -33,13 +33,15 @@ def shared_test_infrastructure(request):
             "Skipping test infrastructure setup/cleanup - RUN_LIVE not set or collect-only mode"
         )
         # Must yield twice even when skipping - this is the contract
-        data = yield
-        cleanup_token = yield data
+        initial = yield
+        cleanup_token = yield {"test_cases_for_cleanup": []}
         return
 
-    data = yield
+    # First yield: get initial value (SetupToken.FIRST if first worker, data if subsequent)
+    initial = yield
 
-    if data is SetupToken.FIRST:
+    if initial is SetupToken.FIRST:
+        # This is the first worker to run the fixture
         print("🎯 Running setup (first worker)")
         test_cases = _extract_test_cases_needing_setup(request.session)
         if test_cases:
@@ -50,8 +52,11 @@ def shared_test_infrastructure(request):
             print("No test cases found needing setup")
             data = {"test_cases_for_cleanup": []}
     else:
+        # This is a worker using the fixture after the first worker
         print("⏭️ Setup already done by another worker")
+        data = initial
 
+    # Second yield: yield data to test and get cleanup token
     cleanup_token = yield data
 
     if cleanup_token is CleanupToken.LAST:
