@@ -4,6 +4,8 @@ site_url: https://holmesgpt.robusta.dev
 repo_url: https://github.com/robusta-dev/holmesgpt
 repo_name: robusta-dev/holmesgpt
 edit_uri: edit/main/docs/
+exclude_docs: |
+  _*
 
 theme:
   name: material
