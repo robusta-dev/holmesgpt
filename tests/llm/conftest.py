@@ -8,6 +8,7 @@ from pytest_shared_session_scope import (
     SetupToken,
     CleanupToken,
 )
+from contextlib import contextmanager
 from tests.llm.utils.braintrust import get_experiment_results
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
@@ -94,6 +95,19 @@ def test_infrastructure_coordination(shared_test_infrastructure):
     yield
 
 
+@contextmanager
+def force_pytest_output(request):
+    """Context manager to force output display even when pytest captures stdout"""
+    capman = request.config.pluginmanager.getplugin("capturemanager")
+    if capman:
+        capman.suspend_global_capture(in_=True)
+    try:
+        yield
+    finally:
+        if capman:
+            capman.resume_global_capture()
+
+
 def check_llm_api_with_test_call():
     """Check if LLM API is available by creating client and making test call"""
     try:
@@ -141,36 +155,38 @@ def llm_session_setup(request):
         api_available, error_msg = check_llm_api_with_test_call()
 
         if api_available:
-            print("\n" + "=" * 70)
-            print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
-            print(
-                "These tests use AI models and may take 10-30+ minutes when all evals run."
-            )
-            print()
-            print("To see all available evals:")
-            print(
-                "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
-            )
-            print()
-            print("To run just one eval for faster execution:")
-            print("  poetry run pytest --no-cov -k 01_how_many_pods")
-            print()
-            print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
-            print("=" * 70 + "\n")
+            with force_pytest_output(request):
+                print("\n" + "=" * 70)
+                print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
+                print(
+                    "These tests use AI models and may take 10-30+ minutes when all evals run."
+                )
+                print()
+                print("To see all available evals:")
+                print(
+                    "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+                )
+                print()
+                print("To run just one eval for faster execution:")
+                print("  poetry run pytest --no-cov -k 01_how_many_pods")
+                print()
+                print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
+                print("=" * 70 + "\n")
         else:
-            print("\n" + "=" * 70)
-            print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
-            print()
-            print(f"  Reason: {error_msg}")
-            print()
-            print("To see all available evals:")
-            print(
-                "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
-            )
-            print()
-            print("To run a specific eval:")
-            print("  poetry run pytest --no-cov -k 01_how_many_pods")
-            print("=" * 70 + "\n")
+            with force_pytest_output(request):
+                print("\n" + "=" * 70)
+                print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
+                print()
+                print(f"  Reason: {error_msg}")
+                print()
+                print("To see all available evals:")
+                print(
+                    "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+                )
+                print()
+                print("To run a specific eval:")
+                print("  poetry run pytest --no-cov -k 01_how_many_pods")
+                print("=" * 70 + "\n")
 
             # Skip all LLM tests if API is not available
             pytest.skip(error_msg)

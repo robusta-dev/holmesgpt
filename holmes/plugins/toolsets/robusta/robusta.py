@@ -74,7 +74,7 @@ class FetchRobustaFinding(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Fetch metadata and history"
+        return "Fetch Alert Metadata"
 
 
 class FetchResourceRecommendation(Tool):
@@ -138,7 +138,7 @@ class FetchResourceRecommendation(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetch resource recommendation ({str(params)})"
+        return f"Check Historical Resource Utilization: ({str(params)})"
 
 
 class FetchConfigurationChanges(Tool):
@@ -196,7 +196,7 @@ class FetchConfigurationChanges(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetch change history ({str(params)})"
+        return f"Search Change History: ({str(params)})"
 
 
 class RobustaToolset(Toolset):
