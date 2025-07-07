@@ -47,6 +47,7 @@ python_multipart = "^0.0.18"
 kubernetes = "^32.0.1"
 mcp = "v1.9.0"
 prompt-toolkit = "^3.0.51"
+pytest-shared-session-scope = "^0.4.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"

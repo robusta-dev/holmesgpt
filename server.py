@@ -60,7 +60,6 @@ def init_logging():
     logging_format = "%(log_color)s%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
     logging_datefmt = "%Y-%m-%d %H:%M:%S"
 
-    print("setting up colored logging")
     colorlog.basicConfig(
         format=logging_format, level=logging_level, datefmt=logging_datefmt
     )

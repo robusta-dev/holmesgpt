@@ -1,85 +1,91 @@
-import json
 import logging
 import os
 import pytest
-from filelock import FileLock
-from functools import wraps
-import tempfile
-from pathlib import Path
+from pytest_shared_session_scope import (
+    shared_session_scope_json,
+    SetupToken,
+    CleanupToken,
+)
 from tests.llm.utils.braintrust import get_experiment_results
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
 
-
-def xdist_once_per_session(setup_func, cleanup_func):
-    """
-    Decorator that ensures setup/cleanup functions run only once per test session,
-    even when using pytest-xdist with multiple workers.
-
-    Args:
-        setup_func: Function to run once at session start
-        cleanup_func: Function to run once at session end (after all workers finish)
-
-    Returns:
-        Decorated fixture function that handles xdist coordination
-    """
-
-    def decorator(fixture_func):
-        @wraps(fixture_func)
-        def wrapper(request, tmp_path_factory, worker_id):
-            # Skip if not needed
-            if not os.environ.get("RUN_LIVE") or request.config.getoption(
-                "--collect-only"
-            ):
-                yield
-                return
-
-            # Get data for setup/cleanup
-            setup_data = fixture_func(request, tmp_path_factory, worker_id)
-            if not setup_data:
-                yield
-                return
-
-            if worker_id == "master":
-                # Single worker mode - run setup/cleanup directly
-                setup_func(setup_data)
-                yield
-                cleanup_func(setup_data)
-            else:
-                # xdist mode - coordinate via files
-                _coordinate_xdist_setup_cleanup(
-                    setup_data, setup_func, cleanup_func, request.session
-                )
-                yield
-
-        return wrapper
-
-    return decorator
+# Configure logging levels for cleaner test output
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
-def _coordinate_xdist_setup_cleanup(setup_data, setup_func, cleanup_func, session):
-    """Handle xdist coordination for setup/cleanup"""
-    root_tmp_dir = Path(tempfile.gettempdir())
-    setup_file = root_tmp_dir / "holmesgpt_setup_done.txt"
-    data_file = root_tmp_dir / "holmesgpt_setup_data.json"
-    worker_count_file = root_tmp_dir / "holmesgpt_worker_count.txt"
+# see https://github.com/StefanBRas/pytest-shared-session-scope
+@shared_session_scope_json()
+def shared_test_infrastructure(request):
+    """Shared session-scoped fixture for test infrastructure setup/cleanup coordination"""
+    if not os.environ.get("RUN_LIVE") or request.config.getoption("--collect-only"):
+        print(
+            "Skipping test infrastructure setup/cleanup - RUN_LIVE not set or collect-only mode"
+        )
+        yield None
+        return
 
-    # Setup coordination
-    with FileLock(str(setup_file) + ".lock"):
-        if not setup_file.exists():
-            setup_func(setup_data)
+    data = yield
 
-            # Save setup data (serialize test case IDs) and worker count
-            serializable_data = [tc.id for tc in setup_data] if setup_data else []
-            data_file.write_text(json.dumps(serializable_data))
-            worker_count_file.write_text("1")
-            setup_file.write_text("done")
+    if data is SetupToken.FIRST:
+        print("🎯 Running setup (first worker)")
+        test_cases = _extract_test_cases_needing_setup(request.session)
+        if test_cases:
+            print(f"Setting up infrastructure for {len(test_cases)} test cases")
+            _run_test_setup(test_cases)
+            data = {"test_cases_for_cleanup": [tc.id for tc in test_cases]}
         else:
-            # Increment worker count
-            with FileLock(str(worker_count_file) + ".lock"):
-                current_count = int(worker_count_file.read_text().strip())
-                worker_count_file.write_text(str(current_count + 1))
+            print("No test cases found needing setup")
+            data = {"test_cases_for_cleanup": []}
+    else:
+        print("⏭️ Setup already done by another worker")
+
+    cleanup_token = yield data
+
+    if cleanup_token is CleanupToken.LAST:
+        print("🧹 Running cleanup (last worker)")
+        test_case_ids = data.get("test_cases_for_cleanup", [])
+        if test_case_ids:
+            print(f"Cleaning up infrastructure for {len(test_case_ids)} test cases")
+            # Reconstruct test cases from IDs
+            from tests.llm.utils.mock_utils import HolmesTestCase
+
+            cleanup_test_cases = []
+
+            for item in request.session.items:
+                if (
+                    item.get_closest_marker("llm")
+                    and hasattr(item, "callspec")
+                    and "test_case" in item.callspec.params
+                ):
+                    test_case = item.callspec.params["test_case"]
+                    if (
+                        isinstance(test_case, HolmesTestCase)
+                        and test_case.id in test_case_ids
+                        and test_case not in cleanup_test_cases
+                    ):
+                        cleanup_test_cases.append(test_case)
+
+            if cleanup_test_cases:
+                _run_test_cleanup(cleanup_test_cases)
+                print("✅ Cleanup completed")
+            else:
+                print("No test cases found for cleanup")
+        else:
+            print("No test case IDs found for cleanup")
+    else:
+        print("⏭️ Cleanup will be done by another worker")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_infrastructure_coordination(shared_test_infrastructure):
+    """Ensure the shared test infrastructure fixture is used (triggers setup/cleanup)"""
+    # This fixture just ensures shared_test_infrastructure runs for all sessions
+    # All the actual logic is in shared_test_infrastructure
+    yield
 
 
 def check_llm_api_with_test_call():
@@ -167,28 +173,71 @@ def llm_session_setup(request):
 
 
 def _run_test_setup(test_cases):
-    """Run before_test for each test case"""
+    """Run before_test for each test case in parallel"""
     from tests.llm.utils.commands import before_test
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import time
 
-    print(f"\nSetting up infrastructure for {len(test_cases)} test cases")
-    for test_case in test_cases:
-        before_test(test_case)
+    print("\nSetting up test infrastructure before tests")
+    print(f"\nSetting up infrastructure for {len(test_cases)} test cases in parallel")
+
+    start_time = time.time()
+
+    with ThreadPoolExecutor(max_workers=min(len(test_cases), 30)) as executor:
+        # Submit all setup tasks
+        future_to_test_case = {
+            executor.submit(before_test, test_case): test_case
+            for test_case in test_cases
+        }
+
+        # Wait for all tasks to complete and handle results
+        for future in as_completed(future_to_test_case):
+            test_case = future_to_test_case[future]
+            try:
+                future.result()  # This will raise an exception if the task failed
+                print(f"✅ Setup completed for {test_case.id}")
+            except Exception as e:
+                print(f"⚠️ Setup failed for {test_case.id}: {e}")
+                logging.warning(f"Setup failed for {test_case.id}: {str(e)}")
+                # Continue with other setups instead of failing everything
+
+    elapsed_time = time.time() - start_time
+    print(f"🕐 Setup completed in {elapsed_time:.2f} seconds")
 
 
 def _run_test_cleanup(test_cases):
-    """Run after_test for each test case in reverse order"""
+    """Run after_test for each test case in parallel"""
+    print("\nCleaning up test infrastructure after tests")
     from tests.llm.utils.commands import after_test
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import time
 
-    print(f"\nCleaning up test infrastructure for {len(test_cases)} test cases")
-    for test_case in reversed(test_cases):
-        after_test(test_case)
+    print(
+        f"\nCleaning up test infrastructure for {len(test_cases)} test cases in parallel"
+    )
 
+    start_time = time.time()
 
-@pytest.fixture(scope="session", autouse=True)
-@xdist_once_per_session(_run_test_setup, _run_test_cleanup)
-def test_infrastructure_setup(request, tmp_path_factory, worker_id):
-    """Set up test infrastructure once per session (xdist-safe)"""
-    return _extract_test_cases_needing_setup(request.session)
+    with ThreadPoolExecutor(max_workers=min(len(test_cases), 30)) as executor:
+        # Submit all cleanup tasks
+        future_to_test_case = {
+            executor.submit(after_test, test_case): test_case
+            for test_case in test_cases
+        }
+
+        # Wait for all tasks to complete and handle results
+        for future in as_completed(future_to_test_case):
+            test_case = future_to_test_case[future]
+            try:
+                future.result()  # This will raise an exception if the task failed
+                print(f"✅ Cleanup completed for {test_case.id}")
+            except Exception as e:
+                print(f"⚠️ Cleanup failed for {test_case.id}: {e}")
+                logging.warning(f"Cleanup failed for {test_case.id}: {str(e)}")
+                # Continue with other cleanup tasks even if one fails
+
+    elapsed_time = time.time() - start_time
+    print(f"🕐 Cleanup completed in {elapsed_time:.2f} seconds")
 
 
 def _extract_test_cases_needing_setup(session):
@@ -214,80 +263,6 @@ def _extract_test_cases_needing_setup(session):
                 seen_ids.add(test_case.id)
 
     return test_cases
-
-
-def pytest_sessionfinish(session, exitstatus):
-    """Clean up test infrastructure when the last worker finishes (xdist-safe)"""
-    # Only run if RUN_LIVE is set
-    if not os.environ.get("RUN_LIVE"):
-        return
-
-    root_tmp_dir = Path(tempfile.gettempdir())
-    data_file = root_tmp_dir / "holmesgpt_setup_data.json"
-    worker_count_file = root_tmp_dir / "holmesgpt_worker_count.txt"
-    finished_workers_file = root_tmp_dir / "holmesgpt_finished_workers.txt"
-    cleanup_done_file = root_tmp_dir / "holmesgpt_cleanup_done.txt"
-
-    # Only do cleanup if we have data and cleanup hasn't been done yet
-    if not data_file.exists() or cleanup_done_file.exists():
-        return
-
-    # Track finished workers and cleanup when last one finishes
-    with FileLock(str(finished_workers_file) + ".lock"):
-        if cleanup_done_file.exists():
-            return  # Another worker already did cleanup
-
-        # Increment finished worker count
-        if finished_workers_file.exists():
-            finished_count = int(finished_workers_file.read_text().strip()) + 1
-        else:
-            finished_count = 1
-        finished_workers_file.write_text(str(finished_count))
-
-        # Get total worker count
-        if worker_count_file.exists():
-            total_workers = int(worker_count_file.read_text().strip())
-        else:
-            total_workers = 1  # Fallback
-
-        # Only cleanup if this is the last worker
-        if finished_count >= total_workers:
-            # Read setup data and perform cleanup
-            test_case_ids = json.loads(data_file.read_text())
-
-            if test_case_ids:
-                # Reconstruct test cases from IDs
-                from tests.llm.utils.mock_utils import HolmesTestCase
-
-                cleanup_test_cases = []
-
-                for item in session.items:
-                    if (
-                        item.get_closest_marker("llm")
-                        and hasattr(item, "callspec")
-                        and "test_case" in item.callspec.params
-                    ):
-                        test_case = item.callspec.params["test_case"]
-                        if (
-                            isinstance(test_case, HolmesTestCase)
-                            and test_case.id in test_case_ids
-                            and test_case not in cleanup_test_cases
-                        ):
-                            cleanup_test_cases.append(test_case)
-
-                if cleanup_test_cases:
-                    _run_test_cleanup(cleanup_test_cases)
-
-                # Clean up coordination files
-                data_file.unlink()
-                worker_count_file.unlink()
-                finished_workers_file.unlink()
-                setup_file = root_tmp_dir / "holmesgpt_setup_done.txt"
-                if setup_file.exists():
-                    setup_file.unlink()
-
-            # Mark cleanup as done
-            cleanup_done_file.write_text("done")
 
 
 def markdown_table(headers, rows):

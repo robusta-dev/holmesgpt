@@ -155,7 +155,7 @@ class DummyNonLoggingToolset(Toolset):
         """Generate a one-line description of this tool invocation"""
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
-        return f"Fetching logs for pod {pod_name} in namespace {namespace}"
+        return f"Fetch Pod Logs: pod{pod_name}, namespace{namespace}"
 
     def get_example_config(self):
         return {}

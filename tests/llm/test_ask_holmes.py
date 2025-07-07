@@ -63,6 +63,10 @@ def idfn(val):
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
+    # Clear header for test visibility
+    print("\n" + "=" * 80)
+    print(f"🧪 TEST: {test_case.id}")
+    print("=" * 80)
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -70,6 +74,21 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
 
     eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
     result: Optional[LLMResult] = None
+
+    # Test configuration info
+    run_live = load_bool("RUN_LIVE", default=False)
+    print("\n📋 TEST CONFIGURATION:")
+    print(f"   • Test ID: {test_case.id}")
+    print(f"   • Mode: {'🔴 LIVE' if run_live else '🟢 MOCKED'}")
+    print(f"   • User Prompt: {test_case.user_prompt}")
+    print(f"   • Expected Output: {test_case.expected_output}")
+    print(f"   • Generate Mocks: {test_case.generate_mocks}")
+    if test_case.before_test:
+        print(f"   • Before Test: {test_case.before_test}")
+    if test_case.after_test:
+        print(f"   • After Test: {test_case.after_test}")
+    print()
+
     try:
         # Mock datetime if mocked_date is provided
         if test_case.mocked_date:
@@ -128,7 +147,11 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         expected = [expected]
 
     debug_expected = "\n-  ".join(expected)
-    print(f"** EXPECTED **\n-  {debug_expected}")
+    print("\n📝 EXPECTED OUTPUT:")
+    print(f"-  {debug_expected}")
+
+    print("\n💬 ACTUAL OUTPUT:")
+    print(f"{output}")
 
     prompt = (
         result.messages[0]["content"]
@@ -147,9 +170,12 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         evaluation_type=evaluation_type,
         caplog=caplog,
     )
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
-    )
+    print("\n⚖️  CORRECTNESS EVALUATION:")
+    print(f"Score: {correctness_eval.score}")
+    if correctness_eval.metadata.get("rationale"):
+        print(
+            f"Rationale: \n{textwrap.indent(correctness_eval.metadata.get('rationale', ''), '  ')}"
+        )
 
     scores["correctness"] = correctness_eval.score
 
@@ -163,23 +189,29 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     )
 
     if result.tool_calls:
-        tools_called = "\n\n".join(
+        tools_called = [tc.description for tc in result.tool_calls]
+        print(f"\n🔧 TOOLS CALLED ({len(tools_called)}):")
+        for i, tool in enumerate(tools_called, 1):
+            print(f"   {i}. {tool}")
+
+        # Also show detailed tool output for debugging
+        tools_called_detailed = "\n\n".join(
             [
                 f"<tool description='{tc.description}'>\n{textwrap.indent(tc.result.data, '  ')}\n</tool>"
                 for tc in result.tool_calls
             ]
         )
+        print(f"\n🔧 TOOLS CALLED (DETAILED):\n{tools_called_detailed}")
     else:
-        tools_called = "None"
-    print(f"\n** TOOLS CALLED **\n{tools_called}")
-    print(f"\n** OUTPUT **\n{output}")
-    print(f"\n** SCORES **\n{scores}")
+        print("\n🔧 TOOLS CALLED: None")
 
     if test_case.evaluation.correctness:
         expected_correctness = test_case.evaluation.correctness
         if isinstance(expected_correctness, Evaluation):
             expected_correctness = expected_correctness.expected_score
-        assert scores.get("correctness", 0) >= expected_correctness
+        assert (
+            scores.get("correctness", 0) >= expected_correctness
+        ), f"Test gave wrong answer and failed with correctness={scores.get('correctness', 0)}"
 
 
 def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLMResult:
@@ -200,7 +232,9 @@ def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLM
     tool_executor = ToolExecutor(mock.enabled_toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
 
-    print(f"** ENABLED TOOLSETS **\n{', '.join(enabled_toolsets)}")
+    print(
+        f"\n🛠️  ENABLED TOOLSETS ({len(enabled_toolsets)}):", ", ".join(enabled_toolsets)
+    )
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
