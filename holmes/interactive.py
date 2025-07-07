@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.markdown import Markdown, Panel
 
 from holmes.core.prompt import build_initial_ask_messages
-from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
 
 
@@ -44,6 +44,33 @@ WELCOME_BANNER = "[bold cyan]Welcome to HolmesGPT:[/bold cyan] Type '/exit' to e
 
 USER_COLOR = "#DEFCC0"  # light green
 AI_COLOR = "#00FFFF"  # cyan
+
+
+def format_tool_call_output(tool_call: ToolCallResult) -> str:
+    """
+    Format a single tool call result for display in a rich panel.
+
+    Args:
+        tool_call: ToolCallResult object containing the tool execution result
+
+    Returns:
+        Formatted string for display in a rich panel
+    """
+    result = tool_call.result
+    output_str = result.get_stringified_data()
+
+    color = result.status.to_color()
+    MAX_CHARS = 500
+    if len(output_str) == 0:
+        content = f"[{color}]<empty>[/{color}]"
+    elif len(output_str) > 100:
+        truncated = output_str[:MAX_CHARS].strip()
+        remaining_chars = len(output_str) - MAX_CHARS
+        content = f"[{color}]{truncated}[/{color}]\n\n[dim]... truncated ({remaining_chars:,} more chars)[/dim]"
+    else:
+        content = f"[{color}]{output_str}[/{color}]"
+
+    return content
 
 
 def run_interactive_loop(
@@ -115,17 +142,27 @@ def run_interactive_loop(
             messages = response.messages  # type: ignore
 
             if show_tool_output and response.tool_calls:
+                console.print(
+                    f"[bold magenta]Used {len(response.tool_calls)} tools[/bold magenta]"
+                )
                 for tool_call in response.tool_calls:
-                    console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
+                    preview_output = format_tool_call_output(tool_call)
+
                     console.print(
-                        f"{tool_call.description}. Output=\n{tool_call.result}",
-                        markup=False,
+                        Panel(
+                            preview_output,
+                            padding=(1, 2),
+                            border_style="magenta",
+                            title=f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}",
+                        )
                     )
             console.print(
                 Panel(
                     Markdown(f"{response.result}"),
                     padding=(1, 2),
                     border_style=AI_COLOR,
+                    title="[bold cyan]AI Response[/bold cyan]",
+                    title_align="left",
                 )
             )
             console.print("")
