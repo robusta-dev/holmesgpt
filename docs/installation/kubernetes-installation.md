@@ -15,103 +15,73 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API access
 
 ## Installation
 
-=== "Basic Installation"
+1. **Add the Helm repository:**
+   ```bash
+   helm repo add holmesgpt https://robusta-dev.github.io/holmesgpt
+   helm repo update
+   ```
 
-    Add the Helm Repository
+2. **Create Kubernetes Secret with API key:**
+   ```bash
+   kubectl create secret generic holmes-secrets \
+     --from-literal=api-key="your-api-key"
+   ```
 
+3. **Create/modify values.yaml:**
+   ```yaml
+   # values.yaml
+   config:
+     aiProvider: "openai"
+     model: "gpt-4"
+
+   # Reference the secret created above
+   secret:
+     create: false
+     name: "holmes-secrets"
+     key: "api-key"
+   ```
+
+4. **Install HolmesGPT:**
+   ```bash
+   helm install holmesgpt holmesgpt/holmes -f values.yaml
+   ```
+
+## Configure API Keys via Kubernetes Secret
+
+For different AI providers, create the appropriate secret:
+
+=== "OpenAI"
     ```bash
-    helm repo add holmesgpt https://robusta-dev.github.io/holmesgpt
-    helm repo update
+    kubectl create secret generic holmes-secrets \
+      --from-literal=api-key="your-openai-api-key"
     ```
 
-    Install HolmesGPT
-
+=== "Anthropic"
     ```bash
-    helm install holmesgpt holmesgpt/holmes
+    kubectl create secret generic holmes-secrets \
+      --from-literal=api-key="your-anthropic-api-key"
     ```
 
-=== "Custom Installation"
-
-    Create a `values.yaml` file
-
-    ```yaml
-    # values.yaml
-    config:
-      aiProvider: "openai"
-      apiKey: "your-api-key"  # Or use secret
-      model: "gpt-4"
-
-    # Use existing secret for API key
-    secret:
-      create: false
-      name: "holmes-secrets"
-      key: "api-key"
-    ```
-
-    Install with custom values
-
+=== "Azure OpenAI"
     ```bash
-    helm install holmesgpt holmesgpt/holmes -f values.yaml
+    kubectl create secret generic holmes-secrets \
+      --from-literal=api-key="your-azure-api-key" \
+      --from-literal=azure-endpoint="https://your-resource.openai.azure.com/" \
+      --from-literal=azure-api-version="2024-02-15-preview"
     ```
 
-### Using Secrets for API Keys
+## Usage
 
-Create a secret for your AI provider API key:
+After installation, test the service with a simple API call:
 
 ```bash
-kubectl create secret generic holmes-secrets \
-  --from-literal=api-key="your-api-key"
-```
-
-Reference it in your `values.yaml`:
-
-```yaml
-secret:
-  create: false
-  name: "holmes-secrets"
-  key: "api-key"
-```
-
-## HTTP API Usage
-
-### Access the Service
-
-#### Port Forward (Development)
-
-```bash
+# Port forward to access the service locally
 kubectl port-forward svc/holmesgpt 8080:80
-```
 
-### API Endpoints
-
-#### Ask Questions
-
-```bash
+# Test with a basic question
 curl -X POST http://localhost:8080/ask \
   -H "Content-Type: application/json" \
-  -d '{
-    "question": "what pods are failing in the default namespace?"
-  }'
-```
-
-#### Investigate Alerts
-
-```bash
-curl -X POST http://localhost:8080/investigate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "alert": {
-      "name": "HighMemoryUsage",
-      "namespace": "production",
-      "pod": "web-app-123"
-    }
-  }'
-```
-
-#### Health Check
-
-```bash
-curl http://localhost:8080/health
+  -d '{"question": "what pods are unhealthy and why?"}'
 ```
 
 
