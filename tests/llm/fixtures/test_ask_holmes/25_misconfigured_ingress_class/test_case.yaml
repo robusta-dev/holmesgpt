@@ -1,4 +1,7 @@
 user_prompt: "Other processes in the cluster are unable to reach my-http-app-deployment, why?"
+tags:
+  - chain-of-causation
+  - k8s-misconfig
 expected_output: issue with the ingress setup or class
 before_test: kubectl apply -f./ingress_with_class.yaml
 after_test: kubectl delete -f./ingress_with_class.yaml
