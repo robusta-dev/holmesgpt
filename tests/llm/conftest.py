@@ -32,7 +32,9 @@ def shared_test_infrastructure(request):
         print(
             "Skipping test infrastructure setup/cleanup - RUN_LIVE not set or collect-only mode"
         )
-        yield None
+        # Must yield twice even when skipping - this is the contract
+        data = yield
+        cleanup_token = yield data
         return
 
     data = yield
