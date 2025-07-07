@@ -17,9 +17,7 @@ from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
-from braintrust.span_types import SpanTypeAttribute
-from braintrust import Span
-from pydantic import BaseModel
+from braintrust import Span, SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
@@ -71,7 +69,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
     result: Optional[LLMResult] = None
     try:
-        before_test(test_case)
+        with eval_span.start_span("Before Test Setup", type=SpanTypeAttribute.TASK):
+            before_test(test_case)
 
         # Mock datetime if mocked_date is provided
         if test_case.mocked_date:
@@ -85,30 +84,12 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                 mock_datetime.configure_mock(
                     **{"now.return_value": mocked_datetime, "side_effect": None}
                 )
-                result = ask_holmes(test_case=test_case, parent_span=eval_span)
+                with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+                    result = ask_holmes(test_case=test_case, parent_span=eval_span)
         else:
-            result = ask_holmes(test_case=test_case, parent_span=eval_span)
+            with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+                result = ask_holmes(test_case=test_case, parent_span=eval_span)
 
-        if result.tool_calls:
-            for tool_call in result.tool_calls:
-                # TODO: mock this instead so span start time & end time will be accurate.
-                # Also to include calls to llm spans
-                if eval_span:
-                    with eval_span.start_span(
-                        name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-                    ) as tool_span:
-                        if isinstance(tool_call.result, BaseModel):
-                            tool_span.log(
-                                input=tool_call.description,
-                                output=tool_call.result.model_dump_json(indent=2),
-                                error=tool_call.result.error,
-                            )
-                        else:
-                            tool_span.log(
-                                input=tool_call.description,
-                                error=tool_call.result.error,
-                                output=tool_call.result,
-                            )
     except Exception as e:
         bt_helper.end_evaluation(
             input=test_case.user_prompt,
@@ -122,7 +103,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         raise
 
     finally:
-        after_test(test_case)
+        with eval_span.start_span("After Test Teardown", type=SpanTypeAttribute.TASK):
+            after_test(test_case)
 
     input = test_case.user_prompt
     output = result.result
