@@ -40,14 +40,6 @@ holmes:
         key: openAiKey
 ```
 
-### Common Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| AI provider errors | Check API keys and model availability |
-| No data sources | Verify toolset configuration and credentials |
-| Slow responses | Review model selection and resource limits |
-| Permission errors | Check RBAC and secret access |
 
 ## Getting Help
 
