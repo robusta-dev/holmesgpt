@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from typing import Optional, Any, cast
 from urllib.parse import urljoin
 
@@ -156,17 +155,8 @@ class BaseOpenSearchToolset(Toolset):
         return example_config.model_dump()
 
     def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
-        env_url = os.environ.get("OPENSEARCH_URL", None)
-        env_index_pattern = os.environ.get("OPENSEARCH_INDEX_NAME", "*")
-        if not config and not env_url:
+        if not config:
             return False, "Missing opensearch traces URL. Check your config"
-        elif not config and env_url:
-            self.config = BaseOpenSearchConfig(
-                opensearch_url=env_url,
-                index_pattern=env_index_pattern,
-                opensearch_auth_header=os.environ.get("OPENSEARCH_AUTH_HEADER", None),
-            )
-            return opensearch_health_check(self.config)
         else:
             self.config = BaseOpenSearchConfig(**config)
             return opensearch_health_check(self.config)
