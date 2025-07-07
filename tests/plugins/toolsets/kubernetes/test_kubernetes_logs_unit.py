@@ -3,6 +3,7 @@ from holmes.plugins.toolsets.kubernetes_logs import (
     StructuredLog,
     filter_logs,
     parse_logs,
+    KubernetesLogsToolset,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 from holmes.plugins.toolsets.utils import to_unix_ms
@@ -186,7 +187,7 @@ params_dict = {
             [
                 StructuredLog(
                     timestamp_ms=to_unix_ms("2023-11-20T10:30:45Z"),
-                    content="Log with extra spaces",
+                    content="    Log with extra spaces",
                     container="container10",
                 )
             ],
@@ -494,3 +495,131 @@ def test_filter_logs_edge_case_exact_boundaries():
     # Should include logs at start and end boundaries
     print(result)
     assert [log.content for log in result] == ["exactly at start", "exactly at end"]
+
+
+class TestParseKubectlLogs:
+    """Test the _parse_kubectl_logs method that parses kubectl output with container prefixes"""
+
+    def test_parse_single_container_logs(self):
+        toolset = KubernetesLogsToolset()
+
+        # kubectl output with container prefix format: [pod/container] timestamp content
+        kubectl_output = """[test-pod/nginx] 2023-05-01T12:00:01Z Starting nginx server
+[test-pod/nginx] 2023-05-01T12:00:02Z Server started on port 80
+[test-pod/nginx] 2023-05-01T12:00:03Z Ready to accept connections"""
+
+        result = toolset._parse_kubectl_logs(kubectl_output)
+
+        assert len(result.logs) == 3
+        assert all(log.container == "nginx" for log in result.logs)
+        assert result.logs[0].content == "Starting nginx server"
+        assert result.logs[1].content == "Server started on port 80"
+        assert result.logs[2].content == "Ready to accept connections"
+        assert result.logs[0].timestamp_ms == to_unix_ms("2023-05-01T12:00:01Z")
+        assert result.logs[1].timestamp_ms == to_unix_ms("2023-05-01T12:00:02Z")
+        assert result.logs[2].timestamp_ms == to_unix_ms("2023-05-01T12:00:03Z")
+
+    def test_parse_multi_container_logs(self):
+        toolset = KubernetesLogsToolset()
+
+        # kubectl output with multiple containers
+        kubectl_output = """[test-pod/nginx] 2023-05-01T12:00:01Z Nginx starting
+[test-pod/sidecar] 2023-05-01T12:00:01Z Sidecar starting
+[test-pod/nginx] 2023-05-01T12:00:02Z Nginx ready
+[test-pod/sidecar] 2023-05-01T12:00:02Z Sidecar ready"""
+
+        result = toolset._parse_kubectl_logs(kubectl_output)
+
+        assert len(result.logs) == 4
+        assert result.logs[0].container == "nginx"
+        assert result.logs[1].container == "sidecar"
+        assert result.logs[2].container == "nginx"
+        assert result.logs[3].container == "sidecar"
+        assert result.logs[0].content == "Nginx starting"
+        assert result.logs[1].content == "Sidecar starting"
+
+    def test_parse_logs_without_container_prefix(self):
+        toolset = KubernetesLogsToolset()
+
+        # Some logs might not have the container prefix (edge case)
+        kubectl_output = """2023-05-01T12:00:01Z Log without prefix
+[test-pod/nginx] 2023-05-01T12:00:02Z Log with prefix"""
+
+        result = toolset._parse_kubectl_logs(kubectl_output)
+
+        assert len(result.logs) == 2
+        assert result.logs[0].container is None
+        assert result.logs[0].content == "Log without prefix"
+        assert result.logs[1].container == "nginx"
+        assert result.logs[1].content == "Log with prefix"
+
+    def test_parse_logs_with_multiline_content(self):
+        toolset = KubernetesLogsToolset()
+
+        # Logs with stack traces or multiline content (no timestamp on continuation lines)
+        kubectl_output = """[test-pod/app] 2023-05-01T12:00:01Z Error occurred:
+[test-pod/app] java.lang.NullPointerException
+[test-pod/app]     at com.example.MyClass.method(MyClass.java:42)
+[test-pod/app] 2023-05-01T12:00:02Z Continuing execution"""
+
+        result = toolset._parse_kubectl_logs(kubectl_output)
+
+        assert len(result.logs) == 4
+        # Lines without timestamps become separate logs with no timestamp
+        assert result.logs[0].content == "Error occurred:"
+        assert result.logs[0].timestamp_ms == to_unix_ms("2023-05-01T12:00:01Z")
+        assert result.logs[1].content == "java.lang.NullPointerException"
+        assert result.logs[1].timestamp_ms is None
+        assert (
+            result.logs[2].content
+            == "    at com.example.MyClass.method(MyClass.java:42)"
+        )
+        assert result.logs[2].timestamp_ms is None
+        assert result.logs[3].content == "Continuing execution"
+        assert result.logs[3].timestamp_ms == to_unix_ms("2023-05-01T12:00:02Z")
+
+    def test_parse_empty_logs(self):
+        toolset = KubernetesLogsToolset()
+
+        result = toolset._parse_kubectl_logs("")
+        assert result.logs == []
+
+    def test_parse_logs_with_timezone_offset(self):
+        toolset = KubernetesLogsToolset()
+
+        kubectl_output = """[test-pod/app] 2023-05-01T12:00:01+02:00 Log with positive offset
+[test-pod/app] 2023-05-01T12:00:01-05:00 Log with negative offset"""
+
+        result = toolset._parse_kubectl_logs(kubectl_output)
+
+        assert len(result.logs) == 2
+        assert result.logs[0].content == "Log with positive offset"
+        assert result.logs[1].content == "Log with negative offset"
+        # Verify timestamps are parsed correctly with timezone offsets
+        assert result.logs[0].timestamp_ms == to_unix_ms(
+            "2023-05-01T10:00:01Z"
+        )  # +02:00 offset
+        assert result.logs[1].timestamp_ms == to_unix_ms(
+            "2023-05-01T17:00:01Z"
+        )  # -05:00 offset
+
+    def test_parse_logs_preserves_whitespace(self):
+        """Test that whitespace after timestamps is preserved (except for single space)"""
+        toolset = KubernetesLogsToolset()
+
+        # Test various whitespace scenarios
+        kubectl_output = """[test-pod/app] 2023-05-01T12:00:01Z     Indented log content
+[test-pod/app] 2023-05-01T12:00:02Z	Tab-indented content
+[test-pod/app] 2023-05-01T12:00:03Z Normal log content
+[test-pod/app] 2023-05-01T12:00:04Z  Two spaces before content"""
+
+        result = toolset._parse_kubectl_logs(kubectl_output)
+
+        assert len(result.logs) == 4
+        # Should preserve extra whitespace after removing single space
+        assert result.logs[0].content == "    Indented log content"
+        assert result.logs[1].content == "\tTab-indented content"  # Tab is preserved
+        assert result.logs[2].content == "Normal log content"
+        assert (
+            result.logs[3].content == " Two spaces before content"
+        )  # One space removed, one preserved
