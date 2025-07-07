@@ -7,7 +7,7 @@ This guide walks you through running your first HolmesGPT investigation, assumin
 Before starting, ensure you have:
 
 - ✅ **HolmesGPT CLI installed** - See [CLI Installation Guide](cli-installation.md)
-- ✅ **AI provider API key configured** - See [AI Provider Setup](../ai-providers/)
+- ✅ **AI provider API key configured** - See [AI Provider Setup](../ai-providers/index.md)
 - ✅ **kubectl access to a Kubernetes cluster** - Any cluster will work
 
 ## Step 1: Verify Your Setup
@@ -159,7 +159,7 @@ kubectl delete pod user-profile-import bad-image memory-hog crash-pod
 
 🎉 **Congratulations!** You've successfully run your first HolmesGPT investigations.
 
-- **[Configure Data Sources](../data-sources/)** - Add monitoring tools like Prometheus, Grafana
+- **[Configure Data Sources](../data-sources/index.md)** - Add monitoring tools like Prometheus, Grafana
 - **[Python SDK](python-installation.md)** - Embed Holmes in your applications
 - **[Helm Chart](kubernetes-installation.md)** - Deploy as a service
 

@@ -33,8 +33,8 @@ AI-powered Cloud-Native troubleshooting and investigation assistant.
 
 After installation:
 - **[Run Your First Investigation](installation/first-investigation.md)** - Complete walkthrough
-- **[Configure Data Sources](data-sources/)** - Add monitoring tools
-- **[AI Provider Setup](ai-providers/)** - Configure your AI provider
+- **[Configure Data Sources](data-sources/index.md)** - Add monitoring tools
+- **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
 
 ## Need Help?
 

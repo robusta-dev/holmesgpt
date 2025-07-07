@@ -236,7 +236,7 @@ evaluation:
 ## Tagging
 
 Evals are tagged for organisation and reporting purposes.
-The valid tags are defined [here](../tests/llm/utils/constants.py).
+The valid tags are defined in the test constants file in the repository.
 
 ## Best Practices
 

@@ -70,7 +70,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
 After installation, set up your AI provider and run your first investigation:
 
-1. **Set up API key** (see [supported AI providers](../ai-providers/)):
+1. **Set up API key** (see [supported AI providers](../ai-providers/index.md)):
    ```bash
    export OPENAI_API_KEY="your-api-key"
    export ANTHROPIC_API_KEY="your-api-key"

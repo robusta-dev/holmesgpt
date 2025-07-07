@@ -11,7 +11,7 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API access
 - Kubernetes cluster
 - Helm
 - kubectl configured to access your cluster
-- Supported [AI Provider](../../ai-providers/) API key.
+- Supported [AI Provider](../ai-providers/index.md) API key.
 
 ## Installation
 

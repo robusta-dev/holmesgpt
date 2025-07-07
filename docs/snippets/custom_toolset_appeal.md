@@ -1,4 +1,4 @@
 !!! tip "Need Custom Integration?"
-    By adding [custom toolsets](../custom-toolsets.md), users can extend HolmesGPT's investigation capabilities to address unique use cases, specific infrastructure setups, or organization-specific requirements. For example, custom toolsets might include specialized log analysis patterns or integration with external monitoring systems.
+    By adding custom toolsets, users can extend HolmesGPT's investigation capabilities to address unique use cases, specific infrastructure setups, or organization-specific requirements. For example, custom toolsets might include specialized log analysis patterns or integration with external monitoring systems.
 
-    Can't find the toolset you need? [Create a custom toolset](../custom-toolsets.md) or [request a new integration](https://github.com/robusta-dev/holmesgpt/issues/new?template=feature_request.md).
+    Can't find the toolset you need? Create a custom toolset or [request a new integration](https://github.com/robusta-dev/holmesgpt/issues/new?template=feature_request.md).

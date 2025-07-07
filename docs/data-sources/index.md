@@ -6,7 +6,7 @@ HolmesGPT connects to your monitoring and observability tools to provide compreh
 
 <div class="grid cards" markdown>
 
--   **[Built-in Toolsets](builtin-toolsets/)**
+-   **[Built-in Toolsets](builtin-toolsets/index.md)**
 
     Pre-configured integrations for popular tools like Prometheus, Grafana, DataDog, and more.
 
@@ -22,6 +22,6 @@ HolmesGPT connects to your monitoring and observability tools to provide compreh
 
 ## Getting Started
 
-1. **Review [Built-in Toolsets](builtin-toolsets/)** to see what's available
+1. **Review [Built-in Toolsets](builtin-toolsets/index.md)** to see what's available
 2. **Configure authentication** for your external services
 3. **Test with a simple investigation** to verify data access

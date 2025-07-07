@@ -6,16 +6,9 @@ Learn how to effectively use HolmesGPT for incident investigation and root cause
 
 HolmesGPT can be accessed through multiple interfaces:
 
-- **[Slack Integration](slack-integration.md)** - Trigger investigations directly from alerts
-- **[Web UI Guide](web-ui-guide.md)** - Use the Robusta UI for visual investigations
-- **[CLI Usage](cli-usage.md)** - Command-line interface for automation
-
-## Investigation Process
-
-Understand how HolmesGPT works:
-
-- **[Investigation Process](investigation-process.md)** - How HolmesGPT analyzes your infrastructure
-- **[Best Practices](best-practices.md)** - Tips for getting the most accurate results
+- **Slack Integration** - Trigger investigations directly from alerts (via Robusta platform)
+- **Web UI** - Use the Robusta UI for visual investigations
+- **CLI Usage** - Command-line interface for automation and CI/CD integration
 
 ## Common Workflows
 
@@ -43,4 +36,4 @@ Understand how HolmesGPT works:
 - **Use specific timeframes** - Focus on relevant time windows
 - **Review multiple perspectives** - Check logs, metrics, and events
 
-Start with the [Investigation Process](investigation-process.md) to understand how HolmesGPT analyzes your infrastructure.
+For detailed CLI usage, see the [CLI Installation Guide](../installation/cli-installation.md).

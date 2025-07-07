@@ -121,12 +121,12 @@ Check out our [examples repository](https://github.com/robusta-dev/holmesgpt-exa
 
 ## Next Steps
 
-- **[AI Provider Setup](../ai-providers/)** - Configure your AI provider
+- **[AI Provider Setup](../ai-providers/index.md)** - Configure your AI provider
 - **[Run Your First Investigation](first-investigation.md)** - Complete walkthrough
 - **[Helm Configuration](../reference/helm-configuration.md)** - Advanced settings and custom toolsets
 
 ## Need Help?
 
-- Check our [Python SDK documentation](../python.md) for detailed API reference
+- Check the Python SDK examples in our repository for detailed API reference
 - Join our [Slack community](https://robustacommunity.slack.com)
 - Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
