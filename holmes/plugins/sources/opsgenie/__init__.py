@@ -1,10 +1,12 @@
 import logging
+from typing import Dict, List, Optional, Union
+
+import markdown  # type: ignore
+import requests  # type: ignore
+
+from holmes.core.issue import Issue
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.interfaces import SourcePlugin
-from holmes.core.issue import Issue
-from typing import List, Optional
-import requests  # type: ignore
-import markdown  # type: ignore
 
 OPSGENIE_TEAM_INTEGRATION_KEY_HELP = "OpsGenie Team Integration key for writing back results. (NOT a normal API Key.) Get it from Teams > YourTeamName > Integrations > Add Integration > API Key. Don't forget to turn on the integration!"
 
@@ -26,7 +28,7 @@ class OpsGenieSource(SourcePlugin):
                 "Authorization": f"GenieKey {self.api_key}",
                 "Content-Type": "application/json",
             }
-            params = {"query": self.query, "limit": 100}
+            params: Dict[str, Union[int, str]] = {"query": self.query, "limit": 100}
             while url:
                 # TODO: also fetch notes and description
                 response = requests.get(url, headers=headers, params=params)

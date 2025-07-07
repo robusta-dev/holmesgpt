@@ -126,9 +126,12 @@ class PagerDutySource(SourcePlugin):
             data = response.json()
             logging.debug(f"Comment added to issue {issue_id}: {data}")
         except requests.RequestException as e:
-            logging.error(
-                f"Failed to write back result to PagerDuty: {e}; {e.response.text}"
-            )
+            if e.response is not None:
+                logging.error(
+                    f"Failed to write back result to PagerDuty: {e}; {e.response.text}"
+                )
+            else:
+                logging.error(f"Failed to write back result to PagerDuty: {e}")
             raise
 
 

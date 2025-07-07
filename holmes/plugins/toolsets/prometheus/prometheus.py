@@ -545,7 +545,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             # For other status codes, just return the status code and content
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
+                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {str(response.content)}",
                 params=params,
             )
 
@@ -691,7 +691,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
+                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {str(response.content)}",
                 params=params,
             )
 
