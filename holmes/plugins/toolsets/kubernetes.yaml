@@ -127,9 +127,28 @@ toolsets:
             }' | sort -k3 -nr
 
       - name: "kubernetes_jq_query"
+        user_description: "Query Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -r {{jq_expr}}"
         description: >
           Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
         command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
+
+      - name: "kubernetes_count"
+        user_description: "Count Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
+        description: >
+          Use kubectl to get apply a jq filter and then count the results.
+          Use this whenever asked to count kubernetes resources.
+          Whenever it makes sense, end the jq_expr with | .metadata.name
+          Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give.
+          e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not) | .metadata.name
+        script: |
+          matches=$(kubectl get {{ kind }} --all-namespaces -o json | jq -c -r {{ jq_expr }})
+          count=$(echo "$matches" | wc -l)
+          preview=$(echo "$matches" | head -n 10 | cut -c 1-200 | nl)
+
+          echo "$count results"
+          echo "---"
+          echo "A *preview* of results is shown below (up to 10 results, up to 200 chars):"
+          echo "$preview"
 
     # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic
     # http GET capabilities which are more powerful than we want to expose
