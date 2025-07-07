@@ -101,7 +101,27 @@ class PodLoggingTool(Tool):
         """Generate a one-line description of this tool invocation"""
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
-        return f"Fetching logs for pod {pod_name} in namespace {namespace}"
+
+        start_time = params.get("start_time")
+        end_time = params.get("end_time")
+        filter = params.get("filter")
+        limit = params.get("limit")
+
+        extra_params_str = ""
+
+        if start_time and not end_time:
+            extra_params_str += " start_time={start_time}"
+        elif not start_time and end_time:
+            extra_params_str += " end_time={start_time}"
+        elif start_time and end_time:
+            extra_params_str += " time range={start_time}/{end_time}"
+
+        if filter:
+            extra_params_str += " filter={start_time}"
+        if limit:
+            extra_params_str += " limit={limit}"
+
+        return f"Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
 
 
 def process_time_parameters(
