@@ -37,11 +37,11 @@ Integrate HolmesGPT into your K9s Kubernetes terminal for instant analysis.
 
 The fastest way to use HolmesGPT is via the managed Robusta SaaS platform.
 
-[![Watch Demo](https://cdn.loom.com/sessions/thumbnails/388d98aad1a04823b9ed50d0161a4819-0ced91a0e8f80dcb-full-play.gif)](https://www.loom.com/share/388d98aad1a04823b9ed50d0161a4819?sid=a2a669b4-f092-4067-adcb-c8527fbcaa90)
+[![Watch Demo](https://cdn.loom.com/sessions/thumbnails/388d98aad1a04823b9ed50d0161a4819-0ced91a0e8f80dcb-full-play.gif)](https://www.loom.com/share/388d98aad1a04823b9ed50d0161a4819?sid=a2a669b4-f092-4067-adcb-c8527fbcaa90){:target="_blank"}
 
 ### Get Started
 
-1. **Sign up:** [platform.robusta.dev](https://platform.robusta.dev/signup/)
+1. **Sign up:** [platform.robusta.dev](https://platform.robusta.dev/signup/){:target="_blank"}
 2. **Connect your cluster:** Follow the in-app wizard to install the Robusta agent and configure data sources.
 3. **Investigate:** Use the "Ask Holmes" chat to analyze alerts or ask questions like:
    - “What pods are failing in production?”
@@ -53,10 +53,10 @@ The fastest way to use HolmesGPT is via the managed Robusta SaaS platform.
 
 Tag HolmesGPT in any Slack message for instant analysis.
 
-[![Watch Slack Bot Demo](https://cdn.loom.com/sessions/thumbnails/7a60a42e854e45368e9b7f9d3c36ae5f-65bd123629db6922-full-play.gif)](https://www.loom.com/share/7a60a42e854e45368e9b7f9d3c36ae5f?sid=bfed9efb-b607-416c-b481-c2a63d314a4b)
+[![Watch Slack Bot Demo](https://cdn.loom.com/sessions/thumbnails/7a60a42e854e45368e9b7f9d3c36ae5f-65bd123629db6922-full-play.gif)](https://www.loom.com/share/7a60a42e854e45368e9b7f9d3c36ae5f?sid=bfed9efb-b607-416c-b481-c2a63d314a4b){:target="_blank"}
 
 ## Need Help?
 
 - [Troubleshooting guide](../reference/troubleshooting.md)
-- [Slack community](https://robustacommunity.slack.com)
-- [GitHub Issues](https://github.com/robusta-dev/holmesgpt/issues)
+- [Slack community](https://robustacommunity.slack.com){:target="_blank"}
+- [GitHub Issues](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}

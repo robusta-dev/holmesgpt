@@ -12,9 +12,9 @@ Configure HolmesGPT to use any OpenAI-compatible API.
 
 ## Supported Inference Servers
 
-- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python)
-- [LocalAI](https://localai.io/)
-- [Text Generation WebUI](https://github.com/oobabooga/text-generation-webui) (with OpenAI extension)
+- [llama-cpp-python](https://github.com/abetlen/llama-cpp-python){:target="_blank"}
+- [LocalAI](https://localai.io/){:target="_blank"}
+- [Text Generation WebUI](https://github.com/oobabooga/text-generation-webui){:target="_blank"} (with OpenAI extension)
 
 ## Configuration
 
@@ -53,6 +53,6 @@ export CERTIFICATE="base64-encoded-cert-here"
 
 ## Known Limitations
 
-- **vLLM**: [Does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869)
+- **vLLM**: [Does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869){:target="_blank"}
 - **Text Generation WebUI**: Requires OpenAI extension enabled
 - **Some models**: May hallucinate responses instead of reporting function calling limitations

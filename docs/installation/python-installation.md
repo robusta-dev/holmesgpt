@@ -112,7 +112,7 @@ export HOLMES_LOG_LEVEL="INFO"
 
 ## Examples Repository
 
-Check out our [examples repository](https://github.com/robusta-dev/holmesgpt-examples) for:
+Check out our [examples repository](https://github.com/robusta-dev/holmesgpt-examples){:target="_blank"} for:
 
 - **Flask integration** - Web app with Holmes
 - **Slack bot** - Custom Slack integration
@@ -128,5 +128,5 @@ Check out our [examples repository](https://github.com/robusta-dev/holmesgpt-exa
 ## Need Help?
 
 - Check the Python SDK examples in our repository for detailed API reference
-- Join our [Slack community](https://robustacommunity.slack.com)
-- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
+- Join our [Slack community](https://robustacommunity.slack.com){:target="_blank"}
+- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}

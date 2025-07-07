@@ -4,7 +4,7 @@ Configure HolmesGPT to use OpenAI's GPT models.
 
 ## Setup
 
-Get a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key).
+Get a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key){:target="_blank"}.
 
 !!! note
     Requires a paid OpenAI API key, not a ChatGPT Plus subscription.

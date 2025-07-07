@@ -16,7 +16,7 @@ Braintrust is a platform for tracking and analyzing LLM evaluations. HolmesGPT e
 
 ### 1. Create Account
 
-1. Visit [braintrust.dev](https://www.braintrust.dev)
+1. Visit [braintrust.dev](https://www.braintrust.dev){:target="_blank"}
 2. Sign up for an account
 3. Create a new project (e.g., "HolmesGPT")
 

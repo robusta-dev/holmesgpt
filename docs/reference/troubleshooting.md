@@ -407,9 +407,9 @@ env:
 
 ### Community Support
 
-1. **Slack Community**: [robustacommunity.slack.com](https://robustacommunity.slack.com)
-2. **GitHub Issues**: [github.com/robusta-dev/holmesgpt/issues](https://github.com/robusta-dev/holmesgpt/issues)
-3. **Documentation**: [docs.robusta.dev](https://docs.robusta.dev)
+1. **Slack Community**: [robustacommunity.slack.com](https://robustacommunity.slack.com){:target="_blank"}
+2. **GitHub Issues**: [github.com/robusta-dev/holmesgpt/issues](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}
+3. **Documentation**: [robusta-dev.github.io/holmesgpt](https://robusta-dev.github.io/holmesgpt/){:target="_blank"}
 
 When reporting issues, please include:
 - HolmesGPT version

@@ -130,5 +130,5 @@ helm uninstall holmesgpt
 
 ## Need Help?
 
-- Join our [Slack community](https://robustacommunity.slack.com)
-- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
+- Join our [Slack community](https://robustacommunity.slack.com){:target="_blank"}
+- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}

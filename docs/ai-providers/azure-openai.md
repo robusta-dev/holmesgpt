@@ -4,7 +4,7 @@ Configure HolmesGPT to use Azure OpenAI Service.
 
 ## Setup
 
-Create an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource).
+Create an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource){:target="_blank"}.
 
 ## Configuration
 
@@ -26,4 +26,4 @@ holmes ask "what pods are failing?" --model="azure/<your-deployment-name>" --api
 
 ## Additional Resources
 
-Refer to [LiteLLM Azure docs](https://litellm.vercel.app/docs/providers/azure) for more details.
+Refer to [LiteLLM Azure docs](https://litellm.vercel.app/docs/providers/azure){:target="_blank"} for more details.

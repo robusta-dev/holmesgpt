@@ -20,7 +20,7 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
 !!! tip "Recommended for New Users"
     **OpenAI GPT-4o** provides the best balance of accuracy and reliability. Get started with:
 
-    1. Get an [OpenAI API key](https://platform.openai.com/api-keys)
+    1. Get an [OpenAI API key](https://platform.openai.com/api-keys){:target="_blank"}
     2. Set `export OPENAI_API_KEY="your-api-key"`
     3. Run `holmes ask "what pods are failing?"`
 

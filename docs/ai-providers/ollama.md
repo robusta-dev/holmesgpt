@@ -7,7 +7,7 @@ Configure HolmesGPT to use local models with Ollama.
 
 ## Setup
 
-1. Download Ollama from [ollama.com](https://ollama.com/)
+1. Download Ollama from [ollama.com](https://ollama.com/){:target="_blank"}
 2. Start Ollama: `ollama serve`
 3. Download models: `ollama pull <model-name>`
 

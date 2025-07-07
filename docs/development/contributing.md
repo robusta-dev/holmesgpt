@@ -4,7 +4,7 @@
 
 ### Code of Conduct
 
-Please make sure to read and observe our [Governance](https://github.com/robusta-dev/holmesgpt/blob/holmes-mkdocs/GOVERNANCE.md) docs.
+Please make sure to read and observe our [Governance](https://github.com/robusta-dev/holmesgpt/blob/holmes-mkdocs/GOVERNANCE.md){:target="_blank"} docs.
 
 ### Install requirements
 - Python `3.11`
@@ -32,7 +32,7 @@ We encourage those interested to contribute code and also appreciate when issues
 - Keep pull requests small and focused. if you have multiple changes, open a PR for each.
 - Create a pull request back to the upstream repository.
 - Wait for a review and address any comments
-- Follow the guidelines in our [Governance](https://github.com/robusta-dev/holmesgpt/blob/holmes-mkdocs/GOVERNANCE.md) docs regarding code contributions
+- Follow the guidelines in our [Governance](https://github.com/robusta-dev/holmesgpt/blob/holmes-mkdocs/GOVERNANCE.md){:target="_blank"} docs regarding code contributions
 
 ## Installation from Source
 
@@ -59,8 +59,8 @@ For development purposes, install HolmesGPT from source with Poetry:
 ## Getting Help
 
 For help with contributing:
-- Contact us on [Slack](https://bit.ly/robusta-slack)
-- Ask [DeepWiki AI](https://deepwiki.com/robusta-dev/holmesgpt) your questions
+- Contact us on [Slack](https://bit.ly/robusta-slack){:target="_blank"}
+- Ask [DeepWiki AI](https://deepwiki.com/robusta-dev/holmesgpt){:target="_blank"} your questions
 - View the [installation documentation](../installation/index.md) for more details
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt){:target="_blank"}

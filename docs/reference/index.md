@@ -56,7 +56,7 @@ Can't find what you're looking for?
 1. **Search** this documentation using the search bar
 2. **Check** our troubleshooting guide for common issues
 3. **Visit** our [troubleshooting guide](troubleshooting.md)
-4. **Ask** in our [Slack community](https://robustacommunity.slack.com)
-5. **Report** issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues)
+4. **Ask** in our [Slack community](https://robustacommunity.slack.com){:target="_blank"}
+5. **Report** issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}
 
 Start with the [troubleshooting guide](troubleshooting.md) for answers to common questions.

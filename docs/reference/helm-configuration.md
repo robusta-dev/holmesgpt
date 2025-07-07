@@ -403,4 +403,4 @@ Common configuration issues:
    kubectl auth can-i get pods --as=system:serviceaccount:default:holmesgpt
    ```
 
-For more configuration examples, see the [examples directory](https://github.com/robusta-dev/holmesgpt/tree/main/helm/examples) in our repository.
+For more configuration examples, see the [examples directory](https://github.com/robusta-dev/holmesgpt/tree/main/helm/examples){:target="_blank"} in our repository.

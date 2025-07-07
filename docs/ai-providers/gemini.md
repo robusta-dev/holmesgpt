@@ -4,7 +4,7 @@ Configure HolmesGPT to use Google's Gemini models via Google AI Studio.
 
 ## Setup
 
-Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey){:target="_blank"}.
 
 ## Configuration
 

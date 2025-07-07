@@ -39,5 +39,5 @@ After installation:
 
 ## Need Help?
 
-- Join our [Slack community](https://robustacommunity.slack.com)
+- Join our [Slack community](https://robustacommunity.slack.com){:target="_blank"}
 - Check our [troubleshooting guide](reference/troubleshooting.md)

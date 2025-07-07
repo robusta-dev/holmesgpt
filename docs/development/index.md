@@ -33,9 +33,9 @@ Help improve HolmesGPT:
 
 ## Development Resources
 
-- **Source Code**: [GitHub Repository](https://github.com/robusta-dev/holmesgpt)
-- **Issue Tracker**: [GitHub Issues](https://github.com/robusta-dev/holmesgpt/issues)
-- **Community**: [Slack Channel](https://robustacommunity.slack.com)
+- **Source Code**: [GitHub Repository](https://github.com/robusta-dev/holmesgpt){:target="_blank"}
+- **Issue Tracker**: [GitHub Issues](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}
+- **Community**: [Slack Channel](https://robustacommunity.slack.com){:target="_blank"}
 - **Documentation**: You're reading it!
 
 ## Getting Started
