@@ -1,6 +1,6 @@
 # HolmesGPT
 
-AI-powered Cloud-Native troubleshooting and investigation assistant.
+AI Agent for Troubleshooting Cloud-Native Environments.
 
 ## Quick Start
 
@@ -24,7 +24,7 @@ AI-powered Cloud-Native troubleshooting and investigation assistant.
 
 </div>
 
-## Advanced Options
+## Advanced Installation Options
 
 * **[Helm Chart](installation/kubernetes-installation.md)** - Deploy as a service with HTTP API
 * **[Python SDK](installation/python-installation.md)** - Embed in your applications
@@ -32,9 +32,10 @@ AI-powered Cloud-Native troubleshooting and investigation assistant.
 ## Next Steps
 
 After installation:
-- **[Run Your First Investigation](installation/first-investigation.md)** - Complete walkthrough
-- **[Configure Data Sources](data-sources/index.md)** - Add monitoring tools
+
 - **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
+- **[Run Your First Investigation](installation/first-investigation.md)** - Complete walkthrough with examples
+- **[Configure Data Sources](data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
 
 ## Need Help?
 
