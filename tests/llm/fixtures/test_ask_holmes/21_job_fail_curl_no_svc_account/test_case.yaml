@@ -1,4 +1,7 @@
 user_prompt: "Why get-data job failed?"
+tags:
+  - misleading-history
+  - k8s-misconfig
 expected_output:
   - The specified URL `http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343` could not be resolved to an IP address
 before_test: |
