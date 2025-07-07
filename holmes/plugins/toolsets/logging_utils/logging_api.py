@@ -110,16 +110,16 @@ class PodLoggingTool(Tool):
         extra_params_str = ""
 
         if start_time and not end_time:
-            extra_params_str += " start_time={start_time}"
+            extra_params_str += f" start_time={start_time}"
         elif not start_time and end_time:
-            extra_params_str += " end_time={start_time}"
+            extra_params_str += f" end_time={start_time}"
         elif start_time and end_time:
-            extra_params_str += " time range={start_time}/{end_time}"
+            extra_params_str += f" time range={start_time}/{end_time}"
 
         if filter:
-            extra_params_str += " filter={start_time}"
+            extra_params_str += f" filter={filter}"
         if limit:
-            extra_params_str += " limit={limit}"
+            extra_params_str += f" limit={limit}"
 
         return f"Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
 
