@@ -73,48 +73,44 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
 ## Quick Start
 
-After installation, set up your AI provider and run your first investigation:
+After installation, set up your [AI provider](../ai-providers/index.md) and run your first investigation:
 
-1. **Set up API key**. For more options, see [Supported AI Providers](../ai-providers/index.md):
+1. **Set up API key**:
 
-   === "OpenAI"
-       ```bash
-       export OPENAI_API_KEY="your-api-key"
-       ```
+```bash
+# OpenAI
+export OPENAI_API_KEY="your-api-key"
 
-   === "Anthropic"
-       ```bash
-       export ANTHROPIC_API_KEY="your-api-key"
-       ```
+# Anthropic
+export ANTHROPIC_API_KEY="your-api-key"
 
-   === "Azure OpenAI"
-       ```bash
-       export AZURE_API_VERSION="2024-02-15-preview"
-       export AZURE_API_BASE="https://your-resource.openai.azure.com/"
-       export AZURE_API_KEY="your-azure-api-key"
-       ```
+# Azure OpenAI
+export AZURE_API_VERSION="2024-02-15-preview"
+export AZURE_API_BASE="https://your-resource.openai.azure.com/"
+export AZURE_API_KEY="your-azure-api-key"
 
-   === "Google"
-       ```bash
-       export GOOGLE_API_KEY="your-api-key"
-       ```
+# Google
+export GOOGLE_API_KEY="your-api-key"
+```
+
+See supported [AI Providers](../ai-providers/index.md) for more details.
 
 2. **Create a test pod** to investigate:
-   ```bash
-   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
-   ```
+```bash
+kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+```
 
 3. **Ask your first question**:
-   ```bash
-   holmes ask "what is wrong with the user-profile-import pod?"
-   ```
+```bash
+holmes ask "what is wrong with the user-profile-import pod?"
+```
 
 4. **Ask follow-up questions**:
-   ```bash
-   holmes ask "what pods are unhealthy and why?"
-   ```
+```bash
+holmes ask "what pods are unhealthy and why?"
+```
 
-   Note: Interactive mode is now the default, allowing follow-up questions.
+Note: Interactive mode is now the default, allowing follow-up questions.
 
 
 ## Need Help?
