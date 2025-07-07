@@ -4,7 +4,7 @@
 
 ### Code of Conduct
 
-Please make sure to read and observe our [Governance](../../GOVERNANCE.md) docs.
+Please make sure to read and observe our [Governance](https://github.com/robusta-dev/holmesgpt/blob/holmes-mkdocs/GOVERNANCE.md) docs.
 
 ### Install requirements
 - Python `3.11`
@@ -32,7 +32,7 @@ We encourage those interested to contribute code and also appreciate when issues
 - Keep pull requests small and focused. if you have multiple changes, open a PR for each.
 - Create a pull request back to the upstream repository.
 - Wait for a review and address any comments
-- Follow the guidelines in our [Governance](../../GOVERNANCE.md) docs regarding code contributions
+- Follow the guidelines in our [Governance](https://github.com/robusta-dev/holmesgpt/blob/holmes-mkdocs/GOVERNANCE.md) docs regarding code contributions
 
 ## Installation from Source
 
