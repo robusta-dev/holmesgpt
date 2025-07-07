@@ -1,21 +1,36 @@
 # type: ignore
-import logging
 import os
 import subprocess
 from tests.llm.utils.mock_utils import HolmesTestCase
 
 
+class CommandResult:
+    def __init__(
+        self,
+        command: str,
+        test_case_id: str,
+        success: bool,
+        exit_code: int = None,
+        elapsed_time: float = 0,
+        error_type: str = None,
+        error_details: str = None,
+    ):
+        self.command = command
+        self.test_case_id = test_case_id
+        self.success = success
+        self.exit_code = exit_code
+        self.elapsed_time = elapsed_time
+        self.error_type = error_type  # 'timeout', 'failure', or None
+        self.error_details = error_details
+
+
 def invoke_command(
     command: str, cwd: str, test_case_id: str = None, timeout: int = 70
-) -> str:
+) -> CommandResult:
     import time
 
+    start_time = time.time()
     try:
-        test_prefix = f"[{test_case_id}]" if test_case_id else ""
-        print(f"⏳ {test_prefix} Starting: {command} (in {cwd})")
-        logging.debug(f"{test_prefix} Running `{command}` in {cwd}")
-
-        start_time = time.time()
         result = subprocess.run(
             command,
             shell=True,
@@ -27,90 +42,135 @@ def invoke_command(
             timeout=timeout,
         )
         elapsed_time = time.time() - start_time
-
-        output = f"{result.stdout}\n{result.stderr}"
-        logging.debug(f"{test_prefix} `{command}`:\n{output}")
-        print(
-            f"✅ {test_prefix} Ran: {command} (exit code: {result.returncode}, {elapsed_time:.2f}s)"
+        return CommandResult(
+            command=command,
+            test_case_id=test_case_id,
+            success=True,
+            exit_code=result.returncode,
+            elapsed_time=elapsed_time,
         )
-        return output
-    except subprocess.TimeoutExpired as e:
+    except subprocess.TimeoutExpired:
         elapsed_time = time.time() - start_time
-        test_prefix = f"[{test_case_id}]" if test_case_id else ""
-        message = f"{test_prefix} Command `{command}` timed out after {timeout} seconds"
-        logging.error(message)
-        print(f"⏰ {test_prefix} TIMEOUT: {command} (after {elapsed_time:.2f}s)")
-        raise e
+        return CommandResult(
+            command=command,
+            test_case_id=test_case_id,
+            success=False,
+            elapsed_time=elapsed_time,
+            error_type="timeout",
+            error_details=f"Command timed out after {timeout} seconds",
+        )
     except subprocess.CalledProcessError as e:
         elapsed_time = time.time() - start_time
-        test_prefix = f"[{test_case_id}]" if test_case_id else ""
-        message = f"{test_prefix} Command `{command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
-        logging.error(message)
-        print(
-            f"❌ {test_prefix} Failed: {command} (exit code: {e.returncode}, {elapsed_time:.2f}s)"
+        return CommandResult(
+            command=command,
+            test_case_id=test_case_id,
+            success=False,
+            exit_code=e.returncode,
+            elapsed_time=elapsed_time,
+            error_type="failure",
+            error_details=f"Exit code {e.returncode}\nstdout: {e.stdout}\nstderr: {e.stderr}",
         )
-        raise e
 
 
 def before_test(test_case: HolmesTestCase):
-    if test_case.before_test and os.environ.get("RUN_LIVE", "").strip().lower() in (
-        "1",
-        "true",
-    ):
-        print(
-            f"🚀 [{test_case.id}] BEFORE TEST - Setting up test environment for {test_case.id}:"
+    """Execute before_test commands and return single result for test case"""
+    if not test_case.before_test or os.environ.get(
+        "RUN_LIVE", ""
+    ).strip().lower() not in ("1", "true"):
+        return CommandResult(
+            command="(no setup needed)",
+            test_case_id=test_case.id,
+            success=True,
+            elapsed_time=0,
         )
-        commands = test_case.before_test.split("\n")
-        timeout = getattr(
-            test_case, "timeout", 60
-        )  # Default 60s, override with timeout field
 
-        for command in commands:
-            if command.strip():  # Skip empty commands
-                try:
-                    invoke_command(
-                        command=command,
-                        cwd=test_case.folder,
-                        test_case_id=test_case.id,
-                        timeout=timeout,
-                    )
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-                    print(
-                        f"⚠️ [{test_case.id}] BEFORE TEST - Warning: Setup command failed but continuing: {command}"
-                    )
-                    logging.warning(
-                        f"[{test_case.id}] Setup command failed: {command} - {str(e)}"
-                    )
-        print(f"✅ [{test_case.id}] BEFORE TEST - Setup completed for {test_case.id}")
+    commands = test_case.before_test.split("\n")
+    timeout = getattr(
+        test_case, "timeout", 70
+    )  # Default 70s, override with timeout field
+    total_time = 0
+
+    for command in commands:
+        if command.strip():  # Skip empty commands
+            result = invoke_command(
+                command=command,
+                cwd=test_case.folder,
+                test_case_id=test_case.id,
+                timeout=timeout,
+            )
+            total_time += result.elapsed_time
+
+            # If any command fails, return failure for the whole test case
+            if not result.success:
+                # Format error details with proper indentation
+                indented_details = "\n".join(
+                    f"   {line}" for line in result.error_details.split("\n")
+                )
+                return CommandResult(
+                    command=f"setup commands (failed at: {command})",
+                    test_case_id=test_case.id,
+                    success=False,
+                    elapsed_time=total_time,
+                    error_type=result.error_type,
+                    error_details=f"Failed command: {command}\n{indented_details}",
+                )
+
+    # All commands succeeded
+    return CommandResult(
+        command="setup commands",
+        test_case_id=test_case.id,
+        success=True,
+        elapsed_time=total_time,
+    )
 
 
 def after_test(test_case: HolmesTestCase):
-    if test_case.after_test and os.environ.get("RUN_LIVE", "").strip().lower() in (
-        "1",
-        "true",
-    ):
-        print(
-            f"🧹 [{test_case.id}] AFTER TEST - Cleaning up test environment for {test_case.id}:"
+    """Execute after_test commands and return single result for test case"""
+    if not test_case.after_test or os.environ.get(
+        "RUN_LIVE", ""
+    ).strip().lower() not in ("1", "true"):
+        return CommandResult(
+            command="(no cleanup needed)",
+            test_case_id=test_case.id,
+            success=True,
+            elapsed_time=0,
         )
-        commands = test_case.after_test.split("\n")
-        timeout = getattr(
-            test_case, "timeout", 60
-        )  # Default 60s, override with timeout field
 
-        for command in commands:
-            if command.strip():  # Skip empty commands
-                try:
-                    invoke_command(
-                        command=command,
-                        cwd=test_case.folder,
-                        test_case_id=test_case.id,
-                        timeout=timeout,
-                    )
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-                    print(
-                        f"⚠️ [{test_case.id}] AFTER TEST - Warning: Cleanup command failed but continuing: {command}"
-                    )
-                    logging.warning(
-                        f"[{test_case.id}] Cleanup command failed: {command} - {str(e)}"
-                    )
-        print(f"✅ [{test_case.id}] AFTER TEST - Cleanup completed for {test_case.id}")
+    commands = test_case.after_test.split("\n")
+    timeout = getattr(
+        test_case, "timeout", 70
+    )  # Default 70s, override with timeout field
+    total_time = 0
+
+    for command in commands:
+        if command.strip():  # Skip empty commands
+            result = invoke_command(
+                command=command,
+                cwd=test_case.folder,
+                test_case_id=test_case.id,
+                timeout=timeout,
+            )
+            total_time += result.elapsed_time
+
+            # If any command fails, return failure for the whole test case
+            if not result.success:
+                # Format error details with proper indentation
+                indented_details = "\n".join(
+                    f"   {line}" for line in result.error_details.split("\n")
+                )
+                return CommandResult(
+                    command=f"cleanup commands (failed at: {command})",
+                    test_case_id=test_case.id,
+                    success=False,
+                    elapsed_time=total_time,
+                    error_type=result.error_type,
+                    error_details=f"Failed command: {command}\n{indented_details}",
+                )
+
+    # All commands succeeded
+    return CommandResult(
+        command="cleanup commands",
+        test_case_id=test_case.id,
+        success=True,
+        elapsed_time=total_time,
+    )

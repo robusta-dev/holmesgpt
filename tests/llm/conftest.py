@@ -1,6 +1,7 @@
 import logging
 import os
 import pytest
+import textwrap
 from pytest_shared_session_scope import (
     shared_session_scope_json,
     SetupToken,
@@ -178,10 +179,12 @@ def _run_test_setup(test_cases):
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import time
 
-    print("\nSetting up test infrastructure before tests")
-    print(f"\nSetting up infrastructure for {len(test_cases)} test cases in parallel")
+    print(f"\nSetting up infrastructure for {len(test_cases)} test cases")
 
     start_time = time.time()
+    successful_test_cases = 0
+    failed_test_cases = 0
+    timed_out_test_cases = 0
 
     with ThreadPoolExecutor(max_workers=min(len(test_cases), 30)) as executor:
         # Submit all setup tasks
@@ -194,29 +197,84 @@ def _run_test_setup(test_cases):
         for future in as_completed(future_to_test_case):
             test_case = future_to_test_case[future]
             try:
-                future.result()  # This will raise an exception if the task failed
-                print(f"✅ Setup completed for {test_case.id}")
+                result = future.result()  # Single CommandResult for the test case
+                remaining_cases = (
+                    len(test_cases)
+                    - successful_test_cases
+                    - failed_test_cases
+                    - timed_out_test_cases
+                )
+                if result.success:
+                    successful_test_cases += 1
+                    print(
+                        f"✅ Setup {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); setups remaining: {remaining_cases}"
+                    )
+                elif result.error_type == "timeout":
+                    timed_out_test_cases += 1
+                    print(
+                        f"⏰ Setup {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; setups remaining: {remaining_cases}"
+                    )
+
+                    # Show the exact command that timed out
+                    error_lines = result.error_details.split("\n")
+                    if len(error_lines) > 10:
+                        truncated_error = "\n".join(error_lines[:10])
+                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
+                    else:
+                        truncated_error = result.error_details
+
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Setup timeout: {result.error_details}"
+                    )
+                else:
+                    failed_test_cases += 1
+                    exit_info = (
+                        f"exit {result.exit_code}"
+                        if result.exit_code is not None
+                        else "no exit code"
+                    )
+                    print(
+                        f"❌ Setup {test_case.id}: FAILED ({exit_info}, {result.elapsed_time:.2f}s); setups remaining: {remaining_cases}"
+                    )
+
+                    # Limit error details to 10 lines and add proper formatting
+                    error_lines = result.error_details.split("\n")
+                    if len(error_lines) > 10:
+                        truncated_error = "\n".join(error_lines[:10])
+                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
+                    else:
+                        truncated_error = result.error_details
+
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Setup failed: {result.error_details}"
+                    )
+
             except Exception as e:
-                print(f"⚠️ Setup failed for {test_case.id}: {e}")
-                logging.warning(f"Setup failed for {test_case.id}: {str(e)}")
-                # Continue with other setups instead of failing everything
+                failed_test_cases += 1
+                print(f"❌ Setup {test_case.id}: EXCEPTION - {e}")
+                logging.error(f"Setup exception for {test_case.id}: {str(e)}")
 
     elapsed_time = time.time() - start_time
-    print(f"🕐 Setup completed in {elapsed_time:.2f} seconds")
+    print(
+        f"\n🕐 Setup completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
+    )
 
 
 def _run_test_cleanup(test_cases):
     """Run after_test for each test case in parallel"""
-    print("\nCleaning up test infrastructure after tests")
     from tests.llm.utils.commands import after_test
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import time
 
-    print(
-        f"\nCleaning up test infrastructure for {len(test_cases)} test cases in parallel"
-    )
+    print("\nCleaning up test infrastructure after tests")
+    print(f"\nCleaning up infrastructure for {len(test_cases)} test cases")
 
     start_time = time.time()
+    successful_test_cases = 0
+    failed_test_cases = 0
+    timed_out_test_cases = 0
 
     with ThreadPoolExecutor(max_workers=min(len(test_cases), 30)) as executor:
         # Submit all cleanup tasks
@@ -229,15 +287,70 @@ def _run_test_cleanup(test_cases):
         for future in as_completed(future_to_test_case):
             test_case = future_to_test_case[future]
             try:
-                future.result()  # This will raise an exception if the task failed
-                print(f"✅ Cleanup completed for {test_case.id}")
+                result = future.result()  # Single CommandResult for the test case
+                remaining_cases = (
+                    len(test_cases)
+                    - successful_test_cases
+                    - failed_test_cases
+                    - timed_out_test_cases
+                )
+
+                if result.success:
+                    successful_test_cases += 1
+                    print(
+                        f"✅ Cleanup {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); cleanups remaining: {remaining_cases}"
+                    )
+                elif result.error_type == "timeout":
+                    timed_out_test_cases += 1
+                    print(
+                        f"⏰ Cleanup {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; cleanups remaining: {remaining_cases}"
+                    )
+
+                    # Show the exact command that timed out
+                    error_lines = result.error_details.split("\n")
+                    if len(error_lines) > 10:
+                        truncated_error = "\n".join(error_lines[:10])
+                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
+                    else:
+                        truncated_error = result.error_details
+
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Cleanup timeout: {result.error_details}"
+                    )
+                else:
+                    failed_test_cases += 1
+                    exit_info = (
+                        f"exit {result.exit_code}"
+                        if result.exit_code is not None
+                        else "no exit code"
+                    )
+                    print(
+                        f"❌ Cleanup {test_case.id}: FAILED ({exit_info}, {result.elapsed_time:.2f}s); cleanups remaining: {remaining_cases}"
+                    )
+
+                    # Limit error details to 10 lines and add proper formatting
+                    error_lines = result.error_details.split("\n")
+                    if len(error_lines) > 10:
+                        truncated_error = "\n".join(error_lines[:10])
+                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
+                    else:
+                        truncated_error = result.error_details
+
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Cleanup failed: {result.error_details}"
+                    )
+
             except Exception as e:
-                print(f"⚠️ Cleanup failed for {test_case.id}: {e}")
-                logging.warning(f"Cleanup failed for {test_case.id}: {str(e)}")
-                # Continue with other cleanup tasks even if one fails
+                failed_test_cases += 1
+                print(f"❌ Cleanup {test_case.id}: EXCEPTION - {e}")
+                logging.error(f"Cleanup exception for {test_case.id}: {str(e)}")
 
     elapsed_time = time.time() - start_time
-    print(f"🕐 Cleanup completed in {elapsed_time:.2f} seconds")
+    print(
+        f"\n🕐 Cleanup completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
+    )
 
 
 def _extract_test_cases_needing_setup(session):

@@ -194,14 +194,20 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         for i, tool in enumerate(tools_called, 1):
             print(f"   {i}. {tool}")
 
-        # Also show detailed tool output for debugging
-        tools_called_detailed = "\n\n".join(
-            [
-                f"<tool description='{tc.description}'>\n{textwrap.indent(tc.result.data, '  ')}\n</tool>"
-                for tc in result.tool_calls
-            ]
-        )
-        print(f"\n🔧 TOOLS CALLED (DETAILED):\n{tools_called_detailed}")
+        # Also show detailed tool output for debugging (limited to 10 lines per tool)
+        print("\n🔧 TOOLS CALLED (DETAILED):")
+        for tc in result.tool_calls:
+            tool_data_lines = tc.result.data.split("\n")
+            if len(tool_data_lines) > 10:
+                # Show first 10 lines and add truncation warning
+                truncated_data = "\n".join(tool_data_lines[:10])
+                truncated_data += f"\n... [TRUNCATED: {len(tool_data_lines) - 10} more lines not shown]"
+            else:
+                truncated_data = tc.result.data
+
+            print(f"\n<tool description='{tc.description}'>")
+            print(textwrap.indent(truncated_data, "  "))
+            print("</tool>")
     else:
         print("\n🔧 TOOLS CALLED: None")
 
