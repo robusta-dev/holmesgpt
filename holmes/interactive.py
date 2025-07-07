@@ -20,23 +20,34 @@ class SlashCommands(Enum):
     EXIT = "/exit"
     HELP = "/help"
     RESET = "/reset"
-    TOOLS = "/tools"
+    TOOLS_CONFIG = "/config"
+    TOGGLE_TOOL_OUTPUT = "/toggle-output"
+    SHOW_OUTPUT = "/output"
 
 
 ALL_SLASH_COMMANDS = [cmd.value for cmd in SlashCommands]
 
 
 class SlashCommandCompleter(Completer):
-    def __init__(self, commands: list[str]):
-        self.commands = commands
+    def __init__(self):
+        self.commands = {
+            SlashCommands.EXIT.value: "Exit the interactive mode",
+            SlashCommands.HELP.value: "Show help message with all commands",
+            SlashCommands.RESET.value: "Reset the conversation context",
+            SlashCommands.TOOLS_CONFIG.value: "Show available toolsets and their status",
+            SlashCommands.TOGGLE_TOOL_OUTPUT.value: "Toggle tool output display on/off",
+            SlashCommands.SHOW_OUTPUT.value: "Show all tool outputs from last response",
+        }
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
         if text.startswith("/"):
             word = text
-            for cmd in self.commands:
+            for cmd, description in self.commands.items():
                 if cmd.startswith(word):
-                    yield Completion(cmd, start_position=-len(word))
+                    yield Completion(
+                        cmd, start_position=-len(word), display=f"{cmd} - {description}"
+                    )
 
 
 WELCOME_BANNER = "[bold cyan]Welcome to HolmesGPT:[/bold cyan] Type '/exit' to exit, '/help' for commands."
@@ -73,6 +84,29 @@ def format_tool_call_output(tool_call: ToolCallResult) -> str:
     return content
 
 
+def display_tool_calls(tool_calls: List[ToolCallResult], console: Console) -> None:
+    """
+    Display tool calls in rich panels.
+
+    Args:
+        tool_calls: List of ToolCallResult objects to display
+        console: Rich console for output
+    """
+    console.print(f"[bold magenta]Used {len(tool_calls)} tools[/bold magenta]")
+    for tool_call in tool_calls:
+        preview_output = format_tool_call_output(tool_call)
+        title = f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}"
+
+        console.print(
+            Panel(
+                preview_output,
+                padding=(1, 2),
+                border_style="magenta",
+                title=title,
+            )
+        )
+
+
 def run_interactive_loop(
     ai: ToolCallingLLM,
     console: Console,
@@ -88,11 +122,14 @@ def run_interactive_loop(
         }
     )
 
-    command_completer = SlashCommandCompleter([c.value for c in SlashCommands])
+    command_completer = SlashCommandCompleter()
     history = InMemoryHistory()
     if initial_user_input:
         history.append_string(initial_user_input)
-    session = PromptSession(completer=command_completer, history=history)  # type: ignore
+    session = PromptSession(
+        completer=command_completer,
+        history=history,
+    )  # type: ignore
     input_prompt = [("class:prompt", "User: ")]
 
     console.print(WELCOME_BANNER)
@@ -101,6 +138,7 @@ def run_interactive_loop(
             f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {initial_user_input}"
         )
     messages = None
+    last_response = None
 
     while True:
         try:
@@ -115,15 +153,43 @@ def run_interactive_loop(
                 if command == SlashCommands.EXIT.value:
                     return
                 elif command == SlashCommands.HELP.value:
-                    console.print(f"Available commands: {ALL_SLASH_COMMANDS}")
+                    console.print("[bold cyan]Available commands:[/bold cyan]")
+                    console.print("  [bold]/exit[/bold] - Exit the interactive mode")
+                    console.print("  [bold]/help[/bold] - Show this help message")
+                    console.print(
+                        "  [bold]/reset[/bold] - Reset the conversation context"
+                    )
+                    console.print(
+                        "  [bold]/tools[/bold] - Show available toolsets and their status"
+                    )
+                    console.print(
+                        "  [bold]/toggle-tools[/bold] - Toggle tool output display on/off"
+                    )
+                    console.print(
+                        "  [bold]/dump-tools[/bold] - Dump all tool outputs from last response"
+                    )
                 elif command == SlashCommands.RESET.value:
                     console.print(
                         "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
                     )
                     messages = None
                     continue
-                elif command == SlashCommands.TOOLS.value:
+                elif command == SlashCommands.TOOLS_CONFIG.value:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
+                elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.value:
+                    show_tool_output = not show_tool_output
+                    status = "enabled" if show_tool_output else "disabled"
+                    console.print(
+                        f"[bold yellow]Tool output display {status}.[/bold yellow]"
+                    )
+                elif command == SlashCommands.SHOW_OUTPUT.value:
+                    if last_response is None or not last_response.tool_calls:
+                        console.print(
+                            "[bold red]No tool calls available from the last response.[/bold red]"
+                        )
+                        continue
+
+                    display_tool_calls(last_response.tool_calls, console)
                 else:
                     console.print(f"Unknown command: {command}")
                 continue
@@ -140,22 +206,10 @@ def run_interactive_loop(
             console.print("\n[bold blue]Thinking...[/bold blue]\n")
             response = ai.call(messages, post_processing_prompt)
             messages = response.messages  # type: ignore
+            last_response = response
 
             if show_tool_output and response.tool_calls:
-                console.print(
-                    f"[bold magenta]Used {len(response.tool_calls)} tools[/bold magenta]"
-                )
-                for tool_call in response.tool_calls:
-                    preview_output = format_tool_call_output(tool_call)
-
-                    console.print(
-                        Panel(
-                            preview_output,
-                            padding=(1, 2),
-                            border_style="magenta",
-                            title=f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}",
-                        )
-                    )
+                display_tool_calls(response.tool_calls, console)
             console.print(
                 Panel(
                     Markdown(f"{response.result}"),
