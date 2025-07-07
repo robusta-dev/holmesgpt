@@ -7,7 +7,7 @@ This guide walks you through running your first HolmesGPT investigation, assumin
 Before starting, ensure you have:
 
 - ✅ **HolmesGPT CLI installed** - See [CLI Installation Guide](cli-installation.md)
-- ✅ **AI provider API key configured** - See [API Keys Setup](../api-keys.md)
+- ✅ **AI provider API key configured** - See [AI Provider Setup](../ai-providers/)
 - ✅ **kubectl access to a Kubernetes cluster** - Any cluster will work
 
 ## Step 1: Verify Your Setup

@@ -15,3 +15,15 @@ export AZURE_API_KEY="your-azure-api-key"
 
 holmes ask "what pods are failing?" --model="azure/<your-deployment-name>"
 ```
+
+## Alternative Configuration
+
+### CLI Parameter
+
+```bash
+holmes ask "what pods are failing?" --model="azure/<your-deployment-name>" --api-key="your-api-key"
+```
+
+## Additional Resources
+
+Refer to [LiteLLM Azure docs](https://litellm.vercel.app/docs/providers/azure) for more details.

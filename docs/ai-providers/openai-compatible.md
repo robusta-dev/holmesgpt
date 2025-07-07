@@ -41,3 +41,18 @@ python -m llama_cpp.server --model model.gguf --chat_format chatml
 export OPENAI_API_BASE="http://localhost:8000/v1"
 holmes ask "analyze my deployment" --model=openai/your-loaded-model
 ```
+
+## Custom SSL Certificates
+
+If your LLM provider uses a custom Certificate Authority (CA):
+
+```bash
+# Base64 encode your certificate and set it as an environment variable
+export CERTIFICATE="base64-encoded-cert-here"
+```
+
+## Known Limitations
+
+- **vLLM**: [Does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869)
+- **Text Generation WebUI**: Requires OpenAI extension enabled
+- **Some models**: May hallucinate responses instead of reporting function calling limitations
