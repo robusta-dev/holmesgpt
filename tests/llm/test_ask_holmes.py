@@ -17,7 +17,7 @@ from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
-from braintrust import Span
+from braintrust import Span, SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
@@ -69,7 +69,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
     result: Optional[LLMResult] = None
     try:
-        before_test(test_case)
+        with eval_span.start_span("Before Test Setup", type=SpanTypeAttribute.TASK):
+            before_test(test_case)
 
         # Mock datetime if mocked_date is provided
         if test_case.mocked_date:
@@ -83,9 +84,11 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                 mock_datetime.configure_mock(
                     **{"now.return_value": mocked_datetime, "side_effect": None}
                 )
-                result = ask_holmes(test_case=test_case, parent_span=eval_span)
+                with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+                    result = ask_holmes(test_case=test_case, parent_span=eval_span)
         else:
-            result = ask_holmes(test_case=test_case, parent_span=eval_span)
+            with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+                result = ask_holmes(test_case=test_case, parent_span=eval_span)
 
     except Exception as e:
         bt_helper.end_evaluation(
@@ -100,7 +103,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         raise
 
     finally:
-        after_test(test_case)
+        with eval_span.start_span("After Test Teardown", type=SpanTypeAttribute.TASK):
+            after_test(test_case)
 
     input = test_case.user_prompt
     output = result.result

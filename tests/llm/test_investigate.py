@@ -21,7 +21,7 @@ from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
 from os import path
-from braintrust import Span
+from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
 
 from tests.llm.utils.tags import add_tags_to_eval
@@ -123,9 +123,10 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     with patch.dict(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
-        result = investigate_issues(
-            investigate_request=investigate_request, config=config, dal=mock_dal
-        )
+        with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+            result = investigate_issues(
+                investigate_request=investigate_request, config=config, dal=mock_dal
+            )
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
