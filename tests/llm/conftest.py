@@ -2,6 +2,7 @@ import logging
 import os
 import pytest
 import textwrap
+import warnings
 from pytest_shared_session_scope import (
     shared_session_scope_json,
     SetupToken,
@@ -11,6 +12,10 @@ from tests.llm.utils.braintrust import get_experiment_results
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
+
+# Constants
+MAX_ERROR_LINES = 10
+MAX_WORKERS = 30
 
 # Configure logging levels for cleaner test output
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
@@ -173,6 +178,17 @@ def llm_session_setup(request):
     yield  # Tests run here
 
 
+def _format_error_output(error_details: str) -> str:
+    """Format error details with truncation if needed"""
+    error_lines = error_details.split("\n")
+    if len(error_lines) > MAX_ERROR_LINES:
+        truncated_error = "\n".join(error_lines[:MAX_ERROR_LINES])
+        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - MAX_ERROR_LINES} more lines not shown]"
+    else:
+        truncated_error = error_details
+    return truncated_error
+
+
 def _run_test_setup(test_cases):
     """Run before_test for each test case in parallel"""
     from tests.llm.utils.commands import before_test
@@ -186,7 +202,7 @@ def _run_test_setup(test_cases):
     failed_test_cases = 0
     timed_out_test_cases = 0
 
-    with ThreadPoolExecutor(max_workers=min(len(test_cases), 30)) as executor:
+    with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
         # Submit all setup tasks
         future_to_test_case = {
             executor.submit(before_test, test_case): test_case
@@ -216,16 +232,17 @@ def _run_test_setup(test_cases):
                     )
 
                     # Show the exact command that timed out
-                    error_lines = result.error_details.split("\n")
-                    if len(error_lines) > 10:
-                        truncated_error = "\n".join(error_lines[:10])
-                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
-                    else:
-                        truncated_error = result.error_details
-
+                    truncated_error = _format_error_output(result.error_details)
                     print(textwrap.indent(truncated_error, "   "))
                     logging.error(
                         f"[{test_case.id}] Setup timeout: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Setup timeout for test {test_case.id}: Command '{result.command}' timed out after {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
                     )
                 else:
                     failed_test_cases += 1
@@ -239,22 +256,30 @@ def _run_test_setup(test_cases):
                     )
 
                     # Limit error details to 10 lines and add proper formatting
-                    error_lines = result.error_details.split("\n")
-                    if len(error_lines) > 10:
-                        truncated_error = "\n".join(error_lines[:10])
-                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
-                    else:
-                        truncated_error = result.error_details
-
+                    truncated_error = _format_error_output(result.error_details)
                     print(textwrap.indent(truncated_error, "   "))
                     logging.error(
                         f"[{test_case.id}] Setup failed: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Setup failed for test {test_case.id}: Command '{result.command}' failed with {exit_info} in {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
                     )
 
             except Exception as e:
                 failed_test_cases += 1
                 print(f"❌ Setup {test_case.id}: EXCEPTION - {e}")
                 logging.error(f"Setup exception for {test_case.id}: {str(e)}")
+
+                # Emit warning to make it visible in pytest output
+                warnings.warn(
+                    f"Setup exception for test {test_case.id}: {str(e)}",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
     elapsed_time = time.time() - start_time
     print(
@@ -276,7 +301,7 @@ def _run_test_cleanup(test_cases):
     failed_test_cases = 0
     timed_out_test_cases = 0
 
-    with ThreadPoolExecutor(max_workers=min(len(test_cases), 30)) as executor:
+    with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
         # Submit all cleanup tasks
         future_to_test_case = {
             executor.submit(after_test, test_case): test_case
@@ -307,16 +332,17 @@ def _run_test_cleanup(test_cases):
                     )
 
                     # Show the exact command that timed out
-                    error_lines = result.error_details.split("\n")
-                    if len(error_lines) > 10:
-                        truncated_error = "\n".join(error_lines[:10])
-                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
-                    else:
-                        truncated_error = result.error_details
-
+                    truncated_error = _format_error_output(result.error_details)
                     print(textwrap.indent(truncated_error, "   "))
                     logging.error(
                         f"[{test_case.id}] Cleanup timeout: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Cleanup timeout for test {test_case.id}: Command '{result.command}' timed out after {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
                     )
                 else:
                     failed_test_cases += 1
@@ -330,22 +356,30 @@ def _run_test_cleanup(test_cases):
                     )
 
                     # Limit error details to 10 lines and add proper formatting
-                    error_lines = result.error_details.split("\n")
-                    if len(error_lines) > 10:
-                        truncated_error = "\n".join(error_lines[:10])
-                        truncated_error += f"\n... [TRUNCATED: {len(error_lines) - 10} more lines not shown]"
-                    else:
-                        truncated_error = result.error_details
-
+                    truncated_error = _format_error_output(result.error_details)
                     print(textwrap.indent(truncated_error, "   "))
                     logging.error(
                         f"[{test_case.id}] Cleanup failed: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Cleanup failed for test {test_case.id}: Command '{result.command}' failed with {exit_info} in {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
                     )
 
             except Exception as e:
                 failed_test_cases += 1
                 print(f"❌ Cleanup {test_case.id}: EXCEPTION - {e}")
                 logging.error(f"Cleanup exception for {test_case.id}: {str(e)}")
+
+                # Emit warning to make it visible in pytest output
+                warnings.warn(
+                    f"Cleanup exception for test {test_case.id}: {str(e)}",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
     elapsed_time = time.time() - start_time
     print(

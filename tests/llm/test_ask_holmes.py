@@ -2,7 +2,6 @@
 import os
 from typing import Optional
 import pytest
-import textwrap
 from pathlib import Path
 from unittest.mock import patch
 from datetime import datetime
@@ -17,12 +16,17 @@ import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
-from braintrust.span_types import SpanTypeAttribute
 from braintrust import Span
-from pydantic import BaseModel
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
+from tests.llm.utils.test_helpers import (
+    log_tool_calls_to_spans,
+    print_expected_output,
+    print_correctness_evaluation,
+    print_tool_calls_summary,
+    print_tool_calls_detailed,
+)
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -107,25 +111,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
             result = ask_holmes(test_case=test_case, parent_span=eval_span)
 
         if result.tool_calls:
-            for tool_call in result.tool_calls:
-                # TODO: mock this instead so span start time & end time will be accurate.
-                # Also to include calls to llm spans
-                if eval_span:
-                    with eval_span.start_span(
-                        name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-                    ) as tool_span:
-                        if isinstance(tool_call.result, BaseModel):
-                            tool_span.log(
-                                input=tool_call.description,
-                                output=tool_call.result.model_dump_json(indent=2),
-                                error=tool_call.result.error,
-                            )
-                        else:
-                            tool_span.log(
-                                input=tool_call.description,
-                                error=tool_call.result.error,
-                                output=tool_call.result,
-                            )
+            # Log tool calls to Braintrust spans
+            log_tool_calls_to_spans(result.tool_calls, eval_span)
     except Exception as e:
         bt_helper.end_evaluation(
             input=test_case.user_prompt,
@@ -146,9 +133,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     if not isinstance(expected, list):
         expected = [expected]
 
-    debug_expected = "\n-  ".join(expected)
-    print("\n📝 EXPECTED OUTPUT:")
-    print(f"-  {debug_expected}")
+    print_expected_output(expected)
 
     print("\n💬 ACTUAL OUTPUT:")
     print(f"{output}")
@@ -170,12 +155,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         evaluation_type=evaluation_type,
         caplog=caplog,
     )
-    print("\n⚖️  CORRECTNESS EVALUATION:")
-    print(f"Score: {correctness_eval.score}")
-    if correctness_eval.metadata.get("rationale"):
-        print(
-            f"Rationale: \n{textwrap.indent(correctness_eval.metadata.get('rationale', ''), '  ')}"
-        )
+    print_correctness_evaluation(correctness_eval)
 
     scores["correctness"] = correctness_eval.score
 
@@ -188,28 +168,8 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         prompt=prompt,
     )
 
-    if result.tool_calls:
-        tools_called = [tc.description for tc in result.tool_calls]
-        print(f"\n🔧 TOOLS CALLED ({len(tools_called)}):")
-        for i, tool in enumerate(tools_called, 1):
-            print(f"   {i}. {tool}")
-
-        # Also show detailed tool output for debugging (limited to 10 lines per tool)
-        print("\n🔧 TOOLS CALLED (DETAILED):")
-        for tc in result.tool_calls:
-            tool_data_lines = tc.result.data.split("\n")
-            if len(tool_data_lines) > 10:
-                # Show first 10 lines and add truncation warning
-                truncated_data = "\n".join(tool_data_lines[:10])
-                truncated_data += f"\n... [TRUNCATED: {len(tool_data_lines) - 10} more lines not shown]"
-            else:
-                truncated_data = tc.result.data
-
-            print(f"\n<tool description='{tc.description}'>")
-            print(textwrap.indent(truncated_data, "  "))
-            print("</tool>")
-    else:
-        print("\n🔧 TOOLS CALLED: None")
+    print_tool_calls_summary(result.tool_calls)
+    print_tool_calls_detailed(result.tool_calls)
 
     if test_case.evaluation.correctness:
         expected_correctness = test_case.evaluation.correctness

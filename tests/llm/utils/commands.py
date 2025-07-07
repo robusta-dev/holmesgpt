@@ -72,11 +72,14 @@ def invoke_command(
         )
 
 
+def _is_live_mode_enabled() -> bool:
+    """Check if RUN_LIVE environment variable is enabled"""
+    return os.environ.get("RUN_LIVE", "").strip().lower() in ("1", "true")
+
+
 def before_test(test_case: HolmesTestCase):
     """Execute before_test commands and return single result for test case"""
-    if not test_case.before_test or os.environ.get(
-        "RUN_LIVE", ""
-    ).strip().lower() not in ("1", "true"):
+    if not test_case.before_test or not _is_live_mode_enabled():
         return CommandResult(
             command="(no setup needed)",
             test_case_id=test_case.id,
@@ -126,9 +129,7 @@ def before_test(test_case: HolmesTestCase):
 
 def after_test(test_case: HolmesTestCase):
     """Execute after_test commands and return single result for test case"""
-    if not test_case.after_test or os.environ.get(
-        "RUN_LIVE", ""
-    ).strip().lower() not in ("1", "true"):
+    if not test_case.after_test or not _is_live_mode_enabled():
         return CommandResult(
             command="(no cleanup needed)",
             test_case_id=test_case.id,
