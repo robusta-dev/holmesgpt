@@ -2,25 +2,11 @@
 
 Embed HolmesGPT in your own applications with the Python API for programmatic root cause analysis.
 
-## Installation
+## Install Robusta Python SDK
 
-=== "pip"
-
-    ```bash
-    pip install holmesgpt
-    ```
-
-=== "pipenv"
-
-    ```bash
-    pipenv install holmesgpt
-    ```
-
-=== "poetry"
-
-    ```bash
-    poetry add holmesgpt
-    ```
+```bash
+pip install robusta
+```
 
 ## Quick Start
 
@@ -122,7 +108,7 @@ Check out our [examples repository](https://github.com/robusta-dev/holmesgpt-exa
 ## Next Steps
 
 - **[AI Provider Setup](../ai-providers/index.md)** - Configure your AI provider
-- **[Run Your First Investigation](first-investigation.md)** - Complete walkthrough
+- **[Run Your First Investigation](../walkthrough/index.md)** - Complete walkthrough
 - **[Helm Configuration](../reference/helm-configuration.md)** - Advanced settings and custom toolsets
 
 ## Need Help?

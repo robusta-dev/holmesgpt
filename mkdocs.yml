@@ -135,7 +135,9 @@ nav:
       - Install UI/TUI: installation/ui-installation.md
       - Install Helm Chart: installation/kubernetes-installation.md
       - Install Python SDK: installation/python-installation.md
-      - First Investigation: installation/first-investigation.md
+
+  - Walkthrough:
+      - walkthrough/index.md
 
   - AI Providers:
       - ai-providers/index.md

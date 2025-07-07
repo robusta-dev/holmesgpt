@@ -34,7 +34,7 @@ AI Agent for Troubleshooting Cloud-Native Environments.
 After installation:
 
 - **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
-- **[Run Your First Investigation](installation/first-investigation.md)** - Complete walkthrough with examples
+- **[Run Your First Investigation](walkthrough/index.md)** - Complete walkthrough with examples
 - **[Add integrations](data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
 - **[Troubleshooting guide](reference/troubleshooting.md)** - Common issues and solutions
 - **[Join our Slack](https://robustacommunity.slack.com){:target="_blank"}** - Get help from the community
