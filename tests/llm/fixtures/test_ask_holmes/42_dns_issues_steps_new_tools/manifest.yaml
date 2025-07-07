@@ -1,9 +1,13 @@
-
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-ns-42e
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-egress
-  namespace: test-ns
+  namespace: test-ns-42e
 spec:
   podSelector: {}
   policyTypes:
@@ -14,7 +18,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: client
-  namespace: test-ns
+  namespace: test-ns-42e
   labels:
     app.kubernetes.io/name: client
 spec:
@@ -27,7 +31,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx
-  namespace: test-ns
+  namespace: test-ns-42e
   labels:
     app.kubernetes.io/name: server
 spec:
@@ -43,7 +47,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx-service
-  namespace: test-ns
+  namespace: test-ns-42e
 spec:
   selector:
     app.kubernetes.io/name: server
