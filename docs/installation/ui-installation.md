@@ -4,34 +4,28 @@ Use HolmesGPT through graphical and terminal interfaces via third-party integrat
 
 ## K9s Plugin
 
-Integrate HolmesGPT into your K9s Kubernetes terminal for instant analysis.
+Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_blank"} Kubernetes terminal for instant analysis.
+
+### Prerequisites
+
+1. **K9s must be installed** - See the [K9s installation guide](https://github.com/derailed/k9s#installation){:target="_blank"}
 
 ### Install
 
-1. **Create plugin directory:**
+1. **Install HolmesGPT CLI and set API key** - Follow the [CLI Installation Guide](cli-installation.md) to install Holmes and configure your AI provider
+
+2. **Install the K9s plugin:**
    ```bash
    mkdir -p ~/.k9s/plugins
-   ```
-2. **Download plugin config:**
-   ```bash
    curl -o ~/.k9s/plugins/holmes.yaml \
      https://raw.githubusercontent.com/robusta-dev/holmesgpt/master/k9s-plugin.yaml
    ```
-3. **Set your API key:**
-   ```bash
-   export OPENAI_API_KEY="your-api-key"
-   # or
-   export ANTHROPIC_API_KEY="your-api-key"
-   ```
-4. **Install HolmesGPT CLI:**
-   ```bash
-   brew install robusta-dev/homebrew-holmesgpt/holmesgpt
-   ```
 
-### Usage
-
-- Open K9s, select a resource, and press `Ctrl+H` to invoke HolmesGPT
-- Holmes will analyze the selected resource and display results
+3. **Verify installation:**
+   - Run K9s
+   - Select any Kubernetes resource (pod, deployment, etc.)
+   - Press `Ctrl+H` to invoke HolmesGPT
+   - Holmes will analyze the selected resource and display results
 
 ## Web UI (Robusta)
 

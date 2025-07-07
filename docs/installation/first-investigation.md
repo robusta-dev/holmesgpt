@@ -159,11 +159,12 @@ kubectl delete pod user-profile-import bad-image memory-hog crash-pod
 
 🎉 **Congratulations!** You've successfully run your first HolmesGPT investigations.
 
-- **[Configure Data Sources](../data-sources/index.md)** - Add monitoring tools like Prometheus, Grafana
+- **[Add integrations](../data-sources/index.md)** - Connect monitoring tools like Prometheus, Grafana, and DataDog
+- **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions
+- **[Join our Slack](https://robustacommunity.slack.com){:target="_blank"}** - Get help from the community
+- **[Request features on GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}** - Suggest improvements or report bugs
+
+## Advanced Options
+
 - **[Python SDK](python-installation.md)** - Embed Holmes in your applications
 - **[Helm Chart](kubernetes-installation.md)** - Deploy as a service
-
-## Need Help?
-
-- Join our [Slack community](https://robustacommunity.slack.com){:target="_blank"}
-- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}
