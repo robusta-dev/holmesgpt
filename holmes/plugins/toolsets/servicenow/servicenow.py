@@ -21,8 +21,7 @@ DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
 class ServiceNowConfig(BaseModel):
-    user: str
-    password: str
+    api_key: str
     instance: str
 
 
@@ -54,11 +53,12 @@ class ServiceNowToolset(Toolset):
 
         try:
             self.config: Dict = ServiceNowConfig(**config).model_dump()
-            self._session.headers.update({"Accept": "application/json"})
-            self._session.auth = (
-                self.config.get("user"),
-                self.config.get("password"),
+            self._session.headers.update(
+                {
+                    "x-sn-apikey": self.config.get("api_key"),
+                }
             )
+
             return True, ""
         except Exception:
             logging.exception(
