@@ -13,7 +13,7 @@
 /docker-entrypoint.sh: Configuration complete; ready for start up
 2025/07/07 05:54:40 [notice] 1#1: using the "epoll" event method
 2025/07/07 05:54:40 [notice] 1#1: nginx/1.29.0
-2025/07/07 05:54:40 [notice] 1#1: built by gcc 12.2.0 (Debian 12.2.0-14+deb12u1) 
+2025/07/07 05:54:40 [notice] 1#1: built by gcc 12.2.0 (Debian 12.2.0-14+deb12u1)
 2025/07/07 05:54:40 [notice] 1#1: OS: Linux 6.1.0-25-amd64
 2025/07/07 05:54:40 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576
 2025/07/07 05:54:40 [notice] 1#1: start worker processes
