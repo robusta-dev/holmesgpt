@@ -16,7 +16,7 @@ First, let's make sure everything is working:
 
 ```bash
 # Check Holmes is installed
-holmes --help
+holmes ask help
 
 # Check kubectl access
 kubectl cluster-info
@@ -68,10 +68,10 @@ have this label.
 
 ## Step 4: Try Interactive Mode
 
-For follow-up questions, use interactive mode:
+For follow-up questions:
 
 ```bash
-holmes ask "what pods are failing?" --interactive
+holmes ask "what pods are failing?"
 ```
 
 This starts an interactive session where you can ask follow-up questions:
@@ -142,9 +142,9 @@ holmes ask "are there any networking problems?"
 - ❌ "something is broken"
 - ✅ "why is the checkout service returning 500 errors?"
 
-### Use Interactive Mode
+### Ask Comprehensive Questions
 ```bash
-holmes ask "what's wrong with my cluster?" --interactive
+holmes ask "what's wrong with my cluster?"
 ```
 
 ## Clean Up

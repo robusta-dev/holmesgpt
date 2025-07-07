@@ -16,9 +16,14 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
        brew install holmesgpt
        ```
 
-    3. Verify installation:
+    3. To upgrade to the latest version:
        ```bash
-       holmes --help
+       brew upgrade holmesgpt
+       ```
+
+    4. Verify installation:
+       ```bash
+       holmes ask help
        ```
 
 === "Pipx"
@@ -70,12 +75,29 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
 After installation, set up your AI provider and run your first investigation:
 
-1. **Set up API key** (see [supported AI providers](../ai-providers/index.md)):
-   ```bash
-   export OPENAI_API_KEY="your-api-key"
-   export ANTHROPIC_API_KEY="your-api-key"
-   export GOOGLE_API_KEY="your-api-key"
-   ```
+1. **Set up API key**. For more options, see [Supported AI Providers](../ai-providers/index.md):
+
+   === "OpenAI"
+       ```bash
+       export OPENAI_API_KEY="your-api-key"
+       ```
+
+   === "Anthropic"
+       ```bash
+       export ANTHROPIC_API_KEY="your-api-key"
+       ```
+
+   === "Azure OpenAI"
+       ```bash
+       export AZURE_API_VERSION="2024-02-15-preview"
+       export AZURE_API_BASE="https://your-resource.openai.azure.com/"
+       export AZURE_API_KEY="your-azure-api-key"
+       ```
+
+   === "Google"
+       ```bash
+       export GOOGLE_API_KEY="your-api-key"
+       ```
 
 2. **Create a test pod** to investigate:
    ```bash
@@ -87,10 +109,12 @@ After installation, set up your AI provider and run your first investigation:
    holmes ask "what is wrong with the user-profile-import pod?"
    ```
 
-4. **Try interactive mode**:
+4. **Ask follow-up questions**:
    ```bash
-   holmes ask "what pods are unhealthy and why?" --interactive
+   holmes ask "what pods are unhealthy and why?"
    ```
+
+   Note: Interactive mode is now the default, allowing follow-up questions.
 
 
 ## Need Help?
