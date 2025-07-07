@@ -509,7 +509,7 @@ class TestParseKubectlLogs:
 [test-pod/nginx] 2023-05-01T12:00:03Z Ready to accept connections"""
 
         result = toolset._parse_kubectl_logs(kubectl_output)
-        
+
         assert len(result.logs) == 3
         assert all(log.container == "nginx" for log in result.logs)
         assert result.logs[0].content == "Starting nginx server"
@@ -570,7 +570,10 @@ class TestParseKubectlLogs:
         assert result.logs[0].timestamp_ms == to_unix_ms("2023-05-01T12:00:01Z")
         assert result.logs[1].content == "java.lang.NullPointerException"
         assert result.logs[1].timestamp_ms is None
-        assert result.logs[2].content == "    at com.example.MyClass.method(MyClass.java:42)"
+        assert (
+            result.logs[2].content
+            == "    at com.example.MyClass.method(MyClass.java:42)"
+        )
         assert result.logs[2].timestamp_ms is None
         assert result.logs[3].content == "Continuing execution"
         assert result.logs[3].timestamp_ms == to_unix_ms("2023-05-01T12:00:02Z")
@@ -617,4 +620,6 @@ class TestParseKubectlLogs:
         assert result.logs[0].content == "    Indented log content"
         assert result.logs[1].content == "\tTab-indented content"  # Tab is preserved
         assert result.logs[2].content == "Normal log content"
-        assert result.logs[3].content == " Two spaces before content"  # One space removed, one preserved
+        assert (
+            result.logs[3].content == " Two spaces before content"
+        )  # One space removed, one preserved

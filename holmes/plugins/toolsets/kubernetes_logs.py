@@ -29,16 +29,19 @@ timestamp_pattern = re.compile(
 class Pod(BaseModel):
     containers: list[str]
 
+
 class StructuredLog(BaseModel):
     timestamp_ms: Optional[int]
     container: Optional[str]
     content: str
+
 
 class LogResult(BaseModel):
     error: Optional[str]
     return_code: Optional[int]
     has_multiple_containers: bool
     logs: list[StructuredLog]
+
 
 class KubernetesLogsToolset(BasePodLoggingToolset):
     """Implementation of the unified logging API for Kubernetes logs using kubectl commands"""
@@ -100,8 +103,8 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 previous=False,
             )
 
-            return_code:Optional[int] = current_logs_result.return_code
-            
+            return_code: Optional[int] = current_logs_result.return_code
+
             if previous_logs_result.logs:
                 all_logs.extend(previous_logs_result.logs)
                 return_code = previous_logs_result.return_code
@@ -110,7 +113,11 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 all_logs.extend(current_logs_result.logs)
                 return_code = current_logs_result.return_code
 
-            if not all_logs and previous_logs_result.error and current_logs_result.error:
+            if (
+                not all_logs
+                and previous_logs_result.error
+                and current_logs_result.error
+            ):
                 # Both commands failed - return error from current logs
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
@@ -129,14 +136,16 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 )
 
             formatted_logs = format_logs(
-                logs=all_logs, display_container_name=previous_logs_result.has_multiple_containers or current_logs_result.has_multiple_containers
+                logs=all_logs,
+                display_container_name=previous_logs_result.has_multiple_containers
+                or current_logs_result.has_multiple_containers,
             )
 
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=formatted_logs,
                 params=params.model_dump(),
-                return_code=return_code
+                return_code=return_code,
             )
         except Exception as e:
             logging.exception(f"Error fetching logs for pod {params.pod_name}")
@@ -151,8 +160,7 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         params: FetchPodLogsParams,
         previous: bool = False,
     ) -> LogResult:
-        """Fetch logs using kubectl command
-        """
+        """Fetch logs using kubectl command"""
         cmd = [
             "kubectl",
             "logs",
@@ -193,10 +201,10 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                     f"(previous={previous}): {error_msg}"
                 )
                 return LogResult(
-                    logs=[], 
-                    error=error_msg, 
+                    logs=[],
+                    error=error_msg,
                     return_code=result.returncode,
-                    has_multiple_containers=False
+                    has_multiple_containers=False,
                 )
 
         except subprocess.TimeoutExpired:
@@ -206,10 +214,10 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 f"(previous={previous})"
             )
             return LogResult(
-                logs=[], 
-                error=error_msg, 
+                logs=[],
+                error=error_msg,
                 return_code=None,
-                has_multiple_containers=False
+                has_multiple_containers=False,
             )
         except Exception as e:
             error_msg = f"Error executing kubectl: {str(e)}"
@@ -218,10 +226,10 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 f"(previous={previous}): {str(e)}"
             )
             return LogResult(
-                logs=[], 
-                error=error_msg, 
+                logs=[],
+                error=error_msg,
                 return_code=None,
-                has_multiple_containers=False
+                has_multiple_containers=False,
             )
 
     def _parse_kubectl_logs(self, logs: str) -> LogResult:
@@ -229,17 +237,16 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         structured_logs: List[StructuredLog] = []
 
         if not logs:
-            
             return LogResult(
-                logs=structured_logs, 
-                error=None, 
+                logs=structured_logs,
+                error=None,
                 return_code=None,
-                has_multiple_containers=False
+                has_multiple_containers=False,
             )
-        
+
         has_multiple_containers = False
 
-        previous_container:Optional[str] = None
+        previous_container: Optional[str] = None
 
         for line in logs.strip().split("\n"):
             if not line:
@@ -252,10 +259,11 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             if container_match:
                 pod_name, container_name, rest_of_line = container_match.groups()
 
-
                 if not has_multiple_containers and not previous_container:
                     previous_container = container_name
-                elif not has_multiple_containers and previous_container != container_name:
+                elif (
+                    not has_multiple_containers and previous_container != container_name
+                ):
                     has_multiple_containers = True
 
                 # Now extract timestamp from rest_of_line
@@ -303,10 +311,10 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 structured_logs.extend(parsed)
 
         return LogResult(
-            logs=structured_logs, 
-            error=None, 
+            logs=structured_logs,
+            error=None,
             return_code=None,
-            has_multiple_containers=has_multiple_containers
+            has_multiple_containers=has_multiple_containers,
         )
 
 
