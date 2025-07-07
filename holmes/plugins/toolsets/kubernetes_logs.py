@@ -29,12 +29,16 @@ timestamp_pattern = re.compile(
 class Pod(BaseModel):
     containers: list[str]
 
-
 class StructuredLog(BaseModel):
     timestamp_ms: Optional[int]
     container: Optional[str]
     content: str
 
+class LogResult(BaseModel):
+    error: Optional[str]
+    return_code: Optional[int]
+    has_multiple_containers: bool
+    logs: list[StructuredLog]
 
 class KubernetesLogsToolset(BasePodLoggingToolset):
     """Implementation of the unified logging API for Kubernetes logs using kubectl commands"""
@@ -85,57 +89,54 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             all_logs: list[StructuredLog] = []
 
             # Fetch previous logs
-            logs_previous, error_previous = self._fetch_kubectl_logs(
+            previous_logs_result = self._fetch_kubectl_logs(
                 params=params,
                 previous=True,
             )
 
             # Fetch current logs
-            logs_current, error_current = self._fetch_kubectl_logs(
+            current_logs_result = self._fetch_kubectl_logs(
                 params=params,
                 previous=False,
             )
 
-            # Combine logs
-            if logs_previous:
-                all_logs.extend(logs_previous)
-            if logs_current:
-                all_logs.extend(logs_current)
+            return_code:Optional[int] = current_logs_result.return_code
+            
+            if previous_logs_result.logs:
+                all_logs.extend(previous_logs_result.logs)
+                return_code = previous_logs_result.return_code
 
-            # Check if both commands failed
-            if not all_logs and error_current and error_previous:
+            if current_logs_result.logs:
+                all_logs.extend(current_logs_result.logs)
+                return_code = current_logs_result.return_code
+
+            if not all_logs and previous_logs_result.error and current_logs_result.error:
                 # Both commands failed - return error from current logs
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error=error_current,
+                    error=current_logs_result.error,
                     params=params.model_dump(),
+                    return_code=return_code,
                 )
 
-            # If we have no logs but no errors, it means the pod exists but has no logs
+            all_logs = filter_logs(all_logs, params)
+
             if not all_logs:
                 return StructuredToolResult(
                     status=ToolResultStatus.NO_DATA,
                     params=params.model_dump(),
+                    return_code=return_code,
                 )
 
-            # Filter logs based on parameters
-            all_logs = filter_logs(all_logs, params)
-
-            # Check if there are multiple containers
-            containers = set(log.container for log in all_logs if log.container)
-            multi_containers = len(containers) > 1
-
-            # Format logs
             formatted_logs = format_logs(
-                logs=all_logs, display_container_name=multi_containers
+                logs=all_logs, display_container_name=previous_logs_result.has_multiple_containers or current_logs_result.has_multiple_containers
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS
-                if formatted_logs
-                else ToolResultStatus.NO_DATA,
+                status=ToolResultStatus.SUCCESS,
                 data=formatted_logs,
                 params=params.model_dump(),
+                return_code=return_code
             )
         except Exception as e:
             logging.exception(f"Error fetching logs for pod {params.pod_name}")
@@ -149,11 +150,8 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         self,
         params: FetchPodLogsParams,
         previous: bool = False,
-    ) -> Tuple[List[StructuredLog], Optional[str]]:
+    ) -> LogResult:
         """Fetch logs using kubectl command
-
-        Returns:
-            Tuple of (logs, error_message)
         """
         cmd = [
             "kubectl",
@@ -182,9 +180,10 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
 
             if result.returncode == 0:
                 # Parse the logs - kubectl with --all-containers prefixes lines with container name
-                return self._parse_kubectl_logs(result.stdout), None
+                log_result = self._parse_kubectl_logs(logs=result.stdout)
+                log_result.return_code = result.returncode
+                return log_result
             else:
-                # Return error message
                 error_msg = (
                     result.stdout.strip()
                     or f"kubectl logs command failed with return code {result.returncode}"
@@ -193,7 +192,12 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                     f"kubectl logs command failed for pod {params.pod_name} "
                     f"(previous={previous}): {error_msg}"
                 )
-                return [], error_msg
+                return LogResult(
+                    logs=[], 
+                    error=error_msg, 
+                    return_code=result.returncode,
+                    has_multiple_containers=False
+                )
 
         except subprocess.TimeoutExpired:
             error_msg = f"kubectl logs command timed out after {KUBERNETES_LOGS_TIMEOUT_SECONDS} seconds"
@@ -201,21 +205,41 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 f"kubectl logs command timed out for pod {params.pod_name} "
                 f"(previous={previous})"
             )
-            return [], error_msg
+            return LogResult(
+                logs=[], 
+                error=error_msg, 
+                return_code=None,
+                has_multiple_containers=False
+            )
         except Exception as e:
             error_msg = f"Error executing kubectl: {str(e)}"
             logging.error(
                 f"Error executing kubectl logs for pod {params.pod_name} "
                 f"(previous={previous}): {str(e)}"
             )
-            return [], error_msg
+            return LogResult(
+                logs=[], 
+                error=error_msg, 
+                return_code=None,
+                has_multiple_containers=False
+            )
 
-    def _parse_kubectl_logs(self, logs: str) -> List[StructuredLog]:
+    def _parse_kubectl_logs(self, logs: str) -> LogResult:
         """Parse kubectl logs output with container prefixes"""
         structured_logs: List[StructuredLog] = []
 
         if not logs:
-            return structured_logs
+            
+            return LogResult(
+                logs=structured_logs, 
+                error=None, 
+                return_code=None,
+                has_multiple_containers=False
+            )
+        
+        has_multiple_containers = False
+
+        previous_container:Optional[str] = None
 
         for line in logs.strip().split("\n"):
             if not line:
@@ -223,10 +247,16 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
 
             # kubectl with --all-containers prefixes lines with [pod/container]
             # Format: [pod/container] timestamp content
-            container_match = re.match(r"^\[([^/]+)/([^\]]+)\]\s+(.*)$", line)
+            container_match = re.match(r"^\[([^/]+)/([^\]]+)\] (.*)$", line)
 
             if container_match:
                 pod_name, container_name, rest_of_line = container_match.groups()
+
+
+                if not has_multiple_containers and not previous_container:
+                    previous_container = container_name
+                elif not has_multiple_containers and previous_container != container_name:
+                    has_multiple_containers = True
 
                 # Now extract timestamp from rest_of_line
                 timestamp_match = timestamp_pattern.match(rest_of_line)
@@ -236,7 +266,11 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                     try:
                         log_unix_ts = to_unix_ms(timestamp_str)
                         prefix_length = len(timestamp_str)
-                        content = rest_of_line[prefix_length:].lstrip()
+                        content = rest_of_line[prefix_length:]
+                        # Remove only the single space after timestamp, preserve other whitespaces to
+                        #   keep the indentations of the original logs
+                        if content.startswith(" "):
+                            content = content[1:]
 
                         structured_logs.append(
                             StructuredLog(
@@ -268,7 +302,12 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 parsed = parse_logs(line, None)
                 structured_logs.extend(parsed)
 
-        return structured_logs
+        return LogResult(
+            logs=structured_logs, 
+            error=None, 
+            return_code=None,
+            has_multiple_containers=has_multiple_containers
+        )
 
 
 def format_logs(logs: List[StructuredLog], display_container_name: bool) -> str:
@@ -345,7 +384,10 @@ def parse_logs(
                 try:
                     log_unix_ts = to_unix_ms(timestamp_str)
                     prefix_length = len(timestamp_str)
-                    line_content = log_line[prefix_length:].lstrip()
+                    # Remove only the single space after timestamp, preserve other whitespace
+                    line_content = log_line[prefix_length:]
+                    if line_content.startswith(" "):
+                        line_content = line_content[1:]
                     structured_logs.append(
                         StructuredLog(
                             timestamp_ms=log_unix_ts,
