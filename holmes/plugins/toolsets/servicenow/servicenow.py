@@ -79,22 +79,14 @@ class ServiceNowBaseTool(Tool):
         self, response: requests.Response, params: Any, field: str = "result"
     ) -> StructuredToolResult:
         response.raise_for_status()
-        if response.ok:
-            res = response.json()
-            return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS
-                if res.get(field, [])
-                else ToolResultStatus.NO_DATA,
-                data=res,
-                params=params,
-            )
-        else:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Failed {self.name}.\n{response.text}",
-                return_code=response.status_code,
-                params=params,
-            )
+        res = response.json()
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS
+            if res.get(field, [])
+            else ToolResultStatus.NO_DATA,
+            data=res,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params) -> str:
         return f"ServiceNow {self.name} {params}"
