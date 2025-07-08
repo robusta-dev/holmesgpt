@@ -1,13 +1,8 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
 from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.opensearch.opensearch import (
     OpenSearchToolset,
-    OpenSearchConfig,
-    OpenSearchCluster,
-    OpenSearchHost,
-    OpenSearchHttpAuth,
 )
 
 
