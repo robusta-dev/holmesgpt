@@ -74,7 +74,7 @@ def format_tool_call_output(tool_call: ToolCallResult) -> str:
     MAX_CHARS = 500
     if len(output_str) == 0:
         content = f"[{color}]<empty>[/{color}]"
-    elif len(output_str) > 100:
+    elif len(output_str) > MAX_CHARS:
         truncated = output_str[:MAX_CHARS].strip()
         remaining_chars = len(output_str) - MAX_CHARS
         content = f"[{color}]{truncated}[/{color}]\n\n[dim]... truncated ({remaining_chars:,} more chars)[/dim]"
