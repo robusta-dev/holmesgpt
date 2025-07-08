@@ -19,9 +19,3 @@ HolmesGPT connects to your monitoring and observability tools to provide compreh
     Connect to Model Context Protocol servers for extended capabilities.
 
 </div>
-
-## Getting Started
-
-1. **Review [Built-in Toolsets](builtin-toolsets/index.md)** to see what's available
-2. **Configure authentication** for your external services
-3. **Test with a simple investigation** to verify data access

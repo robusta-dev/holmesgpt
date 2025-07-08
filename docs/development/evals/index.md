@@ -13,6 +13,35 @@ The eval system comprises two main test suites:
 
 Evals use fixtures that simulate real Kubernetes environments and tool outputs, allowing comprehensive testing without requiring live clusters.
 
+While results are tracked and analyzed using Braintrust, Braintrust is not necessary to writing, running and debugging evals.
+
+## Examples
+
+| Test suite | Test case | Status |
+|-----------|-----------|--------|
+| ask_holmes | 01_how_many_pods | ⚠️ |
+| ask_holmes | 02_what_is_wrong_with_pod | ✅ |
+| ask_holmes | 02_what_is_wrong_with_pod_LOKI | ✅ |
+| ask_holmes | 03_what_is_the_command_to_port_forward | ✅ |
+| ask_holmes | 04_related_k8s_events | ✅ |
+| ask_holmes | 05_image_version | ✅ |
+| ask_holmes | 06_explain_issue | ✅ |
+| ask_holmes | 07_high_latency | ✅ |
+| ask_holmes | 07_high_latency_LOKI | ✅ |
+| ask_holmes | 08_sock_shop_frontend | ✅ |
+| ask_holmes | 09_crashpod | ✅ |
+| ask_holmes | 10_image_pull_backoff | ✅ |
+| ask_holmes | 11_init_containers | ✅ |
+| ask_holmes | 12_job_crashing | ✅ |
+| ask_holmes | 12_job_crashing_CORALOGIX | ✅ |
+| ask_holmes | 12_job_crashing_LOKI | ⚠️ |
+| ask_holmes | 13_pending_node_selector | ✅ |
+| ask_holmes | 14_pending_resources | ✅ |
+| ask_holmes | 15_failed_readiness_probe | ✅ |
+| ask_holmes | 16_failed_no_toolset_found | ✅ |
+| ask_holmes | 17_oom_kill | ✅ |
+| ask_holmes | 18_crash_looping_v2 | ✅ |
+
 ## Test Status Legend
 
 - ✅ **Successful**: Test passed and meets quality standards
