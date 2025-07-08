@@ -16,4 +16,5 @@ ALLOWED_EVAL_TAGS = Literal[
     "k8s-misconfig",  # An eval related to Kubernetes misconfigurations
     "chain-of-causation",  # An eval that tests chain-of-causation analysis
     "slackbot",  # An eval related to Slack bot functionality
+    "counting",  # An eval that tests HolmesGPT's ability to accurately count Kubernetes resources
 ]

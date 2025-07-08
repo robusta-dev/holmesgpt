@@ -84,6 +84,7 @@ markers = [
     "k8s-misconfig: Tests involving Kubernetes misconfigurations",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
+    "counting: Ask holmes to count kubernetes/cloud resources"
 ]
 addopts = [
     "--cov-config=pyproject.toml",
