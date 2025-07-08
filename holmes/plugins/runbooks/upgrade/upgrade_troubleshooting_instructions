@@ -35,9 +35,7 @@ Based on the outputs from the above steps, describe the upgrade issue clearly an
 *   If upgrade is failing due to a restrictive PDB, check how many pods for that deployment are currently deployed. If there is only 1 pod, advise the customer to scale up their replicas to allow for upgrades while maintaining availability. "Upgrade is failing due to a restrictive PDB on your x pods which does not tolerate any disruptions. Please set the minAvailable to allow for 1 pod to be disrupted at a time to allow upgrades while maintaining availability."
 
 ## Recommend Remediation Steps (Based on Docs)
-*   **CRITICAL:** ALWAYS refer to the official AKS upgrade troubleshooting guide for detailed troubleshooting and solutions:
-    *   Upgrade specific: https://docs.microsoft.com/en-us/azure/aks/upgrade-cluster#troubleshoot-upgrade-failures
-    *   Upgrade troubleshooting guide: https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/create-upgrade-delete/upgrading-or-scaling-does-not-succeed
+*   **CRITICAL:** ALWAYS refer to the official AKS upgrade troubleshooting guide for detailed troubleshooting and solutions: https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/create-upgrade-delete/upgrading-or-scaling-does-not-succeed
 *   **DO NOT invent recovery procedures.** Your role is to diagnose and *point* to the correct documentation or standard procedures.
 *   Based on the findings, suggest which sections of the documentation are most relevant.
     *   If upgrade is failing due to PDB blocking, provide specific guidance from the documentation towards adjusting PDB settings.
