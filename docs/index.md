@@ -31,8 +31,6 @@ AI Agent for Troubleshooting Cloud-Native Environments.
 
 ## Next Steps
 
-After installation:
-
 - **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
 - **[Run Your First Investigation](walkthrough/index.md)** - Complete walkthrough with examples
 - **[Add integrations](data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana

@@ -76,7 +76,6 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 After installation, set up your [AI provider](../ai-providers/index.md) and run your first investigation:
 
 1. **Set up API key**:
-
 ```bash
 # OpenAI
 export OPENAI_API_KEY="your-api-key"
@@ -92,7 +91,6 @@ export AZURE_API_KEY="your-azure-api-key"
 # Google
 export GOOGLE_API_KEY="your-api-key"
 ```
-
 See supported [AI Providers](../ai-providers/index.md) for more details.
 
 2. **Create a test pod** to investigate:
@@ -104,17 +102,16 @@ kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/
 ```bash
 holmes ask "what is wrong with the user-profile-import pod?"
 ```
+Ask follow-up questions to refine your investigation
 
-4. **Ask follow-up questions**:
-```bash
-holmes ask "what pods are unhealthy and why?"
-```
+## Next Steps
 
-Note: Interactive mode is now the default, allowing follow-up questions.
-
+- **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
+- **[Run Your First Investigation](walkthrough/index.md)** - Complete walkthrough with examples
+- **[Add integrations](data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
+- **[Troubleshooting guide](reference/troubleshooting.md)** - Common issues and solutions
 
 ## Need Help?
 
-- Check our [troubleshooting guide](../reference/troubleshooting.md)
-- Join our [Slack community](https://robustacommunity.slack.com){:target="_blank"}
-- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}
+- **[Join our Slack](https://robustacommunity.slack.com){:target="_blank"}** - Get help from the community
+- **[Request features on GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}** - Suggest improvements or report bugs

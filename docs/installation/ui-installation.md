@@ -8,7 +8,7 @@ Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_b
 
 ### Prerequisites
 
-1. **K9s must be installed** - See the [K9s installation guide](https://github.com/derailed/k9s#installation){:target="_blank"}
+**K9s must be installed** - See the [K9s installation guide](https://github.com/derailed/k9s#installation){:target="_blank"}
 
 ### Install
 
@@ -21,11 +21,14 @@ Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_b
      https://raw.githubusercontent.com/robusta-dev/holmesgpt/master/k9s-plugin.yaml
    ```
 
-3. **Verify installation:**
-   - Run K9s
-   - Select any Kubernetes resource (pod, deployment, etc.)
-   - Press `Ctrl+H` to invoke HolmesGPT
-   - Holmes will analyze the selected resource and display results
+3. **Try it:**
+
+      1. Run K9s
+      2. Select any Kubernetes resource (pod, deployment, etc.)
+      3. Press `Ctrl+H` to invoke HolmesGPT
+      4. Holmes will analyze the selected resource and display results
+
+<!-- ## TODO Video showing K9s -->
 
 ## Web UI (Robusta)
 
@@ -38,14 +41,19 @@ The fastest way to use HolmesGPT is via the managed Robusta SaaS platform.
 1. **Sign up:** [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=docs&utm_medium=holmesgpt-docs&utm_content=ui_installation_section){:target="_blank"}
 2. **Connect your cluster:** Follow the in-app wizard to install the Robusta agent and configure data sources.
 3. **Investigate:** Use the "Ask Holmes" chat to analyze alerts or ask questions like:
-   - “What pods are failing in production?”
-   - “Why did this alert fire?”
+
+      1. “What pods are failing in production?”
+      2. “Why did this alert fire?”
 
 ---
 
 ## Slack Bot (Robusta)
 
-Tag HolmesGPT in any Slack message for instant analysis.
+First install Robusta SaaS, then tag HolmesGPT in any Slack message for instant analysis.
+
+<!-- TODO screenshot showing Slack bot -->
+
+### Setup Slack Bot
 
 [![Watch Slack Bot Demo](https://cdn.loom.com/sessions/thumbnails/7a60a42e854e45368e9b7f9d3c36ae5f-65bd123629db6922-full-play.gif)](https://www.loom.com/share/7a60a42e854e45368e9b7f9d3c36ae5f?sid=bfed9efb-b607-416c-b481-c2a63d314a4b){:target="_blank"}
 
