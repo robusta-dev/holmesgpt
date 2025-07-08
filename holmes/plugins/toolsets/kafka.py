@@ -17,6 +17,9 @@ from confluent_kafka.admin import (
     PartitionMetadata,
     TopicMetadata,
 )
+from confluent_kafka import Consumer
+from confluent_kafka._model import Node
+from enum import Enum
 from confluent_kafka.admin import _TopicPartition as TopicPartition
 from pydantic import BaseModel, ConfigDict
 
@@ -76,6 +79,12 @@ def convert_to_dict(obj: Any) -> Union[str, Dict]:
         return str(obj)
     if isinstance(obj, KafkaError):
         return str(obj)
+    if isinstance(obj, Node):
+        # Convert Node to a simple dict
+        return {"host": obj.host, "id": obj.id, "port": obj.port}
+    if isinstance(obj, Enum):
+        # Convert enum to its string representation
+        return str(obj).split(".")[-1]  # Get just the enum value name
     return obj
 
 
@@ -111,6 +120,21 @@ class BaseKafkaTool(Tool):
 
         raise Exception(
             f"Failed to resolve Kafka client. No matching cluster: {cluster_name}"
+        )
+
+    def get_bootstrap_servers(self, cluster_name: str) -> str:
+        """
+        Retrieves the bootstrap servers for a given cluster.
+        """
+        if not self.toolset.kafka_config:
+            raise Exception("Kafka configuration not available")
+
+        for cluster in self.toolset.kafka_config.kafka_clusters:
+            if cluster.name == cluster_name:
+                return cluster.kafka_broker
+
+        raise Exception(
+            f"Failed to resolve bootstrap servers. No matching cluster: {cluster_name}"
         )
 
 
@@ -178,7 +202,7 @@ class ListKafkaConsumers(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Listed all Kafka consumer groups in the cluster {params['kafka_cluster_name']}"
+        return f"Listed all Kafka consumer groups in the cluster \"{params.get('kafka_cluster_name')}\""
 
 
 class DescribeConsumerGroup(BaseKafkaTool):
@@ -238,7 +262,7 @@ class DescribeConsumerGroup(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Described consumer group: {params['group_id']} in cluster {params['kafka_cluster_name']}"
+        return f"Described consumer group: {params['group_id']} in cluster \"{params.get('kafka_cluster_name')}\""
 
 
 class ListTopics(BaseKafkaTool):
@@ -283,7 +307,7 @@ class ListTopics(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Listed all Kafka topics in the cluster {params['kafka_cluster_name']}"
+        return f"Listed all Kafka topics in the cluster \"{params.get('kafka_cluster_name')}\""
 
 
 class DescribeTopic(BaseKafkaTool):
@@ -352,17 +376,62 @@ class DescribeTopic(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Described topic: {params['topic_name']} in cluster {params['kafka_cluster_name']}"
+        return f"Described topic: {params['topic_name']} in cluster \"{params.get('kafka_cluster_name')}\""
 
 
 def group_has_topic(
-    consumer_group_description: ConsumerGroupDescription, topic_name: str
+    client: AdminClient,
+    consumer_group_description: ConsumerGroupDescription,
+    topic_name: str,
+    bootstrap_servers: str,
+    topic_metadata: Any,
 ):
+    # Check active member assignments
     for member in consumer_group_description.members:
-        if len(member.assignment.topic_partitions) > 0:
-            member_topic_name = member.assignment.topic_partitions[0].topic
-            if topic_name == member_topic_name:
+        for topic_partition in member.assignment.topic_partitions:
+            if topic_partition.topic == topic_name:
                 return True
+
+    # Check committed offsets for the topic (handles inactive/empty consumer groups)
+    try:
+        # Try using the Consumer class to check committed offsets for the specific group
+
+        # Create a consumer with the same group.id as the one we're checking
+        # This allows us to check its committed offsets
+        consumer_config = {
+            "bootstrap.servers": bootstrap_servers,
+            "group.id": consumer_group_description.group_id,
+            "auto.offset.reset": "earliest",
+            "enable.auto.commit": False,  # Don't auto-commit to avoid side effects
+        }
+        consumer = Consumer(consumer_config)
+
+        # Check topic metadata to know which partitions exist
+        if topic_name not in topic_metadata.topics:
+            consumer.close()
+            return False
+
+        # Create TopicPartition objects for all partitions of the topic
+        topic_partitions = []
+        for partition_id in topic_metadata.topics[topic_name].partitions:
+            topic_partitions.append(TopicPartition(topic_name, partition_id))
+
+        # Check committed offsets for this consumer group on these topic partitions
+
+        committed_offsets = consumer.committed(topic_partitions, timeout=10.0)
+        consumer.close()
+
+        # Check if any partition has a valid committed offset
+        for tp in committed_offsets:
+            if tp.offset != -1001:  # -1001 means no committed offset
+                return True
+
+        return False
+
+    except Exception:
+        # If we can't check offsets, fall back to just the active assignment check
+        pass
+
     return False
 
 
@@ -420,7 +489,15 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
                     consumer_group_description = (
                         consumer_group_description_future.result()
                     )
-                    if group_has_topic(consumer_group_description, topic_name):
+                    bootstrap_servers = self.get_bootstrap_servers(kafka_cluster_name)
+                    topic_metadata = client.list_topics(topic_name, timeout=10)
+                    if group_has_topic(
+                        client=client,
+                        consumer_group_description=consumer_group_description,
+                        topic_name=topic_name,
+                        bootstrap_servers=bootstrap_servers,
+                        topic_metadata=topic_metadata,
+                    ):
                         consumer_groups.append(
                             convert_to_dict(consumer_group_description)
                         )
@@ -453,7 +530,7 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Found consumer groups for topic: {params['topic_name']} in cluster {params['kafka_cluster_name']}"
+        return f"Found consumer groups for topic: {params.get('topic_name')} in cluster \"{params.get('kafka_cluster_name')}\""
 
 
 class ListKafkaClusters(BaseKafkaTool):
@@ -480,6 +557,7 @@ class ListKafkaClusters(BaseKafkaTool):
 class KafkaToolset(Toolset):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     clients: Dict[str, AdminClient] = {}
+    kafka_config: Optional[KafkaConfig] = None
 
     def __init__(self):
         super().__init__(
@@ -505,6 +583,7 @@ class KafkaToolset(Toolset):
         errors = []
         try:
             kafka_config = KafkaConfig(**config)
+            self.kafka_config = kafka_config
 
             for cluster in kafka_config.kafka_clusters:
                 try:
