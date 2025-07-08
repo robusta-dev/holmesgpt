@@ -1,72 +1,100 @@
-from typing import Optional
 import unittest
 from unittest.mock import patch, MagicMock
-from kubernetes.client.exceptions import ApiException
 
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
 
-def mock_k8s_read_log(
-    name: str,
-    namespace: str,
-    container: Optional[str] = None,
-    previous: bool = False,
-    timestamps: bool = True,
-):
-    print(
-        f"Mock k8s_read_log called with: name='{name}', namespace='{namespace}', container='{container}', previous={previous}"
-    )
+def mock_subprocess_run(cmd, **kwargs):
+    """Mock subprocess.run for kubectl commands"""
+    print(f"Mock subprocess.run called with: {' '.join(cmd)}")
 
-    container_suffix = ""
-    if container:
-        container_suffix = f" - container={container}"
+    if cmd[0] == "kubectl" and cmd[1] == "version":
+        # Health check
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = "Client Version: v1.27.0"
+        result.stderr = ""
+        return result
 
-    if namespace == "default" and name == "test-pod":
-        if previous:
-            return (
-                f"2023-05-01T12:00:01Z Log line 1 - prev{container_suffix}\n"
-                f"2023-05-01T12:00:02Z Log line 2 - prev{container_suffix}\n"
-                f"2023-05-01T12:00:03Z Log line 3 - prev{container_suffix}\n"
+    if cmd[0] == "kubectl" and cmd[1] == "logs":
+        pod_name = cmd[2]
+        namespace = cmd[4]  # After -n flag
+        previous = "--previous" in cmd
+
+        result = MagicMock()
+
+        if namespace == "default" and pod_name == "test-pod":
+            result.returncode = 0
+            result.stderr = None
+
+            # kubectl with --prefix=true and --all-containers=true formats output as:
+            # [pod/container] timestamp content
+            if previous:
+                result.stdout = (
+                    "[test-pod/my-container] 2023-05-01T12:00:01Z Log line 1 - prev - container=my-container\n"
+                    "[test-pod/my-container] 2023-05-01T12:00:02Z Log line 2 - prev - container=my-container\n"
+                    "[test-pod/my-container] 2023-05-01T12:00:03Z Log line 3 - prev - container=my-container\n"
+                )
+            else:
+                result.stdout = (
+                    "[test-pod/my-container] 2023-05-01T12:00:04Z Log line 1 - current - container=my-container\n"
+                    "[test-pod/my-container] 2023-05-01T12:00:05Z Log line 2 - current - container=my-container\n"
+                    "[test-pod/my-container] 2023-05-01T12:00:06Z Log line 3 - current - container=my-container\n"
+                )
+        elif namespace == "default" and pod_name == "multi-container-pod":
+            result.returncode = 0
+            result.stderr = None
+
+            # Multi-container output with interleaved logs
+            if previous:
+                result.stdout = (
+                    "[multi-container-pod/container1] 2023-05-01T12:00:01Z Log line 1 - prev - container=container1\n"
+                    "[multi-container-pod/container2] 2023-05-01T12:00:01Z Log line 1 - prev - container=container2\n"
+                    "[multi-container-pod/container1] 2023-05-01T12:00:02Z Log line 2 - prev - container=container1\n"
+                    "[multi-container-pod/container2] 2023-05-01T12:00:02Z Log line 2 - prev - container=container2\n"
+                    "[multi-container-pod/container1] 2023-05-01T12:00:03Z Log line 3 - prev - container=container1\n"
+                    "[multi-container-pod/container2] 2023-05-01T12:00:03Z Log line 3 - prev - container=container2\n"
+                )
+            else:
+                result.stdout = (
+                    "[multi-container-pod/container1] 2023-05-01T12:00:04Z Log line 1 - current - container=container1\n"
+                    "[multi-container-pod/container2] 2023-05-01T12:00:04Z Log line 1 - current - container=container2\n"
+                    "[multi-container-pod/container1] 2023-05-01T12:00:05Z Log line 2 - current - container=container1\n"
+                    "[multi-container-pod/container2] 2023-05-01T12:00:05Z Log line 2 - current - container=container2\n"
+                    "[multi-container-pod/container1] 2023-05-01T12:00:06Z Log line 3 - current - container=container1\n"
+                    "[multi-container-pod/container2] 2023-05-01T12:00:06Z Log line 3 - current - container=container2\n"
+                )
+        elif namespace == "default" and pod_name == "nonexistent-pod":
+            result.returncode = 1
+            result.stdout = (
+                'Error from server (NotFound): pods "nonexistent-pod" not found'
             )
+            result.stderr = None
         else:
-            return (
-                f"2023-05-01T12:00:04Z Log line 1 - current{container_suffix}\n"
-                f"2023-05-01T12:00:05Z Log line 2 - current{container_suffix}\n"
-                f"2023-05-01T12:00:06Z Log line 3 - current{container_suffix}\n"
+            raise Exception(
+                f"Unexpected mock call: pod={pod_name}, namespace={namespace}"
             )
 
-    # Fallback for unhandled cases, or you could raise an error
-    raise Exception(
-        f"UNEXPECTED_MOCK_CALL: name={name}, ns={namespace}, container={container}, previous={previous}"
-    )
+        return result
+
+    raise Exception(f"Unexpected command: {' '.join(cmd)}")
 
 
 class TestKubernetesLogsToolset(unittest.TestCase):
     def setUp(self):
+        # Patch subprocess.run for all tests
+        self.subprocess_patcher = patch(
+            "subprocess.run", side_effect=mock_subprocess_run
+        )
+        self.mock_subprocess = self.subprocess_patcher.start()
+        self.addCleanup(self.subprocess_patcher.stop)
+
+        # Create toolset after patching
         self.toolset = KubernetesLogsToolset()
 
-        # Patch the _initialize_client method to prevent actual k8s client initialization
-        patcher = patch.object(self.toolset, "_initialize_client")
-        self.mock_initialize = patcher.start()
-        self.addCleanup(patcher.stop)
-
-        # Create mock for read_namespaced_pod
-
-    @patch("kubernetes.client.CoreV1Api")
-    def test_single_container(self, mock_api):
-        mock_pod = MagicMock()
-        mock_container = MagicMock()
-        mock_container.name = "my-container"
-        mock_pod.spec.containers = [mock_container]
-
-        mock_api_instance = mock_api.return_value
-        mock_api_instance.read_namespaced_pod.return_value = mock_pod
-        mock_api_instance.read_namespaced_pod_log.side_effect = mock_k8s_read_log
-
-        self.toolset._core_v1_api = mock_api_instance
-
+    def test_single_container(self):
         params = FetchPodLogsParams(
             namespace="default",
             pod_name="test-pod",
@@ -79,8 +107,9 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         result = self.toolset.fetch_pod_logs(params=params)
 
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        self.assertEqual(result.return_code, 0)
+        self.assertIsNone(result.error)
         assert result.data
-        # Verify that the logs are formatted correctly (no line numbers)
 
         expected_logs = (
             "Log line 1 - prev - container=my-container\n"
@@ -95,25 +124,12 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         assert expected_logs == result.data
 
-    @patch("kubernetes.client.CoreV1Api")
-    def test_multi_containers(self, mock_api):
-        """Test fallback to previous logs when current logs are empty"""
-
-        mock_pod = MagicMock()
-        mock_container1 = MagicMock()
-        mock_container1.name = "container1"
-        mock_container2 = MagicMock()
-        mock_container2.name = "container2"
-        mock_pod.spec.containers = [mock_container1, mock_container2]
-        mock_api_instance = mock_api.return_value
-        mock_api_instance.read_namespaced_pod.return_value = mock_pod
-        mock_api_instance.read_namespaced_pod_log.side_effect = mock_k8s_read_log
-
-        self.toolset._core_v1_api = mock_api_instance
+    def test_multi_containers(self):
+        """Test multi-container pod logs with container prefixes"""
 
         params = FetchPodLogsParams(
             namespace="default",
-            pod_name="test-pod",
+            pod_name="multi-container-pod",
             limit=2000,
             start_time=None,
             end_time=None,
@@ -123,10 +139,12 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         result = self.toolset.fetch_pod_logs(params=params)
 
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        self.assertEqual(result.return_code, 0)
+        self.assertIsNone(result.error)
 
         print(result.data)
 
-        # Verify that the logs are from the previous container instance
+        # Verify that the logs are formatted with container prefixes for multi-container pods
         expected_logs = (
             "container1: Log line 1 - prev - container=container1\n"
             "container2: Log line 1 - prev - container=container2\n"
@@ -145,22 +163,8 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         print(f"ACTUAL:\n{result.data}")
         self.assertEqual(result.data, expected_logs)
 
-    @patch("kubernetes.client.CoreV1Api")
-    def test_pod_not_found(self, mock_api):
+    def test_pod_not_found(self):
         """Test error handling when pod is not found"""
-        # Configure mock to raise 404 error
-        mock_api_instance = mock_api.return_value
-        mock_api_instance.read_namespaced_pod.side_effect = ApiException(
-            status=404, reason="Not Found"
-        )
-        # Also make logs method raise error to simulate both pod and logs failing
-        mock_api_instance.read_namespaced_pod_log.side_effect = ApiException(
-            status=404, reason="Not Found"
-        )
-
-        # Set the internal API reference (normally done in _initialize_client)
-        self.toolset._core_v1_api = mock_api_instance
-
         params = FetchPodLogsParams(
             namespace="default",
             pod_name="nonexistent-pod",
@@ -172,48 +176,34 @@ class TestKubernetesLogsToolset(unittest.TestCase):
 
         result = self.toolset.fetch_pod_logs(params=params)
 
-        self.assertEqual(result.status, ToolResultStatus.NO_DATA)
+        # With kubectl, we get an ERROR status when pod is not found
+        self.assertEqual(result.return_code, 1)
+        self.assertEqual(result.status, ToolResultStatus.ERROR)
+        self.assertIn("not found", result.error)
 
-    @patch("kubernetes.client.CoreV1Api")
-    def test_filter_logs(self, mock_api):
-        mock_pod = MagicMock()
-        mock_container = MagicMock()
-        mock_container.name = "my-container"
-        mock_pod.spec.containers = [mock_container]
-        mock_api_instance = mock_api.return_value
-        mock_api_instance.read_namespaced_pod.return_value = mock_pod
-
-        logs_with_errors = (
-            "2023-05-01T12:00:00Z INFO: Starting service\n"
-            "2023-05-01T12:00:01Z ERROR: Connection failed\n"
-            "2023-05-01T12:00:02Z INFO: Retrying connection\n"
-            "2023-05-01T12:00:03Z ERROR: Connection timeout\n"
-        )
-
-        mock_api_instance.read_namespaced_pod_log.return_value = logs_with_errors
-
-        # Set the internal API reference (normally done in _initialize_client)
-        self.toolset._core_v1_api = mock_api_instance
-
+    def test_filter_logs(self):
         params = FetchPodLogsParams(
             namespace="default",
-            pod_name="test-pod",
+            pod_name="test-pod",  # This will use our standard test logs
             limit=2000,
             start_time=None,
             end_time=None,
-            filter="ERROR",
+            filter="line 2",  # Filter for logs containing "line 2"
         )
 
         result = self.toolset.fetch_pod_logs(params=params)
 
-        # Verify only filtered logs are returned
         self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        self.assertEqual(result.return_code, 0)
+        self.assertIsNone(result.error)
+
         assert result.data
         print(f"ACTUAL:\n{result.data}")
-        self.assertIn("ERROR: Connection failed", result.data)
-        self.assertIn("ERROR: Connection timeout", result.data)
-        self.assertNotIn("INFO: Starting service", result.data)
-        self.assertNotIn("INFO: Retrying connection", result.data)
+
+        # Should only contain logs with "line 2"
+        self.assertIn("Log line 2", result.data)
+        self.assertNotIn("Log line 1", result.data)
+        self.assertNotIn("Log line 3", result.data)
 
 
 if __name__ == "__main__":

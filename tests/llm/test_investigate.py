@@ -92,9 +92,7 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(
-    llm_api_check, experiment_name: str, test_case: InvestigateTestCase, caplog
-):
+def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
     dataset_name = braintrust_util.get_dataset_name("investigate")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -125,30 +123,11 @@ def test_investigate(
     with patch.dict(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
-        result = investigate_issues(
-            investigate_request=investigate_request, config=config, dal=mock_dal
-        )
+        with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+            result = investigate_issues(
+                investigate_request=investigate_request, config=config, dal=mock_dal
+            )
     assert result, "No result returned by investigate_issues()"
-
-    for tool_call in result.tool_calls:
-        # TODO: mock this instead so span start time & end time will be accurate.
-        # Also to include calls to llm spans
-        with eval_span.start_span(
-            name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-        ) as tool_span:
-            # TODO: remove this after FE is ready
-            if isinstance(tool_call.result, dict):
-                tool_span.log(
-                    input=tool_call.description,
-                    output=tool_call.result.model_dump_json(indent=2),
-                    error=tool_call.result.error,
-                )
-            else:
-                tool_span.log(
-                    input=tool_call.description,
-                    output=tool_call.result,
-                    error=tool_call.result.error,
-                )
 
     output = result.analysis
 
