@@ -40,3 +40,6 @@ STREAM_CHUNKS_PER_PARSE = int(
 )  # Empirical value with 6~ parsing calls. Consider using larger value if LLM response is long as to reduce markdown to section calls.
 
 USE_LEGACY_KUBERNETES_LOGS = load_bool("USE_LEGACY_KUBERNETES_LOGS", False)
+KUBERNETES_LOGS_TIMEOUT_SECONDS = int(
+    os.environ.get("KUBERNETES_LOGS_TIMEOUT_SECONDS", 60)
+)
