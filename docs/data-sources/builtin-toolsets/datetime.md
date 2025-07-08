@@ -1,0 +1,23 @@
+# Datetime ✓
+
+--8<-- "snippets/enabled_by_default.md"
+
+By enabling this toolset, HolmesGPT will be able to get the current UTC date and time. This feature should be kept enabled as it can be necessary for other toolsets that rely on dates and time.
+
+The following built-in toolsets depend on `datetime`:
+
+* Grafana Loki
+* Prometheus
+* Coralogix logs
+
+## Configuration
+
+```yaml
+holmes:
+    toolsets:
+        datetime:
+            enabled: true
+```
+
+--8<-- "snippets/capabilities_table_header.md"
+| get_current_time | Return current time information. Useful to build queries that require a time information |
