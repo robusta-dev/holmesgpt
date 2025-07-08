@@ -26,7 +26,7 @@
  5. in select profile from step 1 (API Key)
 
 
-Use your `instance name` and `api_key` to set up Service Now configuration. 
+Use your `instance name` and `api_key` to set up Service Now configuration.
 ```yaml
 toolsets:
   ServiceNow:
