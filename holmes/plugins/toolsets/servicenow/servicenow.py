@@ -25,7 +25,6 @@ class ServiceNowConfig(BaseModel):
     instance: str
 
 
-# https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/
 class ServiceNowToolset(Toolset):
     name: str = "ServiceNow"
     description: str = "Database containing changes information related to keys, workloads or any service."
