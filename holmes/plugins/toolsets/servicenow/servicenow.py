@@ -66,7 +66,10 @@ class ServiceNowToolset(Toolset):
             return False, "Invalid ServiceNow config"
 
     def get_example_config(self) -> Dict[str, Any]:
-        return {}
+        example_config = ServiceNowConfig(
+            api_key="now_xxxxxxxxxxxxxxxx", instance="dev12345"
+        )
+        return example_config.model_dump()
 
 
 class ServiceNowBaseTool(Tool):
