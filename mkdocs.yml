@@ -193,6 +193,5 @@ nav:
       - Contributing Guidelines: development/contributing.md
 
   - Reference:
-      - reference/index.md
-      - Helm Configuration: reference/helm-configuration.md
+      - reference/helm-configuration.md
       - Troubleshooting: reference/troubleshooting.md
