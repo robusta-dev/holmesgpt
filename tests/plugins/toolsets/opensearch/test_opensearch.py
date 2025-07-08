@@ -29,7 +29,9 @@ class TestOpenSearchToolset:
         toolset = OpenSearchToolset()
 
         # Mock OpenSearch client and health check
-        with patch("holmes.plugins.toolsets.opensearch.opensearch.OpenSearch") as mock_opensearch_class:
+        with patch(
+            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
+        ) as mock_opensearch_class:
             # Create mock client instance
             mock_client = MagicMock()
             mock_health_response = {
@@ -59,19 +61,19 @@ class TestOpenSearchToolset:
             # Verify OpenSearch client was created with correct parameters
             mock_opensearch_class.assert_called_once()
             call_args = mock_opensearch_class.call_args[1]
-            
+
             # Verify hosts
             assert "hosts" in call_args
             assert len(call_args["hosts"]) == 1
             assert call_args["hosts"][0]["host"] == "test-opensearch-host"
             assert call_args["hosts"][0]["port"] == 9200
-            
+
             # Verify SSL settings
             assert call_args["use_ssl"] is True
             assert call_args["ssl_assert_hostname"] is False
             assert call_args["verify_certs"] is False
             assert call_args["ssl_show_warn"] is False
-            
+
             # Verify headers
             assert call_args["headers"]["Authorization"] == "Bearer test-token"
 
@@ -104,10 +106,14 @@ class TestOpenSearchToolset:
         toolset = OpenSearchToolset()
 
         # Mock OpenSearch client to fail health check
-        with patch("holmes.plugins.toolsets.opensearch.opensearch.OpenSearch") as mock_opensearch_class:
+        with patch(
+            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
+        ) as mock_opensearch_class:
             # Create mock client instance that fails health check
             mock_client = MagicMock()
-            mock_client.cluster.health.side_effect = Exception("Connection refused: Unable to connect to OpenSearch cluster")
+            mock_client.cluster.health.side_effect = Exception(
+                "Connection refused: Unable to connect to OpenSearch cluster"
+            )
             mock_opensearch_class.return_value = mock_client
 
             # Set config and call check_prerequisites
@@ -164,7 +170,9 @@ class TestOpenSearchToolset:
         toolset = OpenSearchToolset()
 
         # Mock OpenSearch client
-        with patch("holmes.plugins.toolsets.opensearch.opensearch.OpenSearch") as mock_opensearch_class:
+        with patch(
+            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
+        ) as mock_opensearch_class:
             # Create mock client instance
             mock_client = MagicMock()
             mock_client.cluster.health.return_value = {"status": "green"}
@@ -177,7 +185,7 @@ class TestOpenSearchToolset:
             # Verify OpenSearch client was created with correct parameters
             mock_opensearch_class.assert_called_once()
             call_args = mock_opensearch_class.call_args[1]
-            
+
             # Verify http_auth was converted to tuple format
             assert "http_auth" in call_args
             assert call_args["http_auth"] == ("test-user", "test-password")
@@ -210,20 +218,26 @@ class TestOpenSearchToolset:
         toolset = OpenSearchToolset()
 
         # Mock OpenSearch client with different behaviors
-        with patch("holmes.plugins.toolsets.opensearch.opensearch.OpenSearch") as mock_opensearch_class:
+        with patch(
+            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
+        ) as mock_opensearch_class:
             # Create different mock behaviors for each cluster
             def side_effect(*args, **kwargs):
                 mock_client = MagicMock()
                 hosts = kwargs.get("hosts", [])
                 if hosts and hosts[0]["host"] == "test-host-1":
                     # First cluster fails
-                    mock_client.cluster.health.side_effect = Exception("Connection timeout")
+                    mock_client.cluster.health.side_effect = Exception(
+                        "Connection timeout"
+                    )
                 elif hosts and hosts[0]["host"] == "test-host-2":
                     # Second cluster succeeds
                     mock_client.cluster.health.return_value = {"status": "green"}
                 elif hosts and hosts[0]["host"] == "test-host-3":
                     # Third cluster fails
-                    mock_client.cluster.health.side_effect = Exception("Authentication failed")
+                    mock_client.cluster.health.side_effect = Exception(
+                        "Authentication failed"
+                    )
                 return mock_client
 
             mock_opensearch_class.side_effect = side_effect
@@ -265,7 +279,9 @@ class TestOpenSearchToolset:
         toolset = OpenSearchToolset()
 
         # Mock OpenSearch client to always fail
-        with patch("holmes.plugins.toolsets.opensearch.opensearch.OpenSearch") as mock_opensearch_class:
+        with patch(
+            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
+        ) as mock_opensearch_class:
             # Create mock client that always fails
             mock_client = MagicMock()
             mock_client.cluster.health.side_effect = Exception("Cluster unavailable")
