@@ -260,8 +260,6 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
             storage_api = StorageAnalysisAPI(
                 credential=api_client.credential,
                 subscription_id=db_config.subscription_id,
-                sql_username=api_client.sql_username,
-                sql_password=api_client.sql_password,
             )
 
             # Gather storage data
@@ -333,8 +331,6 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
         storage_api = StorageAnalysisAPI(
             credential=api_client.credential,
             subscription_id=database_config.subscription_id,
-            sql_username=api_client.sql_username,
-            sql_password=api_client.sql_password,
         )
 
         # Test SQL database connection (storage queries)

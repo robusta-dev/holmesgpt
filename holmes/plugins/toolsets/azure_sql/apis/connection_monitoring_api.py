@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 from datetime import datetime, timedelta
 from azure.core.credentials import TokenCredential
@@ -11,12 +11,8 @@ class ConnectionMonitoringAPI:
         self,
         credential: TokenCredential,
         subscription_id: str,
-        sql_username: Optional[str] = None,
-        sql_password: Optional[str] = None,
     ):
-        self.sql_api_client = AzureSQLAPIClient(
-            credential, subscription_id, sql_username, sql_password
-        )
+        self.sql_api_client = AzureSQLAPIClient(credential, subscription_id)
         self.metrics_client = MetricsQueryClient(credential)
         self.subscription_id = subscription_id
 

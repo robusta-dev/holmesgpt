@@ -161,8 +161,6 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
             connection_api = ConnectionMonitoringAPI(
                 credential=api_client.credential,
                 subscription_id=db_config.subscription_id,
-                sql_username=api_client.sql_username,
-                sql_password=api_client.sql_password,
             )
 
             # Gather connection data

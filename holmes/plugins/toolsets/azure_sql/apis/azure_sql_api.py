@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 import pyodbc
 import logging
 import struct
@@ -11,13 +11,9 @@ class AzureSQLAPIClient:
         self,
         credential: TokenCredential,
         subscription_id: str,
-        sql_username: Optional[str] = None,
-        sql_password: Optional[str] = None,
     ):
         self.sql_client = SqlManagementClient(credential, subscription_id)
         self.credential = credential
-        self.sql_username = sql_username
-        self.sql_password = sql_password
 
     def _get_access_token_struct(self) -> bytes:
         """Get access token formatted as struct for Azure SQL Database ODBC authentication."""
@@ -48,10 +44,6 @@ class AzureSQLAPIClient:
         # Validate connection parameters to prevent segfault
         if not server_name or not database_name:
             raise ValueError("Server name and database name must be provided")
-
-        # Try SQL authentication first if credentials are provided
-        if self.sql_username and self.sql_password:
-            return self._execute_query_with_sql_auth(server_name, database_name, query)
 
         # Fall back to Azure AD token authentication only if no SQL credentials
         try:
@@ -102,64 +94,6 @@ class AzureSQLAPIClient:
                 f"Failed to execute query on {server_name}.{database_name}: {str(e)}"
             )
             logging.error(error_msg, exc_info=True)
-            raise
-        finally:
-            # Ensure resources are properly cleaned up
-            if cursor:
-                try:
-                    cursor.close()
-                except Exception:
-                    pass
-            if conn:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-    def _execute_query_with_sql_auth(
-        self, server_name: str, database_name: str, query: str
-    ) -> List[Dict]:
-        """Execute a T-SQL query using SQL Server authentication."""
-        conn = None
-        cursor = None
-
-        try:
-            # Build connection string with SQL authentication
-            connection_string = (
-                f"Driver={{ODBC Driver 18 for SQL Server}};"
-                f"Server=tcp:{server_name}.database.windows.net,1433;"
-                f"Database={database_name};"
-                f"Uid={self.sql_username};"
-                f"Pwd={self.sql_password};"
-                f"Encrypt=yes;"
-                f"TrustServerCertificate=no;"
-                f"Connection Timeout=30;"
-            )
-
-            logging.info(
-                f"Attempting to connect to {server_name}.database.windows.net with SQL authentication"
-            )
-
-            # Create connection with SQL authentication
-            conn = pyodbc.connect(connection_string, timeout=10)
-            cursor = conn.cursor()
-
-            cursor.execute(query)
-            columns = [column[0] for column in cursor.description]
-            results = []
-
-            for row in cursor.fetchall():
-                results.append(dict(zip(columns, row)))
-
-            return results
-
-        except pyodbc.Error as e:
-            error_msg = f"SQL Auth ODBC Error connecting to {server_name}.{database_name}: {str(e)}"
-            logging.error(error_msg)
-            raise ConnectionError(error_msg) from e
-        except Exception as e:
-            error_msg = f"SQL Auth failed to execute query on {server_name}.{database_name}: {str(e)}"
-            logging.error(error_msg)
             raise
         finally:
             # Ensure resources are properly cleaned up
