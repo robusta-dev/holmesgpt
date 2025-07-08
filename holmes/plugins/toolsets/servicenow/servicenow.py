@@ -58,12 +58,15 @@ class ServiceNowToolset(Toolset):
                 }
             )
 
-            return True, ""
-        except Exception:
+            url = f"https://{self.config.get('instance')}.service-now.com/api/now/v2/table/change_request"
+            response = self._session.get(url=url, params={"sysparm_limit": 1})
+
+            return response.ok, ""
+        except Exception as e:
             logging.exception(
                 "Invalid ServiceNow config. Failed to set up ServiceNow toolset"
             )
-            return False, "Invalid ServiceNow config"
+            return False, f"Invalid ServiceNow config {e}"
 
     def get_example_config(self) -> Dict[str, Any]:
         example_config = ServiceNowConfig(
