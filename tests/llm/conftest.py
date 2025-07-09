@@ -158,12 +158,26 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                             "expected_score", 1
                         )
                     total_test_cases += 1
+
+                    # Debug print to troubleshoot status logic
+                    print(
+                        f"DEBUG: span_name={span_name}, correctness_score={correctness_score} (type: {type(correctness_score)}), expected_correctness_score={expected_correctness_score} (type: {type(expected_correctness_score)})"
+                    )
+
                     status_text = ":x:"
                     if correctness_score == 1:
                         successful_test_cases += 1
                         status_text = ":white_check_mark:"
+                        print(f"DEBUG: {span_name} -> SUCCESS (correctness_score == 1)")
                     elif correctness_score >= expected_correctness_score:
                         status_text = ":warning:"
+                        print(
+                            f"DEBUG: {span_name} -> WARNING (correctness_score >= expected_correctness_score)"
+                        )
+                    else:
+                        print(
+                            f"DEBUG: {span_name} -> FAILURE (correctness_score < expected_correctness_score)"
+                        )
                     rows.append(
                         [
                             f"[{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name})",
