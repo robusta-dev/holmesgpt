@@ -71,6 +71,7 @@ class ToolCallResult(BaseModel):
             "tool_call_id": self.tool_call_id,
             "role": "tool",
             "name": self.tool_name,
+            "params": self.result.params,
             "content": content,
         }
 
