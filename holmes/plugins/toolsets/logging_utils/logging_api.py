@@ -17,6 +17,8 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 DEFAULT_LOG_LIMIT = 2000
 DEFAULT_TIME_SPAN_SECONDS = 3600
 
+POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
+
 
 class LoggingConfig(BaseModel):
     """Base configuration for all logging backends"""
@@ -46,7 +48,7 @@ class PodLoggingTool(Tool):
 
     def __init__(self, toolset: BasePodLoggingToolset):
         super().__init__(
-            name="fetch_pod_logs",
+            name=POD_LOGGING_TOOL_NAME,
             description="Fetch logs for a Kubernetes pod",
             parameters={
                 "pod_name": ToolParameter(
@@ -101,7 +103,27 @@ class PodLoggingTool(Tool):
         """Generate a one-line description of this tool invocation"""
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
-        return f"Fetching logs for pod {pod_name} in namespace {namespace}"
+
+        start_time = params.get("start_time")
+        end_time = params.get("end_time")
+        filter = params.get("filter")
+        limit = params.get("limit")
+
+        extra_params_str = ""
+
+        if start_time and not end_time:
+            extra_params_str += f" start_time={start_time}"
+        elif not start_time and end_time:
+            extra_params_str += f" end_time={start_time}"
+        elif start_time and end_time:
+            extra_params_str += f" time range={start_time}/{end_time}"
+
+        if filter:
+            extra_params_str += f" filter={filter}"
+        if limit:
+            extra_params_str += f" limit={limit}"
+
+        return f"Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
 
 
 def process_time_parameters(

@@ -30,6 +30,7 @@ from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
+from holmes.core.safeguards import prevent_overly_repeated_tool_call
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
@@ -55,6 +56,47 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     if tool_result.status == ToolResultStatus.ERROR:
         tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
     return tool_response
+
+
+class ToolCallResult(BaseModel):
+    tool_call_id: str
+    tool_name: str
+    description: str
+    result: StructuredToolResult
+    size: Optional[int] = None
+
+    def as_tool_call_message(self):
+        content = format_tool_result_data(self.result)
+        return {
+            "tool_call_id": self.tool_call_id,
+            "role": "tool",
+            "name": self.tool_name,
+            "content": content,
+        }
+
+    def as_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
+        return {
+            "tool_call_id": self.tool_call_id,
+            "tool_name": self.tool_name,
+            "description": self.description,
+            "role": "tool",
+            "result": result_dump,
+        }
+
+    def as_streaming_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
+        return {
+            "tool_call_id": self.tool_call_id,
+            "role": "tool",
+            "description": self.description,
+            "name": self.tool_name,
+            "result": result_dump,
+        }
 
 
 # TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
@@ -133,47 +175,6 @@ def truncate_messages_to_fit_context(
 
         remaining_space -= allocated_space
     return messages
-
-
-class ToolCallResult(BaseModel):
-    tool_call_id: str
-    tool_name: str
-    description: str
-    result: StructuredToolResult
-    size: Optional[int] = None
-
-    def as_tool_call_message(self):
-        content = format_tool_result_data(self.result)
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "name": self.tool_name,
-            "content": content,
-        }
-
-    def as_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "tool_name": self.tool_name,
-            "description": self.description,
-            "role": "tool",
-            "result": result_dump,
-        }
-
-    def as_streaming_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "description": self.description,
-            "name": self.tool_name,
-            "result": result_dump,
-        }
 
 
 class LLMResult(BaseModel):
@@ -345,21 +346,26 @@ class ToolCallingLLM:
                 futures = []
                 for t in tools_to_call:
                     logging.debug(f"Tool to call: {t}")
-                    futures.append(executor.submit(self._invoke_tool, t))
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,
+                            previous_tool_calls=tool_calls,
+                        )
+                    )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_call_response = tool_call_result.as_tool_result_response()
-
-                    tool_calls.append(tool_call_response)
-
+                    tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
     def _invoke_tool(
-        self, tool_to_call: ChatCompletionMessageToolCall
+        self,
+        tool_to_call: ChatCompletionMessageToolCall,
+        previous_tool_calls: list[dict],
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = None
@@ -389,7 +395,13 @@ class ToolCallingLLM:
 
         tool_response = None
         try:
-            tool_response = tool.invoke(tool_params)
+            tool_response = prevent_overly_repeated_tool_call(
+                tool_name=tool.name,
+                tool_params=tool_params,
+                tool_calls=previous_tool_calls,
+            )
+            if not tool_response:
+                tool_response = tool.invoke(tool_params)
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
@@ -518,6 +530,7 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
+        tool_calls: list[dict] = []
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -633,7 +646,13 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for t in tools_to_call:  # type: ignore
-                    futures.append(executor.submit(self._invoke_tool, t))  # type: ignore
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,  # type: ignore
+                            previous_tool_calls=tool_calls,
+                        )
+                    )
                     yield create_sse_message(
                         "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
@@ -641,9 +660,8 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    message_to_append = tool_call_result.as_tool_call_message()
-
-                    messages.append(message_to_append)
+                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
