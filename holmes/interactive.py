@@ -52,12 +52,14 @@ class SlashCommandCompleter(Completer):
                     )
 
 
-WELCOME_BANNER = f"[bold cyan]Welcome to HolmesGPT:[/bold cyan] Type '{SlashCommands.EXIT.value}' to exit, '{SlashCommands.HELP.value}' for commands."
-
-
 USER_COLOR = "#DEFCC0"  # light green
 AI_COLOR = "#00FFFF"  # cyan
 TOOLS_COLOR = "magenta"
+HELP_COLOR = "cyan"  # same as AI_COLOR for now
+ERROR_COLOR = "red"
+STATUS_COLOR = "yellow"
+
+WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.value}' to exit, '{SlashCommands.HELP.value}' for commands."
 
 
 def format_tool_call_output(tool_call: ToolCallResult) -> str:
@@ -158,12 +160,14 @@ def run_interactive_loop(
                 if command == SlashCommands.EXIT.value:
                     return
                 elif command == SlashCommands.HELP.value:
-                    console.print("[bold cyan]Available commands:[/bold cyan]")
+                    console.print(
+                        f"[bold {HELP_COLOR}]Available commands:[/bold {HELP_COLOR}]"
+                    )
                     for cmd, description in SLASH_COMMANDS_REFERENCE.items():
                         console.print(f"  [bold]{cmd}[/bold] - {description}")
                 elif command == SlashCommands.RESET.value:
                     console.print(
-                        "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
+                        f"[bold {STATUS_COLOR}]Context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
                     )
                     messages = None
                     continue
@@ -178,7 +182,7 @@ def run_interactive_loop(
                 elif command == SlashCommands.SHOW_OUTPUT.value:
                     if last_response is None or not last_response.tool_calls:
                         console.print(
-                            "[bold red]No tool calls available from the last response.[/bold red]"
+                            f"[bold {ERROR_COLOR}]No tool calls available from the last response.[/bold {ERROR_COLOR}]"
                         )
                         continue
 
@@ -196,7 +200,7 @@ def run_interactive_loop(
             else:
                 messages.append({"role": "user", "content": user_input})
 
-            console.print("\n[bold blue]Thinking...[/bold blue]\n")
+            console.print(f"\n[bold {AI_COLOR}]Thinking...[/bold {AI_COLOR}]\n")
             response = ai.call(messages, post_processing_prompt)
             messages = response.messages  # type: ignore
             last_response = response
@@ -208,7 +212,7 @@ def run_interactive_loop(
                     Markdown(f"{response.result}"),
                     padding=(1, 2),
                     border_style=AI_COLOR,
-                    title="[bold cyan]AI Response[/bold cyan]",
+                    title=f"[bold {AI_COLOR}]AI Response[/bold {AI_COLOR}]",
                     title_align="left",
                 )
             )
@@ -219,5 +223,7 @@ def run_interactive_loop(
             break
         except Exception as e:
             logging.error("An error occurred during interactive mode:", exc_info=e)
-            console.print(f"[bold red]Error: {e}[/bold red]")
-    console.print("[bold cyan]Exiting interactive mode.[/bold cyan]")
+            console.print(f"[bold {ERROR_COLOR}]Error: {e}[/bold {ERROR_COLOR}]")
+    console.print(
+        f"[bold {STATUS_COLOR}]Exiting interactive mode.[/bold {STATUS_COLOR}]"
+    )
