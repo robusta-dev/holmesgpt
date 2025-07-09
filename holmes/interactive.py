@@ -25,19 +25,21 @@ class SlashCommands(Enum):
     SHOW_OUTPUT = "/output"
 
 
+SLASH_COMMANDS_REFERENCE = {
+    SlashCommands.EXIT.value: "Exit interactive mode",
+    SlashCommands.HELP.value: "Show help message with all commands",
+    SlashCommands.RESET.value: "Reset the conversation context",
+    SlashCommands.TOOLS_CONFIG.value: "Show available toolsets and their status",
+    SlashCommands.TOGGLE_TOOL_OUTPUT.value: "Toggle tool output display on/off",
+    SlashCommands.SHOW_OUTPUT.value: "Show all tool outputs from last response",
+}
+
 ALL_SLASH_COMMANDS = [cmd.value for cmd in SlashCommands]
 
 
 class SlashCommandCompleter(Completer):
     def __init__(self):
-        self.commands = {
-            SlashCommands.EXIT.value: "Exit the interactive mode",
-            SlashCommands.HELP.value: "Show help message with all commands",
-            SlashCommands.RESET.value: "Reset the conversation context",
-            SlashCommands.TOOLS_CONFIG.value: "Show available toolsets and their status",
-            SlashCommands.TOGGLE_TOOL_OUTPUT.value: "Toggle tool output display on/off",
-            SlashCommands.SHOW_OUTPUT.value: "Show all tool outputs from last response",
-        }
+        self.commands = SLASH_COMMANDS_REFERENCE
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
@@ -50,11 +52,12 @@ class SlashCommandCompleter(Completer):
                     )
 
 
-WELCOME_BANNER = "[bold cyan]Welcome to HolmesGPT:[/bold cyan] Type '/exit' to exit, '/help' for commands."
+WELCOME_BANNER = f"[bold cyan]Welcome to HolmesGPT:[/bold cyan] Type '{SlashCommands.EXIT.value}' to exit, '{SlashCommands.HELP.value}' for commands."
 
 
 USER_COLOR = "#DEFCC0"  # light green
 AI_COLOR = "#00FFFF"  # cyan
+TOOLS_COLOR = "magenta"
 
 
 def format_tool_call_output(tool_call: ToolCallResult) -> str:
@@ -92,7 +95,9 @@ def display_tool_calls(tool_calls: List[ToolCallResult], console: Console) -> No
         tool_calls: List of ToolCallResult objects to display
         console: Rich console for output
     """
-    console.print(f"[bold magenta]Used {len(tool_calls)} tools[/bold magenta]")
+    console.print(
+        f"[bold {TOOLS_COLOR}]Used {len(tool_calls)} tools[/bold {TOOLS_COLOR}]"
+    )
     for tool_call in tool_calls:
         preview_output = format_tool_call_output(tool_call)
         title = f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}"
@@ -101,7 +106,7 @@ def display_tool_calls(tool_calls: List[ToolCallResult], console: Console) -> No
             Panel(
                 preview_output,
                 padding=(1, 2),
-                border_style="magenta",
+                border_style=TOOLS_COLOR,
                 title=title,
             )
         )
@@ -154,20 +159,8 @@ def run_interactive_loop(
                     return
                 elif command == SlashCommands.HELP.value:
                     console.print("[bold cyan]Available commands:[/bold cyan]")
-                    console.print("  [bold]/exit[/bold] - Exit the interactive mode")
-                    console.print("  [bold]/help[/bold] - Show this help message")
-                    console.print(
-                        "  [bold]/reset[/bold] - Reset the conversation context"
-                    )
-                    console.print(
-                        "  [bold]/tools[/bold] - Show available toolsets and their status"
-                    )
-                    console.print(
-                        "  [bold]/toggle-tools[/bold] - Toggle tool output display on/off"
-                    )
-                    console.print(
-                        "  [bold]/dump-tools[/bold] - Dump all tool outputs from last response"
-                    )
+                    for cmd, description in SLASH_COMMANDS_REFERENCE.items():
+                        console.print(f"  [bold]{cmd}[/bold] - {description}")
                 elif command == SlashCommands.RESET.value:
                     console.print(
                         "[bold yellow]Context reset. You can now ask a new question.[/bold yellow]"
