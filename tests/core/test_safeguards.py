@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import Mock
+from holmes.core.safeguards import (
 
 from holmes.core.safeguards import (
     prevent_overly_repeated_tool_call,
