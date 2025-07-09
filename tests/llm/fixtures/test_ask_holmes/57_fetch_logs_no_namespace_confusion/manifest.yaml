@@ -35,7 +35,7 @@ spec:
           echo "$(date) ERROR: Backup database also unavailable"
           echo "$(date) ERROR: Application cannot start without database"
           echo "$(date) FATAL: Shutting down application"
-          sleep 300
+          while true; do sleep 3600; done
         resources:
           requests:
             memory: "32Mi"
