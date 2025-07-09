@@ -112,7 +112,7 @@ class PodLoggingTool(Tool):
         if start_time and not end_time:
             extra_params_str += f" start_time={start_time}"
         elif not start_time and end_time:
-            extra_params_str += f" end_time={start_time}"
+            extra_params_str += f" end_time={end_time}"
         elif start_time and end_time:
             extra_params_str += f" time range={start_time}/{end_time}"
 
