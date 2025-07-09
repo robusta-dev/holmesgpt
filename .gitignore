@@ -167,3 +167,4 @@ evals_report.txt
 config_toolsets.yaml
 
 **/.claude/settings.local.json
+.claude-trace/
