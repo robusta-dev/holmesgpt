@@ -1,6 +1,4 @@
 from holmes.core.safeguards import (
-
-from holmes.core.safeguards import (
     prevent_overly_repeated_tool_call,
     _is_redundant_fetch_pod_logs,
     _has_previous_exact_same_tool_call,
@@ -40,9 +38,16 @@ class TestRedundantFetchPodLogs:
             "end_time": "2024-01-02",
         }
 
-        assert _is_redundant_fetch_pod_logs(POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls) is True
+        assert (
+            _is_redundant_fetch_pod_logs(
+                POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls
+            )
+            is True
+        )
 
-    def test_is_redundant_fetch_pod_logs_with_filter_after_unfiltered_no_data_no_dates(self):
+    def test_is_redundant_fetch_pod_logs_with_filter_after_unfiltered_no_data_no_dates(
+        self,
+    ):
         # Create a previous unfiltered call that returned no data
         previous_tool_calls = [
             ToolCallResult(
@@ -66,7 +71,12 @@ class TestRedundantFetchPodLogs:
             "filter": "error",
         }
 
-        assert _is_redundant_fetch_pod_logs(POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls) is True
+        assert (
+            _is_redundant_fetch_pod_logs(
+                POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls
+            )
+            is True
+        )
 
     def test_is_redundant_fetch_pod_logs_with_filter_after_unfiltered_has_data(self):
         # Create a previous unfiltered call that returned data
@@ -97,7 +107,12 @@ class TestRedundantFetchPodLogs:
             "end_time": "2024-01-02",
         }
 
-        assert _is_redundant_fetch_pod_logs(POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls) is False
+        assert (
+            _is_redundant_fetch_pod_logs(
+                POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls
+            )
+            is False
+        )
 
     def test_is_redundant_fetch_pod_logs_different_pod_name(self):
         # Previous call with different pod name
@@ -123,7 +138,12 @@ class TestRedundantFetchPodLogs:
             "filter": "error",
         }
 
-        assert _is_redundant_fetch_pod_logs(POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls) is False
+        assert (
+            _is_redundant_fetch_pod_logs(
+                POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls
+            )
+            is False
+        )
 
     def test_is_redundant_fetch_pod_logs_no_filter_in_current_call(self):
         # Previous call without filter that returned no data
@@ -148,13 +168,23 @@ class TestRedundantFetchPodLogs:
             "namespace": "services",
         }
 
-        assert _is_redundant_fetch_pod_logs(POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls) is False
+        assert (
+            _is_redundant_fetch_pod_logs(
+                POD_LOGGING_TOOL_NAME, tool_params, previous_tool_calls
+            )
+            is False
+        )
 
     def test_is_redundant_fetch_pod_logs_different_tool_name(self):
         previous_tool_calls = []
         tool_params = {"filter": "error"}
-        
-        assert _is_redundant_fetch_pod_logs("different_tool", tool_params, previous_tool_calls) is False
+
+        assert (
+            _is_redundant_fetch_pod_logs(
+                "different_tool", tool_params, previous_tool_calls
+            )
+            is False
+        )
 
 
 class TestHasPreviousUnfilteredPodLogsCall:
@@ -182,7 +212,10 @@ class TestHasPreviousUnfilteredPodLogsCall:
             "filter": "error",
         }
 
-        assert _has_previous_unfiltered_pod_logs_call(tool_params, previous_tool_calls) is True
+        assert (
+            _has_previous_unfiltered_pod_logs_call(tool_params, previous_tool_calls)
+            is True
+        )
 
     def test_has_previous_unfiltered_pod_logs_call_with_success_status(self):
         # Previous unfiltered call with success (should not match)
@@ -207,7 +240,10 @@ class TestHasPreviousUnfilteredPodLogsCall:
             "filter": "error",
         }
 
-        assert _has_previous_unfiltered_pod_logs_call(tool_params, previous_tool_calls) is False
+        assert (
+            _has_previous_unfiltered_pod_logs_call(tool_params, previous_tool_calls)
+            is False
+        )
 
     def test_has_previous_unfiltered_pod_logs_call_different_namespace(self):
         # Previous call with different namespace
@@ -232,7 +268,10 @@ class TestHasPreviousUnfilteredPodLogsCall:
             "filter": "error",
         }
 
-        assert _has_previous_unfiltered_pod_logs_call(tool_params, previous_tool_calls) is False
+        assert (
+            _has_previous_unfiltered_pod_logs_call(tool_params, previous_tool_calls)
+            is False
+        )
 
 
 class TestHasPreviousExactSameToolCall:
@@ -255,7 +294,10 @@ class TestHasPreviousExactSameToolCall:
             ).as_tool_result_response()
         ]
 
-        assert _has_previous_exact_same_tool_call("my_tool", params, previous_tool_calls) is True
+        assert (
+            _has_previous_exact_same_tool_call("my_tool", params, previous_tool_calls)
+            is True
+        )
 
     def test_has_previous_exact_same_tool_call_different_params(self):
         previous_tool_calls = [
@@ -275,10 +317,16 @@ class TestHasPreviousExactSameToolCall:
             "namespace": "default",
         }
 
-        assert _has_previous_exact_same_tool_call("my_tool", params, previous_tool_calls) is False
+        assert (
+            _has_previous_exact_same_tool_call("my_tool", params, previous_tool_calls)
+            is False
+        )
 
     def test_has_previous_exact_same_tool_call_different_tool_name(self):
-        params = {"pod_name": "my-pod", "namespace": "services",}
+        params = {
+            "pod_name": "my-pod",
+            "namespace": "services",
+        }
 
         previous_tool_calls = [
             ToolCallResult(
@@ -292,7 +340,10 @@ class TestHasPreviousExactSameToolCall:
             ).as_tool_result_response()
         ]
 
-        assert _has_previous_exact_same_tool_call("my_tool", params, previous_tool_calls) is False
+        assert (
+            _has_previous_exact_same_tool_call("my_tool", params, previous_tool_calls)
+            is False
+        )
 
 
 class TestPreventOverlyRepeatedToolCall:
@@ -311,7 +362,9 @@ class TestPreventOverlyRepeatedToolCall:
             ).as_tool_result_response()
         ]
 
-        result = prevent_overly_repeated_tool_call("my_tool", params, previous_tool_calls)
+        result = prevent_overly_repeated_tool_call(
+            "my_tool", params, previous_tool_calls
+        )
 
         assert result is not None
         assert result.status == ToolResultStatus.ERROR
@@ -341,7 +394,9 @@ class TestPreventOverlyRepeatedToolCall:
             "filter": "error",
         }
 
-        result = prevent_overly_repeated_tool_call(POD_LOGGING_TOOL_NAME, params, previous_tool_calls)
+        result = prevent_overly_repeated_tool_call(
+            POD_LOGGING_TOOL_NAME, params, previous_tool_calls
+        )
 
         assert result is not None
         assert result.status == ToolResultStatus.ERROR
@@ -353,7 +408,9 @@ class TestPreventOverlyRepeatedToolCall:
         previous_tool_calls = []
         params = {"pod_name": "my-pod", "namespace": "default"}
 
-        result = prevent_overly_repeated_tool_call("my_tool", params, previous_tool_calls)
+        result = prevent_overly_repeated_tool_call(
+            "my_tool", params, previous_tool_calls
+        )
 
         assert result is None  # Should return None for allowed calls
 
@@ -373,7 +430,9 @@ class TestPreventOverlyRepeatedToolCall:
 
         params = {"pod_name": "my-pod", "namespace": "default"}
 
-        result = prevent_overly_repeated_tool_call("my_tool", params, previous_tool_calls)
+        result = prevent_overly_repeated_tool_call(
+            "my_tool", params, previous_tool_calls
+        )
 
         assert result is None  # Should return None for allowed calls
 
@@ -381,7 +440,7 @@ class TestPreventOverlyRepeatedToolCall:
 class TestEdgeCases:
     def test_empty_tool_calls_list(self):
         params = {"pod_name": "my-pod", "namespace": "default"}
-        
+
         assert _has_previous_exact_same_tool_call("my_tool", params, []) is False
         assert _has_previous_unfiltered_pod_logs_call(params, []) is False
         assert prevent_overly_repeated_tool_call("my_tool", params, []) is None
@@ -409,5 +468,9 @@ class TestEdgeCases:
             ).as_tool_result_response(),
         ]
 
-        assert _has_previous_exact_same_tool_call("my_tool", {"pod_name": "my-pod"}, previous_tool_calls) is True
-
+        assert (
+            _has_previous_exact_same_tool_call(
+                "my_tool", {"pod_name": "my-pod"}, previous_tool_calls
+            )
+            is True
+        )

@@ -1,5 +1,3 @@
-
-
 import logging
 from typing import Optional
 
@@ -10,27 +8,48 @@ from holmes.plugins.toolsets.logging_utils.logging_api import POD_LOGGING_TOOL_N
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
-def _is_redundant_fetch_pod_logs(tool_name:str, tool_params: dict, tool_calls:list[dict]) -> bool:
+
+def _is_redundant_fetch_pod_logs(
+    tool_name: str, tool_params: dict, tool_calls: list[dict]
+) -> bool:
     """
-        Tool call is redundant if a previous call without filter returned no results and the current tool call is the same but with a filter
-        e.g.
-            fetch_pod_logs({"pod_name": "notification-consumer", "namespace": "services"}) => no data
-        followed by 
-            fetch_pod_logs({"pod_name": "notification-consumer", "namespace": "services", "filter": "error"}) => for sure no data either
+    Tool call is redundant if a previous call without filter returned no results and the current tool call is the same but with a filter
+    e.g.
+        fetch_pod_logs({"pod_name": "notification-consumer", "namespace": "services"}) => no data
+    followed by
+        fetch_pod_logs({"pod_name": "notification-consumer", "namespace": "services", "filter": "error"}) => for sure no data either
     """
-    if tool_name == POD_LOGGING_TOOL_NAME and tool_params.get("filter") and _has_previous_unfiltered_pod_logs_call(tool_params=tool_params, tool_calls=tool_calls):
+    if (
+        tool_name == POD_LOGGING_TOOL_NAME
+        and tool_params.get("filter")
+        and _has_previous_unfiltered_pod_logs_call(
+            tool_params=tool_params, tool_calls=tool_calls
+        )
+    ):
         return True
     return False
 
 
-def _has_previous_unfiltered_pod_logs_call(tool_params: dict, tool_calls:list[dict]) -> bool:
+def _has_previous_unfiltered_pod_logs_call(
+    tool_params: dict, tool_calls: list[dict]
+) -> bool:
     try:
         current_params = FetchPodLogsParams(**tool_params)
         for tool_call in tool_calls:
             result = tool_call.get("result", {})
-            if tool_call.get("tool_name") == POD_LOGGING_TOOL_NAME and result.get("status") == ToolResultStatus.NO_DATA and result.get("params"):
+            if (
+                tool_call.get("tool_name") == POD_LOGGING_TOOL_NAME
+                and result.get("status") == ToolResultStatus.NO_DATA
+                and result.get("params")
+            ):
                 params = FetchPodLogsParams(**result.get("params"))
-                if not params.filter and current_params.end_time == params.end_time and current_params.start_time == params.start_time and current_params.pod_name == params.pod_name and current_params.namespace == params.namespace:
+                if (
+                    not params.filter
+                    and current_params.end_time == params.end_time
+                    and current_params.start_time == params.start_time
+                    and current_params.pod_name == params.pod_name
+                    and current_params.namespace == params.namespace
+                ):
                     return True
 
         return False
@@ -39,26 +58,35 @@ def _has_previous_unfiltered_pod_logs_call(tool_params: dict, tool_calls:list[di
         logging.error("fetch_pod_logs params failed validation", exc_info=True)
     return False
 
-def _has_previous_exact_same_tool_call(tool_name:str, tool_params: dict, tool_calls:list[dict]) -> bool:
-    """ Check if a previous tool call with the exact same params was executed this session.
-    """
+
+def _has_previous_exact_same_tool_call(
+    tool_name: str, tool_params: dict, tool_calls: list[dict]
+) -> bool:
+    """Check if a previous tool call with the exact same params was executed this session."""
     for tool_call in tool_calls:
         params = tool_call.get("result", {}).get("params")
-        if tool_call.get("tool_name") == tool_name and params is not None and params == tool_params:
+        if (
+            tool_call.get("tool_name") == tool_name
+            and params is not None
+            and params == tool_params
+        ):
             return True
 
     return False
 
-def prevent_overly_repeated_tool_call(tool_name:str, tool_params: dict, tool_calls:list[dict]) -> Optional[StructuredToolResult]:
-    """Checks if a tool call is redundant
-    """
+
+def prevent_overly_repeated_tool_call(
+    tool_name: str, tool_params: dict, tool_calls: list[dict]
+) -> Optional[StructuredToolResult]:
+    """Checks if a tool call is redundant"""
 
     try:
-
         if not TOOL_CALL_SAFEGUARDS_ENABLED:
-            return
+            return None
 
-        if _has_previous_exact_same_tool_call(tool_name=tool_name, tool_params=tool_params, tool_calls=tool_calls):
+        if _has_previous_exact_same_tool_call(
+            tool_name=tool_name, tool_params=tool_params, tool_calls=tool_calls
+        ):
             """
                 It is only reasonable to prevent identical tool calls if Holmes is read only and does not mutate resources.
                 If Holmes mutate resources then this safeguard should be removed or modified. This is because
@@ -73,8 +101,10 @@ def prevent_overly_repeated_tool_call(tool_name:str, tool_params: dict, tool_cal
                 ),
                 params=tool_params,
             )
-        
-        if _is_redundant_fetch_pod_logs(tool_name=tool_name, tool_params=tool_params, tool_calls=tool_calls):
+
+        if _is_redundant_fetch_pod_logs(
+            tool_name=tool_name, tool_params=tool_params, tool_calls=tool_calls
+        ):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=(
@@ -86,3 +116,5 @@ def prevent_overly_repeated_tool_call(tool_name:str, tool_params: dict, tool_cal
             )
     except Exception:
         logging.error("Failed to check for overly repeated tool call", exc_info=True)
+
+    return None
