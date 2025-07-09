@@ -1,7 +1,7 @@
 import re
 import logging
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from holmes.core.tools import (
     Tool,
     ToolParameter,
@@ -11,7 +11,10 @@ from holmes.plugins.toolsets.internet.internet import (
     InternetBaseToolset,
     scrape,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    ToolResultStatus,
+)
 
 
 class FetchNotion(Tool):
@@ -109,8 +112,6 @@ class FetchNotion(Tool):
 
 
 class NotionToolset(InternetBaseToolset):
-    additional_headers: Dict[str, str] = {}
-
     def __init__(self):
         super().__init__(
             name="notion",
@@ -125,3 +126,12 @@ class NotionToolset(InternetBaseToolset):
             ],
             is_default=False,
         )
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
+        if not config or not config.get("additional_headers", {}):
+            return (
+                False,
+                "Notion toolset is misconfigured. Authorization header is required.",
+            )
+        self.additional_headers = config["additional_headers"]
+        return True, ""
