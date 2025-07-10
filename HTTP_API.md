@@ -7,10 +7,52 @@ The HolmesGPT API provides endpoints for automated investigations, workload heal
 
 ## Endpoints
 
-### 1. `/api/investigate` (POST)
+---
+
+### 1. `/api/chat` (POST)
+**Description:** General-purpose chat endpoint for interacting with the AI assistant. Supports open-ended questions and troubleshooting.
+
+#### Request Fields
+
+| Field                   | Required | Default | Type      | Description                                      |
+|-------------------------|----------|---------|-----------|--------------------------------------------------|
+| ask                     | Yes      |         | string    | User's question                                  |
+| conversation_history    | No       |         | list      | Conversation history (first message must be system)|
+| model                   | No       |         | string    | Model name to use                                |
+
+#### Example
+```bash
+curl -X POST http://<HOLMES-URL>/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ask": "What is the status of my cluster?",
+    "conversation_history": [
+      {"role": "system", "content": "You are a helpful assistant."}
+    ]
+  }'
+```
+
+#### Example Response
+```json
+{
+  "analysis": "Your cluster is healthy. All nodes are ready and workloads are running as expected.",
+  "conversation_history": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is the status of my cluster?"},
+    {"role": "assistant", "content": "Your cluster is healthy. All nodes are ready and workloads are running as expected."}
+  ],
+  "tool_calls": [...],
+  "follow_up_actions": [...]
+}
+```
+
+---
+
+### 2. `/api/investigate` (POST)
 **Description:** Initiate an automated investigation of an issue or incident.
 
 #### Request Fields
+
 | Field                   | Required | Default                                    | Type      | Description                                      |
 |-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
 | source                  | Yes      |                                            | string    | Source of the issue (e.g., "prometheus")         |
@@ -66,11 +108,12 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
 
 ---
 
-### 2. `/api/stream/investigate` (POST)
+### 3. `/api/stream/investigate` (POST)
 **Description:** Same as `/api/investigate`, but returns results as a stream for real-time updates.
 
 #### Request Fields
-Same as `/api/investigate`.
+
+Same as [`/api/investigate`](#2-apiinvestigate-post).
 
 #### Example
 ```bash
@@ -96,19 +139,19 @@ event: start_tool_calling
 data: {"tool_name": "kubectl_logs", "id": "call_1"}
 
 event: start_tool_calling
-data: {"tool_name": "kubectl_previous_logs", "id": "call_3"}
+data: {"tool_name": "kubectl_previous_logs", "id": "call_2"}
 
 event: start_tool_calling
-data: {"tool_name": "kubectl_memory_requests_namespace", "id": "call_4"}
+data: {"tool_name": "kubectl_memory_requests_namespace", "id": "call_3"}
 
 event: tool_calling_result
-data: {"tool_call_id": "call_4", "role": "tool", "description": "kubectl get pods -n default -o ...", "name": "kubectl_memory_requests_namespace", "result": {...}}
+data: {"tool_call_id": "call_3", "role": "tool", "description": "kubectl get pods -n default -o ...", "name": "kubectl_memory_requests_namespace", "result": {...}}
 
 event: tool_calling_result
 data: {"tool_call_id": "call_0", "role": "tool", "description": "kubectl describe pod my-pod -n default", "name": "kubectl_describe", "result": {...}}
 
 event: tool_calling_result
-data: {"tool_call_id": "call_3", "role": "tool", "description": "kubectl logs my-pod -n default --previous", "name": "kubectl_previous_logs", "result": {...}}
+data: {"tool_call_id": "call_2", "role": "tool", "description": "kubectl logs my-pod -n default --previous", "name": "kubectl_previous_logs", "result": {...}}
 
 event: tool_calling_result
 data: {"tool_call_id": "call_1", "role": "tool", "description": "kubectl logs my-pod -n default", "name": "kubectl_logs", "result": {...}}
@@ -119,105 +162,11 @@ data: {"sections": {"Alert Explanation": ...}}
 
 ---
 
-### 3. `/api/workload_health_check` (POST)
-**Description:** Performs a health check on a specified workload (e.g., a Kubernetes deployment).
-
-#### Request Fields
-| Field                   | Required | Default                                    | Type      | Description                                      |
-|-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
-| ask                     | Yes      |                                            | string    | User's question                                  |
-| resource                | Yes      |                                            | object    | Resource details (e.g., name, kind)              |
-| alert_history_since_hours| No       | 24                                         | float     | How many hours back to check alerts              |
-| alert_history           | No       | true                                       | boolean   | Whether to include alert history                 |
-| stored_instrucitons     | No       | true                                       | boolean   | Use stored instructions                          |
-| instructions            | No       | []                                         | list      | Additional instructions                          |
-| include_tool_calls      | No       | false                                      | boolean   | Include tool calls in response                   |
-| include_tool_call_results| No       | false                                      | boolean   | Include tool call results in response            |
-| prompt_template         | No       | "builtin://kubernetes_workload_ask.jinja2" | string    | Prompt template to use                           |
-| model                   | No       |                                            | string    | Model name to use                                |
-
-#### Example
-```bash
-curl -X POST http://<HOLMES-URL>/api/workload_health_check \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ask": "Why is my deployment unhealthy?",
-    "resource": {"name": "my-deployment", "kind": "Deployment"},
-    "alert_history_since_hours": 12
-  }'
-```
-
-#### Example Response
-```json
-{
-  "analysis": "Deployment 'my-deployment' is unhealthy due to repeated CrashLoopBackOff events.",
-  "sections": null,
-  "tool_calls": [
-    {
-      "tool_call_id": "2",
-      "tool_name": "kubectl_get_events",
-      "description": "Fetch recent events",
-      "result": {"events": "..."}
-    }
-  ],
-  "instructions": [...]
-}
-```
-
----
-
-### 4. `/api/workload_health_chat` (POST)
-**Description:** Conversational interface for discussing the health of a workload. Maintains context across messages.
-
-#### Request Fields
-| Field                   | Required | Default | Type      | Description                                      |
-|-------------------------|----------|---------|-----------|--------------------------------------------------|
-| ask                     | Yes      |         | string    | User's question                                  |
-| workload_health_result  | Yes      |         | object    | Previous health check result (see below)         |
-| resource                | Yes      |         | object    | Resource details                                 |
-| conversation_history    | No       |         | list      | Conversation history (first message must be system)|
-| model                   | No       |         | string    | Model name to use                                |
-
-**workload_health_result** object:
-- `analysis` (string, optional): Previous analysis
-- `tools` (list, optional): Tools used/results
-
-#### Example
-```bash
-curl -X POST http://<HOLMES-URL>/api/workload_health_chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ask": "Check the workload health.",
-    "workload_health_result": {
-      "analysis": "Previous health check: all good.",
-      "tools": []
-    },
-    "resource": {"name": "my-deployment", "kind": "Deployment"},
-    "conversation_history": [
-      {"role": "system", "content": "You are a helpful assistant."}
-    ]
-  }'
-```
-
-#### Example Response
-```json
-{
-  "analysis": "The deployment 'my-deployment' is healthy. No recent issues detected.",
-  "conversation_history": [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Check the workload health."},
-    {"role": "assistant", "content": "The deployment 'my-deployment' is healthy. No recent issues detected."}
-  ],
-  "tool_calls": [...]
-}
-```
-
----
-
-### 5. `/api/issue_chat` (POST)
+### 4. `/api/issue_chat` (POST)
 **Description:** Conversational interface for discussing a specific issue or incident, with context from a previous investigation.
 
 #### Request Fields
+
 | Field                   | Required | Default | Type      | Description                                      |
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
 | ask                     | Yes      |         | string    | User's question                                  |
@@ -263,22 +212,82 @@ curl -X POST http://<HOLMES-URL>/api/issue_chat \
 
 ---
 
-### 6. `/api/chat` (POST)
-**Description:** General-purpose chat endpoint for interacting with the AI assistant. Supports open-ended questions and troubleshooting.
+### 5. `/api/workload_health_check` (POST)
+**Description:** Performs a health check on a specified workload (e.g., a Kubernetes deployment).
 
 #### Request Fields
-| Field                   | Required | Default | Type      | Description                                      |
-|-------------------------|----------|---------|-----------|--------------------------------------------------|
-| ask                     | Yes      |         | string    | User's question                                  |
-| conversation_history    | No       |         | list      | Conversation history (first message must be system)|
-| model                   | No       |         | string    | Model name to use                                |
+
+| Field                   | Required | Default                                    | Type      | Description                                      |
+|-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
+| ask                     | Yes      |                                            | string    | User's question                                  |
+| resource                | Yes      |                                            | object    | Resource details (e.g., name, kind)              |
+| alert_history_since_hours| No       | 24                                         | float     | How many hours back to check alerts              |
+| alert_history           | No       | true                                       | boolean   | Whether to include alert history                 |
+| stored_instructions     | No       | true                                       | boolean   | Use stored instructions                          |
+| instructions            | No       | []                                         | list      | Additional instructions                          |
+| include_tool_calls      | No       | false                                      | boolean   | Include tool calls in response                   |
+| include_tool_call_results| No       | false                                      | boolean   | Include tool call results in response            |
+| prompt_template         | No       | "builtin://kubernetes_workload_ask.jinja2" | string    | Prompt template to use                           |
+| model                   | No       |                                            | string    | Model name to use                                |
 
 #### Example
 ```bash
-curl -X POST http://<HOLMES-URL>/api/chat \
+curl -X POST http://<HOLMES-URL>/api/workload_health_check \
   -H "Content-Type: application/json" \
   -d '{
-    "ask": "What is the status of my cluster?",
+    "ask": "Why is my deployment unhealthy?",
+    "resource": {"name": "my-deployment", "kind": "Deployment"},
+    "alert_history_since_hours": 12
+  }'
+```
+
+#### Example Response
+```json
+{
+  "analysis": "Deployment 'my-deployment' is unhealthy due to repeated CrashLoopBackOff events.",
+  "sections": null,
+  "tool_calls": [
+    {
+      "tool_call_id": "2",
+      "tool_name": "kubectl_get_events",
+      "description": "Fetch recent events",
+      "result": {"events": "..."}
+    }
+  ],
+  "instructions": [...]
+}
+```
+
+---
+
+### 6. `/api/workload_health_chat` (POST)
+**Description:** Conversational interface for discussing the health of a workload.
+
+#### Request Fields
+
+| Field                   | Required | Default | Type      | Description                                      |
+|-------------------------|----------|---------|-----------|--------------------------------------------------|
+| ask                     | Yes      |         | string    | User's question                                  |
+| workload_health_result  | Yes      |         | object    | Previous health check result (see below)         |
+| resource                | Yes      |         | object    | Resource details                                 |
+| conversation_history    | No       |         | list      | Conversation history (first message must be system)|
+| model                   | No       |         | string    | Model name to use                                |
+
+**workload_health_result** object:
+- `analysis` (string, optional): Previous analysis
+- `tools` (list, optional): Tools used/results
+
+#### Example
+```bash
+curl -X POST http://<HOLMES-URL>/api/workload_health_chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ask": "Check the workload health.",
+    "workload_health_result": {
+      "analysis": "Previous health check: all good.",
+      "tools": []
+    },
+    "resource": {"name": "my-deployment", "kind": "Deployment"},
     "conversation_history": [
       {"role": "system", "content": "You are a helpful assistant."}
     ]
@@ -288,14 +297,13 @@ curl -X POST http://<HOLMES-URL>/api/chat \
 #### Example Response
 ```json
 {
-  "analysis": "Your cluster is healthy. All nodes are ready and workloads are running as expected.",
+  "analysis": "The deployment 'my-deployment' is healthy. No recent issues detected.",
   "conversation_history": [
     {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "What is the status of my cluster?"},
-    {"role": "assistant", "content": "Your cluster is healthy. All nodes are ready and workloads are running as expected."}
+    {"role": "user", "content": "Check the workload health."},
+    {"role": "assistant", "content": "The deployment 'my-deployment' is healthy. No recent issues detected."}
   ],
-  "tool_calls": [...],
-  "follow_up_actions": [...]
+  "tool_calls": [...]
 }
 ```
 
@@ -315,4 +323,3 @@ curl http://<HOLMES-URL>/api/model
   "model_name": ["gpt-4o", "azure/gpt-4o", "robusta"]
 }
 ```
-
