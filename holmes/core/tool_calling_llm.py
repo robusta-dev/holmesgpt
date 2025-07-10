@@ -58,52 +58,6 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     return tool_response
 
 
-class ToolCallResult(BaseModel):
-    tool_call_id: str
-    tool_name: str
-    description: str
-    result: StructuredToolResult
-    size: Optional[int] = None
-
-    def as_tool_call_message(self):
-        content = format_tool_result_data(self.result)
-        if self.result.params:
-            content = (
-                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
-                + content
-            )
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "name": self.tool_name,
-            "content": content,
-        }
-
-    def as_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "tool_name": self.tool_name,
-            "description": self.description,
-            "role": "tool",
-            "result": result_dump,
-        }
-
-    def as_streaming_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "description": self.description,
-            "name": self.tool_name,
-            "result": result_dump,
-        }
-
-
 # TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
 # However, in practice it works because we reserve enough space for the output tokens that the minor inconsistency does not matter
 # We should fix this in the future
@@ -180,6 +134,52 @@ def truncate_messages_to_fit_context(
 
         remaining_space -= allocated_space
     return messages
+
+
+class ToolCallResult(BaseModel):
+    tool_call_id: str
+    tool_name: str
+    description: str
+    result: StructuredToolResult
+    size: Optional[int] = None
+
+    def as_tool_call_message(self):
+        content = format_tool_result_data(self.result)
+        if self.result.params:
+            content = (
+                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
+                + content
+            )
+        return {
+            "tool_call_id": self.tool_call_id,
+            "role": "tool",
+            "name": self.tool_name,
+            "content": content,
+        }
+
+    def as_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
+        return {
+            "tool_call_id": self.tool_call_id,
+            "tool_name": self.tool_name,
+            "description": self.description,
+            "role": "tool",
+            "result": result_dump,
+        }
+
+    def as_streaming_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
+        return {
+            "tool_call_id": self.tool_call_id,
+            "role": "tool",
+            "description": self.description,
+            "name": self.tool_name,
+            "result": result_dump,
+        }
 
 
 class LLMResult(BaseModel):
