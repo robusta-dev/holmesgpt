@@ -7,8 +7,6 @@ The HolmesGPT API provides endpoints for automated investigations, workload heal
 
 ## Endpoints
 
----
-
 ### 1. `/api/chat` (POST)
 **Description:** General-purpose chat endpoint for interacting with the AI assistant. Supports open-ended questions and troubleshooting.
 
