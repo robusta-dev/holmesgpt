@@ -2,9 +2,13 @@ user_prompt: "Other processes in the cluster are unable to reach my-http-app-dep
 tags:
   - chain-of-causation
   - k8s-misconfig
-expected_output: issue with the ingress setup or class
+expected_output:
+  - The reason is ingress class example-ingress-class does not exist
+  - Mentioning example-ingress-class 'may not exist' or similar is not enough
 before_test: kubectl apply -f./ingress_with_class.yaml
 after_test: kubectl delete -f./ingress_with_class.yaml
+#include_files:
+#  - ingress_runbook.md
 evaluation:
-  correctness: 0
-generate_mocks: False
+  correctness: 1
+generate_mocks: True

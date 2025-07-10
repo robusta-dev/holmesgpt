@@ -357,6 +357,7 @@ class ToolCallingLLM:
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+        raise Exception(f"too many steps {i}/{max_steps}")
 
     def _invoke_tool(
         self, tool_to_call: ChatCompletionMessageToolCall
