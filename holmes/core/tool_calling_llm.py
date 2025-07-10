@@ -67,11 +67,15 @@ class ToolCallResult(BaseModel):
 
     def as_tool_call_message(self):
         content = format_tool_result_data(self.result)
+        if self.result.params:
+            content = (
+                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
+                + content
+            )
         return {
             "tool_call_id": self.tool_call_id,
             "role": "tool",
             "name": self.tool_name,
-            "params": self.result.params,
             "content": content,
         }
 
