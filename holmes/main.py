@@ -76,6 +76,12 @@ opt_api_key: Optional[str] = typer.Option(
     help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_API_KEY)",
 )
 opt_model: Optional[str] = typer.Option(None, help="Model to use for the LLM")
+opt_fast_model: Optional[str] = typer.Option(
+    None, help="Optional fast model for summarization tasks"
+)
+opt_summarize_threshold: Optional[int] = typer.Option(
+    None, help="Minimum input length to trigger summarization (default: 1000)"
+)
 opt_config_file: Optional[Path] = typer.Option(
     DEFAULT_CONFIG_LOCATION,  # type: ignore
     "--config",
@@ -172,6 +178,8 @@ def ask(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
+    fast_model: Optional[str] = opt_fast_model,
+    summarize_threshold: Optional[int] = opt_summarize_threshold,
     config_file: Optional[Path] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     max_steps: Optional[int] = opt_max_steps,
@@ -233,6 +241,8 @@ def ask(
         config_file,
         api_key=api_key,
         model=model,
+        fast_model=fast_model,
+        summarize_threshold=summarize_threshold,
         max_steps=max_steps,
         custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,
