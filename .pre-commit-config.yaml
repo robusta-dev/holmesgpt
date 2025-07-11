@@ -13,7 +13,6 @@ repos:
       - id: ruff
         entry: ruff check --fix
       - id: ruff-format
-        exclude: .github/
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
