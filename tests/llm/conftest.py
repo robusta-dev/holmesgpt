@@ -7,6 +7,17 @@ from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
 
+from tests.llm.utils import summary_plugin
+
+
+# Register the plugin explicitly in pytest_configure
+def pytest_configure(config):
+    """Register our custom plugins"""
+    summary_plugin.pytest_configure(config)
+
+    # Suppress noisy LiteLLM logs during testing
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+
 
 @contextmanager
 def force_pytest_output(request):
