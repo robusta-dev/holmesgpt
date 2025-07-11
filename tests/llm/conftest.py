@@ -163,7 +163,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     if correctness_score == 1:
                         successful_test_cases += 1
                         status_text = ":white_check_mark:"
-                        print(f"DEBUG: {span_name} -> SUCCESS (correctness_score == 1)")
                     elif correctness_score >= expected_correctness_score:
                         status_text = ":warning:"
                     rows.append(
