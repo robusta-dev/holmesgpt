@@ -136,7 +136,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         caplog=caplog,
     )
     print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
+        f"\nCORRECTNESS:\nscore = {correctness_eval.score}\nRATIONALE:\n{correctness_eval.metadata.get('rationale', '')}"
     )
 
     scores["correctness"] = correctness_eval.score
@@ -158,11 +158,9 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
 
-    if test_case.evaluation.correctness:
-        expected_correctness = test_case.evaluation.correctness
-        if isinstance(expected_correctness, Evaluation):
-            expected_correctness = expected_correctness.expected_score
-        assert scores.get("correctness", 0) >= expected_correctness
+    assert (
+        int(scores.get("correctness", 0)) == 1
+    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {debug_expected}"
 
 
 def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLMResult:
