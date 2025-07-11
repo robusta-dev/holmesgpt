@@ -21,7 +21,7 @@ def load_prompt(prompt: str) -> str:
     else:
         return prompt
 
-    return open(path).read()
+    return open(path, encoding="utf-8").read()
 
 
 def load_and_render_prompt(prompt: str, context: Optional[dict] = None) -> str:
