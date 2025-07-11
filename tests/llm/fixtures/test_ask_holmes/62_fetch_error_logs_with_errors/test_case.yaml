@@ -1,0 +1,9 @@
+user_prompt: "post last 10 logs that contain \"ERROR\" from payment-service in production-62 namespace"
+expected_output: "ERROR: Failed to connect to database"
+before_test: 'kubectl apply -f ./manifest.yaml'
+after_test: 'kubectl delete -f ./manifest.yaml'
+evaluation:
+  correctness: 1
+generate_mocks: False
+tags:
+  - logs
