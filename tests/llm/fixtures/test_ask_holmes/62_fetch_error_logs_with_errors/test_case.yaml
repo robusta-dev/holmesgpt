@@ -18,6 +18,6 @@ before_test: 'kubectl apply -f ./manifest.yaml'
 after_test: 'kubectl delete -f ./manifest.yaml'
 evaluation:
   correctness: 1
-generate_mocks: False
+generate_mocks: True
 tags:
   - logs
