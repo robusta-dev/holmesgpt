@@ -1,0 +1,161 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-61
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-611
+---
+# Pods in test-61 namespace (6 pods)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker-alpha
+  namespace: test-61
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker-beta
+  namespace: test-61
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: service-gamma
+  namespace: test-61
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: service-delta
+  namespace: test-61
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: queue-epsilon
+  namespace: test-61
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monitor-zeta
+  namespace: test-61
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+# Pods in test-611 namespace (9 pods)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-one
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-two
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-three
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backend-one
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backend-two
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: database-primary
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: database-replica
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cache-server
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: load-balancer
+  namespace: test-611
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
