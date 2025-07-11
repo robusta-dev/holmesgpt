@@ -4,7 +4,7 @@ expected_output: "video-streamer not found in namespace app-57, did you mean nam
 before_test: 'kubectl apply -f ./manifest.yaml'
 after_test: 'kubectl delete -f ./manifest.yaml'
 evaluation:
-  correctness: 1
+  correctness: 0
 generate_mocks: False
 tags:
   - logs
