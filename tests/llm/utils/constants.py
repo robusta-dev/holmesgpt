@@ -17,5 +17,6 @@ ALLOWED_EVAL_TAGS = Literal[
     "misleading-history",  # An eval with misleading historical data
     "k8s-misconfig",  # An eval related to Kubernetes misconfigurations
     "chain-of-causation",  # An eval that tests chain-of-causation analysis
-    "slackbot",  # An eval related to Slack bot functionality
+    "slackbot",  # An eval related to Slack bot functionality,
+    "understanding-real-intent",  # understand the user's real intent behind a question, don't just give a technicaly correct answer that is not useful
 ]
