@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production-65
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-processor
+  namespace: production-65
+  labels:
+    app: payment-processor
+    version: v2.1.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-processor
+  template:
+    metadata:
+      labels:
+        app: payment-processor
+    spec:
+      containers:
+      - name: payment-processor
+        image: busybox:1.35
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          echo "$(date) INFO: Payment processor starting up"
+          echo "$(date) INFO: Loading payment gateway configuration"
+          echo "$(date) INFO: Connecting to payment APIs"
+          echo "$(date) INFO: Payment gateway connection established"
+          echo "$(date) INFO: Initializing fraud detection engine"
+          echo "$(date) INFO: Fraud detection engine ready"
+          echo "$(date) INFO: Running payment processor health checks"
+          echo "$(date) INFO: All payment systems operational"
+          echo "$(date) INFO: Ready to process payments"
+          echo "$(date) INFO: Payment processor fully initialized"
+          while true; do
+            echo "$(date) INFO: Payment processor heartbeat - all systems healthy"
+            echo "$(date) INFO: Processed 10 payments successfully"
+            echo "$(date) INFO: Payment queue size: 0"
+            echo "$(date) INFO: All payment gateways responding normally"
+            sleep 60
+          done
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8443
+          name: https
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "32Mi"
+            cpu: "10m"

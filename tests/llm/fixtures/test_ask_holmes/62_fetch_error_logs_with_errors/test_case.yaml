@@ -1,0 +1,23 @@
+user_prompt: "post last 10 logs that contain \"ERROR\" from payment-service in production-62 namespace"
+expected_output: |
+  The following logs are shown:
+    ERROR: Failed to connect to database: connection timeout
+    ERROR: Retrying database connection...
+    ERROR: Database connection failed after 3 retries
+    ERROR: Backup database also unavailable
+    ERROR: Application cannot start without database
+
+  The following log is NOT shown:
+    INFO: Application starting up
+    WARN: Database connection slow
+
+  The following log MAY be shown (it does not impact the correctness of the test):
+    FATAL: Shutting down application
+
+before_test: 'kubectl apply -f ./manifest.yaml'
+after_test: 'kubectl delete -f ./manifest.yaml'
+evaluation:
+  correctness: 1
+generate_mocks: True
+tags:
+  - logs
