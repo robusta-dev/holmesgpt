@@ -92,7 +92,9 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
+def test_investigate(
+    experiment_name: str, test_case: InvestigateTestCase, caplog, request
+):
     dataset_name = braintrust_util.get_dataset_name("investigate")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -171,6 +173,16 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     print(f"\n** TOOLS CALLED **\n{tools_called}")
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
+
+    # Store data for summary plugin
+    request.node.user_properties.append(("expected", debug_expected))
+    request.node.user_properties.append(("actual", output or ""))
+    request.node.user_properties.append(
+        (
+            "tools_called",
+            tools_called if isinstance(tools_called, list) else [str(tools_called)],
+        )
+    )
 
     assert result.sections, "Missing sections"
     assert (
