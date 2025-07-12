@@ -5,6 +5,7 @@ import re
 import shlex
 import subprocess
 import tempfile
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
@@ -13,11 +14,10 @@ from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Unio
 from jinja2 import Template
 from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
 from rich.console import Console
+from rich.table import Table
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
-import time
-from rich.table import Table
 
 
 class ToolResultStatus(str, Enum):
@@ -401,7 +401,7 @@ class Toolset(BaseModel):
 
         return interpolated_command
 
-    def check_prerequisites(self):
+    def check_prerequisites(self, log_toolset_status: bool = True) -> None:
         self.status = ToolsetStatusEnum.ENABLED
 
         for prereq in self.prerequisites:
@@ -439,7 +439,7 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 try:
-                    (enabled, error_message) = prereq.callable(self.config)
+                    (enabled, error_message) = prereq.callable(self.config)  # type: ignore
                     if not enabled:
                         self.status = ToolsetStatusEnum.FAILED
                     if error_message:
@@ -452,11 +452,12 @@ class Toolset(BaseModel):
                 self.status == ToolsetStatusEnum.DISABLED
                 or self.status == ToolsetStatusEnum.FAILED
             ):
-                logging.info(f"❌ Toolset {self.name}: {self.error}")
+                if log_toolset_status:
+                    logging.info(f"❌ Toolset {self.name}: {self.error}")
                 # no point checking further prerequisites if one failed
                 return
-
-        logging.info(f"✅ Toolset {self.name}")
+        if log_toolset_status:
+            logging.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
