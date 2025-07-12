@@ -112,6 +112,7 @@ class Config(RobustaBaseConfig):
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
 
+    mcp_servers: Optional[dict[str, dict[str, Any]]] = None
     _server_tool_executor: Optional[ToolExecutor] = None
 
     _version: Optional[str] = None
@@ -139,6 +140,7 @@ class Config(RobustaBaseConfig):
         if not self._toolset_manager:
             self._toolset_manager = ToolsetManager(
                 toolsets=self.toolsets,
+                mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
             )
