@@ -171,14 +171,6 @@ class SummaryPlugin:
         # Generate table with analysis included
         self._print_summary_table(self.test_results)
 
-    def _is_counting_test(self, test_id: str) -> bool:
-        """Check if this is a counting test (basic heuristic)"""
-        # For ask_holmes tests, these are the counting test IDs
-        ask_holmes_counting_test_ids = ["01", "58", "59", "60", "61"]
-        return test_id in ask_holmes_counting_test_ids or any(
-            test_id.startswith(tid) for tid in ask_holmes_counting_test_ids
-        )
-
     def _print_summary_table(self, test_results: Dict[str, TestResult]):
         """Print formatted summary table"""
         import textwrap
