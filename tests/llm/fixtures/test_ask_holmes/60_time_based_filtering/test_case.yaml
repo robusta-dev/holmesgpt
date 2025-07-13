@@ -8,6 +8,5 @@ after_test: |
   kubectl delete -f manifests.yaml --ignore-not-found=true
 evaluation:
   correctness: 1
-generate_mocks: true
 tags:
   - counting
