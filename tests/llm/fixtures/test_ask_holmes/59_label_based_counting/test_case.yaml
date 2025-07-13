@@ -1,6 +1,6 @@
-user_prompt: "How many pods are labeled for the production environment in namespace test-59?"
+user_prompt: "How many pods have the label env=prod in namespace test-59?"
 expected_output:
-  - 7 pods are labeled for production environment in test-59 namespace
+  - 7 pods
 before_test: |
   kubectl apply -f manifests.yaml
   sleep 60

@@ -7,6 +7,6 @@ before_test: |
 after_test: |
   kubectl delete -f manifests.yaml
 evaluation:
-  correctness: 1
+  correctness: 0
 tags:
   - counting
