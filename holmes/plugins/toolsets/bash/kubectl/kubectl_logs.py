@@ -16,5 +16,5 @@ def create_kubectl_logs_parser(kubectl_parser: Any):
 
 def stringify_logs_command(cmd: Any) -> str:
     raise ValueError(
-        "Use the tools `kubectl_logs`, `kubectl_previous_logs`, etc. to fetch logs instead of running `kubectl logs` commands"
+        "Use the tool `fetch_pod_logs` to fetch logs instead of running `kubectl logs` commands"
     )

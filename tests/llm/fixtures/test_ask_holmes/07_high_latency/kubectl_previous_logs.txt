@@ -1,7 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_previous_logs","match_params":{"pod_name":"customer-orders-766b65899b-lwqnt","namespace":"default"}}
-Command `kubectl logs customer-orders-766b65899b-lwqnt -n default --previous` failed with return code 1
-stdout:
-
-stderr:
-Defaulted container "fastapi-app" out of: fastapi-app, curl-sidecar
-Error from server (BadRequest): previous terminated container "fastapi-app" in pod "customer-orders-766b65899b-lwqnt" not found

@@ -30,13 +30,15 @@ from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
-from holmes.core.tools import StructuredToolResult, ToolExecutor, ToolResultStatus
+from holmes.core.safeguards import prevent_overly_repeated_tool_call
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -56,6 +58,84 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     return tool_response
 
 
+# TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
+# However, in practice it works because we reserve enough space for the output tokens that the minor inconsistency does not matter
+# We should fix this in the future
+# TODO: we truncate using character counts not token counts - this means we're overly agressive with truncation - improve it by considering
+# token truncation and not character truncation
+def truncate_messages_to_fit_context(
+    messages: list, max_context_size: int, maximum_output_token: int, count_tokens_fn
+) -> list:
+    """
+    Helper function to truncate tool messages to fit within context limits.
+
+    Args:
+        messages: List of message dictionaries with roles and content
+        max_context_size: Maximum context window size for the model
+        maximum_output_token: Maximum tokens reserved for model output
+        count_tokens_fn: Function to count tokens for a list of messages
+
+    Returns:
+        Modified list of messages with truncated tool responses
+
+    Raises:
+        Exception: If non-tool messages exceed available context space
+    """
+    messages_except_tools = [
+        message for message in messages if message["role"] != "tool"
+    ]
+    message_size_without_tools = count_tokens_fn(messages_except_tools)
+
+    tool_call_messages = [message for message in messages if message["role"] == "tool"]
+
+    if message_size_without_tools >= (max_context_size - maximum_output_token):
+        logging.error(
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
+        )
+        raise Exception(
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - maximum_output_token} tokens available for input."
+        )
+
+    if len(tool_call_messages) == 0:
+        return messages
+
+    available_space = (
+        max_context_size - message_size_without_tools - maximum_output_token
+    )
+    remaining_space = available_space
+    tool_call_messages.sort(key=lambda x: len(x["content"]))
+
+    # Allocate space starting with small tools and going to larger tools, while maintaining fairness
+    # Small tools can often get exactly what they need, while larger tools may need to be truncated
+    # We ensure fairness (no tool gets more than others that need it) and also maximize utilization (we don't leave space unused)
+    for i, msg in enumerate(tool_call_messages):
+        remaining_tools = len(tool_call_messages) - i
+        max_allocation = remaining_space // remaining_tools
+        needed_space = len(msg["content"])
+        allocated_space = min(needed_space, max_allocation)
+
+        if needed_space > allocated_space:
+            truncation_notice = "\n\n[TRUNCATED]"
+            # Ensure the indicator fits in the allocated space
+            if allocated_space > len(truncation_notice):
+                msg["content"] = (
+                    msg["content"][: allocated_space - len(truncation_notice)]
+                    + truncation_notice
+                )
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
+                )
+            else:
+                msg["content"] = truncation_notice[:allocated_space]
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
+                )
+            msg.pop("token_count", None)  # Remove token_count if present
+
+        remaining_space -= allocated_space
+    return messages
+
+
 class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
@@ -65,6 +145,11 @@ class ToolCallResult(BaseModel):
 
     def as_tool_call_message(self):
         content = format_tool_result_data(self.result)
+        if self.result.params:
+            content = (
+                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
+                + content
+            )
         return {
             "tool_call_id": self.tool_call_id,
             "role": "tool",
@@ -266,21 +351,26 @@ class ToolCallingLLM:
                 futures = []
                 for t in tools_to_call:
                     logging.debug(f"Tool to call: {t}")
-                    futures.append(executor.submit(self._invoke_tool, t))
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,
+                            previous_tool_calls=tool_calls,
+                        )
+                    )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_call_response = tool_call_result.as_tool_result_response()
-
-                    tool_calls.append(tool_call_response)
-
+                    tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
     def _invoke_tool(
-        self, tool_to_call: ChatCompletionMessageToolCall
+        self,
+        tool_to_call: ChatCompletionMessageToolCall,
+        previous_tool_calls: list[dict],
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = None
@@ -310,7 +400,13 @@ class ToolCallingLLM:
 
         tool_response = None
         try:
-            tool_response = tool.invoke(tool_params)
+            tool_response = prevent_overly_repeated_tool_call(
+                tool_name=tool.name,
+                tool_params=tool_params,
+                tool_calls=previous_tool_calls,
+            )
+            if not tool_response:
+                tool_response = tool.invoke(tool_params)
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
@@ -383,39 +479,12 @@ class ToolCallingLLM:
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
     ) -> list:
-        messages_except_tools = [
-            message for message in messages if message["role"] != "tool"
-        ]
-        message_size_without_tools = self.llm.count_tokens_for_message(
-            messages_except_tools
+        return truncate_messages_to_fit_context(
+            messages,
+            max_context_size,
+            maximum_output_token,
+            self.llm.count_tokens_for_message,
         )
-
-        tool_call_messages = [
-            message for message in messages if message["role"] == "tool"
-        ]
-
-        if message_size_without_tools >= (max_context_size - maximum_output_token):
-            logging.error(
-                f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
-            )
-            raise Exception(
-                f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
-            )
-
-        tool_size = min(
-            10000,
-            int(
-                (max_context_size - message_size_without_tools - maximum_output_token)
-                / len(tool_call_messages)
-            ),
-        )
-
-        for message in messages:
-            if message["role"] == "tool" and len(message["content"]) > tool_size:
-                message["content"] = message["content"][:tool_size]
-                if "token_count" in message:
-                    del message["token_count"]
-        return messages
 
     def call_stream(
         self,
@@ -466,6 +535,7 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
+        tool_calls: list[dict] = []
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -559,13 +629,16 @@ class ToolCallingLLM:
                         return
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
+                logging.exception("Bad completion request")
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
                     )
+                raise e
             except Exception:
+                logging.exception("Completion request exception")
                 raise
 
             messages.append(
@@ -578,7 +651,13 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for t in tools_to_call:  # type: ignore
-                    futures.append(executor.submit(self._invoke_tool, t))  # type: ignore
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,  # type: ignore
+                            previous_tool_calls=tool_calls,
+                        )
+                    )
                     yield create_sse_message(
                         "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
@@ -586,9 +665,8 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    message_to_append = tool_call_result.as_tool_call_message()
-
-                    messages.append(message_to_append)
+                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
@@ -601,7 +679,7 @@ class ToolCallingLLM:
                     )
 
 
-# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
+# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes_cli.py
 class IssueInvestigator(ToolCallingLLM):
     """
     Thin wrapper around ToolCallingLLM which:

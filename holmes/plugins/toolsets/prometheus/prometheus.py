@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests  # type: ignore
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from requests import RequestException
 
 from holmes.core.tools import (
@@ -48,6 +48,12 @@ class PrometheusConfig(BaseModel):
     headers: Dict = {}
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
+
+    @field_validator("prometheus_url")
+    def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.endswith("/"):
+            return v + "/"
+        return v
 
 
 class BasePrometheusTool(Tool):
@@ -305,7 +311,7 @@ class ListPrometheusRules(BasePrometheusTool):
 
             prometheus_url = self.toolset.config.prometheus_url
 
-            rules_url = urljoin(prometheus_url, "/api/v1/rules")
+            rules_url = urljoin(prometheus_url, "api/v1/rules")
 
             rules_response = requests.get(
                 url=rules_url,
@@ -450,7 +456,7 @@ class ListAvailableMetrics(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'list available prometheus metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
+        return f'Search Available Prometheus Metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
 
 
 class ExecuteInstantQuery(BasePrometheusTool):
@@ -561,7 +567,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
     def get_parameterized_one_liner(self, params) -> str:
         query = params.get("query")
         description = params.get("description")
-        return f"Prometheus query. query={query}, description={description}"
+        return f"Execute Prometheus Query (instant): promql='{query}', description='{description}'"
 
 
 class ExecuteRangeQuery(BasePrometheusTool):
@@ -710,7 +716,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
         end = params.get("end")
         step = params.get("step")
         description = params.get("description")
-        return f"Prometheus query_range. query={query}, start={start}, end={end}, step={step}, description={description}"
+        return f"Execute Prometheus Query (range): promql='{query}', start={start}, end={end}, step={step}, description='{description}'"
 
 
 class PrometheusToolset(Toolset):

@@ -15,10 +15,16 @@ from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CON
 from holmes.core.llm import LLM, DefaultLLM
 from holmes.core.runbooks import RunbookManager
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM, ToolExecutor
+from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.destinations.slack import SlackDestination
-from holmes.plugins.runbooks import load_builtin_runbooks, load_runbooks_from_file
+from holmes.plugins.runbooks import (
+    RunbookCatalog,
+    load_builtin_runbooks,
+    load_runbook_catalog,
+    load_runbooks_from_file,
+)
 from holmes.plugins.sources.github import GitHubSource
 from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
 from holmes.plugins.sources.opsgenie import OpsGenieSource
@@ -115,11 +121,18 @@ class Config(RobustaBaseConfig):
 
     @property
     def is_latest_version(self) -> bool:
-        if self._holmes_info and self._holmes_info.latest_version and self._version:
-            return self._version.startswith(self._holmes_info.latest_version)
+        if (
+            not self._holmes_info
+            or not self._holmes_info.latest_version
+            or not self._version
+        ):
+            # We couldn't resolve version, assume we are running the latest version
+            return True
+        if self._version.startswith("dev-"):
+            # dev versions are considered to be the latest version
+            return True
 
-        # We couldn't resolve version, assume we are running the latest version
-        return True
+        return self._version.startswith(self._holmes_info.latest_version)
 
     @property
     def toolset_manager(self) -> ToolsetManager:
@@ -139,14 +152,14 @@ class Config(RobustaBaseConfig):
             self._model_list["Robusta"] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
+
+    def log_useful_info(self):
         if self._model_list:
             logging.info(f"loaded models: {list(self._model_list.keys())}")
 
         if not self.is_latest_version and self._holmes_info:
             logging.warning(
-                "You are running version %s of holmes, but the latest version is %s. Please update to the latest version.",
-                self._version,
-                self._holmes_info.latest_version,
+                f"You are running version {self._version} of holmes, but the latest version is {self._holmes_info.latest_version}. Please update.",
             )
 
     @classmethod
@@ -169,12 +182,15 @@ class Config(RobustaBaseConfig):
         cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
 
         if config_from_file is None:
-            return cls(**cli_options)
+            result = cls(**cli_options)
+        else:
+            logging.debug(f"Overriding config from cli options {cli_options}")
+            merged_config = config_from_file.dict()
+            merged_config.update(cli_options)
+            result = cls(**merged_config)
 
-        logging.debug(f"Overriding config from cli options {cli_options}")
-        merged_config = config_from_file.dict()
-        merged_config.update(cli_options)
-        return cls(**merged_config)
+        result.log_useful_info()
+        return result
 
     @classmethod
     def load_from_env(cls):
@@ -204,7 +220,9 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
         kwargs["cluster_name"] = Config.__get_cluster_name()
-        return cls(**kwargs)
+        result = cls(**kwargs)
+        result.log_useful_info()
+        return result
 
     @staticmethod
     def __get_cluster_name() -> Optional[str]:
@@ -224,6 +242,12 @@ class Config(RobustaBaseConfig):
             return config.global_config.get("cluster_name")
 
         return None
+
+    @staticmethod
+    def get_runbook_catalog() -> Optional[RunbookCatalog]:
+        # TODO(mainred): besides the built-in runbooks, we need to allow the user to bring their own runbooks
+        runbook_catalog = load_runbook_catalog()
+        return runbook_catalog
 
     def create_console_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         """

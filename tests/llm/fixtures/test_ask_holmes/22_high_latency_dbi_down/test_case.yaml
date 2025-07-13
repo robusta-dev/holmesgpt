@@ -1,6 +1,8 @@
 # this requires first creating a secret w/ credentials for the RDS database
 # for instructions, see "Credentials for HolmesGPT RDS AI Test" in 1Password, but change the secret name to db-secrets-for-medium and the db to "promotions-db-for-medium"
 user_prompt: "Why is there high latency with the customer-orders-for-medium deployment?"
+tags:
+  - chain-of-causation
 expected_output:
   - The reason for failure is promotions-db-for-medium.cp8rwothwarq.us-east-2.rds.amazonaws.com is down, stopped, or in unavailable state.
 before_test: |
@@ -10,5 +12,5 @@ before_test: |
 after_test: |
   kubectl delete -f ./slow-rds-query-for-medium.yaml
 evaluation:
-  correctness: 1
+  correctness: 0
 generate_mocks: False

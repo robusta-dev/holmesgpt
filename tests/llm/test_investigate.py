@@ -6,11 +6,11 @@ from typing import Optional
 import pytest
 
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import ToolExecutor
 from tests.llm.utils.classifiers import (
     evaluate_correctness,
     evaluate_sections,
@@ -21,8 +21,10 @@ from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
 from os import path
-from braintrust.span_types import SpanTypeAttribute
+from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
+
+from tests.llm.utils.tags import add_tags_to_eval
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -30,14 +32,16 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase):
+    def __init__(self, test_case: InvestigateTestCase, parent_span: Span):
         super().__init__()
         self._test_case = test_case
+        self._parent_span = parent_span
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         mock = MockToolsets(
             generate_mocks=self._test_case.generate_mocks,
             test_case_folder=self._test_case.folder,
+            parent_span=self._parent_span,
         )
 
         expected_tools = []
@@ -67,11 +71,16 @@ def get_test_cases():
         test_cases_tuples = []
         for i in range(0, iterations):
             test_cases_tuples.extend(
-                [(experiment_name, test_case) for test_case in test_cases]
+                [
+                    add_tags_to_eval(experiment_name, test_case)
+                    for test_case in test_cases
+                ]
             )
         return test_cases_tuples
     else:
-        return [(experiment_name, test_case) for test_case in test_cases]
+        return [
+            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
+        ]
 
 
 def idfn(val):
@@ -83,8 +92,14 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
-    config = MockConfig(test_case)
+def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
+    dataset_name = braintrust_util.get_dataset_name("investigate")
+    bt_helper = braintrust_util.BraintrustEvalHelper(
+        project_name=PROJECT, dataset_name=dataset_name
+    )
+    eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+
+    config = MockConfig(test_case, eval_span)
     config.model = os.environ.get("MODEL", "gpt-4o")
 
     mock_dal = MockSupabaseDal(
@@ -101,12 +116,6 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
     metadata = get_machine_state_tags()
     metadata["model"] = config.model or "Unknown"
 
-    dataset_name = braintrust_util.get_dataset_name("investigate")
-    bt_helper = braintrust_util.BraintrustEvalHelper(
-        project_name=PROJECT, dataset_name=dataset_name
-    )
-    eval = bt_helper.start_evaluation(experiment_name, name=test_case.id)
-
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:
         investigate_request.sections = DEFAULT_SECTIONS
@@ -114,29 +123,11 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
     with patch.dict(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
-        result = investigate_issues(
-            investigate_request=investigate_request, config=config, dal=mock_dal
-        )
+        with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+            result = investigate_issues(
+                investigate_request=investigate_request, config=config, dal=mock_dal
+            )
     assert result, "No result returned by investigate_issues()"
-    for tool_call in result.tool_calls:
-        # TODO: mock this instead so span start time & end time will be accurate.
-        # Also to include calls to llm spans
-        with eval.start_span(
-            name=tool_call.tool_name, type=SpanTypeAttribute.TOOL
-        ) as tool_span:
-            # TODO: remove this after FE is ready
-            if isinstance(tool_call.result, dict):
-                tool_span.log(
-                    input=tool_call.description,
-                    output=tool_call.result.model_dump_json(indent=2),
-                    error=tool_call.result.error,
-                )
-            else:
-                tool_span.log(
-                    input=tool_call.description,
-                    output=tool_call.result,
-                    error=tool_call.result.error,
-                )
 
     output = result.analysis
 
@@ -145,50 +136,36 @@ def test_investigate(experiment_name, test_case: InvestigateTestCase, caplog):
     debug_expected = "\n-  ".join(expected)
 
     print(f"** EXPECTED **\n-  {debug_expected}")
-    with eval.start_span(
-        name="Correctness", type=SpanTypeAttribute.SCORE
-    ) as correctness_span:
-        correctness_eval = evaluate_correctness(
-            output=output,
-            expected_elements=expected,
-            caplog=caplog,
-            evaluation_type="strict",
-        )
-        print(
-            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-        )
-        scores["correctness"] = correctness_eval.score
-        correctness_span.log(
-            scores={
-                "correctness": correctness_eval.score,
-            },
-            metadata=correctness_eval.metadata,
-        )
+    correctness_eval = evaluate_correctness(
+        output=output,
+        expected_elements=expected,
+        parent_span=eval_span,
+        caplog=caplog,
+        evaluation_type="strict",
+    )
+    print(
+        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
+    )
+    scores["correctness"] = correctness_eval.score
 
     if test_case.expected_sections:
-        with eval.start_span(
-            name="Sections", type=SpanTypeAttribute.SCORE
-        ) as sections_span:
-            sections = {
-                key: bool(value) for key, value in test_case.expected_sections.items()
-            }
-            sections_eval = evaluate_sections(sections=sections, output=output)
-            scores["sections"] = sections_eval.score
-            sections_span.log(
-                scores={
-                    "sections": sections_eval.score,
-                },
-                output=correctness_eval.metadata.get("rationale", ""),
-                metadata=sections_eval.metadata,
-            )
+        sections = {
+            key: bool(value) for key, value in test_case.expected_sections.items()
+        }
+        sections_eval = evaluate_sections(
+            sections=sections, output=output, parent_span=eval_span
+        )
+        scores["sections"] = sections_eval.score
 
-    if bt_helper and eval:
+    if bt_helper and eval_span:
         bt_helper.end_evaluation(
             input=input,
             output=output or "",
             expected=str(expected),
             id=test_case.id,
             scores=scores,
+            prompt=None,
+            tags=test_case.tags,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")

@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","keyword":"network-connector"}}
-stdout:
-default              network-connector                                        1/1     Running                      0               7s      10.244.0.30   kind-control-plane   <none>           <none>            <none>
-
-stderr:
