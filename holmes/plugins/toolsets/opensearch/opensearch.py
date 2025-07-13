@@ -160,7 +160,7 @@ class GetClusterHealth(BaseOpenSearchTool):
         )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"opensearch GetClusterSettings({params.get('host')})"
+        return f"opensearch GetClusterHealth({params.get('host')})"
 
 
 class ListOpenSearchHosts(BaseOpenSearchTool):
