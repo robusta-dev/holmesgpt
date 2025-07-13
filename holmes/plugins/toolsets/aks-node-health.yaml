@@ -4,6 +4,7 @@ toolsets:
     tags:
       - cli
     prerequisites:
+      - command: "az account show"
       - command: "az aks --help"
       - command: "kubectl version --client"
     tools:
@@ -47,3 +48,18 @@ toolsets:
         user_description: "check inbound network connectivity for AKS cluster {{ CLUSTER_NAME }} in resource group {{ RESOURCE_GROUP }}"
         command: |
           az aks check-network inbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
+      - name: "list_vmss_names"
+        description: |
+          Lists all VMSS names in the cluster node resource group.
+          Prerequisites: get_node_resource_group
+        user_description: "lists all VMSS names in {{ NODE_RESOURCE_GROUP }}"
+        command: |
+          az vmss list -g {{ NODE_RESOURCE_GROUP }} --query '[*].name' -o tsv --only-show-errors
+      - name: "vmss_run_command"
+        description: |
+          Execute a shell command on a specific VMSS VM instance using az vmss run-command.
+          VM_ID is the instance ID of the VMSS, which can be derived from node names.
+          Prerequisites: get_node_resource_group, list_vmss_names
+        user_description: "run command {{ SHELL_COMMAND }} on VM #{{ VM_ID }} of VMSS {{ VMSS_NAME }}"
+        command: |
+          az vmss run-command invoke --resource-group {{ NODE_RESOURCE_GROUP }} --name {{ VMSS_NAME }} --instance-id {{ VM_ID }} --command-id RunShellScript --scripts {{ SHELL_COMMAND }}

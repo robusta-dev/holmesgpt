@@ -25,6 +25,22 @@ class ToolResultStatus(str, Enum):
     ERROR = "error"
     NO_DATA = "no_data"
 
+    def to_color(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "green"
+        elif self == ToolResultStatus.ERROR:
+            return "red"
+        else:
+            return "white"
+
+    def to_emoji(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "✔"
+        elif self == ToolResultStatus.ERROR:
+            return "❌"
+        else:
+            return "⚪️"
+
 
 class StructuredToolResult(BaseModel):
     schema_version: str = "robusta:v1.0.0"
@@ -125,7 +141,7 @@ class Tool(ABC, BaseModel):
 
     def invoke(self, params: Dict) -> StructuredToolResult:
         logging.info(
-            f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
+            f"Running tool [bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
         )
         start_time = time.time()
         result = self._invoke(params)
@@ -136,9 +152,8 @@ class Tool(ABC, BaseModel):
             else str(result)
         )
         logging.info(
-            f"   Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n   {output_str[:80]!r}..."
+            f"  [dim]Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters[/dim]\n"
         )
-        # return format_tool_output(result)
         return result
 
     @abstractmethod

@@ -14,6 +14,7 @@ from holmes.core.tools import (
     ToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
+    YAMLToolset,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
@@ -261,6 +262,7 @@ class MockToolsets:
         self.add_params_to_mock_file = add_params_to_mock_file
         self._enable_builtin_toolsets(run_live)
         self._update()
+        self.run_live = run_live
 
     def _load_toolsets_definitions(self, run_live) -> List[Toolset]:
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
@@ -278,8 +280,9 @@ class MockToolsets:
         toolset_definitions = self._load_toolsets_definitions(run_live)
 
         for toolset in self.unmocked_toolsets:
-            if toolset.is_default:
+            if toolset.is_default or isinstance(toolset, YAMLToolset):
                 toolset.enabled = True
+
             definition = next(
                 (d for d in toolset_definitions if d.name == toolset.name), None
             )
@@ -333,7 +336,7 @@ class MockToolsets:
                 )
                 wrapped_tool = self._wrap_tool(tool=tool, toolset_name=toolset.name)
 
-                if len(mocks) > 0:
+                if len(mocks) > 0 and not self.run_live:
                     has_mocks = True
                     mock_tool = MockToolWrapper(
                         unmocked_tool=wrapped_tool, parent_span=self._parent_span
@@ -373,7 +376,7 @@ class MockToolsets:
 
 def sanitize_filename(original_file_name: str) -> str:
     """
-    Sanitizes a URL to create a valid filename.
+    Sanitizes a potential filename to create a valid filename.
     http(s)://... -> scheme is removed.
     Characters not suitable for filenames are replaced with underscores.
     """
@@ -404,5 +407,4 @@ def sanitize_filename(original_file_name: str) -> str:
     filename = filename.strip("_")
     filename = filename.strip(".")
 
-    # Convert to lowercase for consistency
-    return filename.lower()
+    return filename
