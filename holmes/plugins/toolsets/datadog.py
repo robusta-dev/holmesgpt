@@ -111,8 +111,8 @@ class GetLogs(BaseDatadogTool):
 
 
 class DatadogConfig(BaseModel):
-    dd_api_key: Optional[str] = None
-    dd_app_key: Optional[str] = None
+    dd_api_key: str
+    dd_app_key: str
 
 
 class DatadogToolset(Toolset):
@@ -135,16 +135,19 @@ class DatadogToolset(Toolset):
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
-            return False, ""
+            return (
+                False,
+                "Datadog toolset is misconfigured. 'dd_api_key' and 'dd_app_key' are required.",
+            )
 
         try:
             dd_config = DatadogConfig(**config)
             self.dd_api_key = dd_config.dd_api_key
             self.dd_app_key = dd_config.dd_app_key
-            return bool(self.dd_api_key and self.dd_app_key), ""
-        except Exception:
+            return True, ""
+        except Exception as e:
             logging.exception("Failed to set up Datadog toolset")
-            return False, ""
+            return (False, f"Failed to parse Datadog configuration: {str(e)}")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
