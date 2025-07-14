@@ -315,7 +315,11 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_tool_executor(dal)
         return IssueInvestigator(
-            tool_executor, runbook_manager, self.max_steps, self._get_llm(model, tracer)
+            tool_executor=tool_executor,
+            runbook_manager=runbook_manager,
+            max_steps=self.max_steps,
+            llm=self._get_llm(model, tracer),
+            cluster_name=self.cluster_name,
         )
 
     def create_console_issue_investigator(
@@ -328,7 +332,11 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_console_tool_executor(dal=dal)
         return IssueInvestigator(
-            tool_executor, runbook_manager, self.max_steps, self._get_llm()
+            tool_executor=tool_executor,
+            runbook_manager=runbook_manager,
+            max_steps=self.max_steps,
+            llm=self._get_llm(),
+            cluster_name=self.cluster_name,
         )
 
     def validate_jira_config(self):
