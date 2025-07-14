@@ -7,10 +7,10 @@ from typing import List, Optional, Pattern
 import humanize
 import requests  # type: ignore
 import rich
+import rich.segment
 from pydantic import parse_obj_as
 from pydantic.json import pydantic_encoder
 from requests.auth import HTTPBasicAuth  # type: ignore
-import rich.segment
 
 from holmes.core.issue import Issue
 from holmes.plugins.interfaces import SourcePlugin
@@ -70,7 +70,7 @@ class AlertManagerSource(SourcePlugin):
             logging.info(f"Filtering alerts by {self.label_filter}")
 
         if self.username is not None or self.password is not None:
-            auth = HTTPBasicAuth(self.username, self.password)
+            auth = HTTPBasicAuth(self.username, self.password)  # type: ignore
         else:
             auth = None
 
