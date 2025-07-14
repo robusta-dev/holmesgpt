@@ -2,9 +2,6 @@
 
 Connect HolmesGPT to DataDog for log analysis and metrics access from your DataDog dashboards.
 
-!!! warning "Logging Toolsets"
-    Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
-
 --8<-- "snippets/toolsets_that_provide_logging.md"
 
 ## Prerequisites

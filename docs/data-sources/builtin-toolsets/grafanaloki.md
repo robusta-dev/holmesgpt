@@ -13,9 +13,6 @@ Connect HolmesGPT to Loki for log analysis through Grafana or direct API access.
 - Loki instance with logs from your Kubernetes cluster
 - Grafana with Loki datasource configured (recommended) OR direct Loki API access
 
-!!! warning "Logging Toolsets"
-    Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
-
 --8<-- "snippets/toolsets_that_provide_logging.md"
 
 ## Configuration

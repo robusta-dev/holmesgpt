@@ -2,11 +2,6 @@
 
 By enabling this toolset, HolmesGPT will fetch pod logs from [Coralogix](https://coralogix.com/).
 
-You **should** enable this toolset to replace the default Kubernetes logs toolset if all your kubernetes pod logs are consolidated inside Coralogix. It will make it easier for HolmesGPT to fetch incident logs, including the ability to precisely consult past logs.
-
-!!! warning "Logging Toolsets"
-    Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
-
 --8<-- "snippets/toolsets_that_provide_logging.md"
 
 ## Prerequisites

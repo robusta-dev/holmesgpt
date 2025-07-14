@@ -8,9 +8,6 @@ Connect HolmesGPT to OpenSearch for centralized log analysis and historical log 
 - API key with read access to log indices
 - Network connectivity from HolmesGPT to OpenSearch
 
-!!! warning "Logging Toolsets"
-    Only one logging toolset should be enabled at a time. If you enable this toolset, disable the default `kubernetes/logs` toolset.
-
 --8<-- "snippets/toolsets_that_provide_logging.md"
 
 ## Configuration
