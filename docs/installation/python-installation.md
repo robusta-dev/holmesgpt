@@ -98,6 +98,6 @@ export HOLMES_LOG_LEVEL="INFO"
 
 ## Need Help?
 
-- Check the Python SDK examples in our repository for detailed API reference
-- Join our [Slack community](https://robustacommunity.slack.com){:target="_blank"}
-- Report issues on [GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}
+- **[Join our Slack](https://robustacommunity.slack.com){:target="_blank"}** - Get help from the community
+- **[Request features on GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}** - Suggest improvements or report bugs
+- **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions
