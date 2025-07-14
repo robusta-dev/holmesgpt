@@ -2,6 +2,8 @@
 
 AI Agent for Troubleshooting Cloud-Native Environments.
 
+![HolmesGPT Investigation](assets/HolmesInvestigation.gif)
+
 ## Quick Start
 
 <div class="grid cards" markdown>
