@@ -4,7 +4,7 @@ Extend HolmesGPT with custom integrations and contribute to the project.
 
 ## Available Development Guides
 
-- **[Contributing Guidelines](contributing.md)** - How to contribute to the HolmesGPT project
+- **[Contributing Guidelines](https://github.com/robusta-dev/holmesgpt/blob/master/CONTRIBUTING.md){:target="_blank"}** - How to contribute to the HolmesGPT project
 
 ## Evaluations
 
@@ -23,9 +23,8 @@ To start developing with HolmesGPT:
 
 ## Common Development Tasks
 
-
-### Contributing
 Help improve HolmesGPT:
+
 - Fix bugs and improve performance
 - Add new built-in toolsets
 - Enhance documentation
@@ -42,7 +41,7 @@ Help improve HolmesGPT:
 
 New to HolmesGPT development? Start with:
 
-1. **[Contributing Guidelines](contributing.md)** - Understand the development process
+1. **[Contributing Guidelines](https://github.com/robusta-dev/holmesgpt/blob/master/CONTRIBUTING.md){:target="_blank"}** - Understand the development process
 2. **[Evaluations Overview](evals/index.md)** - Learn about the evaluation framework
 
-Ready to contribute? Begin with [Contributing Guidelines](contributing.md).
+Ready to contribute? Begin with [Contributing Guidelines](https://github.com/robusta-dev/holmesgpt/blob/master/CONTRIBUTING.md){:target="_blank"}.

@@ -187,7 +187,6 @@ nav:
           - development/evals/index.md
           - Writing Evaluations: development/evals/writing.md
           - Reporting with Braintrust: development/evals/reporting.md
-      - Contributing Guidelines: development/contributing.md
 
   - Reference:
       - reference/helm-configuration.md
