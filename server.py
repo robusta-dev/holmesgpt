@@ -217,7 +217,28 @@ def workload_health_check(request: WorkloadHealthRequest):
             },
         )
 
-        structured_output = {"type": "json_object"}
+        structured_output = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "WorkloadHealthResult",
+                "strict": False,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "workload_healthy": {
+                            "type": "boolean",
+                            "description": "is the workload in healthy state or in error state",
+                        },
+                        "root_cause_summary": {
+                            "type": "string",
+                            "description": "concise short explaination leading to the workload_healthy result, pinpoint reason and root cause for the workload issues if any.",
+                        },
+                    },
+                    "required": ["root_cause_summary", "workload_healthy"],
+                    "additionalProperties": False,
+                },
+            },
+        }
         ai_call = ai.prompt_call(
             system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT, structured_output
         )
