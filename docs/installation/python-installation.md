@@ -96,21 +96,6 @@ export HOLMES_CONFIG_PATH="/path/to/config.yaml"
 export HOLMES_LOG_LEVEL="INFO"
 ```
 
-## Examples Repository
-
-Check out our [examples repository](https://github.com/robusta-dev/holmesgpt-examples){:target="_blank"} for:
-
-- **Flask integration** - Web app with Holmes
-- **Slack bot** - Custom Slack integration
-- **Jupyter notebooks** - Data analysis workflows
-- **CI/CD pipelines** - GitHub Actions examples
-
-## Next Steps
-
-- **[AI Provider Setup](../ai-providers/index.md)** - Configure your AI provider
-- **[Run Your First Investigation](../walkthrough/index.md)** - Complete walkthrough
-- **[Helm Configuration](../reference/helm-configuration.md)** - Advanced settings and custom toolsets
-
 ## Need Help?
 
 - Check the Python SDK examples in our repository for detailed API reference
