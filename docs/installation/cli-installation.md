@@ -73,74 +73,118 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
 ## Quick Start
 
-After installation, set up your [AI provider](../ai-providers/index.md) and run your first investigation:
+After installation, choose your AI provider and follow the steps below. See supported [AI Providers](../ai-providers/index.md) for more details.
 
-1. **Set up API key**:
+=== "OpenAI (Default)"
 
-    === "OpenAI"
+    1. **Set up API key**:
         ```bash
         export OPENAI_API_KEY="your-api-key"
         ```
 
-    === "Azure OpenAI"
+    2. **Create a test pod** to investigate:
+        ```bash
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+        ```
+
+    3. **Ask your first question**:
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?"
+        ```
+
+    Ask follow-up questions to refine your investigation
+
+=== "Azure OpenAI"
+
+    1. **Set up API key**:
         ```bash
         export AZURE_API_VERSION="2024-02-15-preview"
         export AZURE_API_BASE="https://your-resource.openai.azure.com/"
         export AZURE_API_KEY="your-azure-api-key"
         ```
 
-    === "Anthropic Claude"
+    2. **Create a test pod** to investigate:
+        ```bash
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+        ```
+
+    3. **Ask your first question**:
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="azure/<your-model-name>"
+        ```
+
+    Ask follow-up questions to refine your investigation
+
+=== "Anthropic Claude"
+
+    1. **Set up API key**:
         ```bash
         export ANTHROPIC_API_KEY="your-api-key"
         ```
 
-    === "Google Gemini"
+    2. **Create a test pod** to investigate:
+        ```bash
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+        ```
+
+    3. **Ask your first question**:
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="anthropic/<your-model-name>"
+        ```
+
+    Ask follow-up questions to refine your investigation
+
+=== "Google Gemini"
+
+    1. **Set up API key**:
         ```bash
         export GOOGLE_API_KEY="your-api-key"
         ```
 
-    === "AWS Bedrock"
+    2. **Create a test pod** to investigate:
+        ```bash
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+        ```
+
+    3. **Ask your first question**:
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="google/<your-model-name>"
+        ```
+
+    Ask follow-up questions to refine your investigation
+
+=== "AWS Bedrock"
+
+    1. **Set up API key**:
         ```bash
         export AWS_ACCESS_KEY_ID="your-access-key"
         export AWS_SECRET_ACCESS_KEY="your-secret-key"
         export AWS_DEFAULT_REGION="your-region"
         ```
 
-    See supported [AI Providers](../ai-providers/index.md) for more details.
-
-2. **Create a test pod** to investigate:
-```bash
-kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
-```
-
-3. **Ask your first question**:
-
-    === "OpenAI (Default)"
+    2. **Create a test pod** to investigate:
         ```bash
-        holmes ask "what is wrong with the user-profile-import pod?"
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
         ```
 
-    === "Azure OpenAI"
-        ```bash
-        holmes ask "what is wrong with the user-profile-import pod?" --model="azure/<your-model-name>"
-        ```
-
-    === "Anthropic Claude"
-        ```bash
-        holmes ask "what is wrong with the user-profile-import pod?" --model="anthropic/<your-model-name>"
-        ```
-
-    === "Google Gemini"
-        ```bash
-        holmes ask "what is wrong with the user-profile-import pod?" --model="google/<your-model-name>"
-        ```
-
-    === "AWS Bedrock"
+    3. **Ask your first question**:
         ```bash
         holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
         ```
 
-    === "Ollama"
+    Ask follow-up questions to refine your investigation
+
+=== "Ollama"
+
+    1. **Set up API key**:
+        No API key required for local Ollama installation.
+
+    2. **Create a test pod** to investigate:
+        ```bash
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+        ```
+
+    3. **Ask your first question**:
         ```bash
         holmes ask "what is wrong with the user-profile-import pod?" --model="ollama/<your-model-name>"
         ```
@@ -149,12 +193,11 @@ kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/
 
 ## Next Steps
 
-- **[AI Provider Setup](../ai-providers/index.md)** - Configure your AI provider
-- **[Run Your First Investigation](../walkthrough/index.md)** - Complete walkthrough with examples
-- **[Add integrations](../data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
-- **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions
+- **[Add Data Sources](../data-sources/index.md)** - Use built-in toolsets to connect with ArgoCD, Confluence, and monitoring tools
+- **[Connect Remote MCP](../data-sources/remote-mcp-servers.md)** - Extend capabilities with external MCP servers
 
 ## Need Help?
 
 - **[Join our Slack](https://robustacommunity.slack.com){:target="_blank"}** - Get help from the community
 - **[Request features on GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}** - Suggest improvements or report bugs
+- **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions
