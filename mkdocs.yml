@@ -184,7 +184,7 @@ nav:
           - Model Context Protocol: data-sources/builtin-toolsets/mcp.md
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
-      - Permissions: data-sources/permissions.md
+      - Adding Permissions for Additional Resources: data-sources/permissions.md
 
   - Development:
       - development/index.md
