@@ -76,22 +76,37 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 After installation, set up your [AI provider](../ai-providers/index.md) and run your first investigation:
 
 1. **Set up API key**:
-```bash
-# OpenAI
-export OPENAI_API_KEY="your-api-key"
 
-# Anthropic
-export ANTHROPIC_API_KEY="your-api-key"
+    === "OpenAI"
+        ```bash
+        export OPENAI_API_KEY="your-api-key"
+        ```
 
-# Azure OpenAI
-export AZURE_API_VERSION="2024-02-15-preview"
-export AZURE_API_BASE="https://your-resource.openai.azure.com/"
-export AZURE_API_KEY="your-azure-api-key"
+    === "Azure OpenAI"
+        ```bash
+        export AZURE_API_VERSION="2024-02-15-preview"
+        export AZURE_API_BASE="https://your-resource.openai.azure.com/"
+        export AZURE_API_KEY="your-azure-api-key"
+        ```
 
-# Google
-export GOOGLE_API_KEY="your-api-key"
-```
-See supported [AI Providers](../ai-providers/index.md) for more details.
+    === "Anthropic Claude"
+        ```bash
+        export ANTHROPIC_API_KEY="your-api-key"
+        ```
+
+    === "Google Gemini"
+        ```bash
+        export GOOGLE_API_KEY="your-api-key"
+        ```
+
+    === "AWS Bedrock"
+        ```bash
+        export AWS_ACCESS_KEY_ID="your-access-key"
+        export AWS_SECRET_ACCESS_KEY="your-secret-key"
+        export AWS_DEFAULT_REGION="your-region"
+        ```
+
+    See supported [AI Providers](../ai-providers/index.md) for more details.
 
 2. **Create a test pod** to investigate:
 ```bash
@@ -134,10 +149,10 @@ kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/
 
 ## Next Steps
 
-- **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
+- **[AI Provider Setup](../ai-providers/index.md)** - Configure your AI provider
 - **[Run Your First Investigation](../walkthrough/index.md)** - Complete walkthrough with examples
-- **[Add integrations](data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
-- **[Troubleshooting guide](reference/troubleshooting.md)** - Common issues and solutions
+- **[Add integrations](../data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
+- **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions
 
 ## Need Help?
 
