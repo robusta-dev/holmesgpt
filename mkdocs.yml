@@ -123,12 +123,6 @@ extra:
       link: https://twitter.com/RobustaDev
 
 nav:
-  # - Introduction:
-  #     - index.md
-  #     - Key Features: introduction/key-features.md
-  #     - Architecture Overview: introduction/architecture.md
-  #     - Getting Help: introduction/getting-help.md
-
   - Installation:
       - index.md
       - Install CLI: installation/cli-installation.md
