@@ -82,6 +82,13 @@ def llm_session_setup(request):
                 print("  poetry run pytest --no-cov -k 01_how_many_pods")
                 print()
                 print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
+                print()
+                print(
+                    "NOTE: Braintrust is disabled. To see LLM traces and results in Braintrust,"
+                )
+                print(
+                    "set BRAINTRUST_API_KEY environment variable with a key from https://braintrust.dev"
+                )
                 print("=" * 70 + "\n")
         else:
             with force_pytest_output(request):
