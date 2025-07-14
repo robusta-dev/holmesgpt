@@ -179,6 +179,8 @@ nav:
           - Azure Kubernetes Service: data-sources/builtin-toolsets/aks.md
           - AKS Node Health: data-sources/builtin-toolsets/aks-node-health.md
           - ServiceNow: data-sources/builtin-toolsets/servicenow.md
+          - Azure SQL Database: data-sources/builtin-toolsets/azure-sql.md
+          - MongoDB Atlas: data-sources/builtin-toolsets/mongodb-atlas.md
           - Model Context Protocol: data-sources/builtin-toolsets/mcp.md
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
@@ -194,4 +196,5 @@ nav:
 
   - Reference:
       - reference/helm-configuration.md
+      - HTTP API: reference/http-api.md
       - Troubleshooting: reference/troubleshooting.md
