@@ -154,34 +154,35 @@ nav:
       - data-sources/index.md
       - Built-in Toolsets:
           - data-sources/builtin-toolsets/index.md
+          - Model Context Protocol: data-sources/builtin-toolsets/mcp.md
+          - AKS Node Health: data-sources/builtin-toolsets/aks-node-health.md
           - ArgoCD: data-sources/builtin-toolsets/argocd.md
           - AWS: data-sources/builtin-toolsets/aws.md
+          - Azure Kubernetes Service: data-sources/builtin-toolsets/aks.md
+          - Azure SQL Database: data-sources/builtin-toolsets/azure-sql.md
           - Confluence: data-sources/builtin-toolsets/confluence.md
           - Coralogix logs: data-sources/builtin-toolsets/coralogix-logs.md
+          - DataDog: data-sources/builtin-toolsets/datadog.md
           - Datetime: data-sources/builtin-toolsets/datetime.md
           - Docker: data-sources/builtin-toolsets/docker.md
+          - GitHub: data-sources/builtin-toolsets/github.md
           - Grafana Loki: data-sources/builtin-toolsets/grafanaloki.md
           - Grafana Tempo: data-sources/builtin-toolsets/grafanatempo.md
           - Helm: data-sources/builtin-toolsets/helm.md
           - Internet: data-sources/builtin-toolsets/internet.md
           - Kafka: data-sources/builtin-toolsets/kafka.md
           - Kubernetes: data-sources/builtin-toolsets/kubernetes.md
+          - MongoDB Atlas: data-sources/builtin-toolsets/mongodb-atlas.md
+          - New Relic: data-sources/builtin-toolsets/newrelic.md
           - Notion: data-sources/builtin-toolsets/notion.md
           - OpenSearch logs: data-sources/builtin-toolsets/opensearch-logs.md
           - OpenSearch status: data-sources/builtin-toolsets/opensearch-status.md
           - Prometheus: data-sources/builtin-toolsets/prometheus.md
           - RabbitMQ: data-sources/builtin-toolsets/rabbitmq.md
           - Robusta: data-sources/builtin-toolsets/robusta.md
-          - Slab: data-sources/builtin-toolsets/slab.md
-          - DataDog: data-sources/builtin-toolsets/datadog.md
-          - GitHub: data-sources/builtin-toolsets/github.md
-          - New Relic: data-sources/builtin-toolsets/newrelic.md
-          - Azure Kubernetes Service: data-sources/builtin-toolsets/aks.md
-          - AKS Node Health: data-sources/builtin-toolsets/aks-node-health.md
           - ServiceNow: data-sources/builtin-toolsets/servicenow.md
-          - Azure SQL Database: data-sources/builtin-toolsets/azure-sql.md
-          - MongoDB Atlas: data-sources/builtin-toolsets/mongodb-atlas.md
-          - Model Context Protocol: data-sources/builtin-toolsets/mcp.md
+          - Slab: data-sources/builtin-toolsets/slab.md
+
       - Custom Toolsets: data-sources/custom-toolsets.md
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
       - Adding Permissions for Additional Resources: data-sources/permissions.md
