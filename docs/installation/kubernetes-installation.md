@@ -79,6 +79,8 @@ curl -X POST http://localhost:8080/ask \
   -d '{"question": "what pods are unhealthy and why?"}'
 ```
 
+For complete API documentation, see the [HTTP API Reference](../reference/http-api.md).
+
 
 ## Upgrading
 
