@@ -23,7 +23,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
     4. Verify installation:
        ```bash
-       holmes ask help
+       holmes ask --help
        ```
 
 === "Pipx"
@@ -107,7 +107,7 @@ Ask follow-up questions to refine your investigation
 ## Next Steps
 
 - **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
-- **[Run Your First Investigation](walkthrough/index.md)** - Complete walkthrough with examples
+- **[Run Your First Investigation](../walkthrough/index.md)** - Complete walkthrough with examples
 - **[Add integrations](data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
 - **[Troubleshooting guide](reference/troubleshooting.md)** - Common issues and solutions
 

@@ -26,19 +26,6 @@ AI Agent for Troubleshooting Cloud-Native Environments.
 
 </div>
 
-## Advanced Installation Options
-
-* **[Helm Chart](installation/kubernetes-installation.md)** - Deploy HolmesGPT as a service and use via HTTP API
-* **[Python SDK](installation/python-installation.md)** - Embed HolmesGPT in your applications
-
-## Next Steps
-
-- **[AI Provider Setup](ai-providers/index.md)** - Configure your AI provider
-- **[Run Your First Investigation](walkthrough/index.md)** - Complete walkthrough with examples
-- **[Add integrations](data-sources/index.md)** - Connect monitoring tools like Prometheus and Grafana
-- **[HTTP API Reference](reference/http-api.md)** - API documentation for custom integrations
-- **[Troubleshooting guide](reference/troubleshooting.md)** - Common issues and solutions
-
 ## Need Help?
 
 - **[Join our Slack](https://robustacommunity.slack.com){:target="_blank"}** - Get help from the community
