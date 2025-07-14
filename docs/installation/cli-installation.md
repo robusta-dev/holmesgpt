@@ -194,7 +194,7 @@ After installation, choose your AI provider and follow the steps below. See supp
 ## Next Steps
 
 - **[Add Data Sources](../data-sources/index.md)** - Use built-in toolsets to connect with ArgoCD, Confluence, and monitoring tools
-- **[Connect Remote MCP](../data-sources/remote-mcp-servers.md)** - Extend capabilities with external MCP servers
+- **[Connect Remote MCP Servers](../data-sources/remote-mcp-servers.md)** - Extend capabilities with external MCP servers
 
 ## Need Help?
 

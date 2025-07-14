@@ -6,7 +6,6 @@ HolmesGPT includes pre-built integrations for popular monitoring and observabili
 
 <div class="grid cards" markdown>
 
--   [:material-api:{ .lg .middle } **Model Context Protocol**](mcp.md)
 -   [:material-heart-pulse:{ .lg .middle } **AKS Node Health**](aks-node-health.md)
 -   [:simple-argo:{ .lg .middle } **ArgoCD**](argocd.md)
 -   [:material-aws:{ .lg .middle } **AWS**](aws.md)

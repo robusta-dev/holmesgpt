@@ -148,7 +148,6 @@ nav:
       - data-sources/index.md
       - Built-in Toolsets:
           - data-sources/builtin-toolsets/index.md
-          - Model Context Protocol: data-sources/builtin-toolsets/mcp.md
           - AKS Node Health: data-sources/builtin-toolsets/aks-node-health.md
           - ArgoCD: data-sources/builtin-toolsets/argocd.md
           - AWS: data-sources/builtin-toolsets/aws.md
