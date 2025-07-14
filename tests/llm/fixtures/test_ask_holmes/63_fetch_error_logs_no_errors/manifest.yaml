@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-63
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-api
+  namespace: staging-63
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-api
+  template:
+    metadata:
+      labels:
+        app: user-api
+    spec:
+      containers:
+      - name: app-container
+        image: busybox:1.35
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          echo "$(date) INFO: Application starting up"
+          echo "$(date) INFO: Loading configuration"
+          echo "$(date) INFO: Connecting to database"
+          echo "$(date) INFO: Database connection established"
+          echo "$(date) INFO: Running health checks"
+          echo "$(date) INFO: All systems operational"
+          echo "$(date) INFO: Ready to serve requests"
+          echo "$(date) DEBUG: Processing request batch 1"
+          echo "$(date) INFO: Request batch 1 completed successfully"
+          echo "$(date) DEBUG: Processing request batch 2"
+          echo "$(date) INFO: Request batch 2 completed successfully"
+          echo "$(date) INFO: Application running smoothly"
+          while true; do
+            echo "$(date) INFO: Heartbeat - application healthy"
+            sleep 60
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"

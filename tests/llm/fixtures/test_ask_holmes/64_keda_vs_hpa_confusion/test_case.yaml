@@ -1,0 +1,13 @@
+user_prompt: 'Why isnt KEDA scaling the invoice-generator deployment?'
+description: Verify Holmes goes beyond 'technically correct' answers and provides a useful answer based on the user's actual intent
+expected_output: |
+  - KEDA is not installed in your cluster OR you have no KEDA scaler defined for this resource (either answer is fine)
+  - But I found an HPA attached to the invoice-generator deployment
+  - Current CPU usage is 9%, which is below the 60% threshold configured in the HPA. That's why it isn't scaling up
+evaluation:
+  correctness: 0
+generate_mocks: False
+tags:
+  - understanding-real-intent
+before_test: 'kubectl apply -f ./manifest.yaml'
+after_test: 'kubectl delete -f ./manifest.yaml'
