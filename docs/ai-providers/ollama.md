@@ -17,3 +17,15 @@ Configure HolmesGPT to use local models with Ollama.
 export OLLAMA_API_BASE="http://localhost:11434"
 holmes ask "what pods are failing?" --model="ollama_chat/<your-ollama-model>"
 ```
+
+## Using CLI Parameters
+
+You can also specify the model directly as a command-line parameter:
+
+```bash
+holmes ask "what pods are failing?" --model="ollama_chat/<your-ollama-model>"
+```
+
+## Additional Resources
+
+HolmesGPT uses the LiteLLM API to support Ollama provider. Refer to [LiteLLM Ollama docs](https://litellm.vercel.app/docs/providers/ollama){:target="_blank"} for more details.

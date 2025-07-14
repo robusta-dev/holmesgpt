@@ -24,6 +24,14 @@ export OPENAI_API_KEY="not-needed"
 holmes ask "what pods are failing?" --model="openai/<your-model>"
 ```
 
+## Using CLI Parameters
+
+You can also specify the model directly as a command-line parameter:
+
+```bash
+holmes ask "what pods are failing?" --model="openai/<your-model>"
+```
+
 ## Setup Examples
 
 ### LocalAI
@@ -56,3 +64,7 @@ export CERTIFICATE="base64-encoded-cert-here"
 - **vLLM**: [Does not yet support function calling](https://github.com/vllm-project/vllm/issues/1869){:target="_blank"}
 - **Text Generation WebUI**: Requires OpenAI extension enabled
 - **Some models**: May hallucinate responses instead of reporting function calling limitations
+
+## Additional Resources
+
+HolmesGPT uses the LiteLLM API to support OpenAI-compatible providers. Refer to [LiteLLM OpenAI-compatible docs](https://litellm.vercel.app/docs/providers/openai_compatible){:target="_blank"} for more details.

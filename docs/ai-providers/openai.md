@@ -16,6 +16,14 @@ export OPENAI_API_KEY="your-openai-api-key"
 holmes ask "what pods are failing?"
 ```
 
+## Using CLI Parameters
+
+You can also pass the API key directly as a command-line parameter:
+
+```bash
+holmes ask "what pods are failing?" --api-key="your-api-key"
+```
+
 ## Available Models
 
 ```bash
@@ -25,3 +33,7 @@ holmes ask "what pods are failing?"
 # GPT-4o mini (faster, cheaper)
 holmes ask "what pods are failing?" --model="gpt-4o-mini"
 ```
+
+## Additional Resources
+
+HolmesGPT uses the LiteLLM API to support OpenAI provider. Refer to [LiteLLM OpenAI docs](https://litellm.vercel.app/docs/providers/openai){:target="_blank"} for more details.

@@ -16,9 +16,9 @@ export AZURE_API_KEY="your-azure-api-key"
 holmes ask "what pods are failing?" --model="azure/<your-deployment-name>"
 ```
 
-## Alternative Configuration
+## Using CLI Parameters
 
-### CLI Parameter
+You can also pass the API key directly as a command-line parameter:
 
 ```bash
 holmes ask "what pods are failing?" --model="azure/<your-deployment-name>" --api-key="your-api-key"
@@ -26,4 +26,4 @@ holmes ask "what pods are failing?" --model="azure/<your-deployment-name>" --api
 
 ## Additional Resources
 
-Refer to [LiteLLM Azure docs](https://litellm.vercel.app/docs/providers/azure){:target="_blank"} for more details.
+HolmesGPT uses the LiteLLM API to support Azure OpenAI provider. Refer to [LiteLLM Azure docs](https://litellm.vercel.app/docs/providers/azure){:target="_blank"} for more details.
