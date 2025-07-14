@@ -1,2 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"pod","name":"ip-172-31-8-128.us-east-2.compute.internal"}}
-Error from server (NotFound): pods "ip-172-31-8-128.us-east-2.compute.internal" not found
