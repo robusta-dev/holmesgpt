@@ -20,12 +20,40 @@ Let's investigate a pod with HolmesGPT to see the value it provides:
    ```
 
 2. **Ask Holmes to investigate:**
-   ```bash
-   holmes ask "describe the user-profile-import pod and explain any issues"
-   ```
+
+    === "OpenAI (Default)"
+        ```bash
+        holmes ask "describe the user-profile-import pod and explain any issues"
+        ```
+
+    === "Azure OpenAI"
+        ```bash
+        holmes ask "describe the user-profile-import pod and explain any issues" --model="azure/<your-model-name>"
+        ```
+
+    === "Anthropic Claude"
+        ```bash
+        holmes ask "describe the user-profile-import pod and explain any issues" --model="anthropic/<your-model-name>"
+        ```
+
+    === "Google Gemini"
+        ```bash
+        holmes ask "describe the user-profile-import pod and explain any issues" --model="google/<your-model-name>"
+        ```
+
+    === "AWS Bedrock"
+        ```bash
+        holmes ask "describe the user-profile-import pod and explain any issues" --model="bedrock/<your-model-name>"
+        ```
+
+    === "Ollama"
+        ```bash
+        holmes ask "describe the user-profile-import pod and explain any issues" --model="ollama/<your-model-name>"
+        ```
 
 3. **See the value:**
-   Holmes will analyze the pod, identify that it's stuck in "Pending" state due to an invalid node selector, and suggest specific remediation steps - all without you needing to manually run `kubectl describe`, check events, or dig through logs.
+
+    Holmes will analyze the pod, identify that it's stuck in "Pending" state due to an invalid node selector, and suggest specific remediation steps - all without you needing to manually run `kubectl describe`, check events, or dig through logs.
 
 ## What You Just Experienced
 

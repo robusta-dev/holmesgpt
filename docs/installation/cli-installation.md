@@ -99,10 +99,38 @@ kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/
 ```
 
 3. **Ask your first question**:
-```bash
-holmes ask "what is wrong with the user-profile-import pod?"
-```
-Ask follow-up questions to refine your investigation
+
+    === "OpenAI (Default)"
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?"
+        ```
+
+    === "Azure OpenAI"
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="azure/<your-model-name>"
+        ```
+
+    === "Anthropic Claude"
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="anthropic/<your-model-name>"
+        ```
+
+    === "Google Gemini"
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="google/<your-model-name>"
+        ```
+
+    === "AWS Bedrock"
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
+        ```
+
+    === "Ollama"
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="ollama/<your-model-name>"
+        ```
+
+    Ask follow-up questions to refine your investigation
 
 ## Next Steps
 
