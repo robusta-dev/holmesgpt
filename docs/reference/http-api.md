@@ -7,10 +7,10 @@ The HolmesGPT API provides endpoints for automated investigations, workload heal
 
 ## Endpoints
 
-### 1. `/api/chat` (POST)
+### `/api/chat` (POST)
 **Description:** General-purpose chat endpoint for interacting with the AI assistant. Supports open-ended questions and troubleshooting.
 
-#### Request Fields
+**Request Fields**
 
 | Field                   | Required | Default | Type      | Description                                      |
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
@@ -18,7 +18,7 @@ The HolmesGPT API provides endpoints for automated investigations, workload heal
 | conversation_history    | No       |         | list      | Conversation history (first message must be system)|
 | model                   | No       |         | string    | Model name to use                                |
 
-#### Example
+**Example**
 ```bash
 curl -X POST http://<HOLMES-URL>/api/chat \
   -H "Content-Type: application/json" \
@@ -30,7 +30,7 @@ curl -X POST http://<HOLMES-URL>/api/chat \
   }'
 ```
 
-#### Example Response
+**Example Response**
 ```json
 {
   "analysis": "Your cluster is healthy. All nodes are ready and workloads are running as expected.",
@@ -46,10 +46,10 @@ curl -X POST http://<HOLMES-URL>/api/chat \
 
 ---
 
-### 2. `/api/investigate` (POST)
+### `/api/investigate` (POST)
 **Description:** Initiate an automated investigation of an issue or incident.
 
-#### Request Fields
+**Request Fields**
 
 | Field                   | Required | Default                                    | Type      | Description                                      |
 |-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
@@ -65,7 +65,7 @@ curl -X POST http://<HOLMES-URL>/api/chat \
 | sections                | No       |                                            | object    | Structured output sections                       |
 | model                   | No       |                                            | string    | Model name to use                                |
 
-#### Example
+**Example**
 ```bash
 curl -X POST http://<HOLMES-URL>/api/investigate \
   -H "Content-Type: application/json" \
@@ -80,7 +80,7 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
   }'
 ```
 
-#### Example Response
+**Example** Response
 ```json
 {
   "analysis": "The pod 'my-pod' in namespace 'default' is crashing due to an OOMKilled event. Consider increasing memory limits.",
@@ -106,14 +106,13 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
 
 ---
 
-### 3. `/api/stream/investigate` (POST)
+### `/api/stream/investigate` (POST)
 **Description:** Same as `/api/investigate`, but returns results as a stream for real-time updates.
 
-#### Request Fields
-
+**Request Fields**
 Same as [`/api/investigate`](#2-apiinvestigate-post).
 
-#### Example
+**Example**
 ```bash
 curl -N -X POST http://<HOLMES-URL>/api/stream/investigate \
   -H "Content-Type: application/json" \
@@ -128,7 +127,7 @@ curl -N -X POST http://<HOLMES-URL>/api/stream/investigate \
   }'
 ```
 
-#### Example Response (streamed)
+**Example** Response (streamed)
 ```bash
 event: start_tool_calling
 data: {"tool_name": "kubectl_describe", "id": "call_0"}
@@ -160,10 +159,10 @@ data: {"sections": {"Alert Explanation": ...}}
 
 ---
 
-### 4. `/api/issue_chat` (POST)
+### `/api/issue_chat` (POST)
 **Description:** Conversational interface for discussing a specific issue or incident, with context from a previous investigation.
 
-#### Request Fields
+**Request Fields**
 
 | Field                   | Required | Default | Type      | Description                                      |
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
@@ -177,7 +176,7 @@ data: {"sections": {"Alert Explanation": ...}}
 - `result` (string, optional): Previous analysis
 - `tools` (list, optional): Tools used/results
 
-#### Example
+**Example**
 ```bash
 curl -X POST http://<HOLMES-URL>/api/issue_chat \
   -H "Content-Type: application/json" \
@@ -194,7 +193,7 @@ curl -X POST http://<HOLMES-URL>/api/issue_chat \
   }'
 ```
 
-#### Example Response
+**Example** Response
 ```json
 {
   "analysis": "To fix the CrashLoopBackOff, increase the memory limit for the pod and check for memory leaks in the application.",
@@ -210,10 +209,10 @@ curl -X POST http://<HOLMES-URL>/api/issue_chat \
 
 ---
 
-### 5. `/api/workload_health_check` (POST)
+### `/api/workload_health_check` (POST)
 **Description:** Performs a health check on a specified workload (e.g., a Kubernetes deployment).
 
-#### Request Fields
+**Request Fields**
 
 | Field                   | Required | Default                                    | Type      | Description                                      |
 |-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
@@ -228,7 +227,7 @@ curl -X POST http://<HOLMES-URL>/api/issue_chat \
 | prompt_template         | No       | "builtin://kubernetes_workload_ask.jinja2" | string    | Prompt template to use                           |
 | model                   | No       |                                            | string    | Model name to use                                |
 
-#### Example
+**Example**
 ```bash
 curl -X POST http://<HOLMES-URL>/api/workload_health_check \
   -H "Content-Type: application/json" \
@@ -239,7 +238,7 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_check \
   }'
 ```
 
-#### Example Response
+**Example** Response
 ```json
 {
   "analysis": "Deployment 'my-deployment' is unhealthy due to repeated CrashLoopBackOff events.",
@@ -258,10 +257,10 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_check \
 
 ---
 
-### 6. `/api/workload_health_chat` (POST)
+### `/api/workload_health_chat` (POST)
 **Description:** Conversational interface for discussing the health of a workload.
 
-#### Request Fields
+**Request Fields**
 
 | Field                   | Required | Default | Type      | Description                                      |
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
@@ -275,7 +274,7 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_check \
 - `analysis` (string, optional): Previous analysis
 - `tools` (list, optional): Tools used/results
 
-#### Example
+**Example**
 ```bash
 curl -X POST http://<HOLMES-URL>/api/workload_health_chat \
   -H "Content-Type: application/json" \
@@ -292,7 +291,7 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_chat \
   }'
 ```
 
-#### Example Response
+**Example** Response
 ```json
 {
   "analysis": "The deployment 'my-deployment' is healthy. No recent issues detected.",
@@ -307,15 +306,15 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_chat \
 
 ---
 
-### 7. `/api/model` (GET)
+### `/api/model` (GET)
 **Description:** Returns a list of available AI models that can be used for investigations and chat.
 
-#### Example
+**Example**
 ```bash
 curl http://<HOLMES-URL>/api/model
 ```
 
-#### Example Response
+**Example** Response
 ```json
 {
   "model_name": ["gpt-4o", "azure/gpt-4o", "robusta"]
