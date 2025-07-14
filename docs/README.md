@@ -130,7 +130,7 @@ Files and directories are excluded from the build if they:
 - Add important pages to the `nav` section in mkdocs.yml
 
 ### Asset Loading
-- Place images in `docs/assets/` or `docs/images/`
+- Place images in `docs/assets/`
 - Use relative paths from the current page
 
 ## Deployment
