@@ -84,6 +84,12 @@ jobs:
             --collect-data litellm
         ls dist
 
+    - name: Ad-hoc sign macOS binary
+      if: matrix.os == 'macos-latest'
+      run: |
+        echo "Ad-hoc signing holmes binary before packaging..."
+        codesign --sign - --force --deep dist/holmes
+
     - name: Zip the application (Unix and Mac)
       if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-22.04'
       run: |
