@@ -92,8 +92,6 @@ After installation, choose your AI provider and follow the steps below. See supp
         holmes ask "what is wrong with the user-profile-import pod?"
         ```
 
-    Ask follow-up questions to refine your investigation
-
 === "Azure OpenAI"
 
     1. **Set up API key**:
@@ -113,8 +111,6 @@ After installation, choose your AI provider and follow the steps below. See supp
         holmes ask "what is wrong with the user-profile-import pod?" --model="azure/<your-model-name>"
         ```
 
-    Ask follow-up questions to refine your investigation
-
 === "Anthropic Claude"
 
     1. **Set up API key**:
@@ -132,8 +128,6 @@ After installation, choose your AI provider and follow the steps below. See supp
         holmes ask "what is wrong with the user-profile-import pod?" --model="anthropic/<your-model-name>"
         ```
 
-    Ask follow-up questions to refine your investigation
-
 === "Google Gemini"
 
     1. **Set up API key**:
@@ -150,8 +144,6 @@ After installation, choose your AI provider and follow the steps below. See supp
         ```bash
         holmes ask "what is wrong with the user-profile-import pod?" --model="google/<your-model-name>"
         ```
-
-    Ask follow-up questions to refine your investigation
 
 === "AWS Bedrock"
 
@@ -172,8 +164,6 @@ After installation, choose your AI provider and follow the steps below. See supp
         holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
         ```
 
-    Ask follow-up questions to refine your investigation
-
 === "Ollama"
 
     1. **Set up API key**:
@@ -188,8 +178,6 @@ After installation, choose your AI provider and follow the steps below. See supp
         ```bash
         holmes ask "what is wrong with the user-profile-import pod?" --model="ollama/<your-model-name>"
         ```
-
-    Ask follow-up questions to refine your investigation
 
 ## Next Steps
 
