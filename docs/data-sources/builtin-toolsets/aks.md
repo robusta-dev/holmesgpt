@@ -26,9 +26,9 @@ By enabling this toolset, HolmesGPT will be able to interact with Azure Kubernet
       aks/core:
         enabled: true
         config:
-          subscription_id: "<your Azure subscription ID>"
-          resource_group: "<your AKS resource group>"
-          cluster_name: "<your AKS cluster name>"
+          subscription_id: "<your Azure subscription ID>" # Optional
+          resource_group: "<your AKS resource group>" # Optional
+          cluster_name: "<your AKS cluster name>" # Optional
     ```
 
 === "Robusta Helm Chart"
