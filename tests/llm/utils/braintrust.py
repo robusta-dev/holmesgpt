@@ -100,7 +100,7 @@ class BraintrustEvalHelper:
                 input=input,
                 expected=test_case.expected_output,
                 metadata={"test_case": test_case.model_dump()},
-                tags=[],
+                tags=test_case.tags or [],
             )
 
         for test_case in test_cases:
@@ -110,7 +110,7 @@ class BraintrustEvalHelper:
                 input=input,
                 expected=test_case.expected_output,
                 metadata={"test_case": test_case.model_dump()},
-                tags=[],
+                tags=test_case.tags or [],
             )
 
         logging.info(self.dataset.summarize())

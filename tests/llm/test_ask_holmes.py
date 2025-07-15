@@ -98,6 +98,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
             id=test_case.id,
             scores={},
             prompt=None,
+            tags=test_case.tags,
         )
         after_test(test_case)
         raise
@@ -148,6 +149,7 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         id=test_case.id,
         scores=scores,
         prompt=prompt,
+        tags=test_case.tags,
     )
 
     if result.tool_calls:
