@@ -11,59 +11,81 @@ from holmes.core.tools import (
 from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
-from holmes.plugins.toolsets.logging_utils.logging_api import DEFAULT_TIME_SPAN_SECONDS, BasePodLoggingToolset, FetchPodLogsParams, PodLoggingTool
-from holmes.plugins.toolsets.utils import process_timestamps_to_int
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+    BasePodLoggingToolset,
+    FetchPodLogsParams,
+    PodLoggingTool,
+)
+from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
 
 BASE_RETRY_DELAY = 2.0  # Initial fallback delay if datadog does not return a reset_time
 MAX_RETRY_DELAY = 60.0  # Max delay if datadog does not return a reset_time
 MAX_RETRY_COUNT_ON_RATE_LIMIT = 5
 
+
 class DataDogLabelsMapping(BaseModel):
     pod: str = "pod_name"
     namespace: str = "kube_namespace"
+
 
 class DataDogStorageTier(str, Enum):
     INDEXES = "indexes"
     ONLINE_ARCHIVES = "online-archives"
     FLEX = "flex"
 
+
 DEFAULT_STORAGE_TIERS = [DataDogStorageTier.INDEXES]
+
 
 class DatadogConfig(BaseModel):
     dd_api_key: str
     dd_app_key: str
     indexes: list[str] = ["*"]
-    site_api_url: str # e.g. https://api.us3.datadoghq.com. c.f. https://docs.datadoghq.com/getting_started/site/
-    # Ordered list of storage tiers. Works as fallback. Subsequent tiers are queried only if the previous tier yielded no result 
+    site_api_url: str  # e.g. https://api.us3.datadoghq.com. c.f. https://docs.datadoghq.com/getting_started/site/
+    # Ordered list of storage tiers. Works as fallback. Subsequent tiers are queried only if the previous tier yielded no result
     storage_tiers: list[DataDogStorageTier] = DEFAULT_STORAGE_TIERS
     labels: DataDogLabelsMapping = DataDogLabelsMapping()
     page_size: int = 300
     default_limit: int = 1000
     request_timeout: int = 60
 
+
 class DataDogRequestError(Exception):
     payload: dict
     status_code: int
     response_text: str
-    def __init__(self, payload:dict, status_code:int, response_text:str):
+
+    def __init__(self, payload: dict, status_code: int, response_text: str):
         super().__init__(f"HTTP error: {status_code} - {response_text}")
         self.payload = payload
         self.status_code = status_code
         self.response_text = response_text
 
+
 class DataDogRequest429Error(DataDogRequestError):
     reset_time: Optional[int]
-    def __init__(self, payload:dict, status_code:int, response_text:str, reset_time:Optional[int]):
-        super().__init__(payload=payload, status_code=status_code, response_text=response_text)
+
+    def __init__(
+        self,
+        payload: dict,
+        status_code: int,
+        response_text: str,
+        reset_time: Optional[int],
+    ):
+        super().__init__(
+            payload=payload, status_code=status_code, response_text=response_text
+        )
         self.reset_time = reset_time
 
 
-
-def _extract_cursor_for_next_paginated_api_call(data:dict) -> Optional[str]:
+def _extract_cursor_for_next_paginated_api_call(data: dict) -> Optional[str]:
     return data.get("meta", {}).get("page", {}).get("after", None)
 
 
-def _execute_logs_query(url:str, headers:dict, payload:dict, timeout:int) -> tuple[list[dict], Optional[str]]:
+def _execute_logs_query(
+    url: str, headers: dict, payload: dict, timeout: int
+) -> tuple[list[dict], Optional[str]]:
     attempts_count = 0
 
     while attempts_count < MAX_RETRY_COUNT_ON_RATE_LIMIT:
@@ -76,28 +98,33 @@ def _execute_logs_query(url:str, headers:dict, payload:dict, timeout:int) -> tup
 
             logs = data.get("data", [])
             return logs, cursor
-        
-        elif response.status_code == 429:
-            wait_time = min(BASE_RETRY_DELAY * (2 ** (attempts_count - 1)), MAX_RETRY_DELAY)
 
-            reset_time_header = response.headers.get('X-RateLimit-Reset')
+        elif response.status_code == 429:
+            wait_time = min(
+                BASE_RETRY_DELAY * (2 ** (attempts_count - 1)), MAX_RETRY_DELAY
+            )
+
+            reset_time_header = response.headers.get("X-RateLimit-Reset")
             if reset_time_header:
                 try:
                     reset_time = int(reset_time_header)
                     wait_time = max(0, reset_time) + 0.1
                 except ValueError:
-                    logging.warning(f"Received invalid X-RateLimit-Reset header value from datadog: {reset_time_header}")
+                    logging.warning(
+                        f"Received invalid X-RateLimit-Reset header value from datadog: {reset_time_header}"
+                    )
 
-            logging.warning(f"DataDog logs toolset is rate limited/throttled. Waiting {wait_time:.1f}s until reset time")
+            logging.warning(
+                f"DataDog logs toolset is rate limited/throttled. Waiting {wait_time:.1f}s until reset time"
+            )
             time.sleep(wait_time)
-            
+
         else:
             raise DataDogRequestError(
-                payload=payload, 
-                status_code=response.status_code, 
-                response_text=response.text
-            )  
-    
+                payload=payload,
+                status_code=response.status_code,
+                response_text=response.text,
+            )
 
     raise DataDogRequestError(
         payload=payload,
@@ -105,23 +132,29 @@ def _execute_logs_query(url:str, headers:dict, payload:dict, timeout:int) -> tup
         response_text=f"Failed to fetch logs from DataDog due to rate limits and despite {attempts_count} attempts",
     )
 
-def calculate_page_size(params:FetchPodLogsParams, dd_config:DatadogConfig, logs:list) -> int:
 
+def calculate_page_size(
+    params: FetchPodLogsParams, dd_config: DatadogConfig, logs: list
+) -> int:
     logs_count = len(logs)
 
     max_logs_count = dd_config.default_limit
     if params.limit:
-        max_logs_count =  params.limit
+        max_logs_count = params.limit
 
     return min(dd_config.page_size, max(0, max_logs_count - logs_count))
 
-def fetch_paginated_logs(params:FetchPodLogsParams, dd_config:DatadogConfig, storage_tier:DataDogStorageTier) -> list[dict]:
 
+def fetch_paginated_logs(
+    params: FetchPodLogsParams,
+    dd_config: DatadogConfig,
+    storage_tier: DataDogStorageTier,
+) -> list[dict]:
     limit = params.limit or dd_config.default_limit
 
-    (from_time, to_time) = process_timestamps_to_int(
-        start=params.start_time,
-        end=params.end_time,
+    (from_time, to_time) = process_timestamps_to_rfc3339(
+        start_timestamp=params.start_time,
+        end_timestamp=params.end_time,
         default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
     )
 
@@ -132,11 +165,10 @@ def fetch_paginated_logs(params:FetchPodLogsParams, dd_config:DatadogConfig, sto
         "DD-APPLICATION-KEY": dd_config.dd_app_key,
     }
 
-
     query = f"{dd_config.labels.namespace}:{params.namespace}"
     query += f" {dd_config.labels.pod}:{params.pod_name}"
     if params.filter:
-        filter = params.filter.replace('"','\\"')
+        filter = params.filter.replace('"', '\\"')
         query += f' "{filter}"'
 
     payload = {
@@ -147,29 +179,41 @@ def fetch_paginated_logs(params:FetchPodLogsParams, dd_config:DatadogConfig, sto
             "indexes": dd_config.indexes,
             "storage_tier": storage_tier.value,
         },
-        "sort": "timestamp",
+        "sort": "-timestamp",
         "page": {"limit": calculate_page_size(params, dd_config, [])},
     }
 
-    logs, cursor = _execute_logs_query(url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout)
+    print(json.dumps(payload, indent=2))
+
+    logs, cursor = _execute_logs_query(
+        url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
+    )
 
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
-        new_logs, cursor = _execute_logs_query(url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout)
+        new_logs, cursor = _execute_logs_query(
+            url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
+        )
         logs += new_logs
         payload["page"]["limit"] = calculate_page_size(params, dd_config, logs)
+
+    # logs are fetched descending order. Unified logging API follows the pattern of kubectl logs where oldest logs are first
+    logs.reverse()
 
     if len(logs) > limit:
         logs = logs[-limit:]
     return logs
 
-def format_logs(raw_logs:list[dict]) -> str:
+
+def format_logs(raw_logs: list[dict]) -> str:
     logs = []
 
     for raw_log_item in raw_logs:
-        message = raw_log_item.get("attributes", {}).get("message", json.dumps(raw_log_item))
+        message = raw_log_item.get("attributes", {}).get(
+            "message", json.dumps(raw_log_item)
+        )
         logs.append(message)
-        
+
     return "\n".join(logs)
 
 
@@ -191,7 +235,6 @@ class DatadogToolset(BasePodLoggingToolset):
         )
 
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
-
         if not self.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -202,14 +245,15 @@ class DatadogToolset(BasePodLoggingToolset):
         try:
             raw_logs = []
             for storage_tier in self.dd_config.storage_tiers:
-                raw_logs = fetch_paginated_logs(params, self.dd_config, storage_tier=storage_tier)
+                raw_logs = fetch_paginated_logs(
+                    params, self.dd_config, storage_tier=storage_tier
+                )
 
                 if raw_logs:
                     # no need to try other storage tiers if the current one returned data
                     break
-            
-            if raw_logs:
 
+            if raw_logs:
                 logs_str = format_logs(raw_logs)
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
@@ -228,12 +272,14 @@ class DatadogToolset(BasePodLoggingToolset):
                 status=ToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
                 params=params.model_dump(),
-                invocation=json.dumps(e.payload)
+                invocation=json.dumps(e.payload),
             )
 
         except Exception as e:
-            logging.exception(f"Failed to query Datadog logs for params: {params}", exc_info=True)
-        
+            logging.exception(
+                f"Failed to query Datadog logs for params: {params}", exc_info=True
+            )
+
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
@@ -251,11 +297,11 @@ class DatadogToolset(BasePodLoggingToolset):
                 namespace="*",
                 pod_name="*",
                 limit=1,
-                start_time="-172800"  # 48 hours in seconds
+                start_time="-172800",  # 48 hours in seconds
             )
-            
+
             result = self.fetch_pod_logs(healthcheck_params)
-            
+
             if result.status == ToolResultStatus.ERROR:
                 error_msg = result.error or "Unknown error during healthcheck"
                 logging.error(f"Datadog healthcheck failed: {error_msg}")
@@ -265,10 +311,9 @@ class DatadogToolset(BasePodLoggingToolset):
                 logging.error(f"Datadog healthcheck failed: {error_msg}")
                 return False, f"Datadog healthcheck failed: {error_msg}"
 
-            
             logging.info("Datadog healthcheck completed successfully")
             return True, ""
-            
+
         except Exception as e:
             logging.exception("Failed during Datadog healthcheck")
             return False, f"Healthcheck failed with exception: {str(e)}"
@@ -285,11 +330,11 @@ class DatadogToolset(BasePodLoggingToolset):
             if not dd_config.storage_tiers:
                 dd_config.storage_tiers = DEFAULT_STORAGE_TIERS
             self.dd_config = dd_config
-            
+
             # Perform healthcheck
             success, error_msg = self._perform_healthcheck()
             return success, error_msg
-            
+
         except Exception as e:
             logging.exception("Failed to set up Datadog toolset")
             return (False, f"Failed to parse Datadog configuration: {str(e)}")
@@ -301,11 +346,8 @@ class DatadogToolset(BasePodLoggingToolset):
             "site_api_url": "https://api.datadoghq.com",
             "indexes": ["main", "*"],
             "storage_tiers": ["indexes", "online-archives"],
-            "labels": {
-                "pod": "pod_name",
-                "namespace": "kube_namespace"
-            },
+            "labels": {"pod": "pod_name", "namespace": "kube_namespace"},
             "page_size": 300,
             "default_limit": 1000,
-            "request_timeout": 60
+            "request_timeout": 60,
         }
