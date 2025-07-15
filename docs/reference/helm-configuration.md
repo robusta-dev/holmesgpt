@@ -1,6 +1,6 @@
 # Helm Configuration
 
-Configuration reference for HolmesGPT Helm chart.
+Configuration reference for HolmesGPT Helm chart based on the actual `values.yaml` file.
 
 ## Basic Configuration
 
@@ -47,7 +47,27 @@ toolsets:
 | `image` | HolmesGPT image name | `holmes:0.0.0` |
 | `registry` | Container registry | `robustadev` |
 | `logLevel` | Log level (DEBUG, INFO, WARN, ERROR) | `INFO` |
-| `enableTelemetry` | Enable telemetry collection | `true` |
+| `enableTelemetry` | Send exception reports to sentry | `true` |
+| `certificate` | Base64 encoded certificate | `""` |
+| `sentryDSN` | Sentry error tracking URL | (see values.yaml) |
+
+### Service Account Configuration
+
+```yaml
+# Create service account (default: true)
+createServiceAccount: true
+
+# Use custom service account name
+customServiceAccountName: ""
+
+# Service account settings
+serviceAccount:
+  imagePullSecrets: []
+  annotations: {}
+
+# Custom RBAC rules
+customClusterRoleRules: []
+```
 
 ### Resource Configuration
 
@@ -78,66 +98,55 @@ toolsets:
     enabled: true      # Prometheus metrics access
 ```
 
-## Advanced Configuration
+### Advanced Configuration
 
-### Scheduling
+#### Scheduling
 
 ```yaml
 # Node selection
-nodeSelector:
-  kubernetes.io/os: linux
+nodeSelector: ~
 
 # Pod affinity/anti-affinity
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 100
-      podAffinityTerm:
-        labelSelector:
-          matchLabels:
-            app: holmes
-        topologyKey: kubernetes.io/hostname
+affinity: {}
 
 # Tolerations
-tolerations:
-- key: "dedicated"
-  operator: "Equal"
-  value: "holmes"
-  effect: "NoSchedule"
+tolerations: []
 
 # Priority class
-priorityClassName: "high-priority"
+priorityClassName: ""
 ```
 
-### Service Account
-
-```yaml
-# Create service account (default: true)
-createServiceAccount: true
-
-# Use custom service account
-customServiceAccountName: "my-holmes-sa"
-```
-
-### Additional Configuration
+#### Additional Configuration
 
 ```yaml
 # Additional environment variables
-additionalEnvVars:
-- name: MY_CUSTOM_VAR
-  value: "custom-value"
+additionalEnvVars: []
+additional_env_vars: []  # Legacy, use additionalEnvVars instead
+
+# Image pull secrets
+imagePullSecrets: []
 
 # Additional volumes
-additionalVolumes:
-- name: custom-config
-  configMap:
-    name: my-config
+additionalVolumes: []
 
 # Additional volume mounts
-additionalVolumeMounts:
-- name: custom-config
-  mountPath: /etc/custom
-  readOnly: true
+additionalVolumeMounts: []
+
+# OpenShift compatibility
+openshift: false
+
+# Post-processing configuration
+enablePostProcessing: false
+postProcessingPrompt: "builtin://generic_post_processing.jinja2"
+
+# Account creation
+enableAccountsCreate: true
+
+# MCP servers configuration
+mcp_servers: {}
+
+# Model list configuration
+modelList: {}
 ```
 
 ## Example Configurations
@@ -146,6 +155,8 @@ additionalVolumeMounts:
 
 ```yaml
 # values.yaml
+image: holmes:0.0.0
+registry: robustadev
 logLevel: INFO
 enableTelemetry: false
 
@@ -174,6 +185,7 @@ toolsets:
 ```yaml
 # values.yaml
 image: holmes:v1.0.0
+registry: robustadev
 logLevel: WARN
 enableTelemetry: true
 
@@ -201,6 +213,39 @@ tolerations:
   effect: "NoSchedule"
 
 priorityClassName: "high-priority"
+
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  robusta:
+    enabled: true
+  internet:
+    enabled: true
+  prometheus/metrics:
+    enabled: true
+```
+
+### OpenShift Setup
+
+```yaml
+# values.yaml
+openshift: true
+createServiceAccount: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 1024Mi
+  limits:
+    memory: 1024Mi
+
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
 ```
 
 ## Configuration Validation
@@ -215,3 +260,7 @@ helm install holmesgpt holmesgpt/holmes -f values.yaml --dry-run
 # Check syntax
 yamllint values.yaml
 ```
+
+## Complete Reference
+
+For the complete and up-to-date configuration reference, see the actual [`values.yaml`](https://github.com/robusta-dev/holmesgpt/blob/master/helm/holmes/values.yaml) file in the repository.

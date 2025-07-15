@@ -46,18 +46,39 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
 
 3. **Create or modify `values.yaml` to customize HolmesGPT:**
 
-    If you want to change the default configuration (such as AI provider or model), create a `values.yaml` file:
+    If you want to change the default configuration, create a `values.yaml` file:
     ```yaml
     # values.yaml
-    config:
-      aiProvider: "openai"
-      model: "gpt-4"
+    # Image configuration
+    image: holmes:0.0.0
+    registry: robustadev
 
-    # Reference the secret created above
-    secret:
-      create: false
-      name: "holmes-secrets"
-      key: "api-key"
+    # Logging
+    logLevel: INFO
+
+    # Send exception reports to sentry
+    enableTelemetry: true
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1024Mi
+      limits:
+        memory: 1024Mi
+
+    # Toolsets configuration
+    toolsets:
+      kubernetes/core:
+        enabled: true
+      kubernetes/logs:
+        enabled: true
+      robusta:
+        enabled: true
+      internet:
+        enabled: true
+      prometheus/metrics:
+        enabled: true
     ```
 
 4. **Install HolmesGPT:**
