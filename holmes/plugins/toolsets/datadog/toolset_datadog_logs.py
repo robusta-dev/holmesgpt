@@ -14,6 +14,9 @@ from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.logging_utils.logging_api import DEFAULT_TIME_SPAN_SECONDS, BasePodLoggingToolset, FetchPodLogsParams, PodLoggingTool
 from holmes.plugins.toolsets.utils import process_timestamps_to_int
 
+BASE_RETRY_DELAY = 2.0  # Initial fallback delay if datadog does not return a reset_time
+MAX_RETRY_DELAY = 60.0  # Max delay if datadog does not return a reset_time
+MAX_RETRY_COUNT_ON_RATE_LIMIT = 5
 
 class DataDogLabelsMapping(BaseModel):
     pod: str = "pod_name"
@@ -61,37 +64,46 @@ def _extract_cursor_for_next_paginated_api_call(data:dict) -> Optional[str]:
 
 
 def _execute_logs_query(url:str, headers:dict, payload:dict, timeout:int) -> tuple[list[dict], Optional[str]]:
-    response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    attempts_count = 0
 
-    if response.status_code == 200:
-        data = response.json()
-        cursor = _extract_cursor_for_next_paginated_api_call(data)
+    while attempts_count < MAX_RETRY_COUNT_ON_RATE_LIMIT:
+        attempts_count += 1
+        response = requests.post(url, headers=headers, json=payload, timeout=timeout)
 
-        logs = data.get("data", [])
-        return logs, cursor
+        if response.status_code == 200:
+            data = response.json()
+            cursor = _extract_cursor_for_next_paginated_api_call(data)
+
+            logs = data.get("data", [])
+            return logs, cursor
+        
+        elif response.status_code == 429:
+            wait_time = min(BASE_RETRY_DELAY * (2 ** (attempts_count - 1)), MAX_RETRY_DELAY)
+
+            reset_time_header = response.headers.get('X-RateLimit-Reset')
+            if reset_time_header:
+                try:
+                    reset_time = int(reset_time_header)
+                    wait_time = max(0, reset_time) + 0.1
+                except ValueError:
+                    logging.warning(f"Received invalid X-RateLimit-Reset header value from datadog: {reset_time_header}")
+
+            logging.warning(f"DataDog logs toolset is rate limited/throttled. Waiting {wait_time:.1f}s until reset time")
+            time.sleep(wait_time)
+            
+        else:
+            raise DataDogRequestError(
+                payload=payload, 
+                status_code=response.status_code, 
+                response_text=response.text
+            )  
     
-    elif response.status_code == 429:
-        reset_time_header = response.headers.get('X-RateLimit-Reset')
-        reset_time:Optional[int] = None
-        if reset_time_header:
-            try:
-                reset_time = int(reset_time_header)
-            except ValueError:
-                logging.warning(f"Invalid X-RateLimit-Reset header value: {reset_time_header}")
-                reset_time = None
 
-        raise DataDogRequest429Error(
-            payload=payload,
-            status_code=response.status_code,
-            response_text=response.text,
-            reset_time=reset_time
-        )
-    else:
-        raise DataDogRequestError(
-            payload=payload, 
-            status_code=response.status_code, 
-            response_text=response.text
-        )  
+    raise DataDogRequestError(
+        payload=payload,
+        status_code=429,
+        response_text=f"Failed to fetch logs from DataDog due to rate limits and despite {attempts_count} attempts",
+    )
 
 def calculate_page_size(params:FetchPodLogsParams, dd_config:DatadogConfig, logs:list) -> int:
 
@@ -141,28 +153,11 @@ def fetch_paginated_logs(params:FetchPodLogsParams, dd_config:DatadogConfig, sto
 
     logs, cursor = _execute_logs_query(url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout)
 
-    retry_count = 0
-    base_delay = 10.0  # Initial fallback delay if datadog does not return a delay
-    max_delay = 60.0  # Max delay if datadog does not return a reset_time
-
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
-        try: 
-            new_logs, cursor = _execute_logs_query(url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout)
-            logs += new_logs
-            retry_count = 0
-            payload["page"]["limit"] = calculate_page_size(params, dd_config, logs)
-        except DataDogRequest429Error as e:
-            retry_count += 1
-            if retry_count >= 3:
-                # Don't retry eternally
-                raise e
-            wait_time = min(base_delay * (2 ** (retry_count - 1)), max_delay)
-            if e.reset_time:
-                wait_time = max(0, e.reset_time) + 0.1
-
-            logging.warning(f"DataDog logs toolset is rate limited/throttled. Waiting {wait_time:.1f}s until reset time")
-            time.sleep(wait_time)
+        new_logs, cursor = _execute_logs_query(url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout)
+        logs += new_logs
+        payload["page"]["limit"] = calculate_page_size(params, dd_config, logs)
 
     if len(logs) > limit:
         logs = logs[-limit:]
