@@ -55,7 +55,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
     3. Run HolmesGPT:
        ```bash
-       poetry run python3 holmes_cli.py ask "what pods are unhealthy and why?"
+       poetry run holmes ask --help
        ```
 
 === "Docker Container"
