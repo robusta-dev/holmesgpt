@@ -171,7 +171,7 @@ def fetch_paginated_logs(
         filter = params.filter.replace('"', '\\"')
         query += f' "{filter}"'
 
-    payload = {
+    payload: Dict[str, Any] = {
         "filter": {
             "from": from_time,
             "to": to_time,
@@ -182,8 +182,6 @@ def fetch_paginated_logs(
         "sort": "-timestamp",
         "page": {"limit": calculate_page_size(params, dd_config, [])},
     }
-
-    print(json.dumps(payload, indent=2))
 
     logs, cursor = _execute_logs_query(
         url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
