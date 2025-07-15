@@ -165,7 +165,7 @@ class MockHelper:
                     test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                         config_dict
                     )
-                elif config_dict.get("investigate_request"):
+                elif self._test_cases_folder == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
                     )
@@ -177,7 +177,7 @@ class MockHelper:
                     test_case = TypeAdapter(InvestigateTestCase).validate_python(
                         config_dict
                     )
-                else:
+                elif self._test_cases_folder == "test_workload_health":
                     config_dict["workload_health_request"] = (
                         load_workload_health_request(test_case_folder)
                     )
