@@ -10,7 +10,7 @@ Retrieve your Slab [API token](https://help.slab.com/en/articles/6545629-develop
 
     First, set the environment variable:
     ```bash
-    export SLAB_API_KEY="<your slab API key>"
+    export SLAB_API_KEY="<your Slab API key>"
     ```
 
     Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
@@ -26,7 +26,7 @@ Retrieve your Slab [API token](https://help.slab.com/en/articles/6545629-develop
     holmes:
         additionalEnvVars:
             - name: SLAB_API_KEY
-              value: "<your slab API key>"
+              value: "<your Slab API key>"
         toolsets:
             slab:
                 enabled: true
@@ -37,7 +37,7 @@ Retrieve your Slab [API token](https://help.slab.com/en/articles/6545629-develop
 To test, run:
 
 ```bash
-holmes ask "Why is my pod failing, if its a crashloopbackoff use the runbooks from slab"
+holmes ask "Why is my pod failing, if it's a crashloopbackoff use the runbooks from Slab"
 ```
 
 ## Capabilities
@@ -46,6 +46,6 @@ holmes ask "Why is my pod failing, if its a crashloopbackoff use the runbooks fr
 
 | Tool Name | Description |
 |-----------|-------------|
-| fetch_slab_document | Fetch a document from slab. Use this to fetch runbooks if they are present before starting your investigation. |
+| fetch_slab_document | Fetch a document from Slab. Use this to fetch runbooks if they are present before starting your investigation. |
 
 --8<-- "snippets/custom_toolset_appeal.md"

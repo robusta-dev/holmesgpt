@@ -1,10 +1,10 @@
 # OpenSearch status
 
-By enabling this toolset, HolmesGPT will be able to access cluster metadata information like health, shards, and settings. This allows HolmesGPT to better troubleshoot problems with one or more opensearch clusters.
+By enabling this toolset, HolmesGPT will be able to access cluster metadata information like health, shards, and settings. This allows HolmesGPT to better troubleshoot problems with one or more OpenSearch clusters.
 
 ## Configuration
 
-The configuration for OpenSearch is passed through to the underlying [opensearch-py library](https://github.com/opensearch-project/opensearch-py). Consult this library's [user guide](https://github.com/opensearch-project/opensearch-py/blob/main/USER_GUIDE.md) or [reference documentation](https://opensearch-project.github.io/opensearch-py/api-ref/clients/opensearch_client.html) for configuring the connection to OpenSearch, including how to authenticate this toolset to an opensearch cluster.
+The configuration for OpenSearch is passed through to the underlying [opensearch-py library](https://github.com/opensearch-project/opensearch-py). Consult this library's [user guide](https://github.com/opensearch-project/opensearch-py/blob/main/USER_GUIDE.md) or [reference documentation](https://opensearch-project.github.io/opensearch-py/api-ref/clients/opensearch_client.html) for configuring the connection to OpenSearch, including how to authenticate this toolset to an OpenSearch cluster.
 
 === "Holmes CLI"
 
@@ -72,7 +72,7 @@ Here is an example of an insecure OpenSearch configuration for local development
                 opensearch_clusters:
                     - hosts:
                         - host: "{{ env.OPENSEARCH_URL }}"
-                        port: 9200
+                          port: 9200
     ```
 
 === "Robusta Helm Chart"
@@ -91,7 +91,7 @@ Here is an example of an insecure OpenSearch configuration for local development
                     opensearch_clusters:
                         - hosts:
                             - host: "{{ env.OPENSEARCH_URL }}"
-                            port: 9200
+                              port: 9200
     ```
 
 ## Capabilities

@@ -116,7 +116,7 @@ The toolset can directly connect to a Loki instance without proxying through a G
 
 ### Search Labels
 
-You can tweak the labels used by the toolset to identify kubernetes resources. This is only needed if your Loki logs settings for `pod`, and `namespace` differ from the defaults.
+You can tweak the labels used by the toolset to identify Kubernetes resources. This is only needed if your Loki logs settings for `pod` and `namespace` differ from the defaults.
 
 === "Holmes CLI"
 

@@ -1,7 +1,7 @@
 # Docker
 
 !!! warning "Not Recommended for Kubernetes"
-    This integration is not recommended for monitoring a kubernetes cluster because it is neither necessary nor useful. It is documented here for users of HolmesGPT CLI.
+    This integration is not recommended for monitoring a Kubernetes cluster because it is neither necessary nor useful. It is documented here for users of HolmesGPT CLI.
 
 Read access to Docker resources.
 

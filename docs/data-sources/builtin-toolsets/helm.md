@@ -2,7 +2,7 @@
 
 --8<-- "snippets/enabled_by_default.md"
 
-By enabling this toolset, HolmesGPT will be able to read access to a cluster's Helm charts and releases.
+By enabling this toolset, HolmesGPT will be able to provide read access to a cluster's Helm charts and releases.
 
 ## Configuration
 

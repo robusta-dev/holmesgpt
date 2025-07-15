@@ -36,7 +36,7 @@ holmes:
 !!! info "Enabled by Default"
     This toolset is enabled by default. You do not need to configure it.
 
-By enabling this toolset, HolmesGPT will be able to read kubernetes pod logs.
+By enabling this toolset, HolmesGPT will be able to read Kubernetes pod logs.
 
 --8<-- "snippets/toolsets_that_provide_logging.md"
 

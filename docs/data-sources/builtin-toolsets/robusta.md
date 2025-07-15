@@ -18,4 +18,4 @@ holmes:
 
 | Tool Name | Description |
 |-----------|-------------|
-| fetch_finding_by_id | Fetches a robusta finding. Findings are events, like a Prometheus alert or a deployment update |
+| fetch_finding_by_id | Fetches a Robusta finding. Findings are events, like a Prometheus alert or a deployment update |

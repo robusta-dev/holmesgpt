@@ -21,12 +21,12 @@ You can find the Grafana URL required for Tempo in your Grafana cloud account se
 
 **Obtaining the datasource UID**
 
-You may have multiple Tempo data sources setup in Grafana. HolmesGPT uses a single Tempo datasource to fetch the traces and it needs to know the UID of this datasource.
+You may have multiple Tempo data sources set up in Grafana. HolmesGPT uses a single Tempo datasource to fetch the traces and it needs to know the UID of this datasource.
 
 A simple way to get the datasource UID is to access the Grafana API by running the following request:
 
 ```bash
-# port forward if you are using Robusta's grafana from your kubernetes cluster
+# port forward if you are using Robusta's Grafana from your Kubernetes cluster
 kubectl port-forward svc/robusta-grafana 3000:80
 # List the Tempo data sources
 curl -s -u <username>:<password> http://localhost:3000/api/datasources | jq '.[] | select(.type == "tempo")'
@@ -136,7 +136,7 @@ The toolset can directly connect to a Tempo instance without proxying through a 
 
 ### Search Labels
 
-You can tweak the labels used by the toolset to identify kubernetes resources. This is only needed if the trace labels differ from the defaults.
+You can tweak the labels used by the toolset to identify Kubernetes resources. This is only needed if the trace labels differ from the defaults.
 
 === "Holmes CLI"
 
@@ -178,5 +178,5 @@ You can tweak the labels used by the toolset to identify kubernetes resources. T
 | Tool Name | Description |
 |-----------|-------------|
 | fetch_tempo_tags | List the tags available in Tempo |
-| fetch_tempo_traces | Lists Tempo traces. At least one of `service_name`, `pod_name` or `deployment_name` argument is required. |
+| fetch_tempo_traces | Lists Tempo traces. At least one of `service_name`, `pod_name`, or `deployment_name` argument is required. |
 | fetch_tempo_trace_by_id | Retrieves detailed information about a Tempo trace using its trace ID. Use this to investigate a trace. |

@@ -1,6 +1,6 @@
 # Confluence
 
-By enabling this toolset, HolmesGPT will be able to fetch confluence pages. This is particularly useful if you store runbooks in Confluence and want Holmes to run investigations using these runbooks.
+By enabling this toolset, HolmesGPT will be able to fetch Confluence pages. This is particularly useful if you store runbooks in Confluence and want Holmes to run investigations using these runbooks.
 
 This toolset requires an [Atlassian API Key](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/){:target="_blank"}.
 
@@ -11,9 +11,9 @@ This toolset requires an [Atlassian API Key](https://support.atlassian.com/atlas
     Set the following environment variables and the Confluence toolset will be automatically enabled:
 
     ```bash
-    export CONFLUENCE_USER="<confluence username>"
-    export CONFLUENCE_API_KEY="<confluence API key>"
-    export CONFLUENCE_BASE_URL="<confluence's base URL>"
+    export CONFLUENCE_USER="<Confluence username>"
+    export CONFLUENCE_API_KEY="<Confluence API key>"
+    export CONFLUENCE_BASE_URL="<Confluence base URL>"
     ```
 
     To test, run:
@@ -30,11 +30,11 @@ This toolset requires an [Atlassian API Key](https://support.atlassian.com/atlas
     holmes:
         additionalEnvVars:
             - name: CONFLUENCE_USER
-              value: <Confluence's username>
+              value: <Confluence username>
             - name: CONFLUENCE_API_KEY
-              value: <Confluence's API key>
+              value: <Confluence API key>
             - name: CONFLUENCE_BASE_URL
-              value: <Confluence's base URL>
+              value: <Confluence base URL>
         toolsets:
             confluence:
                 enabled: true
@@ -44,4 +44,4 @@ This toolset requires an [Atlassian API Key](https://support.atlassian.com/atlas
 
 | Tool Name | Description |
 |-----------|-------------|
-| fetch_confluence_url | Fetch a page in confluence. Use this to fetch confluence runbooks if they are present before starting your investigation. |
+| fetch_confluence_url | Fetch a page in Confluence. Use this to fetch Confluence runbooks if they are present before starting your investigation. |

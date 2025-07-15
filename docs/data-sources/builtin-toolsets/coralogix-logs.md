@@ -10,9 +10,9 @@ By enabling this toolset, HolmesGPT will fetch pod logs from [Coralogix](https:/
 2. A [Coralogix domain](https://coralogix.com/docs/user-guides/account-management/account-settings/coralogix-domain/). For example `eu2.coralogix.com`
 3. Your team's [name or hostname](https://coralogix.com/docs/user-guides/account-management/organization-management/create-an-organization/#teams-in-coralogix). For example `your-company-name`
 
-You can deduct the `domain` and `team_hostname` configuration fields by looking at the URL you use to access the Coralogix UI.
+You can deduce the `domain` and `team_hostname` configuration fields by looking at the URL you use to access the Coralogix UI.
 
-For example if you access coralogix at `https://my-team.app.eu2.coralogix.com/` then the `team_hostname` is `my-team` and the coralogix `domain` is `eu2.coralogix.com`.
+For example if you access Coralogix at `https://my-team.app.eu2.coralogix.com/` then the `team_hostname` is `my-team` and the Coralogix `domain` is `eu2.coralogix.com`.
 
 ## Configuration
 
@@ -25,7 +25,7 @@ For example if you access coralogix at `https://my-team.app.eu2.coralogix.com/` 
       coralogix/logs:
         enabled: true
         config:
-          api_key: "<your coralogix API key>"
+          api_key: "<your Coralogix API key>"
           domain: "eu2.coralogix.com"
           team_hostname: "your-company-name"
 
@@ -41,7 +41,7 @@ For example if you access coralogix at `https://my-team.app.eu2.coralogix.com/` 
         coralogix/logs:
           enabled: true
           config:
-            api_key: "<your coralogix API key>"
+            api_key: "<your Coralogix API key>"
             domain: "eu2.coralogix.com"
             team_hostname: "your-company-name"
 

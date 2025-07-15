@@ -62,6 +62,6 @@ Enabling this toolset allows HolmesGPT to fetch pages from Notion, making it use
 
 | Tool Name | Description |
 |-----------|-------------|
-| fetch_notion_webpage | Fetch a notion webpage. Use this to fetch notion runbooks if they are present before starting your investigation |
+| fetch_notion_webpage | Fetch a Notion webpage. Use this to fetch Notion runbooks if they are present before starting your investigation |
 
 --8<-- "snippets/custom_toolset_appeal.md"

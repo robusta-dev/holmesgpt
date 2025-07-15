@@ -20,4 +20,4 @@ holmes:
 ```
 
 --8<-- "snippets/capabilities_table_header.md"
-| get_current_time | Return current time information. Useful to build queries that require a time information |
+| get_current_time | Return current time information. Useful to build queries that require time information |

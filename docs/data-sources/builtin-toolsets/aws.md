@@ -27,7 +27,7 @@ Set of tools to audit AWS CloudTrail events and audit logs.
     To test, run:
 
     ```bash
-    holmes ask "Are there any security misconfigurations my signup application, particularly in the database?"
+    holmes ask "Are there any security misconfigurations in my signup application, particularly in the database?"
     ```
 
 === "Robusta Helm Chart"
@@ -40,11 +40,11 @@ Set of tools to audit AWS CloudTrail events and audit logs.
 |-----------|-------------|
 | aws_cloudtrail_event_lookup | Fetches events of a specified type from AWS CloudTrail along with the users that called them |
 | aws_cloudtrail_event_details | Fetches and returns full event details for an AWS CloudTrail event in JSON format given an event ID |
-| aws_user_audit_logs | Fetches audit logs for a specified user from AWS CloudTrail in past 24 hours. Provide username as was output by aws_event_lookup or aws_event_details |
+| aws_user_audit_logs | Fetches audit logs for a specified user from AWS CloudTrail in the past 24 hours. Provide username as was output by aws_event_lookup or aws_event_details |
 
 ## RDS
 
-Read access to Amazon RDS instances, events and logs.
+Read access to Amazon RDS instances, events, and logs.
 
 ### Configuration
 

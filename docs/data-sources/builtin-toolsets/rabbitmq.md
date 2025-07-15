@@ -1,11 +1,11 @@
 # RabbitMQ
 
-By enabling this toolset, HolmesGPT will be able to detect RabbitMQ partitions, memory alerts and disk alerts and suggest mitigations.
+By enabling this toolset, HolmesGPT will be able to detect RabbitMQ partitions, memory alerts, and disk alerts and suggest mitigations.
 
-This toolset follows a two step process to detect partition:
+This toolset follows a two-step process to detect partition:
 
 1. The nodes and partitioning status is obtained by fetching information from the configured `management_url`.
-2. If some nodes are reported as not-running, the toolset will try to contact these nodes individually and deduct any partitioning state for any node that is actually running.
+2. If some nodes are reported as not-running, the toolset will try to contact these nodes individually and deduce any partitioning state for any node that is actually running.
 
 ## Configuration
 
