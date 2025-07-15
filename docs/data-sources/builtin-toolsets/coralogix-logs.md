@@ -18,7 +18,7 @@ For example if you access Coralogix at `https://my-team.app.eu2.coralogix.com/` 
 
 === "Holmes CLI"
 
-    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:

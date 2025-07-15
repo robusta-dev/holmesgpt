@@ -8,7 +8,7 @@ By enabling this toolset, HolmesGPT will be able to provide read access to a clu
 
 === "Holmes CLI"
 
-    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:

@@ -19,7 +19,7 @@ By enabling this toolset, HolmesGPT will be able to interact with Azure Kubernet
     az account set --subscription "<your subscription id>"
     ```
 
-    Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Then add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:

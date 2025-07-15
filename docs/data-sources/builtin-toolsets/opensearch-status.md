@@ -8,7 +8,7 @@ The configuration for OpenSearch is passed through to the underlying [opensearch
 
 === "Holmes CLI"
 
-    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
     ```yaml
     toolsets:
         opensearch/status:

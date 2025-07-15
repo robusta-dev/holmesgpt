@@ -16,7 +16,7 @@ Set of tools to audit AWS CloudTrail events and audit logs.
     export AWS_DEFAULT_REGION="us-west-2"
     ```
 
-    Then, add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Then, Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:

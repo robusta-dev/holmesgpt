@@ -62,7 +62,7 @@ In this case, the Tempo datasource UID is `klja8hsa-8a9c-4b35-1230-7baab22b02ee`
 
 === "Holmes CLI"
 
-    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:
@@ -107,7 +107,7 @@ The toolset can directly connect to a Tempo instance without proxying through a 
 
 === "Holmes CLI"
 
-    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:

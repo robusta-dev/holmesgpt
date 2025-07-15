@@ -14,7 +14,7 @@ Connect HolmesGPT to OpenSearch for centralized log analysis and historical log 
 
 === "Holmes CLI"
 
-    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:

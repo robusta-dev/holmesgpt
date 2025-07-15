@@ -32,7 +32,7 @@ Enabling this toolset allows HolmesGPT to fetch pages from Notion, making it use
     export NOTION_AUTH="<your Notion integration secret>"
     ```
 
-    Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Then add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
     ```yaml
     toolsets:
         notion:

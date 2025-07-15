@@ -21,7 +21,7 @@ You can create a token at [GitHub Settings > Developer settings > Personal acces
     export GITHUB_TOKEN="<your GitHub personal access token>"
     ```
 
-    Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Then add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:

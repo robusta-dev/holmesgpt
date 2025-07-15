@@ -51,7 +51,7 @@ By enabling this toolset, HolmesGPT will be able to interact with ServiceNow for
     export SERVICENOW_API_KEY="<your servicenow api key>"
     ```
 
-    Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Then add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:
@@ -74,7 +74,7 @@ By enabling this toolset, HolmesGPT will be able to interact with ServiceNow for
     export SERVICENOW_PASSWORD="<your servicenow password>"
     ```
 
-    Then add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
+    Then add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
 
     ```yaml
     toolsets:
