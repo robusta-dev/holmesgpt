@@ -5,7 +5,7 @@ Embed HolmesGPT in your own applications with the Python API for programmatic ro
 ## Install HolmesGPT Python Package
 
 ```bash
-pip install holmesgpt
+pip install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
 ```
 
 ## Quick Start
