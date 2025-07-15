@@ -236,8 +236,55 @@ evaluation:
 
 ## Tagging
 
-Evals are tagged for organisation and reporting purposes.
-The valid tags are defined [here](../tests/llm/utils/constants.py).
+Evals support tags for organization, filtering, and reporting purposes. Tags help categorize tests by their characteristics and enable selective test execution.
+
+### Available Tags
+
+The valid tags are defined in [`tests/llm/utils/constants.py`](../tests/llm/utils/constants.py):
+
+Some examples
+- `logs` - Tests HolmesGPT's ability to find and interpret logs correctly
+- `context_window` - Tests handling of data that exceeds the LLM's context window
+- `synthetic` - Tests that use manually generated mock data (cannot be run live)
+- `datetime` - Tests date/time handling and interpretation
+- etc.
+
+### Using Tags in Test Cases
+
+Add tags to your `test_case.yaml`:
+
+```yaml
+user_prompt: "Show me the logs for the pod `robusta-holmes` since last Thursday"
+tags:
+  - logs
+  - datetime
+  - synthetic
+expected_output:
+  - Database unavailable
+  - Memory pressure
+```
+
+### Running Tests by Tag
+
+Run only tests with specific tags:
+
+```bash
+# Run all evals with the "logs" tag
+poetry run pytest -m "llm" -m "logs"
+
+# Run evals with multiple tags (AND condition)
+poetry run pytest -m "llm" -m "logs" -m "datetime"
+
+# Run evals with either tag (OR condition)
+poetry run pytest -m "llm and (logs or datetime)"
+```
+
+### Tag Integration
+
+Tags are automatically:
+- Applied as pytest marks for test filtering
+- Passed to Braintrust for dataset categorization and analysis
+- Used in test reports for grouping and filtering
 
 ## Best Practices
 
