@@ -30,7 +30,7 @@ holmes ask "what pods are failing?" --api-key="your-api-key"
 # GPT-4o (default, recommended)
 holmes ask "what pods are failing?"
 
-# GPT-4o mini (faster, cheaper)
+# GPT-4o mini (faster, but results are not as accurate)
 holmes ask "what pods are failing?" --model="gpt-4o-mini"
 ```
 
