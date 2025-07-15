@@ -23,17 +23,17 @@ class TestDatadogToolsetFetchPodLogs:
             default_limit=1000,
             request_timeout=60,
         )
-        
+
         self.toolset = DatadogToolset()
         self.toolset.dd_config = self.config
-        
+
         self.fetch_params = FetchPodLogsParams(
             namespace="test-namespace",
             pod_name="test-pod",
             limit=300,
         )
 
-    @patch('holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post')
+    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
     def test_fetch_pod_logs_with_pagination(self, mock_post):
         """Test fetch_pod_logs with pagination when more logs are available"""
         # Mock responses for pagination
@@ -42,74 +42,63 @@ class TestDatadogToolsetFetchPodLogs:
         first_response.status_code = 200
         first_response.json.return_value = {
             "data": [
-                {"attributes": {"message": f"Log message {i}"}} 
-                for i in range(100)
+                {"attributes": {"message": f"Log message {i}"}} for i in range(100)
             ],
-            "meta": {
-                "page": {
-                    "after": "cursor_for_page_2"
-                }
-            }
+            "meta": {"page": {"after": "cursor_for_page_2"}},
         }
-        
+
         # Second response with 100 logs and a cursor
         second_response = Mock()
         second_response.status_code = 200
         second_response.json.return_value = {
             "data": [
-                {"attributes": {"message": f"Log message {i}"}} 
-                for i in range(100, 200)
+                {"attributes": {"message": f"Log message {i}"}} for i in range(100, 200)
             ],
-            "meta": {
-                "page": {
-                    "after": "cursor_for_page_3"
-                }
-            }
+            "meta": {"page": {"after": "cursor_for_page_3"}},
         }
-        
+
         # Third response with 100 logs and no cursor (last page)
         third_response = Mock()
         third_response.status_code = 200
         third_response.json.return_value = {
             "data": [
-                {"attributes": {"message": f"Log message {i}"}} 
-                for i in range(200, 300)
+                {"attributes": {"message": f"Log message {i}"}} for i in range(200, 300)
             ],
             "meta": {
                 "page": {}  # No "after" cursor means no more pages
-            }
+            },
         }
-        
+
         mock_post.side_effect = [first_response, second_response, third_response]
-        
+
         # Execute
         result = self.toolset.fetch_pod_logs(self.fetch_params)
-        
+
         # Verify
         assert result.status == ToolResultStatus.SUCCESS
         assert result.error is None
-        
+
         # Check that all 300 logs are present in reverse order (oldest first)
-        logs_lines = result.data.strip().split('\n')
+        logs_lines = result.data.strip().split("\n")
         assert len(logs_lines) == 300
-        
+
         # Verify logs are in correct order (reversed from API response)
         for i in range(300):
             assert f"Log message {299-i}" in logs_lines[i]
-        
+
         # Verify API calls
         assert mock_post.call_count == 3
-        
+
         # Verify the query structure for each call
         for i, api_call in enumerate(mock_post.call_args_list):
-            payload = api_call[1]['json']
+            payload = api_call[1]["json"]
             # All calls should have the same base structure
-            assert 'kube_namespace:test-namespace' in payload['filter']['query']
-            assert 'pod_name:test-pod' in payload['filter']['query']
-            assert payload['filter']['storage_tier'] == 'indexes'
-            assert payload['sort'] == '-timestamp'
+            assert "kube_namespace:test-namespace" in payload["filter"]["query"]
+            assert "pod_name:test-pod" in payload["filter"]["query"]
+            assert payload["filter"]["storage_tier"] == "indexes"
+            assert payload["sort"] == "-timestamp"
 
-    @patch('holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post')
+    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
     def test_fetch_pod_logs_less_data_than_requested(self, mock_post):
         """Test fetch_pod_logs when API returns less data than requested"""
         # Mock response with only 80 logs when limit is 1000
@@ -117,108 +106,103 @@ class TestDatadogToolsetFetchPodLogs:
         response.status_code = 200
         response.json.return_value = {
             "data": [
-                {"attributes": {"message": f"Log message {i}"}} 
-                for i in range(80)
+                {"attributes": {"message": f"Log message {i}"}} for i in range(80)
             ],
             "meta": {
                 "page": {}  # No cursor, indicating no more data
-            }
+            },
         }
-        
+
         mock_post.return_value = response
-        
+
         # Set up params with higher limit
         params = FetchPodLogsParams(
             namespace="test-namespace",
             pod_name="test-pod",
             limit=1000,
         )
-        
+
         # Execute
         result = self.toolset.fetch_pod_logs(params)
-        
+
         # Verify
         assert result.status == ToolResultStatus.SUCCESS
         assert result.error is None
-        
+
         # Check that only 80 logs are returned
-        logs_lines = result.data.strip().split('\n')
+        logs_lines = result.data.strip().split("\n")
         assert len(logs_lines) == 80
-        
+
         # Verify logs are in correct order (reversed)
         for i in range(80):
             assert f"Log message {79-i}" in logs_lines[i]
-        
+
         # Verify only one API call was made
         assert mock_post.call_count == 1
-        
+
         # Check the API call
         call_args = mock_post.call_args
-        payload = call_args[1]['json']
-        assert payload['page']['limit'] == 100  # page_size from config
+        payload = call_args[1]["json"]
+        assert payload["page"]["limit"] == 100  # page_size from config
 
-    @patch('holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post')
+    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
     def test_fetch_pod_logs_storage_tier_fallback(self, mock_post):
         """Test fetch_pod_logs falling back to secondary storage tier when first returns no data"""
         # Configure toolset with multiple storage tiers
         self.toolset.dd_config.storage_tiers = [
             DataDogStorageTier.INDEXES,
             DataDogStorageTier.ONLINE_ARCHIVES,
-            DataDogStorageTier.FLEX
+            DataDogStorageTier.FLEX,
         ]
-        
+
         # Mock responses
         # First call to INDEXES returns no data
         empty_response = Mock()
         empty_response.status_code = 200
-        empty_response.json.return_value = {
-            "data": [],
-            "meta": {"page": {}}
-        }
-        
+        empty_response.json.return_value = {"data": [], "meta": {"page": {}}}
+
         # Second call to ONLINE_ARCHIVES returns data
         data_response = Mock()
         data_response.status_code = 200
         data_response.json.return_value = {
             "data": [
-                {"attributes": {"message": f"Archived log {i}"}} 
-                for i in range(50)
+                {"attributes": {"message": f"Archived log {i}"}} for i in range(50)
             ],
-            "meta": {"page": {}}
+            "meta": {"page": {}},
         }
-        
+
         mock_post.side_effect = [empty_response, data_response]
-        
+
         # Execute
         result = self.toolset.fetch_pod_logs(self.fetch_params)
-        
+
         # Verify
         assert result.status == ToolResultStatus.SUCCESS
         assert result.error is None
-        
+
         # Check that logs from online archives are returned
-        logs_lines = result.data.strip().split('\n')
+        logs_lines = result.data.strip().split("\n")
         assert len(logs_lines) == 50
-        
+
         # Verify logs content
         for i in range(50):
             assert f"Archived log {49-i}" in logs_lines[i]
-        
+
         # Verify two API calls were made
         assert mock_post.call_count == 2
-        
+
         # Check first call used INDEXES
         first_call = mock_post.call_args_list[0]
-        payload = first_call[1]['json']
-        assert payload['filter']['storage_tier'] == 'indexes'
-        
+        payload = first_call[1]["json"]
+        assert payload["filter"]["storage_tier"] == "indexes"
+
         # Check second call used ONLINE_ARCHIVES
         second_call = mock_post.call_args_list[1]
-        payload = second_call[1]['json']
-        assert payload['filter']['storage_tier'] == 'online-archives'
+        payload = second_call[1]["json"]
+        assert payload["filter"]["storage_tier"] == "online-archives"
 
-    @patch('holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post')
-    @patch('time.sleep')
+    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
+    @patch("time.sleep")
     def test_fetch_pod_logs_rate_limiting(self, mock_sleep, mock_post):
         """Test fetch_pod_logs handling rate limiting with X-RateLimit-Reset header"""
         # Mock responses
@@ -226,45 +210,46 @@ class TestDatadogToolsetFetchPodLogs:
         rate_limited_response = Mock()
         rate_limited_response.status_code = 429
         rate_limited_response.headers = {
-            'X-RateLimit-Reset': '5'  # 5 seconds until reset
+            "X-RateLimit-Reset": "5"  # 5 seconds until reset
         }
         rate_limited_response.text = "Rate limit exceeded"
-        
+
         # Second attempt: successful
         success_response = Mock()
         success_response.status_code = 200
         success_response.json.return_value = {
             "data": [
-                {"attributes": {"message": f"Log after retry {i}"}} 
-                for i in range(20)
+                {"attributes": {"message": f"Log after retry {i}"}} for i in range(20)
             ],
-            "meta": {"page": {}}
+            "meta": {"page": {}},
         }
-        
+
         mock_post.side_effect = [rate_limited_response, success_response]
-        
+
         # Execute
         result = self.toolset.fetch_pod_logs(self.fetch_params)
-        
+
         # Verify
         assert result.status == ToolResultStatus.SUCCESS
         assert result.error is None
-        
+
         # Check that logs are returned
-        logs_lines = result.data.strip().split('\n')
+        logs_lines = result.data.strip().split("\n")
         assert len(logs_lines) == 20
-        
+
         # Verify sleep was called with correct duration
         mock_sleep.assert_called_once()
         sleep_duration = mock_sleep.call_args[0][0]
         assert sleep_duration == 5.1  # 5 seconds + 0.1 buffer
-        
+
         # Verify two API calls were made
         assert mock_post.call_count == 2
 
-    @patch('holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post')
-    @patch('time.sleep')
-    def test_fetch_pod_logs_rate_limiting_without_reset_header(self, mock_sleep, mock_post):
+    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
+    @patch("time.sleep")
+    def test_fetch_pod_logs_rate_limiting_without_reset_header(
+        self, mock_sleep, mock_post
+    ):
         """Test fetch_pod_logs handling rate limiting without X-RateLimit-Reset header"""
         # Mock responses
         # First attempt: rate limited without reset header
@@ -272,55 +257,57 @@ class TestDatadogToolsetFetchPodLogs:
         rate_limited_response.status_code = 429
         rate_limited_response.headers = {}  # No X-RateLimit-Reset
         rate_limited_response.text = "Rate limit exceeded"
-        
+
         # Second attempt: also rate limited
         second_rate_limited = Mock()
         second_rate_limited.status_code = 429
         second_rate_limited.headers = {}
         second_rate_limited.text = "Rate limit exceeded"
-        
+
         # Third attempt: successful
         success_response = Mock()
         success_response.status_code = 200
         success_response.json.return_value = {
-            "data": [
-                {"attributes": {"message": "Finally got through!"}} 
-            ],
-            "meta": {"page": {}}
+            "data": [{"attributes": {"message": "Finally got through!"}}],
+            "meta": {"page": {}},
         }
-        
-        mock_post.side_effect = [rate_limited_response, second_rate_limited, success_response]
-        
+
+        mock_post.side_effect = [
+            rate_limited_response,
+            second_rate_limited,
+            success_response,
+        ]
+
         # Execute
         result = self.toolset.fetch_pod_logs(self.fetch_params)
-        
+
         # Verify
         assert result.status == ToolResultStatus.SUCCESS
         assert result.error is None
-        
+
         # Verify exponential backoff was used
         assert mock_sleep.call_count == 2
         sleep_calls = [sleep_call[0][0] for sleep_call in mock_sleep.call_args_list]
         assert sleep_calls[0] == 2.0  # BASE_RETRY_DELAY
         assert sleep_calls[1] == 4.0  # BASE_RETRY_DELAY * 2
 
-    @patch('holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post')
+    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
     def test_fetch_pod_logs_no_config(self, mock_post):
         """Test fetch_pod_logs when dd_config is not set"""
         # Clear the config
         self.toolset.dd_config = None
-        
+
         # Execute
         result = self.toolset.fetch_pod_logs(self.fetch_params)
-        
+
         # Verify
         assert result.status == ToolResultStatus.ERROR
         assert result.data == "The toolset is missing its configuration"
-        
+
         # Verify no API calls were made
         assert mock_post.call_count == 0
 
-    @patch('holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post')
+    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
     def test_fetch_pod_logs_with_filter(self, mock_post):
         """Test fetch_pod_logs with search filter"""
         # Mock response
@@ -329,13 +316,13 @@ class TestDatadogToolsetFetchPodLogs:
         response.json.return_value = {
             "data": [
                 {"attributes": {"message": "ERROR: Something went wrong"}},
-                {"attributes": {"message": "ERROR: Another error occurred"}} 
+                {"attributes": {"message": "ERROR: Another error occurred"}},
             ],
-            "meta": {"page": {}}
+            "meta": {"page": {}},
         }
-        
+
         mock_post.return_value = response
-        
+
         # Set up params with filter
         params = FetchPodLogsParams(
             namespace="test-namespace",
@@ -343,17 +330,17 @@ class TestDatadogToolsetFetchPodLogs:
             filter="ERROR",
             limit=100,
         )
-        
+
         # Execute
         result = self.toolset.fetch_pod_logs(params)
-        
+
         # Verify
         assert result.status == ToolResultStatus.SUCCESS
-        
+
         # Check the API call included the filter
         call_args = mock_post.call_args
-        payload = call_args[1]['json']
-        query = payload['filter']['query']
+        payload = call_args[1]["json"]
+        query = payload["filter"]["query"]
         assert '"ERROR"' in query
-        assert 'kube_namespace:test-namespace' in query
-        assert 'pod_name:test-pod' in query
+        assert "kube_namespace:test-namespace" in query
+        assert "pod_name:test-pod" in query
