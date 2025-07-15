@@ -1,3 +1,4 @@
+# type: ignore
 import os
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
@@ -6,7 +7,11 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
-from tests.llm.utils.mock_utils import HolmesTestCase  # type: ignore
+from tests.llm.utils.mock_utils import (
+    AskHolmesTestCase,
+    HolmesTestCase,
+    InvestigateTestCase,
+)
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 
 
@@ -67,6 +72,15 @@ def pop_matching_test_case_if_exists(
     return pop_test_case(test_cases, test_case_id)
 
 
+def _get_test_case_input(test_case: HolmesTestCase):
+    input = test_case
+    if isinstance(test_case, AskHolmesTestCase):
+        input = test_case.user_prompt
+    elif isinstance(test_case, InvestigateTestCase):
+        input = test_case.investigate_request
+    return input
+
+
 class BraintrustEvalHelper:
     def __init__(self, project_name: str, dataset_name: str) -> None:
         self.project_name = project_name
@@ -97,7 +111,7 @@ class BraintrustEvalHelper:
             # update the existing dataset item
             self.dataset.update(
                 id=test_case.id,
-                input=input,
+                input=_get_test_case_input(test_case),
                 expected=test_case.expected_output,
                 metadata={"test_case": test_case.model_dump()},
                 tags=test_case.tags or [],
@@ -107,7 +121,7 @@ class BraintrustEvalHelper:
             logging.info(f"Creating dataset item f{test_case.id}")
             self.dataset.insert(
                 id=test_case.id,
-                input=input,
+                input=_get_test_case_input(test_case),
                 expected=test_case.expected_output,
                 metadata={"test_case": test_case.model_dump()},
                 tags=test_case.tags or [],
