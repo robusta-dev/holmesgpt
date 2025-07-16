@@ -151,7 +151,8 @@ toolsets:
 
 ```yaml
 # Node selection
-nodeSelector: ~
+# nodeSelector:
+#   kubernetes.io/os: linux
 
 # Pod affinity/anti-affinity
 affinity: {}

@@ -332,7 +332,7 @@ If you have any questions, feel free to message us on [robustacommunity.slack.co
 
 ## How to Contribute
 
-Install HolmesGPT from source with Poetry. See [Installation](https://robusta-dev.github.io/holmesgpt/installation/cli-installation/) for details.
+Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and instructions.
 
 For help, contact us on [Slack](https://bit.ly/robusta-slack) or ask [DeepWiki AI](https://deepwiki.com/robusta-dev/holmesgpt) your questions.
 

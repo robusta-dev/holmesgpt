@@ -8,7 +8,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
 
 1. **Install boto3**: AWS Bedrock requires boto3 version 1.28.57 or higher:
    ```bash
-   pip install boto3>=1.28.57
+   pip install "boto3>=1.28.57"
    ```
 
 2. **AWS credentials**: Ensure you have AWS credentials configured with access to Bedrock models. See [AWS Docs](https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html){:target="_blank"}.
@@ -18,7 +18,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
 ### Environment Variables
 
 ```bash
-export AWS_REGION_NAME="us-east-1"
+export AWS_REGION_NAME="us-east-1"  # Replace with your region
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
 

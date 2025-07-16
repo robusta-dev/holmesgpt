@@ -102,7 +102,7 @@ After installation, choose your AI provider and follow the steps below. See supp
     1. **Set up API key**:
         ```bash
         export AZURE_API_VERSION="2024-02-15-preview"
-        export AZURE_API_BASE="https://your-resource.openai.azure.com/"
+        export AZURE_API_BASE="https://your-resource.openai.azure.com"
         export AZURE_API_KEY="your-azure-api-key"
         ```
 
@@ -200,25 +200,6 @@ After installation, choose your AI provider and follow the steps below. See supp
     3. **Ask your first question**:
         ```bash
         holmes ask "what is wrong with the user-profile-import pod?" --model="vertex_ai/<your-vertex-model>"
-        ```
-
-=== "AWS Bedrock"
-
-    1. **Set up API key**:
-        ```bash
-        export AWS_ACCESS_KEY_ID="your-access-key"
-        export AWS_SECRET_ACCESS_KEY="your-secret-key"
-        export AWS_DEFAULT_REGION="your-region"
-        ```
-
-    2. **Create a test pod** to investigate:
-        ```bash
-        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
-        ```
-
-    3. **Ask your first question**:
-        ```bash
-        holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
         ```
 
 === "Ollama"

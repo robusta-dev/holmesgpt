@@ -10,7 +10,7 @@ The HolmesGPT API provides endpoints for automated investigations, workload heal
 ### `/api/chat` (POST)
 **Description:** General-purpose chat endpoint for interacting with the AI assistant. Supports open-ended questions and troubleshooting.
 
-**Request Fields**
+#### Request Fields
 
 | Field                   | Required | Default | Type      | Description                                      |
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
@@ -49,7 +49,7 @@ curl -X POST http://<HOLMES-URL>/api/chat \
 ### `/api/investigate` (POST)
 **Description:** Initiate an automated investigation of an issue or incident.
 
-**Request Fields**
+#### Request Fields
 
 | Field                   | Required | Default                                    | Type      | Description                                      |
 |-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
@@ -109,7 +109,7 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
 ### `/api/stream/investigate` (POST)
 **Description:** Same as `/api/investigate`, but returns results as a stream for real-time updates.
 
-**Request Fields**
+#### Request Fields
 Same as [`/api/investigate`](#apiinvestigate-post).
 
 **Example**
@@ -162,7 +162,7 @@ data: {"sections": {"Alert Explanation": ...}}
 ### `/api/issue_chat` (POST)
 **Description:** Conversational interface for discussing a specific issue or incident, with context from a previous investigation.
 
-**Request Fields**
+#### Request Fields
 
 | Field                   | Required | Default | Type      | Description                                      |
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
@@ -212,7 +212,7 @@ curl -X POST http://<HOLMES-URL>/api/issue_chat \
 ### `/api/workload_health_check` (POST)
 **Description:** Performs a health check on a specified workload (e.g., a Kubernetes deployment).
 
-**Request Fields**
+#### Request Fields
 
 | Field                   | Required | Default                                    | Type      | Description                                      |
 |-------------------------|----------|--------------------------------------------|-----------|--------------------------------------------------|
@@ -260,7 +260,7 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_check \
 ### `/api/workload_health_chat` (POST)
 **Description:** Conversational interface for discussing the health of a workload.
 
-**Request Fields**
+#### Request Fields
 
 | Field                   | Required | Default | Type      | Description                                      |
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
