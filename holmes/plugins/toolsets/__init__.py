@@ -8,6 +8,16 @@ import yaml  # type: ignore
 from pydantic import ValidationError
 
 from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
+try:
+    from holmes.plugins.toolsets.azuremonitor_metrics.azuremonitor_metrics_toolset import AzureMonitorMetricsToolset
+    AZURE_MONITOR_METRICS_AVAILABLE = True
+    logging.info("Azure Monitor Metrics toolset imported successfully")
+except ImportError as e:
+    logging.warning(f"Azure Monitor Metrics toolset not available due to ImportError: {e}")
+    AZURE_MONITOR_METRICS_AVAILABLE = False
+except Exception as e:
+    logging.error(f"Failed to import Azure Monitor Metrics toolset: {e}", exc_info=True)
+    AZURE_MONITOR_METRICS_AVAILABLE = False
 import holmes.utils.env as env_utils
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
@@ -79,6 +89,13 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         RunbookToolset(),
         AzureSQLToolset(),
     ]
+    
+    # Add Azure Monitor Metrics toolset if available
+    if AZURE_MONITOR_METRICS_AVAILABLE:
+        logging.info("Adding Azure Monitor Metrics toolset to built-in toolsets")
+        toolsets.append(AzureMonitorMetricsToolset())
+    else:
+        logging.warning("Azure Monitor Metrics toolset not available - skipping")
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
 
@@ -108,6 +125,15 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         toolset.type = ToolsetType.BUILTIN
         # dont' expose build-in toolsets path
         toolset.path = None
+        # Keep Azure Monitor Metrics enabled by default if it was set to enabled or is_default
+        if toolset.name == "azuremonitormetrics" and (
+            (hasattr(toolset, 'enabled') and toolset.enabled) or 
+            (hasattr(toolset, 'is_default') and toolset.is_default)
+        ):
+            toolset.enabled = True  # Force it to be enabled
+            continue  # Don't disable this one
+        else:
+            toolset.enabled = False  # Disable others by default
 
     return all_toolsets  # type: ignore
 
