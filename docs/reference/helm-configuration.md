@@ -1,6 +1,12 @@
 # Helm Configuration
 
-Configuration reference for HolmesGPT Helm chart based on the actual `values.yaml` file.
+Configuration reference for HolmesGPT Helm chart.
+
+**Quick Links:**
+
+- [Installation Tutorial](../installation/kubernetes-installation.md) - Step-by-step setup guide
+- [values.yaml](https://github.com/robusta-dev/holmesgpt/blob/master/helm/holmes/values.yaml) - Complete configuration reference
+- [HTTP API Reference](../reference/http-api.md) - Test your deployment
 
 ## Basic Configuration
 
