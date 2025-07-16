@@ -31,6 +31,8 @@ By enabling this toolset, HolmesGPT can analyze Azure SQL Database performance, 
             database_name: "your-azure-sql-database-name"
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
     ### Service Principal
 
     ```yaml
@@ -47,6 +49,8 @@ By enabling this toolset, HolmesGPT can analyze Azure SQL Database performance, 
             server_name: "your-azure-sql-server-name"
             database_name: "your-azure-sql-database-name"
     ```
+
+    --8<-- "snippets/toolset_refresh_warning.md"
 
 === "Robusta Helm Chart"
 

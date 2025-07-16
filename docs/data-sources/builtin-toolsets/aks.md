@@ -31,6 +31,8 @@ By enabling this toolset, HolmesGPT will be able to interact with Azure Kubernet
           cluster_name: "<your AKS cluster name>" # Optional
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

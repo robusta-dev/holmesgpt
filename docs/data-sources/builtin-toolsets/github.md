@@ -29,6 +29,8 @@ You can create a token at [GitHub Settings > Developer settings > Personal acces
         enabled: true
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
     To test, run:
 
     ```bash

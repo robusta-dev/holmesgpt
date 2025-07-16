@@ -53,6 +53,8 @@ curl -s -u admin:admin http://localhost:3000/api/datasources | jq '.[] | select(
         enabled: false # HolmesGPT's default logging mechanism MUST be disabled
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml
@@ -93,6 +95,8 @@ The toolset can directly connect to a Loki instance without proxying through a G
       kubernetes/logs:
         enabled: false # HolmesGPT's default logging mechanism MUST be disabled
     ```
+
+    --8<-- "snippets/toolset_refresh_warning.md"
 
 === "Robusta Helm Chart"
 

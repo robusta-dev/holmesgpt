@@ -74,6 +74,8 @@ In this case, the Tempo datasource UID is `klja8hsa-8a9c-4b35-1230-7baab22b02ee`
           grafana_datasource_uid: <the UID of the tempo data source in Grafana>
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
     To test, run:
 
     ```bash
@@ -118,6 +120,8 @@ The toolset can directly connect to a Tempo instance without proxying through a 
           headers:
             X-Scope-OrgID: "<tenant id>" # Set the X-Scope-OrgID if tempo multitenancy is enabled
     ```
+
+    --8<-- "snippets/toolset_refresh_warning.md"
 
 === "Robusta Helm Chart"
 

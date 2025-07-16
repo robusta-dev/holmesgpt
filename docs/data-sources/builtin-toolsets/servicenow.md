@@ -64,6 +64,8 @@ By enabling this toolset, HolmesGPT will be able to interact with ServiceNow for
           timeout: 30
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
     ### Username/Password Authentication
 
     First, set the following environment variables:
@@ -84,6 +86,8 @@ By enabling this toolset, HolmesGPT will be able to interact with ServiceNow for
           verify_ssl: true
           timeout: 30
     ```
+
+    --8<-- "snippets/toolset_refresh_warning.md"
 
 === "Robusta Helm Chart"
 

@@ -36,6 +36,8 @@ By enabling this toolset, HolmesGPT can access MongoDB Atlas projects and proces
           project_id: "<your-project-id>"
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

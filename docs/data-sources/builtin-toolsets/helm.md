@@ -16,6 +16,8 @@ By enabling this toolset, HolmesGPT will be able to provide read access to a clu
             enabled: true
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

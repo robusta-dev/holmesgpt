@@ -19,5 +19,8 @@ holmes:
             enabled: true
 ```
 
---8<-- "snippets/capabilities_table_header.md"
+## Capabilities
+
+| Tool Name | Description |
+|-----------|-------------|
 | get_current_time | Return current time information. Useful to build queries that require time information |

@@ -29,6 +29,8 @@ The configuration for OpenSearch is passed through to the underlying [opensearch
                         password: <basic auth password>
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml
@@ -74,6 +76,8 @@ Here is an example of an insecure OpenSearch configuration for local development
                         - host: "{{ env.OPENSEARCH_URL }}"
                           port: 9200
     ```
+
+    --8<-- "snippets/toolset_refresh_warning.md"
 
 === "Robusta Helm Chart"
 

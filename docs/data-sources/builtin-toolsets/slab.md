@@ -20,6 +20,8 @@ Retrieve your Slab [API token](https://help.slab.com/en/articles/6545629-develop
             enabled: true
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

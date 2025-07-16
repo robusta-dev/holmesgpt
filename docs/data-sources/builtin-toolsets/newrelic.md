@@ -29,6 +29,8 @@ You can find these in your New Relic account under Administration > API keys and
         enabled: false  # Disable default Kubernetes logging if using New Relic for logs
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

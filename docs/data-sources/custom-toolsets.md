@@ -58,6 +58,11 @@ This example creates a toolset that helps HolmesGPT view and suggest relevant Gr
     holmes ask "show me dashboards related to CPU usage" --toolsets=toolsets.yaml
     ```
 
+    After making changes to your toolsets file, run:
+    ```bash
+    holmes toolset refresh
+    ```
+
 === "Robusta Helm Chart"
 
     **Helm Values:**
@@ -155,6 +160,11 @@ This example creates a toolset with advanced diagnostic tools for Kubernetes clu
 
     ```bash
     holmes ask "check for any resource pressure in the cluster" --toolsets=toolsets.yaml
+    ```
+
+    After making changes to your toolsets file, run:
+    ```bash
+    holmes toolset refresh
     ```
 
 === "Robusta Helm Chart"
@@ -263,6 +273,11 @@ This example shows how to create a toolset for fetching information from GitHub 
 
     ```bash
     holmes ask "check recent commits in robusta-dev/robusta repository" --toolsets=toolsets.yaml
+    ```
+
+    After making changes to your toolsets file, run:
+    ```bash
+    holmes toolset refresh
     ```
 
 === "Robusta Helm Chart"

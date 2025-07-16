@@ -17,6 +17,8 @@ Read access to Docker resources.
             enabled: true
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 ## Capabilities
 
 --8<-- "snippets/toolset_capabilities_intro.md"

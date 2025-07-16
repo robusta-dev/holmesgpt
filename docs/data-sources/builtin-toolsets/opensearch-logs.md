@@ -29,6 +29,8 @@ By enabling this toolset, HolmesGPT will fetch pod logs from [OpenSearch](https:
         enabled: false # HolmesGPT's default logging mechanism MUST be disabled
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

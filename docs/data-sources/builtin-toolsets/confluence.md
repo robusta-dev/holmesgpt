@@ -22,6 +22,8 @@ This toolset requires an [Atlassian API Key](https://support.atlassian.com/atlas
     holmes ask "why is my application failing? Get relevant runbooks from Confluence"
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     **Helm Values:**

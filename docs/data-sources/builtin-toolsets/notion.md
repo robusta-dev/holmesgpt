@@ -39,6 +39,8 @@ Enabling this toolset allows HolmesGPT to fetch pages from Notion, making it use
             enabled: true
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

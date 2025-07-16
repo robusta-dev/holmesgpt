@@ -35,6 +35,8 @@ You can find these in your Datadog account under Organization Settings > API Key
         enabled: false  # Disable default Kubernetes logging
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

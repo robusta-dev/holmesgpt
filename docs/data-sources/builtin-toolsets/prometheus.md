@@ -26,6 +26,8 @@ Connect HolmesGPT to Prometheus for metrics analysis and query generation. This 
                 #    Authorization: "Basic <base_64_encoded_string>"
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 
 === "Robusta Helm Chart"
 

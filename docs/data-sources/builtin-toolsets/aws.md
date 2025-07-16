@@ -24,6 +24,8 @@ Set of tools to audit AWS CloudTrail events and audit logs.
             enabled: true
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
     To test, run:
 
     ```bash

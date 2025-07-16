@@ -30,6 +30,8 @@ This toolset uses the AdminClient of the [confluent-kafka python library](https:
                       kafka_security_protocol: SASL_PLAINTEXT
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

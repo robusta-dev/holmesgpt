@@ -42,6 +42,8 @@ This toolset follows a two-step process to detect partition:
               management_url: <http://rabbitmq.rabbitmq:15672>
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 ## Advanced configuration
 
 Below is the full list of options for this toolset:

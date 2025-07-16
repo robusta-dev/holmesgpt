@@ -33,6 +33,8 @@ For example if you access Coralogix at `https://my-team.app.eu2.coralogix.com/` 
         enabled: false  # Disable default Kubernetes logging
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml

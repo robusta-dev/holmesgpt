@@ -32,6 +32,8 @@ By enabling this toolset, HolmesGPT will be able to perform specialized health c
           cluster_name: "<your AKS cluster name>"
     ```
 
+    --8<-- "snippets/toolset_refresh_warning.md"
+
 === "Robusta Helm Chart"
 
     ```yaml
