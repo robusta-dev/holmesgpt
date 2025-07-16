@@ -28,97 +28,34 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
     === "OpenAI"
         ```yaml
         # values.yaml
-        # Image configuration
-        image: holmes:0.0.0
-        registry: robustadev
-
-        # Logging
-        logLevel: INFO
-
-        # Send exception reports to sentry
-        enableTelemetry: true
-
-        # API Key configuration
         additionalEnvVars:
         - name: OPENAI_API_KEY
           value: "your-openai-api-key"
-
-        # Resource limits
-        resources:
-          requests:
-            cpu: 100m
-            memory: 1024Mi
-          limits:
-            memory: 1024Mi
-
-        # Toolsets configuration
-        toolsets:
-          kubernetes/core:
-            enabled: true
-          kubernetes/logs:
-            enabled: true
-          robusta:
-            enabled: true
-          internet:
-            enabled: true
-          prometheus/metrics:
-            enabled: true
+        # Or load from secret:
+        # - name: OPENAI_API_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: holmes-secrets
+        #       key: openai-api-key
         ```
 
     === "Anthropic"
         ```yaml
         # values.yaml
-        # Image configuration
-        image: holmes:0.0.0
-        registry: robustadev
-
-        # Logging
-        logLevel: INFO
-
-        # Send exception reports to sentry
-        enableTelemetry: true
-
-        # API Key configuration
         additionalEnvVars:
         - name: ANTHROPIC_API_KEY
           value: "your-anthropic-api-key"
-
-        # Resource limits
-        resources:
-          requests:
-            cpu: 100m
-            memory: 1024Mi
-          limits:
-            memory: 1024Mi
-
-        # Toolsets configuration
-        toolsets:
-          kubernetes/core:
-            enabled: true
-          kubernetes/logs:
-            enabled: true
-          robusta:
-            enabled: true
-          internet:
-            enabled: true
-          prometheus/metrics:
-            enabled: true
+        # Or load from secret:
+        # - name: ANTHROPIC_API_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: holmes-secrets
+        #       key: anthropic-api-key
         ```
 
     === "Azure OpenAI"
         ```yaml
         # values.yaml
-        # Image configuration
-        image: holmes:0.0.0
-        registry: robustadev
-
-        # Logging
-        logLevel: INFO
-
-        # Send exception reports to sentry
-        enableTelemetry: true
-
-        # API Key configuration
         additionalEnvVars:
         - name: AZURE_API_KEY
           value: "your-azure-api-key"
@@ -126,83 +63,39 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
           value: "https://your-resource.openai.azure.com/"
         - name: AZURE_API_VERSION
           value: "2024-02-15-preview"
-
-        # Resource limits
-        resources:
-          requests:
-            cpu: 100m
-            memory: 1024Mi
-          limits:
-            memory: 1024Mi
-
-        # Toolsets configuration
-        toolsets:
-          kubernetes/core:
-            enabled: true
-          kubernetes/logs:
-            enabled: true
-          robusta:
-            enabled: true
-          internet:
-            enabled: true
-          prometheus/metrics:
-            enabled: true
+        # Or load from secret:
+        # - name: AZURE_API_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: holmes-secrets
+        #       key: azure-api-key
+        # - name: AZURE_API_BASE
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: holmes-secrets
+        #       key: azure-api-base
         ```
 
     === "Other AI Providers"
         ```yaml
         # values.yaml
-        # Image configuration
-        image: holmes:0.0.0
-        registry: robustadev
-
-        # Logging
-        logLevel: INFO
-
-        # Send exception reports to sentry
-        enableTelemetry: true
-
-        # API Key configuration for other providers
-        # See AI Providers documentation for specific environment variables
         additionalEnvVars:
-        # Example for Google Gemini
+        # Google Gemini
         - name: GEMINI_API_KEY
           value: "your-gemini-api-key"
-        # Example for Google Vertex AI
-        - name: VERTEXAI_PROJECT
-          value: "your-project-id"
-        - name: VERTEXAI_LOCATION
-          value: "us-central1"
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: "/path/to/service-account-key.json"
-        # Example for AWS Bedrock
+        # AWS Bedrock
         - name: AWS_ACCESS_KEY_ID
           value: "your-access-key"
         - name: AWS_SECRET_ACCESS_KEY
           value: "your-secret-key"
         - name: AWS_REGION_NAME
           value: "your-region"
-
-        # Resource limits
-        resources:
-          requests:
-            cpu: 100m
-            memory: 1024Mi
-          limits:
-            memory: 1024Mi
-
-        # Toolsets configuration
-        toolsets:
-          kubernetes/core:
-            enabled: true
-          kubernetes/logs:
-            enabled: true
-          robusta:
-            enabled: true
-          internet:
-            enabled: true
-          prometheus/metrics:
-            enabled: true
+        # Or load from secret:
+        # - name: GEMINI_API_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: holmes-secrets
+        #       key: gemini-api-key
         ```
 
         > **Configuration Guide:** Each AI provider requires different environment variables. See the [AI Providers documentation](../ai-providers/index.md) for the specific environment variables needed for your chosen provider, then add them to the `additionalEnvVars` section as shown above.
@@ -218,12 +111,16 @@ After installation, test the service with a simple API call:
 
 ```bash
 # Port forward to access the service locally
-kubectl port-forward svc/holmesgpt 8080:80
+# Note: Service name is {release-name}-holmes
+kubectl port-forward svc/holmesgpt-holmes 8080:80
+
+# If you used a different release name or namespace:
+# kubectl port-forward svc/{your-release-name}-holmes 8080:80 -n {your-namespace}
 
 # Test with a basic question
-curl -X POST http://localhost:8080/ask \
+curl -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"question": "what pods are unhealthy and why?"}'
+  -d '{"ask": "what pods are unhealthy and why?"}'
 ```
 
 For complete API documentation, see the [HTTP API Reference](../reference/http-api.md).

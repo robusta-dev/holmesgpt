@@ -18,7 +18,7 @@ from holmes.plugins.prompts import load_and_render_prompt
 print("🚀 Initializing HolmesGPT...")
 
 # Create configuration
-print("📝 Creating configuration...")
+print("Creating configuration...")
 config = Config(
     api_key=os.getenv("OPENAI_API_KEY"),
     model="gpt-4o",
@@ -27,12 +27,12 @@ config = Config(
 print(f"✅ Configuration created with model: {config.model}")
 
 # Create AI instance
-print("🔧 Creating AI instance...")
+print("Creating AI instance...")
 ai = config.create_console_toolcalling_llm()
 print("✅ AI instance ready")
 
 # Ask a question
-print("📋 Loading system prompt...")
+print("Loading system prompt...")
 system_prompt = load_and_render_prompt(
     "builtin://generic_ask.jinja2",
     {"toolsets": ai.tool_executor.toolsets}
@@ -40,9 +40,9 @@ system_prompt = load_and_render_prompt(
 print("✅ System prompt loaded")
 
 print("\n🔍 Asking: 'what pods are failing in production?'")
-print("🤔 Holmes is thinking...")
+print("Holmes is thinking...")
 response = ai.prompt_call(system_prompt, "what pods are failing in production?")
-print(f"🤖 Holmes: {response.result}")
+print(f"Holmes: {response.result}")
 ```
 
 ## Tool Details Example
@@ -66,7 +66,7 @@ def main():
     # Set API key (you can also set OPENAI_API_KEY environment variable)
     api_key = os.getenv("OPENAI_API_KEY", "your-api-key-here")
 
-    print("📝 Step 1: Creating configuration...")
+    print("Step 1: Creating configuration...")
     # Create configuration
     config = Config(
         api_key=api_key,
@@ -75,35 +75,35 @@ def main():
     )
     print(f"✅ Configuration created with model: {config.model}")
 
-    print("\n🔧 Step 2: Creating AI instance...")
+    print("\nStep 2: Creating AI instance...")
     # Create AI instance
     ai = config.create_console_toolcalling_llm()
     print("✅ AI instance created successfully")
 
-    print("\n📊 Step 3: Listing available toolsets...")
+    print("\nStep 3: Listing available toolsets...")
     # Show available toolsets
     toolsets = ai.tool_executor.toolsets
-    print(f"✅ Loaded {len(toolsets)} toolsets:")
+    print(f"Loaded {len(toolsets)} toolsets:")
     for toolset in toolsets:
         print(f"   • {toolset.name} ({'enabled' if toolset.enabled else 'disabled'})")
 
-    print("\n🛠️  Step 4: Listing available tools from loaded toolsets...")
+    print("\nStep 4: Listing available tools from loaded toolsets...")
     # Show available tools
     available_tools = list(ai.tool_executor.tools_by_name.keys())
-    print(f"✅ Listed {len(available_tools)} tools:")
+    print(f"Listed {len(available_tools)} tools:")
     for tool in sorted(available_tools):
         print(f"   • {tool}")
 
-    print("\n📋 Step 5: Loading system prompt...")
+    print("\nStep 5: Loading system prompt...")
     # Load system prompt
     system_prompt = load_and_render_prompt(
         "builtin://generic_ask.jinja2",
         {"toolsets": ai.tool_executor.toolsets}
     )
     print("✅ System prompt loaded successfully")
-    print(f"📏 Prompt length: {len(system_prompt)} characters")
+    print(f"Prompt length: {len(system_prompt)} characters")
 
-    print("\n💬 Step 6: Asking questions...")
+    print("\nStep 6: Asking questions...")
     # Ask questions
     questions = [
         "what pods are failing in production?",
@@ -116,18 +116,18 @@ def main():
         print("=" * 60)
 
         try:
-            print("🤔 Holmes is thinking...")
+            print("Holmes is thinking...")
             response = ai.prompt_call(system_prompt, question)
-            print(f"🤖 Holmes: {response.result}")
+            print(f"Holmes: {response.result}")
 
             # Show tools that were used
             if response and response.tool_calls:
                 tool_names = [tool.tool_name for tool in response.tool_calls]
                 if tool_names:
-                    print(f"\n🔧 Tools used: {tool_names}")
+                    print(f"\nTools used: {tool_names}")
 
                     # Print contents of each tool response
-                    print("\n📝 Tool responses:")
+                    print("\nTool responses:")
                     for j, tool in enumerate(response.tool_calls, 1):
                         print(f"\n   {j}. {tool.tool_name}:")
                         print(f"      Result: {tool.result}")
@@ -139,7 +139,7 @@ def main():
 
         print("-" * 60)
 
-    print("\n🎉 Example completed!")
+    print("\n✅ Example completed!")
 
 if __name__ == "__main__":
     main()
@@ -212,11 +212,11 @@ def main():
     )
 
     # Call AI with initial messages
-    print("🤔 Holmes is thinking...")
+    print("Holmes is thinking...")
     response = ai.call(messages)
     messages = response.messages  # Update messages with full conversation
 
-    print(f"🤖 Holmes: {response.result}")
+    print(f"Holmes: {response.result}")
 
     # Follow-up question
     followup_question = "Can you show me the logs for those failing pods?"
@@ -228,19 +228,19 @@ def main():
     messages.append({"role": "user", "content": followup_question})
 
     # Call AI with updated message history
-    print("🤔 Holmes is thinking...")
+    print("Holmes is thinking...")
     response = ai.call(messages)
     messages = response.messages  # Update messages with latest response
 
-    print(f"🤖 Holmes: {response.result}")
+    print(f"Holmes: {response.result}")
 
     # Show tools used
     if response.tool_calls:
         tool_names = [tool.tool_name for tool in response.tool_calls]
-        print(f"🔧 Tools used: {tool_names}")
+        print(f"Tools used: {tool_names}")
 
-    print("\n🎉 Conversation completed!")
-    print(f"📝 Total messages in conversation: {len(messages)}")
+    print("\n✅ Conversation completed!")
+    print(f"Total messages in conversation: {len(messages)}")
 
 if __name__ == "__main__":
     main()
