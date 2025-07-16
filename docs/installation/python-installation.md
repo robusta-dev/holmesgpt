@@ -80,19 +80,19 @@ def main():
     ai = config.create_console_toolcalling_llm()
     print("✅ AI instance created successfully")
 
-    print("\n🛠️  Step 3: Loading available tools...")
-    # Show available tools
-    available_tools = list(ai.tool_executor.tools_by_name.keys())
-    print(f"✅ Loaded {len(available_tools)} tools:")
-    for tool in sorted(available_tools):
-        print(f"   • {tool}")
-
-    print("\n📊 Step 4: Loading available toolsets...")
+    print("\n📊 Step 3: Listing available toolsets...")
     # Show available toolsets
     toolsets = ai.tool_executor.toolsets
     print(f"✅ Loaded {len(toolsets)} toolsets:")
     for toolset in toolsets:
         print(f"   • {toolset.name} ({'enabled' if toolset.enabled else 'disabled'})")
+
+    print("\n🛠️  Step 4: Listing available tools from loaded toolsets...")
+    # Show available tools
+    available_tools = list(ai.tool_executor.tools_by_name.keys())
+    print(f"✅ Listed {len(available_tools)} tools:")
+    for tool in sorted(available_tools):
+        print(f"   • {tool}")
 
     print("\n📋 Step 5: Loading system prompt...")
     # Load system prompt
@@ -126,6 +126,14 @@ def main():
                 if tool_names:
                     print(f"\n🔧 Tools used: {tool_names}")
 
+                    # Print contents of each tool response
+                    print("\n📝 Tool responses:")
+                    for j, tool in enumerate(response.tool_calls, 1):
+                        print(f"\n   {j}. {tool.tool_name}:")
+                        print(f"      Result: {tool.result}")
+                        if hasattr(tool, 'error') and tool.error:
+                            print(f"      Error: {tool.error}")
+
         except Exception as e:
             print(f"❌ Error: {e}")
 
@@ -137,14 +145,14 @@ if __name__ == "__main__":
     main()
 ```
 
-Save this as `complete_example.py` and run:
+Save this as `holmesgpt_tool_details_example.py` and run:
 
 ```bash
 # Make sure your API key is set
 export OPENAI_API_KEY="your-actual-api-key"
 
 # Run the example
-python complete_example.py
+python holmesgpt_tool_details_example.py
 ```
 
 This will show you:
@@ -210,31 +218,26 @@ def main():
 
     print(f"🤖 Holmes: {response.result}")
 
-    # Follow-up questions
-    followup_questions = [
-        "Can you show me the logs for those failing pods?",
-        "What events are related to these pod failures?",
-        "What might be causing these failures?"
-    ]
+    # Follow-up question
+    followup_question = "Can you show me the logs for those failing pods?"
 
-    for i, question in enumerate(followup_questions, 1):
-        print(f"\n🔍 Follow-up Question {i}:")
-        print(f"User: {question}")
+    print(f"\n🔍 Follow-up Question:")
+    print(f"User: {followup_question}")
 
-        # Add the follow-up question to the conversation
-        messages.append({"role": "user", "content": question})
+    # Add the follow-up question to the conversation
+    messages.append({"role": "user", "content": followup_question})
 
-        # Call AI with updated message history
-        print("🤔 Holmes is thinking...")
-        response = ai.call(messages)
-        messages = response.messages  # Update messages with latest response
+    # Call AI with updated message history
+    print("🤔 Holmes is thinking...")
+    response = ai.call(messages)
+    messages = response.messages  # Update messages with latest response
 
-        print(f"🤖 Holmes: {response.result}")
+    print(f"🤖 Holmes: {response.result}")
 
-        # Show tools used
-        if response.tool_calls:
-            tool_names = [tool.tool_name for tool in response.tool_calls]
-            print(f"🔧 Tools used: {tool_names}")
+    # Show tools used
+    if response.tool_calls:
+        tool_names = [tool.tool_name for tool in response.tool_calls]
+        print(f"🔧 Tools used: {tool_names}")
 
     print("\n🎉 Conversation completed!")
     print(f"📝 Total messages in conversation: {len(messages)}")
