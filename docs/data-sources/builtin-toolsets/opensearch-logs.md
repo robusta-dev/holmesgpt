@@ -1,12 +1,7 @@
 # OpenSearch Logs
 
-Connect HolmesGPT to OpenSearch for centralized log analysis and historical log access.
+By enabling this toolset, HolmesGPT will fetch pod logs from [OpenSearch](https://opensearch.org/).
 
-## Prerequisites
-
-- OpenSearch cluster with Kubernetes pod logs
-- API key with read access to log indices
-- Network connectivity from HolmesGPT to OpenSearch
 
 --8<-- "snippets/toolsets_that_provide_logging.md"
 
@@ -14,24 +9,24 @@ Connect HolmesGPT to OpenSearch for centralized log analysis and historical log 
 
 === "Holmes CLI"
 
-    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
+    Add the following to **~/.holmes/config.yaml**, creating the file if it doesn't exist:
 
     ```yaml
     toolsets:
       opensearch/logs:
         enabled: true
         config:
-          opensearch_url: https://opensearch.example.com:443
-          index_pattern: kubernetes-*  # Pattern matching log indices
-          opensearch_auth_header: "ApiKey YOUR_API_KEY"
-          labels:  # Map fields to match your log structure
+          opensearch_url: <your opensearch/elastic URL>
+          index_pattern: <name of the index to use> # The pattern matching the indexes containing the logs. Supports wildcards. For example `fluentd-*`
+          opensearch_auth_header: "ApiKey <...>" # An optional header value set to the `Authorization` header for every request to opensearch
+          labels: # set the labels according to how values are mapped in your opensearch cluster
             pod: "kubernetes.pod_name"
             namespace: "kubernetes.namespace_name"
             timestamp: "@timestamp"
             message: "message"
 
       kubernetes/logs:
-        enabled: false # Disable default Kubernetes logging
+        enabled: false # HolmesGPT's default logging mechanism MUST be disabled
     ```
 
 === "Robusta Helm Chart"
@@ -42,10 +37,10 @@ Connect HolmesGPT to OpenSearch for centralized log analysis and historical log 
         opensearch/logs:
           enabled: true
           config:
-            opensearch_url: https://opensearch.example.com:443
-            index_pattern: kubernetes-*
-            opensearch_auth_header: "ApiKey YOUR_API_KEY"
-            labels:
+            opensearch_url: https://skdjasid.europe-west1.gcp.cloud.es.io:443 # The URL to your opensearch cluster.
+            index_pattern: fluentd-* # The pattern matching the indexes containing the logs. Supports wildcards
+            opensearch_auth_header: "ApiKey b0ZlwQWEsdwAkv047bafirkallDFWJIWDWdwlQQ==" # An optional header value set to the `Authorization` header for every request to opensearch.
+            labels: # set the labels according to how values are mapped in your opensearch cluster
               pod: "kubernetes.pod_name"
               namespace: "kubernetes.namespace_name"
               timestamp: "@timestamp"
@@ -57,33 +52,40 @@ Connect HolmesGPT to OpenSearch for centralized log analysis and historical log 
 
     --8<-- "snippets/helm_upgrade_command.md"
 
-## Validation
+## Configuring index_pattern and labels
 
-Test your configuration:
+You can tweak the labels used by the toolset to identify kubernetes resources. This is **optional** and only needed if your logs settings differ from the defaults in the example below.
 
-```bash
-holmes ask "show me recent errors from the payment service"
+```yaml
+toolsets:
+  opensearch/logs:
+    enabled: true
+    config:
+      index_pattern: fluentd-*
+      labels:
+        pod: "kubernetes.pod_name"
+        namespace: "kubernetes.namespace_name"
+        timestamp: "@timestamp"
+        message: "message"
 ```
 
-## Troubleshooting
+Below is a screenshot of a query that was done using Elastic dev tools to find out what should be the values for the labels.
 
-### Common Issues
+![OpenSearch Toolset Labels Example](../../assets/opensearch_toolset_labels_example.png)
 
-- **Authentication errors**: Verify your API key has read access to the specified indices
-- **No logs found**: Check that `index_pattern` matches your actual OpenSearch indices
-- **Field mapping errors**: Ensure `labels` section maps to correct field names in your logs
+In the image above, the following values and labels are identified by a yellow rectangle:
 
-### Finding Your Index Pattern
+| Configuration field | Value | Description |
+|---|---|---|
+| index_pattern | fluentd-* | This defines what opensearch indexes should be used to fetch logs |
+| pod | kubernetes.pod_name | The kubernetes pod name |
+| namespace | kubernetes.namespace_name | The kubernetes namespace |
+| timestamp | @timestamp | This timestamp is used to search logs by time range. |
+| message | message | This is the content of the log message |
 
-```bash
-# List indices to find the correct pattern
-curl -X GET "https://opensearch.example.com/_cat/indices?v" \
-  -H "Authorization: ApiKey YOUR_API_KEY"
-```
 
 ## Capabilities
 
 | Tool Name | Description |
 |-----------|-------------|
-| opensearch_fetch_logs | Fetch logs from OpenSearch for specified pods and time ranges |
-| opensearch_search_logs | Search logs in OpenSearch using query patterns |
+| fetch_pod_logs | Retrieve logs using opensearch |
