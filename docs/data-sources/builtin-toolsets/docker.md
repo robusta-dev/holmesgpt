@@ -32,5 +32,3 @@ Read access to Docker resources.
 | docker_events | Get real-time events from the Docker server |
 | docker_history | Show the history of an image |
 | docker_diff | Inspect changes to files or directories on a container's filesystem |
-
---8<-- "snippets/custom_toolset_appeal.md"

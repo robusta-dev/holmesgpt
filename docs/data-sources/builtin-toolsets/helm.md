@@ -57,5 +57,3 @@ By enabling this toolset, HolmesGPT will be able to provide read access to a clu
 | helm_hooks | Get the hooks for a Helm release |
 | helm_chart | Show the chart used to create a Helm release |
 | helm_notes | Show the notes provided by the Helm chart |
-
---8<-- "snippets/custom_toolset_appeal.md"

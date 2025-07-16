@@ -105,5 +105,3 @@ Here is an example of an insecure OpenSearch configuration for local development
 | opensearch_node_info | Get information about cluster nodes |
 | opensearch_index_stats | Get statistics for specific indices |
 | opensearch_shard_allocation | Get shard allocation information |
-
---8<-- "snippets/custom_toolset_appeal.md"

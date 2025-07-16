@@ -47,5 +47,3 @@ holmes ask "Why is my pod failing, if it's a crashloopbackoff use the runbooks f
 | Tool Name | Description |
 |-----------|-------------|
 | fetch_slab_document | Fetch a document from Slab. Use this to fetch runbooks if they are present before starting your investigation. |
-
---8<-- "snippets/custom_toolset_appeal.md"

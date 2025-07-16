@@ -77,5 +77,3 @@ Below is a description of the configuration field for each cluster:
 | kafka_list_consumers | List all consumer groups |
 | kafka_describe_consumer | Get detailed information about a consumer group |
 | kafka_consumer_lag | Check consumer lag for a consumer group |
-
---8<-- "snippets/custom_toolset_appeal.md"
