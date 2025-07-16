@@ -64,12 +64,15 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
     ```bash
     docker run -it --net=host \
+      -e OPENAI_API_KEY="your-api-key" \
       -v ~/.holmes:/root/.holmes \
       -v ~/.aws:/root/.aws \
       -v ~/.config/gcloud:/root/.config/gcloud \
       -v $HOME/.kube/config:/root/.kube/config \
       us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
     ```
+
+    > **Note:** Pass environment variables using `-e` flags. For other AI providers, use the appropriate environment variables (e.g., `-e GEMINI_API_KEY`, `-e ANTHROPIC_API_KEY`, etc.).
 
 ## Quick Start
 
@@ -138,7 +141,7 @@ After installation, choose your AI provider and follow the steps below. See supp
 
     1. **Set up API key**:
         ```bash
-        export GOOGLE_API_KEY="your-api-key"
+        export GEMINI_API_KEY="your-gemini-api-key"
         ```
 
     2. **Create a test pod** to investigate:
@@ -148,7 +151,28 @@ After installation, choose your AI provider and follow the steps below. See supp
 
     3. **Ask your first question**:
         ```bash
-        holmes ask "what is wrong with the user-profile-import pod?" --model="google/<your-model-name>"
+        holmes ask "what is wrong with the user-profile-import pod?" --model="gemini/<your-gemini-model>"
+        ```
+
+    Ask follow-up questions to refine your investigation
+
+=== "Google Vertex AI"
+
+    1. **Set up credentials**:
+        ```bash
+        export VERTEXAI_PROJECT="your-project-id"
+        export VERTEXAI_LOCATION="us-central1"
+        export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-key.json"
+        ```
+
+    2. **Create a test pod** to investigate:
+        ```bash
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+        ```
+
+    3. **Ask your first question**:
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="vertex_ai/<your-vertex-model>"
         ```
 
     Ask follow-up questions to refine your investigation
@@ -188,6 +212,8 @@ After installation, choose your AI provider and follow the steps below. See supp
         ```bash
         holmes ask "what is wrong with the user-profile-import pod?" --model="ollama/<your-model-name>"
         ```
+
+    > **Note:** Only LiteLLM supported Ollama models work with HolmesGPT. Check the [LiteLLM Ollama documentation](https://docs.litellm.ai/docs/providers/ollama#ollama-models){:target="_blank"} for supported models.
 
     Ask follow-up questions to refine your investigation
 

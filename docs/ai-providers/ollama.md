@@ -3,7 +3,7 @@
 Configure HolmesGPT to use local models with Ollama.
 
 !!! warning
-    Ollama support is experimental. Tool-calling capabilities are limited and may produce inconsistent results.
+    Ollama support is experimental. Tool-calling capabilities are limited and may produce inconsistent results. Only [LiteLLM supported Ollama models](https://docs.litellm.ai/docs/providers/ollama#ollama-models){:target="_blank"} work with HolmesGPT.
 
 ## Setup
 
@@ -28,4 +28,4 @@ holmes ask "what pods are failing?" --model="ollama_chat/<your-ollama-model>"
 
 ## Additional Resources
 
-HolmesGPT uses the LiteLLM API to support Ollama provider. Refer to [LiteLLM Ollama docs](https://litellm.vercel.app/docs/providers/ollama){:target="_blank"} for more details.
+HolmesGPT uses the LiteLLM API to support Ollama provider. Refer to [LiteLLM Ollama docs](https://docs.litellm.ai/docs/providers/ollama){:target="_blank"} for more details.
