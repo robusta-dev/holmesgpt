@@ -53,7 +53,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
        poetry install --no-root
        ```
 
-    3. Run HolmesGPT:
+    3. Verify installation:
        ```bash
        poetry run holmes ask --help
        ```
