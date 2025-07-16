@@ -1,0 +1,214 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: apple-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: apple
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: banana-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: banana
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cherry-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: cherry
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dragon-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: dragon
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: elephant-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: elephant
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: falcon-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: falcon
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: giraffe-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: giraffe
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hippo-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: hippo
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: iguana-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: iguana
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jaguar-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: jaguar
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: koala-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: koala
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lion-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: lion
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monkey-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: monkey
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: narwhal-pod
+  namespace: test-1
+  labels:
+    app: test-pod
+    instance: narwhal
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
