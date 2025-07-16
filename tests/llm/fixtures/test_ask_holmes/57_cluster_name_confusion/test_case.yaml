@@ -10,4 +10,4 @@ after_test: |
 expected_output: "failure to pull image `yourcompany/crw:latest`"
 evaluation:
   correctness: 1
-generate_mocks: True
+generate_mocks: False
