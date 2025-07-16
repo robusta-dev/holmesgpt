@@ -37,7 +37,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
     3. Verify installation:
        ```bash
-       holmes version
+       holmes ask --help
        ```
 
 === "From Source (Poetry)"
@@ -72,7 +72,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
       us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
     ```
 
-    > **Note:** Pass environment variables using `-e` flags. For other AI providers, use the appropriate environment variables (e.g., `-e GEMINI_API_KEY`, `-e ANTHROPIC_API_KEY`, etc.).
+    > **Note:** Pass environment variables using `-e` flags. An example for OpenAI is shown above. Adjust it for other AI providers by passing `-e GEMINI_API_KEY`, `-e ANTHROPIC_API_KEY`, etc.
 
 ## Quick Start
 
@@ -84,6 +84,8 @@ After installation, choose your AI provider and follow the steps below. See supp
         ```bash
         export OPENAI_API_KEY="your-api-key"
         ```
+
+        See [OpenAI Configuration](../ai-providers/openai.md) for more details.
 
     2. **Create a test pod** to investigate:
         ```bash
@@ -106,6 +108,8 @@ After installation, choose your AI provider and follow the steps below. See supp
         export AZURE_API_KEY="your-azure-api-key"
         ```
 
+        See [Azure OpenAI Configuration](../ai-providers/azure-openai.md) for more details.
+
     2. **Create a test pod** to investigate:
         ```bash
         kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
@@ -118,12 +122,39 @@ After installation, choose your AI provider and follow the steps below. See supp
 
     Ask follow-up questions to refine your investigation
 
+=== "AWS Bedrock"
+
+    1. **Set up API key**:
+        ```bash
+        export AWS_ACCESS_KEY_ID="your-access-key"
+        export AWS_SECRET_ACCESS_KEY="your-secret-key"
+        export AWS_DEFAULT_REGION="your-region"
+        ```
+
+        See [AWS Bedrock Configuration](../ai-providers/aws-bedrock.md) for more details.
+
+    2. **Create a test pod** to investigate:
+        ```bash
+        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
+        ```
+
+    3. **Ask your first question**:
+        ```bash
+        holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
+        ```
+
+        **Note**: You must install `boto3>=1.28.57` and replace `<your-model-name>` with an actual model name like `anthropic.claude-3-5-sonnet-20240620-v1:0`. See [Finding Available Models](../ai-providers/aws-bedrock.md#finding-available-models) for instructions.
+
+    Ask follow-up questions to refine your investigation
+
 === "Anthropic Claude"
 
     1. **Set up API key**:
         ```bash
         export ANTHROPIC_API_KEY="your-api-key"
         ```
+
+        See [Anthropic Configuration](../ai-providers/anthropic.md) for more details.
 
     2. **Create a test pod** to investigate:
         ```bash
@@ -143,6 +174,8 @@ After installation, choose your AI provider and follow the steps below. See supp
         ```bash
         export GEMINI_API_KEY="your-gemini-api-key"
         ```
+
+        See [Google Gemini Configuration](../ai-providers/gemini.md) for more details.
 
     2. **Create a test pod** to investigate:
         ```bash
@@ -165,6 +198,8 @@ After installation, choose your AI provider and follow the steps below. See supp
         export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-key.json"
         ```
 
+        See [Google Vertex AI Configuration](../ai-providers/google-vertex-ai.md) for more details.
+
     2. **Create a test pod** to investigate:
         ```bash
         kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
@@ -177,31 +212,12 @@ After installation, choose your AI provider and follow the steps below. See supp
 
     Ask follow-up questions to refine your investigation
 
-=== "AWS Bedrock"
-
-    1. **Set up API key**:
-        ```bash
-        export AWS_ACCESS_KEY_ID="your-access-key"
-        export AWS_SECRET_ACCESS_KEY="your-secret-key"
-        export AWS_DEFAULT_REGION="your-region"
-        ```
-
-    2. **Create a test pod** to investigate:
-        ```bash
-        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pending_pods/pending_pod_node_selector.yaml
-        ```
-
-    3. **Ask your first question**:
-        ```bash
-        holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
-        ```
-
-    Ask follow-up questions to refine your investigation
-
 === "Ollama"
 
     1. **Set up API key**:
         No API key required for local Ollama installation.
+
+        See [Ollama Configuration](../ai-providers/ollama.md) for more details.
 
     2. **Create a test pod** to investigate:
         ```bash

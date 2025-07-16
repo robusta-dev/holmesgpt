@@ -120,11 +120,11 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
 
         # API Key configuration
         additionalEnvVars:
-        - name: AZURE_OPENAI_API_KEY
+        - name: AZURE_API_KEY
           value: "your-azure-api-key"
-        - name: AZURE_OPENAI_ENDPOINT
+        - name: AZURE_API_BASE
           value: "https://your-resource.openai.azure.com/"
-        - name: AZURE_OPENAI_API_VERSION
+        - name: AZURE_API_VERSION
           value: "2024-02-15-preview"
 
         # Resource limits
@@ -148,6 +148,64 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
           prometheus/metrics:
             enabled: true
         ```
+
+    === "Other AI Providers"
+        ```yaml
+        # values.yaml
+        # Image configuration
+        image: holmes:0.0.0
+        registry: robustadev
+
+        # Logging
+        logLevel: INFO
+
+        # Send exception reports to sentry
+        enableTelemetry: true
+
+        # API Key configuration for other providers
+        # See AI Providers documentation for specific environment variables
+        additionalEnvVars:
+        # Example for Google Gemini
+        - name: GEMINI_API_KEY
+          value: "your-gemini-api-key"
+        # Example for Google Vertex AI
+        - name: VERTEXAI_PROJECT
+          value: "your-project-id"
+        - name: VERTEXAI_LOCATION
+          value: "us-central1"
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/path/to/service-account-key.json"
+        # Example for AWS Bedrock
+        - name: AWS_ACCESS_KEY_ID
+          value: "your-access-key"
+        - name: AWS_SECRET_ACCESS_KEY
+          value: "your-secret-key"
+        - name: AWS_REGION_NAME
+          value: "your-region"
+
+        # Resource limits
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1024Mi
+          limits:
+            memory: 1024Mi
+
+        # Toolsets configuration
+        toolsets:
+          kubernetes/core:
+            enabled: true
+          kubernetes/logs:
+            enabled: true
+          robusta:
+            enabled: true
+          internet:
+            enabled: true
+          prometheus/metrics:
+            enabled: true
+        ```
+
+        > **Configuration Guide:** Each AI provider requires different environment variables. See the [AI Providers documentation](../ai-providers/index.md) for the specific environment variables needed for your chosen provider, then add them to the `additionalEnvVars` section as shown above.
 
 3. **Install HolmesGPT:**
    ```bash
