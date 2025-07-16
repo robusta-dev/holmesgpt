@@ -252,10 +252,10 @@ toolsets:
 
 ```bash
 # Validate configuration
-helm template holmesgpt holmesgpt/holmes -f values.yaml
+helm template holmesgpt robusta/holmes -f values.yaml
 
 # Dry run installation
-helm install holmesgpt holmesgpt/holmes -f values.yaml --dry-run
+helm install holmesgpt robusta/holmes -f values.yaml --dry-run
 
 # Check syntax
 yamllint values.yaml

@@ -17,73 +17,141 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
 
 1. **Add the Helm repository:**
    ```bash
-   helm repo add holmesgpt https://robusta-dev.github.io/holmesgpt
+   helm repo add robusta https://robusta-charts.storage.googleapis.com
    helm repo update
    ```
 
-2. **Load an API Key to HolmesGPT using Kubernetes Secret:**
+2. **Create `values.yaml` file:**
+
+    Create a `values.yaml` file to configure HolmesGPT with your API key:
 
     === "OpenAI"
-        ```bash
-        kubectl create secret generic holmes-secrets \
-          --from-literal=api-key="your-openai-api-key"
+        ```yaml
+        # values.yaml
+        # Image configuration
+        image: holmes:0.0.0
+        registry: robustadev
+
+        # Logging
+        logLevel: INFO
+
+        # Send exception reports to sentry
+        enableTelemetry: true
+
+        # API Key configuration
+        additionalEnvVars:
+        - name: OPENAI_API_KEY
+          value: "your-openai-api-key"
+
+        # Resource limits
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1024Mi
+          limits:
+            memory: 1024Mi
+
+        # Toolsets configuration
+        toolsets:
+          kubernetes/core:
+            enabled: true
+          kubernetes/logs:
+            enabled: true
+          robusta:
+            enabled: true
+          internet:
+            enabled: true
+          prometheus/metrics:
+            enabled: true
         ```
 
     === "Anthropic"
-        ```bash
-        kubectl create secret generic holmes-secrets \
-          --from-literal=api-key="your-anthropic-api-key"
+        ```yaml
+        # values.yaml
+        # Image configuration
+        image: holmes:0.0.0
+        registry: robustadev
+
+        # Logging
+        logLevel: INFO
+
+        # Send exception reports to sentry
+        enableTelemetry: true
+
+        # API Key configuration
+        additionalEnvVars:
+        - name: ANTHROPIC_API_KEY
+          value: "your-anthropic-api-key"
+
+        # Resource limits
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1024Mi
+          limits:
+            memory: 1024Mi
+
+        # Toolsets configuration
+        toolsets:
+          kubernetes/core:
+            enabled: true
+          kubernetes/logs:
+            enabled: true
+          robusta:
+            enabled: true
+          internet:
+            enabled: true
+          prometheus/metrics:
+            enabled: true
         ```
 
     === "Azure OpenAI"
-        ```bash
-        kubectl create secret generic holmes-secrets \
-          --from-literal=api-key="your-azure-api-key" \
-          --from-literal=azure-endpoint="https://your-resource.openai.azure.com/" \
-          --from-literal=azure-api-version="2024-02-15-preview"
+        ```yaml
+        # values.yaml
+        # Image configuration
+        image: holmes:0.0.0
+        registry: robustadev
+
+        # Logging
+        logLevel: INFO
+
+        # Send exception reports to sentry
+        enableTelemetry: true
+
+        # API Key configuration
+        additionalEnvVars:
+        - name: AZURE_OPENAI_API_KEY
+          value: "your-azure-api-key"
+        - name: AZURE_OPENAI_ENDPOINT
+          value: "https://your-resource.openai.azure.com/"
+        - name: AZURE_OPENAI_API_VERSION
+          value: "2024-02-15-preview"
+
+        # Resource limits
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1024Mi
+          limits:
+            memory: 1024Mi
+
+        # Toolsets configuration
+        toolsets:
+          kubernetes/core:
+            enabled: true
+          kubernetes/logs:
+            enabled: true
+          robusta:
+            enabled: true
+          internet:
+            enabled: true
+          prometheus/metrics:
+            enabled: true
         ```
 
-
-3. **Create or modify `values.yaml` to customize HolmesGPT:**
-
-    If you want to change the default configuration, create a `values.yaml` file:
-    ```yaml
-    # values.yaml
-    # Image configuration
-    image: holmes:0.0.0
-    registry: robustadev
-
-    # Logging
-    logLevel: INFO
-
-    # Send exception reports to sentry
-    enableTelemetry: true
-
-    # Resource limits
-    resources:
-      requests:
-        cpu: 100m
-        memory: 1024Mi
-      limits:
-        memory: 1024Mi
-
-    # Toolsets configuration
-    toolsets:
-      kubernetes/core:
-        enabled: true
-      kubernetes/logs:
-        enabled: true
-      robusta:
-        enabled: true
-      internet:
-        enabled: true
-      prometheus/metrics:
-        enabled: true
-    ```
-
-4. **Install HolmesGPT:**
+3. **Install HolmesGPT:**
    ```bash
-   helm install holmesgpt holmesgpt/holmes -f values.yaml
+   helm install holmesgpt robusta/holmes -f values.yaml
    ```
 
 ## Usage
@@ -107,7 +175,7 @@ For complete API documentation, see the [HTTP API Reference](../reference/http-a
 
 ```bash
 helm repo update
-helm upgrade holmesgpt holmesgpt/holmes -f values.yaml
+helm upgrade holmesgpt robusta/holmes -f values.yaml
 ```
 
 ## Uninstalling
