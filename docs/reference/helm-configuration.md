@@ -19,7 +19,7 @@ registry: robustadev
 # Logging level
 logLevel: INFO
 
-# Telemetry (set to false to disable)
+# send exceptions to sentry
 enableTelemetry: true
 
 # Resource limits
@@ -30,7 +30,7 @@ resources:
   limits:
     memory: 1024Mi
 
-# Toolsets
+# Enabled/disable/customize specific toolsets
 toolsets:
   kubernetes/core:
     enabled: true
@@ -42,6 +42,7 @@ toolsets:
     enabled: true
   prometheus/metrics:
     enabled: true
+  ...
 ```
 
 ## Configuration Options
@@ -50,12 +51,47 @@ toolsets:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
+| `additionalEnvVars` | Environment variables (API keys, etc.) | `[]` |
+| `toolsets` | Enable/disable specific toolsets | (see values.yaml) |
+| `openshift` | Enable OpenShift compatibility mode | `false` |
 | `image` | HolmesGPT image name | `holmes:0.0.0` |
 | `registry` | Container registry | `robustadev` |
 | `logLevel` | Log level (DEBUG, INFO, WARN, ERROR) | `INFO` |
 | `enableTelemetry` | Send exception reports to sentry | `true` |
-| `certificate` | Base64 encoded certificate | `""` |
-| `sentryDSN` | Sentry error tracking URL | (see values.yaml) |
+
+#### API Key Configuration
+
+The most important configuration is setting up API keys for your chosen AI provider:
+
+```yaml
+additionalEnvVars:
+- name: OPENAI_API_KEY
+  value: "your-api-key"
+# Or load from secret:
+# - name: OPENAI_API_KEY
+#   valueFrom:
+#     secretKeyRef:
+#       name: holmes-secrets
+#       key: openai-api-key
+```
+
+#### Toolset Configuration
+
+Control which capabilities HolmesGPT has access to:
+
+```yaml
+toolsets:
+  kubernetes/core:
+    enabled: true      # Core Kubernetes functionality
+  kubernetes/logs:
+    enabled: true      # Kubernetes logs access
+  robusta:
+    enabled: true      # Robusta platform integration
+  internet:
+    enabled: true      # Internet access for documentation
+  prometheus/metrics:
+    enabled: true      # Prometheus metrics access
+```
 
 ### Service Account Configuration
 
@@ -138,7 +174,7 @@ additionalVolumes: []
 # Additional volume mounts
 additionalVolumeMounts: []
 
-# OpenShift compatibility
+# OpenShift compatibility mode
 openshift: false
 
 # Post-processing configuration
@@ -186,52 +222,6 @@ toolsets:
     enabled: false
 ```
 
-### Production Setup
-
-```yaml
-# values.yaml
-image: holmes:v1.0.0
-registry: robustadev
-logLevel: WARN
-enableTelemetry: true
-
-resources:
-  requests:
-    cpu: 500m
-    memory: 2048Mi
-  limits:
-    memory: 4096Mi
-
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 100
-      podAffinityTerm:
-        labelSelector:
-          matchLabels:
-            app: holmes
-        topologyKey: kubernetes.io/hostname
-
-tolerations:
-- key: "dedicated"
-  operator: "Equal"
-  value: "holmes"
-  effect: "NoSchedule"
-
-priorityClassName: "high-priority"
-
-toolsets:
-  kubernetes/core:
-    enabled: true
-  kubernetes/logs:
-    enabled: true
-  robusta:
-    enabled: true
-  internet:
-    enabled: true
-  prometheus/metrics:
-    enabled: true
-```
 
 ### OpenShift Setup
 
