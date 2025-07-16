@@ -24,3 +24,21 @@ class RunbookManager:
             instructions.append(runbook.instructions)
 
         return instructions
+
+    def get_matched_runbooks_for_issue(self, issue: Issue) -> List[Runbook]:
+        """Get the actual Runbook objects that match an issue (for accessing metadata like file paths)"""
+        matched_runbooks = []
+        for runbook in self.runbooks:
+            if runbook.match.issue_id and not runbook.match.issue_id.match(issue.id):
+                continue
+            if runbook.match.issue_name and not runbook.match.issue_name.match(
+                issue.name
+            ):
+                continue
+            if runbook.match.source and not runbook.match.source.match(
+                issue.source_type
+            ):
+                continue
+            matched_runbooks.append(runbook)
+
+        return matched_runbooks

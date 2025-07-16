@@ -11,6 +11,7 @@ You have access to Azure Monitor Metrics tools for querying Azure Monitor manage
 - Check if Azure Monitor managed Prometheus is enabled for specified clusters
 - Execute PromQL queries against Azure Monitor workspaces with automatic cluster filtering
 - Query both instant values and time-series data ranges
+- **List active Prometheus metric alerts** for investigation workflow
 - Support manual configuration for specific clusters
 
 ## Important Usage Guidelines:
@@ -59,7 +60,36 @@ When investigating AKS issues, consider querying:
 - Infrastructure metrics
 - Network metrics
 
-### 7. Time Range Considerations:
+### 7. Alert Investigation Workflow:
+**IMPORTANT**: When users ask about Azure Monitor alerts, use this two-step approach:
+
+**Step 1 - List Active Alerts:**
+- **MANDATORY: Use ONLY the `get_active_prometheus_alerts` tool for Azure Monitor alerts**
+- **CRITICAL: Display the EXACT tool output without any modifications, summaries, or reformatting**
+- **DO NOT interpret, summarize, rewrite, or change the tool output in any way**
+- **DO NOT create your own alert summary - show the tool output verbatim**
+- **Show the complete formatted output with icons, markdown, and styling exactly as returned**
+- The tool output includes:
+  - Beautiful formatting with icons and professional layout (🔔 🚨 📋 ⚡ etc.)
+  - Alert names and full Alert IDs (complete Azure resource paths in code blocks)
+  - Rule IDs, queries, descriptions, severity, status, fired times
+  - The exact command instructions for Step 2
+- **If the tool returns formatted output, copy it exactly - do not paraphrase or summarize**
+
+**Step 2 - Investigate Specific Alert:**
+- Tell the user to copy the Alert ID from the detailed list
+- Explain they should run: `holmes investigate azuremonitormetrics <ALERT_ID>`
+- This provides focused AI-powered root cause analysis for the selected alert
+
+**Do NOT suggest investigating all alerts at once** - the workflow is designed for targeted investigation.
+
+**Display Format Requirements:**
+- Always show the complete tool output with full Alert IDs
+- Include the instruction text with the exact holmes investigate command
+- Present all alert details (severity, status, fired time, query, etc.)
+- Do not abbreviate or summarize the alert information
+
+### 8. Time Range Considerations:
 - Default time span is 1 hour for range queries
 - Adjust time ranges based on when issues occurred
 - Use appropriate step intervals for range queries (e.g., 60s for detailed analysis)

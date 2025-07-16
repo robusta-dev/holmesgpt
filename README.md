@@ -37,7 +37,7 @@ HolmesGPT integrates with popular observability and cloud platforms. The followi
 |-------------|--------|-------|
 | [<img src="images/integration_logos/argocd-icon.png" alt="ArgoCD" width="20" style="vertical-align: middle;"> **ArgoCD**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/argocd.html) | ✅ | Get status, history and manifests and more of apps, projects and clusters |
 | [<img src="images/integration_logos/aws_rds_logo.png" alt="AWS RDS" width="20" style="vertical-align: middle;"> **AWS RDS**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html) | ✅ | Fetch events, instances, slow query logs and more |
-| [<img src="images/integration_logos/azure-managed-prometheus.png" alt="Azure Monitor Metrics" width="20" style="vertical-align: middle;"> **Azure Monitor Metrics**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/azuremonitor-metrics.html) | ✅ | Query Azure Monitor managed Prometheus metrics for AKS cluster analysis and troubleshooting |
+| [<img src="images/integration_logos/azure-managed-prometheus.png" alt="Azure Monitor Metrics" width="20" style="vertical-align: middle;"> **Azure Monitor Metrics**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/azuremonitor-metrics.html) | ✅ | Query Azure Monitor managed Prometheus metrics for AKS cluster analysis and troubleshooting. Supports investigating fired alerts. |
 | [<img src="images/integration_logos/confluence_logo.png" alt="Confluence" width="20" style="vertical-align: middle;"> **Confluence**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/confluence.html) | ✅ | Private runbooks and documentation |
 | [<img src="images/integration_logos/coralogix-icon.png" alt="Coralogix Logs" width="20" style="vertical-align: middle;"> **Coralogix Logs**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/coralogix_logs.html) | ✅ | Retrieve logs for any resource |
 | [<img src="images/integration_logos/date_time_icon.png" alt="Datetime" width="20" style="vertical-align: middle;"> **Datetime**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/datetime.html) | ✅ | Date and time-related operations |
@@ -73,6 +73,7 @@ Robusta can investigate alerts - or just answer questions - from the following s
 |-------------------------|-----------|-------|
 | Slack                   | 🟡 Beta   | [Demo.](https://www.loom.com/share/afcd81444b1a4adfaa0bbe01c37a4847) Tag HolmesGPT bot in any Slack message |
 | Prometheus/AlertManager | ✅        | Robusta SaaS or HolmesGPT CLI |
+| Azure Monitor Alerts    | ✅        | HolmesGPT CLI only - investigate Prometheus metric alerts |
 | PagerDuty               | ✅        | HolmesGPT CLI only |
 | OpsGenie                | ✅        | HolmesGPT CLI only |
 | Jira                    | ✅        | HolmesGPT CLI only |

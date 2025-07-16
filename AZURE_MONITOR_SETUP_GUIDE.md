@@ -20,6 +20,29 @@ Ensure you have the following tools installed and configured:
 
 1. **kubectl** - Connected to your AKS cluster
 2. **Azure CLI** - Logged in with `az login`
+3. **Correct Subscription Context** - Azure CLI must be set to the same subscription as your AKS cluster
+
+**Critical Requirement - Subscription Context:**
+The toolset uses Azure CLI to discover AKS cluster resource IDs. If your Azure CLI is set to a different subscription than your AKS cluster, auto-detection will fail.
+
+**Verification Commands:**
+```bash
+# Check Azure CLI login status
+az account show
+
+# List all accessible subscriptions
+az account list --output table
+
+# Find your cluster's subscription (if unsure)
+kubectl get nodes -o jsonpath='{.items[0].metadata.labels}' | grep -o 'subscriptions/[^/]*'
+
+# Set correct subscription context
+az account set --subscription <cluster-subscription-id>
+
+# Verify kubectl connection to AKS cluster
+kubectl config current-context
+kubectl cluster-info
+```
 
 ### Step 2: Automatic Detection (Recommended)
 
@@ -29,7 +52,6 @@ The toolset can now automatically detect your AKS cluster if kubectl is connecte
 toolsets:
   azuremonitor-metrics:
     auto_detect_cluster: true  # Enable auto-detection via kubectl and Azure CLI
-    cache_duration_seconds: 1800
     tool_calls_return_data: true
 ```
 
@@ -41,12 +63,15 @@ If automatic detection doesn't work, configure manually:
 toolsets:
   azuremonitor-metrics:
     auto_detect_cluster: false
-    cache_duration_seconds: 1800
     tool_calls_return_data: true
     # Option 1: Provide full details
     azure_monitor_workspace_endpoint: "https://your-workspace.prometheus.monitor.azure.com/"
     cluster_name: "your-aks-cluster-name"
     cluster_resource_id: "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.ContainerService/managedClusters/xxx"
+    # Optional: Query performance tuning
+    default_step_seconds: 3600    # Default step size for range queries (1 hour)
+    min_step_seconds: 60          # Minimum allowed step size (1 minute)
+    max_data_points: 1000         # Maximum data points per query
     
     # Option 2: Just provide cluster_resource_id (toolset will discover workspace)
     # cluster_resource_id: "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.ContainerService/managedClusters/xxx"
@@ -99,7 +124,6 @@ Edit the `config.yaml` file with your cluster details:
 toolsets:
   azuremonitor-metrics:
     auto_detect_cluster: false
-    cache_duration_seconds: 1800
     tool_calls_return_data: true
     azure_monitor_workspace_endpoint: "https://myworkspace-abc123.prometheus.monitor.azure.com/"
     cluster_name: "my-aks-cluster"
@@ -190,6 +214,36 @@ az aks update \
 2. Check you have the correct subscription selected: `az account set --subscription <id>`
 3. Verify your permissions on the cluster and workspace resources
 
+### "Cluster not found" or "No AKS cluster specified" (with kubectl connected)
+
+**Cause:** Azure CLI subscription context doesn't match AKS cluster subscription
+
+**Symptoms:**
+- kubectl is connected and working
+- Azure CLI is logged in
+- But toolset can't find the cluster
+
+**Solution:**
+1. Find your cluster's subscription:
+   ```bash
+   kubectl get nodes -o jsonpath='{.items[0].metadata.labels}' | grep -o 'subscriptions/[^/]*'
+   ```
+
+2. Check current Azure CLI subscription:
+   ```bash
+   az account show --query id -o tsv
+   ```
+
+3. Set correct subscription context:
+   ```bash
+   az account set --subscription <cluster-subscription-id>
+   ```
+
+4. Retry Holmes command:
+   ```bash
+   poetry run python3 holmes_cli.py ask "get cluster resource id" --model="azure/gpt-4.1"
+   ```
+
 ### "Query returned no results"
 
 1. Verify the cluster name is correct
@@ -209,13 +263,48 @@ Running HolmesGPT externally (not in AKS) provides several advantages:
 3. **Multi-Cluster Support**: Configure multiple clusters and switch between them
 4. **Enhanced Security**: Run with specific permissions rather than cluster-wide access
 
+## Alert Investigation Workflow
+
+The toolset supports a comprehensive two-step alert investigation workflow:
+
+### Step 1: List Active Alerts
+
+```bash
+# Get a beautiful formatted list of all active alerts
+poetry run python3 holmes_cli.py ask "show me all active azure monitor metric alerts" --model="azure/gpt-4.1"
+```
+
+This displays alerts with:
+- **Visual formatting** with icons and colors
+- **Alert type identification** (Prometheus Metric Alert)
+- **Full Alert IDs** in code blocks for easy copying
+- **Complete metadata** including queries, severity, and status
+
+### Step 2: Investigate Specific Alert
+
+```bash
+# Investigate a specific alert using its full Alert ID
+poetry run python3 holmes_cli.py investigate azuremonitormetrics /subscriptions/.../alerts/12345 --model="azure/gpt-4.1"
+```
+
+This provides:
+- **AI-powered root cause analysis**
+- **Focused investigation** of the specific alert
+- **Correlation with cluster metrics and events**
+
 ## Example Usage After Configuration
 
-Once configured, you can use Azure Monitor metrics queries:
+Once configured, you can use Azure Monitor metrics queries and alert investigation:
 
 ```bash
 # Check cluster health
 poetry run python3 holmes_cli.py ask "what is the current resource utilization of this cluster?" --model="azure/gpt-4.1"
+
+# List active alerts with beautiful formatting
+poetry run python3 holmes_cli.py ask "show me all active azure monitor metric alerts" --model="azure/gpt-4.1"
+
+# Investigate specific alert
+poetry run python3 holmes_cli.py investigate azuremonitormetrics /subscriptions/.../alerts/84b776ef-64ae-3da4-1f14-cf02a24f0007 --model="azure/gpt-4.1"
 
 # Investigate specific issues
 poetry run python3 holmes_cli.py ask "show me pods with high memory usage in the last hour" --model="azure/gpt-4.1"
@@ -225,3 +314,74 @@ poetry run python3 holmes_cli.py ask "run this prometheus query: container_cpu_u
 ```
 
 The toolset will automatically add cluster filtering to ensure queries are scoped to your specific cluster.
+
+## Built-in Diagnostic Runbooks
+
+Azure Monitor alert investigation includes **automatic diagnostic runbooks** that guide the LLM through systematic troubleshooting steps - no setup required!
+
+### Automatic Activation
+
+```bash
+# Runbooks work automatically - no configuration needed!
+poetry run python3 holmes_cli.py investigate azuremonitormetrics /subscriptions/.../alerts/12345 --model="azure/gpt-4.1"
+
+# The LLM automatically follows built-in diagnostic runbooks
+```
+
+### Optional: Custom Runbooks
+
+For additional customization, you can add custom runbooks:
+
+```bash
+# Copy example runbooks for customization (optional)
+cp examples/azuremonitor_runbooks.yaml ~/.holmes/runbooks.yaml
+
+# Test with custom runbooks
+poetry run python3 holmes_cli.py investigate azuremonitormetrics /subscriptions/.../alerts/12345 --model="azure/gpt-4.1"
+```
+
+### What Runbooks Provide
+
+**Systematic Investigation:**
+- 10-step diagnostic methodology for all Azure Monitor alerts
+- Specialized workflows for CPU, memory, and pod-related alerts
+- Comprehensive coverage from alert analysis to remediation recommendations
+
+**Enhanced LLM Guidance:**
+- Automatic tool selection and usage
+- Structured analysis approach
+- Consistent investigation quality
+- Best practice recommendations
+
+### Runbook Benefits
+
+**For Generic Alerts:**
+- Alert context analysis and resource identification
+- Metric correlation and trend analysis
+- Event timeline analysis and log examination
+- Root cause hypothesis and impact assessment
+
+**For Specific Alert Types:**
+- **CPU Alerts**: Focus on throttling, performance, and scaling
+- **Memory Alerts**: Emphasize leak detection and OOM analysis
+- **Pod Alerts**: Concentrate on scheduling and configuration issues
+
+### Configuration
+
+Create custom runbooks for your environment:
+
+```yaml
+# ~/.holmes/runbooks.yaml
+runbooks:
+  - match:
+      source_type: "azuremonitoralerts"
+      issue_name: ".*production.*"
+    instructions: >
+      Production alert investigation (high priority):
+      - Immediate impact assessment
+      - Check business SLAs and metrics
+      - Escalate if customer-facing
+      - Prepare incident communication
+```
+
+With runbooks configured, every Azure Monitor alert investigation becomes a guided, systematic process that ensures comprehensive analysis and faster resolution.

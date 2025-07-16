@@ -717,8 +717,22 @@ class IssueInvestigator(ToolCallingLLM):
             runbooks.extend(instructions.instructions)
 
         if console and runbooks:
+            # Get the matched runbooks to show file names
+            matched_runbooks = self.runbook_manager.get_matched_runbooks_for_issue(issue)
+            runbook_files = []
+            for i, runbook in enumerate(matched_runbooks, 1):
+                try:
+                    file_path = runbook.get_path()
+                    # Extract just the filename from the full path
+                    import os
+                    filename = os.path.basename(file_path)
+                    runbook_files.append(f"#{i}: {filename}")
+                except Exception:
+                    # Fallback to a generic name if path is not available
+                    runbook_files.append(f"#{i}: runbook")
+            
             console.print(
-                f"[bold]Analyzing with {len(runbooks)} runbooks: {runbooks}[/bold]"
+                f"[bold]Analyzing with {len(runbooks)} runbooks: {runbook_files}[/bold]"
             )
         elif console:
             console.print(

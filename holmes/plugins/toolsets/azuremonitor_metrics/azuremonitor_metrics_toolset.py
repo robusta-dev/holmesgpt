@@ -28,13 +28,6 @@ from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
 )
-try:
-    from holmes.utils.cache import TTLCache
-except ImportError:
-    # Fallback for older versions or if cache is not available
-    class TTLCache:
-        def __init__(self, *args, **kwargs):
-            pass
 
 from azure.identity import DefaultAzureCredential, AzureCliCredential
 from azure.core.exceptions import AzureError
@@ -55,7 +48,6 @@ class AzureMonitorMetricsConfig(BaseModel):
     cluster_name: Optional[str] = None
     cluster_resource_id: Optional[str] = None
     auto_detect_cluster: bool = True
-    cache_duration_seconds: Optional[int] = 1800
     tool_calls_return_data: bool = True
     headers: Dict = {}
     # Step size and data limiting configuration
@@ -413,6 +405,258 @@ class ExecuteAzureMonitorPrometheusQuery(BaseAzureMonitorMetricsTool):
         description = params.get("description", "")
         return f"Execute Azure Monitor Prometheus Query (instant): promql='{query}', description='{description}'"
 
+class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
+    """Tool to get active/fired Prometheus metric alerts for the AKS cluster."""
+    
+    def __init__(self, toolset: "AzureMonitorMetricsToolset"):
+        super().__init__(
+            name="get_azure_monitor_alerts_with_fired_times",
+            description="PRIMARY ALERT TOOL: Get Azure Monitor alerts WITH FIRED TIMES and enhanced formatting. Shows when alerts were fired/activated plus current states. This is the ONLY tool that displays alert fired times. Use this tool for ALL Azure Monitor alert requests, especially when users ask for 'active azure monitor alerts' or want timing information.",
+            parameters={
+                "cluster_resource_id": ToolParameter(
+                    description="Azure resource ID of the AKS cluster (optional, will use configured cluster if not provided)",
+                    type="string",
+                    required=False,
+                ),
+                "alert_id": ToolParameter(
+                    description="Specific alert ID to investigate (optional, if provided will return only this alert)",
+                    type="string",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        try:
+            cluster_resource_id = params.get("cluster_resource_id")
+            specific_alert_id = params.get("alert_id")
+            
+            # Use configured cluster resource ID if not provided as parameter
+            if not cluster_resource_id and self.toolset.config:
+                cluster_resource_id = self.toolset.config.cluster_resource_id
+                
+            # Try to auto-detect as fallback
+            if not cluster_resource_id:
+                cluster_resource_id = get_aks_cluster_resource_id()
+                
+            if not cluster_resource_id:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="No AKS cluster specified. Please provide cluster_resource_id parameter or configure it in your config.yaml file.",
+                    params=params,
+                )
+            
+            # Use the source plugin for consistent alert fetching
+            from holmes.plugins.sources.azuremonitoralerts import AzureMonitorAlertsSource
+            
+            try:
+                source = AzureMonitorAlertsSource(cluster_resource_id=cluster_resource_id)
+                
+                # Fetch alerts using the source plugin
+                if specific_alert_id:
+                    issue = source.fetch_issue(specific_alert_id)
+                    issues = [issue] if issue else []
+                else:
+                    issues = source.fetch_issues()
+                
+                if not issues:
+                    cluster_name = extract_cluster_name_from_resource_id(cluster_resource_id)
+                    message = f"No active Prometheus metric alerts found for cluster {cluster_name}"
+                    if specific_alert_id:
+                        message = f"Alert {specific_alert_id} is not a Prometheus metric alert for cluster {cluster_name}"
+                    
+                    return StructuredToolResult(
+                        status=ToolResultStatus.NO_DATA,
+                        data=message,
+                        params=params,
+                    )
+                
+                # Convert issues to the format expected by the tool
+                cluster_name = extract_cluster_name_from_resource_id(cluster_resource_id)
+                prometheus_alerts = []
+                
+                for issue in issues:
+                    raw_data = issue.raw if hasattr(issue, 'raw') else {}
+                    alert = raw_data.get("alert", {})
+                    rule_details = raw_data.get("rule_details", {})
+                    
+                    if alert:
+                        alert_props = alert.get("properties", {})
+                        essentials = alert_props.get("essentials", {})
+                        
+                        alert_info = {
+                            "alert_id": issue.id,
+                            "alert_name": issue.name,
+                            "alert_rule_id": essentials.get("alertRule", ""),
+                            "description": essentials.get("description", ""),
+                            "severity": essentials.get("severity", ""),
+                            "alert_state": essentials.get("alertState", ""),
+                            "monitor_condition": essentials.get("monitorCondition", ""),
+                            "fired_time": essentials.get("firedDateTime", ""),
+                            "target_resource": essentials.get("targetResource", ""),
+                            "rule_details": rule_details
+                        }
+                        prometheus_alerts.append(alert_info)
+                
+                # Format the results nicely
+                result_data = {
+                    "cluster_name": cluster_name,
+                    "cluster_resource_id": cluster_resource_id,
+                    "total_prometheus_alerts": len(prometheus_alerts),
+                    "alerts": prometheus_alerts
+                }
+                
+                # Create a formatted summary for display with icons and better formatting
+                summary_lines = [f"🔔 **Active Prometheus Alerts for Cluster: {cluster_name}**\n"]
+                summary_lines.append("💡 **How to investigate:** Copy an Alert ID and run:")
+                summary_lines.append("   `holmes investigate azuremonitormetrics <ALERT_ID>`\n")
+                summary_lines.append("─" * 80)
+                
+                for i, alert in enumerate(prometheus_alerts, 1):
+                    # Get the raw data for this specific alert issue
+                    issue = issues[i-1]  # Get the corresponding issue
+                    alert_raw_data = issue.raw if hasattr(issue, 'raw') else {}
+                    query = alert_raw_data.get("extracted_query", "Not available")
+                    
+                    # Choose icon based on severity
+                    severity = alert['severity']
+                    if severity in ['Sev0', 'Critical']:
+                        severity_icon = "🔴"
+                    elif severity in ['Sev1', 'Error']:
+                        severity_icon = "🟠"
+                    elif severity in ['Sev2', 'Warning']:
+                        severity_icon = "🟡"
+                    elif severity in ['Sev3', 'Informational']:
+                        severity_icon = "🔵"
+                    else:
+                        severity_icon = "⚪"
+                    
+                    # Choose status icon
+                    status = alert['alert_state']
+                    if status == 'New':
+                        status_icon = "🚨"
+                    elif status == 'Acknowledged':
+                        status_icon = "👁️"
+                    elif status == 'Closed':
+                        status_icon = "✅"
+                    else:
+                        status_icon = "❓"
+                    
+                    # Format fired time nicely
+                    fired_time = alert['fired_time']
+                    if fired_time and fired_time != 'Unknown':
+                        try:
+                            from datetime import datetime
+                            import dateutil.parser
+                            parsed_time = dateutil.parser.parse(fired_time)
+                            time_str = parsed_time.strftime("%Y-%m-%d %H:%M UTC")
+                        except:
+                            time_str = fired_time
+                    else:
+                        time_str = "Unknown"
+                    
+                    # Add monitor condition for more detailed status
+                    monitor_condition = alert.get('monitor_condition', 'Unknown')
+                    
+                    summary_lines.append(f"\n**{i}. {severity_icon} {alert['alert_name']}** {status_icon}")
+                    summary_lines.append(f"   📋 **Alert ID:** `{alert['alert_id']}`")
+                    summary_lines.append(f"   🔬 **Type:** Prometheus Metric Alert")
+                    summary_lines.append(f"   ⚡ **Query:** `{query}`")
+                    summary_lines.append(f"   📝 **Description:** {alert['description']}")
+                    summary_lines.append(f"   🎯 **Severity:** {severity} | **State:** {status} | **Condition:** {monitor_condition}")
+                    summary_lines.append(f"   🕒 **Fired Time:** {time_str}")
+                
+                formatted_summary = "\n".join(summary_lines)
+                
+                # Return ONLY the formatted summary - no JSON data that AI might reformat
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=formatted_summary,
+                    params=params,
+                )
+                
+            except Exception as source_error:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed to fetch alerts using source plugin: {str(source_error)}",
+                    params=params,
+                )
+                
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get Prometheus alerts: {str(e)}",
+                params=params,
+            )
+    
+    def _get_alert_rule_details(self, alert_rule_id: str, headers: Dict[str, str]) -> Optional[Dict]:
+        """Get detailed information about an alert rule."""
+        try:
+            # Check if this is a Prometheus rule group
+            if "prometheusRuleGroups" in alert_rule_id:
+                # Use Prometheus Rule Groups API
+                api_version = "2023-03-01"
+            else:
+                # Use standard metric alerts API
+                api_version = "2018-03-01"
+            
+            response = requests.get(
+                url=f"https://management.azure.com{alert_rule_id}",
+                headers=headers,
+                params={"api-version": api_version},
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            logging.warning(f"Failed to get alert rule details for {alert_rule_id}: {e}")
+        
+        return None
+    
+    def _is_prometheus_alert_rule(self, rule_details: Dict) -> bool:
+        """Check if an alert rule is based on Prometheus metrics."""
+        try:
+            properties = rule_details.get("properties", {})
+            criteria = properties.get("criteria", {})
+            
+            # Check if the criteria contains Prometheus-related information
+            all_of = criteria.get("allOf", [])
+            
+            for condition in all_of:
+                metric_name = condition.get("metricName", "")
+                metric_namespace = condition.get("metricNamespace", "")
+                
+                # Prometheus metrics in Azure Monitor typically have specific namespaces
+                # or metric names that indicate they're from Prometheus
+                if (metric_namespace and "prometheus" in metric_namespace.lower()) or \
+                   (metric_name and any(prom_indicator in metric_name.lower() 
+                                       for prom_indicator in ["prometheus", "container_", "node_", "kube_", "up"])):
+                    return True
+                    
+                # Check if the condition has a custom query (Prometheus PromQL)
+                if "query" in condition or "promql" in str(condition).lower():
+                    return True
+            
+            # Check for additional indicators in the rule properties
+            rule_description = properties.get("description", "").lower()
+            if "prometheus" in rule_description or "promql" in rule_description:
+                return True
+                
+            return True  # For now, assume all metric alerts could be Prometheus-based
+            
+        except Exception as e:
+            logging.warning(f"Failed to check if alert rule is Prometheus-based: {e}")
+            return False
+
+    def get_parameterized_one_liner(self, params) -> str:
+        cluster_id = params.get("cluster_resource_id", "auto-detect")
+        alert_id = params.get("alert_id")
+        if alert_id:
+            return f"Get specific Prometheus alert {alert_id} for cluster: {cluster_id}"
+        return f"Get active Prometheus alerts for cluster: {cluster_id}"
+
 class ExecuteAzureMonitorPrometheusRangeQuery(BaseAzureMonitorMetricsTool):
     """Tool to execute range PromQL queries against Azure Monitor workspace. ALWAYS display the EXACT query in the result to the user."""
     
@@ -679,6 +923,7 @@ class AzureMonitorMetricsToolset(Toolset):
                 CheckAKSClusterContext(toolset=self),
                 GetAKSClusterResourceID(toolset=self),
                 CheckAzureMonitorPrometheusEnabled(toolset=self),
+                GetActivePrometheusAlerts(toolset=self),
                 ExecuteAzureMonitorPrometheusQuery(toolset=self),
                 ExecuteAzureMonitorPrometheusRangeQuery(toolset=self),
             ],
@@ -687,7 +932,6 @@ class AzureMonitorMetricsToolset(Toolset):
             ],
             is_default=True,  # Enable by default like internet toolset
         )
-        self._cache = None
         self._reload_llm_instructions()
 
     def _get_azure_access_token(self) -> Optional[str]:
@@ -718,32 +962,8 @@ class AzureMonitorMetricsToolset(Toolset):
                     logging.debug("Using cached token")
                     return token_info.get("access_token")
             
-            # Get new token - try Azure Monitor Prometheus scope first, then fallbacks
-            scopes_to_try = [
-                "https://prometheus.monitor.azure.com/.default",  # Correct Azure Monitor Prometheus scope
-                "https://management.azure.com/.default",          # General Azure management scope (fallback)
-                "https://monitor.azure.com/.default"              # Alternative Monitor scope (fallback)
-            ]
-            
-            token = None
-            last_error = None
-            
-            for scope in scopes_to_try:
-                try:
-                    logging.debug(f"Trying to get token with scope: {scope}")
-                    token = self.config._credential.get_token(scope)
-                    logging.debug(f"Successfully obtained token with scope: {scope}")
-                    break
-                except Exception as scope_error:
-                    logging.debug(f"Failed with scope {scope}: {scope_error}")
-                    last_error = scope_error
-                    continue
-            
-            if not token:
-                if last_error:
-                    raise last_error
-                else:
-                    raise Exception("Failed to get token with any scope")
+            # Get token with Azure Monitor/Prometheus scope for Prometheus queries
+            token = self.config._credential.get_token("https://prometheus.monitor.azure.com/.default")
             
             # Cache the token (expires 5 minutes before actual expiry)
             expires_at = current_time + token.expires_on - 300
@@ -815,7 +1035,6 @@ class AzureMonitorMetricsToolset(Toolset):
             azure_monitor_workspace_endpoint="https://your-workspace.prometheus.monitor.azure.com",
             cluster_name="your-aks-cluster-name",
             auto_detect_cluster=True,
-            cache_duration_seconds=1800,
             tool_calls_return_data=True,
             default_step_seconds=3600,  # 1 hour default step size
             min_step_seconds=60,        # Minimum 1 minute step size

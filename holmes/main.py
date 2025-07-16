@@ -921,6 +921,97 @@ def pagerduty(
 
 
 @investigate_app.command()
+def azuremonitormetrics(
+    alerttype: str = typer.Option(
+        "prometheusmetrics",
+        help="Type of alerts to investigate. Currently supports 'prometheusmetrics'",
+    ),
+    alertid: str = typer.Argument(
+        help="Alert ID to investigate (required). Use 'holmes ask' to list available alert IDs first.",
+    ),
+    cluster_resource_id: Optional[str] = typer.Option(
+        None,
+        help="Azure resource ID of the AKS cluster (optional, will auto-detect if not provided)",
+    ),
+    # common options
+    api_key: Optional[str] = opt_api_key,
+    model: Optional[str] = opt_model,
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
+    custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
+    custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    max_steps: Optional[int] = opt_max_steps,
+    verbose: Optional[List[bool]] = opt_verbose,
+    json_output_file: Optional[str] = opt_json_output_file,
+    # advanced options for this command
+    system_prompt: Optional[str] = typer.Option(
+        "builtin://generic_investigation.jinja2", help=system_prompt_help
+    ),
+    post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+):
+    """
+    Investigate a specific Azure Monitor Prometheus metric alert by ID
+    """
+    console = init_logging(verbose)
+    
+    if alerttype != "prometheusmetrics":
+        console.print(f"[bold red]Error: Currently only 'prometheusmetrics' alert type is supported.[/bold red]")
+        return
+    
+    config = Config.load_from_file(
+        config_file,
+        api_key=api_key,
+        model=model,
+        max_steps=max_steps,
+        custom_toolsets_from_cli=custom_toolsets,
+        custom_runbooks=custom_runbooks,
+    )
+    
+    # Create the issue investigator
+    ai = config.create_console_issue_investigator()
+    
+    # Create the Azure Monitor alerts source
+    try:
+        from holmes.plugins.sources.azuremonitoralerts import AzureMonitorAlertsSource
+        source = AzureMonitorAlertsSource(cluster_resource_id=cluster_resource_id)
+        
+    except Exception as e:
+        console.print(f"[bold red]Error: Failed to initialize Azure Monitor alerts source: {str(e)}[/bold red]")
+        return
+    
+    try:
+        # Investigate specific alert
+        console.print(f"[bold yellow]Fetching alert {alertid}...[/bold yellow]")
+        issue = source.fetch_issue(alertid)
+        if not issue:
+            console.print(f"[bold red]Alert {alertid} not found or is not a Prometheus metric alert for the cluster.[/bold red]")
+            console.print(f"[bold yellow]Use 'holmes ask \"show me all active azure monitor metric alerts\"' to list available alert IDs.[/bold yellow]")
+            return
+            
+    except Exception as e:
+        logging.error("Failed to fetch alert from Azure Monitor", exc_info=e)
+        console.print(f"[bold red]Error: Failed to fetch alert from Azure Monitor: {str(e)}[/bold red]")
+        return
+
+    console.print(f"[bold yellow]Analyzing Azure Monitor Prometheus alert: {issue.name}...[/bold yellow]")
+
+    result = ai.investigate(
+        issue=issue,
+        prompt=system_prompt,  # type: ignore
+        console=console,
+        instructions=None,
+        post_processing_prompt=post_processing_prompt,
+    )
+
+    console.print(Rule())
+    console.print(f"[bold green]AI analysis of alert: {issue.name}[/bold green]")
+    console.print(Markdown(result.result.replace("\n", "\n\n")), style="bold green")  # type: ignore
+    console.print(Rule())
+    
+    if json_output_file:
+        result_data = {"issue": issue.model_dump(), "result": result.model_dump()}
+        write_json_file(json_output_file, result_data)
+
+@investigate_app.command()
 def opsgenie(
     opsgenie_api_key: str = typer.Option(None, help="The OpsGenie API key"),
     opsgenie_team_integration_key: str = typer.Option(
