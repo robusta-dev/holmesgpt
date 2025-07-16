@@ -120,8 +120,10 @@ kubectl port-forward svc/holmesgpt-holmes 8080:80
 # Test with a basic question
 curl -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"ask": "what pods are unhealthy and why?"}'
+  -d '{"ask": "list pods in namespace default?"}'
 ```
+
+> **Note**: Responses may take some time when HolmesGPT needs to gather large amounts of data to answer your question. Streaming APIs are coming soon to stream results.
 
 For complete API documentation, see the [HTTP API Reference](../reference/http-api.md).
 
