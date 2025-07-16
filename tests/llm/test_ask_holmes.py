@@ -193,8 +193,8 @@ def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLM
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
     config = Config()
-    # if test_case.cluster_name:
-    #     config.cluster_name =  test_case.cluster_name
+    if test_case.cluster_name:
+        config.cluster_name = test_case.cluster_name
 
     messages = build_chat_messages(
         ask=chat_request.ask,
@@ -202,5 +202,5 @@ def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLM
         ai=ai,
         config=config,
     )
-    print(messages[0]["content"])
+
     return ai.messages_call(messages=messages)
