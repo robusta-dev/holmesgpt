@@ -2,7 +2,7 @@ name: Build and Deploy HolmesGPT Documentation
 on:
   push:
     branches:
-      - holmes-mkdocs
+      - master
 permissions:
   contents: write
 jobs:
