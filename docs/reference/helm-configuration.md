@@ -58,6 +58,8 @@ toolsets:
 | `registry` | Container registry | `robustadev` |
 | `logLevel` | Log level (DEBUG, INFO, WARN, ERROR) | `INFO` |
 | `enableTelemetry` | Send exception reports to sentry | `true` |
+| `certificate` | Base64 encoded custom CA certificate for outbound HTTPS requests (e.g., LLM API via proxy) | `""` |
+| `sentryDSN` | Sentry DSN for telemetry | (see values.yaml) |
 
 #### API Key Configuration
 
@@ -119,6 +121,7 @@ resources:
     cpu: 100m
     memory: 1024Mi
   limits:
+    cpu: 100m        # Optional CPU limit
     memory: 1024Mi
 ```
 
