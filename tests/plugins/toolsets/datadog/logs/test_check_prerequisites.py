@@ -17,10 +17,7 @@ class TestDatadogToolsetCheckPrerequisites:
         toolset.check_prerequisites()
 
         assert toolset.status == ToolsetStatusEnum.FAILED
-        assert (
-            toolset.error
-            == "Datadog toolset is misconfigured. 'dd_api_key' and 'dd_app_key' are required."
-        )
+        assert toolset.error == "The toolset is missing its configuration"
 
     def test_check_prerequisites_empty_config(self):
         """Test check_prerequisites with empty config"""
@@ -29,10 +26,7 @@ class TestDatadogToolsetCheckPrerequisites:
         toolset.check_prerequisites()
 
         assert toolset.status == ToolsetStatusEnum.FAILED
-        assert (
-            toolset.error
-            == "Datadog toolset is misconfigured. 'dd_api_key' and 'dd_app_key' are required."
-        )
+        assert toolset.error == "The toolset is missing its configuration"
 
     def test_check_prerequisites_missing_required_fields(self):
         """Test check_prerequisites with missing required fields"""
@@ -84,7 +78,10 @@ class TestDatadogToolsetCheckPrerequisites:
         assert toolset.dd_config is not None
         assert toolset.dd_config.dd_api_key == "test-api-key"
         assert toolset.dd_config.dd_app_key == "test-app-key"
-        assert toolset.dd_config.site_api_url == "https://api.datadoghq.com"
+        assert (
+            str(toolset.dd_config.site_api_url).rstrip("/")
+            == "https://api.datadoghq.com"
+        )
         assert toolset.dd_config.storage_tiers == DEFAULT_STORAGE_TIERS
 
         # Verify healthcheck was called with correct params
@@ -181,7 +178,10 @@ class TestDatadogToolsetCheckPrerequisites:
         assert toolset.status == ToolsetStatusEnum.ENABLED
         assert toolset.error is None  # Changed from "" to None
         assert toolset.dd_config is not None
-        assert toolset.dd_config.site_api_url == "https://api.us3.datadoghq.com"
+        assert (
+            str(toolset.dd_config.site_api_url).rstrip("/")
+            == "https://api.us3.datadoghq.com"
+        )
         assert toolset.dd_config.indexes == ["main", "secondary"]
         assert toolset.dd_config.storage_tiers == [
             DataDogStorageTier.INDEXES,
@@ -193,15 +193,8 @@ class TestDatadogToolsetCheckPrerequisites:
         assert toolset.dd_config.default_limit == 2000
         assert toolset.dd_config.request_timeout == 120
 
-    @patch.object(DatadogToolset, "fetch_pod_logs")
-    def test_check_prerequisites_with_empty_storage_tiers(self, mock_fetch_pod_logs):
-        """Test check_prerequisites with empty storage_tiers defaults to DEFAULT_STORAGE_TIERS"""
-        # Mock successful healthcheck response
-        mock_result = Mock()
-        mock_result.status = ToolResultStatus.SUCCESS
-        mock_result.error = None
-        mock_fetch_pod_logs.return_value = mock_result
-
+    def test_check_prerequisites_with_empty_storage_tiers(self):
+        """Test check_prerequisites with empty storage_tiers should fail validation"""
         toolset = DatadogToolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
@@ -211,10 +204,11 @@ class TestDatadogToolsetCheckPrerequisites:
         }
         toolset.check_prerequisites()
 
-        assert toolset.status == ToolsetStatusEnum.ENABLED
-        assert toolset.error is None  # Changed from "" to None
-        assert toolset.dd_config is not None
-        assert toolset.dd_config.storage_tiers == DEFAULT_STORAGE_TIERS
+        assert toolset.status == ToolsetStatusEnum.FAILED
+        assert toolset.error is not None
+        assert "Failed to parse Datadog configuration" in toolset.error
+        assert "storage_tiers" in toolset.error
+        assert "at least 1 item" in toolset.error
 
     def test_check_prerequisites_exception_during_config_parsing(self):
         """Test check_prerequisites with exception during config parsing"""
