@@ -110,7 +110,7 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
 **Description:** Same as `/api/investigate`, but returns results as a stream for real-time updates.
 
 **Request Fields**
-Same as [`/api/investigate`](#2-apiinvestigate-post).
+Same as [`/api/investigate`](#apiinvestigate-post).
 
 **Example**
 ```bash

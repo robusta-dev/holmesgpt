@@ -6,6 +6,8 @@ repo_name: robusta-dev/holmesgpt
 edit_uri: edit/main/docs/
 exclude_docs: |
   _*
+  snippets/
+  README.md
 
 theme:
   name: material
