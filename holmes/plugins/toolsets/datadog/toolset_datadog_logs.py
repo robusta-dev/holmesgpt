@@ -1,16 +1,19 @@
 from enum import Enum
 import json
-import requests  # type: ignore
 import logging
-import time
 from typing import Any, Optional, Dict, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     ToolsetTag,
 )
-from pydantic import BaseModel
+from pydantic import AnyUrl, BaseModel, Field
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
+from holmes.plugins.toolsets.datadog.datadog_api import (
+    DataDogRequestError,
+    execute_datadog_http_request,
+    MAX_RETRY_COUNT_ON_RATE_LIMIT,
+)
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
     BasePodLoggingToolset,
@@ -18,10 +21,6 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     PodLoggingTool,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
-
-BASE_RETRY_DELAY = 2.0  # Initial fallback delay if datadog does not return a reset_time
-MAX_RETRY_DELAY = 60.0  # Max delay if datadog does not return a reset_time
-MAX_RETRY_COUNT_ON_RATE_LIMIT = 5
 
 
 class DataDogLabelsMapping(BaseModel):
@@ -42,95 +41,15 @@ class DatadogConfig(BaseModel):
     dd_api_key: str
     dd_app_key: str
     indexes: list[str] = ["*"]
-    site_api_url: str  # e.g. https://api.us3.datadoghq.com. c.f. https://docs.datadoghq.com/getting_started/site/
+    site_api_url: AnyUrl  # e.g. https://api.us3.datadoghq.com. c.f. https://docs.datadoghq.com/getting_started/site/
     # Ordered list of storage tiers. Works as fallback. Subsequent tiers are queried only if the previous tier yielded no result
-    storage_tiers: list[DataDogStorageTier] = DEFAULT_STORAGE_TIERS
+    storage_tiers: list[DataDogStorageTier] = Field(
+        default=DEFAULT_STORAGE_TIERS, min_length=1
+    )
     labels: DataDogLabelsMapping = DataDogLabelsMapping()
     page_size: int = 300
     default_limit: int = 1000
     request_timeout: int = 60
-
-
-class DataDogRequestError(Exception):
-    payload: dict
-    status_code: int
-    response_text: str
-
-    def __init__(self, payload: dict, status_code: int, response_text: str):
-        super().__init__(f"HTTP error: {status_code} - {response_text}")
-        self.payload = payload
-        self.status_code = status_code
-        self.response_text = response_text
-
-
-class DataDogRequest429Error(DataDogRequestError):
-    reset_time: Optional[int]
-
-    def __init__(
-        self,
-        payload: dict,
-        status_code: int,
-        response_text: str,
-        reset_time: Optional[int],
-    ):
-        super().__init__(
-            payload=payload, status_code=status_code, response_text=response_text
-        )
-        self.reset_time = reset_time
-
-
-def _extract_cursor_for_next_paginated_api_call(data: dict) -> Optional[str]:
-    return data.get("meta", {}).get("page", {}).get("after", None)
-
-
-def _execute_logs_query(
-    url: str, headers: dict, payload: dict, timeout: int
-) -> tuple[list[dict], Optional[str]]:
-    attempts_count = 0
-
-    while attempts_count < MAX_RETRY_COUNT_ON_RATE_LIMIT:
-        attempts_count += 1
-        response = requests.post(url, headers=headers, json=payload, timeout=timeout)
-
-        if response.status_code == 200:
-            data = response.json()
-            cursor = _extract_cursor_for_next_paginated_api_call(data)
-
-            logs = data.get("data", [])
-            return logs, cursor
-
-        elif response.status_code == 429:
-            wait_time = min(
-                BASE_RETRY_DELAY * (2 ** (attempts_count - 1)), MAX_RETRY_DELAY
-            )
-
-            reset_time_header = response.headers.get("X-RateLimit-Reset")
-            if reset_time_header:
-                try:
-                    reset_time = int(reset_time_header)
-                    wait_time = max(0, reset_time) + 0.1
-                except ValueError:
-                    logging.warning(
-                        f"Received invalid X-RateLimit-Reset header value from datadog: {reset_time_header}"
-                    )
-
-            logging.warning(
-                f"DataDog logs toolset is rate limited/throttled. Waiting {wait_time:.1f}s until reset time"
-            )
-            time.sleep(wait_time)
-
-        else:
-            raise DataDogRequestError(
-                payload=payload,
-                status_code=response.status_code,
-                response_text=response.text,
-            )
-
-    raise DataDogRequestError(
-        payload=payload,
-        status_code=429,
-        response_text=f"Failed to fetch logs from DataDog due to rate limits and despite {attempts_count} attempts",
-    )
 
 
 def calculate_page_size(
@@ -183,13 +102,13 @@ def fetch_paginated_logs(
         "page": {"limit": calculate_page_size(params, dd_config, [])},
     }
 
-    logs, cursor = _execute_logs_query(
+    logs, cursor = execute_datadog_http_request(
         url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
     )
 
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
-        new_logs, cursor = _execute_logs_query(
+        new_logs, cursor = execute_datadog_http_request(
             url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
         )
         logs += new_logs
@@ -248,27 +167,30 @@ class DatadogToolset(BasePodLoggingToolset):
                 )
 
                 if raw_logs:
-                    # no need to try other storage tiers if the current one returned data
-                    break
+                    logs_str = format_logs(raw_logs)
+                    return StructuredToolResult(
+                        status=ToolResultStatus.SUCCESS,
+                        data=logs_str,
+                        params=params.model_dump(),
+                    )
 
-            if raw_logs:
-                logs_str = format_logs(raw_logs)
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=logs_str,
-                    params=params.model_dump(),
-                )
-            else:
-                return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
-                    params=params.model_dump(),
-                )
+            return StructuredToolResult(
+                status=ToolResultStatus.NO_DATA,
+                params=params.model_dump(),
+            )
 
         except DataDogRequestError as e:
             logging.exception(e, exc_info=True)
+
+            # Provide more specific error message for rate limiting failures
+            if e.status_code == 429:
+                error_msg = f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
+            else:
+                error_msg = f"Exception while querying Datadog: {str(e)}"
+
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=f"Exception while querying Datadog: {str(e)}",
+                error=error_msg,
                 params=params.model_dump(),
                 invocation=json.dumps(e.payload),
             )
@@ -320,13 +242,11 @@ class DatadogToolset(BasePodLoggingToolset):
         if not config:
             return (
                 False,
-                "Datadog toolset is misconfigured. 'dd_api_key' and 'dd_app_key' are required.",
+                TOOLSET_CONFIG_MISSING_ERROR,
             )
 
         try:
             dd_config = DatadogConfig(**config)
-            if not dd_config.storage_tiers:
-                dd_config.storage_tiers = DEFAULT_STORAGE_TIERS
             self.dd_config = dd_config
 
             # Perform healthcheck

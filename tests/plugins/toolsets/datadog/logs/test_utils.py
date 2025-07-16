@@ -1,3 +1,4 @@
+from pydantic import AnyUrl
 import pytest
 
 from holmes.plugins.toolsets.datadog.toolset_datadog_logs import (
@@ -16,7 +17,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -28,7 +29,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -40,7 +41,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=10,
             ),
@@ -52,7 +53,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -64,7 +65,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=10,
             ),
@@ -76,7 +77,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -88,7 +89,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -100,7 +101,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -112,7 +113,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -124,7 +125,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1000,
                 page_size=300,
             ),
@@ -136,7 +137,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
             DatadogConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
-                site_api_url="xyz",
+                site_api_url=AnyUrl("https://example.com"),
                 default_limit=1,
                 page_size=300,
             ),
