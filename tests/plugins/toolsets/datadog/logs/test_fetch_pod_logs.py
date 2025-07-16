@@ -33,7 +33,7 @@ class TestDatadogToolsetFetchPodLogs:
             limit=300,
         )
 
-    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
     def test_fetch_pod_logs_with_pagination(self, mock_post):
         """Test fetch_pod_logs with pagination when more logs are available"""
         # Mock responses for pagination
@@ -98,7 +98,7 @@ class TestDatadogToolsetFetchPodLogs:
             assert payload["filter"]["storage_tier"] == "indexes"
             assert payload["sort"] == "-timestamp"
 
-    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
     def test_fetch_pod_logs_less_data_than_requested(self, mock_post):
         """Test fetch_pod_logs when API returns less data than requested"""
         # Mock response with only 80 logs when limit is 1000
@@ -145,7 +145,7 @@ class TestDatadogToolsetFetchPodLogs:
         payload = call_args[1]["json"]
         assert payload["page"]["limit"] == 100  # page_size from config
 
-    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
     def test_fetch_pod_logs_storage_tier_fallback(self, mock_post):
         """Test fetch_pod_logs falling back to secondary storage tier when first returns no data"""
         # Configure toolset with multiple storage tiers
@@ -201,9 +201,8 @@ class TestDatadogToolsetFetchPodLogs:
         payload = second_call[1]["json"]
         assert payload["filter"]["storage_tier"] == "online-archives"
 
-    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
-    @patch("time.sleep")
-    def test_fetch_pod_logs_rate_limiting(self, mock_sleep, mock_post):
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
+    def test_fetch_pod_logs_rate_limiting(self, mock_post):
         """Test fetch_pod_logs handling rate limiting with X-RateLimit-Reset header"""
         # Mock responses
         # First attempt: rate limited
@@ -237,19 +236,11 @@ class TestDatadogToolsetFetchPodLogs:
         logs_lines = result.data.strip().split("\n")
         assert len(logs_lines) == 20
 
-        # Verify sleep was called with correct duration
-        mock_sleep.assert_called_once()
-        sleep_duration = mock_sleep.call_args[0][0]
-        assert sleep_duration == 5.1  # 5 seconds + 0.1 buffer
-
-        # Verify two API calls were made
+        # Verify two API calls were made (one failed with 429, one succeeded)
         assert mock_post.call_count == 2
 
-    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
-    @patch("time.sleep")
-    def test_fetch_pod_logs_rate_limiting_without_reset_header(
-        self, mock_sleep, mock_post
-    ):
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
+    def test_fetch_pod_logs_rate_limiting_without_reset_header(self, mock_post):
         """Test fetch_pod_logs handling rate limiting without X-RateLimit-Reset header"""
         # Mock responses
         # First attempt: rate limited without reset header
@@ -285,13 +276,10 @@ class TestDatadogToolsetFetchPodLogs:
         assert result.status == ToolResultStatus.SUCCESS
         assert result.error is None
 
-        # Verify exponential backoff was used
-        assert mock_sleep.call_count == 2
-        sleep_calls = [sleep_call[0][0] for sleep_call in mock_sleep.call_args_list]
-        assert sleep_calls[0] == 2.0  # BASE_RETRY_DELAY
-        assert sleep_calls[1] == 4.0  # BASE_RETRY_DELAY * 2
+        # Verify three API calls were made (two failed with 429, one succeeded)
+        assert mock_post.call_count == 3
 
-    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
     def test_fetch_pod_logs_no_config(self, mock_post):
         """Test fetch_pod_logs when dd_config is not set"""
         # Clear the config
@@ -307,7 +295,32 @@ class TestDatadogToolsetFetchPodLogs:
         # Verify no API calls were made
         assert mock_post.call_count == 0
 
-    @patch("holmes.plugins.toolsets.datadog.toolset_datadog_logs.requests.post")
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
+    def test_fetch_pod_logs_rate_limit_exhausted(self, mock_post):
+        """Test fetch_pod_logs when all rate limit retries are exhausted"""
+        # Mock all responses as rate limited
+        rate_limited_response = Mock()
+        rate_limited_response.status_code = 429
+        rate_limited_response.headers = {}
+        rate_limited_response.text = "Rate limit exceeded"
+
+        # Make all attempts return rate limited response
+        mock_post.return_value = rate_limited_response
+
+        # Execute
+        result = self.toolset.fetch_pod_logs(self.fetch_params)
+
+        # Verify
+        assert result.status == ToolResultStatus.ERROR
+        assert (
+            "Datadog API rate limit exceeded. Failed after 5 retry attempts."
+            in result.error
+        )
+
+        # Verify 5 API calls were made (MAX_RETRY_COUNT_ON_RATE_LIMIT)
+        assert mock_post.call_count == 5
+
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
     def test_fetch_pod_logs_with_filter(self, mock_post):
         """Test fetch_pod_logs with search filter"""
         # Mock response
