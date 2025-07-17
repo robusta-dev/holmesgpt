@@ -51,7 +51,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             description=f"List active metrics from the last {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours. This includes metrics that have actively reported data points.",
             parameters={
                 "from_time": ToolParameter(
-                    description="Start time for listing metrics. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') or a negative integer for relative seconds from now (e.g. -86400 for 24 hours ago). Defaults to {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours ago",
+                    description=f"Start time for listing metrics. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') or a negative integer for relative seconds from now (e.g. -86400 for 24 hours ago). Defaults to {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours ago",
                     type="string",
                     required=False,
                 ),
@@ -150,8 +150,6 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             logging.exception(
                 f"Failed to query Datadog metrics for params: {params}", exc_info=True
             )
-
-            from tenacity import RetryError
 
             if isinstance(e, RetryError):
                 try:
@@ -297,8 +295,6 @@ class QueryMetrics(BaseDatadogMetricsTool):
             logging.exception(
                 f"Failed to query Datadog metrics for params: {params}", exc_info=True
             )
-
-            from tenacity import RetryError
 
             if isinstance(e, RetryError):
                 try:

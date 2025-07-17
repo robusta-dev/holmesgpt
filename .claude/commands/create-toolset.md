@@ -18,7 +18,7 @@ For example, datadog toolsets should be in `holmes/plugins/toolsets/datadog`, aw
 
 a. Implement the configuration (if needed). The config is what users use to configure the toolset. This typically includes credentials.
 A toolset should not depend on env vars (some existing toolsets depend on end vars but this is not a good practice to follow).
-b. Implement a live healthcheck in a `prerequisite_check()` method. The health check should be contained in a dedicated method that is called by `prerequisite_check()`. `prerequisite_check()` should also make sure the config has the expected format. This is done by passing the user's config into a pydandic model: `MyToolsetConfigPydanticBaseModel(**config)`.
+b. Implement a live healthcheck in a `prerequisite_check()` method. The health check should be contained in a dedicated method that is called by `prerequisite_check()`. `prerequisite_check()` should also make sure the config has the expected format. This is done by passing the user's config into a pydantic model: `MyToolsetConfigPydanticBaseModel(**config)`. The prerequisites_check should save the validated config in an attribute different than `toolset.config` to not conflicty with the existing attribute. Whenever using the config, make sure it's present or return a `TOOLSET_CONFIG_MISSING_ERROR` message.
 c. Add the toolset to `holmes/plugins/toolsets/__init__.py`
 
 # 4. Define the tools to implement
@@ -66,4 +66,8 @@ If the toolset implements `BasePodLoggingToolset` then update the template `_fet
   - Depend on env variables (never put any credentials in the code). Ask if you don't have access to the correct env vars.
   - Test the health check (through toolset.check_prerequisites())
   - Test that each tool returns data as expected (verify that the data looks right)
-2. Implement integration tests. Because you havew actually verified that the data returned by the system is what you expect, you can now mock its behaviour and implement integration tests for each tool and for different scenarios.
+2. Implement integration tests. Because you have actually verified that the data returned by the system is what you expect, you can now mock its behaviour and implement integration tests for each tool and for different scenarios.
+
+# 7. Linting
+
+Run `rm -rf .mypy_cache && pre-commit run --all-files` and fix all issues related to the new code.
