@@ -245,7 +245,10 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         @bindings.add("pagedown")
         def _(event):
             event.app.layout.focus(text_area)
-            for _ in range(10):  # Scroll down half page
+            # Get current window height and scroll by half
+            window_height = event.app.output.get_size().rows - 1  # -1 for header
+            scroll_amount = max(1, window_height // 2)
+            for _ in range(scroll_amount):
                 text_area.buffer.cursor_down()
 
         @bindings.add("u")
@@ -253,7 +256,10 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         @bindings.add("pageup")
         def _(event):
             event.app.layout.focus(text_area)
-            for _ in range(10):  # Scroll up half page
+            # Get current window height and scroll by half
+            window_height = event.app.output.get_size().rows - 1  # -1 for header
+            scroll_amount = max(1, window_height // 2)
+            for _ in range(scroll_amount):
                 text_area.buffer.cursor_up()
 
         @bindings.add("f")
@@ -261,14 +267,20 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         @bindings.add("space")
         def _(event):
             event.app.layout.focus(text_area)
-            for _ in range(20):  # Scroll down full page
+            # Get current window height and scroll by full page
+            window_height = event.app.output.get_size().rows - 1  # -1 for header
+            scroll_amount = max(1, window_height)
+            for _ in range(scroll_amount):
                 text_area.buffer.cursor_down()
 
         @bindings.add("b")
         @bindings.add("c-b")
         def _(event):
             event.app.layout.focus(text_area)
-            for _ in range(20):  # Scroll up full page
+            # Get current window height and scroll by full page
+            window_height = event.app.output.get_size().rows - 1  # -1 for header
+            scroll_amount = max(1, window_height)
+            for _ in range(scroll_amount):
                 text_area.buffer.cursor_up()
 
         @bindings.add("w")
