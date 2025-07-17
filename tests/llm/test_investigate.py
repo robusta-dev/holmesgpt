@@ -19,9 +19,9 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
 from os import path
-from braintrust import Span
+from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
 
 from tests.llm.utils.tags import add_tags_to_eval
@@ -128,9 +128,10 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     with patch.dict(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
-        result = investigate_issues(
-            investigate_request=investigate_request, config=config, dal=mock_dal
-        )
+        with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+            result = investigate_issues(
+                investigate_request=investigate_request, config=config, dal=mock_dal
+            )
     assert result, "No result returned by investigate_issues()"
 
     # Log tool calls to Braintrust spans
@@ -184,11 +185,9 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
             expected_section_title in result.sections
         ), f"Expected title {expected_section_title} in sections"
 
-    if test_case.evaluation.correctness:
-        expected_correctness = test_case.evaluation.correctness
-        if isinstance(expected_correctness, Evaluation):
-            expected_correctness = expected_correctness.expected_score
-        assert scores.get("correctness", 0) >= expected_correctness
+    assert (
+        int(scores.get("correctness", 0)) == 1
+    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})"
 
     if test_case.expected_sections:
         for (

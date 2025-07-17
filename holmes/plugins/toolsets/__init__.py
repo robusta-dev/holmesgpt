@@ -7,6 +7,7 @@ from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 import yaml  # type: ignore
 from pydantic import ValidationError
 
+from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 import holmes.utils.env as env_utils
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
@@ -33,6 +34,7 @@ from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
+from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -76,6 +78,8 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         BashExecutorToolset(),
         MongoDBAtlasToolset(),
         RunbookToolset(),
+        AzureSQLToolset(),
+        ServiceNowToolset(),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())

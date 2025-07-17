@@ -178,6 +178,13 @@ def llm_session_setup(request):
                 print("  poetry run pytest --no-cov -k 01_how_many_pods")
                 print()
                 print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
+                print()
+                print(
+                    "NOTE: Braintrust is disabled. To see LLM traces and results in Braintrust,"
+                )
+                print(
+                    "set BRAINTRUST_API_KEY environment variable with a key from https://braintrust.dev"
+                )
                 print("=" * 70 + "\n")
         else:
             with force_pytest_output(request):
@@ -462,6 +469,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             result.records.sort(key=lambda x: x.get("span_attributes", {}).get("name"))
             total_test_cases = 0
             successful_test_cases = 0
+            regressions = 0
             for record in result.records:
                 scores = record.get("scores", None)
                 span_id = record.get("id")
@@ -476,7 +484,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         (tc for tc in result.test_cases if tc.get("id") == span_name),
                         {},
                     )
-                    correctness_score = scores.get("correctness", 0)
+                    correctness_score = int(scores.get("correctness", 0))
                     expected_correctness_score = (
                         test_case.get("metadata", {})
                         .get("test_case", {})
@@ -487,13 +495,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         expected_correctness_score = expected_correctness_score.get(
                             "expected_score", 1
                         )
+                    expected_correctness_score = int(expected_correctness_score)
+
                     total_test_cases += 1
-                    status_text = ":x:"
                     if correctness_score == 1:
                         successful_test_cases += 1
                         status_text = ":white_check_mark:"
-                    elif correctness_score >= expected_correctness_score:
+                    elif correctness_score == 0 and expected_correctness_score == 0:
                         status_text = ":warning:"
+                    else:
+                        regressions += 1
+                        status_text = ":x:"
                     rows.append(
                         [
                             f"[{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name})",
@@ -501,7 +513,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                             status_text,
                         ]
                     )
-            markdown += f"\n- [{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}): {successful_test_cases}/{total_test_cases} test cases were successful"
+            markdown += f"\n- [{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}): {successful_test_cases}/{total_test_cases} test cases were successful, {regressions} regressions\n"
 
         except ValueError:
             logging.info(
@@ -520,3 +532,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
         with open("evals_report.txt", "w", encoding="utf-8") as file:
             file.write(markdown)
+
+        # write number of regresssion to a separate file, if there are any regressions
+        if regressions > 0:
+            with open("regressions.txt", "w", encoding="utf-8") as file:
+                file.write(f"{regressions}")

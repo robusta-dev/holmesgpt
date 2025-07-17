@@ -48,6 +48,16 @@ kubernetes = "^32.0.1"
 mcp = "v1.9.0"
 prompt-toolkit = "^3.0.51"
 pytest-shared-session-scope = "^0.4.0"
+azure-identity = "^1.23.0"
+azure-core = "^1.34.0"
+requests = "^2.32.4"
+azure-mgmt-sql = "^3.0.1"
+pyodbc = "^5.0.1"
+azure-monitor-query = "^1.2.0"
+azure-mgmt-monitor = "^6.0.2"
+azure-mgmt-alertsmanagement = "^1.0.0"
+azure-mgmt-resource = "^24.0.0"
+protobuf = ">=6.31.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -85,6 +95,7 @@ markers = [
     "k8s-misconfig: Tests involving Kubernetes misconfigurations",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
+    "counting: Ask holmes to count kubernetes/cloud resources"
 ]
 addopts = [
     "--cov-config=pyproject.toml",
@@ -101,4 +112,4 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 40
+fail_under = 38

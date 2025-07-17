@@ -16,7 +16,8 @@ import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
-from braintrust import Span
+from braintrust import Span, SpanTypeAttribute
+
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
@@ -106,13 +107,16 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                 mock_datetime.configure_mock(
                     **{"now.return_value": mocked_datetime, "side_effect": None}
                 )
-                result = ask_holmes(test_case=test_case, parent_span=eval_span)
+                with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+                    result = ask_holmes(test_case=test_case, parent_span=eval_span)
         else:
-            result = ask_holmes(test_case=test_case, parent_span=eval_span)
+            with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+                result = ask_holmes(test_case=test_case, parent_span=eval_span)
 
         if result.tool_calls:
             # Log tool calls to Braintrust spans
             log_tool_calls_to_spans(result.tool_calls, eval_span)
+
     except Exception as e:
         bt_helper.end_evaluation(
             input=test_case.user_prompt,
@@ -171,13 +175,9 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     print_tool_calls_summary(result.tool_calls)
     print_tool_calls_detailed(result.tool_calls)
 
-    if test_case.evaluation.correctness:
-        expected_correctness = test_case.evaluation.correctness
-        if isinstance(expected_correctness, Evaluation):
-            expected_correctness = expected_correctness.expected_score
-        assert (
-            scores.get("correctness", 0) >= expected_correctness
-        ), f"Test gave wrong answer and failed with correctness={scores.get('correctness', 0)}"
+    assert (
+        int(scores.get("correctness", 0)) == 1
+    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {expected}"
 
 
 def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLMResult:

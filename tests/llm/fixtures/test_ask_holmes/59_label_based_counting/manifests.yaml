@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-59
+---
+# Production environment pods (7)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: service-a
+  namespace: test-59
+  labels:
+    env: prod
+    tier: frontend
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: service-b
+  namespace: test-59
+  labels:
+    env: prod
+    tier: backend
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: service-c
+  namespace: test-59
+  labels:
+    env: prod
+    tier: database
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker-x
+  namespace: test-59
+  labels:
+    env: prod
+    tier: worker
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: worker-y
+  namespace: test-59
+  labels:
+    env: prod
+    tier: worker
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: queue-processor
+  namespace: test-59
+  labels:
+    env: prod
+    tier: processing
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monitor-agent
+  namespace: test-59
+  labels:
+    env: prod
+    tier: monitoring
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+# Staging environment pods (4)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-service-a
+  namespace: test-59
+  labels:
+    env: staging
+    tier: frontend
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-service-b
+  namespace: test-59
+  labels:
+    env: staging
+    tier: backend
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-worker
+  namespace: test-59
+  labels:
+    env: staging
+    tier: worker
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-pod
+  namespace: test-59
+  labels:
+    env: staging
+    tier: debug
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+# Development environment pods (3)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dev-experiment
+  namespace: test-59
+  labels:
+    env: dev
+    tier: experimental
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dev-prototype
+  namespace: test-59
+  labels:
+    env: dev
+    tier: prototype
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: local-build
+  namespace: test-59
+  labels:
+    env: dev
+    tier: build
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
