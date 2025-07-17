@@ -257,7 +257,7 @@ class TestDatadogMetricsToolset:
         response.json.return_value = {"valid": True}
         mock_get.return_value = response
 
-        success, error_msg = self.toolset._perform_healthcheck()
+        success, error_msg = self.toolset._perform_healthcheck(self.config)
 
         assert success is True
         assert error_msg == ""
@@ -272,7 +272,7 @@ class TestDatadogMetricsToolset:
         response.json.return_value = {"valid": False}
         mock_get.return_value = response
 
-        success, error_msg = self.toolset._perform_healthcheck()
+        success, error_msg = self.toolset._perform_healthcheck(self.config)
 
         assert success is False
         assert "validation failed" in error_msg.lower()
