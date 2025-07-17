@@ -1,0 +1,51 @@
+## Datadog Traces Toolset
+
+Tools to search and analyze distributed traces from Datadog APM.
+
+### Available Tools:
+- **fetch_datadog_traces** - List traces with filters (service, operation, duration)
+- **fetch_datadog_trace_by_id** - Get detailed span hierarchy for a specific trace
+- **fetch_datadog_spans** - Search spans with Datadog query syntax
+
+### Common Usage:
+
+```python
+# Find slow traces (>5s) for a service
+fetch_datadog_traces(service="backend-service", min_duration="5s")
+
+# Get trace details showing full span hierarchy
+fetch_datadog_trace_by_id(trace_id="6878d11e0000000064837efe7e97f5f8")
+
+# Search for errors using Datadog query syntax
+fetch_datadog_spans(query="@http.status_code:500")
+fetch_datadog_spans(service="api", query="status:error")
+
+# Time ranges (default: last hour)
+fetch_datadog_traces(
+    service="api",
+    start_datetime="-3600",  # 1 hour ago
+    end_datetime="0"         # now
+)
+```
+
+### Query Examples:
+
+```python
+# Performance issues
+fetch_datadog_traces(min_duration="2s", operation="GET /api/products")
+
+# Errors by service
+fetch_datadog_spans(service="payment", query="@http.status_code:5*")
+
+# Database queries
+fetch_datadog_spans(query="service:postgres @duration:>1000000000")
+
+# With tags
+fetch_datadog_spans(tags={"env": "production"}, query="error:true")
+```
+
+### Tips:
+- Duration units: ms, s, m (e.g., "500ms", "5s", "1m")
+- Time: RFC3339 format or negative seconds from now
+- Rate limit: 300 requests/hour
+- Default time range: 1 hour

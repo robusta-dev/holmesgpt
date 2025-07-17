@@ -63,7 +63,15 @@ def get_headers(dd_config: DatadogBaseConfig) -> Dict[str, str]:
 
 def extract_logs_cursor(data: dict) -> Optional[str]:
     """Extract cursor for paginating through Datadog logs API responses."""
-    return data.get("meta", {}).get("page", {}).get("after", None)
+    if data is None:
+        return None
+    meta = data.get("meta", {})
+    if meta is None:
+        return None
+    page = meta.get("page", {})
+    if page is None:
+        return None
+    return page.get("after", None)
 
 
 class retry_if_http_429_error(retry_if_exception):
@@ -136,7 +144,7 @@ def execute_datadog_http_request(
     if response.status_code == 200:
         data = response.json()
 
-        if method == "POST" and "data" in data:
+        if method == "POST" and data and "data" in data:
             cursor = extract_logs_cursor(data)
             logs = data.get("data", [])
             return logs, cursor
