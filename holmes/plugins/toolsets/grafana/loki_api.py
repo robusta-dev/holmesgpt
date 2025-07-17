@@ -1,6 +1,7 @@
-import requests  # type: ignore
 from typing import Dict, List, Optional, Union
+
 import backoff
+import requests  # type: ignore
 
 from holmes.plugins.toolsets.grafana.common import build_headers
 
@@ -48,7 +49,7 @@ def execute_loki_query(
         response = requests.get(
             url,
             headers=build_headers(api_key=api_key, additional_headers=headers),
-            params=params,
+            params=params,  # type: ignore
         )
         response.raise_for_status()
 
