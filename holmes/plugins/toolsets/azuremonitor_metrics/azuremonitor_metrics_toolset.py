@@ -12,6 +12,7 @@ from pydantic import BaseModel, field_validator
 from requests import RequestException
 from datetime import datetime
 import dateutil.parser
+import dateutil.relativedelta
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -518,6 +519,7 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                     issue = issues[i-1]  # Get the corresponding issue
                     alert_raw_data = issue.raw if hasattr(issue, 'raw') else {}
                     query = alert_raw_data.get("extracted_query", "Not available")
+                    rule_description = alert_raw_data.get("extracted_description", "Not available")
                     
                     # Choose icon based on severity
                     severity = alert['severity']
@@ -563,7 +565,8 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                     summary_lines.append(f"   📋 **Alert ID:** `{alert['alert_id']}`")
                     summary_lines.append(f"   🔬 **Type:** Prometheus Metric Alert")
                     summary_lines.append(f"   ⚡ **Query:** `{query}`")
-                    summary_lines.append(f"   📝 **Description:** {alert['description']}")
+                    summary_lines.append(f"   📖 **Rule Description:** {rule_description}")
+                    summary_lines.append(f"   📝 **Alert Description:** {alert['description']}")
                     summary_lines.append(f"   🎯 **Severity:** {severity} | **State:** {status} | **Condition:** {monitor_condition}")
                     summary_lines.append(f"   🕒 **Fired Time:** {time_str}")
                 
@@ -656,6 +659,228 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
         if alert_id:
             return f"Get specific Prometheus alert {alert_id} for cluster: {cluster_id}"
         return f"Get active Prometheus alerts for cluster: {cluster_id}"
+
+class ExecuteAlertPromQLQuery(BaseAzureMonitorMetricsTool):
+    """Tool to execute the original PromQL query from an Azure Monitor alert for investigation."""
+    
+    def __init__(self, toolset: "AzureMonitorMetricsToolset"):
+        super().__init__(
+            name="execute_alert_promql_query",
+            description="Execute the original PromQL query from an Azure Monitor alert to investigate alert conditions. This tool extracts the exact query that triggered the alert and executes it to help with root cause analysis.",
+            parameters={
+                "alert_id": ToolParameter(
+                    description="Alert ID to extract and execute the PromQL query from",
+                    type="string",
+                    required=True,
+                ),
+                "time_range": ToolParameter(
+                    description="Time range for the query execution (e.g., '1h', '2h', '6h', '1d'). Defaults to 1 hour if not specified.",
+                    type="string",
+                    required=False,
+                ),
+                "cluster_resource_id": ToolParameter(
+                    description="Azure resource ID of the AKS cluster (optional, will use configured cluster if not provided)",
+                    type="string",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        try:
+            alert_id = get_param_or_raise(params, "alert_id")
+            time_range = params.get("time_range", "1h")
+            cluster_resource_id = params.get("cluster_resource_id")
+            
+            # Use configured cluster resource ID if not provided as parameter
+            if not cluster_resource_id and self.toolset.config:
+                cluster_resource_id = self.toolset.config.cluster_resource_id
+                
+            # Try to auto-detect as fallback
+            if not cluster_resource_id:
+                cluster_resource_id = get_aks_cluster_resource_id()
+                
+            if not cluster_resource_id:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="No AKS cluster specified. Please provide cluster_resource_id parameter or configure it in your config.yaml file.",
+                    params=params,
+                )
+            
+            # Fetch the specific alert to get its query
+            from holmes.plugins.sources.azuremonitoralerts import AzureMonitorAlertsSource
+            
+            try:
+                source = AzureMonitorAlertsSource(cluster_resource_id=cluster_resource_id)
+                issue = source.fetch_issue(alert_id)
+                
+                if not issue:
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error=f"Alert {alert_id} not found or is not a Prometheus metric alert for the cluster.",
+                        params=params,
+                    )
+                
+                # Extract the PromQL query from the alert
+                raw_data = issue.raw if hasattr(issue, 'raw') else {}
+                extracted_query = raw_data.get("extracted_query", "")
+                
+                if not extracted_query or extracted_query in ["Query not available", "Query extraction failed"]:
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error=f"Could not extract PromQL query from alert {alert_id}. Query: {extracted_query}",
+                        params=params,
+                    )
+                
+                # Check if Azure Monitor workspace is configured
+                if not self.toolset.config or not self.toolset.config.azure_monitor_workspace_endpoint:
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error="Azure Monitor workspace is not configured. Run check_azure_monitor_prometheus_enabled first.",
+                        params=params,
+                    )
+                
+                # Convert time range to seconds for range query
+                time_seconds = self._parse_time_range(time_range)
+                if not time_seconds:
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error=f"Invalid time range format: {time_range}. Use formats like '1h', '2h', '6h', '1d'.",
+                        params=params,
+                    )
+                
+                # Execute the query as a range query
+                cluster_name = self._ensure_cluster_name_available()
+                
+                # Print information about what we're doing
+                print(f"[Azure Monitor] Executing alert's original PromQL query: {extracted_query}")
+                print(f"[Azure Monitor] Time range: {time_range} ({time_seconds} seconds)")
+                print(f"[Azure Monitor] Alert: {issue.name}")
+                
+                # Calculate start and end times
+                end_time = datetime.now()
+                start_time = end_time - dateutil.relativedelta.relativedelta(seconds=time_seconds)
+                
+                start_rfc3339 = start_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+                end_rfc3339 = end_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+                
+                # Calculate appropriate step size
+                step = max(time_seconds // 100, 60)  # At least 1 minute, roughly 100 data points
+                
+                url = urljoin(self.toolset.config.azure_monitor_workspace_endpoint, "api/v1/query_range")
+                
+                payload = {
+                    "query": extracted_query,
+                    "start": start_rfc3339,
+                    "end": end_rfc3339,
+                    "step": step,
+                }
+                
+                # Get authenticated headers
+                headers = self.toolset._get_authenticated_headers()
+                
+                response = requests.post(
+                    url=url,
+                    headers=headers,
+                    data=payload,
+                    timeout=120
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    status = data.get("status")
+                    error_message = None
+                    
+                    if status == "success":
+                        result_data = data.get("data", {})
+                        if not result_data.get("result"):
+                            status = "no_data"
+                            error_message = "The alert's query returned no results. This might indicate the issue has been resolved or the query needs different parameters."
+                    else:
+                        error_message = data.get("error", "Unknown error from Prometheus endpoint")
+                    
+                    response_data = {
+                        "status": status,
+                        "error_message": error_message,
+                        "tool_name": self.name,
+                        "alert_id": alert_id,
+                        "alert_name": issue.name,
+                        "extracted_query": extracted_query,
+                        "time_range": time_range,
+                        "start": start_rfc3339,
+                        "end": end_rfc3339,
+                        "step": step,
+                        "cluster_name": cluster_name,
+                        "description": f"Executed original PromQL query from alert '{issue.name}' over {time_range} time range"
+                    }
+                    
+                    if self.toolset.config.tool_calls_return_data:
+                        response_data["data"] = data.get("data")
+                    
+                    result_status = ToolResultStatus.SUCCESS
+                    if status == "no_data":
+                        result_status = ToolResultStatus.NO_DATA
+                    elif status != "success":
+                        result_status = ToolResultStatus.ERROR
+                    
+                    return StructuredToolResult(
+                        status=result_status,
+                        data=json.dumps(response_data, indent=2),
+                        params=params,
+                    )
+                else:
+                    error_msg = f"HTTP {response.status_code}: {response.text}"
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error=f"Azure Monitor Prometheus query failed: {error_msg}",
+                        params=params,
+                    )
+                    
+            except Exception as source_error:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed to fetch alert or execute query: {str(source_error)}",
+                    params=params,
+                )
+                
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to execute alert PromQL query: {str(e)}",
+                params=params,
+            )
+
+    def _parse_time_range(self, time_range: str) -> Optional[int]:
+        """Parse time range string to seconds."""
+        try:
+            time_range = time_range.lower().strip()
+            
+            # Extract number and unit
+            import re
+            match = re.match(r'^(\d+)([smhd])$', time_range)
+            if not match:
+                return None
+            
+            value = int(match.group(1))
+            unit = match.group(2)
+            
+            multipliers = {
+                's': 1,
+                'm': 60,
+                'h': 3600,
+                'd': 86400
+            }
+            
+            return value * multipliers.get(unit, 1)
+            
+        except Exception:
+            return None
+
+    def get_parameterized_one_liner(self, params) -> str:
+        alert_id = params.get("alert_id", "")
+        time_range = params.get("time_range", "1h")
+        return f"Execute alert's PromQL query: alert_id={alert_id}, time_range={time_range}"
 
 class ExecuteAzureMonitorPrometheusRangeQuery(BaseAzureMonitorMetricsTool):
     """Tool to execute range PromQL queries against Azure Monitor workspace. ALWAYS display the EXACT query in the result to the user."""
@@ -925,6 +1150,7 @@ class AzureMonitorMetricsToolset(Toolset):
                 CheckAzureMonitorPrometheusEnabled(toolset=self),
                 GetActivePrometheusAlerts(toolset=self),
                 ExecuteAzureMonitorPrometheusQuery(toolset=self),
+                ExecuteAlertPromQLQuery(toolset=self),
                 ExecuteAzureMonitorPrometheusRangeQuery(toolset=self),
             ],
             tags=[
