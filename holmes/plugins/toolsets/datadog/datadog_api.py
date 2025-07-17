@@ -1,6 +1,7 @@
 import logging
-from typing import Optional
+from typing import Any, Optional, Dict
 import requests  # type: ignore
+from pydantic import AnyUrl, BaseModel
 from requests.structures import CaseInsensitiveDict  # type: ignore
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_incrementing
 from tenacity.wait import wait_base
@@ -13,6 +14,14 @@ INCREMENT_RETRY_DELAY = 5.0  # Delay increment after each rate limit, if datadog
 MAX_RETRY_COUNT_ON_RATE_LIMIT = 5
 
 RATE_LIMIT_REMAINING_SECONDS_HEADER = "X-RateLimit-Reset"
+
+
+class DatadogBaseConfig(BaseModel):
+    """Base configuration for all Datadog toolsets"""
+    dd_api_key: str
+    dd_app_key: str
+    site_api_url: AnyUrl
+    request_timeout: int = 60
 
 
 class DataDogRequestError(Exception):
@@ -33,6 +42,22 @@ class DataDogRequestError(Exception):
         self.status_code = status_code
         self.response_text = response_text
         self.response_headers = response_headers
+
+
+def get_headers(dd_config: DatadogBaseConfig) -> Dict[str, str]:
+    """Get standard headers for Datadog API requests.
+    
+    Args:
+        dd_config: Datadog configuration object
+        
+    Returns:
+        Dictionary of headers for Datadog API requests
+    """
+    return {
+        "Content-Type": "application/json",
+        "DD-API-KEY": dd_config.dd_api_key,
+        "DD-APPLICATION-KEY": dd_config.dd_app_key,
+    }
 
 
 def extract_logs_cursor(data: dict) -> Optional[str]:
@@ -92,20 +117,31 @@ class wait_for_retry_after_header(wait_base):
     ),
 )
 def execute_datadog_http_request(
-    url: str, headers: dict, payload: dict, timeout: int
-) -> tuple[list[dict], Optional[str]]:
-    response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    url: str,
+    headers: dict,
+    payload: dict,
+    timeout: int,
+    method: str = "POST",
+    params: Optional[dict] = None,
+) -> Any:
+    if method == "GET":
+        response = requests.get(url, headers=headers, params=params, timeout=timeout)
+    else:
+        response = requests.post(url, headers=headers, json=payload, timeout=timeout)
 
     if response.status_code == 200:
         data = response.json()
-        cursor = extract_logs_cursor(data)
 
-        logs = data.get("data", [])
-        return logs, cursor
+        if method == "POST" and "data" in data:
+            cursor = extract_logs_cursor(data)
+            logs = data.get("data", [])
+            return logs, cursor
+        else:
+            return data
 
     else:
         raise DataDogRequestError(
-            payload=payload,
+            payload=payload if method == "POST" else params,
             status_code=response.status_code,
             response_text=response.text,
             response_headers=response.headers,
