@@ -2,12 +2,32 @@ import os
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
 from tests.llm.utils.mock_utils import HolmesTestCase  # type: ignore
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
+
+
+class DummySpan:
+    """A no-op span implementation for when Braintrust is disabled."""
+
+    def start_span(self, *args, **kwargs):
+        return self
+
+    def log(self, *args, **kwargs):
+        pass
+
+    def end(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
 
@@ -101,10 +121,12 @@ class BraintrustEvalHelper:
             return None
         return find_dataset_row_by_test_case(self.dataset, test_case)
 
-    def start_evaluation(self, experiment_name: str, name: str) -> Optional[Span]:
+    def start_evaluation(
+        self, experiment_name: str, name: str
+    ) -> Union[Span, DummySpan]:
         if not self.dataset:
             # braintrust is disabled
-            return None
+            return DummySpan()
         if not self.experiment:
             experiment: Experiment | ReadonlyExperiment = braintrust.init(
                 project=self.project_name,
@@ -141,20 +163,13 @@ class BraintrustEvalHelper:
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")
 
-        formatted_input = input
-        if prompt:
-            formatted_input = (
-                prompt
-                + "\n\n-------------------------------------------------------\n\n"
-                + input
-            )
         self._root_span.log(
-            input=formatted_input,
+            input=input,
             output=output,
             expected=expected,
             dataset_record_id=id,
             scores=scores,
-            metadata={},
+            metadata={"system_prompt": prompt},
             tags=tags,
         )
         self._root_span.end()

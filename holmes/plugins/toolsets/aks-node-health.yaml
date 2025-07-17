@@ -4,7 +4,7 @@ toolsets:
     tags:
       - cli
     prerequisites:
-      - command: "az account list"
+      - command: "az account show"
       - command: "az aks --help"
       - command: "kubectl version --client"
     tools:
