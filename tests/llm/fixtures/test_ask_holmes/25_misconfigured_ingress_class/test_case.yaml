@@ -1,7 +1,10 @@
-user_prompt: "Other processes in the cluster are unable to reach my-http-app-deployment, why? Investigate ingress class issues"
-expected_output:
-  - Ensure the ingress class `example-ingress-class` does not exist in the cluster
+user_prompt: "Other processes in the cluster are unable to reach my-http-app-deployment, why?"
+tags:
+  - chain-of-causation
+  - k8s-misconfig
+expected_output: issue with the ingress setup or class
 before_test: kubectl apply -f./ingress_with_class.yaml
 after_test: kubectl delete -f./ingress_with_class.yaml
 evaluation:
   correctness: 0
+generate_mocks: False

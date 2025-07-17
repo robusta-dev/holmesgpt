@@ -264,7 +264,9 @@ def add_or_update_system_prompt(
 
     """
     template_path = "builtin://generic_ask_conversation.jinja2"
-    context = {"toolsets": ai.tool_executor.toolsets}
+    context = {
+        "toolsets": ai.tool_executor.toolsets,
+    }
 
     system_prompt = load_and_render_prompt(template_path, context)
 
@@ -343,6 +345,8 @@ def build_chat_messages(
 
     if not conversation_history:
         conversation_history = []
+    else:
+        conversation_history = conversation_history.copy()
 
     conversation_history = add_or_update_system_prompt(
         conversation_history=conversation_history, ai=ai

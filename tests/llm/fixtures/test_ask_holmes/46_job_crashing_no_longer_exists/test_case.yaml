@@ -1,0 +1,16 @@
+user_prompt: "What is the issue with job java-api-checker in namespace `ask-holmes-namespace-46`"
+tags:
+  - logs
+expected_output:
+  - failure to connect to the database at `prod-db:3333`
+before_test: |
+  kubectl create namespace ask-holmes-namespace-46
+  kubectl apply -f ./manifest.yaml
+  sleep 60
+  kubectl delete -f ./manifest.yaml
+  sleep 20
+after_test: |
+  kubectl delete namespace ask-holmes-namespace-46
+evaluation:
+  correctness: 0
+generate_mocks: False

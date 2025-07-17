@@ -1,6 +1,7 @@
 user_prompt: 'what is the command to port-forward to << { "type": "pod", "name": "my_grafana_4j981" } >>'
 #user_prompt: "what is the command to port-forward to my grafana service?"
 expected_output:
-  - kubectl port-forward pod/my_grafana_4j981 <any port>:3000 -n default
+  - A kubectl port-forward command
+  - The pod name in the port forward command must be my_grafana_4j981
 evaluation:
   correctness: 1

@@ -1,5 +1,0 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_find_resource","match_params":{"kind":"deployment","keyword":"meme-deployment"}}
-stdout:
-default              meme-deployment                             2/2     2            2           21h    meme-app                                              pavangudiwada/meme-generator:latest                                                                          app=meme-app                                                                                      app=meme-app
-
-stderr:

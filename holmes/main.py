@@ -1,9 +1,5 @@
 # ruff: noqa: E402
 import os
-from holmes.core.prompt import append_file_to_user_prompt
-from collections import OrderedDict
-
-from tabulate import tabulate  # type: ignore
 
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -37,9 +33,11 @@ from holmes.config import (
     SourceFactory,
     SupportedTicketSources,
 )
+from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
-from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
-from holmes.core.tools import Toolset
+from holmes.core.tool_calling_llm import LLMResult
+from holmes.core.tools import pretty_print_toolset_status
+from holmes.interactive import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
@@ -111,13 +109,29 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
         logging.basicConfig(
             level=logging.DEBUG,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[
+                RichHandler(
+                    show_level=False,
+                    markup=True,
+                    show_time=False,
+                    show_path=False,
+                    console=Console(width=None),
+                )
+            ],
         )
     elif verbosity == Verbosity.VERBOSE:
         logging.basicConfig(
             level=logging.INFO,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[
+                RichHandler(
+                    show_level=False,
+                    markup=True,
+                    show_time=False,
+                    show_path=False,
+                    console=Console(width=None),
+                )
+            ],
         )
         logging.getLogger().setLevel(logging.DEBUG)
         suppress_noisy_logs()
@@ -125,7 +139,15 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
         logging.basicConfig(
             level=logging.INFO,
             format="%(message)s",
-            handlers=[RichHandler(show_level=False, show_time=False)],
+            handlers=[
+                RichHandler(
+                    show_level=False,
+                    markup=True,
+                    show_time=False,
+                    show_path=False,
+                    console=Console(width=None),
+                )
+            ],
         )
         suppress_noisy_logs()
 
@@ -254,68 +276,6 @@ def handle_result(
         slack.send_issue(issue, result)
 
 
-def _pre_check_and_clarify(
-    ai: ToolCallingLLM,
-    initial_prompt: str,
-    console: Console,
-    messages: List[dict],
-) -> List[dict]:
-    """
-    Uses the LLM to check if the initial prompt has enough information
-    and asks clarifying questions if necessary.
-    Returns the updated messages list.
-    """
-    clarification_system_prompt = load_and_render_prompt(
-        "builtin://clarification_needed.jinja2",
-        {"toolsets": ai.tool_executor.toolsets},
-    )
-
-    pre_check_messages = [
-        {"role": "system", "content": clarification_system_prompt},
-        {"role": "user", "content": initial_prompt},
-    ]
-
-    logging.info("Running pre-check for clarifications...")
-    try:
-        # Use a simpler, cheaper model if configured, otherwise default
-        # For simplicity here, we use the same model but could optimize
-        pre_check_response = ai.llm.completion(
-            messages=pre_check_messages, temperature=0.2
-        )
-        clarification_request = pre_check_response.choices[0].message.content.strip()  # type: ignore
-        logging.debug(f"Pre-check response: {clarification_request}")
-
-        if clarification_request and not clarification_request.upper().startswith("OK"):
-            console.print(
-                "[bold yellow]AI needs more information:[/bold yellow]", end="\n"
-            )
-            # Print the questions received from the LLM
-            console.print(f"{clarification_request}")
-            # Add AI's clarification request to messages
-            messages.append({"role": "assistant", "content": clarification_request})
-
-            console.print()
-            console.print(Rule("[dim]Your input below[/dim]"))
-
-            user_answers = typer.prompt("Please provide the requested information")
-            # Add user's answers to messages
-            # Format the response to indicate it's an answer to the previous questions
-            formatted_answer = f"Here is the information you requested:\n{user_answers}"
-            messages.append({"role": "user", "content": formatted_answer})
-            console.print(
-                "[bold green]Thanks! Proceeding with investigation...[/bold green]"
-            )
-            console.print(Rule())
-
-    except Exception as e:
-        logging.error(f"Error during pre-check/clarification phase: {e}", exc_info=True)
-        console.print(
-            "[bold red]Error during clarification check. Proceeding with original prompt.[/bold red]"
-        )
-
-    return messages
-
-
 # TODO: add streaming output
 @app.command()
 def ask(
@@ -358,20 +318,10 @@ def ask(
     echo_request: bool = opt_echo_request,
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
     interactive: bool = typer.Option(
-        False,
-        "--interactive",
-        "-i",
-        help="Enter interactive mode after the initial question to ask follow-up questions.",
-    ),
-    interactive_limit: int = typer.Option(
-        10,
-        "--interactive-limit",
-        help="Maximum number of follow-up questions in interactive mode.",
-    ),
-    skip_clarifications: bool = typer.Option(
-        False,
-        "--skip-clarifications",
-        help="Skip the initial clarification-seeking step.",
+        True,
+        "--interactive/--no-interactive",
+        "-i/-n",
+        help="Enter interactive mode after the initial question? For scripting, disable this with --no-interactive",
     ),
 ):
     """
@@ -393,11 +343,16 @@ def ask(
     )
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
+        "runbooks": config.get_runbook_catalog(),
     }
 
     system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)  # type: ignore
 
-    if prompt_file:
+    if prompt_file and prompt:
+        raise typer.BadParameter(
+            "You cannot provide both a prompt argument and a prompt file. Please use one or the other."
+        )
+    elif prompt_file:
         if not prompt_file.is_file():
             raise typer.BadParameter(f"Prompt file not found: {prompt_file}")
         with prompt_file.open("r") as f:
@@ -405,45 +360,44 @@ def ask(
         console.print(
             f"[bold yellow]Loaded prompt from file {prompt_file}[/bold yellow]"
         )
-    elif not prompt:
+    elif not prompt and not interactive:
         raise typer.BadParameter(
-            "Either the 'prompt' argument or the --prompt-file option must be provided."
+            "Either the 'prompt' argument or the --prompt-file option must be provided (unless using --interactive mode)."
         )
 
-    initial_user_prompt = prompt
+    if echo_request and not interactive and prompt:
+        console.print("[bold yellow]User:[/bold yellow] " + prompt)
 
-    if echo_request:
-        console.print("[bold yellow]User:[/bold yellow] " + initial_user_prompt)
-    for path in include_file:  # type: ignore
-        initial_user_prompt = append_file_to_user_prompt(initial_user_prompt, path)
-        console.print(f"[bold yellow]Loading file {path}[/bold yellow]")
+    if interactive:
+        run_interactive_loop(
+            ai,
+            console,
+            system_prompt_rendered,
+            prompt,
+            include_file,
+            post_processing_prompt,
+            show_tool_output,
+        )
+        return
 
-    messages = [
-        {"role": "system", "content": system_prompt_rendered},
-        {"role": "user", "content": initial_user_prompt},
-    ]
-
-    if not skip_clarifications and interactive:
-        messages = _pre_check_and_clarify(ai, initial_user_prompt, console, messages)
+    messages = build_initial_ask_messages(
+        console,
+        system_prompt_rendered,
+        prompt,  # type: ignore
+        include_file,
+    )
 
     response = ai.call(messages, post_processing_prompt)
     messages = response.messages  # type: ignore # Update messages with the full history
 
     if json_output_file:
-        # Save only the first response to the JSON file if not interactive
-        # In interactive mode, saving the whole conversation might be complex, so we skip it for now.
-        if not interactive:
-            write_json_file(json_output_file, response.model_dump())
-        else:
-            logging.warning(
-                "JSON output is not supported in interactive mode yet. Skipping."
-            )
+        write_json_file(json_output_file, response.model_dump())
 
     issue = Issue(
         id=str(uuid.uuid4()),
-        name=prompt,
+        name=prompt,  # type: ignore
         source_type="holmes-ask",
-        raw={"prompt": initial_user_prompt, "full_conversation": messages},
+        raw={"prompt": prompt, "full_conversation": messages},
         source_instance_id=socket.gethostname(),
     )
     handle_result(
@@ -455,75 +409,6 @@ def ask(
         show_tool_output,
         False,  # type: ignore
     )
-
-    # Interactive loop
-    if interactive:
-        run_interactive_loop(
-            ai,
-            console,
-            destination,  # type: ignore
-            messages,
-            post_processing_prompt,
-            show_tool_output,
-            interactive_limit,
-        )
-
-
-def run_interactive_loop(
-    ai,
-    console: Console,
-    destination: DestinationType,
-    messages: list[dict],
-    post_processing_prompt: Optional[str],
-    show_tool_output: bool,
-    limit: int,
-) -> None:
-    console.print(
-        Rule(
-            "[bold cyan]Entering interactive mode. Type 'exit' or 'quit' to end.[/bold cyan]"
-        )
-    )
-    for _ in range(limit):
-        try:
-            follow_up_prompt = typer.prompt("Follow-up question")
-            if follow_up_prompt.lower() in ["exit", "quit"]:
-                break
-
-            messages.append({"role": "user", "content": follow_up_prompt})
-
-            # Subsequent calls in interactive mode
-            response = ai.call(messages, post_processing_prompt)
-            messages = response.messages  # Keep updating the history
-
-            # Handle response for interactive mode (simplified, adjust as needed)
-            if destination == DestinationType.CLI:
-                if show_tool_output and response.tool_calls:
-                    for tool_call in response.tool_calls:
-                        console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
-                        console.print(
-                            f"{tool_call.description}. Output=\n{tool_call.result}",
-                            markup=False,
-                        )
-                console.print("[bold green]AI:[/bold green]", end=" ")
-                console.print(Markdown(response.result))
-                console.print(Rule())
-            else:
-                # Handling other destinations in interactive mode might need specific logic
-                logging.warning(
-                    f"Interactive mode might not fully support destination '{destination}'. Displaying to CLI."
-                )
-                console.print("[bold green]AI:[/bold green]", end=" ")
-                console.print(Markdown(response.result))
-                console.print(Rule())
-
-        except typer.Abort:
-            break
-        except EOFError:  # Handle Ctrl+D
-            break
-        except Exception as e:
-            logging.error("An error occurred during interactive mode:", exc_info=e)
-            console.print(f"[bold red]Error: {e}[/bold red]")
-    console.print("[bold cyan]Exiting interactive mode.[/bold cyan]")
 
 
 @investigate_app.command()
@@ -1141,28 +1026,6 @@ def refresh_toolsets(
     config = Config.load_from_file(config_file)
     cli_toolsets = config.toolset_manager.list_console_toolsets(refresh_status=True)
     pretty_print_toolset_status(cli_toolsets, console)
-
-
-def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
-    status_fields = ["name", "status", "enabled", "type", "path", "error"]
-    toolsets_status = []
-    for toolset in toolsets:
-        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
-        order_toolset_status = OrderedDict(
-            (k.capitalize(), toolset_status[k])
-            for k in status_fields
-            if k in toolset_status
-        )
-        toolsets_status.append(order_toolset_status)
-
-    table = tabulate(
-        toolsets_status,
-        headers="keys",
-        tablefmt="simple",
-        disable_numparse=True,
-    )
-
-    console.print(table)
 
 
 @app.command()

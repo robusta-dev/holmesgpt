@@ -1,6 +1,7 @@
-import requests  # type: ignore
 from typing import Dict, List, Optional, Union
+
 import backoff
+import requests  # type: ignore
 
 from holmes.plugins.toolsets.grafana.common import build_headers
 
@@ -48,7 +49,7 @@ def execute_loki_query(
         response = requests.get(
             url,
             headers=build_headers(api_key=api_key, additional_headers=headers),
-            params=params,
+            params=params,  # type: ignore
         )
         response.raise_for_status()
 
@@ -67,16 +68,16 @@ def query_loki_logs_by_label(
     headers: Optional[Dict[str, str]],
     namespace: str,
     label_value: str,
-    filter_regexp: Optional[str],
+    filter: Optional[str],
     start: Union[int, str],
     end: Union[int, str],
     label: str,
     namespace_search_key: str = "namespace",
     limit: int = 200,
 ) -> List[Dict]:
-    query = f'{{{namespace_search_key}="{namespace}", {label}=~"{label_value}"}}'
-    if filter_regexp:
-        query += f' |~ "{filter_regexp}"'
+    query = f'{{{namespace_search_key}="{namespace}", {label}="{label_value}"}}'
+    if filter:
+        query += f' |= "{filter}"'
     return execute_loki_query(
         base_url=base_url,
         api_key=api_key,

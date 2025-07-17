@@ -6,6 +6,7 @@ import backoff
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
     build_headers,
+    get_base_url,
 )
 
 
@@ -16,13 +17,9 @@ from holmes.plugins.toolsets.grafana.common import (
     giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
     and e.response.status_code < 500,
 )
-def get_health(config: GrafanaConfig) -> Tuple[bool, str]:
-    if config.grafana_datasource_uid:
-        url = f"{config.url}/api/datasources/uid/{config.grafana_datasource_uid}/health"
-    else:
-        # Both loki and tempo provide the same /ready api
-        url = f"{config.url}/{config.healthcheck}"
-
+def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
+    base_url = get_base_url(config)
+    url = f"{base_url}/{config.healthcheck}"
     try:
         headers_ = build_headers(api_key=config.api_key, additional_headers=None)
 

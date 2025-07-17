@@ -19,7 +19,6 @@
 * Only generate and execute a prometheus query after checking what metrics are available with the `list_available_metrics` tool
 * Check that any node, service, pod, container, app, namespace, etc. mentioned in the query exist in the kubernetes cluster before making a query. Use any appropriate kubectl tool(s) for this
 * The toolcall will return no data to you. That is expected. You MUST however ensure that the query is successful.
-* You can get the current time before executing a prometheus range query
 * When doing queries, always extend the time range, to 15 min before and after the alert start time
 * ALWAYS embed the execution results into your answer
 * ALWAYS embed a Prometheus graph in the response. The graph should visualize data related to the incident.
