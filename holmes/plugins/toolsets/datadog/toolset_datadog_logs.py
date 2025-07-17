@@ -7,7 +7,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from tenacity import RetryError
-from pydantic import AnyUrl, BaseModel, Field
+from pydantic import BaseModel, Field
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.datadog.datadog_api import (
@@ -98,13 +98,19 @@ def fetch_paginated_logs(
     }
 
     logs, cursor = execute_datadog_http_request(
-        url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
+        url=url,
+        headers=headers,
+        payload_or_params=payload,
+        timeout=dd_config.request_timeout,
     )
 
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
         new_logs, cursor = execute_datadog_http_request(
-            url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
+            url=url,
+            headers=headers,
+            payload_or_params=payload,
+            timeout=dd_config.request_timeout,
         )
         logs += new_logs
         payload["page"]["limit"] = calculate_page_size(params, dd_config, logs)

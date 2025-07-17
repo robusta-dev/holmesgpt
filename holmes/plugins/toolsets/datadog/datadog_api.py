@@ -18,6 +18,7 @@ RATE_LIMIT_REMAINING_SECONDS_HEADER = "X-RateLimit-Reset"
 
 class DatadogBaseConfig(BaseModel):
     """Base configuration for all Datadog toolsets"""
+
     dd_api_key: str
     dd_app_key: str
     site_api_url: AnyUrl
@@ -46,10 +47,10 @@ class DataDogRequestError(Exception):
 
 def get_headers(dd_config: DatadogBaseConfig) -> Dict[str, str]:
     """Get standard headers for Datadog API requests.
-    
+
     Args:
         dd_config: Datadog configuration object
-        
+
     Returns:
         Dictionary of headers for Datadog API requests
     """
@@ -119,15 +120,18 @@ class wait_for_retry_after_header(wait_base):
 def execute_datadog_http_request(
     url: str,
     headers: dict,
-    payload: dict,
+    payload_or_params: dict,
     timeout: int,
     method: str = "POST",
-    params: Optional[dict] = None,
 ) -> Any:
     if method == "GET":
-        response = requests.get(url, headers=headers, params=params, timeout=timeout)
+        response = requests.get(
+            url, headers=headers, params=payload_or_params, timeout=timeout
+        )
     else:
-        response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        response = requests.post(
+            url, headers=headers, json=payload_or_params, timeout=timeout
+        )
 
     if response.status_code == 200:
         data = response.json()
@@ -141,7 +145,7 @@ def execute_datadog_http_request(
 
     else:
         raise DataDogRequestError(
-            payload=payload if method == "POST" else params,
+            payload=payload_or_params,
             status_code=response.status_code,
             response_text=response.text,
             response_headers=response.headers,

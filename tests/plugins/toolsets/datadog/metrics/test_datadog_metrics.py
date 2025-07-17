@@ -185,9 +185,9 @@ class TestDatadogMetricsToolset:
                 "description": "The amount of physical RAM in use",
                 "type": "gauge",
                 "unit": "byte",
-            }
+            },
         ]
-        
+
         mock_get.side_effect = [
             Mock(status_code=200, json=Mock(return_value=responses[0])),
             Mock(status_code=200, json=Mock(return_value=responses[1])),
@@ -319,4 +319,3 @@ class TestDatadogMetricsToolset:
         assert "dd_app_key" in example
         assert "site_api_url" in example
         assert example["site_api_url"] == "https://api.datadoghq.com"
-

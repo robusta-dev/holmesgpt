@@ -11,7 +11,6 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
-from pydantic import AnyUrl, BaseModel
 from tenacity import RetryError
 from holmes.plugins.toolsets.consts import (
     TOOLSET_CONFIG_MISSING_ERROR,
@@ -40,8 +39,10 @@ class DatadogMetricsConfig(DatadogBaseConfig):
 class BaseDatadogMetricsTool(Tool):
     toolset: "DatadogMetricsToolset"
 
+
 ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS = 24
 ACTIVE_METRICS_DEFAULT_TIME_SPAN_SECONDS = 24 * 60 * 60
+
 
 class ListActiveMetrics(BaseDatadogMetricsTool):
     def __init__(self, toolset: "DatadogMetricsToolset"):
@@ -78,14 +79,14 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
 
         url = None
         query_params = None
-        
+
         try:
             from_time_str = params.get("from_time")
-            
+
             from_time, _ = process_timestamps_to_int(
                 start=from_time_str,
                 end=None,
-                default_time_span_seconds=ACTIVE_METRICS_DEFAULT_TIME_SPAN_SECONDS
+                default_time_span_seconds=ACTIVE_METRICS_DEFAULT_TIME_SPAN_SECONDS,
             )
 
             url = f"{self.toolset.dd_config.site_api_url}/api/v1/metrics"
@@ -104,10 +105,9 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             data = execute_datadog_http_request(
                 url=url,
                 headers=headers,
-                payload={},
                 timeout=self.toolset.dd_config.request_timeout,
                 method="GET",
-                params=query_params,
+                payload_or_params=query_params,
             )
 
             metrics = data.get("metrics", [])
@@ -141,7 +141,9 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
-                invocation=json.dumps({"url": url, "params": query_params}) if url and query_params else None,
+                invocation=json.dumps({"url": url, "params": query_params})
+                if url and query_params
+                else None,
             )
 
         except Exception as e:
@@ -219,7 +221,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
 
         url = None
         query_params = None
-        
+
         try:
             query = get_param_or_raise(params, "query")
 
@@ -241,10 +243,9 @@ class QueryMetrics(BaseDatadogMetricsTool):
             data = execute_datadog_http_request(
                 url=url,
                 headers=headers,
-                payload={},
                 timeout=self.toolset.dd_config.request_timeout,
                 method="GET",
-                params=query_params,
+                payload_or_params=query_params,
             )
 
             series = data.get("series", [])
@@ -287,7 +288,9 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
-                invocation=json.dumps({"url": url, "params": query_params}) if url and query_params else None,
+                invocation=json.dumps({"url": url, "params": query_params})
+                if url and query_params
+                else None,
             )
 
         except Exception as e:
@@ -348,13 +351,13 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
 
         try:
             metric_names_str = get_param_or_raise(params, "metric_names")
-            
+
             metric_names = [
-                name.strip() 
-                for name in metric_names_str.split(",") 
+                name.strip()
+                for name in metric_names_str.split(",")
                 if name.strip()  # Filter out empty strings
             ]
-            
+
             if not metric_names:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
@@ -366,21 +369,21 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
 
             results = {}
             errors = {}
-            
+
             for metric_name in metric_names:
                 try:
                     url = f"{self.toolset.dd_config.site_api_url}/api/v1/metrics/{metric_name}"
-                    
+
                     data = execute_datadog_http_request(
                         url=url,
                         headers=headers,
-                        payload={},
+                        payload_or_params={},
                         timeout=self.toolset.dd_config.request_timeout,
                         method="GET",
                     )
-                    
+
                     results[metric_name] = data
-                    
+
                 except DataDogRequestError as e:
                     if e.status_code == 404:
                         errors[metric_name] = "Metric not found"
@@ -388,13 +391,13 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
                         errors[metric_name] = f"Error {e.status_code}: {str(e)}"
                 except Exception as e:
                     errors[metric_name] = f"Exception: {str(e)}"
-            
+
             response_data = {
                 "metrics_metadata": results,
                 "errors": errors,
                 "total_requested": len(metric_names),
                 "successful": len(results),
-                "failed": len(errors)
+                "failed": len(errors),
             }
 
             if not results and errors:
@@ -404,7 +407,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
                     data=json.dumps(response_data, indent=2),
                     params=params,
                 )
-            
+
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=json.dumps(response_data, indent=2),
@@ -468,18 +471,18 @@ class DatadogMetricsToolset(Toolset):
         )
         self._reload_instructions()
 
-    def _perform_healthcheck(self) -> Tuple[bool, str]:
+    def _perform_healthcheck(self, dd_config: DatadogMetricsConfig) -> Tuple[bool, str]:
         try:
             logging.info("Performing Datadog metrics configuration healthcheck...")
 
-            url = f"{self.dd_config.site_api_url}/api/v1/validate"
-            headers = get_headers(self.dd_config)
+            url = f"{dd_config.site_api_url}/api/v1/validate"
+            headers = get_headers(dd_config)
 
             data = execute_datadog_http_request(
                 url=url,
                 headers=headers,
-                payload={},
-                timeout=self.dd_config.request_timeout,
+                payload_or_params={},
+                timeout=dd_config.request_timeout,
                 method="GET",
             )
 
@@ -506,7 +509,7 @@ class DatadogMetricsToolset(Toolset):
             dd_config = DatadogMetricsConfig(**config)
             self.dd_config = dd_config
 
-            success, error_msg = self._perform_healthcheck()
+            success, error_msg = self._perform_healthcheck(dd_config)
             return success, error_msg
 
         except Exception as e:
@@ -525,7 +528,8 @@ class DatadogMetricsToolset(Toolset):
     def _reload_instructions(self):
         """Load Datadog metrics specific troubleshooting instructions."""
         template_file_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "datadog_metrics_instructions.jinja2")
+            os.path.join(
+                os.path.dirname(__file__), "datadog_metrics_instructions.jinja2"
+            )
         )
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
-

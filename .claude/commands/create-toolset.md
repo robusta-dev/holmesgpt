@@ -35,7 +35,7 @@ Implement each tool, one at a time. Use subagents.
 
 ## Params
 
-Some tools may require parameters. 
+Some tools may require parameters.
 
 - When possible these parameters should have sane default values. Making params optional frees the LLM/HolmesGPT from making decisions about what values should be used. Any default value should be configurable by the user through the toolset config.
 - Always prefer using RFC3339 for date inputs, with the possibility to use integers for relative time from "NOW". A good example for this is the date params for the `PodLoggingTool` in `holmes/plugins/toolsets/logging_utils/logging_api.py`.

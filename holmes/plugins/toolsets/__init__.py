@@ -15,7 +15,9 @@ from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
 from holmes.plugins.toolsets.datadog.toolset_datadog_logs import DatadogToolset
-from holmes.plugins.toolsets.datadog.toolset_datadog_metrics import DatadogMetricsToolset
+from holmes.plugins.toolsets.datadog.toolset_datadog_metrics import (
+    DatadogMetricsToolset,
+)
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
