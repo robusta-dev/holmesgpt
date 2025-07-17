@@ -5,6 +5,11 @@ Embed HolmesGPT in your own applications for programmatic root cause analysis, b
 ## Install HolmesGPT Python Package
 
 ```bash
+pip install holmesgpt # Installs latest stable version
+```
+
+**Install unreleased version from GitHub:**
+```bash
 pip install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
 ```
 
