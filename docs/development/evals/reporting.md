@@ -1,9 +1,9 @@
-# HolmesGPT Evaluations - Reporting with Braintrust
+# Reporting with Braintrust
 
 This guide explains how to use Braintrust to analyze evaluation results, debug failures, and compare model performance.
 
-- [Introduction to HolmesGPT's evals](./evals-introduction.md).
-- [Docs on writing your own evals](./evals-writing.md).
+- [Evaluations Overview](index.md) - Introduction to HolmesGPT's evaluation system
+- [Writing Evaluations](writing.md) - Learn how to create new test cases and evaluations
 
 ## Overview
 
@@ -16,7 +16,7 @@ Braintrust is a platform for tracking and analyzing LLM evaluations. HolmesGPT e
 
 ### 1. Create Account
 
-1. Visit [braintrust.dev](https://www.braintrust.dev)
+1. Visit [braintrust.dev](https://www.braintrust.dev){:target="_blank"}
 2. Sign up for an account
 3. Create a new project (e.g., "HolmesGPT")
 
@@ -42,7 +42,7 @@ export BRAINTRUST_API_KEY=sk-your-key
 export UPLOAD_DATASET=true
 export PUSH_EVALS_TO_BRAINTRUST=true
 
-poetry run pytest ./tests/llm/test_ask_holmes.py
+pytest ./tests/llm/test_ask_holmes.py
 ```
 
 ### Named Experiment
@@ -50,7 +50,7 @@ poetry run pytest ./tests/llm/test_ask_holmes.py
 ```bash
 export EXPERIMENT_ID=baseline_gpt4o
 export MODEL=gpt-4o
-poetry run pytest -n 10 ./tests/llm/test_*.py
+pytest -n 10 ./tests/llm/test_*.py
 ```
 
 ### Key Environment Variables
@@ -69,7 +69,7 @@ poetry run pytest -n 10 ./tests/llm/test_*.py
 
 The main Span of an evaluation will present the input (either the AlertManager issue or the user's question for Ask Holmes) as well as HolmesGPT's answer.
 
-![Screenshot of an eval's main output in Braintrust](./images/braintrust_eval_main_output.png)
+![Screenshot of an eval's main output in Braintrust](../../assets/braintrust_eval_main_output.png)
 
 ### Score Types
 
@@ -78,7 +78,7 @@ The main Span of an evaluation will present the input (either the AlertManager i
 - Values: 0 or 1
 - Shows how well output matches expectations
 
-![Screenshot of the reasoning for an eval score](./images/braintrust_eval_score.png)
+![Screenshot of the reasoning for an eval score](../../assets/braintrust_eval_score.png)
 
 ## Debugging Failed Evaluations
 
@@ -98,7 +98,7 @@ Click on a failing test to see:
 - **Output**: The LLM's final response
 - **Expected**: What the test expected
 
-![Screenshot of tool call output](./images/braintrust_eval_tool_call.png)
+![Screenshot of tool call output](../../assets/braintrust_eval_tool_call.png)
 
 ### 3. Common Failure Patterns
 
