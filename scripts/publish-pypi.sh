@@ -63,4 +63,3 @@ mv holmes/__init__.py.bak holmes/__init__.py
 mv pyproject.toml.bak pyproject.toml
 
 echo "Successfully published HolmesGPT $VERSION to PyPI!"
-
