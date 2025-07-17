@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Any, Optional, Dict, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -11,6 +12,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from pydantic import AnyUrl, BaseModel
+from tenacity import RetryError
 from holmes.plugins.toolsets.consts import (
     TOOLSET_CONFIG_MISSING_ERROR,
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
@@ -74,6 +76,9 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                 params=params,
             )
 
+        url = None
+        query_params = None
+        
         try:
             from_time_str = params.get("from_time")
             
@@ -136,7 +141,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
-                invocation=json.dumps({"url": url, "params": query_params}),
+                invocation=json.dumps({"url": url, "params": query_params}) if url and query_params else None,
             )
 
         except Exception as e:
@@ -212,6 +217,9 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 params=params,
             )
 
+        url = None
+        query_params = None
+        
         try:
             query = get_param_or_raise(params, "query")
 
@@ -279,7 +287,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
-                invocation=json.dumps({"url": url, "params": query_params}),
+                invocation=json.dumps({"url": url, "params": query_params}) if url and query_params else None,
             )
 
         except Exception as e:
@@ -341,7 +349,6 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
         try:
             metric_names_str = get_param_or_raise(params, "metric_names")
             
-            # Parse comma-separated string and clean up
             metric_names = [
                 name.strip() 
                 for name in metric_names_str.split(",") 
@@ -376,7 +383,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
                     
                 except DataDogRequestError as e:
                     if e.status_code == 404:
-                        errors[metric_name] = f"Metric not found"
+                        errors[metric_name] = "Metric not found"
                     else:
                         errors[metric_name] = f"Error {e.status_code}: {str(e)}"
                 except Exception as e:
@@ -393,7 +400,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
             if not results and errors:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error=f"Failed to retrieve metadata for all metrics",
+                    error="Failed to retrieve metadata for all metrics",
                     data=json.dumps(response_data, indent=2),
                     params=params,
                 )
@@ -404,29 +411,11 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
                 params=params,
             )
 
-        except DataDogRequestError as e:
-            logging.exception(e, exc_info=True)
-
-            if e.status_code == 404:
-                error_msg = f"Metric '{metric_name}' not found"
-            elif e.status_code == 429:
-                error_msg = f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
-            else:
-                error_msg = f"Exception while querying Datadog: {str(e)}"
-
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=error_msg,
-                params=params,
-            )
-
         except Exception as e:
             logging.exception(
                 f"Failed to query Datadog metric metadata for params: {params}",
                 exc_info=True,
             )
-
-            from tenacity import RetryError
 
             if isinstance(e, RetryError):
                 try:
@@ -477,6 +466,7 @@ class DatadogMetricsToolset(Toolset):
             experimental=True,
             tags=[ToolsetTag.CORE],
         )
+        self._reload_instructions()
 
     def _perform_healthcheck(self) -> Tuple[bool, str]:
         try:
@@ -531,4 +521,11 @@ class DatadogMetricsToolset(Toolset):
             "default_limit": 1000,
             "request_timeout": 60,
         }
+
+    def _reload_instructions(self):
+        """Load Datadog metrics specific troubleshooting instructions."""
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "datadog_metrics_instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 

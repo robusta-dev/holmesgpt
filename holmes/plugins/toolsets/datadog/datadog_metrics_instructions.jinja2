@@ -1,0 +1,26 @@
+## Datadog Metrics Tools Usage Guide
+
+When investigating metrics-related issues:
+
+1. **Start with `list_active_datadog_metrics`** to discover available metrics
+   - Use filters like `host` or `tag_filter` to narrow results
+   - Default shows metrics from last 24 hours
+
+2. **Use `query_datadog_metrics`** to fetch actual metric data
+   - Query syntax: `metric_name{tag:value}`
+   - Example: `system.cpu.user{host:myhost}`
+   - Returns timeseries data with timestamps and values
+
+3. **Use `get_datadog_metric_metadata`** to understand metric properties
+   - Provides metric type (gauge/count/rate), unit, and description
+   - Accepts comma-separated list for batch queries
+
+### Time Parameters
+- Use RFC3339 format: `2023-03-01T10:30:00Z`
+- Or relative seconds: `-3600` for 1 hour ago
+- Defaults to 1 hour window if not specified
+
+### Common Patterns
+- CPU investigation: First list metrics with `tag_filter:kube_node_name:nodename`, then query specific metrics
+- Memory issues: Look for `system.mem.*` or `kubernetes.memory.*` metrics
+- Container metrics: Filter by pod/container tags

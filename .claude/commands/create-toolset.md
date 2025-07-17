@@ -2,7 +2,7 @@ You are asked to build a new toolset.
 
 Toolsets provide a set of tools for HolmesGPT (LLM based system) to interact with other systems.
 
-Steps to write a toolset:
+The steps to write a toolset are defined below. Use subagents.
 
 # 1. Check existing toolsets
 
@@ -16,12 +16,10 @@ For example, datadog toolsets should be in `holmes/plugins/toolsets/datadog`, aw
 
 # 3. Implement the initial toolset config and class
 
-Implement the configuration (if needed). The config is what users use to configure the toolset. This typically includes credentials.
+a. Implement the configuration (if needed). The config is what users use to configure the toolset. This typically includes credentials.
 A toolset should not depend on env vars (some existing toolsets depend on end vars but this is not a good practice to follow).
-
-Implement a live healthcheck in a `prerequisite_check()` method. The health check should be contained in a dedicated method that is called by `prerequisite_check()`.
-
-`prerequisite_check()` should also make sure the config has the expected format. This is done by passing the user's config into a pydandic model: `MyToolsetConfigPydanticBaseModel(**config)`.
+b. Implement a live healthcheck in a `prerequisite_check()` method. The health check should be contained in a dedicated method that is called by `prerequisite_check()`. `prerequisite_check()` should also make sure the config has the expected format. This is done by passing the user's config into a pydandic model: `MyToolsetConfigPydanticBaseModel(**config)`.
+c. Add the toolset to `holmes/plugins/toolsets/__init__.py`
 
 # 4. Define the tools to implement
 
@@ -43,6 +41,24 @@ Some tools may require parameters.
 - Always prefer using RFC3339 for date inputs, with the possibility to use integers for relative time from "NOW". A good example for this is the date params for the `PodLoggingTool` in `holmes/plugins/toolsets/logging_utils/logging_api.py`.
 - Possible param types are string, booleans and numbers.
 
+# 6. LLM instructions
+
+If the toolset implements `BasePodLoggingToolset` then update the template `_fetch_logs.jinja2` with the new toolset and use `_default_log_prompt.jinja2` otherwise follow these instructions:
+
+    Generate a short set of instructions for HolmesGPT to use the tools provided by the toolset. HolmesGPT will only see the tool names and is not aware of the toolset's name.
+
+    Adding instructions is done by calling `self._load_llm_instructions` on the toolset. This is typically done by implementing a `_reload_instructions()` method that is called at the end of `toolset.__init__()`.
+
+    ```python
+        def _reload_instructions():
+            """Load Azure SQL specific troubleshooting instructions."""
+            template_file_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "<INSTRUCTIONS_FILE_NAME>.jinja2")
+            )
+            self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
+    ```
+
+    Keep the instructions short and to the point.
 
 # 6. Tests
 
