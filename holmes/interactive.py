@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from enum import Enum
 from typing import Optional, List
 from pathlib import Path
@@ -23,6 +24,8 @@ class SlashCommands(Enum):
     TOOLS_CONFIG = "/config"
     TOGGLE_TOOL_OUTPUT = "/toggle-output"
     SHOW_OUTPUT = "/output"
+    CLEAR = "/clear"
+    RUN = "/run"
 
 
 SLASH_COMMANDS_REFERENCE = {
@@ -32,6 +35,8 @@ SLASH_COMMANDS_REFERENCE = {
     SlashCommands.TOOLS_CONFIG.value: "Show available toolsets and their status",
     SlashCommands.TOGGLE_TOOL_OUTPUT.value: "Toggle tool output display on/off",
     SlashCommands.SHOW_OUTPUT.value: "Show all tool outputs from last response",
+    SlashCommands.CLEAR.value: "Clear the terminal screen",
+    SlashCommands.RUN.value: "Run a bash command and optionally share with LLM",
 }
 
 ALL_SLASH_COMMANDS = [cmd.value for cmd in SlashCommands]
@@ -156,7 +161,20 @@ def run_interactive_loop(
                 user_input = session.prompt(input_prompt, style=style)  # type: ignore
 
             if user_input.startswith("/"):
-                command = user_input.strip().lower()
+                original_input = user_input.strip()
+                command = original_input.lower()
+
+                # Handle prefix matching for slash commands
+                matches = [cmd for cmd in ALL_SLASH_COMMANDS if cmd.startswith(command)]
+                if len(matches) == 1:
+                    command = matches[0]
+                elif len(matches) > 1:
+                    console.print(
+                        f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
+                    )
+                    continue
+                # If no matches, we'll handle it in the "unknown command" case below
+
                 if command == SlashCommands.EXIT.value:
                     return
                 elif command == SlashCommands.HELP.value:
@@ -165,6 +183,7 @@ def run_interactive_loop(
                     )
                     for cmd, description in SLASH_COMMANDS_REFERENCE.items():
                         console.print(f"  [bold]{cmd}[/bold] - {description}")
+                    continue
                 elif command == SlashCommands.RESET.value:
                     console.print(
                         f"[bold {STATUS_COLOR}]Context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
@@ -173,12 +192,14 @@ def run_interactive_loop(
                     continue
                 elif command == SlashCommands.TOOLS_CONFIG.value:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
+                    continue
                 elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.value:
                     show_tool_output = not show_tool_output
                     status = "enabled" if show_tool_output else "disabled"
                     console.print(
                         f"[bold yellow]Tool output display {status}.[/bold yellow]"
                     )
+                    continue
                 elif command == SlashCommands.SHOW_OUTPUT.value:
                     if last_response is None or not last_response.tool_calls:
                         console.print(
@@ -187,9 +208,95 @@ def run_interactive_loop(
                         continue
 
                     display_tool_calls(last_response.tool_calls, console)
+                    continue
+                elif command == SlashCommands.CLEAR.value:
+                    console.clear()
+                    continue
+                elif command.startswith(SlashCommands.RUN.value):
+                    bash_command = original_input[
+                        len(SlashCommands.RUN.value) :
+                    ].strip()
+                    if not bash_command:
+                        console.print(
+                            f"[bold {ERROR_COLOR}]Usage: /run <bash_command>[/bold {ERROR_COLOR}]"
+                        )
+                        continue
+
+                    result = None
+                    output = ""
+                    error_message = ""
+
+                    try:
+                        console.print(
+                            f"[bold {STATUS_COLOR}]Running: {bash_command}[/bold {STATUS_COLOR}]"
+                        )
+                        result = subprocess.run(
+                            bash_command, shell=True, capture_output=True, text=True
+                        )
+
+                        output = result.stdout + result.stderr
+                        if result.returncode == 0:
+                            console.print(
+                                f"[bold green]✓ Command succeeded (exit code: {result.returncode})[/bold green]"
+                            )
+                        else:
+                            console.print(
+                                f"[bold {ERROR_COLOR}]✗ Command failed (exit code: {result.returncode})[/bold {ERROR_COLOR}]"
+                            )
+
+                        if output.strip():
+                            console.print(
+                                Panel(
+                                    output,
+                                    padding=(1, 2),
+                                    border_style="white",
+                                    title="Command Output",
+                                    title_align="left",
+                                )
+                            )
+
+                    except KeyboardInterrupt:
+                        error_message = "Command interrupted by user"
+                        console.print(
+                            f"[bold {ERROR_COLOR}]{error_message}[/bold {ERROR_COLOR}]"
+                        )
+                    except Exception as e:
+                        error_message = f"Error running command: {e}"
+                        console.print(
+                            f"[bold {ERROR_COLOR}]{error_message}[/bold {ERROR_COLOR}]"
+                        )
+
+                    share_prompt = session.prompt(
+                        [("class:prompt", "Share with LLM? (Y/n): ")], style=style
+                    )
+
+                    if not share_prompt.lower().startswith("n"):
+                        comment_prompt = session.prompt(
+                            [
+                                (
+                                    "class:prompt",
+                                    "Optional comment/question (press Enter to skip): ",
+                                )
+                            ],
+                            style=style,
+                        )
+
+                        user_input = f"I ran the command: `{bash_command}`\n\n"
+
+                        if result is not None:
+                            user_input += f"Exit code: {result.returncode}\n\n"
+                            if output.strip():
+                                user_input += f"Output:\n```\n{output}\n```\n\n"
+                        elif error_message:
+                            user_input += f"Error: {error_message}\n\n"
+
+                        if comment_prompt.strip():
+                            user_input += f"Comment/Question: {comment_prompt.strip()}"
+                    else:
+                        continue  # User chose not to share, continue to next input
                 else:
                     console.print(f"Unknown command: {command}")
-                continue
+                    continue
             elif not user_input.strip():
                 continue
 
