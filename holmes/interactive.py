@@ -1,5 +1,7 @@
 import logging
+import os
 import subprocess
+import tempfile
 from collections import defaultdict
 from enum import Enum
 from typing import Optional, List, DefaultDict
@@ -34,6 +36,7 @@ class SlashCommands(Enum):
     LAST_OUTPUT = "/last"
     CLEAR = "/clear"
     RUN = "/run"
+    SHELL = "/shell"
     CONTEXT = "/context"
     SHOW = "/show"
 
@@ -47,6 +50,7 @@ SLASH_COMMANDS_REFERENCE = {
     SlashCommands.LAST_OUTPUT.value: "Show all tool outputs from last response",
     SlashCommands.CLEAR.value: "Clear the terminal screen",
     SlashCommands.RUN.value: "Run a bash command and optionally share with LLM",
+    SlashCommands.SHELL.value: "Drop into interactive shell, then optionally share session with LLM",
     SlashCommands.CONTEXT.value: "Show conversation context size and token count",
     SlashCommands.SHOW.value: "Show specific tool output in scrollable view",
 }
@@ -396,6 +400,109 @@ def handle_context_command(messages, ai: ToolCallingLLM, console: Console) -> No
         )
 
 
+def prompt_for_llm_sharing(
+    session: PromptSession, style: Style, content: str, content_type: str
+) -> Optional[str]:
+    """
+    Prompt user to share content with LLM and return formatted user input.
+
+    Args:
+        session: PromptSession for user input
+        style: Style for prompts
+        content: The content to potentially share (command output, shell session, etc.)
+        content_type: Description of content type (e.g., "command", "shell session")
+
+    Returns:
+        Formatted user input string if user chooses to share, None otherwise
+    """
+    share_prompt = session.prompt(
+        [("class:prompt", f"Share {content_type} with LLM? (Y/n): ")], style=style
+    )
+
+    if not share_prompt.lower().startswith("n"):
+        comment_prompt = session.prompt(
+            [("class:prompt", "Optional comment/question (press Enter to skip): ")],
+            style=style,
+        )
+
+        user_input = f"I {content_type}:\\n\\n```\\n{content}\\n```\\n\\n"
+
+        if comment_prompt.strip():
+            user_input += f"Comment/Question: {comment_prompt.strip()}"
+
+        return user_input
+
+    return None
+
+
+def handle_shell_command(
+    session: PromptSession, style: Style, console: Console
+) -> Optional[str]:
+    """
+    Handle the /shell command to start an interactive shell session.
+
+    Args:
+        session: PromptSession for user input
+        style: Style for prompts
+        console: Rich console for output
+
+    Returns:
+        Formatted user input string if user chooses to share, None otherwise
+    """
+    console.print(
+        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
+    )
+    console.print(
+        "[dim]Shell session will be recorded and can be shared with LLM when you exit.[/dim]"
+    )
+
+    # Create a temporary file to capture shell session
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".log") as session_file:
+        session_log_path = session_file.name
+
+        try:
+            # Start shell with script command to capture session
+            shell_env = os.environ.copy()
+            shell_env["PS1"] = "\\u@\\h:\\w$ "  # Set a clean prompt
+
+            subprocess.run(f"script -q {session_log_path}", shell=True, env=shell_env)
+
+            # Read the session log
+            session_output = ""
+            try:
+                with open(session_log_path, "r") as f:
+                    session_output = f.read()
+            except Exception as e:
+                console.print(
+                    f"[bold {ERROR_COLOR}]Error reading session log: {e}[/bold {ERROR_COLOR}]"
+                )
+                return None
+
+            if session_output.strip():
+                console.print(
+                    f"[bold {STATUS_COLOR}]Shell session ended.[/bold {STATUS_COLOR}]"
+                )
+                return prompt_for_llm_sharing(
+                    session, style, session_output, "had an interactive shell session"
+                )
+            else:
+                console.print(
+                    f"[bold {STATUS_COLOR}]Shell session ended with no output.[/bold {STATUS_COLOR}]"
+                )
+                return None
+
+        except KeyboardInterrupt:
+            console.print(
+                f"[bold {STATUS_COLOR}]Shell session interrupted.[/bold {STATUS_COLOR}]"
+            )
+            return None
+        except Exception as e:
+            console.print(
+                f"[bold {ERROR_COLOR}]Error starting shell: {e}[/bold {ERROR_COLOR}]"
+            )
+            return None
+
+
 def find_tool_index_in_history(
     tool_call: ToolCallResult, all_tool_calls_history: List[ToolCallResult]
 ) -> Optional[int]:
@@ -614,34 +721,26 @@ def run_interactive_loop(
                             f"[bold {ERROR_COLOR}]{error_message}[/bold {ERROR_COLOR}]"
                         )
 
-                    share_prompt = session.prompt(
-                        [("class:prompt", "Share with LLM? (Y/n): ")], style=style
+                    # Build command output for sharing
+                    command_output = f"ran the command: `{bash_command}`\n\n"
+                    if result is not None:
+                        command_output += f"Exit code: {result.returncode}\n\n"
+                        if output.strip():
+                            command_output += f"Output:\n{output}"
+                    elif error_message:
+                        command_output += f"Error: {error_message}"
+
+                    shared_input = prompt_for_llm_sharing(
+                        session, style, command_output, "ran a command"
                     )
-
-                    if not share_prompt.lower().startswith("n"):
-                        comment_prompt = session.prompt(
-                            [
-                                (
-                                    "class:prompt",
-                                    "Optional comment/question (press Enter to skip): ",
-                                )
-                            ],
-                            style=style,
-                        )
-
-                        user_input = f"I ran the command: `{bash_command}`\n\n"
-
-                        if result is not None:
-                            user_input += f"Exit code: {result.returncode}\n\n"
-                            if output.strip():
-                                user_input += f"Output:\n```\n{output}\n```\n\n"
-                        elif error_message:
-                            user_input += f"Error: {error_message}\n\n"
-
-                        if comment_prompt.strip():
-                            user_input += f"Comment/Question: {comment_prompt.strip()}"
-                    else:
+                    if shared_input is None:
                         continue  # User chose not to share, continue to next input
+                    user_input = shared_input
+                elif command == SlashCommands.SHELL.value:
+                    shared_input = handle_shell_command(session, style, console)
+                    if shared_input is None:
+                        continue  # User chose not to share or no output, continue to next input
+                    user_input = shared_input
                 else:
                     console.print(f"Unknown command: {command}")
                     continue
