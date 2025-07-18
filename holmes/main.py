@@ -323,6 +323,11 @@ def ask(
         "-i/-n",
         help="Enter interactive mode after the initial question? For scripting, disable this with --no-interactive",
     ),
+    refresh_toolsets: bool = typer.Option(
+        False,
+        "--refresh-toolsets",
+        help="Refresh the toolsets status",
+    ),
 ):
     """
     Ask any question and answer using available tools
@@ -340,6 +345,7 @@ def ask(
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
+        refresh_toolsets=refresh_toolsets, # flag to refresh the toolset status
     )
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
