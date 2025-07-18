@@ -241,7 +241,7 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
         kwargs["cluster_name"] = Config.__get_cluster_name()
-        # kwargs["should_try_robusta_ai"] = True
+        kwargs["should_try_robusta_ai"] = True
         result = cls(**kwargs)
         result.log_useful_info()
         return result
