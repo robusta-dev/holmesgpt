@@ -214,6 +214,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             context={
                 "alerts": workload_alerts,
                 "toolsets": ai.tool_executor.toolsets,
+                "cluster_name": config.cluster_name,
             },
         )
 
@@ -243,7 +244,12 @@ def workload_health_conversation(
         ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(request, ai, global_instructions)
+        messages = build_workload_health_chat_messages(
+            workload_health_chat_request=request,
+            ai=ai,
+            config=config,
+            global_instructions=global_instructions,
+        )
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -266,7 +272,10 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(
-            issue_chat_request, ai, global_instructions
+            issue_chat_request=issue_chat_request,
+            ai=ai,
+            config=config,
+            global_instructions=global_instructions,
         )
         llm_call = ai.messages_call(messages=messages)
 
@@ -303,6 +312,7 @@ def chat(chat_request: ChatRequest):
             chat_request.ask,
             chat_request.conversation_history,
             ai=ai,
+            config=config,
             global_instructions=global_instructions,
         )
         follow_up_actions = []

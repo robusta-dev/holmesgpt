@@ -2,6 +2,7 @@ from typing import Dict, List, Optional
 
 import sentry_sdk
 
+from holmes.config import Config
 from holmes.core.models import (
     ToolCallConversationResult,
     IssueChatRequest,
@@ -60,6 +61,7 @@ def truncate_tool_messages(conversation_history: list, tool_size: int) -> None:
 def build_issue_chat_messages(
     issue_chat_request: IssueChatRequest,
     ai: ToolCallingLLM,
+    config: Config,
     global_instructions: Optional[Instructions] = None,
 ):
     """
@@ -130,6 +132,7 @@ def build_issue_chat_messages(
                     "tools_called_for_investigation": tools_for_investigation,
                     "issue": issue_chat_request.issue_type,
                     "toolsets": ai.tool_executor.toolsets,
+                    "cluster_name": config.cluster_name,
                 },
             )
             messages = [
@@ -149,6 +152,7 @@ def build_issue_chat_messages(
             "tools_called_for_investigation": None,
             "issue": issue_chat_request.issue_type,
             "toolsets": ai.tool_executor.toolsets,
+            "cluster_name": config.cluster_name,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -181,6 +185,7 @@ def build_issue_chat_messages(
             "tools_called_for_investigation": truncated_investigation_result_tool_calls,
             "issue": issue_chat_request.issue_type,
             "toolsets": ai.tool_executor.toolsets,
+            "cluster_name": config.cluster_name,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -221,6 +226,7 @@ def build_issue_chat_messages(
         "tools_called_for_investigation": None,
         "issue": issue_chat_request.issue_type,
         "toolsets": ai.tool_executor.toolsets,
+        "cluster_name": config.cluster_name,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -243,6 +249,7 @@ def build_issue_chat_messages(
         "tools_called_for_investigation": truncated_investigation_result_tool_calls,
         "issue": issue_chat_request.issue_type,
         "toolsets": ai.tool_executor.toolsets,
+        "cluster_name": config.cluster_name,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context
@@ -255,7 +262,7 @@ def build_issue_chat_messages(
 
 
 def add_or_update_system_prompt(
-    conversation_history: List[Dict[str, str]], ai: ToolCallingLLM
+    conversation_history: List[Dict[str, str]], ai: ToolCallingLLM, config: Config
 ):
     """Either add the system prompt or replace an existing system prompt.
     As a 'defensive' measure, this code will only replace an existing system prompt if it is the
@@ -266,6 +273,7 @@ def add_or_update_system_prompt(
     template_path = "builtin://generic_ask_conversation.jinja2"
     context = {
         "toolsets": ai.tool_executor.toolsets,
+        "cluster_name": config.cluster_name,
     }
 
     system_prompt = load_and_render_prompt(template_path, context)
@@ -293,6 +301,7 @@ def build_chat_messages(
     ask: str,
     conversation_history: Optional[List[Dict[str, str]]],
     ai: ToolCallingLLM,
+    config: Config,
     global_instructions: Optional[Instructions] = None,
 ) -> List[dict]:
     """
@@ -349,7 +358,7 @@ def build_chat_messages(
         conversation_history = conversation_history.copy()
 
     conversation_history = add_or_update_system_prompt(
-        conversation_history=conversation_history, ai=ai
+        conversation_history=conversation_history, ai=ai, config=config
     )
 
     ask = add_global_instructions_to_user_prompt(ask, global_instructions)
@@ -382,6 +391,7 @@ def build_chat_messages(
 def build_workload_health_chat_messages(
     workload_health_chat_request: WorkloadHealthChatRequest,
     ai: ToolCallingLLM,
+    config: Config,
     global_instructions: Optional[Instructions] = None,
 ):
     """
@@ -454,6 +464,7 @@ def build_workload_health_chat_messages(
                     "tools_called_for_workload": tools_for_workload,
                     "resource": resource,
                     "toolsets": ai.tool_executor.toolsets,
+                    "cluster_name": config.cluster_name,
                 },
             )
             messages = [
@@ -473,6 +484,7 @@ def build_workload_health_chat_messages(
             "tools_called_for_workload": None,
             "resource": resource,
             "toolsets": ai.tool_executor.toolsets,
+            "cluster_name": config.cluster_name,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -505,6 +517,7 @@ def build_workload_health_chat_messages(
             "tools_called_for_workload": truncated_workload_result_tool_calls,
             "resource": resource,
             "toolsets": ai.tool_executor.toolsets,
+            "cluster_name": config.cluster_name,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -545,6 +558,7 @@ def build_workload_health_chat_messages(
         "tools_called_for_workload": None,
         "resource": resource,
         "toolsets": ai.tool_executor.toolsets,
+        "cluster_name": config.cluster_name,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -567,6 +581,7 @@ def build_workload_health_chat_messages(
         "tools_called_for_workload": truncated_workload_result_tool_calls,
         "resource": resource,
         "toolsets": ai.tool_executor.toolsets,
+        "cluster_name": config.cluster_name,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context

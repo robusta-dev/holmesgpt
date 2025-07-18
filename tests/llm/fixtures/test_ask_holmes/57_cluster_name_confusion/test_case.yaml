@@ -1,0 +1,13 @@
+user_prompt: "@holmes what’s wrong with the pod customer-relations-webapp on robusta-prod"
+cluster_name: robusta-prod
+tags:
+  - logs
+before_test: |
+  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml
+  sleep 20
+after_test: |
+  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml
+expected_output: "failure to pull image `yourcompany/crw:latest`"
+evaluation:
+  correctness: 1
+generate_mocks: False
