@@ -345,7 +345,7 @@ def ask(
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
-        refresh_toolsets=refresh_toolsets # flag to refresh the toolset status
+        refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
     )
 
     template_context = {

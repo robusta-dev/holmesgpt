@@ -283,7 +283,7 @@ class Config(RobustaBaseConfig):
     def create_console_toolcalling_llm(
         self, dal: Optional[SupabaseDal] = None, refresh_toolsets: bool = False
     ) -> ToolCallingLLM:
-        tool_executor = self.create_console_tool_executor(dal,refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
         return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
 
     def create_toolcalling_llm(
