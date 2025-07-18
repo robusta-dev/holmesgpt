@@ -61,7 +61,7 @@ def get_headers(dd_config: DatadogBaseConfig) -> Dict[str, str]:
     }
 
 
-def extract_logs_cursor(data: dict) -> Optional[str]:
+def extract_cursor(data: dict) -> Optional[str]:
     """Extract cursor for paginating through Datadog logs API responses."""
     if data is None:
         return None
@@ -124,6 +124,7 @@ class wait_for_retry_after_header(wait_base):
         f"DataDog API rate limited. Retrying... "
         f"(attempt {retry_state.attempt_number}/{MAX_RETRY_COUNT_ON_RATE_LIMIT})"
     ),
+    reraise=True,
 )
 def execute_datadog_http_request(
     url: str,
@@ -145,7 +146,7 @@ def execute_datadog_http_request(
         data = response.json()
 
         if method == "POST" and data and "data" in data:
-            cursor = extract_logs_cursor(data)
+            cursor = extract_cursor(data)
             logs = data.get("data", [])
             return logs, cursor
         else:

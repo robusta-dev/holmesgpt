@@ -95,18 +95,16 @@ class DatadogTracesToolset(Toolset):
                             "from": "now-1m",
                             "to": "now",
                             "query": "*",
-                            "indexes": dd_config.indexes
+                            "indexes": dd_config.indexes,
                         },
-                        "page": {
-                            "limit": 1
-                        }
-                    }
+                        "page": {"limit": 1},
+                    },
                 }
             }
 
             # Use search endpoint instead
             search_url = f"{dd_config.site_api_url}/api/v2/spans/events/search"
-            
+
             execute_datadog_http_request(
                 url=search_url,
                 headers=headers,
@@ -118,7 +116,9 @@ class DatadogTracesToolset(Toolset):
             return True, ""
 
         except DataDogRequestError as e:
-            logging.error(f"Datadog API error during healthcheck: {e.status_code} - {e.response_text}")
+            logging.error(
+                f"Datadog API error during healthcheck: {e.status_code} - {e.response_text}"
+            )
             if e.status_code == 403:
                 return (
                     False,
@@ -271,13 +271,11 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
                             "query": query,
                             "from": str(from_time_ms),
                             "to": str(to_time_ms),
-                            "indexes": self.toolset.dd_config.indexes
+                            "indexes": self.toolset.dd_config.indexes,
                         },
-                        "page": {
-                            "limit": params.get("limit", 50)
-                        },
-                        "sort": "-timestamp"
-                    }
+                        "page": {"limit": params.get("limit", 50)},
+                        "sort": "-timestamp",
+                    },
                 }
             }
 
@@ -288,7 +286,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
                 timeout=self.toolset.dd_config.request_timeout,
                 method="POST",
             )
-            
+
             # Handle tuple response from POST requests
             if isinstance(response, tuple):
                 spans, _ = response
@@ -399,13 +397,13 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
                             "query": f"trace_id:{trace_id}",
                             "from": str(from_time_ms),
                             "to": str(to_time_ms),
-                            "indexes": self.toolset.dd_config.indexes
+                            "indexes": self.toolset.dd_config.indexes,
                         },
                         "page": {
                             "limit": 1000  # Get all spans for the trace
                         },
-                        "sort": "timestamp"
-                    }
+                        "sort": "timestamp",
+                    },
                 }
             }
 
@@ -416,7 +414,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
                 timeout=self.toolset.dd_config.request_timeout,
                 method="POST",
             )
-            
+
             # Handle tuple response from POST requests
             if isinstance(response, tuple):
                 spans, _ = response
@@ -596,13 +594,13 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
                             "query": query,
                             "from": str(from_time_ms),
                             "to": str(to_time_ms),
-                            "indexes": self.toolset.dd_config.indexes
+                            "indexes": self.toolset.dd_config.indexes,
                         },
                         "page": {
                             "limit": params.get("limit", 100),
                         },
                         "sort": "-timestamp",
-                    }
+                    },
                 }
             }
 
@@ -613,7 +611,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
                 timeout=self.toolset.dd_config.request_timeout,
                 method="POST",
             )
-            
+
             # Handle tuple response from POST requests
             if isinstance(response, tuple):
                 spans, _ = response
@@ -663,4 +661,3 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
                 if url and payload
                 else None,
             )
-

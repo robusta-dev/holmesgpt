@@ -168,4 +168,3 @@ class TestDatadogTracesLiveIntegration:
             result.status.value == "success"
         ), f"Failed to fetch spans: {result.error}"
         assert result.data is not None
-

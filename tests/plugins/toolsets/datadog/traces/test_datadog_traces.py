@@ -41,7 +41,7 @@ class TestDatadogTracesToolset:
         success, error_msg = toolset.prerequisites_callable(self.config)
 
         assert success
-        assert error_msg == "Successfully connected to Datadog Traces API"
+        assert error_msg == ""
 
     @patch(
         "holmes.plugins.toolsets.datadog.toolset_datadog_traces.execute_datadog_http_request"
@@ -134,7 +134,7 @@ class TestFetchDatadogTracesList:
                         "parent_id": "span1",
                         "service": "database",
                         "operation_name": "SELECT",
-                        "start": 1000000010000000000,
+                        "start": 1000000000010000000,
                         "duration": 30000000,  # 30ms
                     }
                 },
@@ -145,6 +145,7 @@ class TestFetchDatadogTracesList:
         self.toolset.dd_config = MagicMock()
         self.toolset.dd_config.site_api_url = "https://api.datadoghq.com"
         self.toolset.dd_config.request_timeout = 60
+        self.toolset.dd_config.indexes = ["*"]
 
         params = {
             "service": "web-api",
@@ -156,7 +157,7 @@ class TestFetchDatadogTracesList:
         assert result.status == ToolResultStatus.SUCCESS
         assert "Found 1 traces" in result.data
         assert "traceID=abc123" in result.data
-        assert "durationMs=80.00" in result.data  # 80ms total duration
+        assert "durationMs=50.00" in result.data  # 50ms total duration
 
     @patch(
         "holmes.plugins.toolsets.datadog.toolset_datadog_traces.execute_datadog_http_request"
@@ -169,6 +170,7 @@ class TestFetchDatadogTracesList:
         self.toolset.dd_config = MagicMock()
         self.toolset.dd_config.site_api_url = "https://api.datadoghq.com"
         self.toolset.dd_config.request_timeout = 60
+        self.toolset.dd_config.indexes = ["*"]
 
         params = {"service": "non-existent-service"}
 
@@ -197,6 +199,7 @@ class TestFetchDatadogTracesList:
         self.toolset.dd_config = MagicMock()
         self.toolset.dd_config.site_api_url = "https://api.datadoghq.com"
         self.toolset.dd_config.request_timeout = 60
+        self.toolset.dd_config.indexes = ["*"]
 
         params = {"min_duration": "500ms"}
 
@@ -204,8 +207,9 @@ class TestFetchDatadogTracesList:
 
         # Check that the query includes duration filter
         call_args = mock_execute.call_args
-        query_params = call_args[1]["payload_or_params"]
-        assert "@duration:>500000000" in query_params["filter[query]"]
+        payload = call_args[1]["payload_or_params"]
+        query = payload["data"]["attributes"]["filter"]["query"]
+        assert "@duration:>500000000" in query
 
     @patch(
         "holmes.plugins.toolsets.datadog.toolset_datadog_traces.execute_datadog_http_request"
@@ -223,6 +227,7 @@ class TestFetchDatadogTracesList:
         self.toolset.dd_config = MagicMock()
         self.toolset.dd_config.site_api_url = "https://api.datadoghq.com"
         self.toolset.dd_config.request_timeout = 60
+        self.toolset.dd_config.indexes = ["*"]
 
         result = self.tool._invoke({})
 
@@ -408,4 +413,3 @@ class TestFetchDatadogSpansByFilter:
 
         assert result.status == ToolResultStatus.SUCCESS
         assert "No matching spans found" in result.data
-
