@@ -2,7 +2,7 @@ from pydantic import AnyUrl
 import pytest
 
 from holmes.plugins.toolsets.datadog.toolset_datadog_logs import (
-    DatadogConfig,
+    DatadogLogsConfig,
     calculate_page_size,
     format_logs,
 )
@@ -14,7 +14,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
     [
         (
             FetchPodLogsParams(pod_name="*", namespace="*"),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -26,7 +26,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*"),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -38,7 +38,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*"),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -50,7 +50,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*", limit=950),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -62,7 +62,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*", limit=950),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -74,7 +74,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*"),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -86,7 +86,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*", limit=100),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -98,7 +98,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*"),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -110,7 +110,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*", limit=50),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -122,7 +122,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*", limit=1),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
@@ -134,7 +134,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
         ),
         (
             FetchPodLogsParams(pod_name="*", namespace="*"),
-            DatadogConfig(
+            DatadogLogsConfig(
                 dd_api_key="xyz",
                 dd_app_key="xyz",
                 site_api_url=AnyUrl("https://example.com"),
