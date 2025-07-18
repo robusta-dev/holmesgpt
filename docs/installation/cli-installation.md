@@ -32,7 +32,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
     2. Install HolmesGPT:
        ```bash
-       pipx install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.zip"
+       pipx install holmesgpt
        ```
 
     3. Verify installation:
