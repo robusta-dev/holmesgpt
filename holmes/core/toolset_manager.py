@@ -127,12 +127,12 @@ class ToolsetManager:
 
     @classmethod
     def check_toolset_prerequisites(cls, toolsets: list[Toolset]):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
             for toolset in toolsets:
                 futures.append(executor.submit(toolset.check_prerequisites))
 
-            for future in concurrent.futures.as_completed(futures):
+            for _ in concurrent.futures.as_completed(futures):
                 pass
 
     def _load_toolsets_from_config(
