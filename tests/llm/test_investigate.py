@@ -25,6 +25,11 @@ from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
 
 from tests.llm.utils.tags import add_tags_to_eval
+from tests.llm.utils.test_helpers import (
+    log_tool_calls_to_spans,
+    print_expected_output,
+    print_correctness_evaluation,
+)
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -129,13 +134,14 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
             )
     assert result, "No result returned by investigate_issues()"
 
+    # Log tool calls to Braintrust spans
+    log_tool_calls_to_spans(result.tool_calls, eval_span)
+
     output = result.analysis
 
     scores = {}
 
-    debug_expected = "\n-  ".join(expected)
-
-    print(f"** EXPECTED **\n-  {debug_expected}")
+    print_expected_output(expected)
     correctness_eval = evaluate_correctness(
         output=output,
         expected_elements=expected,
@@ -143,9 +149,7 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
         caplog=caplog,
         evaluation_type="strict",
     )
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-    )
+    print_correctness_evaluation(correctness_eval)
     scores["correctness"] = correctness_eval.score
 
     if test_case.expected_sections:
