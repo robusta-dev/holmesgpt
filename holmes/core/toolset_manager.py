@@ -1,3 +1,4 @@
+import concurrent.futures
 import json
 import logging
 import os
@@ -113,13 +114,26 @@ class ToolsetManager:
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
             return list(toolsets_by_name.values())
+
+        enabled_toolsets: List[Toolset] = []
         for _, toolset in toolsets_by_name.items():
             if toolset.enabled:
-                toolset.check_prerequisites()
+                enabled_toolsets.append(toolset)
             else:
                 toolset.status = ToolsetStatusEnum.DISABLED
+        self.check_toolset_prerequisites(enabled_toolsets)
 
         return list(toolsets_by_name.values())
+
+    @classmethod
+    def check_toolset_prerequisites(cls, toolsets: list[Toolset]):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = []
+            for toolset in toolsets:
+                futures.append(executor.submit(toolset.check_prerequisites))
+
+            for _ in concurrent.futures.as_completed(futures):
+                pass
 
     def _load_toolsets_from_config(
         self,
@@ -231,6 +245,7 @@ class ToolsetManager:
             dal=dal, check_prerequisites=False, toolset_tags=toolset_tags
         )
 
+        enabled_toolsets_from_cache: List[Toolset] = []
         for toolset in all_toolsets_with_status:
             if toolset.name in toolsets_status_by_name:
                 # Update the status and error from the cached status
@@ -242,13 +257,15 @@ class ToolsetManager:
                     cached_status.get("type", ToolsetType.BUILTIN)
                 )
                 toolset.path = cached_status.get("path", None)
-            # check prerequisites for only enabled toolset when the toolset is loaded from cache
+            # check prerequisites for only enabled toolset when the toolset is loaded from cache. When the toolset is
+            # not loaded from cache, the prerequisites are checked in the refresh_toolset_status method.
             if (
                 toolset.enabled
                 and toolset.status == ToolsetStatusEnum.ENABLED
                 and using_cached
             ):
-                toolset.check_prerequisites()  # type: ignore
+                enabled_toolsets_from_cache.append(toolset)
+        self.check_toolset_prerequisites(enabled_toolsets_from_cache)
 
         # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
         custom_toolsets_from_cli = self._load_toolsets_from_paths(
@@ -257,13 +274,15 @@ class ToolsetManager:
             check_conflict_default=True,
         )
         # custom toolsets from cli as experimental toolset should not override custom toolsets from config
+        enabled_toolsets_from_cli: List[Toolset] = []
         for custom_toolset_from_cli in custom_toolsets_from_cli:
             if custom_toolset_from_cli.name in toolsets_status_by_name:
                 raise ValueError(
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
-            # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
-            custom_toolset_from_cli.check_prerequisites()
+            enabled_toolsets_from_cli.append(custom_toolset_from_cli)
+        # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
+        self.check_toolset_prerequisites(enabled_toolsets_from_cli)
 
         all_toolsets_with_status.extend(custom_toolsets_from_cli)
         if using_cached:
