@@ -72,6 +72,9 @@ class MockSupabaseDal(SupabaseDal):
     def get_global_instructions_for_account(self) -> Optional[Instructions]:
         return None
 
+    def get_workload_issues(self, *args) -> list:
+        return []
+
 
 pydantic_resource_instructions = TypeAdapter(ResourceInstructions)
 
