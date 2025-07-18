@@ -262,6 +262,7 @@ class MockToolsets:
         self.add_params_to_mock_file = add_params_to_mock_file
         self._enable_builtin_toolsets(run_live)
         self._update()
+        self.run_live = run_live
 
     def _load_toolsets_definitions(self, run_live) -> List[Toolset]:
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
@@ -335,7 +336,7 @@ class MockToolsets:
                 )
                 wrapped_tool = self._wrap_tool(tool=tool, toolset_name=toolset.name)
 
-                if len(mocks) > 0:
+                if len(mocks) > 0 and not self.run_live:
                     has_mocks = True
                     mock_tool = MockToolWrapper(
                         unmocked_tool=wrapped_tool, parent_span=self._parent_span

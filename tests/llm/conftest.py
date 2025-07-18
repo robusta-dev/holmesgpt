@@ -1,10 +1,24 @@
 import logging
 import os
 import pytest
+from contextlib import contextmanager
 from tests.llm.utils.braintrust import get_experiment_results
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
+
+
+@contextmanager
+def force_pytest_output(request):
+    """Context manager to force output display even when pytest captures stdout"""
+    capman = request.config.pluginmanager.getplugin("capturemanager")
+    if capman:
+        capman.suspend_global_capture(in_=True)
+    try:
+        yield
+    finally:
+        if capman:
+            capman.resume_global_capture()
 
 
 def check_llm_api_with_test_call():
@@ -23,52 +37,79 @@ def check_llm_api_with_test_call():
         )
 
         if azure_base:
-            api_type = "AzureAI"
-            relevant_env_vars = "Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION or unset AZURE_API_BASE to use OpenAI"
-        else:
-            api_type = "OpenAI"
-            relevant_env_vars = "Check OPENAI_API_KEY or use AzureAI by setting AZURE_API_BASE, AZURE_API_KEY, and AZURE_API_VERSION"
+            error_msg = f"Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set - and failed. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI. Exception: {type(e).__name__}: {str(e)}"
 
-        error_msg = f"Tried to use {api_type} (model: {classifier_model})\n  Exception: {type(e).__name__}: {str(e)[:200]}...\n  How to fix: {relevant_env_vars}"
+        else:
+            error_msg = f"Tried to use OpenAI (model: {classifier_model}) Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI. Exception: {type(e).__name__}: {str(e)}"
+
         return False, error_msg
 
 
-def pytest_collection_modifyitems(config, items):
-    """Show warning when LLM evaluation tests are collected"""
+@pytest.fixture(scope="session", autouse=True)
+def llm_session_setup(request):
+    """Handle LLM test session setup: show warning, check API, and skip if needed"""
+    # Don't show messages during collection-only mode
+    if request.config.getoption("--collect-only"):
+        return
+
     # Check if LLM marker is being excluded
-    markexpr = config.getoption("-m", default="")
+    markexpr = request.config.getoption("-m", default="")
     if "not llm" in markexpr:
         return  # Don't show warning if explicitly excluding LLM tests
 
-    llm_tests = [item for item in items if item.get_closest_marker("llm")]
+    # session.items contains the final filtered list of tests that will actually run
+    session = request.session
+    llm_tests = [item for item in session.items if item.get_closest_marker("llm")]
 
     if llm_tests:
-        # Do EXACT same check as session fixture - create client and make API test call
+        # Check API connectivity and show appropriate message
         api_available, error_msg = check_llm_api_with_test_call()
 
         if api_available:
-            print("\n" + "=" * 70)
-            print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
-            print("These tests use AI models and may take 10-30+ minutes.")
-            print("Skip with: poetry run pytest -m 'not llm'")
-            print("=" * 70 + "\n")
+            with force_pytest_output(request):
+                print("\n" + "=" * 70)
+                print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
+                print(
+                    "These tests use AI models and may take 10-30+ minutes when all evals run."
+                )
+                print()
+                print("To see all available evals:")
+                print(
+                    "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+                )
+                print()
+                print("To run just one eval for faster execution:")
+                print("  poetry run pytest --no-cov -k 01_how_many_pods")
+                print()
+                print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
+                print()
+                print(
+                    "NOTE: Braintrust is disabled. To see LLM traces and results in Braintrust,"
+                )
+                print(
+                    "set BRAINTRUST_API_KEY environment variable with a key from https://braintrust.dev"
+                )
+                print("=" * 70 + "\n")
         else:
-            print("\n" + "=" * 70)
-            print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
-            print()
-            print(f"  Reason: {error_msg}")
-            print("=" * 70 + "\n")
+            with force_pytest_output(request):
+                print("\n" + "=" * 70)
+                print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
+                print()
+                print(f"  Reason: {error_msg}")
+                print()
+                print("To see all available evals:")
+                print(
+                    "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+                )
+                print()
+                print("To run a specific eval:")
+                print("  poetry run pytest --no-cov -k 01_how_many_pods")
+                print("=" * 70 + "\n")
 
+            # Skip all LLM tests if API is not available
+            pytest.skip(error_msg)
 
-@pytest.fixture(scope="session")
-def llm_api_check():
-    """Test LLM API connectivity once per session"""
-    api_available, error_msg = check_llm_api_with_test_call()
-
-    if not api_available:
-        pytest.skip(error_msg)
-
-    # Fixture succeeds silently when API is available
+    return
 
 
 def markdown_table(headers, rows):
@@ -98,6 +139,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             result.records.sort(key=lambda x: x.get("span_attributes", {}).get("name"))
             total_test_cases = 0
             successful_test_cases = 0
+            regressions = 0
             for record in result.records:
                 scores = record.get("scores", None)
                 span_id = record.get("id")
@@ -112,7 +154,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         (tc for tc in result.test_cases if tc.get("id") == span_name),
                         {},
                     )
-                    correctness_score = scores.get("correctness", 0)
+                    correctness_score = int(scores.get("correctness", 0))
                     expected_correctness_score = (
                         test_case.get("metadata", {})
                         .get("test_case", {})
@@ -123,13 +165,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         expected_correctness_score = expected_correctness_score.get(
                             "expected_score", 1
                         )
+                    expected_correctness_score = int(expected_correctness_score)
+
                     total_test_cases += 1
-                    status_text = ":x:"
                     if correctness_score == 1:
                         successful_test_cases += 1
                         status_text = ":white_check_mark:"
-                    elif correctness_score >= expected_correctness_score:
+                    elif correctness_score == 0 and expected_correctness_score == 0:
                         status_text = ":warning:"
+                    else:
+                        regressions += 1
+                        status_text = ":x:"
                     rows.append(
                         [
                             f"[{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name})",
@@ -137,7 +183,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                             status_text,
                         ]
                     )
-            markdown += f"\n- [{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}): {successful_test_cases}/{total_test_cases} test cases were successful"
+            markdown += f"\n- [{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}): {successful_test_cases}/{total_test_cases} test cases were successful, {regressions} regressions\n"
 
         except ValueError:
             logging.info(
@@ -156,3 +202,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
         with open("evals_report.txt", "w", encoding="utf-8") as file:
             file.write(markdown)
+
+        # write number of regresssion to a separate file, if there are any regressions
+        if regressions > 0:
+            with open("regressions.txt", "w", encoding="utf-8") as file:
+                file.write(f"{regressions}")

@@ -3,6 +3,7 @@
 {%- set k8s_base_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | selectattr("fetch_pod_logs", "defined") | first -%}
 {%- set k8s_yaml_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | rejectattr("fetch_pod_logs", "defined") | first -%}
 {%- set opensearch_ts = toolsets | selectattr("name", "equalto", "opensearch/logs") | first -%}
+{%- set datadog_ts = toolsets | selectattr("name", "equalto", "datadog/logs") | first -%}
 
 # Logs
 {% if loki_ts and loki_ts.status == "enabled" -%}
@@ -19,6 +20,8 @@
 {% include '_default_log_prompt.jinja2' %}
 {%- elif k8s_base_ts and k8s_base_ts.status == "enabled" -%}
 {% include '_default_log_prompt.jinja2' %}
+{%- elif datadog_ts and datadog_ts.status == "enabled" -%}
+{% include '_default_log_prompt.jinja2' %}
 {%- elif k8s_yaml_ts and k8s_yaml_ts.status == "enabled" -%}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
@@ -33,4 +36,5 @@
 ** 'grafana/loki'
 ** 'opensearch/logs'
 ** 'coralogix/logs'
+** 'datadog/logs'
 {%- endif -%}

@@ -29,11 +29,15 @@ def is_rfc3339(timestamp_str: str) -> bool:
 
 def to_unix(timestamp_str: str) -> int:
     dt = parser.parse(timestamp_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
     return int(dt.timestamp())
 
 
 def to_unix_ms(timestamp_str: str) -> int:
     dt = parser.parse(timestamp_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
     return int(dt.timestamp() * 1000)
 
 

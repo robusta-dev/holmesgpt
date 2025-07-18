@@ -34,6 +34,8 @@ class PerformanceTiming:
         self.last_measure_label = label
 
     def end(self, custom_message: str = ""):
+        if not LOG_PERFORMANCE:
+            return
         self.ended = True
         current_time = time.time()
         time_since_start = int((current_time - self.start_time) * 1000)

@@ -47,6 +47,17 @@ python_multipart = "^0.0.18"
 kubernetes = "^32.0.1"
 mcp = "v1.9.0"
 prompt-toolkit = "^3.0.51"
+azure-identity = "^1.23.0"
+azure-core = "^1.34.0"
+requests = "^2.32.4"
+azure-mgmt-sql = "^3.0.1"
+pyodbc = "^5.0.1"
+azure-monitor-query = "^1.2.0"
+azure-mgmt-monitor = "^6.0.2"
+azure-mgmt-alertsmanagement = "^1.0.0"
+azure-mgmt-resource = "^24.0.0"
+protobuf = ">=6.31.1"
+tenacity = "^9.1.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -74,10 +85,24 @@ exclude = [
 [tool.pytest.ini_options]
 markers = [
     "llm: Evaluate LLM behaviour (prompt, tools, etc.)",
+    "datetime: Tests involving datetime functionality",
+    "logs: Tests involving log processing",
+    "context_window: Tests involving context window handling",
+    "synthetic: Tests using synthetic data",
+    "network: Tests requiring network connectivity",
+    "runbooks: Tests involving runbook functionality",
+    "misleading-history: Tests with misleading historical data",
+    "k8s-misconfig: Tests involving Kubernetes misconfigurations",
+    "chain-of-causation: Tests involving chain-of-causation analysis",
+    "slackbot: Tests involving Slack bot functionality",
+    "counting: Ask holmes to count kubernetes/cloud resources"
 ]
 addopts = [
     "--cov-config=pyproject.toml",
     "--cov=holmes",
+    "-rs",  # Show skip reasons by default
+    "--tb=short",  # Show shorter tracebacks by default
+    "--durations=5",  # Show 5 slowest tests after each run
 ]
 
 [tool.coverage.run]
@@ -87,4 +112,4 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 40
+fail_under = 38

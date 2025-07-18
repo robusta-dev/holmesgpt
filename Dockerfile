@@ -79,6 +79,7 @@ RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
     fi \
     && poetry install --no-interaction --no-ansi --no-root
 
+
 # Final stage
 FROM python:3.11-slim
 
@@ -108,6 +109,22 @@ RUN cat Release.key |  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring
     && echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list \
     && apt-get update
 RUN apt-get install -y kubectl
+
+
+# Microsoft ODBC for Azure SQL. Required for azure/sql toolset
+RUN VERSION_ID=$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2 | cut -d '.' -f 1) && \
+    if ! echo "11 12" | grep -q "$VERSION_ID"; then \
+        echo "Debian $VERSION_ID is not currently supported."; \
+        exit 1; \
+    fi && \
+    curl -sSL -O https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
+    apt-get update && \
+    ACCEPT_EULA=Y apt-get install -y msodbcsql18 && \
+    apt-get install -y libgssapi-krb5-2 && \
+    rm -rf /var/lib/apt/lists/*
+
 
 # Set up kube lineage
 COPY --from=builder /app/kube-lineage /usr/local/bin

@@ -127,9 +127,56 @@ toolsets:
             }' | sort -k3 -nr
 
       - name: "kubernetes_jq_query"
+        user_description: "Query Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -r {{jq_expr}}"
         description: >
           Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
         command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
+
+      - name: "kubernetes_count"
+        user_description: "Count Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
+        description: >
+          Use kubectl to get apply a jq filter and then count the results.
+          Use this whenever asked to count kubernetes resources.
+          Use select() to filter objects before extracting properties, e.g. .items[] | select(.metadata.namespace == "test-1") | .metadata.name
+          Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give.
+          e.g. give an expression like .items[] | select(.spec.containers[].image | test("^gcr.io/") | not) | .metadata.name
+        script: |
+          echo "Command executed: kubectl get {{ kind }} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
+          echo "---"
+
+          # Execute the command and capture both stdout and stderr separately
+          temp_error=$(mktemp)
+          matches=$(kubectl get {{ kind }} --all-namespaces -o json 2>"$temp_error" | jq -c -r {{ jq_expr }} 2>>"$temp_error")
+          exit_code=$?
+          error_output=$(cat "$temp_error")
+          rm -f "$temp_error"
+
+          if [ $exit_code -ne 0 ]; then
+            echo "Error executing command (exit code: $exit_code):"
+            echo "$error_output"
+            exit $exit_code
+          else
+            # Show any stderr warnings even if command succeeded
+            if [ -n "$error_output" ]; then
+              echo "Warnings/stderr output:"
+              echo "$error_output"
+              echo "---"
+            fi
+
+            # Filter out empty lines for accurate count
+            filtered_matches=$(echo "$matches" | grep -v '^$' | grep -v '^null$')
+            if [ -z "$filtered_matches" ]; then
+              count=0
+            else
+              count=$(echo "$filtered_matches" | wc -l)
+            fi
+            preview=$(echo "$filtered_matches" | head -n 10 | cut -c 1-200 | nl)
+
+            echo "$count results"
+            echo "---"
+            echo "A *preview* of results is shown below (up to 10 results, up to 200 chars):"
+            echo "$preview"
+          fi
 
     # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic
     # http GET capabilities which are more powerful than we want to expose

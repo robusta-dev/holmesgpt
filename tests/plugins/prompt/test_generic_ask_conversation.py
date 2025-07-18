@@ -38,4 +38,13 @@ def test_runbook_prompt():
     template = "builtin://generic_ask.jinja2"
     context = {"runbooks": load_runbook_catalog()}
     rendered = load_and_render_prompt(template, context)
-    assert "# Available Runbooks" in rendered
+    assert "## Available Runbooks" in rendered
+    assert "### description:" in rendered
+
+
+def test_runbook_empty_prompt():
+    template = "builtin://generic_ask.jinja2"
+    context = {"runbooks": None}
+    rendered = load_and_render_prompt(template, context)
+    assert "## Available Runbooks" not in rendered
+    assert "### description:" not in rendered
