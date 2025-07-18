@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.datadog.toolset_datadog_logs import (
-    DatadogToolset,
+    DatadogLogsToolset,
     DatadogLogsConfig,
     DataDogStorageTier,
 )
@@ -24,7 +24,7 @@ class TestDatadogToolsetFetchPodLogs:
             request_timeout=60,
         )
 
-        self.toolset = DatadogToolset()
+        self.toolset = DatadogLogsToolset()
         self.toolset.dd_config = self.config
 
         self.fetch_params = FetchPodLogsParams(

@@ -134,7 +134,7 @@ def format_logs(raw_logs: list[dict]) -> str:
     return "\n".join(logs)
 
 
-class DatadogToolset(BasePodLoggingToolset):
+class DatadogLogsToolset(BasePodLoggingToolset):
     dd_config: Optional[DatadogLogsConfig] = None
 
     def __init__(self):

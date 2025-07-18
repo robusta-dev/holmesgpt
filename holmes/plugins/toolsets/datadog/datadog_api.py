@@ -143,14 +143,14 @@ def execute_datadog_http_request(
         )
 
     if response.status_code == 200:
-        data = response.json()
+        response_data = response.json()
 
-        if method == "POST" and data and "data" in data:
-            cursor = extract_cursor(data)
-            logs = data.get("data", [])
-            return logs, cursor
+        if method == "POST" and response_data and "data" in response_data:
+            cursor = extract_cursor(response_data)
+            data = response_data.get("data", [])
+            return data, cursor
         else:
-            return data
+            return response_data
 
     else:
         raise DataDogRequestError(
