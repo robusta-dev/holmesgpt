@@ -21,6 +21,9 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_metrics import (
 from holmes.plugins.toolsets.datadog.toolset_datadog_traces import (
     DatadogTracesToolset,
 )
+from holmes.plugins.toolsets.datadog.toolset_datadog_rds import (
+    DatadogRDSToolset,
+)
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
@@ -77,6 +80,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         DatadogToolset(),
         DatadogMetricsToolset(),
         DatadogTracesToolset(),
+        DatadogRDSToolset(),
         PrometheusToolset(),
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
