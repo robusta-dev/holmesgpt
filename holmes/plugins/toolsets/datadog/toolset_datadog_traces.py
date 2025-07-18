@@ -298,7 +298,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.NO_DATA,
                     params=params,
-                    error="No matching traces found.",
+                    data="No matching traces found.",
                 )
 
             return StructuredToolResult(
@@ -434,7 +434,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.NO_DATA,
                     params=params,
-                    error=f"No trace found for trace_id: {trace_id}",
+                    data=f"No trace found for trace_id: {trace_id}",
                 )
 
             return StructuredToolResult(
@@ -641,7 +641,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
                 return StructuredToolResult(
                     status=ToolResultStatus.NO_DATA,
                     params=params,
-                    error="No spans found.",
+                    data="No matching spans found.",
                 )
 
             return StructuredToolResult(

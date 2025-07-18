@@ -176,7 +176,7 @@ class TestFetchDatadogTracesList:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         assert "No matching traces found" in result.data
 
     def test_invoke_no_config(self):
@@ -319,8 +319,8 @@ class TestFetchDatadogTraceById:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
-        assert "No trace found with ID: nonexistent" in result.data
+        assert result.status == ToolResultStatus.NO_DATA
+        assert "No trace found for trace_id: nonexistent" in result.data
 
 
 class TestFetchDatadogSpansByFilter:
@@ -411,5 +411,5 @@ class TestFetchDatadogSpansByFilter:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         assert "No matching spans found" in result.data
