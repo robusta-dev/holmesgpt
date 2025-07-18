@@ -45,7 +45,7 @@ Some tools may require parameters.
 
 If the toolset implements `BasePodLoggingToolset` then update the template `_fetch_logs.jinja2` with the new toolset and use `_default_log_prompt.jinja2` otherwise follow these instructions:
 
-    Generate a short set of instructions for HolmesGPT to use the tools provided by the toolset. HolmesGPT will only see the tool names and is not aware of the toolset's name.
+    Generate a short set of instructions for HolmesGPT to use the tools provided by the toolset. HolmesGPT will only see the tool names and is not aware of the toolset's name. Keep the instructions short and to the point. Do not exceed 50 lines.
 
     Adding instructions is done by calling `self._load_llm_instructions` on the toolset. This is typically done by implementing a `_reload_instructions()` method that is called at the end of `toolset.__init__()`.
 
@@ -58,15 +58,22 @@ If the toolset implements `BasePodLoggingToolset` then update the template `_fet
             self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
     ```
 
-    Keep the instructions short and to the point.
+
 
 # 6. Tests
 
 1. Implement a live test. The test should:
-  - Depend on env variables (never put any credentials in the code). Ask if you don't have access to the correct env vars.
-  - Test the health check (through toolset.check_prerequisites())
-  - Test that each tool returns data as expected (verify that the data looks right)
+    - Depend on env variables (never put any credentials in the code). Ask if you don't have access to the correct env vars.
+    - Test the health check (through toolset.check_prerequisites())
+    - Test that each tool returns data as expected (verify that the data looks right)
+  - STOP and ask the user for help if:
+    - Environment variables are missing
+    - The credentials are missing permissions
+    - No data is returned by the tools in the live tests
 2. Implement integration tests. Because you have actually verified that the data returned by the system is what you expect, you can now mock its behaviour and implement integration tests for each tool and for different scenarios.
+
+Run the tests with the `--no-cov` option to avoid code coverage noise.
+
 
 # 7. Linting
 

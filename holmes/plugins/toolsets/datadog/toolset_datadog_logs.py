@@ -6,7 +6,6 @@ from holmes.core.tools import (
     CallablePrerequisite,
     ToolsetTag,
 )
-from tenacity import RetryError
 from pydantic import BaseModel, Field
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
@@ -135,7 +134,7 @@ def format_logs(raw_logs: list[dict]) -> str:
     return "\n".join(logs)
 
 
-class DatadogToolset(BasePodLoggingToolset):
+class DatadogLogsToolset(BasePodLoggingToolset):
     dd_config: Optional[DatadogLogsConfig] = None
 
     def __init__(self):
@@ -200,23 +199,6 @@ class DatadogToolset(BasePodLoggingToolset):
             logging.exception(
                 f"Failed to query Datadog logs for params: {params}", exc_info=True
             )
-
-            if isinstance(e, RetryError):
-                # Try to get the original exception
-                try:
-                    original_error = e.last_attempt.exception()
-                    if (
-                        isinstance(original_error, DataDogRequestError)
-                        and original_error.status_code == 429
-                    ):
-                        return StructuredToolResult(
-                            status=ToolResultStatus.ERROR,
-                            error=f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts.",
-                            params=params.model_dump(),
-                        )
-                except Exception:
-                    pass
-
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
