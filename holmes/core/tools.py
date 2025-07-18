@@ -370,7 +370,7 @@ class Toolset(BaseModel):
             exclude_unset=True,
             exclude=("name"),  # type: ignore
         ).items():
-            if field in self.model_fields and value not in (None, [], {}, ""):
+            if field in self.__class__.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
 
     @model_validator(mode="before")
