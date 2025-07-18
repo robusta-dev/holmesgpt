@@ -74,6 +74,7 @@ If the toolset implements `BasePodLoggingToolset` then update the template `_fet
 
 Run the tests with the `--no-cov` option to avoid code coverage noise.
 
+
 # 7. Linting
 
 Run `rm -rf .mypy_cache && pre-commit run --all-files` and fix all issues related to the new code.
