@@ -10,7 +10,14 @@ import logging
 from typing import Dict, List, Optional, Any
 import requests
 from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch.exceptions import (
+    ApiError,
+    ConnectionError,
+    ConnectionTimeout,
+    NotFoundError,
+    RequestError,
+    TransportError,
+)
 
 from holmes.core.tools import (
     StructuredToolResult,
