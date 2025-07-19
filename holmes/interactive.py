@@ -436,7 +436,8 @@ def prompt_for_llm_sharing(
 
 def handle_run_command(
     bash_command: str, session: PromptSession, style: Style, console: Console
-) -> Optional[str]:    """
+) -> Optional[str]:
+    """
     Handle the /run command to execute a bash command.
 
     Args:
@@ -520,104 +521,6 @@ def handle_shell_command(
     Returns:
         Formatted user input string if user chooses to share, None otherwise
     """
-    console.print(
-        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
-    )
-    console.print(
-        "[dim]Shell session will be recorded and can be shared with LLM when you exit.[/dim]"
-    )
-
-    # Create a temporary file to capture shell session
-    with tempfile.NamedTemporaryFile(mode="w+", suffix=".log") as session_file:
-        session_log_path = session_file.name
-
-        try:
-            # Start shell with script command to capture session
-            shell_env = os.environ.copy()
-            shell_env["PS1"] = "\\u@\\h:\\w$ "  # Set a clean prompt
-
-            subprocess.run(f"script -q {session_log_path}", shell=True, env=shell_env)
-
-            # Read the session log
-            session_output = ""
-            try:
-                with open(session_log_path, "r") as f:
-                    session_output = f.read()
-            except Exception as e:
-                console.print(
-                    f"[bold {ERROR_COLOR}]Error reading session log: {e}[/bold {ERROR_COLOR}]"
-                )
-                return None
-
-            if session_output.strip():
-                console.print(
-                    f"[bold {STATUS_COLOR}]Shell session ended.[/bold {STATUS_COLOR}]"
-                )
-                return prompt_for_llm_sharing(
-                    session, style, session_output, "had an interactive shell session"
-                )
-            else:
-                console.print(
-                    f"[bold {STATUS_COLOR}]Shell session ended with no output.[/bold {STATUS_COLOR}]"
-                )
-                return None
-
-        except KeyboardInterrupt:
-            console.print(
-                f"[bold {STATUS_COLOR}]Shell session interrupted.[/bold {STATUS_COLOR}]"
-            )
-            return None
-        except Exception as e:
-            console.print(
-                f"[bold {ERROR_COLOR}]Error starting shell: {e}[/bold {ERROR_COLOR}]"
-            )
-            return None
-
-
-def find_tool_index_in_history(
-    tool_call: ToolCallResult, all_tool_calls_history: List[ToolCallResult]
-) -> Optional[int]:
-    """Find the 1-based index of a tool call in the complete history."""
-    for i, historical_tool in enumerate(all_tool_calls_history):
-        if historical_tool.tool_call_id == tool_call.tool_call_id:
-            return i + 1  # 1-based index
-    return None
-
-
-def handle_last_command(
-    last_response, console: Console, all_tool_calls_history: List[ToolCallResult]
-) -> None:
-    """Handle the /last command to show recent tool outputs."""
-    if last_response is None or not last_response.tool_calls:
-        console.print(
-            f"[bold {ERROR_COLOR}]No tool calls available from the last response.[/bold {ERROR_COLOR}]"
-        )
-        return
-
-    console.print(
-        f"[bold {TOOLS_COLOR}]Used {len(last_response.tool_calls)} tools[/bold {TOOLS_COLOR}]"
-    )
-    for tool_call in last_response.tool_calls:
-        tool_index = find_tool_index_in_history(tool_call, all_tool_calls_history)
-        preview_output = format_tool_call_output(tool_call, tool_index)
-        title = f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}"
-
-        console.print(
-            Panel(
-                preview_output,
-                padding=(1, 2),
-                border_style=TOOLS_COLOR,
-                title=title,
-            )
-        )
-
-
-def display_recent_tool_outputs(
-    tool_calls: List[ToolCallResult],
-    console: Console,
-    all_tool_calls_history: List[ToolCallResult],
-) -> None:
-    """Display recent tool outputs in rich panels (for auto-display after responses)."""
     console.print(
         f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
     )
