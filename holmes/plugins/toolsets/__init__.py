@@ -42,10 +42,10 @@ from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasTool
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 from holmes.plugins.toolsets.infrainsights.elasticsearch_toolset import ElasticsearchToolset
-from holmes.plugins.toolsets.infrainsights.kafka_toolset import KafkaToolset
-from holmes.plugins.toolsets.infrainsights.kubernetes_toolset import KubernetesToolset
-from holmes.plugins.toolsets.infrainsights.mongodb_toolset import MongoDBToolset
-from holmes.plugins.toolsets.infrainsights.redis_toolset import RedisToolset
+from holmes.plugins.toolsets.infrainsights.kafka_toolset import KafkaToolset as InfraInsightsKafkaToolset
+from holmes.plugins.toolsets.infrainsights.kubernetes_toolset import KubernetesToolset as InfraInsightsKubernetesToolset
+from holmes.plugins.toolsets.infrainsights.mongodb_toolset import MongoDBToolset as InfraInsightsMongoDBToolset
+from holmes.plugins.toolsets.infrainsights.redis_toolset import RedisToolset as InfraInsightsRedisToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -94,10 +94,10 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         AzureSQLToolset(),
         ServiceNowToolset(),
         ElasticsearchToolset(),
-        KafkaToolset(),
-        KubernetesToolset(),
-        MongoDBToolset(),
-        RedisToolset(),
+        InfraInsightsKafkaToolset(),
+        InfraInsightsKubernetesToolset(),
+        InfraInsightsMongoDBToolset(),
+        InfraInsightsRedisToolset(),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
