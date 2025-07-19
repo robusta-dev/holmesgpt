@@ -88,6 +88,7 @@ class BaseInfraInsightsToolset(Toolset):
         super().__init__(
             name=f"InfraInsights {self.get_service_type().title()}",
             description=f"Tools for investigating {self.get_service_type()} instances managed by InfraInsights",
+            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[],  # Will be set by subclasses
             enabled=True,
             tags=[ToolsetTag.CLUSTER],
