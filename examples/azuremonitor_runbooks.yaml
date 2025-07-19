@@ -6,23 +6,14 @@ runbooks:
       Perform comprehensive diagnostic analysis for this Azure Monitor alert using a systematic approach:
 
       1. ALERT CONTEXT ANALYSIS:
-         - Extract and analyze the alert details: metric name, **PromQL query**, **rule description**, threshold, severity, and current state
+         - Extract and analyze the alert details: metric name, query, threshold, severity, and current state
          - Identify the timeframe when the alert fired and duration
-         - **CRITICAL: Note the extracted PromQL query from the alert - this is the exact query that triggered the alert**
-         - **ESSENTIAL: Read the rule description to understand what the alert is monitoring and why it's important**
          - Determine the affected resources (pods, nodes, services, namespaces) from the alert
-         - Understand what the alert is measuring and why it triggered based on both query and description
+         - Understand what the alert is measuring and why it triggered
 
-      2. EXECUTE ALERT'S ORIGINAL QUERY FOR TIMELINE ANALYSIS:
-         - **MANDATORY: Use `execute_alert_promql_query` tool with the alert ID to run the exact query that triggered the alert**
-         - Start with 1-2 hour time range to see recent trends: `execute_alert_promql_query` with time_range "2h"
-         - Extend to longer periods (6h, 1d) if needed to identify patterns
-         - This shows you the exact metric behavior that caused the alert to fire
-         - Compare the timeline with the alert's fired time to understand the progression
-
-      3. CURRENT STATE ASSESSMENT:
+      2. CURRENT STATE ASSESSMENT:
          - Use kubectl commands to check the current status of affected resources
-         - Use `execute_azuremonitor_prometheus_query` for instant/current values of the alert metric
+         - Query current values of the alert metric using Azure Monitor Prometheus queries
          - Compare current values with the alert threshold to see if issue persists
          - Check if the alert is still active or has resolved
 
@@ -33,22 +24,10 @@ runbooks:
          - Identify any resource constraints or scheduling issues
 
       4. METRIC CORRELATION AND TRENDS:
-         - Use `execute_azuremonitor_prometheus_range_query` for related metrics around the alert timeframe
-         - **Analyze the alert's query timeline first**, then expand to related metrics
-         - Query CPU: `rate(container_cpu_usage_seconds_total[5m])` with range queries
-         - Query Memory: `container_memory_working_set_bytes` with range queries  
-         - Query Pod Status: `kube_pod_status_phase` to check pod states over time
-         - Query Deployment Status: `kube_deployment_status_replicas` vs `kube_deployment_spec_replicas`
-         - Use time ranges that cover the alert period plus some buffer (2h, 4h, 6h)
+         - Query related Azure Monitor Prometheus metrics around the alert timeframe
+         - Analyze trends for the last 1-2 hours to understand the pattern leading to the alert
+         - Correlate with other important metrics (CPU, memory, network, disk) to find relationships
          - Look for sudden spikes, gradual increases, or cyclical patterns
-         - **Timeline Correlation**: Compare all metric timelines with the alert fired time
-
-      4.1. SPECIFIC QUERY ANALYSIS TECHNIQUES:
-         - **For deployment alerts**: Query replica mismatches and pod creation/deletion patterns
-         - **For resource alerts**: Compare requests vs limits vs actual usage over time
-         - **For node alerts**: Check node conditions and resource pressure metrics
-         - **For application alerts**: Correlate with request rates, error rates, response times
-         - **Use step intervals** appropriate for the time range (60s for detailed, 300s for longer periods)
 
       5. EVENT TIMELINE ANALYSIS:
          - Check Kubernetes events around the alert firing time using kubectl
@@ -168,88 +147,3 @@ runbooks:
          - Look for configuration map or secret mounting issues
 
       Follow the standard diagnostic steps but emphasize pod lifecycle and scheduling analysis.
-
-  - match:
-      issue_name: ".*[Dd]eployment.*[Rr]eplica.*"
-      source_type: "azuremonitoralerts"
-    instructions: >
-      This is a deployment replica mismatch alert (like KubeDeploymentReplicasMismatch). Focus your analysis on:
-
-      1. DEPLOYMENT REPLICA ANALYSIS:
-         - **FIRST: Use `execute_alert_promql_query` with the alert ID to see the replica mismatch timeline**
-         - Query `kube_deployment_status_replicas` vs `kube_deployment_spec_replicas` with range queries
-         - Query `kube_deployment_status_ready_replicas` to see how many replicas are actually ready
-         - Query `kube_deployment_status_available_replicas` to check availability
-         - Use 2-6 hour time ranges to understand the pattern of replica mismatches
-
-      2. POD CREATION AND LIFECYCLE:
-         - Query `kube_pod_status_phase` for the affected deployment to see pod states over time
-         - Check for pod creation/deletion patterns with `rate(kube_pod_created[5m])` 
-         - Look for pods stuck in Pending, ContainerCreating, or other waiting states
-         - Use kubectl to check current pod status and recent events
-
-      3. RESOURCE AND SCALING ANALYSIS:
-         - Check if resource constraints are preventing pod creation
-         - Query node capacity: `kube_node_status_allocatable` for CPU/memory
-         - Query resource requests vs availability
-         - Check if HPA (Horizontal Pod Autoscaler) is affecting replica counts
-         - Look for node pressure or taints preventing scheduling
-
-      4. DEPLOYMENT CONFIGURATION:
-         - Check deployment strategy (RollingUpdate vs Recreate)
-         - Verify resource requests and limits are reasonable
-         - Check for pod disruption budgets that might limit scaling
-         - Look for node selectors or affinity rules affecting placement
-
-      5. TIMELINE CORRELATION:
-         - Compare replica mismatch timing with deployment rollouts or scaling events
-         - Look for infrastructure changes or node issues at the same time
-         - Check if the mismatch is temporary (during deployments) or persistent
-         - Correlate with resource pressure or cluster capacity issues
-
-      6. ROOT CAUSE IDENTIFICATION:
-         - Distinguish between temporary scaling delays vs persistent issues
-         - Identify if pods can't start due to resources, images, or configuration
-         - Check if the deployment is stuck in a rollout or experiencing constant restarts
-         - Determine if this is a capacity planning issue or a configuration problem
-
-      Follow the standard diagnostic steps but emphasize deployment scaling and pod lifecycle analysis.
-
-  - match:
-      issue_name: ".*[Cc]ontainer.*[Ww]aiting.*"
-      source_type: "azuremonitoralerts"
-    instructions: >
-      This is a container waiting alert (like KubeContainerWaiting). Focus your analysis on:
-
-      1. CONTAINER STATE ANALYSIS:
-         - **FIRST: Use `execute_alert_promql_query` with the alert ID to see the waiting container timeline**
-         - Query `kube_pod_container_status_waiting_reason` to identify specific waiting reasons
-         - Query `kube_pod_container_status_waiting` over time to see patterns
-         - Use kubectl describe pod to get detailed container status and events
-
-      2. WAITING REASON INVESTIGATION:
-         - **ImagePullBackOff**: Check image availability, registry access, pull secrets
-         - **CrashLoopBackOff**: Examine container logs for startup failures
-         - **CreateContainerConfigError**: Check ConfigMap/Secret references
-         - **InvalidImageName**: Verify image names and tags
-         - **ContainerCreating**: Check resource availability and volume mounts
-
-      3. IMAGE AND REGISTRY ANALYSIS:
-         - Verify image exists in the specified registry
-         - Check image pull secrets and registry authentication
-         - Test registry connectivity from nodes
-         - Check for image size issues or registry rate limiting
-
-      4. RESOURCE AND CONFIGURATION:
-         - Check resource requests vs node availability
-         - Verify volume mounts and persistent volume claims
-         - Check security contexts and admission controllers
-         - Look for init container dependencies
-
-      5. TIMELINE AND PATTERN ANALYSIS:
-         - Check if waiting is consistent or intermittent
-         - Correlate with deployment rollouts or configuration changes
-         - Look for node-specific issues (does it happen on specific nodes?)
-         - Check for cluster-wide vs application-specific problems
-
-      Follow the standard diagnostic steps but emphasize container startup and configuration analysis.
