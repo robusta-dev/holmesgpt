@@ -63,6 +63,18 @@ class BaseInfraInsightsTool(Tool):
     def get_connection_config(self, instance: ServiceInstance) -> Dict[str, Any]:
         """Get connection configuration for a service instance"""
         return self.toolset.get_connection_config(instance.instanceId)
+    
+    def get_infrainsights_client(self) -> InfraInsightsClient:
+        """Get InfraInsights client from toolset config"""
+        config = self.toolset.config or {}
+        infrainsights_config = InfraInsightsConfig(
+            base_url=config.get('infrainsights_url', 'http://localhost:3000'),
+            api_key=config.get('api_key'),
+            username=config.get('username'),
+            password=config.get('password'),
+            timeout=config.get('timeout', 30)
+        )
+        return InfraInsightsClient(infrainsights_config)
 
 
 class BaseInfraInsightsToolset(Toolset):
@@ -71,15 +83,6 @@ class BaseInfraInsightsToolset(Toolset):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         if not config:
             config = {}
-        
-        # Initialize InfraInsights client
-        infrainsights_config = InfraInsightsConfig(
-            base_url=config.get('infrainsights_url', 'http://localhost:3000'),
-            api_key=config.get('api_key'),
-            username=config.get('username'),
-            password=config.get('password'),
-            timeout=config.get('timeout', 30)
-        )
         
         # Initialize with required fields
         super().__init__(
@@ -91,7 +94,6 @@ class BaseInfraInsightsToolset(Toolset):
             config=config
         )
         
-        self.client = InfraInsightsClient(infrainsights_config)
         self.service_type = self.get_service_type()
         self._instances_cache = {}
         self._cache_ttl = 300  # 5 minutes
@@ -104,12 +106,22 @@ class BaseInfraInsightsToolset(Toolset):
     def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         """Check if the toolset prerequisites are met"""
         try:
+            # Create a temporary client to check prerequisites
+            infrainsights_config = InfraInsightsConfig(
+                base_url=config.get('infrainsights_url', 'http://localhost:3000'),
+                api_key=config.get('api_key'),
+                username=config.get('username'),
+                password=config.get('password'),
+                timeout=config.get('timeout', 30)
+            )
+            client = InfraInsightsClient(infrainsights_config)
+            
             # Check if InfraInsights API is accessible
-            if not self.client.health_check():
+            if not client.health_check():
                 return False, "InfraInsights API is not accessible"
             
             # Check if we can get service instances
-            instances = self.get_available_instances()
+            instances = client.get_service_instances(self.service_type)
             if not instances:
                 return False, f"No {self.service_type} instances available"
             
@@ -119,7 +131,16 @@ class BaseInfraInsightsToolset(Toolset):
     
     def get_available_instances(self) -> List[ServiceInstance]:
         """Get all available instances for this service type"""
-        return self.client.get_service_instances(self.service_type)
+        # This method will be called from tools, so we need to create a client
+        if not self.tools:
+            return []
+        
+        # Use the first tool to get the client
+        first_tool = self.tools[0]
+        if hasattr(first_tool, 'get_infrainsights_client'):
+            client = first_tool.get_infrainsights_client()
+            return client.get_service_instances(self.service_type)
+        return []
     
     def get_instance_by_id(self, instance_id: str) -> ServiceInstance:
         """Get a specific instance by ID"""
@@ -139,25 +160,56 @@ class BaseInfraInsightsToolset(Toolset):
     
     def get_current_user_instance(self, user_id: str) -> Optional[ServiceInstance]:
         """Get the current user's selected instance for this service type"""
-        context = self.client.get_user_context(user_id, self.service_type)
-        if context and context.get('instanceId'):
-            try:
-                return self.get_instance_by_id(context['instanceId'])
-            except Exception:
-                return None
+        if not self.tools:
+            return None
+        
+        # Use the first tool to get the client
+        first_tool = self.tools[0]
+        if hasattr(first_tool, 'get_infrainsights_client'):
+            client = first_tool.get_infrainsights_client()
+            context = client.get_user_context(user_id, self.service_type)
+            if context and context.get('instanceId'):
+                try:
+                    return self.get_instance_by_id(context['instanceId'])
+                except Exception:
+                    return None
         return None
     
     def identify_instance_from_prompt(self, prompt: str, user_id: Optional[str] = None) -> Optional[ServiceInstance]:
         """Identify which instance the user is referring to in their prompt"""
-        return self.client.identify_instance_from_prompt(prompt, self.service_type, user_id)
+        if not self.tools:
+            return None
+        
+        # Use the first tool to get the client
+        first_tool = self.tools[0]
+        if hasattr(first_tool, 'get_infrainsights_client'):
+            client = first_tool.get_infrainsights_client()
+            return client.identify_instance_from_prompt(prompt, self.service_type, user_id)
+        return None
     
     def get_connection_config(self, instance_id: str) -> Dict[str, Any]:
         """Get connection configuration for a service instance"""
-        return self.client.get_connection_config(instance_id)
+        if not self.tools:
+            return {}
+        
+        # Use the first tool to get the client
+        first_tool = self.tools[0]
+        if hasattr(first_tool, 'get_infrainsights_client'):
+            client = first_tool.get_infrainsights_client()
+            return client.get_connection_config(instance_id)
+        return {}
     
     def set_user_context(self, user_id: str, instance_id: str) -> Dict[str, Any]:
         """Set the current user's context for this service type"""
-        return self.client.set_user_context(user_id, self.service_type, instance_id)
+        if not self.tools:
+            return {}
+        
+        # Use the first tool to get the client
+        first_tool = self.tools[0]
+        if hasattr(first_tool, 'get_infrainsights_client'):
+            client = first_tool.get_infrainsights_client()
+            return client.set_user_context(user_id, self.service_type, instance_id)
+        return {}
     
     def get_example_config(self) -> Dict[str, Any]:
         """Get example configuration for this toolset"""
@@ -171,6 +223,9 @@ class BaseInfraInsightsToolset(Toolset):
     
     def get_llm_instructions(self) -> str:
         """Get LLM instructions for this toolset"""
+        instances = self.get_available_instances()
+        instance_names = [inst.name for inst in instances] if instances else ["No instances available"]
+        
         return f"""
         This toolset provides tools for interacting with {self.service_type} instances managed by InfraInsights.
         
@@ -185,5 +240,5 @@ class BaseInfraInsightsToolset(Toolset):
         2. If no instance can be identified, it will use the user's current context
         3. If no context is set, it will use the first available instance
         
-        Available instances: {[inst.name for inst in self.get_available_instances()]}
+        Available instances: {instance_names}
         """ 
