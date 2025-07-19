@@ -14,9 +14,9 @@ from .infrainsights_client import InfraInsightsClient
 
 __all__ = [
     'ElasticsearchToolset',
-    'KafkaToolset', 
-    'KubernetesToolset',
-    'MongoDBToolset',
-    'RedisToolset',
+    'InfraInsightsKafkaToolset', 
+    'InfraInsightsKubernetesToolset',
+    'InfraInsightsMongoDBToolset',
+    'InfraInsightsRedisToolset',
     'InfraInsightsClient'
 ] 
