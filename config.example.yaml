@@ -28,13 +28,21 @@
 # try adding runbooks to get better results on known alerts
 #custom_runbooks: ["examples/custom_runbooks.yaml"]
 
-# Azure Monitor Metrics configuration (for AKS cluster monitoring)
-# This toolset is enabled by default and auto-detects configuration when running in AKS
+# Azure Monitor toolsets configuration (for AKS cluster monitoring)
+# Both toolsets are enabled by default and auto-detect configuration when running in AKS
 #toolsets:
-#  azuremonitor-metrics:
+#  azuremonitormetrics:
 #    auto_detect_cluster: true  # Default: auto-detect AKS cluster and Azure Monitor workspace
 #    cache_duration_seconds: 1800  # Cache duration for Azure API calls (30 minutes)
 #    # Manual configuration (optional, for explicit setup):
 #    #azure_monitor_workspace_endpoint: "https://your-workspace.prometheus.monitor.azure.com/"
 #    #cluster_name: "your-aks-cluster-name"
 #    #cluster_resource_id: "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.ContainerService/managedClusters/xxx"
+#
+#  azuremonitorlogs:
+#    auto_detect_cluster: true  # Default: auto-detect AKS cluster and Container Insights
+#    # Manual configuration (optional, for explicit setup):
+#    #cluster_name: "your-aks-cluster-name"
+#    #cluster_resource_id: "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.ContainerService/managedClusters/xxx"
+#    #log_analytics_workspace_id: "12345678-1234-1234-1234-123456789012"
+#    #log_analytics_workspace_resource_id: "/subscriptions/xxx/resourcegroups/xxx/providers/microsoft.operationalinsights/workspaces/xxx"

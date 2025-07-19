@@ -18,6 +18,17 @@ except ImportError as e:
 except Exception as e:
     logging.error(f"Failed to import Azure Monitor Metrics toolset: {e}", exc_info=True)
     AZURE_MONITOR_METRICS_AVAILABLE = False
+
+try:
+    from holmes.plugins.toolsets.azuremonitorlogs.azuremonitorlogs_toolset import AzureMonitorLogsToolset
+    AZURE_MONITOR_LOGS_AVAILABLE = True
+    logging.info("Azure Monitor Logs toolset imported successfully")
+except ImportError as e:
+    logging.warning(f"Azure Monitor Logs toolset not available due to ImportError: {e}")
+    AZURE_MONITOR_LOGS_AVAILABLE = False
+except Exception as e:
+    logging.error(f"Failed to import Azure Monitor Logs toolset: {e}", exc_info=True)
+    AZURE_MONITOR_LOGS_AVAILABLE = False
 import holmes.utils.env as env_utils
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
@@ -96,6 +107,13 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         toolsets.append(AzureMonitorMetricsToolset())
     else:
         logging.warning("Azure Monitor Metrics toolset not available - skipping")
+    
+    # Add Azure Monitor Logs toolset if available
+    if AZURE_MONITOR_LOGS_AVAILABLE:
+        logging.info("Adding Azure Monitor Logs toolset to built-in toolsets")
+        toolsets.append(AzureMonitorLogsToolset())
+    else:
+        logging.warning("Azure Monitor Logs toolset not available - skipping")
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
 
@@ -125,8 +143,8 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         toolset.type = ToolsetType.BUILTIN
         # dont' expose build-in toolsets path
         toolset.path = None
-        # Keep Azure Monitor Metrics enabled by default if it was set to enabled or is_default
-        if toolset.name == "azuremonitormetrics" and (
+        # Keep Azure Monitor toolsets enabled by default if they were set to enabled or is_default
+        if toolset.name in ["azuremonitormetrics", "azuremonitorlogs"] and (
             (hasattr(toolset, 'enabled') and toolset.enabled) or 
             (hasattr(toolset, 'is_default') and toolset.is_default)
         ):

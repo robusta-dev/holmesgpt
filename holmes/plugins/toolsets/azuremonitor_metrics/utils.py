@@ -121,15 +121,45 @@ def get_aks_cluster_id_from_kubectl() -> Optional[str]:
             logging.debug(f"Failed to get kubectl context: {e}")
             return None
         
-        # First try: Direct approach using Azure CLI with kubectl context
+        # First try: Enhanced cluster name extraction with multiple strategies
         try:
-            # Try to extract cluster name from kubectl context
-            # Many AKS contexts are named after the cluster
-            context_parts = current_context.split('_')
-            if len(context_parts) >= 2:
-                potential_cluster_name = context_parts[-1]  # Usually the last part is cluster name
-                
-                # Try to find this cluster using Azure CLI
+            # Try multiple context parsing strategies to handle different naming conventions
+            potential_cluster_names = []
+            
+            # Strategy 1: Underscore-separated (typical AKS managed identity contexts)
+            if '_' in current_context:
+                context_parts = current_context.split('_')
+                logging.debug(f"Context parts (underscore): {context_parts}")
+                if len(context_parts) >= 2:
+                    potential_cluster_names.append(context_parts[-1])  # Last part
+                    if len(context_parts) >= 3:
+                        potential_cluster_names.append(context_parts[-2])  # Second to last
+            
+            # Strategy 2: Direct context name (often the cluster name itself)
+            potential_cluster_names.append(current_context)
+            
+            # Strategy 3: Hyphen-separated (some naming conventions)
+            if '-' in current_context:
+                context_parts = current_context.split('-')
+                logging.debug(f"Context parts (hyphen): {context_parts}")
+                # Add variations of hyphen-separated parts
+                if len(context_parts) >= 2:
+                    potential_cluster_names.append('-'.join(context_parts[:-1]))  # All but last
+                    potential_cluster_names.append(context_parts[0])  # First part
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_names = []
+            for name in potential_cluster_names:
+                if name not in seen:
+                    seen.add(name)
+                    unique_names.append(name)
+            
+            logging.debug(f"Potential cluster names to try: {unique_names}")
+            
+            # Try each potential cluster name
+            for potential_cluster_name in unique_names:
+                logging.debug(f"Searching for cluster '{potential_cluster_name}' via Azure CLI...")
                 result = subprocess.run(
                     ["az", "aks", "list", "--query", f"[?name=='{potential_cluster_name}'].id", "-o", "tsv"],
                     capture_output=True,
@@ -141,8 +171,12 @@ def get_aks_cluster_id_from_kubectl() -> Optional[str]:
                     cluster_ids = result.stdout.strip().split('\n')
                     if cluster_ids and cluster_ids[0]:
                         cluster_id = cluster_ids[0]
-                        logging.debug(f"Found AKS cluster from context name: {cluster_id}")
+                        logging.debug(f"Found AKS cluster from context name '{potential_cluster_name}': {cluster_id}")
                         return cluster_id
+                else:
+                    logging.debug(f"No cluster found with name '{potential_cluster_name}'")
+            
+            logging.debug(f"No AKS clusters found for any potential names from context '{current_context}'")
                         
         except Exception as e:
             logging.debug(f"Failed to get cluster from context name: {e}")
