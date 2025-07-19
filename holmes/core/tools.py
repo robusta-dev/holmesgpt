@@ -1,29 +1,71 @@
-from abc import ABC, abstractmethod
+import json
 import logging
 import os
 import re
 import shlex
 import subprocess
 import tempfile
-from typing import Callable, Dict, List, Literal, Optional, Union, Any, Tuple
-from enum import Enum
+from abc import ABC, abstractmethod
 from datetime import datetime
-import sentry_sdk
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Union
 
 from jinja2 import Template
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    PrivateAttr,
-    Field,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
+from rich.console import Console
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
+import time
+from rich.table import Table
 
 
-ToolsetPattern = Union[Literal["*"], List[str]]
+class ToolResultStatus(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+    NO_DATA = "no_data"
+
+    def to_color(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "green"
+        elif self == ToolResultStatus.ERROR:
+            return "red"
+        else:
+            return "white"
+
+    def to_emoji(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "✔"
+        elif self == ToolResultStatus.ERROR:
+            return "❌"
+        else:
+            return "⚪️"
+
+
+class StructuredToolResult(BaseModel):
+    schema_version: str = "robusta:v1.0.0"
+    status: ToolResultStatus
+    error: Optional[str] = None
+    return_code: Optional[int] = None
+    data: Optional[Any] = None
+    url: Optional[str] = None
+    invocation: Optional[str] = None
+    params: Optional[Dict] = None
+
+    def get_stringified_data(self) -> str:
+        if self.data is None:
+            return ""
+
+        if isinstance(self.data, str):
+            return self.data
+        else:
+            try:
+                if isinstance(self.data, BaseModel):
+                    return self.data.model_dump_json(indent=2)
+                else:
+                    return json.dumps(self.data, indent=2)
+            except Exception:
+                return str(self.data)
 
 
 def sanitize(param):
@@ -40,20 +82,21 @@ def sanitize_params(params):
     return {k: sanitize(str(v)) for k, v in params.items()}
 
 
-def get_matching_toolsets(
-    all_toolsets: List["Toolset"], pattern: ToolsetPattern
-) -> List["Toolset"]:
-    """
-    Get toolsets matching a given pattern.
-    """
-    if pattern == "*":
-        return all_toolsets
-
-    matching_toolsets = []
-    for pat in pattern:
-        regex = re.compile(pat.replace("*", ".*"))
-        matching_toolsets.extend([ts for ts in all_toolsets if regex.match(ts.name)])
-    return matching_toolsets
+def format_tool_output(tool_result: Union[str, StructuredToolResult]) -> str:
+    if isinstance(tool_result, StructuredToolResult):
+        if tool_result.data and isinstance(tool_result.data, str):
+            # Display logs and other string outputs in a way that is readable to humans.
+            # To do this, we extract them from the result and print them as-is below.
+            # The metadata is printed on a single line to
+            data = tool_result.data
+            tool_result.data = "The raw tool data is printed below this JSON"
+            result_str = tool_result.model_dump_json(indent=2, exclude_none=True)
+            result_str += f"\n{data}"
+            return result_str
+        else:
+            return tool_result.model_dump_json(indent=2)
+    else:
+        return tool_result
 
 
 class ToolsetStatusEnum(str, Enum):
@@ -66,6 +109,12 @@ class ToolsetTag(str, Enum):
     CORE = "core"
     CLUSTER = "cluster"
     CLI = "cli"
+
+
+class ToolsetType(str, Enum):
+    BUILTIN = "built-in"
+    CUSTOMIZED = "custom"
+    MCP = "mcp"
 
 
 class ToolParameter(BaseModel):
@@ -90,15 +139,26 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> str:
+    def invoke(self, params: Dict) -> StructuredToolResult:
         logging.info(
-            f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
+            f"Running tool [bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
         )
-        return self._invoke(params)
+        start_time = time.time()
+        result = self._invoke(params)
+        elapsed = time.time() - start_time
+        output_str = (
+            result.get_stringified_data()
+            if hasattr(result, "get_stringified_data")
+            else str(result)
+        )
+        logging.info(
+            f"  [dim]Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters - /show to view contents[/dim]\n"
+        )
+        return result
 
     @abstractmethod
-    def _invoke(self, params: Dict) -> str:
-        return ""
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        pass
 
     @abstractmethod
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -116,7 +176,7 @@ class YAMLTool(Tool, BaseModel):
     def __infer_parameters(self):
         # Find parameters that appear inside self.command or self.script but weren't declared in parameters
         template = self.command or self.script
-        inferred_params = re.findall(r"\{\{\s*(\w+)\s*\}\}", template)
+        inferred_params = re.findall(r"\{\{\s*([\w]+)[\.\|]?.*?\s*\}\}", template)
         # TODO: if filters were used in template, take only the variable name
         # Regular expression to match Jinja2 placeholders with or without filters
         # inferred_params = re.findall(r'\{\{\s*(\w+)(\s*\|\s*[^}]+)?\s*\}\}', self.command)
@@ -134,7 +194,7 @@ class YAMLTool(Tool, BaseModel):
             template = Template(self.user_description)
         else:
             cmd_or_script = self.command or self.script
-            template = Template(cmd_or_script)
+            template = Template(cmd_or_script)  # type: ignore
         return template.render(params)
 
     def _build_context(self, params):
@@ -142,23 +202,47 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _invoke(self, params) -> str:
-        if self.command is not None:
-            raw_output = self.__invoke_command(params)
-        else:
-            raw_output = self.__invoke_script(params)
+    def _get_status(self, return_code: int, raw_output: str) -> ToolResultStatus:
+        if return_code != 0:
+            return ToolResultStatus.ERROR
+        if raw_output == "":
+            return ToolResultStatus.NO_DATA
+        return ToolResultStatus.SUCCESS
 
-        if self.additional_instructions:
+    def _invoke(self, params) -> StructuredToolResult:
+        if self.command is not None:
+            raw_output, return_code, invocation = self.__invoke_command(params)
+        else:
+            raw_output, return_code, invocation = self.__invoke_script(params)  # type: ignore
+
+        if self.additional_instructions and return_code == 0:
             logging.info(
                 f"Applying additional instructions: {self.additional_instructions}"
             )
-            return self.__apply_additional_instructions(raw_output)
-        return raw_output
+            output_with_instructions = self.__apply_additional_instructions(raw_output)
+        else:
+            output_with_instructions = raw_output
+
+        error = (
+            None
+            if return_code == 0
+            else f"Command `{invocation}` failed with return code {return_code}\nOutput:\n{raw_output}"
+        )
+        status = self._get_status(return_code, raw_output)
+
+        return StructuredToolResult(
+            status=status,
+            error=error,
+            return_code=return_code,
+            data=output_with_instructions,
+            params=params,
+            invocation=invocation,
+        )
 
     def __apply_additional_instructions(self, raw_output: str) -> str:
         try:
             result = subprocess.run(
-                self.additional_instructions,
+                self.additional_instructions,  # type: ignore
                 input=raw_output,
                 shell=True,
                 text=True,
@@ -173,17 +257,18 @@ class YAMLTool(Tool, BaseModel):
             )
             return f"Error applying additional instructions: {e.stderr}"
 
-    def __invoke_command(self, params) -> str:
+    def __invoke_command(self, params) -> Tuple[str, int, str]:
         context = self._build_context(params)
-        command = os.path.expandvars(self.command)
-        template = Template(command)
+        command = os.path.expandvars(self.command)  # type: ignore
+        template = Template(command)  # type: ignore
         rendered_command = template.render(context)
-        return self.__execute_subprocess(rendered_command)
+        output, return_code = self.__execute_subprocess(rendered_command)
+        return output, return_code, rendered_command
 
     def __invoke_script(self, params) -> str:
         context = self._build_context(params)
-        script = os.path.expandvars(self.script)
-        template = Template(script)
+        script = os.path.expandvars(self.script)  # type: ignore
+        template = Template(script)  # type: ignore
         rendered_script = template.render(context)
 
         with tempfile.NamedTemporaryFile(
@@ -194,24 +279,32 @@ class YAMLTool(Tool, BaseModel):
         subprocess.run(["chmod", "+x", temp_script_path], check=True)
 
         try:
-            return self.__execute_subprocess(temp_script_path)
+            output, return_code = self.__execute_subprocess(temp_script_path)
         finally:
             subprocess.run(["rm", temp_script_path])
+        return output, return_code, rendered_script  # type: ignore
 
-    def __execute_subprocess(self, cmd) -> str:
+    def __execute_subprocess(self, cmd) -> Tuple[str, int]:
         try:
             logging.debug(f"Running `{cmd}`")
             result = subprocess.run(
                 cmd,
                 shell=True,
-                capture_output=True,
                 text=True,
-                check=True,
+                check=False,  # do not throw error, we just return the error code
                 stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
-            return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-        except subprocess.CalledProcessError as e:
-            return f"Command `{cmd}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+
+            return result.stdout.strip(), result.returncode
+        except Exception as e:
+            logging.error(
+                f"An unexpected error occurred while running '{cmd}': {e}",
+                exc_info=True,
+            )
+            output = f"Command execution failed with error: {e}"
+            return output, 1
 
 
 class StaticPrerequisite(BaseModel):
@@ -225,7 +318,7 @@ class CallablePrerequisite(BaseModel):
 
 class ToolsetCommandPrerequisite(BaseModel):
     command: str  # must complete successfully (error code 0) for prereq to be satisfied
-    expected_output: str = None  # optional
+    expected_output: Optional[str] = None  # optional
 
 
 class ToolsetEnvironmentPrerequisite(BaseModel):
@@ -234,6 +327,7 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
 
 class Toolset(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    experimental: bool = False
 
     enabled: bool = False
     name: str
@@ -258,19 +352,25 @@ class Toolset(BaseModel):
     is_default: bool = False
     llm_instructions: Optional[str] = None
 
-    _path: Optional[str] = PrivateAttr(None)
-    _status: ToolsetStatusEnum = PrivateAttr(ToolsetStatusEnum.DISABLED)
-    _error: Optional[str] = PrivateAttr(None)
+    # warning! private attributes are not copied, which can lead to subtle bugs.
+    # e.g. l.extend([some_tool]) will reset these private attribute to None
 
-    def override_with(self, override: "ToolsetYamlFromConfig") -> None:
+    # status fields that be cached
+    type: Optional[ToolsetType] = None
+    path: Optional[FilePath] = None
+    status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
+    error: Optional[str] = None
+
+    def override_with(self, override: "Toolset") -> None:
         """
-        Overrides the current attributes with values from the ToolsetYamlFromConfig loaded from custom config
+        Overrides the current attributes with values from the Toolset loaded from custom config
         if they are not None.
         """
         for field, value in override.model_dump(
-            exclude_unset=True, exclude=("name")
+            exclude_unset=True,
+            exclude=("name"),  # type: ignore
         ).items():
-            if field in self.model_fields and value not in (None, [], {}, ""):
+            if field in self.__class__.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
 
     @model_validator(mode="before")
@@ -288,18 +388,6 @@ class Toolset(BaseModel):
 
         return values
 
-    def set_path(self, path: Optional[str]):
-        self._path = path
-
-    def get_path(self):
-        return self._path
-
-    def get_status(self):
-        return self._status
-
-    def get_error(self):
-        return self._error
-
     def get_environment_variables(self) -> List[str]:
         env_vars = set()
 
@@ -314,6 +402,8 @@ class Toolset(BaseModel):
         return interpolated_command
 
     def check_prerequisites(self):
+        self.status = ToolsetStatusEnum.ENABLED
+
         for prereq in self.prerequisites:
             if isinstance(prereq, ToolsetCommandPrerequisite):
                 try:
@@ -330,104 +420,80 @@ class Toolset(BaseModel):
                         prereq.expected_output
                         and prereq.expected_output not in result.stdout
                     ):
-                        self._status = ToolsetStatusEnum.FAILED
-                        self._error = "Prerequisites check gave wrong output"
-                        return
+                        self.status = ToolsetStatusEnum.FAILED
+                        self.error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
                 except subprocess.CalledProcessError as e:
-                    self._status = ToolsetStatusEnum.FAILED
-                    logging.debug(
-                        f"Toolset {self.name} : Failed to run prereq command {prereq}; {str(e)}"
-                    )
-                    self._error = f"Prerequisites check failed with errorcode {e.returncode}: {str(e)}"
-                    return
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"`{prereq.command}` returned {e.returncode}"
 
             elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
                 for env_var in prereq.env:
                     if env_var not in os.environ:
-                        self._status = ToolsetStatusEnum.FAILED
-                        self._error = f"Prerequisites check failed because environment variable {env_var} was not set"
-                        return
+                        self.status = ToolsetStatusEnum.FAILED
+                        self.error = f"Environment variable {env_var} was not set"
 
             elif isinstance(prereq, StaticPrerequisite):
                 if not prereq.enabled:
-                    self._status = ToolsetStatusEnum.DISABLED
-                    return
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"{prereq.disabled_reason}"
 
             elif isinstance(prereq, CallablePrerequisite):
-                (enabled, error_message) = prereq.callable(self.config)
-                if enabled:
-                    self._status = ToolsetStatusEnum.ENABLED
-                elif not enabled and error_message:
-                    self._status = ToolsetStatusEnum.FAILED
-                    self._error = error_message
-                else:
-                    self._status = ToolsetStatusEnum.DISABLED
+                try:
+                    (enabled, error_message) = prereq.callable(self.config)
+                    if not enabled:
+                        self.status = ToolsetStatusEnum.FAILED
+                    if error_message:
+                        self.error = f"{error_message}"
+                except Exception as e:
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"Prerequisite call failed unexpectedly: {str(e)}"
+
+            if (
+                self.status == ToolsetStatusEnum.DISABLED
+                or self.status == ToolsetStatusEnum.FAILED
+            ):
+                logging.info(f"❌ Toolset {self.name}: {self.error}")
+                # no point checking further prerequisites if one failed
                 return
 
-        self._status = ToolsetStatusEnum.ENABLED
+        logging.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
-    def _load_llm_instructions(self, jinja_template_file_path: str):
+    def _load_llm_instructions(self, jinja_template: str):
         tool_names = [t.name for t in self.tools]
         self.llm_instructions = load_and_render_prompt(
-            prompt=f"file://{jinja_template_file_path}",
-            context={"tool_names": tool_names},
+            prompt=jinja_template,
+            context={"tool_names": tool_names, "config": self.config},
         )
 
 
 class YAMLToolset(Toolset):
-    tools: List[YAMLTool]
+    tools: List[YAMLTool]  # type: ignore
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.llm_instructions:
+            self._load_llm_instructions(self.llm_instructions)
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
 
-class ToolExecutor:
-    def __init__(self, toolsets: List[Toolset]):
-        self.toolsets = toolsets
-
-        self.enabled_toolsets: list[Toolset] = list(
-            filter(
-                lambda toolset: toolset.get_status() == ToolsetStatusEnum.ENABLED,
-                toolsets,
-            )
-        )
-
-        toolsets_by_name: dict[str, Toolset] = {}
-        for ts in self.enabled_toolsets:
-            if ts.name in toolsets_by_name:
-                logging.warning(f"Overriding toolset '{ts.name}'!")
-            toolsets_by_name[ts.name] = ts
-
-        self.tools_by_name: dict[str, Tool] = {}
-        for ts in toolsets_by_name.values():
-            for tool in ts.tools:
-                if tool.name in self.tools_by_name:
-                    logging.warning(
-                        f"Overriding existing tool '{tool.name} with new tool from {ts.name} at {ts._path}'!"
-                    )
-                self.tools_by_name[tool.name] = tool
-
-    def invoke(self, tool_name: str, params: Dict) -> str:
-        tool = self.get_tool_by_name(tool_name)
-        return tool.invoke(params) if tool else ""
-
-    def get_tool_by_name(self, name: str) -> Optional[Tool]:
-        if name in self.tools_by_name:
-            return self.tools_by_name[name]
-        logging.warning(f"could not find tool {name}. skipping")
-        return None
-
-    @sentry_sdk.trace
-    def get_all_tools_openai_format(self):
-        return [tool.get_openai_format() for tool in self.tools_by_name.values()]
-
-
 class ToolsetYamlFromConfig(Toolset):
+    """
+    ToolsetYamlFromConfig represents a toolset loaded from a YAML configuration file.
+    To override a build-in toolset fields, we don't have to explicitly set all required fields,
+    instead, we only put the fields we want to override in the YAML file.
+    ToolsetYamlFromConfig helps py-pass the pydantic validation of the required fields and together with
+    `override_with` method, a build-in toolset object with new configurations is created.
+    """
+
     name: str
+    # YamlToolset is loaded from a YAML file specified by the user and should be enabled by default
+    # Built-in toolsets are exception and should be disabled by default when loaded
     enabled: bool = True
     additional_instructions: Optional[str] = None
     prerequisites: List[
@@ -436,13 +502,14 @@ class ToolsetYamlFromConfig(Toolset):
             ToolsetCommandPrerequisite,
             ToolsetEnvironmentPrerequisite,
         ]
-    ] = []
-    tools: Optional[List[YAMLTool]] = []
-    description: Optional[str] = None
+    ] = []  # type: ignore
+    tools: Optional[List[YAMLTool]] = []  # type: ignore
+    description: Optional[str] = None  # type: ignore
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     config: Optional[Any] = None
+    url: Optional[str] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
@@ -459,3 +526,41 @@ class ToolsetDBModel(BaseModel):
     docs_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     updated_at: str = Field(default_factory=datetime.now().isoformat)
+
+
+def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
+    status_fields = ["name", "enabled", "status", "type", "path", "error"]
+    toolsets_status = []
+    for toolset in sorted(toolsets, key=lambda ts: ts.status.value):
+        toolset_status = json.loads(toolset.model_dump_json(include=status_fields))  # type: ignore
+
+        status_value = toolset_status.get("status", "")
+        error_value = toolset_status.get("error", "")
+        if status_value == "enabled":
+            toolset_status["status"] = "[green]enabled[/green]"
+        elif status_value == "failed":
+            toolset_status["status"] = "[red]failed[/red]"
+            toolset_status["error"] = f"[red]{error_value}[/red]"
+        else:
+            toolset_status["status"] = f"[yellow]{status_value}[/yellow]"
+
+        # Replace None with "" for Path and Error columns
+        for field in ["path", "error"]:
+            if toolset_status.get(field) is None:
+                toolset_status[field] = ""
+
+        order_toolset_status = OrderedDict(
+            (k.capitalize(), toolset_status[k])
+            for k in status_fields
+            if k in toolset_status
+        )
+        toolsets_status.append(order_toolset_status)
+
+    table = Table(show_header=True, header_style="bold")
+    for col in status_fields:
+        table.add_column(col.capitalize())
+
+    for row in toolsets_status:
+        table.add_row(*(str(row.get(col.capitalize(), "")) for col in status_fields))
+
+    console.print(table)

@@ -1,10 +1,9 @@
-{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query","match_params":{"query":"container_memory_working_set_bytes{pod=\"robusta-holmes-7956c6bbc7-v5krl\",namespace=\"default\"}","description":"*","start":"*","end":"*","step":"*"}}
+{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query"}
 {
   "status": "success",
   "random_key": "vwJA",
   "tool_name": "execute_prometheus_range_query",
   "description": "Memory usage for robusta-holmes pod",
-  "query": "container_memory_working_set_bytes{pod=\"robusta-holmes-7956c6bbc7-v5krl\",namespace=\"default\"}",
   "start": "1739973438",
   "end": "1739975238",
   "step": 30

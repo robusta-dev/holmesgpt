@@ -4,34 +4,33 @@ import json
 import logging
 import os
 import threading
-from typing import Dict, Optional, List, Tuple
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
-import yaml
-from holmes.core.tool_calling_llm import (
+import yaml  # type: ignore
+from cachetools import TTLCache  # type: ignore
+from postgrest._sync.request_builder import SyncQueryRequestBuilder
+from postgrest.exceptions import APIError as PGAPIError
+from postgrest.types import ReturnMethod
+from pydantic import BaseModel
+from supabase import create_client
+from supabase.lib.client_options import ClientOptions
+
+from holmes.common.env_vars import (
+    ROBUSTA_ACCOUNT_ID,
+    ROBUSTA_CONFIG_PATH,
+    STORE_API_KEY,
+    STORE_EMAIL,
+    STORE_PASSWORD,
+    STORE_URL,
+)
+from holmes.core.resource_instruction import (
     ResourceInstructionDocument,
     ResourceInstructions,
 )
 from holmes.utils.definitions import RobustaConfig
-from postgrest.types import ReturnMethod
-from supabase import create_client
-from supabase.lib.client_options import ClientOptions
-from pydantic import BaseModel
-from cachetools import TTLCache
-from postgrest._sync.request_builder import SyncQueryRequestBuilder
-from postgrest.exceptions import APIError as PGAPIError
-
-from holmes.common.env_vars import (
-    ROBUSTA_CONFIG_PATH,
-    ROBUSTA_ACCOUNT_ID,
-    STORE_URL,
-    STORE_API_KEY,
-    STORE_EMAIL,
-    STORE_PASSWORD,
-)
-
-from datetime import datetime, timedelta
-
+from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
@@ -42,6 +41,8 @@ RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
 HOLMES_STATUS_TABLE = "HolmesStatus"
 HOLMES_TOOLSET = "HolmesToolsStatus"
+SCANS_META_TABLE = "ScansMeta"
+SCANS_RESULTS_TABLE = "ScansResults"
 
 
 class RobustaToken(BaseModel):
@@ -53,8 +54,9 @@ class RobustaToken(BaseModel):
 
 
 class SupabaseDal:
-    def __init__(self):
+    def __init__(self, cluster: str):
         self.enabled = self.__init_config()
+        self.cluster = cluster
         if not self.enabled:
             logging.info(
                 "Not connecting to Robusta platform - robusta token not provided - using ROBUSTA_AI will not be possible"
@@ -64,7 +66,7 @@ class SupabaseDal:
             f"Initializing Robusta platform connection for account {self.account_id}"
         )
         options = ClientOptions(postgrest_client_timeout=SUPABASE_TIMEOUT_SECONDS)
-        self.client = create_client(self.url, self.api_key, options)
+        self.client = create_client(self.url, self.api_key, options)  # type: ignore
         self.user_id = self.sign_in()
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
         self.patch_postgrest_execute()
@@ -130,6 +132,10 @@ class SupabaseDal:
                             "Please set a valid Robusta UI token.\n "
                             "See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
                         )
+                    env_replacement_token = get_env_replacement(token)
+                    if env_replacement_token:
+                        token = env_replacement_token
+
                     if "{{" in token:
                         raise ValueError(
                             "The robusta token configured for Holmes appears to be a templating placeholder (e.g. `{ env.UI_SINK_TOKEN }`).\n "
@@ -181,6 +187,105 @@ class SupabaseDal:
         )
         self.client.postgrest.auth(res.session.access_token)
         return res.user.id
+
+    def get_resource_recommendation(
+        self, name: str, namespace: str, kind
+    ) -> Optional[List[Dict]]:
+        if not self.enabled:
+            return []
+
+        try:
+            scans_meta_response = (
+                self.client.table(SCANS_META_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .eq("cluster_id", self.cluster)
+                .eq("latest", True)
+                .execute()
+            )
+            if not len(scans_meta_response.data):
+                return None
+
+            scans_results_response = (
+                self.client.table(SCANS_RESULTS_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .eq("cluster_id", self.cluster)
+                .eq("scan_id", scans_meta_response.data[0]["scan_id"])
+                .eq("name", name)
+                .eq("namespace", namespace)
+                .eq("kind", kind)
+                .execute()
+            )
+            if not len(scans_results_response.data):
+                return None
+
+            return scans_results_response.data
+        except Exception:
+            logging.exception("Supabase error while retrieving efficiency data")
+            return None
+
+    def get_configuration_changes(
+        self, start_datetime: str, end_datetime: str
+    ) -> Optional[List[Dict]]:
+        if not self.enabled:
+            return []
+
+        try:
+            changes_response = (
+                self.client.table(ISSUES_TABLE)
+                .select("id", "subject_name", "subject_namespace", "description")
+                .eq("account_id", self.account_id)
+                .eq("cluster", self.cluster)
+                .eq("finding_type", "configuration_change")
+                .gte("creation_date", start_datetime)
+                .lte("creation_date", end_datetime)
+                .execute()
+            )
+            if not len(changes_response.data):
+                return None
+
+        except Exception:
+            logging.exception("Supabase error while retrieving change data")
+            return None
+
+        changes_ids = [change["id"] for change in changes_response.data]
+        try:
+            change_data_response = (
+                self.client.table(EVIDENCE_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .in_("issue_id", changes_ids)
+                .execute()
+            )
+            if not len(change_data_response.data):
+                return None
+
+        except Exception:
+            logging.exception("Supabase error while retrieving change content")
+            return None
+
+        changes_data = []
+        change_data_map = {
+            change["issue_id"]: change for change in change_data_response.data
+        }
+
+        for change in changes_response.data:
+            change_content = change_data_map.get(change["id"])
+            if change_content:
+                changes_data.append(
+                    {
+                        "change": change_content["data"],
+                        "evidence_id": change_content["id"],
+                        **change,
+                    }
+                )
+
+        logging.debug(
+            "Change history for %s-%s: %s", start_datetime, end_datetime, changes_data
+        )
+
+        return changes_data
 
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no

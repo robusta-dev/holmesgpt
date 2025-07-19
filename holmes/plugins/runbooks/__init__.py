@@ -1,12 +1,18 @@
+import json
+import logging
 import os
 import os.path
-from typing import List, Optional, Pattern
+from datetime import date
+from pathlib import Path
+from typing import List, Optional, Pattern, Union
 
 from pydantic import BaseModel, PrivateAttr
 
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
+
+CATALOG_FILE = "catalog.json"
 
 
 class IssueMatcher(RobustaBaseConfig):
@@ -32,10 +38,10 @@ class ListOfRunbooks(BaseModel):
     runbooks: List[Runbook]
 
 
-def load_runbooks_from_file(path: str) -> List[Runbook]:
-    data: ListOfRunbooks = load_model_from_file(ListOfRunbooks, file_path=path)
+def load_runbooks_from_file(path: Union[str, Path]) -> List[Runbook]:
+    data: ListOfRunbooks = load_model_from_file(ListOfRunbooks, file_path=path)  # type: ignore
     for runbook in data.runbooks:
-        runbook.set_path(path)
+        runbook.set_path(path)  # type: ignore
     return data.runbooks
 
 
@@ -47,3 +53,48 @@ def load_builtin_runbooks() -> List[Runbook]:
         path = os.path.join(THIS_DIR, filename)
         all_runbooks.extend(load_runbooks_from_file(path))
     return all_runbooks
+
+
+class RunbookCatalogEntry(BaseModel):
+    """
+    RunbookCatalogEntry contains metadata about a runbook
+    Different from runbooks provided by Runbook class, this entry points to markdown file containing the runbook content.
+    """
+
+    update_date: date
+    description: str
+    link: str
+
+
+class RunbookCatalog(BaseModel):
+    """
+    RunbookCatalog is a collection of runbook entries, each entry contains metadata about the runbook.
+    The correct runbook can be selected from the list by comparing the description with the user question.
+    """
+
+    catalog: List[RunbookCatalogEntry]
+
+
+def load_runbook_catalog() -> Optional[RunbookCatalog]:
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    catalogPath = os.path.join(dir_path, CATALOG_FILE)
+    if not os.path.isfile(catalogPath):
+        return None
+    try:
+        with open(catalogPath) as file:
+            catalog_dict = json.load(file)
+            return RunbookCatalog(**catalog_dict)
+    except json.JSONDecodeError as e:
+        logging.error(f"Error decoding JSON from {catalogPath}: {e}")
+    except Exception as e:
+        logging.error(
+            f"Unexpected error while loading runbook catalog from {catalogPath}: {e}"
+        )
+    return None
+
+
+def get_runbook_by_path(runbook_relative_path: str) -> str:
+    runbook_folder = os.path.dirname(os.path.realpath(__file__))
+    runbook_path = os.path.join(runbook_folder, runbook_relative_path)
+    return runbook_path

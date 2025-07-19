@@ -1,8 +1,9 @@
-import requests
 from typing import Dict, List, Optional, Union
-import backoff
 
-from holmes.plugins.toolsets.grafana.common import headers
+import backoff
+import requests  # type: ignore
+
+from holmes.plugins.toolsets.grafana.common import build_headers
 
 
 def parse_loki_response(results: List[Dict]) -> List[Dict]:
@@ -34,9 +35,9 @@ def parse_loki_response(results: List[Dict]) -> List[Dict]:
     and e.response.status_code < 500,
 )
 def execute_loki_query(
-    grafana_url: str,
-    api_key: str,
-    loki_datasource_uid: str,
+    base_url: str,
+    api_key: Optional[str],
+    headers: Optional[Dict[str, str]],
     query: str,
     start: Union[int, str],
     end: Union[int, str],
@@ -44,8 +45,12 @@ def execute_loki_query(
 ) -> List[Dict]:
     params = {"query": query, "limit": limit, "start": start, "end": end}
     try:
-        url = f"{grafana_url}/api/datasources/proxy/uid/{loki_datasource_uid}/loki/api/v1/query_range"
-        response = requests.get(url, headers=headers(api_key=api_key), params=params)
+        url = f"{base_url}/loki/api/v1/query_range"
+        response = requests.get(
+            url,
+            headers=build_headers(api_key=api_key, additional_headers=headers),
+            params=params,  # type: ignore
+        )
         response.raise_for_status()
 
         result = response.json()
@@ -58,25 +63,25 @@ def execute_loki_query(
 
 
 def query_loki_logs_by_label(
-    grafana_url: str,
-    api_key: str,
-    loki_datasource_uid: str,
+    base_url: str,
+    api_key: Optional[str],
+    headers: Optional[Dict[str, str]],
     namespace: str,
     label_value: str,
-    filter_regexp: Optional[str],
+    filter: Optional[str],
     start: Union[int, str],
     end: Union[int, str],
     label: str,
     namespace_search_key: str = "namespace",
     limit: int = 200,
 ) -> List[Dict]:
-    query = f'{{{namespace_search_key}="{namespace}", {label}=~"{label_value}"}}'
-    if filter_regexp:
-        query += f' |~ "{filter_regexp}"'
+    query = f'{{{namespace_search_key}="{namespace}", {label}="{label_value}"}}'
+    if filter:
+        query += f' |= "{filter}"'
     return execute_loki_query(
-        grafana_url=grafana_url,
+        base_url=base_url,
         api_key=api_key,
-        loki_datasource_uid=loki_datasource_uid,
+        headers=headers,
         query=query,
         start=start,
         end=end,

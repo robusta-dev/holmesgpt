@@ -1,6 +1,8 @@
 import os
 import os.path
+from typing import Optional
 from jinja2 import Environment, FileSystemLoader
+from datetime import datetime, timezone
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -19,10 +21,10 @@ def load_prompt(prompt: str) -> str:
     else:
         return prompt
 
-    return open(path).read()
+    return open(path, encoding="utf-8").read()
 
 
-def load_and_render_prompt(prompt: str, context: dict = None) -> str:
+def load_and_render_prompt(prompt: str, context: Optional[dict] = None) -> str:
     """
     prompt is in the format 'builtin://' or 'file://' or a regular string
     see load_prompt() for details
@@ -34,9 +36,13 @@ def load_and_render_prompt(prompt: str, context: dict = None) -> str:
     env = Environment(
         loader=FileSystemLoader(THIS_DIR),
     )
+
     template = env.from_string(prompt_as_str)
 
     if context is None:
         context = {}
+
+    now = datetime.now(timezone.utc)
+    context.update({"now": f"{now}", "now_timestamp_seconds": int(now.timestamp())})
 
     return template.render(**context)

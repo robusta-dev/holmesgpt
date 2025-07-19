@@ -3,7 +3,7 @@ import os
 import logging
 from typing import Any, Optional, Tuple, Dict, List
 
-from requests import RequestException, Timeout
+from requests import RequestException, Timeout  # type: ignore
 from holmes.core.tools import (
     Tool,
     ToolParameter,
@@ -14,7 +14,9 @@ from holmes.core.tools import (
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 
-import requests
+import requests  # type: ignore
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
+
 
 # TODO: change and make it holmes
 INTERNET_TOOLSET_USER_AGENT = os.environ.get(
@@ -125,9 +127,9 @@ def cleanup(soup: BeautifulSoup):
             element.decompose()
 
     for tag in soup.find_all(True):
-        for attr in list(tag.attrs):
+        for attr in list(tag.attrs):  # type: ignore
             if attr != "href":
-                tag.attrs.pop(attr, None)
+                tag.attrs.pop(attr, None)  # type: ignore
 
     return soup
 
@@ -180,10 +182,10 @@ class FetchWebpage(Tool):
                     required=True,
                 ),
             },
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         url: str = params["url"]
 
         additional_headers = (
@@ -193,7 +195,11 @@ class FetchWebpage(Tool):
 
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
-            return ""
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to retrieve content from {url}",
+                params=params,
+            )
 
         # Check if the content is HTML based on MIME type or content
         if (mime_type and mime_type.startswith("text/html")) or (
@@ -201,7 +207,11 @@ class FetchWebpage(Tool):
         ):
             content = html_to_markdown(content)
 
-        return content
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=content,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]

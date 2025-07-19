@@ -1,0 +1,4 @@
+{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_namespace","match_params":{"kind":"ingress","namespace":"default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl get --show-labels -o wide ingress -n default", "params": {"kind": "ingress", "namespace": "default"}}
+NAME              CLASS                   HOSTS             ADDRESS   PORTS   AGE    LABELS
+my-http-ingress   example-ingress-class   app.example.com             80      5m8s   <none>

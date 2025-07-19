@@ -29,7 +29,7 @@ class Issue(BaseModel):
     url: Optional[str] = None
 
     # Raw object from the source - e.g. a dict from the source's API
-    raw: dict = None
+    raw: Optional[dict] = None
 
     # these fields are all optional and used for visual presentation of the issue
     # there may not be a 1:1 mapping between source fields and these fields, which is OK
@@ -45,7 +45,7 @@ class Issue(BaseModel):
     presentation_all_metadata: Optional[str] = None
 
     # title: Optional[str] = None                   # Short title or summary of the issue
-    # description: Optional[str] = None             # Detailed description of the issue
+    description: Optional[str] = None  # Detailed description of the issue
     # status: Optional[str] = None                  # Current status (e.g., 'open', 'closed', 'resolved')
     # group_id: Optional[str] = None                # Grouping ID from the source (when relevant)
     # priority: Optional[str] = None                # Priority level of the issue (e.g., 'high', 'medium', 'low')

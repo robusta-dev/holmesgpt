@@ -1,4 +1,0 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs_all_containers","match_params":{"pod_name":"user-profile-resources-659d4dd659-cq4kq","namespace":"default"}}
-stdout:
-
-stderr:

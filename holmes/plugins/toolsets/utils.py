@@ -1,16 +1,12 @@
 import datetime
-from typing import Dict, Optional, Tuple, Union
-from dateutil import parser
 import time
+from typing import Dict, Optional, Tuple, Union
 
-ONE_HOUR_IN_SECONDS = 3600
+from dateutil import parser  # type: ignore
 
-TOOLSET_CONFIG_MISSING_ERROR = "The toolset is missing its configuration"
 
-STANDARD_START_DATETIME_TOOL_PARAM_DESCRIPTION = "Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to negative one hour (-3600)"
-STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION = (
-    "End datetime, inclusive. Should be formatted in rfc3339. Defaults to NOW"
-)
+def standard_start_datetime_tool_param_description(time_span_seconds: int):
+    return f"Start datetime, inclusive. Should be formatted in rfc3339. If negative integer, the number of seconds relative to end. Defaults to -{time_span_seconds}"
 
 
 def is_int(val):
@@ -33,11 +29,20 @@ def is_rfc3339(timestamp_str: str) -> bool:
 
 def to_unix(timestamp_str: str) -> int:
     dt = parser.parse(timestamp_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
     return int(dt.timestamp())
 
 
-def unix_nano_to_rfc3339(unix_nano: int) -> str:
-    unix_seconds = unix_nano / 1_000_000_000
+def to_unix_ms(timestamp_str: str) -> int:
+    dt = parser.parse(timestamp_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return int(dt.timestamp() * 1000)
+
+
+def unix_nano_to_rfc3339(unix_nano: int | float) -> str:
+    unix_seconds = int(unix_nano) / 1_000_000_000
 
     seconds_part = int(unix_seconds)
     milliseconds_part = int((unix_seconds - seconds_part) * 1000)
@@ -55,7 +60,7 @@ def datetime_to_unix(timestamp_or_datetime_str):
 
 def unix_to_rfc3339(timestamp: int) -> str:
     dt = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
-    return dt.isoformat()
+    return f"{dt.strftime('%Y-%m-%dT%H:%M:%S')}Z"
 
 
 def datetime_to_rfc3339(timestamp):
@@ -66,20 +71,24 @@ def datetime_to_rfc3339(timestamp):
 
 
 def process_timestamps_to_rfc3339(
-    start_timestamp: Optional[Union[int, str]], end_timestamp: Optional[Union[int, str]]
+    start_timestamp: Optional[Union[int, str]],
+    end_timestamp: Optional[Union[int, str]],
+    default_time_span_seconds: int,
 ) -> Tuple[str, str]:
     (start_timestamp, end_timestamp) = process_timestamps_to_int(
-        start_timestamp, end_timestamp
+        start_timestamp,
+        end_timestamp,
+        default_time_span_seconds=default_time_span_seconds,
     )
-    start_timestamp = datetime_to_rfc3339(start_timestamp)
-    end_timestamp = datetime_to_rfc3339(end_timestamp)
-    return (start_timestamp, end_timestamp)
+    parsed_start_timestamp = datetime_to_rfc3339(start_timestamp)
+    parsed_end_timestamp = datetime_to_rfc3339(end_timestamp)
+    return (parsed_start_timestamp, parsed_end_timestamp)
 
 
 def process_timestamps_to_int(
     start: Optional[Union[int, str]],
     end: Optional[Union[int, str]],
-    default_time_span_seconds: int = ONE_HOUR_IN_SECONDS,
+    default_time_span_seconds: int,
 ) -> Tuple[int, int]:
     """
     Process and normalize start and end timestamps.
@@ -99,7 +108,7 @@ def process_timestamps_to_int(
 
     # If no start provided, default to one hour before end
     if not start:
-        start = -1 * default_time_span_seconds
+        start = -1 * abs(default_time_span_seconds)
 
     start = datetime_to_unix(start)
     end = datetime_to_unix(end)
@@ -122,7 +131,7 @@ def process_timestamps_to_int(
     if isinstance(start, int) and isinstance(end, int) and start > end:
         start, end = end, start
 
-    return (start, end)
+    return (start, end)  # type: ignore
 
 
 def get_param_or_raise(dict: Dict, param: str) -> str:

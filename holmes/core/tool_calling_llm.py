@@ -2,52 +2,183 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import List, Optional, Dict, Type, Union
+from typing import Dict, List, Optional, Type, Union
 
+import requests  # type: ignore
 import sentry_sdk
+from litellm.types.utils import Message
+from openai import BadRequestError
+from openai.types.chat.chat_completion_message_tool_call import (
+    ChatCompletionMessageToolCall,
+)
+from pydantic import BaseModel
+from pydantic_core import from_json
+from rich.console import Console
 
-from holmes.common.env_vars import TEMPERATURE
+from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
+    parse_markdown_into_sections_from_hash_sign,
     process_response_into_sections,
 )
+from holmes.core.issue import Issue
+from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
+from holmes.core.resource_instruction import ResourceInstructions
+from holmes.core.runbooks import RunbookManager
+from holmes.core.safeguards import prevent_overly_repeated_tool_call
+from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
-from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.llm import LLM
-from openai import BadRequestError
-from openai.types.chat.chat_completion_message_tool_call import (
-    ChatCompletionMessageToolCall,
-)
-from pydantic import BaseModel
-from rich.console import Console
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 
-from holmes.core.issue import Issue
-from holmes.core.runbooks import RunbookManager
-from holmes.core.tools import ToolExecutor
+
+def format_tool_result_data(tool_result: StructuredToolResult) -> str:
+    tool_response = tool_result.data
+    if isinstance(tool_result.data, str):
+        tool_response = tool_result.data
+    else:
+        try:
+            if isinstance(tool_result.data, BaseModel):
+                tool_response = tool_result.data.model_dump_json(indent=2)
+            else:
+                tool_response = json.dumps(tool_result.data, indent=2)
+        except Exception:
+            tool_response = str(tool_result.data)
+    if tool_result.status == ToolResultStatus.ERROR:
+        tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
+    return tool_response
+
+
+# TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
+# However, in practice it works because we reserve enough space for the output tokens that the minor inconsistency does not matter
+# We should fix this in the future
+# TODO: we truncate using character counts not token counts - this means we're overly agressive with truncation - improve it by considering
+# token truncation and not character truncation
+def truncate_messages_to_fit_context(
+    messages: list, max_context_size: int, maximum_output_token: int, count_tokens_fn
+) -> list:
+    """
+    Helper function to truncate tool messages to fit within context limits.
+
+    Args:
+        messages: List of message dictionaries with roles and content
+        max_context_size: Maximum context window size for the model
+        maximum_output_token: Maximum tokens reserved for model output
+        count_tokens_fn: Function to count tokens for a list of messages
+
+    Returns:
+        Modified list of messages with truncated tool responses
+
+    Raises:
+        Exception: If non-tool messages exceed available context space
+    """
+    messages_except_tools = [
+        message for message in messages if message["role"] != "tool"
+    ]
+    message_size_without_tools = count_tokens_fn(messages_except_tools)
+
+    tool_call_messages = [message for message in messages if message["role"] == "tool"]
+
+    if message_size_without_tools >= (max_context_size - maximum_output_token):
+        logging.error(
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
+        )
+        raise Exception(
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - maximum_output_token} tokens available for input."
+        )
+
+    if len(tool_call_messages) == 0:
+        return messages
+
+    available_space = (
+        max_context_size - message_size_without_tools - maximum_output_token
+    )
+    remaining_space = available_space
+    tool_call_messages.sort(key=lambda x: len(x["content"]))
+
+    # Allocate space starting with small tools and going to larger tools, while maintaining fairness
+    # Small tools can often get exactly what they need, while larger tools may need to be truncated
+    # We ensure fairness (no tool gets more than others that need it) and also maximize utilization (we don't leave space unused)
+    for i, msg in enumerate(tool_call_messages):
+        remaining_tools = len(tool_call_messages) - i
+        max_allocation = remaining_space // remaining_tools
+        needed_space = len(msg["content"])
+        allocated_space = min(needed_space, max_allocation)
+
+        if needed_space > allocated_space:
+            truncation_notice = "\n\n[TRUNCATED]"
+            # Ensure the indicator fits in the allocated space
+            if allocated_space > len(truncation_notice):
+                msg["content"] = (
+                    msg["content"][: allocated_space - len(truncation_notice)]
+                    + truncation_notice
+                )
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
+                )
+            else:
+                msg["content"] = truncation_notice[:allocated_space]
+                logging.info(
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
+                )
+            msg.pop("token_count", None)  # Remove token_count if present
+
+        remaining_space -= allocated_space
+    return messages
 
 
 class ToolCallResult(BaseModel):
     tool_call_id: str
     tool_name: str
     description: str
-    result: str
+    result: StructuredToolResult
     size: Optional[int] = None
 
-    def as_dict(self):
+    def as_tool_call_message(self):
+        content = format_tool_result_data(self.result)
+        if self.result.params:
+            content = (
+                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
+                + content
+            )
         return {
             "tool_call_id": self.tool_call_id,
             "role": "tool",
             "name": self.tool_name,
-            "content": self.result,
+            "content": content,
+        }
+
+    def as_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
+        return {
+            "tool_call_id": self.tool_call_id,
+            "tool_name": self.tool_name,
+            "description": self.description,
+            "role": "tool",
+            "result": result_dump,
+        }
+
+    def as_streaming_tool_result_response(self):
+        result_dump = self.result.model_dump()
+        result_dump["data"] = self.result.get_stringified_data()
+
+        return {
+            "tool_call_id": self.tool_call_id,
+            "role": "tool",
+            "description": self.description,
+            "name": self.tool_name,
+            "result": result_dump,
         }
 
 
@@ -64,20 +195,6 @@ class LLMResult(BaseModel):
         return "AI used info from issue and " + ",".join(
             [f"`{tool_call.description}`" for tool_call in self.tool_calls]
         )
-
-
-class ResourceInstructionDocument(BaseModel):
-    """Represents context necessary for an investigation in the form of a URL
-    It is expected that Holmes will use that URL to fetch additional context about an error.
-    This URL can for example be the location of a runbook
-    """
-
-    url: str
-
-
-class ResourceInstructions(BaseModel):
-    instructions: List[str] = []
-    documents: List[ResourceInstructionDocument] = []
 
 
 class ToolCallingLLM:
@@ -117,7 +234,7 @@ class ToolCallingLLM:
         return self.call(messages, post_process_prompt, response_format)
 
     @sentry_sdk.trace
-    def call(
+    def call(  # type: ignore
         self,
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
@@ -126,11 +243,12 @@ class ToolCallingLLM:
         sections: Optional[InputSectionsDataType] = None,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls = []
+        tool_calls = []  # type: ignore
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
+
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -157,11 +275,10 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
-                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
-                logging.debug(f"got response {full_response.to_json()}")
+                logging.debug(f"got response {full_response.to_json()}")  # type: ignore
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -174,12 +291,12 @@ class ToolCallingLLM:
                     )
                 else:
                     raise
-            response = full_response.choices[0]
+            response = full_response.choices[0]  # type: ignore
 
-            response_message = response.message
+            response_message = response.message  # type: ignore
             if response_message and response_format:
                 # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
-                dict_response = json.loads(full_response.to_json())
+                dict_response = json.loads(full_response.to_json())  # type: ignore
                 incorrect_tool_call = is_response_an_incorrect_tool_call(
                     sections, dict_response.get("choices", [{}])[0]
                 )
@@ -193,11 +310,10 @@ class ToolCallingLLM:
                     max_steps = max_steps + 1
                     continue
 
-            messages.append(
-                response_message.model_dump(
-                    exclude_defaults=True, exclude_unset=True, exclude_none=True
-                )
+            new_message = response_message.model_dump(
+                exclude_defaults=True, exclude_unset=True, exclude_none=True
             )
+            messages.append(new_message)
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
@@ -234,23 +350,27 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 futures = []
                 for t in tools_to_call:
-                    futures.append(executor.submit(self._invoke_tool, t))
+                    logging.debug(f"Tool to call: {t}")
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,
+                            previous_tool_calls=tool_calls,
+                        )
+                    )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result)
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call_result.tool_call_id,
-                            "role": "tool",
-                            "name": tool_call_result.tool_name,
-                            "content": tool_call_result.result,
-                        }
-                    )
+
+                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    messages.append(tool_call_result.as_tool_call_message())
+
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
     def _invoke_tool(
-        self, tool_to_call: ChatCompletionMessageToolCall
+        self,
+        tool_to_call: ChatCompletionMessageToolCall,
+        previous_tool_calls: list[dict],
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = None
@@ -271,18 +391,43 @@ class ToolCallingLLM:
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,
                 description="NA",
-                result="NA",
+                result=StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed to find tool {tool_name}",
+                    params=tool_params,
+                ),
             )
 
         tool_response = None
         try:
-            tool_response = tool.invoke(tool_params)
+            tool_response = prevent_overly_repeated_tool_call(
+                tool_name=tool.name,
+                tool_params=tool_params,
+                tool_calls=previous_tool_calls,
+            )
+            if not tool_response:
+                tool_response = tool.invoke(tool_params)
+
+            if not isinstance(tool_response, StructuredToolResult):
+                # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
+                logging.error(
+                    f"Tool {tool.name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
+                )
+                tool_response = StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=tool_response,
+                    params=tool_params,
+                )
+
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
             )
-            tool_response = f"Tool call failed: {e}"
-
+            tool_response = StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Tool call failed: {e}",
+                params=tool_params,
+            )
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -325,7 +470,7 @@ class ToolCallingLLM:
             ]
             full_response = self.llm.completion(messages=messages, temperature=0)
             logging.debug(f"Post processing response {full_response}")
-            return full_response.choices[0].message.content
+            return full_response.choices[0].message.content  # type: ignore
         except Exception:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation
@@ -334,57 +479,63 @@ class ToolCallingLLM:
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
     ) -> list:
-        messages_except_tools = [
-            message for message in messages if message["role"] != "tool"
-        ]
-        message_size_without_tools = self.llm.count_tokens_for_message(
-            messages_except_tools
+        return truncate_messages_to_fit_context(
+            messages,
+            max_context_size,
+            maximum_output_token,
+            self.llm.count_tokens_for_message,
         )
-
-        tool_call_messages = [
-            message for message in messages if message["role"] == "tool"
-        ]
-
-        if message_size_without_tools >= (max_context_size - maximum_output_token):
-            logging.error(
-                f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
-            )
-            raise Exception(
-                f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
-            )
-
-        tool_size = min(
-            10000,
-            int(
-                (max_context_size - message_size_without_tools - maximum_output_token)
-                / len(tool_call_messages)
-            ),
-        )
-
-        for message in messages:
-            if message["role"] == "tool" and len(message["content"]) > tool_size:
-                message["content"] = message["content"][:tool_size]
-                if "token_count" in message:
-                    del message["token_count"]
-        return messages
 
     def call_stream(
         self,
         system_prompt: str,
         user_prompt: Optional[str] = None,
+        stream: bool = False,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
-        runbooks: List[str] = None,
+        sections: Optional[InputSectionsDataType] = None,
+        runbooks: Optional[List[str]] = None,
     ):
+        def stream_analysis(it, peek_chunk):
+            buffer = peek_chunk.get("data", "")
+            yield create_sse_message(peek_chunk.get("event"), peek_chunk.get("data"))
+            chunk_counter = 0
+
+            for chunk in it:
+                buffer += chunk
+                chunk_counter += 1
+                if chunk_counter == STREAM_CHUNKS_PER_PARSE:
+                    chunk_counter = 0
+                    yield create_sse_message(
+                        "ai_answer",
+                        {
+                            "sections": parse_markdown_into_sections_from_hash_sign(
+                                buffer
+                            )
+                            or {},
+                            "analysis": buffer,
+                            "instructions": runbooks or [],
+                        },
+                    )
+
+            yield create_sse_message(
+                "ai_answer_end",
+                {
+                    "sections": parse_markdown_into_sections_from_hash_sign(buffer)
+                    or {},
+                    "analysis": buffer,
+                    "instructions": runbooks or [],
+                },
+            )
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls: List[ToolCallResult] = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
-
+        tool_calls: list[dict] = []
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -393,7 +544,7 @@ class ToolCallingLLM:
             tools = [] if i == self.max_steps - 1 else tools
             tool_choice = None if tools == [] else "auto"
 
-            total_tokens = self.llm.count_tokens_for_message(messages)
+            total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
@@ -407,52 +558,88 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
-                full_response = self.llm.completion(
-                    messages=parse_messages_tags(messages),
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    temperature=0.00000001,
-                    response_format=response_format,
-                    stream=False,
-                    drop_params=True,
-                )
-                perf_timing.measure("llm.completion")
+                if stream:
+                    response = requests.post(
+                        f"{ROBUSTA_API_ENDPOINT}/chat/completions",
+                        json={
+                            "messages": parse_messages_tags(messages),  # type: ignore
+                            "tools": tools,
+                            "tool_choice": tool_choice,
+                            "response_format": response_format,
+                            "stream": True,
+                            "drop_param": True,
+                        },
+                        headers={"Authorization": f"Bearer {self.llm.api_key}"},  # type: ignore
+                        stream=True,
+                    )
+                    response.raise_for_status()
+                    it = response.iter_content(chunk_size=None, decode_unicode=True)
+                    peek_chunk = from_json(next(it))
+                    tools = peek_chunk.get("tool_calls")
 
+                    if not tools:
+                        yield from stream_analysis(it, peek_chunk)
+                        perf_timing.measure("llm.completion")
+                        return
+
+                    response_message = Message(**peek_chunk)
+                    tools_to_call = response_message.tool_calls
+                else:
+                    full_response = self.llm.completion(
+                        messages=parse_messages_tags(messages),  # type: ignore
+                        tools=tools,
+                        tool_choice=tool_choice,
+                        response_format=response_format,
+                        stream=False,
+                        drop_params=True,
+                    )
+                    perf_timing.measure("llm.completion")
+
+                    response_message = full_response.choices[0].message  # type: ignore
+                    if response_message and response_format:
+                        # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                        dict_response = json.loads(full_response.to_json())  # type: ignore
+                        incorrect_tool_call = is_response_an_incorrect_tool_call(
+                            sections, dict_response.get("choices", [{}])[0]
+                        )
+
+                        if incorrect_tool_call:
+                            logging.warning(
+                                "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                            )
+                            # disable structured output going forward and and retry
+                            response_format = None
+                            i -= 1
+                            continue
+
+                    tools_to_call = getattr(response_message, "tool_calls", None)
+                    if not tools_to_call:
+                        (text_response, sections) = process_response_into_sections(  # type: ignore
+                            response_message.content
+                        )
+
+                        yield create_sse_message(
+                            "ai_answer_end",
+                            {
+                                "sections": sections or {},
+                                "analysis": text_response,
+                                "instructions": runbooks or [],
+                            },
+                        )
+                        return
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
+                logging.exception("Bad completion request")
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
-                    yield json.dumps(
-                        {
-                            "type": "error",
-                            "details": {
-                                "msg": "The Azure model you chose is not supported. Model version 1106 and higher required."
-                            },
-                        }
+                    raise Exception(
+                        "The Azure model you chose is not supported. Model version 1106 and higher required."
                     )
-                    return
-                raise
+                raise e
             except Exception:
+                logging.exception("Completion request exception")
                 raise
-
-            response_message = full_response.choices[0].message
-            tools_to_call = getattr(response_message, "tool_calls", None)
-            if not tools_to_call:
-                (text_response, _) = process_response_into_sections(
-                    response_message.content
-                )
-                yield json.dumps(
-                    {"type": "ai_answer", "details": {"answer": text_response}}
-                )
-                if runbooks:
-                    yield json.dumps(
-                        {
-                            "type": "instructions",
-                            "details": {"instructions": json.dumps(runbooks)},
-                        }
-                    )
-                return
 
             messages.append(
                 response_message.model_dump(
@@ -463,27 +650,36 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:
-                    futures.append(executor.submit(self._invoke_tool, t))
-                    yield json.dumps(
-                        {
-                            "type": "start_tool_calling",
-                            "details": {"tool_name": t.function.name, "id": t.id},
-                        }
+                for t in tools_to_call:  # type: ignore
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,  # type: ignore
+                            previous_tool_calls=tool_calls,
+                        )
+                    )
+                    yield create_sse_message(
+                        "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result)
-                    tool_call_dict = tool_call_result.as_dict()
-                    messages.append(tool_call_dict)
+
+                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    messages.append(tool_call_result.as_tool_call_message())
+
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-                    yield json.dumps(
-                        {"type": "tool_calling_result", "details": tool_call_dict}
+
+                    streaming_result_dict = (
+                        tool_call_result.as_streaming_tool_result_response()
+                    )
+
+                    yield create_sse_message(
+                        "tool_calling_result", streaming_result_dict
                     )
 
 
-# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes.py
+# TODO: consider getting rid of this entirely and moving templating into the cmds in holmes_cli.py
 class IssueInvestigator(ToolCallingLLM):
     """
     Thin wrapper around ToolCallingLLM which:
@@ -558,7 +754,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "issue": issue,
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
-                "enabled_toolsets": self.tool_executor.enabled_toolsets,
+                "toolsets": self.tool_executor.toolsets,
             },
         )
 
@@ -596,3 +792,7 @@ class IssueInvestigator(ToolCallingLLM):
         )
         res.instructions = runbooks
         return res
+
+
+def create_sse_message(event_type: str, data: dict = {}):
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"

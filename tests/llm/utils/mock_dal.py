@@ -1,3 +1,4 @@
+# type: ignore
 import json
 import logging
 from pathlib import Path
@@ -19,7 +20,7 @@ class MockSupabaseDal(SupabaseDal):
         resource_instructions: Optional[ResourceInstructions],
         generate_mocks: bool,
     ):
-        super().__init__()
+        super().__init__(cluster="test")
         self._issue_data = issue_data
         self._resource_instructions = resource_instructions
         self._test_case_folder = test_case_folder

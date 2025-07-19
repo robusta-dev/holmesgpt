@@ -1,16 +1,18 @@
+# type: ignore
 import datetime
 import json
 import os
 
 import pytest
-from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
-from holmes.plugins.toolsets.prometheus.prometheus import (
-    PrometheusToolset,
-)
 
-pytestmark = pytest.mark.skipif(
-    os.environ.get("PROMETHEUS_URL", None) is None, reason="PROMETHEUS_URL must be set"
-)
+from holmes.core.tools import ToolsetStatusEnum
+from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
+from holmes.core.tools_utils.tool_executor import ToolExecutor
+
+# Use pytest.mark.skip (not skipif) to show a single grouped skip line for the entire module
+# Will show: "SKIPPED [6] module.py: reason" instead of 6 separate skip lines
+if os.environ.get("PROMETHEUS_URL", None) is None:
+    pytestmark = pytest.mark.skip(reason="PROMETHEUS_URL must be set")
 
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", None)
 
@@ -21,7 +23,7 @@ def tool_executor():
     toolset.enabled = True
     toolset.config = {"prometheus_url": PROMETHEUS_URL}
     toolset.check_prerequisites()
-    assert toolset.get_status() == ToolsetStatusEnum.ENABLED
+    assert toolset.status == ToolsetStatusEnum.ENABLED
     tool_executor = ToolExecutor(toolsets=[toolset])
     return tool_executor
 

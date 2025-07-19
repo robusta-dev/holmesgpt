@@ -36,16 +36,12 @@ from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
-from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
-from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
-from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
-from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
-from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
-from holmes.plugins.toolsets.infrainsights.elasticsearch_toolset import ElasticsearchToolset
-from holmes.plugins.toolsets.infrainsights.kafka_toolset import InfraInsightsKafkaToolset
-from holmes.plugins.toolsets.infrainsights.kubernetes_toolset import InfraInsightsKubernetesToolset
-from holmes.plugins.toolsets.infrainsights.mongodb_toolset import InfraInsightsMongoDBToolset
-from holmes.plugins.toolsets.infrainsights.redis_toolset import InfraInsightsRedisToolset
+from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
+from holmes.plugins.toolsets.kafka import KafkaToolset
+
+from holmes.core.tools import Toolset, YAMLToolset
+import yaml
+
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -86,21 +82,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
         CoralogixLogsToolset(),
-        RabbitMQToolset(),
-        GitToolset(),
-        BashExecutorToolset(),
-        MongoDBAtlasToolset(),
-        RunbookToolset(),
-        AzureSQLToolset(),
-        ServiceNowToolset(),
-        ElasticsearchToolset(),
-        InfraInsightsKafkaToolset(),
-        InfraInsightsKubernetesToolset(),
-        InfraInsightsMongoDBToolset(),
-        InfraInsightsRedisToolset(),
     ]
-    if not USE_LEGACY_KUBERNETES_LOGS:
-        toolsets.append(KubernetesLogsToolset())
 
     return toolsets
 

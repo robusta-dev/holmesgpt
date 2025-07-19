@@ -5,12 +5,12 @@ from pathlib import Path
 from typing import List, Optional, Pattern
 
 import humanize
-import requests
+import requests  # type: ignore
 import rich
+import rich.segment
 from pydantic import parse_obj_as
 from pydantic.json import pydantic_encoder
-from requests.auth import HTTPBasicAuth
-import rich.segment
+from requests.auth import HTTPBasicAuth  # type: ignore
 
 from holmes.core.issue import Issue
 from holmes.plugins.interfaces import SourcePlugin
@@ -70,7 +70,7 @@ class AlertManagerSource(SourcePlugin):
             logging.info(f"Filtering alerts by {self.label_filter}")
 
         if self.username is not None or self.password is not None:
-            auth = HTTPBasicAuth(self.username, self.password)
+            auth = HTTPBasicAuth(self.username, self.password)  # type: ignore
         else:
             auth = None
 
@@ -88,7 +88,7 @@ class AlertManagerSource(SourcePlugin):
 
     def __fetch_issues_from_file(self) -> List[PrometheusAlert]:
         logging.info(f"Loading alerts from file {self.filepath}")
-        with open(self.filepath, "r") as f:
+        with open(self.filepath, "r") as f:  # type: ignore
             data = json.load(f)
         return parse_obj_as(List[PrometheusAlert], data)
 
@@ -107,16 +107,16 @@ class AlertManagerSource(SourcePlugin):
                 id=alert.unique_id,
                 name=alert.name,
                 source_type="prometheus",
-                source_instance_id=self.filepath if self.filepath else self.url,
+                source_instance_id=self.filepath if self.filepath else self.url,  # type: ignore
                 url=alert.generatorURL,
-                presentation_key_metadata=f"*Severity*: {alert.labels['severity']}\n*Start Time*: {alert.startsAt.strftime('%Y-%m-%d %H:%M:%S UTC')}\n*Duration*: {humanize.naturaldelta(alert.duration)}",
+                presentation_key_metadata=f"*Severity*: {alert.labels['severity']}\n*Start Time*: {alert.startsAt.strftime('%Y-%m-%d %H:%M:%S UTC')}\n*Duration*: {humanize.naturaldelta(alert.duration)}",  # type: ignore
                 presentation_all_metadata=self.__format_issue_metadata(alert),
                 raw=alert.model_dump(),
             )
             for alert in alerts
         ]
 
-    def dump_raw_alerts_to_file(self, path: Path) -> List[PrometheusAlert]:
+    def dump_raw_alerts_to_file(self, path: Path) -> None:
         """
         Useful for generating test data
         """

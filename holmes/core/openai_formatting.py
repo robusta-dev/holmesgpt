@@ -45,7 +45,7 @@ def format_tool_to_open_ai_standard(
     }
 
     # gemini doesnt have parameters object if it is without params
-    if tool_properties is None:
-        result["function"].pop("parameters")
+    if tool_properties is None or tool_properties == {}:
+        result["function"].pop("parameters")  # type: ignore
 
     return result

@@ -1,0 +1,65 @@
+toolsets:
+  aks/node-health:
+    description: "Set of tools to troubleshoot AKS node health issues"
+    tags:
+      - cli
+    prerequisites:
+      - command: "az account show"
+      - command: "az aks --help"
+      - command: "kubectl version --client"
+    tools:
+      - name: "check_node_status"
+        description: "Checks the status of all nodes in the AKS cluster."
+        user_description: "get the status of all nodes in the AKS cluster"
+        command: |
+          kubectl get nodes
+      - name: "describe_node"
+        description: "Describes a specific node in the AKS cluster to inspect its conditions."
+        user_description: "describe node {{ NODE_NAME }} in the AKS cluster"
+        command: |
+          kubectl describe node {{ NODE_NAME }}
+      - name: "get_node_events"
+        description: "Fetches recent events for a specific node to surface warnings and errors."
+        user_description: "get events for node {{ NODE_NAME }}"
+        command: |
+          kubectl get events --field-selector involvedObject.kind=Node,involvedObject.name={{ NODE_NAME }} --sort-by='.lastTimestamp'
+      - name: "check_node_resource_usage"
+        description: "Shows CPU/memory usage for a specific node (requires metrics-server)."
+        user_description: "get resource usage for node {{ NODE_NAME }}"
+        command: |
+          kubectl top node {{ NODE_NAME }}
+      - name: "review_activity_log"
+        description: "Reviews the Azure Activity Log for recent changes affecting the node."
+        user_description: "review Azure Activity Log for resource group {{ RESOURCE_GROUP_NAME }}"
+        command: |
+          az monitor activity-log list --resource-group {{ RESOURCE_GROUP_NAME }}
+      - name: "check_top_resource_consuming_pods"
+        description: "Checks for the top resource-consuming pods on a specific node."
+        user_description: "get the top resource-consuming pods on node {{ NODE_NAME }}"
+        command: |
+          kubectl top pod --all-namespaces --sort-by=cpu | grep {{ NODE_NAME }}
+      - name: "check_network_outbound"
+        description: "Checks the outbound network connectivity for an AKS cluster."
+        user_description: "check outbound network connectivity for AKS cluster {{ CLUSTER_NAME }} in resource group {{ RESOURCE_GROUP }}"
+        command: |
+          az aks check-network outbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
+      - name: "check_network_inbound"
+        description: "Checks the inbound network connectivity for an AKS cluster."
+        user_description: "check inbound network connectivity for AKS cluster {{ CLUSTER_NAME }} in resource group {{ RESOURCE_GROUP }}"
+        command: |
+          az aks check-network inbound --name {{ CLUSTER_NAME }} --resource-group {{ RESOURCE_GROUP }}
+      - name: "list_vmss_names"
+        description: |
+          Lists all VMSS names in the cluster node resource group.
+          Prerequisites: get_node_resource_group
+        user_description: "lists all VMSS names in {{ NODE_RESOURCE_GROUP }}"
+        command: |
+          az vmss list -g {{ NODE_RESOURCE_GROUP }} --query '[*].name' -o tsv --only-show-errors
+      - name: "vmss_run_command"
+        description: |
+          Execute a shell command on a specific VMSS VM instance using az vmss run-command.
+          VM_ID is the instance ID of the VMSS, which can be derived from node names.
+          Prerequisites: get_node_resource_group, list_vmss_names
+        user_description: "run command {{ SHELL_COMMAND }} on VM #{{ VM_ID }} of VMSS {{ VMSS_NAME }}"
+        command: |
+          az vmss run-command invoke --resource-group {{ NODE_RESOURCE_GROUP }} --name {{ VMSS_NAME }} --instance-id {{ VM_ID }} --command-id RunShellScript --scripts {{ SHELL_COMMAND }}

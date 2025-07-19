@@ -10,7 +10,10 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from pydantic import BaseModel
 import litellm
 import os
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, THINKING
+from holmes.common.env_vars import (
+    THINKING,
+    TEMPERATURE,
+)
 
 
 def environ_get_safe_int(env_var, default="0"):
@@ -27,7 +30,7 @@ OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 class LLM:
     @abstractmethod
     def __init__(self):
-        self.model: str
+        self.model: str  # type: ignore
 
     @abstractmethod
     def get_context_window_size(self) -> int:
@@ -59,16 +62,15 @@ class DefaultLLM(LLM):
     model: str
     api_key: Optional[str]
     base_url: Optional[str]
+    args: Dict
 
-    def __init__(self, model: str, api_key: Optional[str] = None):
+    def __init__(self, model: str, api_key: Optional[str] = None, args: Dict = {}):
         self.model = model
         self.api_key = api_key
-        self.base_url = None
+        self.args = args
 
-        if ROBUSTA_AI:
-            self.base_url = ROBUSTA_API_ENDPOINT
-
-        self.check_llm(self.model, self.api_key)
+        if not args:
+            self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model: str, api_key: Optional[str]):
         logging.debug(f"Checking LiteLLM model {model}")
@@ -91,16 +93,16 @@ class DefaultLLM(LLM):
             if api_key:
                 os.environ["WATSONX_APIKEY"] = api_key
             if "WATSONX_URL" not in os.environ:
-                model_requirements["missing_keys"].append("WATSONX_URL")
+                model_requirements["missing_keys"].append("WATSONX_URL")  # type: ignore
                 model_requirements["keys_in_environment"] = False
             if "WATSONX_APIKEY" not in os.environ and "WATSONX_TOKEN" not in os.environ:
-                model_requirements["missing_keys"].extend(
+                model_requirements["missing_keys"].extend(  # type: ignore
                     ["WATSONX_APIKEY", "WATSONX_TOKEN"]
                 )
                 model_requirements["keys_in_environment"] = False
             # WATSONX_PROJECT_ID is required because we don't let user pass it to completion call directly
             if "WATSONX_PROJECT_ID" not in os.environ:
-                model_requirements["missing_keys"].append("WATSONX_PROJECT_ID")
+                model_requirements["missing_keys"].append("WATSONX_PROJECT_ID")  # type: ignore
                 model_requirements["keys_in_environment"] = False
             # https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces
             # using custom watsonx deployments might require to set WATSONX_DEPLOYMENT_SPACE_ID env
@@ -110,6 +112,8 @@ class DefaultLLM(LLM):
                     "environment variable for proper functionality. For more information, refer to the documentation: "
                     "https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces"
                 )
+        elif provider == "bedrock" and os.environ.get("AWS_PROFILE"):
+            model_requirements = {"keys_in_environment": True, "missing_keys": []}
         else:
             #
             api_key_env_var = f"{provider.upper()}_API_KEY"
@@ -167,11 +171,26 @@ class DefaultLLM(LLM):
             if "token_count" in message and message["token_count"]:
                 total_token_count += message["token_count"]
             else:
-                token_count = litellm.token_counter(
-                    model=self.model, messages=[message]
-                )
-                message["token_count"] = token_count
-                total_token_count += token_count
+                # message can be counted by this method only if message contains a "content" key
+                if "content" in message:
+                    if isinstance(message["content"], str):
+                        message_to_count = [
+                            {"type": "text", "text": message["content"]}
+                        ]
+                    elif isinstance(message["content"], list):
+                        message_to_count = [
+                            {"type": "text", "text": json.dumps(message["content"])}
+                        ]
+                    elif isinstance(message["content"], dict):
+                        if "type" not in message["content"]:
+                            message_to_count = [
+                                {"type": "text", "text": json.dumps(message["content"])}
+                            ]
+                    token_count = litellm.token_counter(
+                        model=self.model, messages=message_to_count
+                    )
+                    message["token_count"] = token_count
+                    total_token_count += token_count
         return total_token_count
 
     def completion(
@@ -187,23 +206,24 @@ class DefaultLLM(LLM):
         tools_args = {}
         if tools and len(tools) > 0 and tool_choice == "auto":
             tools_args["tools"] = tools
-            tools_args["tool_choice"] = tool_choice
+            tools_args["tool_choice"] = tool_choice  # type: ignore
 
-        thinking = None
-        if THINKING:  # if model requires 'thinking', load it from env vars
-            thinking = json.loads(THINKING)
+        if THINKING:
+            self.args.setdefault("thinking", json.loads(THINKING))
+
+        if self.args.get("thinking", None):
+            litellm.modify_params = True
 
         result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            base_url=self.base_url,
-            temperature=temperature,
+            temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,
-            thinking=thinking,
             stream=stream,
             **tools_args,
+            **self.args,
         )
 
         if isinstance(result, ModelResponse):

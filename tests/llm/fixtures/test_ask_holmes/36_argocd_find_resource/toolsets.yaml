@@ -1,0 +1,12 @@
+# requires 2 env vars:
+# ARGOCD_AUTH_TOKEN="xyz..."
+# ARGOCD_OPTS="--port-forward --port-forward-namespace argocd --grpc-web"
+toolsets:
+  kubernetes/core:
+    enabled: true
+  argocd/core:
+    enabled: true
+  kubernetes/kube-lineage-extras:
+    enabled: true
+  kubernetes/logs:
+    enabled: true

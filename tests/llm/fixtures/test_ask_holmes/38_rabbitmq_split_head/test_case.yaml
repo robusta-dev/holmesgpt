@@ -1,0 +1,20 @@
+user_prompt: "is rabbitmq healthy?"
+expected_output:
+  - There is a partition between rabbitmq nodes
+before_test: |
+  kubectl create namespace rabbitmq
+  helm install rabbitmq oci://registry-1.docker.io/bitnamicharts/rabbitmq -n rabbitmq -f ./rabbitmq_values.yaml
+  # Obtain the password: `kubectl get secret --namespace rabbitmq rabbitmq -o jsonpath="{.data.rabbitmq-password}" | base64 -d`
+  #   and set it to `RABBITMQ_PASSWORD` env var
+
+  sleep 120
+  # Label the Pods for Easier Selection
+  python ./isolate_pod.py add
+  sleep 60
+after_test: |
+  python ./isolate_pod.py remove
+  helm uninstall rabbitmq -n rabbitmq
+  kubectl delete namespace rabbitmq
+evaluation:
+  correctness: 1
+generate_mocks: False

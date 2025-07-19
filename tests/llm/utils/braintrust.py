@@ -2,12 +2,39 @@ import os
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
-from tests.llm.utils.mock_utils import HolmesTestCase
+from tests.llm.utils.mock_utils import HolmesTestCase  # type: ignore
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
+
+
+class DummySpan:
+    """A no-op span implementation for when Braintrust is disabled."""
+
+    def start_span(self, *args, **kwargs):
+        return self
+
+    def log(self, *args, **kwargs):
+        pass
+
+    def end(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
+
+braintrust_enabled = False
+
+if BRAINTRUST_API_KEY:
+    braintrust_enabled = True
 
 
 def find_dataset_row_by_test_case(dataset: Dataset, test_case: HolmesTestCase):
@@ -24,6 +51,8 @@ def pop_test_case(
         if test_case.id == id:
             test_cases.remove(test_case)
             return test_case
+
+    return None
 
 
 def pop_matching_test_case_if_exists(
@@ -42,10 +71,18 @@ class BraintrustEvalHelper:
     def __init__(self, project_name: str, dataset_name: str) -> None:
         self.project_name = project_name
         self.dataset_name = dataset_name
-        self.dataset = braintrust.init_dataset(project=project_name, name=dataset_name)
+        self.dataset = None
+        if braintrust_enabled:
+            self.dataset = braintrust.init_dataset(
+                project=project_name, name=dataset_name
+            )
         self.experiment = None
 
     def upload_test_cases(self, test_cases: List[HolmesTestCase]):
+        if not self.dataset:
+            # braintrust is disabled
+            return
+
         logging.info(f"Uploading f{len(test_cases)} test cases to braintrust")
 
         logging.info(f"Found dataset: {self.dataset.summarize()}")
@@ -53,7 +90,7 @@ class BraintrustEvalHelper:
         for item in self.dataset:
             test_case = pop_matching_test_case_if_exists(test_cases, item)
             if not test_case:
-                self.dataset.delete(item.get("id"))
+                self.dataset.delete(item.get("id"))  # type: ignore
                 continue
 
             logging.info(f"Updating dataset item f{test_case.id}")
@@ -79,9 +116,17 @@ class BraintrustEvalHelper:
         logging.info(self.dataset.summarize())
 
     def resolve_dataset_item(self, test_case: HolmesTestCase) -> Optional[Any]:
+        if not self.dataset:
+            # braintrust is disabled
+            return None
         return find_dataset_row_by_test_case(self.dataset, test_case)
 
-    def start_evaluation(self, experiment_name: str, name: str) -> Span:
+    def start_evaluation(
+        self, experiment_name: str, name: str
+    ) -> Union[Span, DummySpan]:
+        if not self.dataset:
+            # braintrust is disabled
+            return DummySpan()
         if not self.experiment:
             experiment: Experiment | ReadonlyExperiment = braintrust.init(
                 project=self.project_name,
@@ -98,8 +143,8 @@ class BraintrustEvalHelper:
                 raise Exception(
                     "Experiment must be writable. The above options open=False and update=True ensure this is the case so this exception should never be raised"
                 )
-            self.experiment = experiment
-        self._root_span = self.experiment.start_span(name=name)
+            self.experiment = experiment  # type: ignore
+        self._root_span = self.experiment.start_span(name=name)  # type: ignore
         return self._root_span
 
     def end_evaluation(
@@ -109,7 +154,12 @@ class BraintrustEvalHelper:
         expected: str,
         id: str,
         scores: dict[str, Any],
+        prompt: Optional[str],
+        tags: Optional[list[str]] = None,
     ):
+        if not self.dataset:
+            # braintrust is disabled
+            return
         if not self.experiment:
             raise Exception("start_evaluation() must be called before end_evaluation()")
 
@@ -119,11 +169,11 @@ class BraintrustEvalHelper:
             expected=expected,
             dataset_record_id=id,
             scores=scores,
+            metadata={"system_prompt": prompt},
+            tags=tags,
         )
         self._root_span.end()
         self.experiment.flush()
-
-    # def score(self)
 
 
 def get_experiment_name(test_suite: str):
@@ -156,5 +206,7 @@ def get_experiment_results(project_name: str, test_suite: str) -> ExperimentData
     records = list(experiment.fetch())
     test_cases = list(dataset.fetch())
     return ExperimentData(
-        experiment_name=experiment_name, records=records, test_cases=test_cases
+        experiment_name=experiment_name,
+        records=records,  # type: ignore
+        test_cases=test_cases,  # type: ignore
     )

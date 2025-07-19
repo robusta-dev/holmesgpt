@@ -1,12 +1,14 @@
 import os
 import re
-from typing import List
-from pydantic import BaseModel
-import pytest
 from pathlib import Path
+from typing import List
 
-from holmes.core.tools import ToolExecutor, ToolsetStatusEnum
+import pytest
+from pydantic import BaseModel
+
+from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.internet.internet import InternetToolset, html_to_markdown
+from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 THIS_DIR = os.path.dirname(__file__)
 FIXTURES_DIR = os.path.join(THIS_DIR, "fixtures", "test_internet")
@@ -20,7 +22,7 @@ Example Domain
 ==============
 
 This domain is for use in illustrative examples in documents. You may use this
- domain in literature without prior coordination or asking for permission.
+domain in literature without prior coordination or asking for permission.
 
 [More information...](https://www.iana.org/domains/example)
 """.strip()
@@ -112,10 +114,11 @@ def test_html_to_markdown(fixture: Fixture):
 
 def test_fetch_webpage():
     toolset = InternetToolset()
-    toolset._status = ToolsetStatusEnum.ENABLED
+    toolset.status = ToolsetStatusEnum.ENABLED
     tool_executor = ToolExecutor(toolsets=[toolset])
     fetch_webpage_tool = tool_executor.get_tool_by_name("fetch_webpage")
     assert fetch_webpage_tool
     actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
-    print(actual_output)
-    assert actual_output.strip() == EXPECTED_TEST_RESULT
+    print(actual_output.data)
+    assert actual_output.data
+    assert actual_output.data.strip() == EXPECTED_TEST_RESULT

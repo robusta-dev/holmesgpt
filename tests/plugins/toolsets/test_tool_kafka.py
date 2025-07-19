@@ -1,17 +1,19 @@
 import os
-import subprocess
-import pytest
 import random
 import string
+import subprocess
+
+import pytest
 from confluent_kafka.admin import NewTopic
+
 from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.toolsets.kafka import (
-    KafkaToolset,
-    ListKafkaConsumers,
     DescribeConsumerGroup,
-    ListTopics,
     DescribeTopic,
     FindConsumerGroupsByTopic,
+    KafkaToolset,
+    ListKafkaConsumers,
+    ListTopics,
 )
 from tests.utils.kafka import wait_for_kafka_ready
 
@@ -19,13 +21,18 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 FIXTURE_FOLDER = os.path.join(dir_path, "fixtures", "test_tool_kafka")
 KAFKA_BOOTSTRAP_SERVER = os.environ.get("KAFKA_BOOTSTRAP_SERVER")
 
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("KAFKA_BOOTSTRAP_SERVER"),
-    reason="missing env KAFKA_BOOTSTRAP_SERVER",
-)
+# Use pytest.mark.skip (not skipif) to show a single grouped skip line for the entire module
+# Will show: "SKIPPED [7] module.py: reason" instead of 7 separate skip lines
+if not os.environ.get("KAFKA_BOOTSTRAP_SERVER"):
+    pytestmark = pytest.mark.skip(reason="KAFKA_BOOTSTRAP_SERVER must be set")
 
 kafka_config = {
-    "kafka_broker": KAFKA_BOOTSTRAP_SERVER,
+    "kafka_clusters": [
+        {
+            "name": "kafka",
+            "kafka_broker": KAFKA_BOOTSTRAP_SERVER,
+        }
+    ]
 }
 
 
@@ -35,15 +42,15 @@ def kafka_toolset():
     kafka_toolset.config = kafka_config
     kafka_toolset.check_prerequisites()
     assert (
-        kafka_toolset.get_status() == ToolsetStatusEnum.ENABLED
-    ), "Prerequisites check failed for Kafka toolset"
-    assert kafka_toolset.admin_client is not None, "Missing admin client"
+        kafka_toolset.status == ToolsetStatusEnum.ENABLED
+    ), f"Prerequisites check failed for Kafka toolset: {kafka_toolset.status} / {kafka_toolset.error}"
+    assert kafka_toolset.clients["kafka"] is not None, "Missing admin client"
     return kafka_toolset
 
 
 @pytest.fixture(scope="module", autouse=True)
 def admin_client(kafka_toolset):
-    return kafka_toolset.admin_client
+    return kafka_toolset.clients["kafka"]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -56,7 +63,7 @@ def docker_compose(kafka_toolset):
             stderr=subprocess.PIPE,
         )
 
-        if not wait_for_kafka_ready(kafka_toolset.admin_client):
+        if not wait_for_kafka_ready(kafka_toolset.clients["kafka"]):
             raise Exception("Kafka failed to initialize properly")
 
         yield
@@ -85,7 +92,6 @@ def test_topic(admin_client):
 def test_list_kafka_consumers(kafka_toolset):
     tool = ListKafkaConsumers(kafka_toolset)
     result = tool.invoke({})
-    print(result)
     assert "consumer_groups:" in result
     assert (
         tool.get_parameterized_one_liner({})
@@ -134,7 +140,6 @@ def test_describe_topic_with_configuration(kafka_toolset, test_topic):
     tool = DescribeTopic(kafka_toolset)
     result = tool.invoke({"topic_name": test_topic, "fetch_configuration": True})
 
-    print(result)
     assert "configuration:" in result
     assert "partitions:" in result
     assert "topic:" in result
@@ -160,6 +165,5 @@ def test_tool_error_handling(kafka_toolset):
     tool = DescribeTopic(kafka_toolset)
     result = tool.invoke({"topic_name": "non_existent_topic"})
 
-    print(result)
     assert isinstance(result, str)
     assert "topic: non_existent_topic" in result

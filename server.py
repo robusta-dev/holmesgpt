@@ -1,7 +1,9 @@
 # ruff: noqa: E402
 import os
+from typing import List, Optional
 
 import sentry_sdk
+from holmes import get_version, is_official_release
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -11,7 +13,6 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 from holmes.core import investigation
-from contextlib import asynccontextmanager
 from holmes.utils.holmes_status import update_holmes_status_in_db
 import logging
 import uvicorn
@@ -37,15 +38,13 @@ from holmes.config import Config
 from holmes.core.conversations import (
     build_chat_messages,
     build_issue_chat_messages,
-    handle_issue_conversation,
     build_workload_health_chat_messages,
 )
 from holmes.core.models import (
+    FollowUpAction,
     InvestigationResult,
-    ConversationRequest,
     InvestigateRequest,
     WorkloadHealthRequest,
-    ConversationInvestigationResponse,
     ChatRequest,
     ChatResponse,
     IssueChatRequest,
@@ -75,12 +74,11 @@ def init_logging():
 
 
 init_logging()
-dal = SupabaseDal()
 config = Config.load_from_env()
+dal = SupabaseDal(config.cluster_name)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def sync_before_server_start():
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
@@ -89,26 +87,29 @@ async def lifespan(app: FastAPI):
         holmes_sync_toolsets_status(dal, config)
     except Exception:
         logging.error("Failed to synchronise holmes toolsets", exc_info=True)
-    yield
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
-    logging.info("Initializing sentry...")
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        send_default_pii=False,
-        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
-        profiles_sample_rate=0,
-    )
-    sentry_sdk.set_tags(
-        {
-            "account_id": dal.account_id,
-            "cluster_name": config.cluster_name,
-            "model_name": config.model,
-        }
-    )
+    if is_official_release():
+        logging.info("Initializing sentry...")
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            send_default_pii=False,
+            traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+            profiles_sample_rate=0,
+        )
+        sentry_sdk.set_tags(
+            {
+                "account_id": dal.account_id,
+                "cluster_name": config.cluster_name,
+                "model_name": config.model,
+                "version": get_version(),
+            }
+        )
+    else:
+        logging.info("Skipping sentry initialization for custom version")
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 if LOG_PERFORMANCE:
@@ -135,7 +136,10 @@ if LOG_PERFORMANCE:
 def investigate_issues(investigate_request: InvestigateRequest):
     try:
         result = investigation.investigate_issues(
-            investigate_request=investigate_request, dal=dal, config=config
+            investigate_request=investigate_request,
+            dal=dal,
+            config=config,
+            model=investigate_request.model,
         )
         return result
 
@@ -148,15 +152,26 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
-    ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-        investigation.get_investigation_context(req, dal, config=config)
-    )
-
     try:
+        # Disabled the logic for streaming & structured output with robusta AI
+        # robusta_ai = req.model == "Robusta"
+        # is_structured_output = not robusta_ai
+
+        ai, system_prompt, user_prompt, response_format, sections, runbooks = (
+            investigation.get_investigation_context(req, dal, config, True)
+        )
         return StreamingResponse(
-            ai.call_stream(system_prompt, user_prompt, response_format, runbooks),
+            ai.call_stream(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                stream=False,
+                response_format=response_format,
+                sections=sections,
+                runbooks=runbooks,
+            ),
             media_type="text/event-stream",
         )
+
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:
@@ -192,13 +207,13 @@ def workload_health_check(request: WorkloadHealthRequest):
             request.ask, global_instructions
         )
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
 
         system_prompt = load_and_render_prompt(
             request.prompt_template,
             context={
                 "alerts": workload_alerts,
-                "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+                "toolsets": ai.tool_executor.toolsets,
             },
         )
 
@@ -221,16 +236,14 @@ def workload_health_check(request: WorkloadHealthRequest):
 
 @app.post("/api/workload_health_chat")
 def workload_health_conversation(
-    workload_health_chat_request: WorkloadHealthChatRequest,
+    request: WorkloadHealthChatRequest,
 ):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(
-            workload_health_chat_request, ai, global_instructions
-        )
+        messages = build_workload_health_chat_messages(request, ai, global_instructions)
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -245,30 +258,11 @@ def workload_health_conversation(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# older api that does not support conversation history
-@app.post("/api/conversation")
-def issue_conversation_deprecated(conversation_request: ConversationRequest):
-    try:
-        load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
-
-        system_prompt = handle_issue_conversation(conversation_request, ai)
-
-        investigation = ai.prompt_call(system_prompt, conversation_request.user_prompt)
-
-        return ConversationInvestigationResponse(
-            analysis=investigation.result,
-            tool_calls=investigation.tool_calls,
-        )
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=e.message)
-
-
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(
@@ -288,12 +282,22 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def already_answered(conversation_history: Optional[List[dict]]) -> bool:
+    if conversation_history is None:
+        return False
+
+    for message in conversation_history:
+        if message["role"] == "assistant":
+            return True
+    return False
+
+
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
         load_robusta_api_key(dal=dal, config=config)
 
-        ai = config.create_toolcalling_llm(dal=dal)
+        ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
         messages = build_chat_messages(
             chat_request.ask,
@@ -301,12 +305,35 @@ def chat(chat_request: ChatRequest):
             ai=ai,
             global_instructions=global_instructions,
         )
+        follow_up_actions = []
+        if not already_answered(chat_request.conversation_history):
+            follow_up_actions = [
+                FollowUpAction(
+                    id="logs",
+                    action_label="Logs",
+                    prompt="Show me the relevant logs",
+                    pre_action_notification_text="Fetching relevant logs...",
+                ),
+                FollowUpAction(
+                    id="graphs",
+                    action_label="Graphs",
+                    prompt="Show me the relevant graphs. Use prometheus and make sure you embed the results with `<< >>` to display a graph",
+                    pre_action_notification_text="Drawing some graphs...",
+                ),
+                FollowUpAction(
+                    id="articles",
+                    action_label="Articles",
+                    prompt="List the relevant runbooks and links used. Write a short summary for each",
+                    pre_action_notification_text="Looking up and summarizing runbooks and links...",
+                ),
+            ]
 
         llm_call = ai.messages_call(messages=messages)
         return ChatResponse(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
             conversation_history=llm_call.messages,
+            follow_up_actions=follow_up_actions,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
@@ -317,7 +344,7 @@ def chat(chat_request: ChatRequest):
 
 @app.get("/api/model")
 def get_model():
-    return {"model_name": config.model}
+    return {"model_name": config.get_models_list()}
 
 
 if __name__ == "__main__":
@@ -328,4 +355,5 @@ if __name__ == "__main__":
     log_config["formatters"]["default"]["fmt"] = (
         "%(asctime)s %(levelname)-8s %(message)s"
     )
+    sync_before_server_start()
     uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT, log_config=log_config)

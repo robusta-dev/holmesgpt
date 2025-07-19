@@ -1,7 +1,7 @@
 import re
 import logging
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 from holmes.core.tools import (
     Tool,
     ToolParameter,
@@ -10,6 +10,10 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.internet.internet import (
     InternetBaseToolset,
     scrape,
+)
+from holmes.core.tools import (
+    StructuredToolResult,
+    ToolResultStatus,
 )
 
 
@@ -27,7 +31,7 @@ class FetchNotion(Tool):
                     required=True,
                 ),
             },
-            toolset=toolset,
+            toolset=toolset,  # type: ignore
         )
 
     def convert_notion_url(self, url):
@@ -39,7 +43,7 @@ class FetchNotion(Tool):
             return f"https://api.notion.com/v1/blocks/{notion_id}/children"
         return url  # Return original URL if no match is found
 
-    def _invoke(self, params: Any) -> str:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         url: str = params["url"]
 
         # Get headers from the toolset configuration
@@ -51,9 +55,17 @@ class FetchNotion(Tool):
 
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
-            return ""
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to retrieve content from {url}",
+                params=params,
+            )
 
-        return self.parse_notion_content(content)
+        return StructuredToolResult(
+            status=ToolResultStatus.SUCCESS,
+            data=self.parse_notion_content(content),
+            params=params,
+        )
 
     def parse_notion_content(self, content: Any) -> str:
         data = json.loads(content)
@@ -100,8 +112,6 @@ class FetchNotion(Tool):
 
 
 class NotionToolset(InternetBaseToolset):
-    additional_headers: Dict[str, str] = {}
-
     def __init__(self):
         super().__init__(
             name="notion",
@@ -116,3 +126,12 @@ class NotionToolset(InternetBaseToolset):
             ],
             is_default=False,
         )
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
+        if not config or not config.get("additional_headers", {}):
+            return (
+                False,
+                "Notion toolset is misconfigured. Authorization header is required.",
+            )
+        self.additional_headers = config["additional_headers"]
+        return True, ""

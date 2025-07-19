@@ -11,13 +11,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          virtualenvs-path: .venv
+          installer-parallel: true
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
       - uses: pre-commit/action@v3.0.1
-
   build:
     needs: check
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     runs-on: ubuntu-latest
 
@@ -39,7 +47,21 @@ jobs:
           poetry install --no-root
 
           sudo apt-get install -y binutils
-          pyinstaller holmes.py --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' --hidden-import=tiktoken_ext.openai_public --hidden-import=tiktoken_ext --hiddenimport litellm.llms.tokenizers --hiddenimport litellm.litellm_core_utils.tokenizers --collect-data litellm
+          pyinstaller holmes_cli.py \
+            --name holmes \
+            --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' \
+            --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' \
+            --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' \
+            --add-data 'holmes/plugins/toolsets/coralogix*:holmes/plugins/toolsets/coralogix' \
+            --add-data 'holmes/plugins/toolsets/grafana*:holmes/plugins/toolsets/grafana' \
+            --add-data 'holmes/plugins/toolsets/internet*:holmes/plugins/toolsets/internet' \
+            --add-data 'holmes/plugins/toolsets/opensearch*:holmes/plugins/toolsets/opensearch' \
+            --add-data 'holmes/plugins/toolsets/prometheus*:holmes/plugins/toolsets/prometheus' \
+            --hidden-import=tiktoken_ext.openai_public \
+            --hidden-import=tiktoken_ext \
+            --hiddenimport litellm.llms.tokenizers \
+            --hiddenimport litellm.litellm_core_utils.tokenizers \
+            --collect-data litellm
           ls dist
 
       - name: Run tests

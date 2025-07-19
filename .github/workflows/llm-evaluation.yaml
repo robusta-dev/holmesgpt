@@ -11,20 +11,16 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        python-version: ["3.12"]
-
+  llm_evals:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.12
 
       - name: Install Python dependencies and build
         # if you change something here, you must also change it in .github/workflows/build-binaries-and-brew.yaml
@@ -40,13 +36,17 @@ jobs:
         continue-on-error: true
         shell: bash
         env:
+          AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
+          AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
+          AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
+          MODEL: ${{ secrets.MODEL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
           UPLOAD_DATASET: "true"
           PUSH_EVALS_TO_BRAINTRUST: "true"
           EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         run: |
-          poetry run pytest tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n 6
+          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n 6
       - uses: actions/github-script@v7
         if: always()
         with:
@@ -91,4 +91,11 @@ jobs:
             }
       - name: Check test results
         if: always()
-        run: if [[ ${{ steps.evals.outcome }} == 'success' ]]; then exit 0; else exit 1; fi
+        run: |
+          if [[ -f "regressions.txt" ]]; then
+            echo "There are regressions in the evals. Please check the evals file for details."
+            cat regressions.txt
+            exit 1
+          else
+            echo "All tests passed without regressions."
+          fi

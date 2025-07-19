@@ -1,0 +1,86 @@
+toolsets:
+  aks/core:
+    description: "Set of tools to read Azure Kubernetes Service resources"
+    tags:
+      - cli
+    prerequisites:
+      - command: "az account show"
+      - command: "az aks --help"
+      - command: "kubectl version --client"
+    tools:
+      - name: "cloud_provider"
+        description: "Fetches the cloud provider of the kubernetes cluster, determined by the providerID of the nodes"
+        user_description: "get cloud provider of AKS cluster"
+        command: |
+          kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.providerID}{"\n"}{end}'
+      - name: "aks_get_cluster"
+        description: "Get the configuration details of a specific AKS cluster"
+        user_description: "get AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }} in subscription {{ SUBSCRIPTION_ID }}"
+        command: |
+          az aks show --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+      - name: "aks_list_clusters_by_rg"
+        description: "Lists all AKS clusters under a specific resource group. Only run this tool when you need to get all clusters in a resource group, rather than a specific one."
+        user_description: "list AKS clusters in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
+        command: |
+          az aks list --resource-group {{ RESOURCE_GROUP_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+      - name: "aks_list_node_pools"
+        description: "Lists node pools in an AKS cluster"
+        user_description: "list node pools for AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }}"
+        command: |
+          az aks nodepool list --resource-group {{ RESOURCE_GROUP_NAME }} --cluster-name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+      - name: "aks_show_node_pool"
+        description: "Shows details of a specific node pool in an AKS cluster"
+        user_description: "get node pool {{ NODE_POOL_NAME }} in AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }}"
+        command: |
+          az aks nodepool show --resource-group {{ RESOURCE_GROUP_NAME }} --cluster-name {{ CLUSTER_NAME }} --name {{ NODE_POOL_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+      - name: "aks_list_versions"
+        description: "Lists supported Kubernetes versions in a region"
+        user_description: "list supported Kubernetes versions for region {{ LOCATION }}"
+        command: |
+          az aks get-versions --location {{ LOCATION }} --subscription {{ SUBSCRIPTION_ID }}
+      - name: "aks_get_credentials"
+        description: "Downloads kubeconfig file for an AKS cluster"
+        user_description: "get kubeconfig credentials for AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }}"
+        command: |
+          az aks get-credentials --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
+      - name: "aks_list_addons"
+        description: "Lists all available AKS addons"
+        user_description: "list available addons for AKS in region {{ LOCATION }}"
+        command: |
+          az aks get-versions --location {{ LOCATION }} --query "orchestrators[].addons"
+      # helper tools to auto-discover variables
+      - name: "get_default_subscription"
+        description: "Retrieves the current Azure CLI default subscription ID"
+        user_description: "get default subscription ID"
+        command: |
+          az account show --query id -o tsv
+      - name: "get_cluster_name"
+        description: "Retrieves the active Kubernetes cluster name from kubeconfig"
+        user_description: "get current AKS cluster name from kubeconfig"
+        command: |
+           kubectl config current-context
+      - name: "get_cluster_resource_group"
+        description: "Retrieves the resource group name for the AKS cluster"
+        user_description: "get resource group for cluster {{ CLUSTER_NAME }}"
+        command: |
+           az aks list --subscription {{ SUBSCRIPTION_ID }} --only-show-errors --query "[?name=='{{ CLUSTER_NAME }}'].resourceGroup | [0]" -o tsv
+      - name: "get_node_resource_group"
+        description: "Retrieves the node resource group name for the AKS cluster"
+        user_description: "get the node resource group name for cluster {{ CLUSTER_NAME }}"
+        command: |
+          az aks list --subscription {{ SUBSCRIPTION_ID }} --only-show-errors --query "[?name=='{{ CLUSTER_NAME }}'].nodeResourceGroup | [0]" -o tsv
+      - name: "get_api_server_public_ip"
+        description: "get the public IP of kube-apiserver for a public AKS cluster"
+        user_description: "get the public IP of kube-apiserver for a public AS cluster {{ CLUSTER_NAME }}"
+        command: |
+          API_SERVER=$(kubectl cluster-info | grep 'Kubernetes control plane' | sed -E 's|.*https://([^:]+):.*|\1|') && dig +short "${API_SERVER}"
+      - name: "get_all_nsgs"
+        description: "Gets all Network Security Group (NSG) instances in a subscription"
+        user_description: "list NSG instances in current Azure subscription {{ SUBSCRIPTION_ID }} context"
+        command: |
+            az network nsg list --subscription {{ SUBSCRIPTION_ID }} -o table
+      - name: "get_nsg_rules"
+        description: "Gets all NSG rules associated with a specific NSG"
+        user_description: "list NSG rules for NSG {{ NSG_NAME }} in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
+        command: |
+            az network nsg rule list --resource-group {{ RESOURCE_GROUP_NAME }} --nsg-name {{ NSG_NAME }} --subscription {{ SUBSCRIPTION_ID }} --include-default -o table

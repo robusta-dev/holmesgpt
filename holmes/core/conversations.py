@@ -3,9 +3,6 @@ from typing import Dict, List, Optional
 import sentry_sdk
 
 from holmes.core.models import (
-    ConversationRequest,
-    HolmesConversationHistory,
-    ConversationInvestigationResult,
     ToolCallConversationResult,
     IssueChatRequest,
     WorkloadHealthChatRequest,
@@ -58,89 +55,6 @@ def truncate_tool_messages(conversation_history: list, tool_size: int) -> None:
     for message in conversation_history:
         if message.get("role") == "tool":
             message["content"] = message["content"][:tool_size]
-
-
-# handle_issue_conversation is a method for older api /api/conversation which does not support conversation history
-def handle_issue_conversation(
-    conversation_request: ConversationRequest, ai: ToolCallingLLM
-) -> str:
-    template_path = "builtin://generic_ask_for_issue_conversation.jinja2"
-
-    number_of_tools = len(
-        conversation_request.context.investigation_result.tools
-    ) + sum(
-        [
-            len(history.answer.tools)
-            for history in conversation_request.context.conversation_history
-        ]
-    )
-
-    if number_of_tools == 0:
-        template_context = {
-            "investigation": conversation_request.context.investigation_result.result,
-            "tools_called_for_investigation": conversation_request.context.investigation_result.tools,
-            "conversation_history": conversation_request.context.conversation_history,
-        }
-        system_prompt = load_and_render_prompt(template_path, template_context)
-        return system_prompt
-
-    conversation_history_without_tools = [
-        HolmesConversationHistory(
-            ask=history.ask,
-            answer=ConversationInvestigationResult(analysis=history.answer.analysis),
-        )
-        for history in conversation_request.context.conversation_history
-    ]
-    template_context = {
-        "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": None,
-        "conversation_history": conversation_history_without_tools,
-    }
-    system_prompt = load_and_render_prompt(template_path, template_context)
-    messages_without_tools = [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-        {
-            "role": "user",
-            "content": conversation_request.user_prompt,
-        },
-    ]
-
-    tool_size = calculate_tool_size(ai, messages_without_tools, number_of_tools)
-
-    truncated_conversation_history = [
-        HolmesConversationHistory(
-            ask=history.ask,
-            answer=ConversationInvestigationResult(
-                analysis=history.answer.analysis,
-                tools=[
-                    ToolCallConversationResult(
-                        name=tool.name,
-                        description=tool.description,
-                        output=tool.output[:tool_size],
-                    )
-                    for tool in history.answer.tools
-                ],
-            ),
-        )
-        for history in conversation_request.context.conversation_history
-    ]
-    truncated_investigation_result_tool_calls = [
-        ToolCallConversationResult(
-            name=tool.name, description=tool.description, output=tool.output[:tool_size]
-        )
-        for tool in conversation_request.context.investigation_result.tools
-    ]
-
-    template_context = {
-        "investigation": conversation_request.context.investigation_result.result,
-        "tools_called_for_investigation": truncated_investigation_result_tool_calls,
-        "conversation_history": truncated_conversation_history,
-    }
-    system_prompt = load_and_render_prompt(template_path, template_context)
-    return system_prompt
 
 
 def build_issue_chat_messages(
@@ -207,7 +121,7 @@ def build_issue_chat_messages(
             user_prompt, global_instructions
         )
 
-        number_of_tools_for_investigation = len(tools_for_investigation)
+        number_of_tools_for_investigation = len(tools_for_investigation)  # type: ignore
         if number_of_tools_for_investigation == 0:
             system_prompt = load_and_render_prompt(
                 template_path,
@@ -215,7 +129,7 @@ def build_issue_chat_messages(
                     "investigation": investigation_analysis,
                     "tools_called_for_investigation": tools_for_investigation,
                     "issue": issue_chat_request.issue_type,
-                    "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+                    "toolsets": ai.tool_executor.toolsets,
                 },
             )
             messages = [
@@ -234,7 +148,7 @@ def build_issue_chat_messages(
             "investigation": investigation_analysis,
             "tools_called_for_investigation": None,
             "issue": issue_chat_request.issue_type,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+            "toolsets": ai.tool_executor.toolsets,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -259,14 +173,14 @@ def build_issue_chat_messages(
                 description=tool.description,
                 output=tool.output[:tool_size],
             )
-            for tool in tools_for_investigation
+            for tool in tools_for_investigation  # type: ignore
         ]
 
         truncated_template_context = {
             "investigation": investigation_analysis,
             "tools_called_for_investigation": truncated_investigation_result_tool_calls,
             "issue": issue_chat_request.issue_type,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+            "toolsets": ai.tool_executor.toolsets,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -292,7 +206,7 @@ def build_issue_chat_messages(
             "content": user_prompt,
         }
     )
-    number_of_tools = len(tools_for_investigation) + len(
+    number_of_tools = len(tools_for_investigation) + len(  # type: ignore
         [message for message in conversation_history if message.get("role") == "tool"]
     )
 
@@ -306,7 +220,7 @@ def build_issue_chat_messages(
         "investigation": investigation_analysis,
         "tools_called_for_investigation": None,
         "issue": issue_chat_request.issue_type,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+        "toolsets": ai.tool_executor.toolsets,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -321,14 +235,14 @@ def build_issue_chat_messages(
         ToolCallConversationResult(
             name=tool.name, description=tool.description, output=tool.output[:tool_size]
         )
-        for tool in tools_for_investigation
+        for tool in tools_for_investigation  # type: ignore
     ]
 
     template_context = {
         "investigation": investigation_analysis,
         "tools_called_for_investigation": truncated_investigation_result_tool_calls,
         "issue": issue_chat_request.issue_type,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+        "toolsets": ai.tool_executor.toolsets,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context
@@ -336,6 +250,41 @@ def build_issue_chat_messages(
     conversation_history[0]["content"] = system_prompt_with_truncated_tools
 
     truncate_tool_messages(conversation_history, tool_size)
+
+    return conversation_history
+
+
+def add_or_update_system_prompt(
+    conversation_history: List[Dict[str, str]], ai: ToolCallingLLM
+):
+    """Either add the system prompt or replace an existing system prompt.
+    As a 'defensive' measure, this code will only replace an existing system prompt if it is the
+    first message in the conversation history.
+    This code will add a new system prompt if no message with role 'system' exists in the conversation history.
+
+    """
+    template_path = "builtin://generic_ask_conversation.jinja2"
+    context = {
+        "toolsets": ai.tool_executor.toolsets,
+    }
+
+    system_prompt = load_and_render_prompt(template_path, context)
+
+    if not conversation_history or len(conversation_history) == 0:
+        conversation_history.append({"role": "system", "content": system_prompt})
+    elif conversation_history[0]["role"] == "system":
+        conversation_history[0]["content"] = system_prompt
+    else:
+        existing_system_prompt = next(
+            (
+                message
+                for message in conversation_history
+                if message.get("role") == "system"
+            ),
+            None,
+        )
+        if not existing_system_prompt:
+            conversation_history.insert(0, {"role": "system", "content": system_prompt})
 
     return conversation_history
 
@@ -361,7 +310,7 @@ def build_chat_messages(
 
     2. For existing conversations:
        - Preserves the conversation history as is
-       - No need to update system prompt as it doesn't contain tool-specific content
+       - Replaces any existing system prompt with new one if it exists
        - Only truncates tool messages if they exist in the conversation
        - Maintains the original conversation flow while ensuring context limits
 
@@ -393,47 +342,41 @@ def build_chat_messages(
     },
     ]
     """
-    template_path = "builtin://generic_ask_conversation.jinja2"
-    context = {"enabled_toolsets": ai.tool_executor.enabled_toolsets}
-    if not conversation_history or len(conversation_history) == 0:
-        system_prompt = load_and_render_prompt(template_path, context)
-        ask = add_global_instructions_to_user_prompt(ask, global_instructions)
 
-        messages = [
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": ask,
-            },
-        ]
-        return messages
+    if not conversation_history:
+        conversation_history = []
+    else:
+        conversation_history = conversation_history.copy()
+
+    conversation_history = add_or_update_system_prompt(
+        conversation_history=conversation_history, ai=ai
+    )
 
     ask = add_global_instructions_to_user_prompt(ask, global_instructions)
 
-    conversation_history.append(
+    conversation_history.append(  # type: ignore
         {
             "role": "user",
             "content": ask,
         },
     )
     number_of_tools = len(
-        [message for message in conversation_history if message.get("role") == "tool"]
+        [message for message in conversation_history if message.get("role") == "tool"]  # type: ignore
     )
     if number_of_tools == 0:
-        return conversation_history
+        return conversation_history  # type: ignore
 
     conversation_history_without_tools = [
-        message for message in conversation_history if message.get("role") != "tool"
+        message
+        for message in conversation_history  # type: ignore
+        if message.get("role") != "tool"  # type: ignore
     ]
 
     tool_size = calculate_tool_size(
         ai, conversation_history_without_tools, number_of_tools
     )
-    truncate_tool_messages(conversation_history, tool_size)
-    return conversation_history
+    truncate_tool_messages(conversation_history, tool_size)  # type: ignore
+    return conversation_history  # type: ignore
 
 
 def build_workload_health_chat_messages(
@@ -502,7 +445,7 @@ def build_workload_health_chat_messages(
             user_prompt, global_instructions
         )
 
-        number_of_tools_for_workload = len(tools_for_workload)
+        number_of_tools_for_workload = len(tools_for_workload)  # type: ignore
         if number_of_tools_for_workload == 0:
             system_prompt = load_and_render_prompt(
                 template_path,
@@ -510,7 +453,7 @@ def build_workload_health_chat_messages(
                     "workload_analysis": workload_analysis,
                     "tools_called_for_workload": tools_for_workload,
                     "resource": resource,
-                    "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+                    "toolsets": ai.tool_executor.toolsets,
                 },
             )
             messages = [
@@ -529,7 +472,7 @@ def build_workload_health_chat_messages(
             "workload_analysis": workload_analysis,
             "tools_called_for_workload": None,
             "resource": resource,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+            "toolsets": ai.tool_executor.toolsets,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -554,14 +497,14 @@ def build_workload_health_chat_messages(
                 description=tool.description,
                 output=tool.output[:tool_size],
             )
-            for tool in tools_for_workload
+            for tool in tools_for_workload  # type: ignore
         ]
 
         truncated_template_context = {
             "workload_analysis": workload_analysis,
             "tools_called_for_workload": truncated_workload_result_tool_calls,
             "resource": resource,
-            "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+            "toolsets": ai.tool_executor.toolsets,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -587,7 +530,7 @@ def build_workload_health_chat_messages(
             "content": user_prompt,
         }
     )
-    number_of_tools = len(tools_for_workload) + len(
+    number_of_tools = len(tools_for_workload) + len(  # type: ignore
         [message for message in conversation_history if message.get("role") == "tool"]
     )
 
@@ -601,7 +544,7 @@ def build_workload_health_chat_messages(
         "workload_analysis": workload_analysis,
         "tools_called_for_workload": None,
         "resource": resource,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+        "toolsets": ai.tool_executor.toolsets,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -616,14 +559,14 @@ def build_workload_health_chat_messages(
         ToolCallConversationResult(
             name=tool.name, description=tool.description, output=tool.output[:tool_size]
         )
-        for tool in tools_for_workload
+        for tool in tools_for_workload  # type: ignore
     ]
 
     template_context = {
         "workload_analysis": workload_analysis,
         "tools_called_for_workload": truncated_workload_result_tool_calls,
         "resource": resource,
-        "enabled_toolsets": ai.tool_executor.enabled_toolsets,
+        "toolsets": ai.tool_executor.toolsets,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context
