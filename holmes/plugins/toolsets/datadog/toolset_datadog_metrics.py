@@ -11,7 +11,6 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
-from tenacity import RetryError
 from holmes.plugins.toolsets.consts import (
     TOOLSET_CONFIG_MISSING_ERROR,
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
@@ -150,22 +149,6 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             logging.exception(
                 f"Failed to query Datadog metrics for params: {params}", exc_info=True
             )
-
-            if isinstance(e, RetryError):
-                try:
-                    original_error = e.last_attempt.exception()
-                    if (
-                        isinstance(original_error, DataDogRequestError)
-                        and original_error.status_code == 429
-                    ):
-                        return StructuredToolResult(
-                            status=ToolResultStatus.ERROR,
-                            error=f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts.",
-                            params=params,
-                        )
-                except Exception:
-                    pass
-
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
@@ -296,21 +279,6 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 f"Failed to query Datadog metrics for params: {params}", exc_info=True
             )
 
-            if isinstance(e, RetryError):
-                try:
-                    original_error = e.last_attempt.exception()
-                    if (
-                        isinstance(original_error, DataDogRequestError)
-                        and original_error.status_code == 429
-                    ):
-                        return StructuredToolResult(
-                            status=ToolResultStatus.ERROR,
-                            error=f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts.",
-                            params=params,
-                        )
-                except Exception:
-                    pass
-
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
@@ -383,6 +351,10 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
                 except DataDogRequestError as e:
                     if e.status_code == 404:
                         errors[metric_name] = "Metric not found"
+                    elif e.status_code == 429:
+                        errors[metric_name] = (
+                            f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
+                        )
                     else:
                         errors[metric_name] = f"Error {e.status_code}: {str(e)}"
                 except Exception as e:
@@ -415,21 +387,6 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
                 f"Failed to query Datadog metric metadata for params: {params}",
                 exc_info=True,
             )
-
-            if isinstance(e, RetryError):
-                try:
-                    original_error = e.last_attempt.exception()
-                    if (
-                        isinstance(original_error, DataDogRequestError)
-                        and original_error.status_code == 429
-                    ):
-                        return StructuredToolResult(
-                            status=ToolResultStatus.ERROR,
-                            error=f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts.",
-                            params=params,
-                        )
-                except Exception:
-                    pass
 
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
