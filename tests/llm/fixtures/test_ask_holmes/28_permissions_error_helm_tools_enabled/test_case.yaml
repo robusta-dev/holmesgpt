@@ -1,8 +1,6 @@
 user_prompt: "list all secrets in the cluster"
 expected_output:
-  - permissions
-  - access
-  - secrets
+  - user is told they don't have access and given instructions how to fix
 before_test: ./setup_restricted_access.sh
 after_test: ./cleanup_restricted_access.sh
 test_env_vars:
