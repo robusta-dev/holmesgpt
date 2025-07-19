@@ -93,10 +93,6 @@ class BaseInfraInsightsToolset(Toolset):
             tags=[ToolsetTag.CLUSTER],
             config=config
         )
-        
-        self.service_type = self.get_service_type()
-        self._instances_cache = {}
-        self._cache_ttl = 300  # 5 minutes
     
     @abstractmethod
     def get_service_type(self) -> str:
@@ -121,9 +117,10 @@ class BaseInfraInsightsToolset(Toolset):
                 return False, "InfraInsights API is not accessible"
             
             # Check if we can get service instances
-            instances = client.get_service_instances(self.service_type)
+            service_type = self.get_service_type()
+            instances = client.get_service_instances(service_type)
             if not instances:
-                return False, f"No {self.service_type} instances available"
+                return False, f"No {service_type} instances available"
             
             return True, "Prerequisites met"
         except Exception as e:
@@ -139,7 +136,8 @@ class BaseInfraInsightsToolset(Toolset):
         first_tool = self.tools[0]
         if hasattr(first_tool, 'get_infrainsights_client'):
             client = first_tool.get_infrainsights_client()
-            return client.get_service_instances(self.service_type)
+            service_type = self.get_service_type()
+            return client.get_service_instances(service_type)
         return []
     
     def get_instance_by_id(self, instance_id: str) -> ServiceInstance:
@@ -167,7 +165,8 @@ class BaseInfraInsightsToolset(Toolset):
         first_tool = self.tools[0]
         if hasattr(first_tool, 'get_infrainsights_client'):
             client = first_tool.get_infrainsights_client()
-            context = client.get_user_context(user_id, self.service_type)
+            service_type = self.get_service_type()
+            context = client.get_user_context(user_id, service_type)
             if context and context.get('instanceId'):
                 try:
                     return self.get_instance_by_id(context['instanceId'])
@@ -184,7 +183,8 @@ class BaseInfraInsightsToolset(Toolset):
         first_tool = self.tools[0]
         if hasattr(first_tool, 'get_infrainsights_client'):
             client = first_tool.get_infrainsights_client()
-            return client.identify_instance_from_prompt(prompt, self.service_type, user_id)
+            service_type = self.get_service_type()
+            return client.identify_instance_from_prompt(prompt, service_type, user_id)
         return None
     
     def get_connection_config(self, instance_id: str) -> Dict[str, Any]:
@@ -208,7 +208,8 @@ class BaseInfraInsightsToolset(Toolset):
         first_tool = self.tools[0]
         if hasattr(first_tool, 'get_infrainsights_client'):
             client = first_tool.get_infrainsights_client()
-            return client.set_user_context(user_id, self.service_type, instance_id)
+            service_type = self.get_service_type()
+            return client.set_user_context(user_id, service_type, instance_id)
         return {}
     
     def get_example_config(self) -> Dict[str, Any]:
@@ -225,9 +226,10 @@ class BaseInfraInsightsToolset(Toolset):
         """Get LLM instructions for this toolset"""
         instances = self.get_available_instances()
         instance_names = [inst.name for inst in instances] if instances else ["No instances available"]
+        service_type = self.get_service_type()
         
         return f"""
-        This toolset provides tools for interacting with {self.service_type} instances managed by InfraInsights.
+        This toolset provides tools for interacting with {service_type} instances managed by InfraInsights.
         
         Key features:
         - Automatic instance discovery and selection
