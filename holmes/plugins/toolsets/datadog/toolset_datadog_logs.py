@@ -6,12 +6,14 @@ from holmes.core.tools import (
     CallablePrerequisite,
     ToolsetTag,
 )
-from pydantic import AnyUrl, BaseModel, Field
+from pydantic import BaseModel, Field
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.datadog.datadog_api import (
+    DatadogBaseConfig,
     DataDogRequestError,
     execute_datadog_http_request,
+    get_headers,
     MAX_RETRY_COUNT_ON_RATE_LIMIT,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import (
@@ -37,11 +39,8 @@ class DataDogStorageTier(str, Enum):
 DEFAULT_STORAGE_TIERS = [DataDogStorageTier.INDEXES]
 
 
-class DatadogConfig(BaseModel):
-    dd_api_key: str
-    dd_app_key: str
+class DatadogLogsConfig(DatadogBaseConfig):
     indexes: list[str] = ["*"]
-    site_api_url: AnyUrl  # e.g. https://api.us3.datadoghq.com. c.f. https://docs.datadoghq.com/getting_started/site/
     # Ordered list of storage tiers. Works as fallback. Subsequent tiers are queried only if the previous tier yielded no result
     storage_tiers: list[DataDogStorageTier] = Field(
         default=DEFAULT_STORAGE_TIERS, min_length=1
@@ -49,11 +48,10 @@ class DatadogConfig(BaseModel):
     labels: DataDogLabelsMapping = DataDogLabelsMapping()
     page_size: int = 300
     default_limit: int = 1000
-    request_timeout: int = 60
 
 
 def calculate_page_size(
-    params: FetchPodLogsParams, dd_config: DatadogConfig, logs: list
+    params: FetchPodLogsParams, dd_config: DatadogLogsConfig, logs: list
 ) -> int:
     logs_count = len(logs)
 
@@ -66,7 +64,7 @@ def calculate_page_size(
 
 def fetch_paginated_logs(
     params: FetchPodLogsParams,
-    dd_config: DatadogConfig,
+    dd_config: DatadogLogsConfig,
     storage_tier: DataDogStorageTier,
 ) -> list[dict]:
     limit = params.limit or dd_config.default_limit
@@ -78,11 +76,7 @@ def fetch_paginated_logs(
     )
 
     url = f"{dd_config.site_api_url}/api/v2/logs/events/search"
-    headers = {
-        "Content-Type": "application/json",
-        "DD-API-KEY": dd_config.dd_api_key,
-        "DD-APPLICATION-KEY": dd_config.dd_app_key,
-    }
+    headers = get_headers(dd_config)
 
     query = f"{dd_config.labels.namespace}:{params.namespace}"
     query += f" {dd_config.labels.pod}:{params.pod_name}"
@@ -103,13 +97,19 @@ def fetch_paginated_logs(
     }
 
     logs, cursor = execute_datadog_http_request(
-        url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
+        url=url,
+        headers=headers,
+        payload_or_params=payload,
+        timeout=dd_config.request_timeout,
     )
 
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
         new_logs, cursor = execute_datadog_http_request(
-            url=url, headers=headers, payload=payload, timeout=dd_config.request_timeout
+            url=url,
+            headers=headers,
+            payload_or_params=payload,
+            timeout=dd_config.request_timeout,
         )
         logs += new_logs
         payload["page"]["limit"] = calculate_page_size(params, dd_config, logs)
@@ -134,8 +134,8 @@ def format_logs(raw_logs: list[dict]) -> str:
     return "\n".join(logs)
 
 
-class DatadogToolset(BasePodLoggingToolset):
-    dd_config: Optional[DatadogConfig] = None
+class DatadogLogsToolset(BasePodLoggingToolset):
+    dd_config: Optional[DatadogLogsConfig] = None
 
     def __init__(self):
         super().__init__(
@@ -199,26 +199,6 @@ class DatadogToolset(BasePodLoggingToolset):
             logging.exception(
                 f"Failed to query Datadog logs for params: {params}", exc_info=True
             )
-
-            # Check if this is a RetryError from tenacity wrapping a rate limit error
-            from tenacity import RetryError
-
-            if isinstance(e, RetryError):
-                # Try to get the original exception
-                try:
-                    original_error = e.last_attempt.exception()
-                    if (
-                        isinstance(original_error, DataDogRequestError)
-                        and original_error.status_code == 429
-                    ):
-                        return StructuredToolResult(
-                            status=ToolResultStatus.ERROR,
-                            error=f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts.",
-                            params=params.model_dump(),
-                        )
-                except Exception:
-                    pass
-
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
@@ -265,7 +245,7 @@ class DatadogToolset(BasePodLoggingToolset):
             )
 
         try:
-            dd_config = DatadogConfig(**config)
+            dd_config = DatadogLogsConfig(**config)
             self.dd_config = dd_config
 
             # Perform healthcheck
@@ -281,10 +261,4 @@ class DatadogToolset(BasePodLoggingToolset):
             "dd_api_key": "your-datadog-api-key",
             "dd_app_key": "your-datadog-application-key",
             "site_api_url": "https://api.datadoghq.com",
-            "indexes": ["main", "*"],
-            "storage_tiers": ["indexes", "online-archives"],
-            "labels": {"pod": "pod_name", "namespace": "kube_namespace"},
-            "page_size": 300,
-            "default_limit": 1000,
-            "request_timeout": 60,
         }
