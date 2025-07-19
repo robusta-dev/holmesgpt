@@ -8,6 +8,10 @@
 # e.g. query company-specific data, fetch logs from your existing observability tools, etc
 #custom_toolsets: ["examples/custom_toolset.yaml"]
 
+# InfraInsights Toolsets for multi-instance infrastructure investigation
+# These toolsets provide investigation capabilities for Elasticsearch, Kafka, Kubernetes, MongoDB, and Redis
+#custom_toolsets: ["examples/infrainsights_toolsets.yaml"]
+
 #alertmanager_url: "http://localhost:9093"
 
 #jira_username: "user@company.com"

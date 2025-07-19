@@ -1,0 +1,90 @@
+# InfraInsights Toolsets Configuration Example
+# 
+# This file shows how to configure the InfraInsights toolsets for HolmesGPT.
+# These toolsets provide investigation capabilities for multi-instance infrastructure
+# services managed by InfraInsights.
+
+toolsets:
+  # Elasticsearch Investigation Tools
+  infrainsights_elasticsearch:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Elasticsearch Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3001"
+      api_key: "your-jwt-token-here"
+      timeout: 30
+
+  # Kafka Investigation Tools
+  infrainsights_kafka:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Kafka Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3001"
+      api_key: "your-jwt-token-here"
+      timeout: 30
+
+  # Kubernetes Investigation Tools
+  infrainsights_kubernetes:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Kubernetes Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3001"
+      api_key: "your-jwt-token-here"
+      timeout: 30
+
+  # MongoDB Investigation Tools
+  infrainsights_mongodb:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights MongoDB Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3001"
+      api_key: "your-jwt-token-here"
+      timeout: 30
+
+  # Redis Investigation Tools
+  infrainsights_redis:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Redis Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3001"
+      api_key: "your-jwt-token-here"
+      timeout: 30
+
+# Environment Variables (alternative to config above)
+# You can also use environment variables instead of hardcoding values:
+#
+# INFRAINSIGHTS_URL=http://localhost:3001
+# INFRAINSIGHTS_API_KEY=your-jwt-token-here
+# INFRAINSIGHTS_TIMEOUT=30
+
+# Usage Examples:
+#
+# 1. Elasticsearch Investigation:
+#    "Check the health of my production Elasticsearch cluster"
+#    "List all indices in the staging Elasticsearch instance"
+#    "Search for error logs in the development Elasticsearch cluster"
+#
+# 2. Kafka Investigation:
+#    "List all topics in the production Kafka cluster"
+#    "Check consumer group lag in the staging Kafka instance"
+#    "Describe the user-events topic configuration"
+#
+# 3. Kubernetes Investigation:
+#    "List all nodes in the production Kubernetes cluster"
+#    "Get detailed information about node ip-10-228-39-74"
+#    "List pods in the default namespace"
+#
+# 4. MongoDB Investigation:
+#    "List all databases in the production MongoDB instance"
+#    "Check server status in the staging MongoDB cluster"
+#    "Search for user documents in the users collection"
+#
+# 5. Redis Investigation:
+#    "Get Redis server information for the production instance"
+#    "List all keys in the session cache Redis instance"
+#    "Check memory usage in the staging Redis cluster" 
