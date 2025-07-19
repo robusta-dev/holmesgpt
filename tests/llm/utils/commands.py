@@ -51,7 +51,7 @@ def after_test(test_case: HolmesTestCase):
 
 
 @contextmanager
-def test_env_vars(test_case: HolmesTestCase):
+def set_test_env_vars(test_case: HolmesTestCase):
     """Context manager to set and restore environment variables for test execution."""
     if not test_case.test_env_vars:
         yield
