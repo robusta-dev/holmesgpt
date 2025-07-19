@@ -58,7 +58,7 @@ def is_old_toolset_config(
 def parse_models_file(path: str):
     models = load_yaml_file(path, raise_error=False, warn_not_found=False)
 
-    for model, params in models.items():
+    for _, params in models.items():
         params = replace_env_vars_values(params)
 
     return models
@@ -109,6 +109,7 @@ class Config(RobustaBaseConfig):
     # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
     # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
+    should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
 
@@ -148,10 +149,30 @@ class Config(RobustaBaseConfig):
         self._version = get_version()
         self._holmes_info = fetch_holmes_info()
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
-        if ROBUSTA_AI:
+        if self._should_load_robusta_ai():
+            logging.info("Loading Robusta AI model")
             self._model_list["Robusta"] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
+
+    def _should_load_robusta_ai(self) -> bool:
+        if not self.should_try_robusta_ai:
+            return False
+
+        # ROBUSTA_AI were set in the env vars, so we can use it directly
+        if ROBUSTA_AI is not None:
+            return ROBUSTA_AI
+
+        # MODEL is set in the env vars, e.g. the user is using a custom model
+        # so we don't need to load the robusta AI model and keep the behavior backward compatible
+        if "MODEL" in os.environ:
+            return False
+
+        # if the user has provided a model list, we don't need to load the robusta AI model
+        if self._model_list:
+            return False
+
+        return True
 
     def log_useful_info(self):
         if self._model_list:
@@ -220,6 +241,7 @@ class Config(RobustaBaseConfig):
             if val is not None:
                 kwargs[field_name] = val
         kwargs["cluster_name"] = Config.__get_cluster_name()
+        kwargs["should_try_robusta_ai"] = True
         result = cls(**kwargs)
         result.log_useful_info()
         return result
