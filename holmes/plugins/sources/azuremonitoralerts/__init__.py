@@ -14,6 +14,9 @@ from holmes.plugins.toolsets.azuremonitor_metrics.utils import (
 class AzureMonitorAlertsSource(SourcePlugin):
     """Source plugin for Azure Monitor Prometheus metric alerts."""
     
+    # Class-level flag to prevent repeated console output across instances
+    _console_output_shown = False
+    
     def __init__(self, cluster_resource_id: Optional[str] = None):
         self.cluster_resource_id = cluster_resource_id or get_aks_cluster_resource_id()
         self.access_token = None
@@ -209,13 +212,37 @@ class AzureMonitorAlertsSource(SourcePlugin):
         alert_props = source_alert.get("properties", {})
         essentials = alert_props.get("essentials", {})
         
-        # Extract query from rule details
+        # Set the current alert name for Prometheus query extraction
+        # Try multiple possible fields for alert name
+        alert_name = (essentials.get("alertName") or 
+                     essentials.get("name") or 
+                     alert_props.get("name") or 
+                     source_alert.get("name", "Unknown"))
+        
+        logging.debug(f"Alert name sources: alertName='{essentials.get('alertName')}', "
+                     f"essentials.name='{essentials.get('name')}', "
+                     f"properties.name='{alert_props.get('name')}', "
+                     f"root.name='{source_alert.get('name')}', "
+                     f"final='{alert_name}'")
+        
+        self._current_alert_name = alert_name
+        
+        # Extract query and description from rule details
         query = self._extract_query_from_rule(rule_details)
+        rule_description = self._extract_description_from_rule(rule_details)
+        
+        # Output extracted information to console for verification (only once globally)
+        if not AzureMonitorAlertsSource._console_output_shown:
+            print(f"[Azure Monitor Alert] Alert: {alert_name}")
+            print(f"[Azure Monitor Alert] Query: {query}")
+            print(f"[Azure Monitor Alert] Rule Description: {rule_description}")
+            AzureMonitorAlertsSource._console_output_shown = True
         
         # Create formatted description
         description_parts = [
             f"Alert: {essentials.get('alertName', 'Unknown')}",
             f"Description: {essentials.get('description', 'No description')}",
+            f"Rule Description: {rule_description}",
             f"Severity: {essentials.get('severity', 'Unknown')}",
             f"State: {essentials.get('alertState', 'Unknown')}",
             f"Fired Time: {essentials.get('firedDateTime', 'Unknown')}",
@@ -232,6 +259,7 @@ class AzureMonitorAlertsSource(SourcePlugin):
             "cluster_resource_id": self.cluster_resource_id,
             "cluster_name": self.cluster_name,
             "extracted_query": query,
+            "extracted_description": rule_description,
         }
         
         return Issue(
@@ -313,6 +341,11 @@ class AzureMonitorAlertsSource(SourcePlugin):
     def _extract_query_from_rule(self, rule_details: dict) -> str:
         """Extract the Prometheus query from alert rule details."""
         try:
+            # Check if this is a Prometheus rule group
+            if "prometheusRuleGroups" in rule_details.get("id", ""):
+                return self._extract_prometheus_query_from_rule_group(rule_details)
+            
+            # Fallback to original Azure Monitor metric alert parsing
             properties = rule_details.get("properties", {})
             criteria = properties.get("criteria", {})
             all_of = criteria.get("allOf", [])
@@ -321,9 +354,7 @@ class AzureMonitorAlertsSource(SourcePlugin):
                 condition = all_of[0]  # Take the first condition
                 metric_name = condition.get("metricName", "")
                 
-                # For now, return the metric name as the query
-                # In practice, Azure Monitor metric alerts may not have the full PromQL query
-                # but rather use Azure's metric query format
+                # For Azure Monitor metric alerts, return the metric name as the query
                 if metric_name:
                     return metric_name
                     
@@ -336,6 +367,439 @@ class AzureMonitorAlertsSource(SourcePlugin):
         except Exception as e:
             logging.warning(f"Failed to extract query from rule: {e}")
             return "Query extraction failed"
+
+    def _extract_description_from_rule(self, rule_details: dict) -> str:
+        """Extract the description from alert rule details."""
+        try:
+            # Check if this is a Prometheus rule group
+            if "prometheusRuleGroups" in rule_details.get("id", ""):
+                return self._extract_prometheus_description_from_rule_group(rule_details)
+            
+            # Fallback to Azure Monitor metric alert description
+            properties = rule_details.get("properties", {})
+            
+            # Try to get description from different possible fields
+            description = (properties.get("description") or 
+                          properties.get("summary") or 
+                          properties.get("displayName"))
+            
+            if description:
+                return description
+            
+            return "No description available"
+            
+        except Exception as e:
+            logging.warning(f"Failed to extract description from rule: {e}")
+            return "Description extraction failed"
+
+    def _extract_prometheus_query_from_rule_group(self, rule_details: dict) -> str:
+        """Extract PromQL query from Prometheus rule group for a specific alert."""
+        try:
+            # Get the alert name from the current alert context
+            alert_name = getattr(self, '_current_alert_name', '')
+            
+            if not alert_name or alert_name == "Unknown":
+                logging.warning(f"No valid alert name available for Prometheus query extraction: '{alert_name}'")
+                # Try to extract from the rule details directly
+                return self._extract_query_from_rule_group_directly(rule_details)
+            
+            # Parse alert name to extract rule group name and alert rule name
+            rule_group_name, alert_rule_name = self._parse_alert_name(alert_name)
+            
+            if not rule_group_name or not alert_rule_name:
+                logging.warning(f"Could not parse alert name: '{alert_name}', trying direct extraction")
+                # Fallback to direct extraction from rule details
+                return self._extract_query_from_rule_group_directly(rule_details)
+            
+            logging.info(f"Extracting PromQL query for rule group: '{rule_group_name}', alert rule: '{alert_rule_name}'")
+            
+            # Fetch the complete Prometheus rule group
+            prometheus_rule_group = self._fetch_prometheus_rule_group(rule_group_name)
+            
+            if not prometheus_rule_group:
+                logging.warning(f"Could not fetch Prometheus rule group: '{rule_group_name}', trying direct extraction")
+                return self._extract_query_from_rule_group_directly(rule_details)
+            
+            # Extract the specific alert rule and its query
+            promql_query = self._find_alert_rule_query(prometheus_rule_group, alert_rule_name)
+            
+            if not promql_query:
+                logging.warning(f"Could not find query for alert rule: '{alert_rule_name}', trying direct extraction")
+                return self._extract_query_from_rule_group_directly(rule_details)
+            
+            # Apply cluster filtering to the query
+            from holmes.plugins.toolsets.azuremonitor_metrics.utils import enhance_promql_with_cluster_filter
+            enhanced_query = enhance_promql_with_cluster_filter(promql_query, self.cluster_name)
+            
+            logging.info(f"Successfully extracted and enhanced PromQL query: {enhanced_query}")
+            return enhanced_query
+            
+        except Exception as e:
+            logging.error(f"Failed to extract Prometheus query from rule group: {e}")
+            # Final fallback
+            return self._extract_query_from_rule_group_directly(rule_details)
+
+    def _extract_prometheus_description_from_rule_group(self, rule_details: dict) -> str:
+        """Extract description from Prometheus rule group for a specific alert."""
+        try:
+            # Get the alert name from the current alert context
+            alert_name = getattr(self, '_current_alert_name', '')
+            
+            if not alert_name or alert_name == "Unknown":
+                logging.warning(f"No valid alert name available for Prometheus description extraction: '{alert_name}'")
+                # Try to extract from the rule details directly
+                return self._extract_description_from_rule_group_directly(rule_details)
+            
+            # Parse alert name to extract rule group name and alert rule name
+            rule_group_name, alert_rule_name = self._parse_alert_name(alert_name)
+            
+            if not rule_group_name or not alert_rule_name:
+                logging.warning(f"Could not parse alert name: '{alert_name}', trying direct extraction")
+                # Fallback to direct extraction from rule details
+                return self._extract_description_from_rule_group_directly(rule_details)
+            
+            logging.info(f"Extracting description for rule group: '{rule_group_name}', alert rule: '{alert_rule_name}'")
+            
+            # Fetch the complete Prometheus rule group
+            prometheus_rule_group = self._fetch_prometheus_rule_group(rule_group_name)
+            
+            if not prometheus_rule_group:
+                logging.warning(f"Could not fetch Prometheus rule group: '{rule_group_name}', trying direct extraction")
+                return self._extract_description_from_rule_group_directly(rule_details)
+            
+            # Extract the specific alert rule and its description
+            rule_description = self._find_alert_rule_description(prometheus_rule_group, alert_rule_name)
+            
+            if not rule_description:
+                logging.warning(f"Could not find description for alert rule: '{alert_rule_name}', trying direct extraction")
+                return self._extract_description_from_rule_group_directly(rule_details)
+            
+            logging.info(f"Successfully extracted rule description: {rule_description}")
+            return rule_description
+            
+        except Exception as e:
+            logging.error(f"Failed to extract Prometheus description from rule group: {e}")
+            # Final fallback
+            return self._extract_description_from_rule_group_directly(rule_details)
+
+    def _extract_description_from_rule_group_directly(self, rule_details: dict) -> str:
+        """
+        Fallback method to extract description information directly from rule details.
+        Used when alert name parsing fails or specific rule lookup fails.
+        """
+        try:
+            properties = rule_details.get("properties", {})
+            
+            # Try to find any useful description information in the rule details
+            if "rules" in properties:
+                rules = properties["rules"]
+                logging.info(f"Attempting direct description extraction from {len(rules)} rules in group")
+                
+                # Try to find any rule with a description
+                for i, rule in enumerate(rules):
+                    rule_name = rule.get("alert", "") or rule.get("record", "") or f"rule_{i}"
+                    
+                    # Try different possible description fields
+                    description = (rule.get("annotations", {}).get("description") or 
+                                 rule.get("annotations", {}).get("summary") or 
+                                 rule.get("description") or 
+                                 rule.get("summary"))
+                    
+                    if description:
+                        logging.info(f"Found description in rule '{rule_name}': {description}")
+                        return description
+                
+                # If no descriptions found, provide generic info
+                return f"Prometheus rule group with {len(rules)} rules (no descriptions available)"
+            
+            # If no rules found, look for other indicators
+            rule_name = properties.get("name", "Unknown Rule Group")
+            return f"Prometheus rule group: {rule_name} (no rules found for description extraction)"
+            
+        except Exception as e:
+            logging.warning(f"Direct description extraction failed: {e}")
+            return f"Description extraction failed: {str(e)}"
+
+    def _find_alert_rule_description(self, rule_group: dict, alert_rule_name: str) -> Optional[str]:
+        """
+        Find the description for a specific alert rule within a Prometheus rule group.
+        
+        Args:
+            rule_group: Complete Prometheus rule group details
+            alert_rule_name: Name of the specific alert rule to find
+            
+        Returns:
+            str: Rule description if found, None otherwise
+        """
+        try:
+            properties = rule_group.get("properties", {})
+            rules = properties.get("rules", [])
+            
+            logging.info(f"Searching for alert rule description '{alert_rule_name}' in {len(rules)} rules")
+            
+            # Find the exact matching rule
+            for rule in rules:
+                rule_name = rule.get("alert", "") or rule.get("record", "")
+                
+                if rule_name == alert_rule_name:
+                    # Found the matching rule, extract description
+                    annotations = rule.get("annotations", {})
+                    
+                    # Try different description fields in order of preference
+                    description = (annotations.get("description") if annotations else None) or \
+                                 (annotations.get("summary") if annotations else None) or \
+                                 rule.get("description") or \
+                                 rule.get("summary")
+                    
+                    if description:
+                        logging.info(f"Found description for '{alert_rule_name}': {description}")
+                        return description
+                    else:
+                        # Rule found but no description
+                        available_fields = list(annotations.keys()) if annotations else []
+                        logging.warning(f"Alert rule '{alert_rule_name}' found but has no description. Available annotation fields: {available_fields}")
+                        return "No description available for this rule"
+            
+            # If we get here, the alert rule was not found
+            available_rules = [rule.get("alert", "") or rule.get("record", "") for rule in rules]
+            logging.warning(f"Alert rule '{alert_rule_name}' not found for description extraction. Available rules: {available_rules}")
+            return None
+            
+        except Exception as e:
+            logging.error(f"Exception while finding alert rule description for '{alert_rule_name}': {e}")
+            return None
+
+    def _extract_query_from_rule_group_directly(self, rule_details: dict) -> str:
+        """
+        Fallback method to extract query information directly from rule details.
+        Used when alert name parsing fails or specific rule lookup fails.
+        """
+        try:
+            properties = rule_details.get("properties", {})
+            
+            # Try to find any useful query information in the rule details
+            if "rules" in properties:
+                rules = properties["rules"]
+                logging.info(f"Attempting direct extraction from {len(rules)} rules in group")
+                
+                # Try to find any rule with a query
+                for i, rule in enumerate(rules):
+                    # Log rule structure for debugging
+                    rule_name = rule.get("alert", "") or rule.get("record", "") or f"rule_{i}"
+                    rule_type = "alert" if rule.get("alert") else "record" if rule.get("record") else "unknown"
+                    
+                    logging.debug(f"Examining rule '{rule_name}' (type: {rule_type})")
+                    
+                    # Try different possible query fields
+                    query = (rule.get("expr") or 
+                            rule.get("expression") or 
+                            rule.get("query"))
+                    
+                    if query:
+                        logging.info(f"Found query in rule '{rule_name}': {query}")
+                        # Apply cluster filtering
+                        from holmes.plugins.toolsets.azuremonitor_metrics.utils import enhance_promql_with_cluster_filter
+                        enhanced_query = enhance_promql_with_cluster_filter(query, self.cluster_name)
+                        return enhanced_query
+                    else:
+                        # Log available fields in the rule
+                        available_fields = list(rule.keys())
+                        logging.debug(f"Rule '{rule_name}' has no query field. Available fields: {available_fields}")
+                
+                # If no queries found, provide info about available rules
+                rule_info = []
+                for rule in rules:
+                    rule_name = rule.get("alert", "") or rule.get("record", "") or "unnamed"
+                    rule_type = "alert" if rule.get("alert") else "record" if rule.get("record") else "unknown"
+                    rule_info.append(f"{rule_name} ({rule_type})")
+                
+                logging.warning(f"No queries found in any rules. Available rules: {rule_info}")
+                return f"Prometheus rule group with {len(rules)} rules but no extractable queries"
+            
+            # If no rules found, look for other indicators
+            rule_name = properties.get("name", "Unknown Rule Group")
+            logging.warning(f"No rules found in rule group properties")
+            return f"Prometheus rule group: {rule_name} (no rules found for query extraction)"
+            
+        except Exception as e:
+            logging.warning(f"Direct query extraction failed: {e}")
+            return f"Query extraction failed: {str(e)}"
+
+    def _parse_alert_name(self, alert_name: str) -> tuple[str, str]:
+        """
+        Parse alert name to extract rule group name and alert rule name.
+        
+        Args:
+            alert_name: Full alert name like "Prometheus Recommended Cluster level Alerts - vishwa-tme-1/KubeContainerWaiting"
+            
+        Returns:
+            tuple: (rule_group_name, alert_rule_name)
+        """
+        try:
+            if "/" in alert_name:
+                # Split on the last "/" to separate rule group from alert rule
+                rule_group_name = alert_name.rsplit("/", 1)[0]  # "Prometheus Recommended Cluster level Alerts - vishwa-tme-1"
+                alert_rule_name = alert_name.rsplit("/", 1)[1]  # "KubeContainerWaiting"
+                return rule_group_name.strip(), alert_rule_name.strip()
+            
+            # If no "/" found, assume the entire name is the alert rule name
+            return "", alert_name.strip()
+            
+        except Exception as e:
+            logging.warning(f"Failed to parse alert name '{alert_name}': {e}")
+            return "", ""
+
+    def _fetch_prometheus_rule_group(self, rule_group_name: str) -> Optional[dict]:
+        """
+        Fetch Prometheus rule group details from Azure Monitor.
+        
+        Args:
+            rule_group_name: Name of the Prometheus rule group
+            
+        Returns:
+            dict: Rule group details if found, None otherwise
+        """
+        try:
+            # Get access token for Azure Management API
+            access_token = self._get_azure_management_token()
+            if not access_token:
+                logging.error("Could not obtain Azure access token for management API")
+                return None
+            
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+            
+            # We need to find the rule group by name across all resource groups
+            # First, try to list all Prometheus rule groups in the subscription
+            list_url = f"https://management.azure.com/subscriptions/{self.subscription_id}/providers/Microsoft.AlertsManagement/prometheusRuleGroups"
+            
+            list_params = {
+                "api-version": "2023-03-01"
+            }
+            
+            response = requests.get(
+                url=list_url,
+                headers=headers,
+                params=list_params,
+                timeout=60
+            )
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to list Prometheus rule groups: HTTP {response.status_code} - {response.text}")
+                return None
+            
+            rule_groups_list = response.json().get("value", [])
+            
+            # Find the rule group with matching name
+            target_rule_group = None
+            for rule_group in rule_groups_list:
+                rg_name = rule_group.get("name", "")
+                if rg_name == rule_group_name:
+                    target_rule_group = rule_group
+                    break
+            
+            if not target_rule_group:
+                logging.warning(f"Prometheus rule group '{rule_group_name}' not found in subscription")
+                return None
+            
+            # Get the full details of the specific rule group
+            rule_group_id = target_rule_group.get("id", "")
+            if not rule_group_id:
+                logging.error("Rule group ID not found")
+                return None
+            
+            detail_url = f"https://management.azure.com{rule_group_id}"
+            
+            detail_params = {
+                "api-version": "2023-03-01"
+            }
+            
+            detail_response = requests.get(
+                url=detail_url,
+                headers=headers,
+                params=detail_params,
+                timeout=60
+            )
+            
+            if detail_response.status_code == 200:
+                rule_group_details = detail_response.json()
+                logging.info(f"Successfully fetched Prometheus rule group: {rule_group_name}")
+                return rule_group_details
+            else:
+                logging.error(f"Failed to fetch rule group details: HTTP {detail_response.status_code} - {detail_response.text}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Exception while fetching Prometheus rule group '{rule_group_name}': {e}")
+            return None
+
+    def _find_alert_rule_query(self, rule_group: dict, alert_rule_name: str) -> Optional[str]:
+        """
+        Find the PromQL query for a specific alert rule within a Prometheus rule group.
+        
+        Args:
+            rule_group: Complete Prometheus rule group details
+            alert_rule_name: Name of the specific alert rule to find
+            
+        Returns:
+            str: PromQL query if found, None otherwise
+        """
+        try:
+            properties = rule_group.get("properties", {})
+            rules = properties.get("rules", [])
+            
+            logging.info(f"Searching for alert rule '{alert_rule_name}' in {len(rules)} rules")
+            
+            # First, try to find the exact matching rule
+            matching_rule = None
+            for rule in rules:
+                rule_name = rule.get("alert", "") or rule.get("record", "")
+                
+                if rule_name == alert_rule_name:
+                    matching_rule = rule
+                    break
+            
+            if matching_rule:
+                # Log the full rule structure for debugging
+                logging.debug(f"Found matching rule: {json.dumps(matching_rule, indent=2)}")
+                
+                # Try different possible query fields
+                promql_query = (matching_rule.get("expr") or 
+                               matching_rule.get("expression") or 
+                               matching_rule.get("query"))
+                
+                if promql_query:
+                    logging.info(f"Found PromQL query for '{alert_rule_name}': {promql_query}")
+                    return promql_query
+                else:
+                    # Rule found but no query - log all available fields
+                    available_fields = list(matching_rule.keys())
+                    logging.warning(f"Alert rule '{alert_rule_name}' found but has no query field. Available fields: {available_fields}")
+                    
+                    # Try to extract any query-like content
+                    for field in ["expr", "expression", "query", "condition", "criteria"]:
+                        if field in matching_rule and matching_rule[field]:
+                            logging.info(f"Found potential query in '{field}' field: {matching_rule[field]}")
+                            return str(matching_rule[field])
+                    
+                    return None
+            
+            # If we get here, the alert rule was not found
+            available_rules = []
+            for rule in rules:
+                rule_name = rule.get("alert", "") or rule.get("record", "")
+                rule_type = "alert" if rule.get("alert") else "record" if rule.get("record") else "unknown"
+                available_rules.append(f"{rule_name} ({rule_type})")
+            
+            logging.warning(f"Alert rule '{alert_rule_name}' not found. Available rules: {available_rules}")
+            return None
+            
+        except Exception as e:
+            logging.error(f"Exception while finding alert rule query for '{alert_rule_name}': {e}")
+            return None
 
     def _get_azure_management_token(self) -> Optional[str]:
         """Get Azure access token for Azure Management API."""
