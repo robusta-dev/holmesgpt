@@ -19,6 +19,7 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
+import threading
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
@@ -648,6 +649,8 @@ def run_interactive_loop(
     style = Style.from_dict(
         {
             "prompt": USER_COLOR,
+            "bottom-toolbar": "#000000 bg:#ff0000",
+            "bottom-toolbar.text": "#aaaa44 bg:#aa4444",
         }
     )
 
@@ -655,12 +658,46 @@ def run_interactive_loop(
     history = InMemoryHistory()
     if initial_user_input:
         history.append_string(initial_user_input)
+
+    # Create custom key bindings for Ctrl+C behavior
+    bindings = KeyBindings()
+    status_message = ""
+
+    @bindings.add("c-c")
+    def _(event):
+        """Handle Ctrl+C: clear input if text exists, otherwise quit."""
+        buffer = event.app.current_buffer
+        if buffer.text:
+            nonlocal status_message
+            status_message = f"Input cleared. Use {SlashCommands.EXIT.command} or Ctrl+C again to quit."
+            buffer.reset()
+
+            # call timer to clear status message after 3 seconds
+            def clear_status():
+                nonlocal status_message
+                status_message = ""
+                event.app.invalidate()
+
+            timer = threading.Timer(3, clear_status)
+            timer.start()
+        else:
+            # Quit if no text
+            raise KeyboardInterrupt()
+
+    def get_bottom_toolbar():
+        if status_message:
+            return [("bg:#ff0000 fg:#000000", status_message)]
+        return None
+
     session = PromptSession(
         completer=command_completer,
         history=history,
         complete_style=CompleteStyle.COLUMN,
         reserve_space_for_menu=12,
+        key_bindings=bindings,
+        bottom_toolbar=get_bottom_toolbar,
     )  # type: ignore
+
     input_prompt = [("class:prompt", "User: ")]
 
     console.print(WELCOME_BANNER)
@@ -796,6 +833,7 @@ def run_interactive_loop(
         except Exception as e:
             logging.error("An error occurred during interactive mode:", exc_info=e)
             console.print(f"[bold {ERROR_COLOR}]Error: {e}[/bold {ERROR_COLOR}]")
+
     console.print(
         f"[bold {STATUS_COLOR}]Exiting interactive mode.[/bold {STATUS_COLOR}]"
     )
