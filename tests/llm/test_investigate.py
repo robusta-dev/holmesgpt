@@ -15,6 +15,7 @@ from tests.llm.utils.classifiers import (
     evaluate_correctness,
     evaluate_sections,
 )
+from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
@@ -124,9 +125,10 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
         with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-            result = investigate_issues(
-                investigate_request=investigate_request, config=config, dal=mock_dal
-            )
+            with set_test_env_vars(test_case):
+                result = investigate_issues(
+                    investigate_request=investigate_request, config=config, dal=mock_dal
+                )
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis

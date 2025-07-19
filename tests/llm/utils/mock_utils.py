@@ -55,6 +55,9 @@ class HolmesTestCase(BaseModel):
     before_test: Optional[str] = None
     after_test: Optional[str] = None
     conversation_history: Optional[list[dict]] = None
+    test_env_vars: Optional[Dict[str, str]] = (
+        None  # Environment variables to set during test execution
+    )
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
