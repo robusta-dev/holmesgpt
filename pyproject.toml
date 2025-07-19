@@ -58,6 +58,14 @@ azure-mgmt-alertsmanagement = "^1.0.0"
 azure-mgmt-resource = "^24.0.0"
 protobuf = ">=6.31.1"
 tenacity = "^9.1.2"
+# InfraInsights toolsets dependencies
+elasticsearch = "^8.0.0"
+pymongo = "^4.0.0"
+redis = "^4.0.0"
+orjson = "^3.8.0"
+cryptography = "^3.4.0"
+asyncio-redis = "^0.15.0"
+prometheus-client = "^0.14.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
