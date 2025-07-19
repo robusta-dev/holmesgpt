@@ -1,5 +1,6 @@
 import os
 import json
+from typing import Optional
 
 
 def load_bool(env_var, default: bool):
@@ -23,14 +24,19 @@ STORE_EMAIL = os.environ.get("STORE_EMAIL", "")
 STORE_PASSWORD = os.environ.get("STORE_PASSWORD", "")
 HOLMES_POST_PROCESSING_PROMPT = os.environ.get("HOLMES_POST_PROCESSING_PROMPT", "")
 ROBUSTA_AI = load_bool("ROBUSTA_AI", False)
-ROBUSTA_API_ENDPOINT = os.environ.get("ROBUSTA_API_ENDPOINT", "https://api.robusta.dev")
+ROBUSTA_API_ENDPOINT = os.environ.get("ROBUSTA_API_ENDPOINT", "http://localhost:5000")
 
 LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
 
 
 ENABLE_TELEMETRY = load_bool("ENABLE_TELEMETRY", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
-SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
+SENTRY_ENVIRONMENT = os.environ.get("SENTRY_ENVIRONMENT", "development")
+SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
 
 THINKING = os.environ.get("THINKING", "")
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
+
+STREAM_CHUNKS_PER_PARSE = int(
+    os.environ.get("STREAM_CHUNKS_PER_PARSE", 80)
+)  # Empirical value with 6~ parsing calls. Consider using larger value if LLM response is long as to reduce markdown to section calls.
