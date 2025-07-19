@@ -1,0 +1,55 @@
+# InfraInsights Toolsets Dependencies
+# 
+# These are the Python packages required for the InfraInsights toolsets to work properly.
+# Install these dependencies in your HolmesGPT environment.
+
+# Core dependencies
+requests>=2.28.0
+pydantic>=1.10.0
+
+# Elasticsearch support
+elasticsearch>=8.0.0
+
+# Kafka support
+confluent-kafka>=2.0.0
+
+# MongoDB support
+pymongo>=4.0.0
+
+# Redis support
+redis>=4.0.0
+
+# Optional: For enhanced functionality
+# These are not strictly required but provide additional features
+
+# For better JSON handling
+orjson>=3.8.0
+
+# For connection pooling
+urllib3>=1.26.0
+
+# For SSL/TLS support
+cryptography>=3.4.0
+
+# For async support (optional)
+aiohttp>=3.8.0
+asyncio-redis>=0.15.0
+
+# For monitoring and metrics (optional)
+prometheus-client>=0.14.0
+
+# Installation instructions:
+#
+# 1. Install in HolmesGPT environment:
+#    pip install -r requirements.txt
+#
+# 2. Or install individual packages:
+#    pip install requests elasticsearch confluent-kafka pymongo redis
+#
+# 3. For development:
+#    pip install -r requirements.txt[dev]
+#
+# Note: Some packages may have system-level dependencies:
+# - confluent-kafka: Requires librdkafka
+# - elasticsearch: May require OpenSSL
+# - redis: May require hiredis for better performance 
