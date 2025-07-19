@@ -249,7 +249,9 @@ class Config(RobustaBaseConfig):
         runbook_catalog = load_runbook_catalog()
         return runbook_catalog
 
-    def create_console_tool_executor(self, dal: Optional[SupabaseDal], refresh_status: bool = False) -> ToolExecutor:
+    def create_console_tool_executor(
+        self, dal: Optional[SupabaseDal], refresh_status: bool = False
+    ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
         and their execution in the command-line interface.
@@ -259,7 +261,9 @@ class Config(RobustaBaseConfig):
         2. toolsets from config file will override and be merged into built-in toolsets with the same name.
         3. Custom toolsets from config files which can not override built-in toolsets
         """
-        cli_toolsets = self.toolset_manager.list_console_toolsets(dal=dal, refresh_status=refresh_status)
+        cli_toolsets = self.toolset_manager.list_console_toolsets(
+            dal=dal, refresh_status=refresh_status
+        )
         return ToolExecutor(cli_toolsets)
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
