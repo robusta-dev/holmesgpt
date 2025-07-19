@@ -69,8 +69,6 @@ class BaseInfraInsightsToolset(Toolset):
     """Base class for all InfraInsights toolsets"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        super().__init__()
-        
         if not config:
             config = {}
         
@@ -81,6 +79,16 @@ class BaseInfraInsightsToolset(Toolset):
             username=config.get('username'),
             password=config.get('password'),
             timeout=config.get('timeout', 30)
+        )
+        
+        # Initialize with required fields
+        super().__init__(
+            name=f"InfraInsights {self.get_service_type().title()}",
+            description=f"Tools for investigating {self.get_service_type()} instances managed by InfraInsights",
+            tools=[],  # Will be set by subclasses
+            enabled=True,
+            tags=[ToolsetTag.CLUSTER],
+            config=config
         )
         
         self.client = InfraInsightsClient(infrainsights_config)

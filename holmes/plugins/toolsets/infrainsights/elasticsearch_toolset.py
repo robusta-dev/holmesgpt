@@ -471,12 +471,7 @@ class ElasticsearchToolset(BaseInfraInsightsToolset):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         
-        self.name = "InfraInsights Elasticsearch"
-        self.description = "Tools for investigating Elasticsearch clusters, indices, and documents in InfraInsights"
-        self.tags = [ToolsetTag.CLUSTER]
-        self.enabled = True
-        
-        # Initialize tools
+        # Set tools after parent initialization
         self.tools = [
             ListElasticsearchIndices(self),
             GetElasticsearchClusterHealth(self),

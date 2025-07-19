@@ -384,12 +384,7 @@ class KubernetesToolset(BaseInfraInsightsToolset):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         
-        self.name = "InfraInsights Kubernetes"
-        self.description = "Tools for investigating Kubernetes clusters, nodes, and pods in InfraInsights"
-        self.tags = [ToolsetTag.CLUSTER]
-        self.enabled = True
-        
-        # Initialize tools
+        # Set tools after parent initialization
         self.tools = [
             ListKubernetesNodes(self),
             GetKubernetesNodeDetails(self),

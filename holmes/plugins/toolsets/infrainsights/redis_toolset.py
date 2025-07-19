@@ -495,12 +495,7 @@ class RedisToolset(BaseInfraInsightsToolset):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         
-        self.name = "InfraInsights Redis"
-        self.description = "Tools for investigating Redis instances, keys, and performance in InfraInsights"
-        self.tags = [ToolsetTag.CLUSTER]
-        self.enabled = True
-        
-        # Initialize tools
+        # Set tools after parent initialization
         self.tools = [
             GetRedisInfo(self),
             ListRedisKeys(self),

@@ -503,12 +503,7 @@ class KafkaToolset(BaseInfraInsightsToolset):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         
-        self.name = "InfraInsights Kafka"
-        self.description = "Tools for investigating Kafka clusters, topics, and consumer groups in InfraInsights"
-        self.tags = [ToolsetTag.CLUSTER]
-        self.enabled = True
-        
-        # Initialize tools
+        # Set tools after parent initialization
         self.tools = [
             ListKafkaTopics(self),
             ListKafkaConsumerGroups(self),
