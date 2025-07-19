@@ -34,14 +34,3 @@ SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0
 
 THINKING = os.environ.get("THINKING", "")
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
-
-STREAM_CHUNKS_PER_PARSE = int(
-    os.environ.get("STREAM_CHUNKS_PER_PARSE", 80)
-)  # Empirical value with 6~ parsing calls. Consider using larger value if LLM response is long as to reduce markdown to section calls.
-
-USE_LEGACY_KUBERNETES_LOGS = load_bool("USE_LEGACY_KUBERNETES_LOGS", False)
-KUBERNETES_LOGS_TIMEOUT_SECONDS = int(
-    os.environ.get("KUBERNETES_LOGS_TIMEOUT_SECONDS", 60)
-)
-
-TOOL_CALL_SAFEGUARDS_ENABLED = load_bool("TOOL_CALL_SAFEGUARDS_ENABLED", True)
