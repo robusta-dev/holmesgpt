@@ -435,6 +435,79 @@ def prompt_for_llm_sharing(
     return None
 
 
+def handle_run_command(
+    bash_command: str, session: PromptSession, style: Style, console: Console
+) -> Optional[str]:
+    """
+    Handle the /run command to execute a bash command.
+
+    Args:
+        bash_command: The bash command to execute
+        session: PromptSession for user input
+        style: Style for prompts
+        console: Rich console for output
+
+    Returns:
+        Formatted user input string if user chooses to share, None otherwise
+    """
+    if not bash_command:
+        console.print(
+            f"[bold {ERROR_COLOR}]Usage: /run <bash_command>[/bold {ERROR_COLOR}]"
+        )
+        return None
+
+    result = None
+    output = ""
+    error_message = ""
+
+    try:
+        console.print(
+            f"[bold {STATUS_COLOR}]Running: {bash_command}[/bold {STATUS_COLOR}]"
+        )
+        result = subprocess.run(
+            bash_command, shell=True, capture_output=True, text=True
+        )
+
+        output = result.stdout + result.stderr
+        if result.returncode == 0:
+            console.print(
+                f"[bold green]✓ Command succeeded (exit code: {result.returncode})[/bold green]"
+            )
+        else:
+            console.print(
+                f"[bold {ERROR_COLOR}]✗ Command failed (exit code: {result.returncode})[/bold {ERROR_COLOR}]"
+            )
+
+        if output.strip():
+            console.print(
+                Panel(
+                    output,
+                    padding=(1, 2),
+                    border_style="white",
+                    title="Command Output",
+                    title_align="left",
+                )
+            )
+
+    except KeyboardInterrupt:
+        error_message = "Command interrupted by user"
+        console.print(f"[bold {ERROR_COLOR}]{error_message}[/bold {ERROR_COLOR}]")
+    except Exception as e:
+        error_message = f"Error running command: {e}"
+        console.print(f"[bold {ERROR_COLOR}]{error_message}[/bold {ERROR_COLOR}]")
+
+    # Build command output for sharing
+    command_output = f"ran the command: `{bash_command}`\n\n"
+    if result is not None:
+        command_output += f"Exit code: {result.returncode}\n\n"
+        if output.strip():
+            command_output += f"Output:\n{output}"
+    elif error_message:
+        command_output += f"Error: {error_message}"
+
+    return prompt_for_llm_sharing(session, style, command_output, "ran a command")
+
+
 def handle_shell_command(
     session: PromptSession, style: Style, console: Console
 ) -> Optional[str]:
@@ -671,67 +744,8 @@ def run_interactive_loop(
                     bash_command = original_input[
                         len(SlashCommands.RUN.value) :
                     ].strip()
-                    if not bash_command:
-                        console.print(
-                            f"[bold {ERROR_COLOR}]Usage: /run <bash_command>[/bold {ERROR_COLOR}]"
-                        )
-                        continue
-
-                    result = None
-                    output = ""
-                    error_message = ""
-
-                    try:
-                        console.print(
-                            f"[bold {STATUS_COLOR}]Running: {bash_command}[/bold {STATUS_COLOR}]"
-                        )
-                        result = subprocess.run(
-                            bash_command, shell=True, capture_output=True, text=True
-                        )
-
-                        output = result.stdout + result.stderr
-                        if result.returncode == 0:
-                            console.print(
-                                f"[bold green]✓ Command succeeded (exit code: {result.returncode})[/bold green]"
-                            )
-                        else:
-                            console.print(
-                                f"[bold {ERROR_COLOR}]✗ Command failed (exit code: {result.returncode})[/bold {ERROR_COLOR}]"
-                            )
-
-                        if output.strip():
-                            console.print(
-                                Panel(
-                                    output,
-                                    padding=(1, 2),
-                                    border_style="white",
-                                    title="Command Output",
-                                    title_align="left",
-                                )
-                            )
-
-                    except KeyboardInterrupt:
-                        error_message = "Command interrupted by user"
-                        console.print(
-                            f"[bold {ERROR_COLOR}]{error_message}[/bold {ERROR_COLOR}]"
-                        )
-                    except Exception as e:
-                        error_message = f"Error running command: {e}"
-                        console.print(
-                            f"[bold {ERROR_COLOR}]{error_message}[/bold {ERROR_COLOR}]"
-                        )
-
-                    # Build command output for sharing
-                    command_output = f"ran the command: `{bash_command}`\n\n"
-                    if result is not None:
-                        command_output += f"Exit code: {result.returncode}\n\n"
-                        if output.strip():
-                            command_output += f"Output:\n{output}"
-                    elif error_message:
-                        command_output += f"Error: {error_message}"
-
-                    shared_input = prompt_for_llm_sharing(
-                        session, style, command_output, "ran a command"
+                    shared_input = handle_run_command(
+                        bash_command, session, style, console
                     )
                     if shared_input is None:
                         continue  # User chose not to share, continue to next input
