@@ -28,34 +28,32 @@ from holmes.core.tools import pretty_print_toolset_status
 
 
 class SlashCommands(Enum):
-    EXIT = "/exit"
-    HELP = "/help"
-    RESET = "/reset"
-    TOOLS_CONFIG = "/tools"
-    TOGGLE_TOOL_OUTPUT = "/auto"
-    LAST_OUTPUT = "/last"
-    CLEAR = "/clear"
-    RUN = "/run"
-    SHELL = "/shell"
-    CONTEXT = "/context"
-    SHOW = "/show"
+    EXIT = ("/exit", "Exit interactive mode")
+    HELP = ("/help", "Show help message with all commands")
+    RESET = ("/reset", "Reset the conversation context")
+    TOOLS_CONFIG = ("/tools", "Show available toolsets and their status")
+    TOGGLE_TOOL_OUTPUT = (
+        "/auto",
+        "Toggle auto-display of tool outputs after responses",
+    )
+    LAST_OUTPUT = ("/last", "Show all tool outputs from last response")
+    CLEAR = ("/clear", "Clear the terminal screen")
+    RUN = ("/run", "Run a bash command and optionally share with LLM")
+    SHELL = (
+        "/shell",
+        "Drop into interactive shell, then optionally share session with LLM",
+    )
+    CONTEXT = ("/context", "Show conversation context size and token count")
+    SHOW = ("/show", "Show specific tool output in scrollable view")
+
+    def __init__(self, command, description):
+        self.command = command
+        self.description = description
 
 
-SLASH_COMMANDS_REFERENCE = {
-    SlashCommands.EXIT.value: "Exit interactive mode",
-    SlashCommands.HELP.value: "Show help message with all commands",
-    SlashCommands.RESET.value: "Reset the conversation context",
-    SlashCommands.TOOLS_CONFIG.value: "Show available toolsets and their status",
-    SlashCommands.TOGGLE_TOOL_OUTPUT.value: "Toggle auto-display of tool outputs after responses",
-    SlashCommands.LAST_OUTPUT.value: "Show all tool outputs from last response",
-    SlashCommands.CLEAR.value: "Clear the terminal screen",
-    SlashCommands.RUN.value: "Run a bash command and optionally share with LLM",
-    SlashCommands.SHELL.value: "Drop into interactive shell, then optionally share session with LLM",
-    SlashCommands.CONTEXT.value: "Show conversation context size and token count",
-    SlashCommands.SHOW.value: "Show specific tool output in scrollable view",
-}
+SLASH_COMMANDS_REFERENCE = {cmd.command: cmd.description for cmd in SlashCommands}
 
-ALL_SLASH_COMMANDS = [cmd.value for cmd in SlashCommands]
+ALL_SLASH_COMMANDS = [cmd.command for cmd in SlashCommands]
 
 
 class SlashCommandCompleter(Completer):
@@ -80,7 +78,7 @@ HELP_COLOR = "cyan"  # same as AI_COLOR for now
 ERROR_COLOR = "red"
 STATUS_COLOR = "yellow"
 
-WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.value}' to exit, '{SlashCommands.HELP.value}' for commands."
+WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
 
 def format_tool_call_output(
@@ -699,16 +697,16 @@ def run_interactive_loop(
                     continue
                 # If no matches, we'll handle it in the "unknown command" case below
 
-                if command == SlashCommands.EXIT.value:
+                if command == SlashCommands.EXIT.command:
                     return
-                elif command == SlashCommands.HELP.value:
+                elif command == SlashCommands.HELP.command:
                     console.print(
                         f"[bold {HELP_COLOR}]Available commands:[/bold {HELP_COLOR}]"
                     )
                     for cmd, description in SLASH_COMMANDS_REFERENCE.items():
                         console.print(f"  [bold]{cmd}[/bold] - {description}")
                     continue
-                elif command == SlashCommands.RESET.value:
+                elif command == SlashCommands.RESET.command:
                     console.print(
                         f"[bold {STATUS_COLOR}]Context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
                     )
@@ -716,33 +714,33 @@ def run_interactive_loop(
                     last_response = None
                     all_tool_calls_history.clear()
                     continue
-                elif command == SlashCommands.TOOLS_CONFIG.value:
+                elif command == SlashCommands.TOOLS_CONFIG.command:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
                     continue
-                elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.value:
+                elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.command:
                     show_tool_output = not show_tool_output
                     status = "enabled" if show_tool_output else "disabled"
                     console.print(
                         f"[bold yellow]Auto-display of tool outputs {status}.[/bold yellow]"
                     )
                     continue
-                elif command == SlashCommands.LAST_OUTPUT.value:
+                elif command == SlashCommands.LAST_OUTPUT.command:
                     handle_last_command(last_response, console, all_tool_calls_history)
                     continue
-                elif command == SlashCommands.CLEAR.value:
+                elif command == SlashCommands.CLEAR.command:
                     console.clear()
                     continue
-                elif command == SlashCommands.CONTEXT.value:
+                elif command == SlashCommands.CONTEXT.command:
                     handle_context_command(messages, ai, console)
                     continue
-                elif command.startswith(SlashCommands.SHOW.value):
+                elif command.startswith(SlashCommands.SHOW.command):
                     # Parse the command to extract tool index or name
-                    show_arg = original_input[len(SlashCommands.SHOW.value) :].strip()
+                    show_arg = original_input[len(SlashCommands.SHOW.command) :].strip()
                     handle_show_command(show_arg, all_tool_calls_history, console)
                     continue
-                elif command.startswith(SlashCommands.RUN.value):
+                elif command.startswith(SlashCommands.RUN.command):
                     bash_command = original_input[
-                        len(SlashCommands.RUN.value) :
+                        len(SlashCommands.RUN.command) :
                     ].strip()
                     shared_input = handle_run_command(
                         bash_command, session, style, console
@@ -750,7 +748,7 @@ def run_interactive_loop(
                     if shared_input is None:
                         continue  # User chose not to share, continue to next input
                     user_input = shared_input
-                elif command == SlashCommands.SHELL.value:
+                elif command == SlashCommands.SHELL.command:
                     shared_input = handle_shell_command(session, style, console)
                     if shared_input is None:
                         continue  # User chose not to share or no output, continue to next input
