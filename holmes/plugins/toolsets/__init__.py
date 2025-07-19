@@ -14,7 +14,13 @@ from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLT
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
-from holmes.plugins.toolsets.datadog import DatadogToolset
+from holmes.plugins.toolsets.datadog.toolset_datadog_logs import DatadogLogsToolset
+from holmes.plugins.toolsets.datadog.toolset_datadog_metrics import (
+    DatadogMetricsToolset,
+)
+from holmes.plugins.toolsets.datadog.toolset_datadog_traces import (
+    DatadogTracesToolset,
+)
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
@@ -68,7 +74,9 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         GrafanaToolset(),
         NotionToolset(),
         KafkaToolset(),
-        DatadogToolset(),
+        DatadogLogsToolset(),
+        DatadogMetricsToolset(),
+        DatadogTracesToolset(),
         PrometheusToolset(),
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
