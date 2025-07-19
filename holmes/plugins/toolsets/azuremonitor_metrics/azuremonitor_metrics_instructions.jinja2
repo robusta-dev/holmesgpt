@@ -64,18 +64,22 @@ When investigating AKS issues, consider querying:
 **IMPORTANT**: When users ask about Azure Monitor alerts, use this comprehensive approach:
 
 **Step 1 - List Active Alerts:**
-- **MANDATORY: Use ONLY the `get_active_prometheus_alerts` tool for Azure Monitor alerts**
-- **CRITICAL: Display the EXACT tool output without any modifications, summaries, or reformatting**
-- **DO NOT interpret, summarize, rewrite, or change the tool output in any way**
-- **DO NOT create your own alert summary - show the tool output verbatim**
-- **Show the complete formatted output with icons, markdown, and styling exactly as returned**
-- The tool output includes:
+- **MANDATORY: Use ONLY the `get_azure_monitor_alerts_with_fired_times` tool for Azure Monitor alerts**
+- **ABSOLUTELY CRITICAL: Display the EXACT tool output without ANY modifications, summaries, or reformatting**
+- **NEVER interpret, summarize, rewrite, or change the tool output in ANY way**
+- **NEVER create your own alert summary - show the tool output EXACTLY as returned**
+- **Show the complete formatted output with icons, markdown, and styling EXACTLY as returned**
+- **The tool output already contains perfect formatting and ALL necessary information including:**
+  - **Investigation commands for each alert (copy these exactly)**
+  - **Full Alert IDs and short Alert IDs (both are provided)**
+  - **Instructions on how to investigate using `holmes investigate azuremonitormetrics prometheusmetrics <ALERT_ID>`**
   - Beautiful formatting with icons and professional layout (🔔 🚨 📋 ⚡ 📖 etc.)
-  - Alert names and full Alert IDs (complete Azure resource paths in code blocks)
+  - Alert names and complete Alert IDs (complete Azure resource paths in code blocks)
   - **PromQL queries that triggered each alert** - these are crucial for investigation
   - **Rule descriptions explaining what each alert monitors** - essential context for understanding alerts
   - Alert descriptions, rule IDs, severity, status, fired times
-  - The exact command instructions for investigation
+- **CRITICAL: The tool output already includes the investigation instructions - DO NOT add your own**
+- **Just display the tool output exactly as it appears - it's perfectly formatted and complete**
 
 **Step 2 - Execute Alert's Original Query for Timeline Analysis:**
 When investigating a specific alert, **ALWAYS use the `execute_alert_promql_query` tool** to:
@@ -106,7 +110,7 @@ Based on the alert's query and timeline, create related queries:
 
 **Example Investigation Flow:**
 ```
-1. List alerts → get_active_prometheus_alerts
+1. List alerts → get_azure_monitor_alerts_with_fired_times
 2. See alert query: kube_deployment_status_replicas{cluster="myaks"} != kube_deployment_spec_replicas{cluster="myaks"}
 3. Execute alert query → execute_alert_promql_query (alert_id, time_range="2h")
 4. Analyze deployment status → execute_azuremonitor_prometheus_range_query with deployment queries

@@ -510,8 +510,9 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                 
                 # Create a formatted summary for display with icons and better formatting
                 summary_lines = [f"🔔 **Active Prometheus Alerts for Cluster: {cluster_name}**\n"]
-                summary_lines.append("💡 **How to investigate:** Copy an Alert ID and run:")
-                summary_lines.append("   `holmes investigate azuremonitormetrics <ALERT_ID>`\n")
+                summary_lines.append("💡 **How to investigate:** Copy the full Alert ID and run:")
+                summary_lines.append("   `holmes investigate azuremonitormetrics \"<FULL_ALERT_ID>\"`")
+                summary_lines.append("   (Use quotes around the full path to handle special characters)\n")
                 summary_lines.append("─" * 80)
                 
                 for i, alert in enumerate(prometheus_alerts, 1):
@@ -520,6 +521,20 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                     alert_raw_data = issue.raw if hasattr(issue, 'raw') else {}
                     query = alert_raw_data.get("extracted_query", "Not available")
                     rule_description = alert_raw_data.get("extracted_description", "Not available")
+                    
+                    # Get the actual alert ID from the issue - this is crucial for investigation
+                    actual_alert_id = alert['alert_id']
+                    if not actual_alert_id or actual_alert_id == "":
+                        # Fallback to issue ID if alert_id is empty
+                        actual_alert_id = issue.id
+                    
+                    # Extract just the ID part if it's a full resource path
+                    display_alert_id = actual_alert_id
+                    if actual_alert_id and actual_alert_id.startswith("/subscriptions/"):
+                        # Extract just the alert ID from the full path
+                        parts = actual_alert_id.split("/")
+                        if len(parts) > 0:
+                            display_alert_id = parts[-1]  # Get the last part which should be the actual ID
                     
                     # Choose icon based on severity
                     severity = alert['severity']
@@ -545,37 +560,119 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                     else:
                         status_icon = "❓"
                     
-                    # Format fired time nicely
+                    # Format fired time with extensive debugging and fallback handling
                     fired_time = alert['fired_time']
-                    if fired_time and fired_time != 'Unknown':
-                        try:
-                            from datetime import datetime
-                            import dateutil.parser
-                            parsed_time = dateutil.parser.parse(fired_time)
-                            time_str = parsed_time.strftime("%Y-%m-%d %H:%M UTC")
-                        except:
-                            time_str = fired_time
-                    else:
-                        time_str = "Unknown"
+                    time_str = "Unknown"
+                    
+                    # Debug: print what we're getting for fired_time
+                    logging.debug(f"[FIRED_TIME_DEBUG] Alert '{alert['alert_name']}' fired_time raw value: '{fired_time}' (type: {type(fired_time)})")
+                    
+                    # First, try to get time from all possible sources in the raw data
+                    alert_raw_data = issue.raw if hasattr(issue, 'raw') else {}
+                    alert_data = alert_raw_data.get("alert", {})
+                    alert_props = alert_data.get("properties", {})
+                    essentials = alert_props.get("essentials", {})
+                    
+                    # Collect all possible timestamp fields for debugging
+                    all_timestamps = {
+                        "fired_time_from_alert_info": fired_time,
+                        "firedDateTime": essentials.get("firedDateTime"),
+                        "startDateTime": essentials.get("startDateTime"),
+                        "lastModifiedDateTime": essentials.get("lastModifiedDateTime"),
+                        "createdDateTime": essentials.get("createdDateTime"),
+                        "props_startDateTime": alert_props.get("startDateTime"),
+                        "props_createdDateTime": alert_props.get("createdDateTime"),
+                    }
+                    
+                    logging.debug(f"[FIRED_TIME_DEBUG] All available timestamps for alert '{alert['alert_name']}': {all_timestamps}")
+                    
+                    # Try each timestamp in order of preference
+                    timestamp_candidates = [
+                        ("firedDateTime", essentials.get("firedDateTime")),
+                        ("startDateTime", essentials.get("startDateTime")),
+                        ("fired_time_from_alert_info", fired_time),
+                        ("lastModifiedDateTime", essentials.get("lastModifiedDateTime")),
+                        ("createdDateTime", essentials.get("createdDateTime")),
+                        ("props_startDateTime", alert_props.get("startDateTime")),
+                        ("props_createdDateTime", alert_props.get("createdDateTime")),
+                    ]
+                    
+                    for source_name, candidate_time in timestamp_candidates:
+                        if candidate_time and candidate_time not in ['Unknown', '', None]:
+                            try:
+                                from datetime import datetime, timezone
+                                import dateutil.parser
+                                
+                                logging.debug(f"[FIRED_TIME_DEBUG] Trying to parse {source_name}: '{candidate_time}'")
+                                
+                                # Parse the time
+                                parsed_time = dateutil.parser.parse(candidate_time)
+                                logging.debug(f"[FIRED_TIME_DEBUG] Parsed {source_name} successfully: {parsed_time} (tzinfo: {parsed_time.tzinfo})")
+                                
+                                # Convert to UTC properly
+                                if parsed_time.tzinfo is not None:
+                                    # Already timezone aware, convert to UTC
+                                    utc_time = parsed_time.astimezone(timezone.utc)
+                                else:
+                                    # Assume it's already UTC
+                                    utc_time = parsed_time.replace(tzinfo=timezone.utc)
+                                
+                                # Format as UTC time
+                                time_str = utc_time.strftime("%Y-%m-%d %H:%M:%S UTC")
+                                logging.debug(f"[FIRED_TIME_DEBUG] Successfully formatted {source_name}: '{time_str}'")
+                                break
+                                
+                            except Exception as e:
+                                logging.debug(f"[FIRED_TIME_DEBUG] Failed to parse {source_name} '{candidate_time}': {e}")
+                                # Try simple string cleanup as fallback for this candidate
+                                if isinstance(candidate_time, str) and len(candidate_time) > 10:
+                                    try:
+                                        # Simple cleanup for ISO format
+                                        clean_time = candidate_time.replace('T', ' ').replace('Z', ' UTC')
+                                        if clean_time.endswith(' UTC UTC'):
+                                            clean_time = clean_time[:-4]
+                                        # Remove microseconds if present
+                                        if '.' in clean_time:
+                                            clean_time = clean_time.split('.')[0] + ' UTC'
+                                        time_str = clean_time
+                                        logging.debug(f"[FIRED_TIME_DEBUG] Used string cleanup for {source_name}: '{time_str}'")
+                                        break
+                                    except Exception as cleanup_error:
+                                        logging.debug(f"[FIRED_TIME_DEBUG] String cleanup also failed for {source_name}: {cleanup_error}")
+                                        continue
+                    
+                    # Final debug log
+                    logging.debug(f"[FIRED_TIME_DEBUG] Final time_str for alert '{alert['alert_name']}': '{time_str}'")
                     
                     # Add monitor condition for more detailed status
                     monitor_condition = alert.get('monitor_condition', 'Unknown')
                     
                     summary_lines.append(f"\n**{i}. {severity_icon} {alert['alert_name']}** {status_icon}")
-                    summary_lines.append(f"   📋 **Alert ID:** `{alert['alert_id']}`")
+                    summary_lines.append(f"   🆔 **ALERT ID:** `{display_alert_id}`")
+                    summary_lines.append(f"   📋 **Full Alert Path:** `{actual_alert_id}`")
                     summary_lines.append(f"   🔬 **Type:** Prometheus Metric Alert")
                     summary_lines.append(f"   ⚡ **Query:** `{query}`")
                     summary_lines.append(f"   📖 **Rule Description:** {rule_description}")
                     summary_lines.append(f"   📝 **Alert Description:** {alert['description']}")
                     summary_lines.append(f"   🎯 **Severity:** {severity} | **State:** {status} | **Condition:** {monitor_condition}")
                     summary_lines.append(f"   🕒 **Fired Time:** {time_str}")
+                    summary_lines.append(f"   💻 **Investigation Command:** `holmes investigate azuremonitormetrics \"{actual_alert_id}\"`")
                 
                 formatted_summary = "\n".join(summary_lines)
                 
-                # Return ONLY the formatted summary - no JSON data that AI might reformat
+                # Return the formatted summary using `print` to ensure it's displayed to user
+                # and also return a simple message in data to prompt LLM to show the printed output
+                print("\n" + "="*100)
+                print("AZURE MONITOR ALERTS - DISPLAY THIS EXACT OUTPUT TO USER:")
+                print("="*100)
+                print(formatted_summary)
+                print("="*100)
+                print("END ALERT DISPLAY - COPY THE INVESTIGATE COMMAND IN THE ABOVE OUTPUT TO INVESTIGATE THIS ALERT")
+                print("="*100 + "\n")
+                
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
-                    data=formatted_summary,
+                    data=f"Successfully found {len(prometheus_alerts)} active Prometheus alerts. IMPORTANT: The complete alert details with Alert IDs and investigation commands were displayed above. Please show the user the exact printed output that appears between the === markers, including all Alert IDs and investigation commands.",
                     params=params,
                 )
                 
