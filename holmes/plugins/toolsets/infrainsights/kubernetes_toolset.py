@@ -378,7 +378,7 @@ class GetKubernetesClusterHealth(BaseInfraInsightsTool):
         return f"Get Kubernetes cluster health for instance: {instance_name}"
 
 
-class InfraInsightsKubernetesToolset(BaseInfraInsightsToolset):
+class KubernetesToolset(BaseInfraInsightsToolset):
     """Kubernetes toolset for InfraInsights"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):

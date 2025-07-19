@@ -479,7 +479,7 @@ class GetMongoDBServerStatus(BaseInfraInsightsTool):
         return f"Get MongoDB server status for instance: {instance_name}"
 
 
-class InfraInsightsMongoDBToolset(BaseInfraInsightsToolset):
+class MongoDBToolset(BaseInfraInsightsToolset):
     """MongoDB toolset for InfraInsights"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):

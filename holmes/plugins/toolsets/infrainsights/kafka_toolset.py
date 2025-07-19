@@ -497,7 +497,7 @@ class GetKafkaConsumerGroupLag(BaseInfraInsightsTool):
         return f"Get Kafka consumer group lag for {group_id} in instance: {instance_name}"
 
 
-class InfraInsightsKafkaToolset(BaseInfraInsightsToolset):
+class KafkaToolset(BaseInfraInsightsToolset):
     """Kafka toolset for InfraInsights"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):

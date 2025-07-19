@@ -1,22 +1,7 @@
 import logging
-from pydantic import BaseModel, ConfigDict
-import yaml
-from typing import Any, Dict, List, Optional, Union, Tuple
-from holmes.core.tools import (
-    Tool,
-    ToolParameter,
-    Toolset,
-    ToolsetTag,
-    CallablePrerequisite,
-    StructuredToolResult,
-    ToolResultStatus,
-)
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from holmes.plugins.toolsets.utils import (
-    TOOLSET_CONFIG_MISSING_ERROR,
-    get_param_or_raise,
-)
-
+import yaml  # type: ignore
 from confluent_kafka.admin import (
     AdminClient,
     BrokerMetadata,
@@ -29,13 +14,26 @@ from confluent_kafka.admin import (
     ListConsumerGroupsResult,
     MemberAssignment,
     MemberDescription,
-    Node,
     PartitionMetadata,
     TopicMetadata,
 )
-
-from confluent_kafka import Consumer, TopicPartition
+from confluent_kafka import Consumer
+from confluent_kafka._model import Node
 from enum import Enum
+from confluent_kafka.admin import _TopicPartition as TopicPartition
+from pydantic import BaseModel, ConfigDict
+
+from holmes.core.tools import (
+    CallablePrerequisite,
+    StructuredToolResult,
+    Tool,
+    ToolParameter,
+    ToolResultStatus,
+    Toolset,
+    ToolsetTag,
+)
+from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
+from holmes.plugins.toolsets.utils import get_param_or_raise
 
 
 class KafkaClusterConfig(BaseModel):
@@ -168,7 +166,6 @@ class ListKafkaConsumers(BaseKafkaTool):
 
             futures = client.list_consumer_groups()
             list_groups_result: ListConsumerGroupsResult = futures.result()
-
             groups_text = ""
             if list_groups_result.valid and len(list_groups_result.valid) > 0:
                 groups = []
@@ -190,7 +187,6 @@ class ListKafkaConsumers(BaseKafkaTool):
             result_text = groups_text
             if errors_text:
                 result_text = result_text + "\n\n" + errors_text
-
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=result_text,
@@ -351,15 +347,12 @@ class DescribeTopic(BaseKafkaTool):
                     params=params,
                 )
             config_future = None
-            fetch_config = str(params.get("fetch_configuration", False)).lower() == "true"
-
-            if fetch_config:
+            if str(params.get("fetch_configuration", False)).lower() == "true":
                 resource = ConfigResource("topic", topic_name)
                 configs = client.describe_configs([resource])
                 config_future = next(iter(configs.values()))
 
-            topic_metadata_result = client.list_topics(topic_name)
-            metadata = topic_metadata_result.topics[topic_name]
+            metadata = client.list_topics(topic_name).topics[topic_name]
 
             metadata = convert_to_dict(metadata)
             result: dict = {"metadata": metadata}

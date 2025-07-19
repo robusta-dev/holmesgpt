@@ -489,7 +489,7 @@ class GetRedisMemoryUsage(BaseInfraInsightsTool):
         return f"Get Redis memory usage for instance: {instance_name}"
 
 
-class InfraInsightsRedisToolset(BaseInfraInsightsToolset):
+class RedisToolset(BaseInfraInsightsToolset):
     """Redis toolset for InfraInsights"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):

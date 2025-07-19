@@ -6,17 +6,17 @@ that integrate with the InfraInsights multi-instance architecture.
 """
 
 from .elasticsearch_toolset import ElasticsearchToolset
-from .kafka_toolset import InfraInsightsKafkaToolset
-from .kubernetes_toolset import InfraInsightsKubernetesToolset
-from .mongodb_toolset import InfraInsightsMongoDBToolset
-from .redis_toolset import InfraInsightsRedisToolset
+from .kafka_toolset import KafkaToolset
+from .kubernetes_toolset import KubernetesToolset
+from .mongodb_toolset import MongoDBToolset
+from .redis_toolset import RedisToolset
 from .infrainsights_client import InfraInsightsClient
 
 __all__ = [
     'ElasticsearchToolset',
-    'InfraInsightsKafkaToolset', 
-    'InfraInsightsKubernetesToolset',
-    'InfraInsightsMongoDBToolset',
-    'InfraInsightsRedisToolset',
+    'KafkaToolset', 
+    'KubernetesToolset',
+    'MongoDBToolset',
+    'RedisToolset',
     'InfraInsightsClient'
 ] 
