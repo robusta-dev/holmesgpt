@@ -19,6 +19,11 @@
       "update_date": "2025-07-16",
       "description": "Runbook to investigate pod scheduling issue on Kubernetes cluster using Azure Monitor and Prometheus",
       "link": "pod_troubleshooting_prometheus_instructions.md"
+    },
+    {
+      "update_date": "2025-01-19",
+      "description": "Comprehensive runbook to analyze Azure Monitor Container Insights log volume and costs for AKS clusters, providing detailed cost optimization recommendations with volume and USD savings calculations, competitive analysis, and implementation guidance",
+      "link": "azure_monitor_logs_cost_optimization.md"
     }
   ]
 }

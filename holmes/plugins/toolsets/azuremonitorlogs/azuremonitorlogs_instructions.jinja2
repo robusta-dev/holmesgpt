@@ -1,14 +1,14 @@
 # Azure Monitor Logs (Container Insights) Integration Instructions
 
 ## Overview
-The Azure Monitor Logs toolset detects Azure Monitor Container Insights configuration and provides Log Analytics workspace details for AKS cluster log analysis. This toolset **DOES NOT** execute KQL queries directly - it provides workspace configuration so other tools (like azure mcp server) can run KQL queries for the specific workspace detected by this tool .
+The Azure Monitor Logs toolset detects Azure Monitor Container Insights configuration and provides Log Analytics workspace details for AKS cluster log analysis. This toolset provides workspace configuration so other tools (like azure mcp server) can run KQL queries for the specific workspace detected by this tool .
 
 ## Key Capabilities
 1. **AKS Cluster Detection**: Automatically detect if running in AKS cluster and get cluster resource ID
 2. **Container Insights Detection**: Check if Azure Monitor Container Insights is enabled for the cluster
 3. **Workspace Discovery**: Extract Log Analytics workspace ID and full Azure resource ID
 4. **Stream Profiling**: Detect enabled log streams and map them to Log Analytics tables
-5. **Azure MCP Guidance**: Provide configuration details for another tool (Azure MCP server) so that it can run actual KQL queries
+5. **Azure MCP Guidance**: Provide loganalytics workspace details for another tool (Azure MCP server) so that it can run actual KQL queries
 
 ## Important Distinctions
 - **Detection Only**: This toolset only detects and provides workspace configuration details
@@ -20,9 +20,9 @@ The Azure Monitor Logs toolset detects Azure Monitor Container Insights configur
 1. `check_aks_cluster_context` - Check if running in AKS cluster
 2. `get_aks_cluster_resource_id` - Get full Azure resource ID of AKS cluster
 3. `check_azure_monitor_logs_enabled` - Detect Container Insights and get workspace details
+4. use azure mcp server to run KQL queries against the detected workspace
 
-## Azure MCP Server Integration
-When Container Insights is detected, this toolset provides:
+
 
 ### Workspace Configuration
 - **Workspace ID** (GUID format): Used by Azure MCP server for KQL queries
@@ -54,6 +54,39 @@ Based on detected streams, queries can target:
 1. **Detection**: Use `check_azure_monitor_logs_enabled` to detect workspace
 2. **Configuration**: Configure Azure MCP server with detected workspace details
 3. **Querying**: Use Azure MCP server tools for actual KQL queries with cluster filtering
+
+## Special Case: Cost Optimization Analysis
+**When asked about Container Insights cost optimization, IMMEDIATELY proceed to execute KQL queries using available tools:**
+
+1. **Detect workspace** using `check_azure_monitor_logs_enabled`
+2. **IMMEDIATELY execute KQL queries** using any available KQL execution tool (azure mcp server or similar)
+3. **Do NOT stop** after workspace detection - proceed to live cost analysis NOW
+4. **Execute ALL 5 queries** from the Azure Monitor cost optimization runbook with detected workspace ID
+5. **Generate real USD savings** calculations based on actual cluster data
+
+**MANDATORY EXECUTION**: For cost optimization requests, you MUST execute queries immediately after workspace detection. Do NOT provide "next steps" or ask for permission - execute the KQL queries now using any available KQL tool.
+
+**EXECUTE QUERIES IMMEDIATELY**: After detecting the workspace, you MUST immediately call the azure mcp tools. Do not say "Stand by" or "Executing queries" - actually call the tools now.
+
+**MANDATORY TOOL INVOCATION**: 
+1. Parse subscription ID from the workspace resource ID (extract from "/subscriptions/SUBSCRIPTION-ID/...")
+2. Call "monitor workspace log query" tool with these parameters:
+   - --subscription: [parsed subscription ID]
+   - --workspace: [detected workspace GUID] 
+   - --table-name: Usage (for cost queries) or ContainerLogV2 (for log analysis)
+   - --query: [the specific KQL query]
+3. Execute each of the 5 cost optimization queries as separate tool calls
+4. Process the results and DISPLAY the COMPLETE executive report with competitive analysis tables in the console
+5. After displaying the full report, call generate_cost_optimization_pdf tool to create a PDF file with the same report content and provide download link
+
+**DUAL OUTPUT MANDATORY**: You must BOTH display the full report on screen AND generate the PDF file. Do not skip either step.
+
+**EXAMPLE TOOL CALL:**
+```
+monitor workspace log query --subscription abc123-def456-789 --workspace ae2a62d2-afb3-4e81-a5b4-ca29215e1cd8 --table-name Usage --query "Usage | where TimeGenerated > ago(24h) | summarize TotalGB = sum(Quantity) / 1024 by DataType"
+```
+
+**CRITICAL**: When you say "Executing all 5 required queries now" - actually DO IT by calling the "monitor workspace log query" tool. Do not just announce it.
 
 ## Example Usage Scenarios
 
@@ -98,7 +131,7 @@ When workspace is detected, provide clear instructions:
   "log_analytics_workspace_id": "12345678-1234-1234-1234-123456789012",
   "cluster_filter_kql": "| where _ResourceId == \"/subscriptions/.../clusters/my-cluster\"",
   "available_log_tables": ["ContainerLogV2", "KubePodInventory", "KubeEvents"],
-  "azure_mcp_guidance": "Configure Azure MCP server with detected workspace details"
+  "azure_mcp_guidance": "Use/call into Azure MCP server with detected workspace details"
 }
 ```
 
