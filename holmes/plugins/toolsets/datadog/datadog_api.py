@@ -61,9 +61,17 @@ def get_headers(dd_config: DatadogBaseConfig) -> Dict[str, str]:
     }
 
 
-def extract_logs_cursor(data: dict) -> Optional[str]:
+def extract_cursor(data: dict) -> Optional[str]:
     """Extract cursor for paginating through Datadog logs API responses."""
-    return data.get("meta", {}).get("page", {}).get("after", None)
+    if data is None:
+        return None
+    meta = data.get("meta", {})
+    if meta is None:
+        return None
+    page = meta.get("page", {})
+    if page is None:
+        return None
+    return page.get("after", None)
 
 
 class retry_if_http_429_error(retry_if_exception):
@@ -116,6 +124,7 @@ class wait_for_retry_after_header(wait_base):
         f"DataDog API rate limited. Retrying... "
         f"(attempt {retry_state.attempt_number}/{MAX_RETRY_COUNT_ON_RATE_LIMIT})"
     ),
+    reraise=True,
 )
 def execute_datadog_http_request(
     url: str,
@@ -134,14 +143,14 @@ def execute_datadog_http_request(
         )
 
     if response.status_code == 200:
-        data = response.json()
+        response_data = response.json()
 
-        if method == "POST" and "data" in data:
-            cursor = extract_logs_cursor(data)
-            logs = data.get("data", [])
-            return logs, cursor
+        if method == "POST" and response_data and "data" in response_data:
+            cursor = extract_cursor(response_data)
+            data = response_data.get("data", [])
+            return data, cursor
         else:
-            return data
+            return response_data
 
     else:
         raise DataDogRequestError(
