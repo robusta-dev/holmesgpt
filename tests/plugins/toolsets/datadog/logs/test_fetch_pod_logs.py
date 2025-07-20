@@ -1,8 +1,8 @@
 from unittest.mock import Mock, patch
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.datadog.toolset_datadog_logs import (
-    DatadogToolset,
-    DatadogConfig,
+    DatadogLogsToolset,
+    DatadogLogsConfig,
     DataDogStorageTier,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
@@ -13,7 +13,7 @@ class TestDatadogToolsetFetchPodLogs:
 
     def setup_method(self):
         """Setup common test data"""
-        self.config = DatadogConfig(
+        self.config = DatadogLogsConfig(
             dd_api_key="test-api-key",
             dd_app_key="test-app-key",
             site_api_url="https://api.datadoghq.com",
@@ -24,7 +24,7 @@ class TestDatadogToolsetFetchPodLogs:
             request_timeout=60,
         )
 
-        self.toolset = DatadogToolset()
+        self.toolset = DatadogLogsToolset()
         self.toolset.dd_config = self.config
 
         self.fetch_params = FetchPodLogsParams(

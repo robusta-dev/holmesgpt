@@ -152,7 +152,7 @@ class Tool(ABC, BaseModel):
             else str(result)
         )
         logging.info(
-            f"  [dim]Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters[/dim]\n"
+            f"  [dim]Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters - /show to view contents[/dim]\n"
         )
         return result
 
