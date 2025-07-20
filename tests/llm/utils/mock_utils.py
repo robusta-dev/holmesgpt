@@ -122,7 +122,7 @@ def parse_structured_json(
 class MockHelper:
     def __init__(self, test_cases_folder: Path) -> None:
         super().__init__()
-        self._test_cases_folder = test_cases_folder
+        self._test_cases_folder = Path(test_cases_folder)
 
     def load_investigate_test_cases(self) -> List[InvestigateTestCase]:
         return cast(List[InvestigateTestCase], self.load_test_cases())
@@ -155,9 +155,35 @@ class MockHelper:
                     config_dict["user_prompt"] = (
                         config_dict["user_prompt"] + extra_prompt
                     )
-                    test_case = TypeAdapter(AskHolmesTestCase).validate_python(
-                        config_dict
-                    )
+                    try:
+                        test_case = TypeAdapter(AskHolmesTestCase).validate_python(
+                            config_dict
+                        )
+                    except Exception as e:
+                        config_file_path = test_case_folder / CONFIG_FILE_NAME
+                        # Extract invalid tags from validation error if present
+                        invalid_tags = []
+                        if hasattr(e, "errors") and callable(getattr(e, "errors")):
+                            for error in e.errors():
+                                if error.get(
+                                    "type"
+                                ) == "literal_error" and "tags" in str(
+                                    error.get("loc", [])
+                                ):
+                                    invalid_tags.append(error.get("input"))
+
+                        error_msg = f"Validation error in test case '{test_case_id}' at {config_file_path}"
+                        if invalid_tags:
+                            from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
+
+                            # Get allowed tags from literal type
+                            import typing
+
+                            allowed_tags = list(typing.get_args(ALLOWED_EVAL_TAGS))
+                            error_msg += f"\nInvalid tags found: {invalid_tags}"
+                            error_msg += f"\nAllowed tags are: {allowed_tags}"
+                        error_msg += f"\nOriginal error: {str(e)}"
+                        raise ValueError(error_msg) from e
                 else:
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
