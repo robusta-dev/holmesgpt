@@ -14,7 +14,7 @@ from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
-from tests.llm.utils.commands import after_test, before_test
+from tests.llm.utils.commands import after_test, before_test, set_test_env_vars
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
 from braintrust import Span, SpanTypeAttribute
@@ -85,10 +85,12 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
                     **{"now.return_value": mocked_datetime, "side_effect": None}
                 )
                 with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-                    result = ask_holmes(test_case=test_case, parent_span=eval_span)
+                    with set_test_env_vars(test_case):
+                        result = ask_holmes(test_case=test_case, parent_span=eval_span)
         else:
             with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-                result = ask_holmes(test_case=test_case, parent_span=eval_span)
+                with set_test_env_vars(test_case):
+                    result = ask_holmes(test_case=test_case, parent_span=eval_span)
 
     except Exception as e:
         bt_helper.end_evaluation(
