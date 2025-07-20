@@ -10,7 +10,6 @@ import sys
 import threading
 from typing import Optional, NamedTuple
 from functools import cache
-from cachetools import cached  # type: ignore
 import requests  # type: ignore
 from pydantic import BaseModel, ConfigDict
 from holmes.common.env_vars import ROBUSTA_API_ENDPOINT
@@ -45,7 +44,7 @@ def is_official_release() -> bool:
     return not __version__.startswith("0.0.0")
 
 
-@cached(cache=dict())
+@cache
 def get_version() -> str:
     """
     Get the current version of Holmes.
