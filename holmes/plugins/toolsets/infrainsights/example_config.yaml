@@ -1,0 +1,107 @@
+# InfraInsights Toolsets Configuration Example
+# 
+# This file shows how to configure the InfraInsights toolsets for HolmesGPT.
+# Copy this file and modify it with your actual InfraInsights API details.
+
+toolsets:
+  # Elasticsearch Toolset Configuration
+  infrainsights_elasticsearch:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Elasticsearch Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3000"  # Your InfraInsights API URL
+      api_key: "your-api-key-here"  # Optional: API key for authentication
+      username: "your-username"  # Optional: Username for basic auth
+      password: "your-password"  # Optional: Password for basic auth
+      timeout: 30
+
+  # Kafka Toolset Configuration
+  infrainsights_kafka:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Kafka Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3000"
+      api_key: "your-api-key-here"
+      username: "your-username"
+      password: "your-password"
+      timeout: 30
+
+  # Kubernetes Toolset Configuration
+  infrainsights_kubernetes:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Kubernetes Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3000"
+      api_key: "your-api-key-here"
+      username: "your-username"
+      password: "your-password"
+      timeout: 30
+
+  # MongoDB Toolset Configuration
+  infrainsights_mongodb:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights MongoDB Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3000"
+      api_key: "your-api-key-here"
+      username: "your-username"
+      password: "your-password"
+      timeout: 30
+
+  # Redis Toolset Configuration
+  infrainsights_redis:
+    type: "custom"
+    enabled: true
+    description: "InfraInsights Redis Investigation Tools"
+    config:
+      infrainsights_url: "http://localhost:3000"
+      api_key: "your-api-key-here"
+      username: "your-username"
+      password: "your-password"
+      timeout: 30
+
+# Environment Variables (Alternative Configuration)
+# You can also use environment variables instead of hardcoding values:
+#
+# INFRAINSIGHTS_URL=http://localhost:3000
+# INFRAINSIGHTS_API_KEY=your-api-key-here
+# INFRAINSIGHTS_USERNAME=your-username
+# INFRAINSIGHTS_PASSWORD=your-password
+# INFRAINSIGHTS_TIMEOUT=30
+
+# Usage Examples:
+#
+# 1. Elasticsearch Investigation:
+#    - "Check the health of my production Elasticsearch cluster"
+#    - "List all indices in the staging Elasticsearch instance"
+#    - "Search for error logs in the logs-* index"
+#
+# 2. Kafka Investigation:
+#    - "Show me all topics in the production Kafka cluster"
+#    - "List consumer groups and their lag"
+#    - "Describe the user-events topic configuration"
+#
+# 3. Kubernetes Investigation:
+#    - "Check the health of my production Kubernetes cluster"
+#    - "List all nodes and their status"
+#    - "Show me pods running on the problematic node"
+#
+# 4. MongoDB Investigation:
+#    - "List all databases in the production MongoDB instance"
+#    - "Show me collections in the users database"
+#    - "Search for user documents with specific criteria"
+#
+# 5. Redis Investigation:
+#    - "Get Redis server information and performance metrics"
+#    - "List all keys matching the pattern 'user:*'"
+#    - "Check memory usage and fragmentation"
+#
+# The toolsets will automatically:
+# - Identify the correct service instance from your prompt
+# - Use your current user context if available
+# - Handle authentication and connection management
+# - Provide multi-instance support for different environments 
