@@ -667,7 +667,7 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                 print("="*100)
                 print(formatted_summary)
                 print("="*100)
-                print("END ALERT DISPLAY - COPY THE INVESTIGATE COMMAND IN THE ABOVE OUTPUT TO INVESTIGATE THIS ALERT")
+                print("END ALERT DISPLAY - COPY THE INVESTIGATE COMMAND FROM ABOVE OUTPUT TO INVESTIGATE SPECIFIC ALERT")
                 print("="*100 + "\n")
                 
                 return StructuredToolResult(
