@@ -29,7 +29,7 @@ DevOps, SREs, and platform engineers
 
 Two primary use cases:
 1. Root-cause analysis of alerts (i.e. Prometheus alerts)
-2. Troubleshooting problems (via free-text questions) in cloud-native environents
+2. Troubleshooting problems (via free-text questions) in cloud-native environments
 
 In both cases, the analysis can be 100% autonomous, or driven by predefined runbooks.
 
@@ -64,7 +64,7 @@ The project exposes an HTTP API and a Helm chart for running the HTTP server in 
 * Extensible: Modular plugin system for adding new data sources, including external MCP servers
 
 **Outline or link to the project’s architecture requirements? Describe how they differ for Proof of Concept, Development, Test and Production environments, as applicable.**
-Lightweight, can run as a standaone local CLI or in-cluster as an HTTP server. Typical during POC users start with the local CLI and when rolling into production use a more advanced setup.
+Lightweight, can run as a standalone local CLI or in-cluster as an HTTP server. Typical during POC users start with the local CLI and when rolling into production use a more advanced setup.
 
 **Define any specific service dependencies the project relies on in the cluster.**
 No relevant.
