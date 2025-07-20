@@ -49,7 +49,23 @@ Style guide:
 * Be painfully concise.
 * Leave out "the" and filler words when possible.
 * your answer should ONLY return a json object with the following schema as a result:
-{{ response_format }}
+{
+  "type": "object",
+  "properties": {
+    "root_cause_summary": {
+      "type": "string",
+      "description": "concise short explaination leading to the workload_healthy result, pinpoint reason and root cause for the workload issues if any."
+    },
+    "workload_healthy": {
+      "type": "boolean",
+      "description": "is the workload in healthy state or in error state"
+    }
+  },
+  "required": [
+    "root_cause_summary",
+    "workload_healthy"
+  ]
+}
 
 
 {% if alerts %}
