@@ -346,7 +346,7 @@ class ToolCallingLLM:
                     )
 
                     perf_timing.end(f"- completed in {i} iterations -")
-                    result = LLMResult(
+                    return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
                         tool_calls=tool_calls,
@@ -354,18 +354,13 @@ class ToolCallingLLM:
                         messages=messages,
                     )
 
-                    return result
-
-                # No post-processing and no tool calls - return text response
                 perf_timing.end(f"- completed in {i} iterations -")
-                result = LLMResult(
+                return LLMResult(
                     result=text_response,
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
                 )
-
-                return result
 
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
