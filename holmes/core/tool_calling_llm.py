@@ -347,15 +347,16 @@ class ToolCallingLLM:
                 )
 
             perf_timing.measure("pre-tool-calls")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:
+                for tool_index, t in enumerate(tools_to_call, 1):
                     logging.debug(f"Tool to call: {t}")
                     futures.append(
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,
                             previous_tool_calls=tool_calls,
+                            tool_number=tool_index,
                         )
                     )
 
@@ -367,10 +368,15 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
+                # Add a blank line after all tools in this batch complete
+                if tools_to_call:
+                    logging.info("")
+
     def _invoke_tool(
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
+        tool_number=None,
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = None
@@ -406,7 +412,7 @@ class ToolCallingLLM:
                 tool_calls=previous_tool_calls,
             )
             if not tool_response:
-                tool_response = tool.invoke(tool_params)
+                tool_response = tool.invoke(tool_params, tool_number=tool_number)
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
