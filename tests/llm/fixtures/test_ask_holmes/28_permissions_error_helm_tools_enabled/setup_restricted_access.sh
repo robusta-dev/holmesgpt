@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Ensure TMPDIR is set to avoid creating kubeconfig in wrong location
+if [ -z "$TMPDIR" ]; then
+    echo "Error: TMPDIR is not set"
+    exit 1
+fi
+
 # Create the test namespace
 kubectl create namespace 28-test --dry-run=client -o yaml | kubectl apply -f -
 
@@ -77,8 +83,7 @@ CLUSTER_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster
 CLUSTER_CA=$(kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
 
 # Create predictable temporary directory for kubeconfig (cross-platform)
-TEMP_BASE="${TMPDIR:-/tmp}"
-TEMP_DIR="$TEMP_BASE/holmes-test-28-permissions"
+TEMP_DIR="$TMPDIR/holmes-test-28-permissions"
 mkdir -p "$TEMP_DIR"
 KUBECONFIG_PATH="$TEMP_DIR/restricted-kubeconfig"
 
