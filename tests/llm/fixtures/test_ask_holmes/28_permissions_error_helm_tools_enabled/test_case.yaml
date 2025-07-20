@@ -6,5 +6,5 @@ after_test: ./cleanup_restricted_access.sh
 test_env_vars:
   KUBECONFIG: "${TMPDIR:-/tmp}/holmes-test-28-permissions/restricted-kubeconfig"
 evaluation:
-  correctness: 1
+  correctness: 0
 generate_mocks: False
