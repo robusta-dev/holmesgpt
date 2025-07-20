@@ -231,7 +231,7 @@ class ToolCallingLLM:
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
-        trace_span=None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         return self.call(
             messages, post_process_prompt, response_format, trace_span=trace_span
@@ -245,13 +245,9 @@ class ToolCallingLLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
-        trace_span=None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-
-        # Use DummySpan if no trace_span provided
-        if trace_span is None:
-            trace_span = DummySpan()
 
         try:
             tool_calls = []  # type: ignore
@@ -430,7 +426,7 @@ class ToolCallingLLM:
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
-        trace_span=None,
+        trace_span=DummySpan(),
         tool_number=None,
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
@@ -739,7 +735,7 @@ class ToolCallingLLM:
                             self._invoke_tool,
                             tool_to_call=t,  # type: ignore
                             previous_tool_calls=tool_calls,
-                            trace_span=None,  # Streaming mode doesn't support tracing yet
+                            trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
                             tool_number=tool_index,
                         )
                     )
