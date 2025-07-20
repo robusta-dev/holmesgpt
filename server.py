@@ -51,6 +51,7 @@ from holmes.core.models import (
     WorkloadHealthChatRequest,
     workload_health_structured_output,
 )
+from holmes.core.investigation_structured_output import clear_json_markdown
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
 from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
@@ -225,6 +226,8 @@ def workload_health_check(request: WorkloadHealthRequest):
             HOLMES_POST_PROCESSING_PROMPT,
             workload_health_structured_output,
         )
+
+        ai_call.result = clear_json_markdown(ai_call.result)
 
         return InvestigationResult(
             analysis=ai_call.result,
