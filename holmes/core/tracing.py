@@ -1,7 +1,7 @@
 import os
 import logging
-from typing import Optional, Any, Dict, List, Union
-from abc import ABC, abstractmethod
+from typing import Optional, Any, Union
+from contextlib import contextmanager
 
 try:
     import braintrust
@@ -48,54 +48,7 @@ class DummySpan:
         pass
 
 
-class InvestigationSpanContext:
-    """Context manager for investigation spans that ensures proper cleanup."""
-
-    def __init__(self, tracer: "BraintrustTracer", prompt: str):
-        self.tracer = tracer
-        self.prompt = prompt
-        self.span = None
-
-    def __enter__(self):
-        self.span = self.tracer.start_investigation_span(self.prompt)
-        return self.span
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.span:
-            self.span.end()
-
-
-class BaseTracer(ABC):
-    """Abstract base class for tracing implementations."""
-
-    @abstractmethod
-    def start_investigation_span(self, prompt: str, **kwargs) -> Union[Span, DummySpan]:
-        """Start a root span for an investigation."""
-        pass
-
-    @abstractmethod
-    def start_span(self, name: str, **kwargs) -> Union[Span, DummySpan]:
-        """Start a child span."""
-        pass
-
-    @abstractmethod
-    def log_llm_call(
-        self,
-        span: Union[Span, DummySpan],
-        messages: List[Dict],
-        response: Any,
-        tool_calls: Optional[List] = None,
-    ):
-        """Log an LLM call with its inputs and outputs."""
-        pass
-
-    @abstractmethod
-    def get_trace_url(self) -> Optional[str]:
-        """Get the URL to view the trace."""
-        pass
-
-
-class BraintrustTracer(BaseTracer):
+class BraintrustTracer:
     """Braintrust implementation of tracing."""
 
     def __init__(self, project: str = "HolmesGPT-CLI", experiment=None):
@@ -158,51 +111,6 @@ class BraintrustTracer(BaseTracer):
 
         return DummySpan()
 
-    def log_llm_call(
-        self,
-        span: Union[Span, DummySpan],
-        messages: List[Dict],
-        response: Any,
-        tool_calls: Optional[List] = None,
-    ):
-        """Log an LLM call."""
-        if isinstance(span, DummySpan):
-            return
-
-        # Extract relevant information from response
-        try:
-            response_content = ""
-            if hasattr(response, "choices") and response.choices:
-                response_content = response.choices[0].message.content or ""
-            elif isinstance(response, str):
-                response_content = response
-
-            metadata_dict = {
-                "model": getattr(response, "model", None),
-                "usage": getattr(response, "usage", None),
-                "tool_calls_count": len(tool_calls) if tool_calls else 0,
-            }
-
-            if tool_calls:
-                tool_calls_list = [
-                    {
-                        "name": getattr(tc, "function", {}).get("name", "unknown"),
-                        "description": getattr(tc, "description", ""),
-                    }
-                    for tc in tool_calls
-                ]
-                metadata_dict["tool_calls"] = tool_calls_list
-
-            log_data = {
-                "input": messages,
-                "output": response_content,
-                "metadata": metadata_dict,
-            }
-
-            span.log(**log_data)
-        except Exception as e:
-            logging.warning(f"Failed to log LLM call to trace: {e}")
-
     def get_trace_url(self) -> Optional[str]:
         """Get URL to view the trace in Braintrust."""
         if self.experiment:
@@ -223,9 +131,14 @@ class BraintrustTracer(BaseTracer):
 
         return None
 
+    @contextmanager
     def investigation_span(self, prompt: str):
         """Context manager for investigation spans."""
-        return InvestigationSpanContext(self, prompt)
+        span = self.start_investigation_span(prompt)
+        try:
+            yield span
+        finally:
+            span.end()
 
 
 class TracingFactory:
@@ -264,3 +177,45 @@ class TracingFactory:
 
         logging.warning(f"Unknown trace type: {trace_type}")
         return DummySpan()
+
+
+def log_llm_call(span, messages, full_response, tools=None, tool_choice=None):
+    """Log an LLM call with its inputs and outputs to a span.
+
+    Args:
+        span: The span to log to (can be DummySpan)
+        messages: Input messages to the LLM
+        full_response: LLM response object
+        tools: Available tools (for metadata)
+        tool_choice: Tool choice setting (for metadata)
+    """
+    if isinstance(span, DummySpan):
+        return
+
+    # Extract response content safely
+    response_content = ""
+    try:
+        if hasattr(full_response, "choices") and full_response.choices:
+            choice = full_response.choices[0]
+            if hasattr(choice, "message") and hasattr(choice.message, "content"):
+                response_content = choice.message.content or ""
+    except (AttributeError, IndexError):
+        response_content = ""
+
+    # Build metadata
+    metadata = {
+        "model": getattr(full_response, "model", None),
+        "usage": getattr(full_response, "usage", None),
+    }
+
+    if tools is not None:
+        metadata["tools_available"] = len(tools)
+    if tool_choice is not None:
+        metadata["tool_choice"] = tool_choice
+
+    # Log to span
+    span.log(
+        input=messages,
+        output=response_content,
+        metadata=metadata,
+    )

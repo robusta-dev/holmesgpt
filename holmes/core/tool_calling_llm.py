@@ -39,7 +39,7 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.tracing import DummySpan
+from holmes.core.tracing import DummySpan, log_llm_call
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -290,27 +290,7 @@ class ToolCallingLLM:
                 logging.debug(f"got response {full_response.to_json()}")  # type: ignore
 
                 # Log LLM call to its own span
-                response_content = ""
-                try:
-                    if hasattr(full_response, "choices") and full_response.choices:
-                        choice = full_response.choices[0]
-                        if hasattr(choice, "message") and hasattr(
-                            choice.message, "content"
-                        ):
-                            response_content = choice.message.content or ""
-                except (AttributeError, IndexError):
-                    response_content = ""
-
-                llm_span.log(
-                    input=messages,
-                    output=response_content,
-                    metadata={
-                        "model": getattr(full_response, "model", None),
-                        "usage": getattr(full_response, "usage", None),
-                        "tools_available": len(tools) if tools else 0,
-                        "tool_choice": tool_choice,
-                    },
-                )
+                log_llm_call(llm_span, messages, full_response, tools, tool_choice)
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
