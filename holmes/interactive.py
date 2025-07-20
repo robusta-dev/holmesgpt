@@ -814,6 +814,12 @@ def run_interactive_loop(
             with tracer.investigation_span(
                 user_input or "interactive-query"
             ) as trace_span:
+                # Log the user's question as input to the top-level span
+                trace_span.log(
+                    input=user_input or "interactive-query",
+                    output="",
+                    metadata={"type": "user_question"},
+                )
                 response = ai.call(
                     messages, post_processing_prompt, trace_span=trace_span
                 )

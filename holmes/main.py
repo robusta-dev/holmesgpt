@@ -405,6 +405,10 @@ def ask(
 
     # Use context manager for automatic span lifecycle management
     with tracer.investigation_span(prompt or "holmes-ask") as trace_span:
+        # Log the user's question as input to the top-level span
+        trace_span.log(
+            input=prompt or "holmes-ask", output="", metadata={"type": "user_question"}
+        )
         response = ai.call(messages, post_processing_prompt, trace_span=trace_span)
     messages = response.messages  # type: ignore # Update messages with the full history
 

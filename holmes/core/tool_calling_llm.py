@@ -248,179 +248,171 @@ class ToolCallingLLM:
         trace_span=DummySpan(),
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
+        tool_calls = []  # type: ignore
+        tools = self.tool_executor.get_all_tools_openai_format()
+        perf_timing.measure("get_all_tools_openai_format")
+        max_steps = self.max_steps
+        i = 0
 
-        try:
-            tool_calls = []  # type: ignore
-            tools = self.tool_executor.get_all_tools_openai_format()
-            perf_timing.measure("get_all_tools_openai_format")
-            max_steps = self.max_steps
-            i = 0
+        while i < max_steps:
+            i += 1
+            perf_timing.measure(f"start iteration {i}")
+            logging.debug(f"running iteration {i}")
+            # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
+            tools = None if i == max_steps else tools
+            tool_choice = "auto" if tools else None
 
-            while i < max_steps:
-                i += 1
-                perf_timing.measure(f"start iteration {i}")
-                logging.debug(f"running iteration {i}")
-                # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
-                tools = None if i == max_steps else tools
-                tool_choice = "auto" if tools else None
+            total_tokens = self.llm.count_tokens_for_message(messages)
+            max_context_size = self.llm.get_context_window_size()
+            maximum_output_token = self.llm.get_maximum_output_token()
+            perf_timing.measure("count tokens")
 
-                total_tokens = self.llm.count_tokens_for_message(messages)
-                max_context_size = self.llm.get_context_window_size()
-                maximum_output_token = self.llm.get_maximum_output_token()
-                perf_timing.measure("count tokens")
-
-                if (total_tokens + maximum_output_token) > max_context_size:
-                    logging.warning("Token limit exceeded. Truncating tool responses.")
-                    messages = self.truncate_messages_to_fit_context(
-                        messages, max_context_size, maximum_output_token
-                    )
-                    perf_timing.measure("truncate_messages_to_fit_context")
-
-                logging.debug(f"sending messages={messages}\n\ntools={tools}")
-
-                # Create LLM span for this completion call
-                llm_span = trace_span.start_span(name=f"LLM Call {i}")
-
-                try:
-                    full_response = self.llm.completion(
-                        messages=parse_messages_tags(messages),
-                        tools=tools,
-                        tool_choice=tool_choice,
-                        response_format=response_format,
-                        drop_params=True,
-                    )
-                    logging.debug(f"got response {full_response.to_json()}")  # type: ignore
-
-                    # Log LLM call to its own span
-                    response_content = ""
-                    try:
-                        if hasattr(full_response, "choices") and full_response.choices:
-                            choice = full_response.choices[0]
-                            if hasattr(choice, "message") and hasattr(
-                                choice.message, "content"
-                            ):
-                                response_content = choice.message.content or ""
-                    except (AttributeError, IndexError):
-                        response_content = ""
-
-                    llm_span.log(
-                        input=messages,
-                        output=response_content,
-                        metadata={
-                            "model": getattr(full_response, "model", None),
-                            "usage": getattr(full_response, "usage", None),
-                            "tools_available": len(tools) if tools else 0,
-                            "tool_choice": tool_choice,
-                        },
-                    )
-
-                    perf_timing.measure("llm.completion")
-                # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
-                except BadRequestError as e:
-                    if (
-                        "Unrecognized request arguments supplied: tool_choice, tools"
-                        in str(e)
-                    ):
-                        raise Exception(
-                            "The Azure model you chose is not supported. Model version 1106 and higher required."
-                        )
-                    else:
-                        raise
-                finally:
-                    # End LLM span
-                    llm_span.end()
-
-                response = full_response.choices[0]  # type: ignore
-
-                response_message = response.message  # type: ignore
-                if response_message and response_format:
-                    # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
-                    dict_response = json.loads(full_response.to_json())  # type: ignore
-                    incorrect_tool_call = is_response_an_incorrect_tool_call(
-                        sections, dict_response.get("choices", [{}])[0]
-                    )
-
-                    if incorrect_tool_call:
-                        logging.warning(
-                            "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
-                        )
-                        # disable structured output going forward and and retry
-                        response_format = None
-                        max_steps = max_steps + 1
-                        continue
-
-                new_message = response_message.model_dump(
-                    exclude_defaults=True, exclude_unset=True, exclude_none=True
+            if (total_tokens + maximum_output_token) > max_context_size:
+                logging.warning("Token limit exceeded. Truncating tool responses.")
+                messages = self.truncate_messages_to_fit_context(
+                    messages, max_context_size, maximum_output_token
                 )
-                messages.append(new_message)
+                perf_timing.measure("truncate_messages_to_fit_context")
 
-                tools_to_call = getattr(response_message, "tool_calls", None)
-                text_response = response_message.content
-                if not tools_to_call:
-                    # For chatty models post process and summarize the result
-                    # this only works for calls where user prompt is explicitly passed through
-                    if post_process_prompt and user_prompt:
-                        logging.info("Running post processing on investigation.")
-                        raw_response = text_response
-                        post_processed_response = self._post_processing_call(
-                            prompt=user_prompt,
-                            investigation=raw_response,
-                            user_prompt=post_process_prompt,
+            logging.debug(f"sending messages={messages}\n\ntools={tools}")
+
+            # Create LLM span for this completion call
+            llm_span = trace_span.start_span(name=f"LLM Call {i}")
+
+            try:
+                full_response = self.llm.completion(
+                    messages=parse_messages_tags(messages),
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    response_format=response_format,
+                    drop_params=True,
+                )
+                logging.debug(f"got response {full_response.to_json()}")  # type: ignore
+
+                # Log LLM call to its own span
+                response_content = ""
+                try:
+                    if hasattr(full_response, "choices") and full_response.choices:
+                        choice = full_response.choices[0]
+                        if hasattr(choice, "message") and hasattr(
+                            choice.message, "content"
+                        ):
+                            response_content = choice.message.content or ""
+                except (AttributeError, IndexError):
+                    response_content = ""
+
+                llm_span.log(
+                    input=messages,
+                    output=response_content,
+                    metadata={
+                        "model": getattr(full_response, "model", None),
+                        "usage": getattr(full_response, "usage", None),
+                        "tools_available": len(tools) if tools else 0,
+                        "tool_choice": tool_choice,
+                    },
+                )
+
+                perf_timing.measure("llm.completion")
+            # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
+            except BadRequestError as e:
+                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
+                    e
+                ):
+                    raise Exception(
+                        "The Azure model you chose is not supported. Model version 1106 and higher required."
+                    )
+                else:
+                    raise
+            finally:
+                # End LLM span
+                llm_span.end()
+
+            response = full_response.choices[0]  # type: ignore
+
+            response_message = response.message  # type: ignore
+            if response_message and response_format:
+                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                dict_response = json.loads(full_response.to_json())  # type: ignore
+                incorrect_tool_call = is_response_an_incorrect_tool_call(
+                    sections, dict_response.get("choices", [{}])[0]
+                )
+
+                if incorrect_tool_call:
+                    logging.warning(
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                    )
+                    # disable structured output going forward and and retry
+                    response_format = None
+                    max_steps = max_steps + 1
+                    continue
+
+            new_message = response_message.model_dump(
+                exclude_defaults=True, exclude_unset=True, exclude_none=True
+            )
+            messages.append(new_message)
+
+            tools_to_call = getattr(response_message, "tool_calls", None)
+            text_response = response_message.content
+            if not tools_to_call:
+                # For chatty models post process and summarize the result
+                # this only works for calls where user prompt is explicitly passed through
+                if post_process_prompt and user_prompt:
+                    logging.info("Running post processing on investigation.")
+                    raw_response = text_response
+                    post_processed_response = self._post_processing_call(
+                        prompt=user_prompt,
+                        investigation=raw_response,
+                        user_prompt=post_process_prompt,
+                    )
+
+                    perf_timing.end(f"- completed in {i} iterations -")
+                    result = LLMResult(
+                        result=post_processed_response,
+                        unprocessed_result=raw_response,
+                        tool_calls=tool_calls,
+                        prompt=json.dumps(messages, indent=2),
+                        messages=messages,
+                    )
+
+                    return result
+                else:
+                    # No post-processing and no tool calls - return text response
+                    perf_timing.end(f"- completed in {i} iterations -")
+                    result = LLMResult(
+                        result=text_response,
+                        tool_calls=tool_calls,
+                        prompt=json.dumps(messages, indent=2),
+                        messages=messages,
+                    )
+
+                    return result
+
+            perf_timing.measure("pre-tool-calls")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                futures = []
+                for tool_index, t in enumerate(tools_to_call, 1):
+                    logging.debug(f"Tool to call: {t}")
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,
+                            previous_tool_calls=tool_calls,
+                            trace_span=trace_span,
+                            tool_number=tool_index,
                         )
+                    )
 
-                        perf_timing.end(f"- completed in {i} iterations -")
-                        result = LLMResult(
-                            result=post_processed_response,
-                            unprocessed_result=raw_response,
-                            tool_calls=tool_calls,
-                            prompt=json.dumps(messages, indent=2),
-                            messages=messages,
-                        )
+                for future in concurrent.futures.as_completed(futures):
+                    tool_call_result: ToolCallResult = future.result()
 
-                        return result
-                    else:
-                        # No post-processing and no tool calls - return text response
-                        perf_timing.end(f"- completed in {i} iterations -")
-                        result = LLMResult(
-                            result=text_response,
-                            tool_calls=tool_calls,
-                            prompt=json.dumps(messages, indent=2),
-                            messages=messages,
-                        )
+                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    messages.append(tool_call_result.as_tool_call_message())
 
-                        return result
+                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-                perf_timing.measure("pre-tool-calls")
-                with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-                    futures = []
-                    for tool_index, t in enumerate(tools_to_call, 1):
-                        logging.debug(f"Tool to call: {t}")
-                        futures.append(
-                            executor.submit(
-                                self._invoke_tool,
-                                tool_to_call=t,
-                                previous_tool_calls=tool_calls,
-                                trace_span=trace_span,
-                                tool_number=tool_index,
-                            )
-                        )
-
-                    for future in concurrent.futures.as_completed(futures):
-                        tool_call_result: ToolCallResult = future.result()
-
-                        tool_calls.append(tool_call_result.as_tool_result_response())
-                        messages.append(tool_call_result.as_tool_call_message())
-
-                        perf_timing.measure(
-                            f"tool completed {tool_call_result.tool_name}"
-                        )
-
-                # Add a blank line after all tools in this batch complete
-                if tools_to_call:
-                    logging.info("")
-
-        except Exception:
-            raise
+            # Add a blank line after all tools in this batch complete
+            if tools_to_call:
+                logging.info("")
 
     def _invoke_tool(
         self,
