@@ -60,12 +60,12 @@ class PodLoggingTool(Tool):
                     description="Kubernetes namespace", type="string", required=True
                 ),
                 "start_time": ToolParameter(
-                    description="Start time for logs. Can be an RFC3339 formatted timestamp (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
+                    description="Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
                     type="string",
                     required=False,
                 ),
                 "end_time": ToolParameter(
-                    description="End time for logs. Must be an RFC3339 formatted timestamp (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
+                    description="End time for logs. Must be an RFC3339 formatted datetime (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
                     type="string",
                     required=False,
                 ),
