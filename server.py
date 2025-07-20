@@ -215,6 +215,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             context={
                 "alerts": workload_alerts,
                 "toolsets": ai.tool_executor.toolsets,
+                "response_format": workload_health_structured_output,
             },
         )
 
