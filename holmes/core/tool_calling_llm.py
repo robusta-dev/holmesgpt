@@ -283,13 +283,7 @@ class ToolCallingLLM:
                 logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
                 # Create LLM span for this completion call
-                llm_span = None
-                if trace_span and hasattr(trace_span, "start_span"):
-                    try:
-                        llm_span = trace_span.start_span(name=f"LLM Call {i}")
-                    except Exception:
-                        # If span creation fails, continue without tracing
-                        llm_span = None
+                llm_span = trace_span.start_span(name=f"LLM Call {i}")
 
                 try:
                     full_response = self.llm.completion(
@@ -302,35 +296,27 @@ class ToolCallingLLM:
                     logging.debug(f"got response {full_response.to_json()}")  # type: ignore
 
                     # Log LLM call to its own span
-                    if llm_span:
-                        try:
-                            response_content = ""
-                            try:
-                                if (
-                                    hasattr(full_response, "choices")
-                                    and full_response.choices
-                                ):
-                                    choice = full_response.choices[0]
-                                    if hasattr(choice, "message") and hasattr(
-                                        choice.message, "content"
-                                    ):
-                                        response_content = choice.message.content or ""
-                            except (AttributeError, IndexError):
-                                response_content = ""
+                    response_content = ""
+                    try:
+                        if hasattr(full_response, "choices") and full_response.choices:
+                            choice = full_response.choices[0]
+                            if hasattr(choice, "message") and hasattr(
+                                choice.message, "content"
+                            ):
+                                response_content = choice.message.content or ""
+                    except (AttributeError, IndexError):
+                        response_content = ""
 
-                            llm_span.log(
-                                input=messages,
-                                output=response_content,
-                                metadata={
-                                    "model": getattr(full_response, "model", None),
-                                    "usage": getattr(full_response, "usage", None),
-                                    "tools_available": len(tools) if tools else 0,
-                                    "tool_choice": tool_choice,
-                                },
-                            )
-                        except Exception:
-                            # If logging fails, continue without logging
-                            pass
+                    llm_span.log(
+                        input=messages,
+                        output=response_content,
+                        metadata={
+                            "model": getattr(full_response, "model", None),
+                            "usage": getattr(full_response, "usage", None),
+                            "tools_available": len(tools) if tools else 0,
+                            "tool_choice": tool_choice,
+                        },
+                    )
 
                     perf_timing.measure("llm.completion")
                 # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -346,12 +332,7 @@ class ToolCallingLLM:
                         raise
                 finally:
                     # End LLM span
-                    if llm_span:
-                        try:
-                            llm_span.end()
-                        except Exception:
-                            # If span ending fails, continue
-                            pass
+                    llm_span.end()
 
                 response = full_response.choices[0]  # type: ignore
 
@@ -481,13 +462,7 @@ class ToolCallingLLM:
         tool_response = None
 
         # Create tool span if tracing is enabled
-        tool_span = None
-        if trace_span and hasattr(trace_span, "start_span"):
-            try:
-                tool_span = trace_span.start_span(name=tool_name)
-            except Exception:
-                # If span creation fails, continue without tracing
-                tool_span = None
+        tool_span = trace_span.start_span(name=tool_name)
 
         try:
             tool_response = prevent_overly_repeated_tool_call(
@@ -510,19 +485,14 @@ class ToolCallingLLM:
                 )
 
             # Log tool execution to trace span
-            if tool_span:
-                try:
-                    tool_span.log(
-                        input=tool_params,
-                        output=tool_response.data,
-                        metadata={
-                            "status": tool_response.status.value,
-                            "error": tool_response.error,
-                        },
-                    )
-                except Exception:
-                    # If logging fails, continue without logging
-                    pass
+            tool_span.log(
+                input=tool_params,
+                output=tool_response.data,
+                metadata={
+                    "status": tool_response.status.value,
+                    "error": tool_response.error,
+                },
+            )
 
         except Exception as e:
             logging.error(
@@ -535,22 +505,12 @@ class ToolCallingLLM:
             )
 
             # Log error to trace span
-            if tool_span:
-                try:
-                    tool_span.log(
-                        input=tool_params, output=str(e), metadata={"status": "ERROR"}
-                    )
-                except Exception:
-                    # If logging fails, continue without logging
-                    pass
+            tool_span.log(
+                input=tool_params, output=str(e), metadata={"status": "ERROR"}
+            )
         finally:
             # End tool span
-            if tool_span:
-                try:
-                    tool_span.end()
-                except Exception:
-                    # If span ending fails, continue
-                    pass
+            tool_span.end()
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
