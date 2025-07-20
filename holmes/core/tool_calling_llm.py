@@ -410,9 +410,9 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-            # Add a blank line after all tools in this batch complete
-            if tools_to_call:
-                logging.info("")
+                # Add a blank line after all tools in this batch complete
+                if tools_to_call:
+                    logging.info("")
 
     def _invoke_tool(
         self,
