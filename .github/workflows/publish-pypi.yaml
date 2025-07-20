@@ -1,0 +1,33 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
+        poetry config virtualenvs.create false
+
+    - name: Update package version
+      run: |
+        sed -i 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
+        sed -i 's/version = "0.0.0"/version = "${{ github.ref_name }}"/g' pyproject.toml
+
+    - name: Install dependencies
+      run: poetry install --no-root
+
+    - name: Publish to PyPI
+      run: poetry publish --build -u __token__ -p ${{ secrets.PYPI_TOKEN }}

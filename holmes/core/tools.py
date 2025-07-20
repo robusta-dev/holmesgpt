@@ -152,7 +152,7 @@ class Tool(ABC, BaseModel):
             else str(result)
         )
         logging.info(
-            f"  [dim]Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters[/dim]\n"
+            f"  [dim]Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters - /show to view contents[/dim]\n"
         )
         return result
 
@@ -370,7 +370,7 @@ class Toolset(BaseModel):
             exclude_unset=True,
             exclude=("name"),  # type: ignore
         ).items():
-            if field in self.model_fields and value not in (None, [], {}, ""):
+            if field in self.__class__.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
 
     @model_validator(mode="before")

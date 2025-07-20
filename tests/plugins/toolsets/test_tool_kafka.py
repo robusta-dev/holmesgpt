@@ -21,10 +21,10 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 FIXTURE_FOLDER = os.path.join(dir_path, "fixtures", "test_tool_kafka")
 KAFKA_BOOTSTRAP_SERVER = os.environ.get("KAFKA_BOOTSTRAP_SERVER")
 
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("KAFKA_BOOTSTRAP_SERVER"),
-    reason="missing env KAFKA_BOOTSTRAP_SERVER",
-)
+# Use pytest.mark.skip (not skipif) to show a single grouped skip line for the entire module
+# Will show: "SKIPPED [7] module.py: reason" instead of 7 separate skip lines
+if not os.environ.get("KAFKA_BOOTSTRAP_SERVER"):
+    pytestmark = pytest.mark.skip(reason="KAFKA_BOOTSTRAP_SERVER must be set")
 
 kafka_config = {
     "kafka_clusters": [
