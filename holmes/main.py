@@ -40,6 +40,7 @@ from holmes.core.tools import pretty_print_toolset_status
 from holmes.interactive import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
+from holmes.core.tracing import TracingFactory
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes.utils.file_utils import write_json_file
@@ -328,6 +329,11 @@ def ask(
         "--refresh-toolsets",
         help="Refresh the toolsets status",
     ),
+    trace: Optional[str] = typer.Option(
+        None,
+        "--trace",
+        help="Enable tracing to the specified provider (e.g., 'braintrust')",
+    ),
 ):
     """
     Ask any question and answer using available tools
@@ -342,6 +348,9 @@ def ask(
         slack_token=slack_token,
         slack_channel=slack_channel,
     )
+
+    # Create tracer if trace option is provided
+    tracer = TracingFactory.create_tracer(trace, context="cli")
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
@@ -383,6 +392,7 @@ def ask(
             include_file,
             post_processing_prompt,
             show_tool_output,
+            tracer,
         )
         return
 
@@ -393,7 +403,9 @@ def ask(
         include_file,
     )
 
-    response = ai.call(messages, post_processing_prompt)
+    # Use context manager for automatic span lifecycle management
+    with tracer.investigation_span(prompt or "holmes-ask") as trace_span:
+        response = ai.call(messages, post_processing_prompt, trace_span=trace_span)
     messages = response.messages  # type: ignore # Update messages with the full history
 
     if json_output_file:
@@ -415,6 +427,11 @@ def ask(
         show_tool_output,
         False,  # type: ignore
     )
+
+    # Display trace URL after AI response is shown to user
+    trace_url = tracer.get_trace_url()
+    if trace_url:
+        console.print(f"🔍 View trace: {trace_url}")
 
 
 @investigate_app.command()

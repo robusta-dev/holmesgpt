@@ -27,6 +27,7 @@ from rich.markdown import Markdown, Panel
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.tracing import DummySpan
 
 
 class SlashCommands(Enum):
@@ -645,7 +646,12 @@ def run_interactive_loop(
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
+    tracer=None,
 ) -> None:
+    # Initialize tracer - use DummySpan if no tracer provided
+    if tracer is None:
+        tracer = DummySpan()
+
     style = Style.from_dict(
         {
             "prompt": USER_COLOR,
@@ -804,11 +810,16 @@ def run_interactive_loop(
                 messages.append({"role": "user", "content": user_input})
 
             console.print(f"\n[bold {AI_COLOR}]Thinking...[/bold {AI_COLOR}]\n")
-            response = ai.call(messages, post_processing_prompt)
+
+            with tracer.investigation_span(
+                user_input or "interactive-query"
+            ) as trace_span:
+                response = ai.call(
+                    messages, post_processing_prompt, trace_span=trace_span
+                )
             messages = response.messages  # type: ignore
             last_response = response
 
-            # Add tool calls to history
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
 
@@ -825,6 +836,11 @@ def run_interactive_loop(
                     title_align="left",
                 )
             )
+
+            trace_url = tracer.get_trace_url()
+            if trace_url:
+                console.print(f"🔍 View trace: {trace_url}")
+
             console.print("")
         except typer.Abort:
             break

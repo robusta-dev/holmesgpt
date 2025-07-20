@@ -39,6 +39,7 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
+from holmes.core.tracing import DummySpan
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -230,8 +231,11 @@ class ToolCallingLLM:
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        trace_span=None,
     ) -> LLMResult:
-        return self.call(messages, post_process_prompt, response_format)
+        return self.call(
+            messages, post_process_prompt, response_format, trace_span=trace_span
+        )
 
     @sentry_sdk.trace
     def call(  # type: ignore
@@ -241,136 +245,212 @@ class ToolCallingLLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=None,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls = []  # type: ignore
-        tools = self.tool_executor.get_all_tools_openai_format()
-        perf_timing.measure("get_all_tools_openai_format")
-        max_steps = self.max_steps
-        i = 0
 
-        while i < max_steps:
-            i += 1
-            perf_timing.measure(f"start iteration {i}")
-            logging.debug(f"running iteration {i}")
-            # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
-            tools = None if i == max_steps else tools
-            tool_choice = "auto" if tools else None
+        # Use DummySpan if no trace_span provided
+        if trace_span is None:
+            trace_span = DummySpan()
 
-            total_tokens = self.llm.count_tokens_for_message(messages)
-            max_context_size = self.llm.get_context_window_size()
-            maximum_output_token = self.llm.get_maximum_output_token()
-            perf_timing.measure("count tokens")
+        try:
+            tool_calls = []  # type: ignore
+            tools = self.tool_executor.get_all_tools_openai_format()
+            perf_timing.measure("get_all_tools_openai_format")
+            max_steps = self.max_steps
+            i = 0
 
-            if (total_tokens + maximum_output_token) > max_context_size:
-                logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(
-                    messages, max_context_size, maximum_output_token
-                )
-                perf_timing.measure("truncate_messages_to_fit_context")
+            while i < max_steps:
+                i += 1
+                perf_timing.measure(f"start iteration {i}")
+                logging.debug(f"running iteration {i}")
+                # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
+                tools = None if i == max_steps else tools
+                tool_choice = "auto" if tools else None
 
-            logging.debug(f"sending messages={messages}\n\ntools={tools}")
-            try:
-                full_response = self.llm.completion(
-                    messages=parse_messages_tags(messages),
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    response_format=response_format,
-                    drop_params=True,
-                )
-                logging.debug(f"got response {full_response.to_json()}")  # type: ignore
+                total_tokens = self.llm.count_tokens_for_message(messages)
+                max_context_size = self.llm.get_context_window_size()
+                maximum_output_token = self.llm.get_maximum_output_token()
+                perf_timing.measure("count tokens")
 
-                perf_timing.measure("llm.completion")
-            # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
-            except BadRequestError as e:
-                if "Unrecognized request arguments supplied: tool_choice, tools" in str(
-                    e
-                ):
-                    raise Exception(
-                        "The Azure model you chose is not supported. Model version 1106 and higher required."
+                if (total_tokens + maximum_output_token) > max_context_size:
+                    logging.warning("Token limit exceeded. Truncating tool responses.")
+                    messages = self.truncate_messages_to_fit_context(
+                        messages, max_context_size, maximum_output_token
                     )
-                else:
-                    raise
-            response = full_response.choices[0]  # type: ignore
+                    perf_timing.measure("truncate_messages_to_fit_context")
 
-            response_message = response.message  # type: ignore
-            if response_message and response_format:
-                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
-                dict_response = json.loads(full_response.to_json())  # type: ignore
-                incorrect_tool_call = is_response_an_incorrect_tool_call(
-                    sections, dict_response.get("choices", [{}])[0]
-                )
+                logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
-                if incorrect_tool_call:
-                    logging.warning(
-                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                # Create LLM span for this completion call
+                llm_span = None
+                if trace_span and hasattr(trace_span, "start_span"):
+                    try:
+                        llm_span = trace_span.start_span(name=f"LLM Call {i}")
+                    except Exception:
+                        # If span creation fails, continue without tracing
+                        llm_span = None
+
+                try:
+                    full_response = self.llm.completion(
+                        messages=parse_messages_tags(messages),
+                        tools=tools,
+                        tool_choice=tool_choice,
+                        response_format=response_format,
+                        drop_params=True,
                     )
-                    # disable structured output going forward and and retry
-                    response_format = None
-                    max_steps = max_steps + 1
-                    continue
+                    logging.debug(f"got response {full_response.to_json()}")  # type: ignore
 
-            new_message = response_message.model_dump(
-                exclude_defaults=True, exclude_unset=True, exclude_none=True
-            )
-            messages.append(new_message)
+                    # Log LLM call to its own span
+                    if llm_span:
+                        try:
+                            response_content = ""
+                            try:
+                                if (
+                                    hasattr(full_response, "choices")
+                                    and full_response.choices
+                                ):
+                                    choice = full_response.choices[0]
+                                    if hasattr(choice, "message") and hasattr(
+                                        choice.message, "content"
+                                    ):
+                                        response_content = choice.message.content or ""
+                            except (AttributeError, IndexError):
+                                response_content = ""
 
-            tools_to_call = getattr(response_message, "tool_calls", None)
-            text_response = response_message.content
-            if not tools_to_call:
-                # For chatty models post process and summarize the result
-                # this only works for calls where user prompt is explicitly passed through
-                if post_process_prompt and user_prompt:
-                    logging.info("Running post processing on investigation.")
-                    raw_response = text_response
-                    post_processed_response = self._post_processing_call(
-                        prompt=user_prompt,
-                        investigation=raw_response,
-                        user_prompt=post_process_prompt,
-                    )
+                            llm_span.log(
+                                input=messages,
+                                output=response_content,
+                                metadata={
+                                    "model": getattr(full_response, "model", None),
+                                    "usage": getattr(full_response, "usage", None),
+                                    "tools_available": len(tools) if tools else 0,
+                                    "tool_choice": tool_choice,
+                                },
+                            )
+                        except Exception:
+                            # If logging fails, continue without logging
+                            pass
 
-                    perf_timing.end(f"- completed in {i} iterations -")
-                    return LLMResult(
-                        result=post_processed_response,
-                        unprocessed_result=raw_response,
-                        tool_calls=tool_calls,
-                        prompt=json.dumps(messages, indent=2),
-                        messages=messages,
-                    )
-
-                perf_timing.end(f"- completed in {i} iterations -")
-                return LLMResult(
-                    result=text_response,
-                    tool_calls=tool_calls,
-                    prompt=json.dumps(messages, indent=2),
-                    messages=messages,
-                )
-
-            perf_timing.measure("pre-tool-calls")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                futures = []
-                for t in tools_to_call:
-                    logging.debug(f"Tool to call: {t}")
-                    futures.append(
-                        executor.submit(
-                            self._invoke_tool,
-                            tool_to_call=t,
-                            previous_tool_calls=tool_calls,
+                    perf_timing.measure("llm.completion")
+                # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
+                except BadRequestError as e:
+                    if (
+                        "Unrecognized request arguments supplied: tool_choice, tools"
+                        in str(e)
+                    ):
+                        raise Exception(
+                            "The Azure model you chose is not supported. Model version 1106 and higher required."
                         )
+                    else:
+                        raise
+                finally:
+                    # End LLM span
+                    if llm_span:
+                        try:
+                            llm_span.end()
+                        except Exception:
+                            # If span ending fails, continue
+                            pass
+
+                response = full_response.choices[0]  # type: ignore
+
+                response_message = response.message  # type: ignore
+                if response_message and response_format:
+                    # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                    dict_response = json.loads(full_response.to_json())  # type: ignore
+                    incorrect_tool_call = is_response_an_incorrect_tool_call(
+                        sections, dict_response.get("choices", [{}])[0]
                     )
 
-                for future in concurrent.futures.as_completed(futures):
-                    tool_call_result: ToolCallResult = future.result()
+                    if incorrect_tool_call:
+                        logging.warning(
+                            "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                        )
+                        # disable structured output going forward and and retry
+                        response_format = None
+                        max_steps = max_steps + 1
+                        continue
 
-                    tool_calls.append(tool_call_result.as_tool_result_response())
-                    messages.append(tool_call_result.as_tool_call_message())
+                new_message = response_message.model_dump(
+                    exclude_defaults=True, exclude_unset=True, exclude_none=True
+                )
+                messages.append(new_message)
 
-                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+                tools_to_call = getattr(response_message, "tool_calls", None)
+                text_response = response_message.content
+                if not tools_to_call:
+                    # For chatty models post process and summarize the result
+                    # this only works for calls where user prompt is explicitly passed through
+                    if post_process_prompt and user_prompt:
+                        logging.info("Running post processing on investigation.")
+                        raw_response = text_response
+                        post_processed_response = self._post_processing_call(
+                            prompt=user_prompt,
+                            investigation=raw_response,
+                            user_prompt=post_process_prompt,
+                        )
+
+                        perf_timing.end(f"- completed in {i} iterations -")
+                        result = LLMResult(
+                            result=post_processed_response,
+                            unprocessed_result=raw_response,
+                            tool_calls=tool_calls,
+                            prompt=json.dumps(messages, indent=2),
+                            messages=messages,
+                        )
+
+                        return result
+                    else:
+                        # No post-processing and no tool calls - return text response
+                        perf_timing.end(f"- completed in {i} iterations -")
+                        result = LLMResult(
+                            result=text_response,
+                            tool_calls=tool_calls,
+                            prompt=json.dumps(messages, indent=2),
+                            messages=messages,
+                        )
+
+                        return result
+
+                perf_timing.measure("pre-tool-calls")
+                with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+                    futures = []
+                    for tool_index, t in enumerate(tools_to_call, 1):
+                        logging.debug(f"Tool to call: {t}")
+                        futures.append(
+                            executor.submit(
+                                self._invoke_tool,
+                                tool_to_call=t,
+                                previous_tool_calls=tool_calls,
+                                trace_span=trace_span,
+                                tool_number=tool_index,
+                            )
+                        )
+
+                    for future in concurrent.futures.as_completed(futures):
+                        tool_call_result: ToolCallResult = future.result()
+
+                        tool_calls.append(tool_call_result.as_tool_result_response())
+                        messages.append(tool_call_result.as_tool_call_message())
+
+                        perf_timing.measure(
+                            f"tool completed {tool_call_result.tool_name}"
+                        )
+
+                # Add a blank line after all tools in this batch complete
+                if tools_to_call:
+                    logging.info("")
+
+        except Exception:
+            raise
 
     def _invoke_tool(
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
+        trace_span=None,
+        tool_number=None,
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = None
@@ -399,6 +479,16 @@ class ToolCallingLLM:
             )
 
         tool_response = None
+
+        # Create tool span if tracing is enabled
+        tool_span = None
+        if trace_span and hasattr(trace_span, "start_span"):
+            try:
+                tool_span = trace_span.start_span(name=tool_name)
+            except Exception:
+                # If span creation fails, continue without tracing
+                tool_span = None
+
         try:
             tool_response = prevent_overly_repeated_tool_call(
                 tool_name=tool.name,
@@ -406,7 +496,7 @@ class ToolCallingLLM:
                 tool_calls=previous_tool_calls,
             )
             if not tool_response:
-                tool_response = tool.invoke(tool_params)
+                tool_response = tool.invoke(tool_params, tool_number=tool_number)
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
@@ -419,6 +509,21 @@ class ToolCallingLLM:
                     params=tool_params,
                 )
 
+            # Log tool execution to trace span
+            if tool_span:
+                try:
+                    tool_span.log(
+                        input=tool_params,
+                        output=tool_response.data,
+                        metadata={
+                            "status": tool_response.status.value,
+                            "error": tool_response.error,
+                        },
+                    )
+                except Exception:
+                    # If logging fails, continue without logging
+                    pass
+
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -428,6 +533,24 @@ class ToolCallingLLM:
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
+
+            # Log error to trace span
+            if tool_span:
+                try:
+                    tool_span.log(
+                        input=tool_params, output=str(e), metadata={"status": "ERROR"}
+                    )
+                except Exception:
+                    # If logging fails, continue without logging
+                    pass
+        finally:
+            # End tool span
+            if tool_span:
+                try:
+                    tool_span.end()
+                except Exception:
+                    # If span ending fails, continue
+                    pass
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -650,12 +773,14 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:  # type: ignore
+                for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
                     futures.append(
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,  # type: ignore
                             previous_tool_calls=tool_calls,
+                            trace_span=None,  # Streaming mode doesn't support tracing yet
+                            tool_number=tool_index,
                         )
                     )
                     yield create_sse_message(

@@ -171,7 +171,6 @@ def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLM
         generate_mocks=test_case.generate_mocks,
         test_case_folder=test_case.folder,
         run_live=run_live,
-        parent_span=parent_span,
     )
 
     expected_tools = []
@@ -194,4 +193,4 @@ def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLM
     messages = build_chat_messages(
         ask=chat_request.ask, conversation_history=test_case.conversation_history, ai=ai
     )
-    return ai.messages_call(messages=messages)
+    return ai.messages_call(messages=messages, trace_span=parent_span)
