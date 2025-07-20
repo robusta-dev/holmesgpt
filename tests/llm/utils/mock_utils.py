@@ -62,6 +62,7 @@ class HolmesTestCase(BaseModel):
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
     user_prompt: str  # The user's question to ask holmes
+    cluster_name: Optional[str] = None
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
 
 
