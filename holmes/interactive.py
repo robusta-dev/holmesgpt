@@ -27,6 +27,7 @@ from rich.markdown import Markdown, Panel
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
+from holmes.version import check_version_async
 
 
 class SlashCommands(Enum):
@@ -662,6 +663,23 @@ def run_interactive_loop(
     # Create custom key bindings for Ctrl+C behavior
     bindings = KeyBindings()
     status_message = ""
+    version_message = ""
+
+    def clear_version_message():
+        nonlocal version_message
+        version_message = ""
+        session.app.invalidate()
+
+    def on_version_check_complete(result):
+        """Callback when background version check completes"""
+        nonlocal version_message
+        if not result.is_latest and result.update_message:
+            version_message = result.update_message
+            session.app.invalidate()
+
+            # Auto-clear after 10 seconds
+            timer = threading.Timer(10, clear_version_message)
+            timer.start()
 
     @bindings.add("c-c")
     def _(event):
@@ -685,9 +703,19 @@ def run_interactive_loop(
             raise KeyboardInterrupt()
 
     def get_bottom_toolbar():
+        messages = []
+
+        # Ctrl-c status message (red background)
         if status_message:
-            return [("bg:#ff0000 fg:#000000", status_message)]
-        return None
+            messages.append(("bg:#ff0000 fg:#000000", status_message))
+
+        # Version message (yellow background)
+        if version_message:
+            if messages:
+                messages.append(("", " | "))
+            messages.append(("bg:#ffff00 fg:#000000", version_message))
+
+        return messages if messages else None
 
     session = PromptSession(
         completer=command_completer,
@@ -697,6 +725,9 @@ def run_interactive_loop(
         key_bindings=bindings,
         bottom_toolbar=get_bottom_toolbar,
     )  # type: ignore
+
+    # Start background version check
+    check_version_async(on_version_check_complete)
 
     input_prompt = [("class:prompt", "User: ")]
 
