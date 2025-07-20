@@ -25,6 +25,8 @@
 
 **MANDATORY REPORT FORMAT**: After executing all queries, you MUST generate the complete executive report exactly as shown in the Executive Report Template section below. Use the exact format with tables, competitive analysis, and structured sections. Do NOT provide brief bullet points or summaries - ALWAYS generate the full structured report with all sections.
 
+**CRITICAL TIMESTAMP REQUIREMENT**: When generating the report, you MUST replace `{CURRENT_UTC_TIMESTAMP}` with the actual current UTC timestamp in ISO 8601 format (e.g., 2025-07-20T17:16:00Z). DO NOT use any hardcoded or old dates - always use the current date and time.
+
 **REQUIRED SECTIONS**: Your response MUST include:
 1. Complete header with "🤖 AI-GENERATED AZURE MONITOR LOGS COST OPTIMIZATION REPORT"
 2. Cost Overview table with Current/Optimized/Savings columns
@@ -287,7 +289,7 @@ Present findings using this structure:
 
 ```
 🤖 AI-GENERATED AZURE MONITOR LOGS COST OPTIMIZATION REPORT
-📅 Analysis Date: {UTC_TIMESTAMP}
+📅 Analysis Date: {CURRENT_UTC_TIMESTAMP}
 
 ## 📊 COST OVERVIEW
 | Metric | Current | Optimized | Savings | Status |
