@@ -57,6 +57,7 @@ theme:
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - glightbox
   # - git-revision-date-localized:
   #     enable_creation_date: true
   #     type: timeago
@@ -134,6 +135,7 @@ nav:
 
   - Walkthrough:
       - walkthrough/index.md
+      - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
 
   - AI Providers:
       - ai-providers/index.md
