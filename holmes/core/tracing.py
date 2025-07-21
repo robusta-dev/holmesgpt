@@ -25,9 +25,6 @@ class DummySpan:
     def start_span(self, *args, **kwargs):
         return self
 
-    def start_investigation_span(self, *args, **kwargs):
-        return self
-
     def log(self, *args, **kwargs):
         pass
 
@@ -65,7 +62,9 @@ class BraintrustTracer:
         else:
             self._should_create_experiment = False
 
-    def start_investigation_span(self, prompt: str, **kwargs) -> Union[Span, DummySpan]:
+    def _start_investigation_span(
+        self, prompt: str, **kwargs
+    ) -> Union[Span, DummySpan]:
         """Start a root investigation span."""
         if not os.environ.get("BRAINTRUST_API_KEY"):
             return DummySpan()
@@ -134,7 +133,7 @@ class BraintrustTracer:
     @contextmanager
     def investigation_span(self, prompt: str):
         """Context manager for investigation spans."""
-        span = self.start_investigation_span(prompt)
+        span = self._start_investigation_span(prompt)
         try:
             yield span
         finally:
