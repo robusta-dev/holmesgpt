@@ -196,54 +196,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if not hasattr(terminalreporter, "stats"):
         return
 
-    # Collect test results from terminalreporter.stats
-    test_results = _collect_test_results_from_stats(terminalreporter)
+    # Collect and sort test results from terminalreporter.stats
+    sorted_results = _collect_test_results_from_stats(terminalreporter)
 
-    if not test_results:
+    if not sorted_results:
         return
 
-    # Generate markdown report and get sorted results
-    markdown, sorted_results, total_regressions = _generate_markdown_report(
-        test_results
-    )
+    # Handle GitHub/CI output (markdown + file writing)
+    _handle_github_output(sorted_results)
 
-    # Write report files if Braintrust is configured
-    _write_report_files(markdown, total_regressions)
-
-    # Print rich summary table for developer experience
-    if sorted_results:
-        # Convert dict format to TestResult objects for Rich table
-        test_results = {}
-        for result in sorted_results:
-            # Determine pass/fail status
-            actual_score = int(result["actual_correctness_score"])
-            pass_fail = "✅ PASS" if actual_score == 1 else "❌ FAIL"
-
-            # Create TestResult object
-            test_result = TestResult(
-                test_id=result["test_id"],
-                test_name=result["test_name"],
-                expected=result["expected"],
-                actual=result["actual"],
-                pass_fail=pass_fail,
-                tools_called=result["tools_called"],
-                logs="",  # We don't have logs in this context
-                test_type=result["test_type"],
-                error_message=None,
-                execution_time=result.get("execution_time"),
-                expected_correctness_score=result["expected_correctness_score"],
-                actual_correctness_score=result["actual_correctness_score"],
-            )
-
-            # Use a unique key
-            key = f"{result['test_type']}_{result['test_id']}_{result['test_name']}"
-            test_results[key] = test_result
-
-        # Print the Rich table
-        _print_summary_table(test_results)
-
-    # Print Braintrust links if enabled
-    _print_braintrust_links(sorted_results)
+    # Handle console/developer output (Rich table + Braintrust links)
+    _handle_console_output(sorted_results)
 
 
 def markdown_table(headers, rows):
@@ -306,7 +269,17 @@ def _collect_test_results_from_stats(terminalreporter):
                 "execution_time": getattr(report, "duration", None),
             }
 
-    return test_results
+    # Sort results by test_type then test_id for consistent ordering
+    sorted_results = sorted(
+        test_results.values(),
+        key=lambda r: (
+            r["test_type"],
+            int(r["test_id"]) if r["test_id"].isdigit() else 999,
+            r["test_name"],
+        ),
+    )
+
+    return sorted_results
 
 
 def _get_braintrust_url(result):
@@ -333,15 +306,15 @@ def _get_braintrust_url(result):
     )
 
 
-def _generate_markdown_report(test_results):
-    """Generate markdown report from test results."""
+def _generate_markdown_report(sorted_results):
+    """Generate markdown report from sorted test results."""
     markdown = "## Results of HolmesGPT evals\n\n"
 
     # Count results by test type and status using proper regression logic
     ask_holmes_total = ask_holmes_passed = ask_holmes_regressions = 0
     investigate_total = investigate_passed = investigate_regressions = 0
 
-    for result in test_results.values():
+    for result in sorted_results:
         actual_score = int(result["actual_correctness_score"])
         expected_score = int(result["expected_correctness_score"])
 
@@ -369,16 +342,6 @@ def _generate_markdown_report(test_results):
         markdown += f"- ask_holmes: {ask_holmes_passed}/{ask_holmes_total} test cases were successful, {ask_holmes_regressions} regressions\n"
     if investigate_total > 0:
         markdown += f"- investigate: {investigate_passed}/{investigate_total} test cases were successful, {investigate_regressions} regressions\n"
-
-    # Sort results by test_type then test_id for consistent ordering
-    sorted_results = sorted(
-        test_results.values(),
-        key=lambda r: (
-            r["test_type"],
-            int(r["test_id"]) if r["test_id"].isdigit() else 999,
-            r["test_name"],
-        ),
-    )
 
     # Generate detailed table
     markdown += "\n\n| Test suite | Test case | Status |\n"
@@ -415,8 +378,12 @@ def _generate_markdown_report(test_results):
     return markdown, sorted_results, ask_holmes_regressions + investigate_regressions
 
 
-def _write_report_files(markdown, total_regressions):
-    """Write report files if Braintrust is configured."""
+def _handle_github_output(sorted_results):
+    """Generate and write GitHub Actions report files."""
+    # Generate markdown report
+    markdown, _, total_regressions = _generate_markdown_report(sorted_results)
+
+    # Write report files if Braintrust is configured
     braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
     if braintrust_api_key:
         with open("evals_report.txt", "w", encoding="utf-8") as file:
@@ -464,27 +431,13 @@ def _extract_test_name_from_nodeid(nodeid: str) -> str:
     return nodeid.split("::")[-1] if "::" in nodeid else nodeid
 
 
-def _print_braintrust_links(sorted_results):
-    """Print Braintrust evaluation links if Braintrust is enabled."""
-    if not os.environ.get("BRAINTRUST_API_KEY"):
+def _handle_console_output(sorted_results):
+    """Display Rich table and Braintrust links for developers."""
+    if not sorted_results:
         return
 
-    print("🔍 BRAINTRUST EVAL LINKS:")
-
-    for result in sorted_results:
-        braintrust_url = _get_braintrust_url(result)
-        if braintrust_url:
-            print(
-                f"* {result['test_id']}_{result['test_name']} "
-                f"({result['test_type']}) - {braintrust_url}"
-            )
-    print(DEBUG_SEPARATOR)
-
-
-def _print_summary_table(test_results):
-    """Print formatted summary table using Rich."""
+    # Create Rich table
     console = Console()
-
     table = Table(
         title="🔍 HOLMES TESTS SUMMARY",
         show_header=True,
@@ -500,34 +453,62 @@ def _print_summary_table(test_results):
     table.add_column("Actual", style="yellow", width=35)
     table.add_column("Analysis", style="red", width=40)
 
-    for result in test_results.values():
+    # Add rows to table
+    for result in sorted_results:
+        # Determine pass/fail status
+        actual_score = int(result["actual_correctness_score"])
+        pass_fail = "✅ PASS" if actual_score == 1 else "❌ FAIL"
+
+        # Create TestResult object for analysis function
+        test_result = TestResult(
+            test_id=result["test_id"],
+            test_name=result["test_name"],
+            expected=result["expected"],
+            actual=result["actual"],
+            pass_fail=pass_fail,
+            tools_called=result["tools_called"],
+            logs="",  # We don't have logs in this context
+            test_type=result["test_type"],
+            error_message=None,
+            execution_time=result.get("execution_time"),
+            expected_correctness_score=result["expected_correctness_score"],
+            actual_correctness_score=result["actual_correctness_score"],
+        )
+
         # Wrap long content for table readability
         expected_wrapped = (
-            "\n".join(textwrap.wrap(result.expected, width=33))
-            if result.expected
+            "\n".join(textwrap.wrap(result["expected"], width=33))
+            if result["expected"]
             else ""
         )
         actual_wrapped = (
-            "\n".join(textwrap.wrap(result.actual, width=33)) if result.actual else ""
+            "\n".join(textwrap.wrap(result["actual"], width=33))
+            if result["actual"]
+            else ""
         )
 
         # Combine test ID and name
-        combined_test_name = f"{result.test_id}_{result.test_name} ({result.test_type})"
-
+        combined_test_name = (
+            f"{result['test_id']}_{result['test_name']} ({result['test_type']})"
+        )
         # Wrap test name to fit column
         test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=23))
 
         # Convert pass/fail to check/x status with colors
-        if "PASS" in result.pass_fail:
+        if "PASS" in pass_fail:
             status = "[green]✓[/green]"
         else:
             status = "[red]✗[/red]"
 
         # Format execution time
-        time_str = f"{result.execution_time:.1f}s" if result.execution_time else "N/A"
+        time_str = (
+            f"{result.get('execution_time'):.1f}s"
+            if result.get("execution_time")
+            else "N/A"
+        )
 
         # Get analysis for failed tests
-        analysis = _get_analysis_for_result(result)
+        analysis = _get_analysis_for_result(test_result)
 
         table.add_row(
             test_name_wrapped,
@@ -539,6 +520,18 @@ def _print_summary_table(test_results):
         )
 
     console.print(table)
+
+    # Print Braintrust links if enabled
+    if os.environ.get("BRAINTRUST_API_KEY"):
+        print("🔍 BRAINTRUST EVAL LINKS:")
+        for result in sorted_results:
+            braintrust_url = _get_braintrust_url(result)
+            if braintrust_url:
+                print(
+                    f"* {result['test_id']}_{result['test_name']} "
+                    f"({result['test_type']}) - {braintrust_url}"
+                )
+        print(DEBUG_SEPARATOR)
 
 
 def _get_analysis_for_result(result):
