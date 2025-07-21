@@ -207,11 +207,7 @@ class ToolCallingLLM:
         self.tool_executor = tool_executor
         self.max_steps = max_steps
         self.tracer = tracer
-
-        if tracer:
-            self.llm = tracer.wrap_llm(llm)
-        else:
-            self.llm = llm
+        self.llm = llm
 
     def prompt_call(
         self,

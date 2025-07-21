@@ -199,8 +199,7 @@ def ask_holmes(test_case: AskHolmesTestCase, tracer) -> LLMResult:
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
-        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o")),
-        tracer=tracer,
+        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
