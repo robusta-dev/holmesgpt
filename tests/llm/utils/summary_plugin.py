@@ -156,6 +156,7 @@ class SummaryPlugin:
             title="🔍 HOLMES TESTS SUMMARY",
             show_header=True,
             header_style="bold magenta",
+            show_lines=True,
         )
 
         # Add columns with specific widths
@@ -166,12 +167,7 @@ class SummaryPlugin:
         table.add_column("Actual", style="yellow", width=40)
         table.add_column("Analysis", style="red", width=50)
 
-        results_list = list(test_results.values())
-        for i, result in enumerate(results_list):
-            # Add section separator between tests (except before first test)
-            if i > 0:
-                table.add_section()
-
+        for result in test_results.values():
             # Wrap long content for table readability
             expected_wrapped = (
                 "\n".join(textwrap.wrap(result.expected, width=38))
