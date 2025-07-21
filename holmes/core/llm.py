@@ -69,12 +69,10 @@ class DefaultLLM(LLM):
         model: str,
         api_key: Optional[str] = None,
         args: Optional[Dict] = None,
-        tracer=None,
     ):
         self.model = model
         self.api_key = api_key
         self.args = args or {}
-        self.tracer = tracer
 
         if not self.args:
             self.check_llm(self.model, self.api_key)
@@ -221,10 +219,7 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
-        # Use explicit tracer if provided, otherwise use plain LiteLLM
-        llm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
-
-        result = llm_to_use.completion(
+        result = litellm.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,

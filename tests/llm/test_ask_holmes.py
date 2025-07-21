@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 from datetime import datetime
 
+from holmes.core.tracing import TracingFactory
 from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
@@ -62,9 +63,6 @@ def idfn(val):
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
-    # Use unified tracing API for evals
-    from holmes.core.tracing import TracingFactory
-
     tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
 
     # Create experiment using unified API
@@ -201,7 +199,8 @@ def ask_holmes(test_case: AskHolmesTestCase, tracer) -> LLMResult:
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
-        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
+        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o")),
+        tracer=tracer,
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
@@ -210,5 +209,5 @@ def ask_holmes(test_case: AskHolmesTestCase, tracer) -> LLMResult:
     )
 
     # Create LLM completion trace within current context
-    with tracer.start_trace("llm_completion", span_type=SpanType.LLM) as llm_span:
+    with tracer.start_trace("run holmes", span_type=SpanType.LLM) as llm_span:
         return ai.messages_call(messages=messages, trace_span=llm_span)

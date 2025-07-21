@@ -16,6 +16,7 @@ import logging
 import socket
 import uuid
 import warnings
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional
@@ -351,6 +352,10 @@ def ask(
 
     # Create tracer if trace option is provided
     tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
+    experiment_name = f"holmes-ask-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    tracer.start_experiment(
+        experiment_name=experiment_name, metadata={"prompt": prompt or "holmes-ask"}
+    )
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
@@ -404,19 +409,17 @@ def ask(
         include_file,
     )
 
-    # Create experiment and trace using unified API
-    from datetime import datetime
-
-    experiment_name = f"holmes-ask-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    tracer.start_experiment(
-        experiment_name=experiment_name, metadata={"prompt": prompt or "holmes-ask"}
-    )
-    with tracer.start_trace("holmes-ask", span_type=SpanType.TASK) as trace_span:
+    with tracer.start_trace(
+        f'holmes ask "{prompt}"', span_type=SpanType.TASK
+    ) as trace_span:
         # Log the user's question as input to the top-level span
         trace_span.log(
             input=prompt or "holmes-ask", output="", metadata={"type": "user_question"}
         )
         response = ai.call(messages, post_processing_prompt, trace_span=trace_span)
+        # TODO: log result as output
+        trace_url = tracer.get_trace_url()
+
     messages = response.messages  # type: ignore # Update messages with the full history
 
     if json_output_file:
@@ -439,8 +442,6 @@ def ask(
         False,  # type: ignore
     )
 
-    # Display trace URL after AI response is shown to user
-    trace_url = tracer.get_trace_url()
     if trace_url:
         console.print(f"🔍 View trace: {trace_url}")
 

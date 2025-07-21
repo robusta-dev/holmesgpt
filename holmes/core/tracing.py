@@ -137,66 +137,55 @@ class BraintrustTracer:
 
     def get_trace_url(self) -> Optional[str]:
         """Get URL to view the trace in Braintrust."""
+        logging.info("Getting trace URL for Braintrust")
         if not os.environ.get("BRAINTRUST_API_KEY"):
+            logging.warning("BRAINTRUST_API_KEY not set, cannot get trace URL")
             return None
 
         # Get current experiment from Braintrust context
         current_experiment = braintrust.current_experiment()
-        if current_experiment:
-            experiment_name = getattr(current_experiment, "name", None)
+        if not current_experiment:
+            logging.warning("No current experiment found in Braintrust context")
+            return None
 
-            # Get current span for detailed URL construction
-            current_span = braintrust.current_span()
+        experiment_name = getattr(current_experiment, "name", None)
+        if not experiment_name:
+            logging.warning("No experiment name found in current Braintrust context")
+            return None
 
-            # Use experiment name for URL construction
-            if experiment_name:
-                if not _is_noop_span(current_span):
-                    span_id = getattr(current_span, "span_id", None)
-                    id_attr = getattr(current_span, "id", None)
-                    if span_id and id_attr:
-                        return f"https://www.braintrust.dev/app/robustadev/p/{self.project}/experiments/{experiment_name}?c=&tg=false&r={id_attr}&s={span_id}"
-                # Fallback to experiment name only
-                return f"https://www.braintrust.dev/app/robustadev/p/{self.project}/experiments/{experiment_name}"
+        current_span = braintrust.current_span()
+        if not _is_noop_span(current_span):
+            span_id = getattr(current_span, "span_id", None)
+            id_attr = getattr(current_span, "id", None)
+            if span_id and id_attr:
+                return f"https://www.braintrust.dev/app/robustadev/p/{self.project}/experiments/{experiment_name}?c=&tg=false&r={id_attr}&s={span_id}"
+        else:
+            logging.warning("No active span found in Braintrust context")
 
-        return None
+        return f"https://www.braintrust.dev/app/robustadev/p/{self.project}/experiments/{experiment_name}"
 
     def wrap_llm(self, llm_module):
         """Wrap LiteLLM with Braintrust tracing if in active context, otherwise return unwrapped."""
         if not BRAINTRUST_AVAILABLE or not os.environ.get("BRAINTRUST_API_KEY"):
             return llm_module
 
-        try:
-            # Check if we're in an active Braintrust context
-            current_span = braintrust.current_span()
-            current_experiment = braintrust.current_experiment()
+        from braintrust.oai import ChatCompletionWrapper
 
-            # Only wrap if we have an active context
-            if not _is_noop_span(current_span) or current_experiment:
-                from braintrust.oai import ChatCompletionWrapper
+        class WrappedLiteLLM:
+            def __init__(self, original_module):
+                self._original_module = original_module
+                self._chat_wrapper = ChatCompletionWrapper(
+                    create_fn=original_module.completion,
+                    acreate_fn=None,
+                )
 
-                class WrappedLiteLLM:
-                    def __init__(self, original_module):
-                        self._original_module = original_module
-                        self._chat_wrapper = ChatCompletionWrapper(
-                            create_fn=original_module.completion, acreate_fn=None
-                        )
+            def completion(self, **kwargs):
+                return self._chat_wrapper.create(**kwargs)
 
-                    def completion(self, **kwargs):
-                        return self._chat_wrapper.create(**kwargs)
+            def __getattr__(self, name):
+                return getattr(self._original_module, name)
 
-                    def __getattr__(self, name):
-                        return getattr(self._original_module, name)
-
-                return WrappedLiteLLM(llm_module)
-
-            # No active context, return unwrapped
-            return llm_module
-
-        except ImportError:
-            logging.warning(
-                "Could not import Braintrust ChatCompletionWrapper, falling back to no tracing"
-            )
-            return llm_module
+        return WrappedLiteLLM(llm_module)
 
 
 class TracingFactory:

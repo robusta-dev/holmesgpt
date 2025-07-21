@@ -292,7 +292,7 @@ class Config(RobustaBaseConfig):
     ) -> ToolCallingLLM:
         tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
         return ToolCallingLLM(
-            tool_executor, self.max_steps, self._get_llm(tracer=tracer)
+            tool_executor, self.max_steps, self._get_llm(), tracer=tracer
         )
 
     def create_toolcalling_llm(
@@ -303,7 +303,7 @@ class Config(RobustaBaseConfig):
     ) -> ToolCallingLLM:
         tool_executor = self.create_tool_executor(dal)
         return ToolCallingLLM(
-            tool_executor, self.max_steps, self._get_llm(model, tracer)
+            tool_executor, self.max_steps, self._get_llm(model), tracer=tracer
         )
 
     def create_issue_investigator(
@@ -442,7 +442,7 @@ class Config(RobustaBaseConfig):
             api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
 
-        return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
+        return DefaultLLM(model, api_key, model_params)  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:

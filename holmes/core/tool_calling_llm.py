@@ -201,10 +201,17 @@ class LLMResult(BaseModel):
 class ToolCallingLLM:
     llm: LLM
 
-    def __init__(self, tool_executor: ToolExecutor, max_steps: int, llm: LLM):
+    def __init__(
+        self, tool_executor: ToolExecutor, max_steps: int, llm: LLM, tracer=None
+    ):
         self.tool_executor = tool_executor
         self.max_steps = max_steps
-        self.llm = llm
+        self.tracer = tracer
+
+        if tracer:
+            self.llm = tracer.wrap_llm(llm)
+        else:
+            self.llm = llm
 
     def prompt_call(
         self,
