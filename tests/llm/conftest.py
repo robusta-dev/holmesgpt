@@ -2,7 +2,7 @@ import logging
 import os
 import pytest
 from contextlib import contextmanager
-from tests.llm.utils.braintrust import get_experiment_results
+from tests.llm.utils.braintrust import get_experiment_results, get_experiment_name
 from braintrust.span_types import SpanTypeAttribute
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
@@ -94,12 +94,20 @@ def llm_session_setup(request):
                 print()
                 print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
                 print()
-                print(
-                    "NOTE: Braintrust is disabled. To see LLM traces and results in Braintrust,"
-                )
-                print(
-                    "set BRAINTRUST_API_KEY environment variable with a key from https://braintrust.dev"
-                )
+
+                # Check if Braintrust is enabled
+                braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
+                if braintrust_api_key:
+                    print(
+                        "✓ Braintrust is enabled - traces and results will be available at braintrust.dev"
+                    )
+                else:
+                    print(
+                        "NOTE: Braintrust is disabled. To see LLM traces and results in Braintrust,"
+                    )
+                    print(
+                        "set BRAINTRUST_API_KEY environment variable with a key from https://braintrust.dev"
+                    )
                 print("=" * 70 + "\n")
         else:
             with force_pytest_output(request):
@@ -121,6 +129,41 @@ def llm_session_setup(request):
             pytest.skip(error_msg)
 
     return
+
+
+@pytest.fixture(autouse=True)
+def braintrust_eval_link(request):
+    """Automatically print Braintrust eval link after each LLM test if Braintrust is enabled."""
+    yield  # Run the test
+
+    # Only run for LLM tests and if Braintrust is enabled
+    if not request.node.get_closest_marker("llm"):
+        return
+
+    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
+    if not braintrust_api_key:
+        return
+
+    # Extract test suite from test path
+    test_suite = None
+    test_path = str(request.node.fspath)
+    if "ask_holmes" in test_path:
+        test_suite = "ask_holmes"
+    elif "investigate" in test_path:
+        test_suite = "investigate"
+    else:
+        return  # Unknown test suite
+
+    # Get experiment name and test case ID
+    experiment_name = get_experiment_name(test_suite)
+    test_case_id = request.node.name
+
+    # Construct Braintrust URL for this specific test
+    braintrust_url = f"https://www.braintrust.dev/app/robustadev/p/{PROJECT}/experiments/{experiment_name}?r=&s=&c={test_case_id}"
+
+    with force_pytest_output(request):
+        print(f"\n🔍 View eval result: {braintrust_url}")
+        print()
 
 
 def markdown_table(headers, rows):

@@ -64,12 +64,19 @@ class DefaultLLM(LLM):
     base_url: Optional[str]
     args: Dict
 
-    def __init__(self, model: str, api_key: Optional[str] = None, args: Dict = {}):
+    def __init__(
+        self,
+        model: str,
+        api_key: Optional[str] = None,
+        args: Optional[Dict] = None,
+        tracer=None,
+    ):
         self.model = model
         self.api_key = api_key
-        self.args = args
+        self.args = args or {}
+        self.tracer = tracer
 
-        if not args:
+        if not self.args:
             self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model: str, api_key: Optional[str]):
@@ -214,7 +221,10 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
-        result = litellm.completion(
+        # Get the litellm module to use (wrapped or unwrapped)
+        litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
+
+        result = litellm_to_use.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,

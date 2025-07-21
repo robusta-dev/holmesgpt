@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import os
+import sys
 
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -16,6 +17,7 @@ import logging
 import socket
 import uuid
 import warnings
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional
@@ -40,6 +42,7 @@ from holmes.core.tools import pretty_print_toolset_status
 from holmes.interactive import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
+from holmes.core.tracing import TracingFactory, SpanType
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes.utils.file_utils import write_json_file
@@ -328,11 +331,26 @@ def ask(
         "--refresh-toolsets",
         help="Refresh the toolsets status",
     ),
+    trace: Optional[str] = typer.Option(
+        None,
+        "--trace",
+        help="Enable tracing to the specified provider (e.g., 'braintrust')",
+    ),
 ):
     """
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)  # type: ignore
+
+    # Detect and read piped input
+    piped_data = None
+    if not sys.stdin.isatty():
+        piped_data = sys.stdin.read().strip()
+        if interactive:
+            console.print(
+                "[bold yellow]Interactive mode disabled when reading piped input[/bold yellow]"
+            )
+            interactive = False
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -343,9 +361,17 @@ def ask(
         slack_channel=slack_channel,
     )
 
+    # Create tracer if trace option is provided
+    tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
+    experiment_name = f"holmes-ask-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    tracer.start_experiment(
+        experiment_name=experiment_name, metadata={"prompt": prompt or "holmes-ask"}
+    )
+
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
+        tracer=tracer,
     )
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
@@ -366,10 +392,19 @@ def ask(
         console.print(
             f"[bold yellow]Loaded prompt from file {prompt_file}[/bold yellow]"
         )
-    elif not prompt and not interactive:
+    elif not prompt and not interactive and not piped_data:
         raise typer.BadParameter(
             "Either the 'prompt' argument or the --prompt-file option must be provided (unless using --interactive mode)."
         )
+
+    # Handle piped data
+    if piped_data:
+        if prompt:
+            # User provided both piped data and a prompt
+            prompt = f"Here's some piped output:\n\n{piped_data}\n\n{prompt}"
+        else:
+            # Only piped data, no prompt - ask what to do with it
+            prompt = f"Here's some piped output:\n\n{piped_data}\n\nWhat can you tell me about this output?"
 
     if echo_request and not interactive and prompt:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
@@ -383,6 +418,7 @@ def ask(
             include_file,
             post_processing_prompt,
             show_tool_output,
+            tracer,
         )
         return
 
@@ -393,7 +429,16 @@ def ask(
         include_file,
     )
 
-    response = ai.call(messages, post_processing_prompt)
+    with tracer.start_trace(
+        f'holmes ask "{prompt}"', span_type=SpanType.TASK
+    ) as trace_span:
+        trace_span.log(input=prompt, metadata={"type": "user_question"})
+        response = ai.call(messages, post_processing_prompt, trace_span=trace_span)
+        trace_span.log(
+            output=response.result,
+        )
+        trace_url = tracer.get_trace_url()
+
     messages = response.messages  # type: ignore # Update messages with the full history
 
     if json_output_file:
@@ -415,6 +460,9 @@ def ask(
         show_tool_output,
         False,  # type: ignore
     )
+
+    if trace_url:
+        console.print(f"🔍 View trace: {trace_url}")
 
 
 @investigate_app.command()

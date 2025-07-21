@@ -19,43 +19,43 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
+import threading
+
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.tracing import DummySpan
 
 
 class SlashCommands(Enum):
-    EXIT = "/exit"
-    HELP = "/help"
-    RESET = "/reset"
-    TOOLS_CONFIG = "/tools"
-    TOGGLE_TOOL_OUTPUT = "/auto"
-    LAST_OUTPUT = "/last"
-    CLEAR = "/clear"
-    RUN = "/run"
-    SHELL = "/shell"
-    CONTEXT = "/context"
-    SHOW = "/show"
+    EXIT = ("/exit", "Exit interactive mode")
+    HELP = ("/help", "Show help message with all commands")
+    RESET = ("/reset", "Reset the conversation context")
+    TOOLS_CONFIG = ("/tools", "Show available toolsets and their status")
+    TOGGLE_TOOL_OUTPUT = (
+        "/auto",
+        "Toggle auto-display of tool outputs after responses",
+    )
+    LAST_OUTPUT = ("/last", "Show all tool outputs from last response")
+    CLEAR = ("/clear", "Clear the terminal screen")
+    RUN = ("/run", "Run a bash command and optionally share with LLM")
+    SHELL = (
+        "/shell",
+        "Drop into interactive shell, then optionally share session with LLM",
+    )
+    CONTEXT = ("/context", "Show conversation context size and token count")
+    SHOW = ("/show", "Show specific tool output in scrollable view")
+
+    def __init__(self, command, description):
+        self.command = command
+        self.description = description
 
 
-SLASH_COMMANDS_REFERENCE = {
-    SlashCommands.EXIT.value: "Exit interactive mode",
-    SlashCommands.HELP.value: "Show help message with all commands",
-    SlashCommands.RESET.value: "Reset the conversation context",
-    SlashCommands.TOOLS_CONFIG.value: "Show available toolsets and their status",
-    SlashCommands.TOGGLE_TOOL_OUTPUT.value: "Toggle auto-display of tool outputs after responses",
-    SlashCommands.LAST_OUTPUT.value: "Show all tool outputs from last response",
-    SlashCommands.CLEAR.value: "Clear the terminal screen",
-    SlashCommands.RUN.value: "Run a bash command and optionally share with LLM",
-    SlashCommands.SHELL.value: "Drop into interactive shell, then optionally share session with LLM",
-    SlashCommands.CONTEXT.value: "Show conversation context size and token count",
-    SlashCommands.SHOW.value: "Show specific tool output in scrollable view",
-}
-
-ALL_SLASH_COMMANDS = [cmd.value for cmd in SlashCommands]
+SLASH_COMMANDS_REFERENCE = {cmd.command: cmd.description for cmd in SlashCommands}
+ALL_SLASH_COMMANDS = [cmd.command for cmd in SlashCommands]
 
 
 class SlashCommandCompleter(Completer):
@@ -80,7 +80,7 @@ HELP_COLOR = "cyan"  # same as AI_COLOR for now
 ERROR_COLOR = "red"
 STATUS_COLOR = "yellow"
 
-WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.value}' to exit, '{SlashCommands.HELP.value}' for commands."
+WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
 
 def format_tool_call_output(
@@ -646,10 +646,17 @@ def run_interactive_loop(
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
+    tracer=None,
 ) -> None:
+    # Initialize tracer - use DummySpan if no tracer provided
+    if tracer is None:
+        tracer = DummySpan()
+
     style = Style.from_dict(
         {
             "prompt": USER_COLOR,
+            "bottom-toolbar": "#000000 bg:#ff0000",
+            "bottom-toolbar.text": "#aaaa44 bg:#aa4444",
         }
     )
 
@@ -657,12 +664,46 @@ def run_interactive_loop(
     history = InMemoryHistory()
     if initial_user_input:
         history.append_string(initial_user_input)
+
+    # Create custom key bindings for Ctrl+C behavior
+    bindings = KeyBindings()
+    status_message = ""
+
+    @bindings.add("c-c")
+    def _(event):
+        """Handle Ctrl+C: clear input if text exists, otherwise quit."""
+        buffer = event.app.current_buffer
+        if buffer.text:
+            nonlocal status_message
+            status_message = f"Input cleared. Use {SlashCommands.EXIT.command} or Ctrl+C again to quit."
+            buffer.reset()
+
+            # call timer to clear status message after 3 seconds
+            def clear_status():
+                nonlocal status_message
+                status_message = ""
+                event.app.invalidate()
+
+            timer = threading.Timer(3, clear_status)
+            timer.start()
+        else:
+            # Quit if no text
+            raise KeyboardInterrupt()
+
+    def get_bottom_toolbar():
+        if status_message:
+            return [("bg:#ff0000 fg:#000000", status_message)]
+        return None
+
     session = PromptSession(
         completer=command_completer,
         history=history,
         complete_style=CompleteStyle.COLUMN,
         reserve_space_for_menu=12,
+        key_bindings=bindings,
+        bottom_toolbar=get_bottom_toolbar,
     )  # type: ignore
+
     input_prompt = [("class:prompt", "User: ")]
 
     console.print(WELCOME_BANNER)
@@ -697,11 +738,10 @@ def run_interactive_loop(
                         f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
                     )
                     continue
-                # If no matches, we'll handle it in the "unknown command" case below
 
-                if command == SlashCommands.EXIT.value:
+                if command == SlashCommands.EXIT.command:
                     return
-                elif command == SlashCommands.HELP.value:
+                elif command == SlashCommands.HELP.command:
                     console.print(
                         f"[bold {HELP_COLOR}]Available commands:[/bold {HELP_COLOR}]"
                     )
@@ -716,33 +756,33 @@ def run_interactive_loop(
                     last_response = None
                     all_tool_calls_history.clear()
                     continue
-                elif command == SlashCommands.TOOLS_CONFIG.value:
+                elif command == SlashCommands.TOOLS_CONFIG.command:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
                     continue
-                elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.value:
+                elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.command:
                     show_tool_output = not show_tool_output
                     status = "enabled" if show_tool_output else "disabled"
                     console.print(
                         f"[bold yellow]Auto-display of tool outputs {status}.[/bold yellow]"
                     )
                     continue
-                elif command == SlashCommands.LAST_OUTPUT.value:
+                elif command == SlashCommands.LAST_OUTPUT.command:
                     handle_last_command(last_response, console, all_tool_calls_history)
                     continue
-                elif command == SlashCommands.CLEAR.value:
+                elif command == SlashCommands.CLEAR.command:
                     console.clear()
                     continue
-                elif command == SlashCommands.CONTEXT.value:
+                elif command == SlashCommands.CONTEXT.command:
                     handle_context_command(messages, ai, console)
                     continue
-                elif command.startswith(SlashCommands.SHOW.value):
+                elif command.startswith(SlashCommands.SHOW.command):
                     # Parse the command to extract tool index or name
-                    show_arg = original_input[len(SlashCommands.SHOW.value) :].strip()
+                    show_arg = original_input[len(SlashCommands.SHOW.command) :].strip()
                     handle_show_command(show_arg, all_tool_calls_history, console)
                     continue
-                elif command.startswith(SlashCommands.RUN.value):
+                elif command.startswith(SlashCommands.RUN.command):
                     bash_command = original_input[
-                        len(SlashCommands.RUN.value) :
+                        len(SlashCommands.RUN.command) :
                     ].strip()
                     shared_input = handle_run_command(
                         bash_command, session, style, console
@@ -750,7 +790,7 @@ def run_interactive_loop(
                     if shared_input is None:
                         continue  # User chose not to share, continue to next input
                     user_input = shared_input
-                elif command == SlashCommands.SHELL.value:
+                elif command == SlashCommands.SHELL.command:
                     shared_input = handle_shell_command(session, style, console)
                     if shared_input is None:
                         continue  # User chose not to share or no output, continue to next input
@@ -769,11 +809,24 @@ def run_interactive_loop(
                 messages.append({"role": "user", "content": user_input})
 
             console.print(f"\n[bold {AI_COLOR}]Thinking...[/bold {AI_COLOR}]\n")
-            response = ai.call(messages, post_processing_prompt)
+
+            with tracer.start_trace(user_input) as trace_span:
+                # Log the user's question as input to the top-level span
+                trace_span.log(
+                    input=user_input,
+                    metadata={"type": "user_question"},
+                )
+                response = ai.call(
+                    messages, post_processing_prompt, trace_span=trace_span
+                )
+                trace_span.log(
+                    output=response.result,
+                )
+                trace_url = tracer.get_trace_url()
+
             messages = response.messages  # type: ignore
             last_response = response
 
-            # Add tool calls to history
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
 
@@ -790,6 +843,10 @@ def run_interactive_loop(
                     title_align="left",
                 )
             )
+
+            if trace_url:
+                console.print(f"🔍 View trace: {trace_url}")
+
             console.print("")
         except typer.Abort:
             break
@@ -798,6 +855,7 @@ def run_interactive_loop(
         except Exception as e:
             logging.error("An error occurred during interactive mode:", exc_info=e)
             console.print(f"[bold {ERROR_COLOR}]Error: {e}[/bold {ERROR_COLOR}]")
+
     console.print(
         f"[bold {STATUS_COLOR}]Exiting interactive mode.[/bold {STATUS_COLOR}]"
     )
