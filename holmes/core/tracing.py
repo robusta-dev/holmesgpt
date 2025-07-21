@@ -23,7 +23,7 @@ class DummySpan:
     """A no-op span implementation for when tracing is disabled."""
 
     def start_span(self, *args, **kwargs):
-        return self
+        return DummySpan()
 
     def log(self, *args, **kwargs):
         pass
@@ -31,18 +31,23 @@ class DummySpan:
     def end(self):
         pass
 
-    def get_trace_url(self):
-        return None
-
-    def investigation_span(self, prompt: str):
-        """Context manager for investigation spans."""
-        return self
-
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+
+class DummyTracer:
+    """A no-op tracer implementation for when tracing is disabled."""
+
+    @contextmanager
+    def start_trace(self, prompt: str):
+        """Context manager for starting a trace."""
+        yield DummySpan()
+
+    def get_trace_url(self):
+        return None
 
 
 class BraintrustTracer:
@@ -61,39 +66,6 @@ class BraintrustTracer:
             self._should_create_experiment = True
         else:
             self._should_create_experiment = False
-
-    def _start_investigation_span(
-        self, prompt: str, **kwargs
-    ) -> Union[Span, DummySpan]:
-        """Start a root investigation span."""
-        if not os.environ.get("BRAINTRUST_API_KEY"):
-            return DummySpan()
-
-        # Check if we're already in a Braintrust context (like tests)
-        current_span = braintrust.current_span()
-
-        # Check if current_span is a real span (not NoopSpan)
-        is_real_span = current_span and not str(type(current_span)).endswith(
-            "_NoopSpan'>"
-        )
-
-        if is_real_span:
-            # We're in a test context - create child span
-            self.root_span = current_span.start_span(name="holmes-ask", **kwargs)
-            return self.root_span
-        else:
-            # CLI context - create experiment if needed and root span
-            if not self.experiment and self._should_create_experiment:
-                self.experiment = braintrust.init(
-                    project=self.project, open=False, metadata={"prompt": prompt}
-                )
-
-            if self.experiment:
-                # Create a new root span for each question (Option 1)
-                self.root_span = self.experiment.start_span(name="holmes-ask", **kwargs)
-                return self.root_span
-            else:
-                return DummySpan()
 
     def start_span(self, name: str, **kwargs) -> Union[Span, DummySpan]:
         """Start a child span."""
@@ -131,9 +103,37 @@ class BraintrustTracer:
         return None
 
     @contextmanager
-    def investigation_span(self, prompt: str):
-        """Context manager for investigation spans."""
-        span = self._start_investigation_span(prompt)
+    def start_trace(self, prompt: str):
+        """Context manager for starting a trace."""
+        span: Union[Span, DummySpan]
+        if not os.environ.get("BRAINTRUST_API_KEY"):
+            span = DummySpan()
+        else:
+            # Check if we're already in a Braintrust context (like tests)
+            current_span = braintrust.current_span()
+
+            # Check if current_span is a real span (not NoopSpan)
+            is_real_span = current_span and not str(type(current_span)).endswith(
+                "_NoopSpan'>"
+            )
+
+            if is_real_span:
+                # We're already tracing - create child span
+                self.root_span = current_span.start_span(name="holmes-ask")
+                span = self.root_span
+            else:
+                # Create new experimenet and span
+                if not self.experiment and self._should_create_experiment:
+                    self.experiment = braintrust.init(
+                        project=self.project, open=False, metadata={"prompt": prompt}
+                    )
+
+                if self.experiment:
+                    self.root_span = self.experiment.start_span(name="holmes-ask")
+                    span = self.root_span
+                else:
+                    span = DummySpan()
+
         try:
             yield span
         finally:
@@ -155,27 +155,27 @@ class TracingFactory:
             Tracer instance if tracing enabled, DummySpan if disabled
         """
         if not trace_type:
-            return DummySpan()
+            return DummyTracer()
 
         if trace_type.lower() == "braintrust":
             if not BRAINTRUST_AVAILABLE:
                 logging.warning(
                     "Braintrust tracing requested but braintrust package not available"
                 )
-                return DummySpan()
+                return DummyTracer()
 
             if not os.environ.get("BRAINTRUST_API_KEY"):
                 logging.warning(
                     "Braintrust tracing requested but BRAINTRUST_API_KEY not set"
                 )
-                return DummySpan()
+                return DummyTracer()
 
             # Use different project names for different contexts
             project = "HolmesGPT-CLI" if context == "cli" else "HolmesGPT"
             return BraintrustTracer(project=project)
 
         logging.warning(f"Unknown trace type: {trace_type}")
-        return DummySpan()
+        return DummyTracer()
 
 
 def log_llm_call(span, messages, full_response, tools=None, tool_choice=None):

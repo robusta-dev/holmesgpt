@@ -404,7 +404,7 @@ def ask(
     )
 
     # Use context manager for automatic span lifecycle management
-    with tracer.investigation_span(prompt or "holmes-ask") as trace_span:
+    with tracer.start_trace(prompt or "holmes-ask") as trace_span:
         # Log the user's question as input to the top-level span
         trace_span.log(
             input=prompt or "holmes-ask", output="", metadata={"type": "user_question"}
