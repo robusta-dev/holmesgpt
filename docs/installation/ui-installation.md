@@ -38,15 +38,21 @@ Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_b
         args:
           - -c
           - |
-            # Save current context and switch to K9s context temporarily
+            # Check if we're already using the correct context
             CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
-            if [ "$CURRENT_CONTEXT" != "$CONTEXT" ]; then
-              kubectl config use-context "$CONTEXT"
+            if [ "$CURRENT_CONTEXT" = "$CONTEXT" ]; then
+              # Already using the correct context, run HolmesGPT directly
               holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
-              # Restore original context
-              [ -n "$CURRENT_CONTEXT" ] && kubectl config use-context "$CURRENT_CONTEXT"
             else
-              holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+              # Create temporary kubeconfig to avoid changing user's system context
+              # K9s passes $CONTEXT but we need to ensure HolmesGPT uses the same context
+              # without permanently switching the user's kubectl context
+              TEMP_KUBECONFIG=$(mktemp)
+              kubectl config view --raw > $TEMP_KUBECONFIG
+              KUBECONFIG=$TEMP_KUBECONFIG kubectl config use-context $CONTEXT
+              # KUBECONFIG environment variable is passed to holmes and all its child processes
+              KUBECONFIG=$TEMP_KUBECONFIG holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+              rm -f $TEMP_KUBECONFIG
             fi
             echo "Press 'q' to exit"
             while : ; do
@@ -95,15 +101,21 @@ Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_b
             user_input=$(grep -v '^#' "$QUESTION_FILE")
 
             echo "Running: holmes ask '$user_input'"
-            # Save current context and switch to K9s context temporarily
+            # Check if we're already using the correct context
             CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
-            if [ "$CURRENT_CONTEXT" != "$CONTEXT" ]; then
-              kubectl config use-context "$CONTEXT"
+            if [ "$CURRENT_CONTEXT" = "$CONTEXT" ]; then
+              # Already using the correct context, run HolmesGPT directly
               holmes ask "$user_input"
-              # Restore original context
-              [ -n "$CURRENT_CONTEXT" ] && kubectl config use-context "$CURRENT_CONTEXT"
             else
-              holmes ask "$user_input"
+              # Create temporary kubeconfig to avoid changing user's system context
+              # K9s passes $CONTEXT but we need to ensure HolmesGPT uses the same context
+              # without permanently switching the user's kubectl context
+              TEMP_KUBECONFIG=$(mktemp)
+              kubectl config view --raw > $TEMP_KUBECONFIG
+              KUBECONFIG=$TEMP_KUBECONFIG kubectl config use-context $CONTEXT
+              # KUBECONFIG environment variable is passed to holmes and all its child processes
+              KUBECONFIG=$TEMP_KUBECONFIG holmes ask "$user_input"
+              rm -f $TEMP_KUBECONFIG
             fi
             echo "Press 'q' to exit"
             while : ; do
