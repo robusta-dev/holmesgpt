@@ -1,17 +1,24 @@
+# Standard library imports
 import logging
 import os
-import pytest
+import textwrap
 from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import List, Optional
+
+# Third-party imports
+import pytest
+from litellm import completion
+from rich.console import Console
+from rich.table import Table
+
+# Local imports
 from tests.llm.utils.braintrust import get_experiment_name
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
 
-from rich.console import Console
-from rich.table import Table
-from litellm import completion
-import textwrap
-from dataclasses import dataclass
-from typing import List, Optional
+# Configuration constants
+DEBUG_SEPARATOR = "=" * 80
 
 
 @dataclass
@@ -184,7 +191,63 @@ def braintrust_eval_link(request):
         print()
 
 
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Generate GitHub Actions report and Rich summary table from terminalreporter.stats (xdist compatible)"""
+    if not hasattr(terminalreporter, "stats"):
+        return
+
+    # Collect test results from terminalreporter.stats
+    test_results = _collect_test_results_from_stats(terminalreporter)
+
+    if not test_results:
+        return
+
+    # Generate markdown report and get sorted results
+    markdown, sorted_results, total_regressions = _generate_markdown_report(
+        test_results
+    )
+
+    # Write report files if Braintrust is configured
+    _write_report_files(markdown, total_regressions)
+
+    # Print rich summary table for developer experience
+    if sorted_results:
+        # Convert dict format to TestResult objects for Rich table
+        test_results = {}
+        for result in sorted_results:
+            # Determine pass/fail status
+            actual_score = int(result["actual_correctness_score"])
+            pass_fail = "✅ PASS" if actual_score == 1 else "❌ FAIL"
+
+            # Create TestResult object
+            test_result = TestResult(
+                test_id=result["test_id"],
+                test_name=result["test_name"],
+                expected=result["expected"],
+                actual=result["actual"],
+                pass_fail=pass_fail,
+                tools_called=result["tools_called"],
+                logs="",  # We don't have logs in this context
+                test_type=result["test_type"],
+                error_message=None,
+                execution_time=result.get("execution_time"),
+                expected_correctness_score=result["expected_correctness_score"],
+                actual_correctness_score=result["actual_correctness_score"],
+            )
+
+            # Use a unique key
+            key = f"{result['test_type']}_{result['test_id']}_{result['test_name']}"
+            test_results[key] = test_result
+
+        # Print the Rich table
+        _print_summary_table(test_results)
+
+    # Print Braintrust links if enabled
+    _print_braintrust_links(sorted_results)
+
+
 def markdown_table(headers, rows):
+    """Generate a markdown table from headers and rows."""
     markdown = "| " + " | ".join(headers) + " |\n"
     markdown += "| " + " | ".join(["---" for _ in headers]) + " |\n"
     for row in rows:
@@ -192,25 +255,8 @@ def markdown_table(headers, rows):
     return markdown
 
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    """Generate GitHub Actions report from terminalreporter.stats (xdist compatible)"""
-    print(f"\n{'='*80}")
-    print("DEBUG: pytest_terminal_summary called")
-    print(
-        f"DEBUG: BRAINTRUST_API_KEY = {os.environ.get('BRAINTRUST_API_KEY', 'not set')[:10]}..."
-        if os.environ.get("BRAINTRUST_API_KEY")
-        else "DEBUG: BRAINTRUST_API_KEY = not set"
-    )
-    print(f"DEBUG: has terminalreporter.stats = {hasattr(terminalreporter, 'stats')}")
-    if hasattr(terminalreporter, "stats"):
-        total_reports = sum(len(reports) for reports in terminalreporter.stats.values())
-        print(f"DEBUG: Total reports in terminalreporter.stats = {total_reports}")
-    print(f"{'='*80}")
-
-    if not hasattr(terminalreporter, "stats"):
-        return
-
-    # Collect test results from all status categories
+def _collect_test_results_from_stats(terminalreporter):
+    """Collect and parse test results from terminalreporter.stats."""
     test_results = {}
 
     for status, reports in terminalreporter.stats.items():
@@ -226,9 +272,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
             # Extract test data from user_properties
             user_props = dict(getattr(report, "user_properties", {}))
-            if (
-                not user_props
-            ):  # Skip if no user_properties (shouldn't happen for our tests)
+            if not user_props:  # Skip if no user_properties
                 continue
 
             # Extract test info
@@ -262,13 +306,38 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 "execution_time": getattr(report, "duration", None),
             }
 
-    if not test_results:
-        return
+    return test_results
 
-    # Generate markdown report
+
+def _get_braintrust_url(result):
+    """Generate Braintrust URL for a test result.
+
+    Args:
+        result: Test result dictionary
+
+    Returns:
+        Braintrust URL string, or None if Braintrust is not configured
+    """
+    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
+    if not braintrust_api_key:
+        return None
+
+    test_suite = "ask_holmes" if result["test_type"] == "ask" else "investigate"
+    experiment_name = get_experiment_name(test_suite)
+    test_case_id = f"test_{test_suite}[{result['test_id']}_{result['test_name']}]"
+
+    braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
+    return (
+        f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/"
+        f"experiments/{experiment_name}?r=&s=&c={test_case_id}"
+    )
+
+
+def _generate_markdown_report(test_results):
+    """Generate markdown report from test results."""
     markdown = "## Results of HolmesGPT evals\n\n"
 
-    # Count results by test type and status
+    # Count results by test type and status using proper regression logic
     ask_holmes_total = ask_holmes_passed = ask_holmes_regressions = 0
     investigate_total = investigate_passed = investigate_regressions = 0
 
@@ -319,6 +388,11 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         test_suite = result["test_type"]
         test_name = f"{result['test_id']}: {result['test_name']}"
 
+        # Add Braintrust link to test name if available
+        braintrust_url = _get_braintrust_url(result)
+        if braintrust_url:
+            test_name = f"[{test_name}]({braintrust_url})"
+
         actual_score = int(result["actual_correctness_score"])
         expected_score = int(result["expected_correctness_score"])
 
@@ -338,24 +412,31 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     )
     markdown += "\n- :x: the test failed and should be fixed before merging the PR"
 
-    # Write report files if Braintrust is configured (for CI/CD integration)
+    return markdown, sorted_results, ask_holmes_regressions + investigate_regressions
+
+
+def _write_report_files(markdown, total_regressions):
+    """Write report files if Braintrust is configured."""
     braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
     if braintrust_api_key:
         with open("evals_report.txt", "w", encoding="utf-8") as file:
             file.write(markdown)
 
         # Write regressions file if needed
-        total_regressions = ask_holmes_regressions + investigate_regressions
         if total_regressions > 0:
             with open("regressions.txt", "w", encoding="utf-8") as file:
                 file.write(f"{total_regressions}")
 
-    # Print rich summary table for developer experience
-    _print_rich_summary_table(sorted_results)
-
 
 def _extract_test_id_from_nodeid(nodeid: str) -> str:
-    """Extract test ID from nodeid like test_ask_holmes[01_how_many_pods]"""
+    """Extract test ID from pytest nodeid.
+
+    Args:
+        nodeid: Pytest node ID like 'test_ask_holmes[01_how_many_pods]'
+
+    Returns:
+        Test ID like '01', or 'unknown' if not found
+    """
     if "[" in nodeid and "]" in nodeid:
         test_case = nodeid.split("[")[1].split("]")[0]
         # Extract number from start of test case name
@@ -364,7 +445,14 @@ def _extract_test_id_from_nodeid(nodeid: str) -> str:
 
 
 def _extract_test_name_from_nodeid(nodeid: str) -> str:
-    """Extract readable test name from nodeid"""
+    """Extract readable test name from pytest nodeid.
+
+    Args:
+        nodeid: Pytest node ID like 'test_ask_holmes[01_how_many_pods]'
+
+    Returns:
+        Test name like 'how_many_pods'
+    """
     try:
         if "[" in nodeid and "]" in nodeid:
             test_case = nodeid.split("[")[1].split("]")[0]
@@ -376,68 +464,25 @@ def _extract_test_name_from_nodeid(nodeid: str) -> str:
     return nodeid.split("::")[-1] if "::" in nodeid else nodeid
 
 
-def _print_rich_summary_table(sorted_results):
-    """Print rich summary table with results and optional Braintrust links"""
-    if not sorted_results:
+def _print_braintrust_links(sorted_results):
+    """Print Braintrust evaluation links if Braintrust is enabled."""
+    if not os.environ.get("BRAINTRUST_API_KEY"):
         return
 
-    # Convert our dict format to TestResult objects
-    test_results = {}
+    print("🔍 BRAINTRUST EVAL LINKS:")
+
     for result in sorted_results:
-        # Determine pass/fail status
-        actual_score = int(result["actual_correctness_score"])
-        if actual_score == 1:
-            pass_fail = "✅ PASS"
-        else:
-            pass_fail = "❌ FAIL"
-
-        # Create TestResult object
-        test_result = TestResult(
-            test_id=result["test_id"],
-            test_name=result["test_name"],
-            expected=result["expected"],
-            actual=result["actual"],
-            pass_fail=pass_fail,
-            tools_called=result["tools_called"],
-            logs="",  # We don't have logs in this context
-            test_type=result["test_type"],
-            error_message=None,
-            execution_time=result.get("execution_time"),
-            expected_correctness_score=result["expected_correctness_score"],
-            actual_correctness_score=result["actual_correctness_score"],
-        )
-
-        # Use a unique key
-        key = f"{result['test_type']}_{result['test_id']}_{result['test_name']}"
-        test_results[key] = test_result
-
-    # Print the Rich table
-    _print_summary_table(test_results)
-
-    # Print Braintrust links if enabled
-    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
-    if braintrust_api_key:
-        print(f"\n{'='*80}")
-        print("🔍 BRAINTRUST EVAL LINKS")
-        print("=" * 80)
-
-        for result in sorted_results:
-            test_suite = "ask_holmes" if result["test_type"] == "ask" else "investigate"
-            experiment_name = get_experiment_name(test_suite)
-            test_case_id = (
-                f"test_{test_suite}[{result['test_id']}_{result['test_name']}]"
-            )
-
-            braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
-            braintrust_url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}?r=&s=&c={test_case_id}"
+        braintrust_url = _get_braintrust_url(result)
+        if braintrust_url:
             print(
-                f"🔍 {result['test_id']}: {result['test_name']} ({result['test_type']}) - {braintrust_url}"
+                f"* {result['test_id']}_{result['test_name']} "
+                f"({result['test_type']}) - {braintrust_url}"
             )
-        print("=" * 80)
+    print(DEBUG_SEPARATOR)
 
 
 def _print_summary_table(test_results):
-    """Print formatted summary table using Rich"""
+    """Print formatted summary table using Rich."""
     console = Console()
 
     table = Table(
@@ -447,7 +492,7 @@ def _print_summary_table(test_results):
         show_lines=True,
     )
 
-    # Add columns with specific widths (reduce widths to fit more columns)
+    # Add columns with specific widths
     table.add_column("Test", style="cyan", width=25)
     table.add_column("Status", justify="center", width=4)
     table.add_column("Time", justify="right", width=6)
@@ -467,9 +512,8 @@ def _print_summary_table(test_results):
         )
 
         # Combine test ID and name
-        combined_test_name = (
-            f"{result.test_id}: {result.test_name} ({result.test_type})"
-        )
+        combined_test_name = f"{result.test_id}_{result.test_name} ({result.test_type})"
+
         # Wrap test name to fit column
         test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=23))
 
@@ -483,14 +527,7 @@ def _print_summary_table(test_results):
         time_str = f"{result.execution_time:.1f}s" if result.execution_time else "N/A"
 
         # Get analysis for failed tests
-        analysis = ""
-        if "PASS" not in result.pass_fail:
-            try:
-                analysis = _get_llm_analysis(result)
-                # Wrap analysis text for table readability
-                analysis = "\n".join(textwrap.wrap(analysis, width=38))
-            except Exception as e:
-                analysis = f"Analysis failed: {str(e)}"
+        analysis = _get_analysis_for_result(result)
 
         table.add_row(
             test_name_wrapped,
@@ -504,8 +541,28 @@ def _print_summary_table(test_results):
     console.print(table)
 
 
+def _get_analysis_for_result(result):
+    """Get analysis text for a test result, with proper text wrapping."""
+    if "PASS" in result.pass_fail:
+        return ""
+
+    try:
+        analysis = _get_llm_analysis(result)
+        # Wrap analysis text for table readability
+        return "\n".join(textwrap.wrap(analysis, width=38))
+    except Exception as e:
+        return f"Analysis failed: {str(e)}"
+
+
 def _get_llm_analysis(result: TestResult) -> str:
-    """Get LLM analysis of test failure"""
+    """Get LLM analysis of test failure using GPT-4o.
+
+    Args:
+        result: TestResult object containing test details
+
+    Returns:
+        Analysis text explaining why the test failed
+    """
     prompt = textwrap.dedent(f"""\
         Analyze this failed eval for an AIOps agent why it failed.
         TEST: {result.test_name}
