@@ -73,8 +73,7 @@ class ToolsetManager:
         3. custom toolset from config can override both built-in and add new custom toolsets # for backward compatibility
         """
         # Load built-in toolsets
-        print("DEBUG: ToolsetManager.toolsets =", self.toolsets)
-        builtin_toolsets = load_builtin_toolsets(dal, toolsets_config=self.toolsets)
+        builtin_toolsets = load_builtin_toolsets(dal)
         toolsets_by_name: dict[str, Toolset] = {
             toolset.name: toolset for toolset in builtin_toolsets
         }

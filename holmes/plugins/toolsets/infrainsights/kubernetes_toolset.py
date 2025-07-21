@@ -381,8 +381,8 @@ class GetKubernetesClusterHealth(BaseInfraInsightsTool):
 class KubernetesToolset(BaseInfraInsightsToolset):
     """Kubernetes toolset for InfraInsights"""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        super().__init__(config)
+    def __init__(self):
+        super().__init__()
         
         # Set tools after parent initialization
         self.tools = [

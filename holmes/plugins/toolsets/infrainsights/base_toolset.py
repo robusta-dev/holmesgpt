@@ -66,7 +66,7 @@ class BaseInfraInsightsTool(Tool):
     
     def get_infrainsights_client(self) -> InfraInsightsClient:
         """Get InfraInsights client from toolset config"""
-        config = self.toolset.config or {}
+        config = self.toolset.infrainsights_config or {}
         infrainsights_config = InfraInsightsConfig(
             base_url=config.get('infrainsights_url', 'http://localhost:3000'),
             api_key=config.get('api_key'),
@@ -80,11 +80,7 @@ class BaseInfraInsightsTool(Tool):
 class BaseInfraInsightsToolset(Toolset):
     """Base class for all InfraInsights toolsets"""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        print("DEBUG: InfraInsights toolset config received:", config)
-        if not config:
-            config = {}
-        
+    def __init__(self):
         # Initialize with required fields
         super().__init__(
             name=f"InfraInsights {self.get_service_type().title()}",
@@ -93,8 +89,8 @@ class BaseInfraInsightsToolset(Toolset):
             tools=[],  # Will be set by subclasses
             enabled=True,
             tags=[ToolsetTag.CLUSTER],
-            config=config
         )
+        self.infrainsights_config = None
     
     @abstractmethod
     def get_service_type(self) -> str:
@@ -103,7 +99,15 @@ class BaseInfraInsightsToolset(Toolset):
     
     def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         """Check if the toolset prerequisites are met"""
+        print("DEBUG: InfraInsights toolset config received:", config)
+        
+        if not config:
+            return False, TOOLSET_CONFIG_MISSING_ERROR
+            
         try:
+            # Store config for later use
+            self.infrainsights_config = config
+            
             # Create a temporary client to check prerequisites
             infrainsights_config = InfraInsightsConfig(
                 base_url=config.get('infrainsights_url', 'http://localhost:3000'),
