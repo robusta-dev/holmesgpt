@@ -5,6 +5,7 @@ from rich.table import Table
 from litellm import completion
 import textwrap
 import time
+import os
 
 
 @dataclass
@@ -146,6 +147,9 @@ class SummaryPlugin:
         # Generate table with analysis included
         self._print_summary_table(self.test_results)
 
+        # Generate GitHub Actions report if needed
+        self._generate_github_report()
+
     def _print_summary_table(self, test_results: Dict[str, TestResult]):
         """Print formatted summary table using Rich"""
         console = Console()
@@ -246,3 +250,67 @@ class SummaryPlugin:
             return response.choices[0].message.content.strip()
         except Exception as e:
             return f"Analysis failed: {e}"
+
+    def _generate_github_report(self):
+        """Generate GitHub Actions report file from test results"""
+        if not os.environ.get("PUSH_EVALS_TO_BRAINTRUST"):
+            return
+
+        # Generate basic summary report from local test results
+        markdown = "## Results of HolmesGPT evals\n\n"
+
+        if self.test_results:
+            # Count results by test type and status
+            ask_holmes_total = ask_holmes_passed = 0
+            investigate_total = investigate_passed = 0
+            total_regressions = 0
+
+            for result in self.test_results.values():
+                if result.test_type == "ask":
+                    ask_holmes_total += 1
+                    if "PASS" in result.pass_fail:
+                        ask_holmes_passed += 1
+                    else:
+                        total_regressions += 1
+                elif result.test_type == "investigate":
+                    investigate_total += 1
+                    if "PASS" in result.pass_fail:
+                        investigate_passed += 1
+                    else:
+                        total_regressions += 1
+
+            # Generate summary lines
+            if ask_holmes_total > 0:
+                markdown += f"- ask_holmes: {ask_holmes_passed}/{ask_holmes_total} test cases were successful\n"
+            if investigate_total > 0:
+                markdown += f"- investigate: {investigate_passed}/{investigate_total} test cases were successful\n"
+
+            # Generate detailed table
+            markdown += "\n\n| Test suite | Test case | Status |\n"
+            markdown += "| --- | --- | --- |\n"
+
+            for result in self.test_results.values():
+                test_suite = result.test_type
+                test_name = f"{result.test_id}: {result.test_name}"
+                status = ":white_check_mark:" if "PASS" in result.pass_fail else ":x:"
+                markdown += f"| {test_suite} | {test_name} | {status} |\n"
+
+            markdown += "\n\n**Legend**\n"
+            markdown += "\n- :white_check_mark: the test was successful"
+            markdown += (
+                "\n- :x: the test failed and should be fixed before merging the PR"
+            )
+        else:
+            markdown += "*Note: No detailed test results available.*"
+
+        # Always write the report file
+        with open("evals_report.txt", "w", encoding="utf-8") as file:
+            file.write(markdown)
+
+        # Write regressions file if needed
+        total_regressions = sum(
+            1 for r in self.test_results.values() if "FAIL" in r.pass_fail
+        )
+        if total_regressions > 0:
+            with open("regressions.txt", "w", encoding="utf-8") as file:
+                file.write(f"{total_regressions}")
