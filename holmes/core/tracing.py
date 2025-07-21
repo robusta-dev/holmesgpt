@@ -100,7 +100,7 @@ class BraintrustTracer:
             project=self.project,
             experiment=experiment_name,
             metadata=metadata or {},
-            open=False,
+            update=True,
         )
 
     def start_trace(
