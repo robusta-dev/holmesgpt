@@ -127,6 +127,30 @@ def parse_structured_json(
         )
 
 
+def _create_validation_error_message(
+    test_case_id: str, test_case_folder: Path, exception: Exception
+) -> str:
+    """Create a detailed validation error message with tag information if available."""
+    config_file_path = test_case_folder / CONFIG_FILE_NAME
+    # Extract invalid tags from validation error if present
+    invalid_tags = []
+    if hasattr(exception, "errors") and callable(exception.errors):
+        for error in exception.errors():
+            if error.get("type") == "literal_error" and "tags" in str(
+                error.get("loc", [])
+            ):
+                invalid_tags.append(error.get("input"))
+
+    error_msg = f"Validation error in test case '{test_case_id}' at {config_file_path}"
+    if invalid_tags:
+        # Get allowed tags from literal type
+        allowed_tags = list(typing.get_args(ALLOWED_EVAL_TAGS))
+        error_msg += f"\nInvalid tags found: {invalid_tags}"
+        error_msg += f"\nAllowed tags are: {allowed_tags}"
+    error_msg += f"\nOriginal error: {str(exception)}"
+    return error_msg
+
+
 class MockHelper:
     def __init__(self, test_cases_folder: Path) -> None:
         super().__init__()
@@ -171,25 +195,9 @@ class MockHelper:
                             config_dict
                         )
                     except Exception as e:
-                        config_file_path = test_case_folder / CONFIG_FILE_NAME
-                        # Extract invalid tags from validation error if present
-                        invalid_tags = []
-                        if hasattr(e, "errors") and callable(e.errors):
-                            for error in e.errors():
-                                if error.get(
-                                    "type"
-                                ) == "literal_error" and "tags" in str(
-                                    error.get("loc", [])
-                                ):
-                                    invalid_tags.append(error.get("input"))
-
-                        error_msg = f"Validation error in test case '{test_case_id}' at {config_file_path}"
-                        if invalid_tags:
-                            # Get allowed tags from literal type
-                            allowed_tags = list(typing.get_args(ALLOWED_EVAL_TAGS))
-                            error_msg += f"\nInvalid tags found: {invalid_tags}"
-                            error_msg += f"\nAllowed tags are: {allowed_tags}"
-                        error_msg += f"\nOriginal error: {str(e)}"
+                        error_msg = _create_validation_error_message(
+                            test_case_id, test_case_folder, e
+                        )
                         raise ValueError(error_msg) from e
                 elif self._test_cases_folder.name == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
@@ -200,9 +208,15 @@ class MockHelper:
                         test_case_folder
                     )
                     config_dict["request"] = TypeAdapter(InvestigateRequest)
-                    test_case = TypeAdapter(InvestigateTestCase).validate_python(
-                        config_dict
-                    )
+                    try:
+                        test_case = TypeAdapter(InvestigateTestCase).validate_python(
+                            config_dict
+                        )
+                    except Exception as e:
+                        error_msg = _create_validation_error_message(
+                            test_case_id, test_case_folder, e
+                        )
+                        raise ValueError(error_msg) from e
                 elif self._test_cases_folder.name == "test_workload_health":
                     config_dict["workload_health_request"] = (
                         load_workload_health_request(test_case_folder)
@@ -212,9 +226,15 @@ class MockHelper:
                         test_case_folder
                     )
                     config_dict["request"] = TypeAdapter(WorkloadHealthRequest)
-                    test_case = TypeAdapter(HealthCheckTestCase).validate_python(
-                        config_dict
-                    )
+                    try:
+                        test_case = TypeAdapter(HealthCheckTestCase).validate_python(
+                            config_dict
+                        )
+                    except Exception as e:
+                        error_msg = _create_validation_error_message(
+                            test_case_id, test_case_folder, e
+                        )
+                        raise ValueError(error_msg) from e
 
                 logging.info(f"Successfully loaded test case {test_case_id}")
             except FileNotFoundError:
