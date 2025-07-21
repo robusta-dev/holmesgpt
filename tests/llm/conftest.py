@@ -6,29 +6,34 @@ from tests.llm.utils.braintrust import get_experiment_name
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
 
-from tests.llm.utils.summary_plugin import SummaryPlugin, TestResult
+from rich.console import Console
+from rich.table import Table
+from litellm import completion
+import textwrap
+from dataclasses import dataclass
+from typing import List, Optional
+
+
+@dataclass
+class TestResult:
+    test_id: str
+    test_name: str
+    expected: str
+    actual: str
+    pass_fail: str
+    tools_called: List[str]
+    logs: str
+    test_type: str = ""
+    error_message: Optional[str] = None
+    execution_time: Optional[float] = None
+    expected_correctness_score: float = 1.0
+    actual_correctness_score: float = 0.0
 
 
 def pytest_configure(config):
-    """Register our custom plugins"""
-    worker_id = getattr(config, "workerinput", {}).get("workerid", "MAIN_PROCESS")
-    print(f"DEBUG: pytest_configure called on worker: {worker_id}")
-
-    if not hasattr(config, "summary_plugin"):
-        config.summary_plugin = SummaryPlugin()
-        config.pluginmanager.register(config.summary_plugin, "summary_plugin")
-        print(f"DEBUG: Created SummaryPlugin instance on worker: {worker_id}")
-    else:
-        print(f"DEBUG: SummaryPlugin already exists on worker: {worker_id}")
-
+    """Configure pytest settings"""
     # Suppress noisy LiteLLM logs during testing
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-
-
-def pytest_unconfigure(config):
-    """Unregister the plugin"""
-    if hasattr(config, "summary_plugin"):
-        config.pluginmanager.unregister(config.summary_plugin)
 
 
 @contextmanager
@@ -171,7 +176,8 @@ def braintrust_eval_link(request):
     test_case_id = request.node.name
 
     # Construct Braintrust URL for this specific test
-    braintrust_url = f"https://www.braintrust.dev/app/robustadev/p/{PROJECT}/experiments/{experiment_name}?r=&s=&c={test_case_id}"
+    braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
+    braintrust_url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}?r=&s=&c={test_case_id}"
 
     with force_pytest_output(request):
         print(f"\n🔍 View eval result: {braintrust_url}")
@@ -191,16 +197,15 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     print(f"\n{'='*80}")
     print("DEBUG: pytest_terminal_summary called")
     print(
-        f"DEBUG: PUSH_EVALS_TO_BRAINTRUST = {os.environ.get('PUSH_EVALS_TO_BRAINTRUST')}"
+        f"DEBUG: BRAINTRUST_API_KEY = {os.environ.get('BRAINTRUST_API_KEY', 'not set')[:10]}..."
+        if os.environ.get("BRAINTRUST_API_KEY")
+        else "DEBUG: BRAINTRUST_API_KEY = not set"
     )
     print(f"DEBUG: has terminalreporter.stats = {hasattr(terminalreporter, 'stats')}")
     if hasattr(terminalreporter, "stats"):
         total_reports = sum(len(reports) for reports in terminalreporter.stats.values())
         print(f"DEBUG: Total reports in terminalreporter.stats = {total_reports}")
     print(f"{'='*80}")
-
-    if not os.environ.get("PUSH_EVALS_TO_BRAINTRUST"):
-        return
 
     if not hasattr(terminalreporter, "stats"):
         return
@@ -254,15 +259,16 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 "actual_correctness_score": actual_correctness_score,
                 "status": status,  # passed, failed, error, etc.
                 "outcome": getattr(report, "outcome", "unknown"),
+                "execution_time": getattr(report, "duration", None),
             }
 
     if not test_results:
         return
 
-    # Generate report using the same logic as before
+    # Generate markdown report
     markdown = "## Results of HolmesGPT evals\n\n"
 
-    # Count results by test type and status using proper regression logic
+    # Count results by test type and status
     ask_holmes_total = ask_holmes_passed = ask_holmes_regressions = 0
     investigate_total = investigate_passed = investigate_regressions = 0
 
@@ -332,17 +338,19 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     )
     markdown += "\n- :x: the test failed and should be fixed before merging the PR"
 
-    # Always write the report file
-    with open("evals_report.txt", "w", encoding="utf-8") as file:
-        file.write(markdown)
+    # Write report files if Braintrust is configured (for CI/CD integration)
+    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
+    if braintrust_api_key:
+        with open("evals_report.txt", "w", encoding="utf-8") as file:
+            file.write(markdown)
 
-    # Write regressions file if needed
-    total_regressions = ask_holmes_regressions + investigate_regressions
-    if total_regressions > 0:
-        with open("regressions.txt", "w", encoding="utf-8") as file:
-            file.write(f"{total_regressions}")
+        # Write regressions file if needed
+        total_regressions = ask_holmes_regressions + investigate_regressions
+        if total_regressions > 0:
+            with open("regressions.txt", "w", encoding="utf-8") as file:
+                file.write(f"{total_regressions}")
 
-    # Print rich summary table using the same data
+    # Print rich summary table for developer experience
     _print_rich_summary_table(sorted_results)
 
 
@@ -369,7 +377,7 @@ def _extract_test_name_from_nodeid(nodeid: str) -> str:
 
 
 def _print_rich_summary_table(sorted_results):
-    """Convert test results to TestResult objects and print rich summary table"""
+    """Print rich summary table with results and optional Braintrust links"""
     if not sorted_results:
         return
 
@@ -394,7 +402,7 @@ def _print_rich_summary_table(sorted_results):
             logs="",  # We don't have logs in this context
             test_type=result["test_type"],
             error_message=None,
-            execution_time=None,
+            execution_time=result.get("execution_time"),
             expected_correctness_score=result["expected_correctness_score"],
             actual_correctness_score=result["actual_correctness_score"],
         )
@@ -403,12 +411,125 @@ def _print_rich_summary_table(sorted_results):
         key = f"{result['test_type']}_{result['test_id']}_{result['test_name']}"
         test_results[key] = test_result
 
-    # Get a SummaryPlugin instance to use its _print_summary_table method
-    summary_plugin = SummaryPlugin()
+    # Print the Rich table
+    _print_summary_table(test_results)
 
-    print("\n" + "=" * 80)
-    print("🔍 HOLMES TESTS SUMMARY")
-    print("=" * 80)
+    # Print Braintrust links if enabled
+    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
+    if braintrust_api_key:
+        print(f"\n{'='*80}")
+        print("🔍 BRAINTRUST EVAL LINKS")
+        print("=" * 80)
 
-    # Use the existing Rich table printing logic
-    summary_plugin._print_summary_table(test_results)
+        for result in sorted_results:
+            test_suite = "ask_holmes" if result["test_type"] == "ask" else "investigate"
+            experiment_name = get_experiment_name(test_suite)
+            test_case_id = (
+                f"test_{test_suite}[{result['test_id']}_{result['test_name']}]"
+            )
+
+            braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
+            braintrust_url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}?r=&s=&c={test_case_id}"
+            print(
+                f"🔍 {result['test_id']}: {result['test_name']} ({result['test_type']}) - {braintrust_url}"
+            )
+        print("=" * 80)
+
+
+def _print_summary_table(test_results):
+    """Print formatted summary table using Rich"""
+    console = Console()
+
+    table = Table(
+        title="🔍 HOLMES TESTS SUMMARY",
+        show_header=True,
+        header_style="bold magenta",
+        show_lines=True,
+    )
+
+    # Add columns with specific widths (reduce widths to fit more columns)
+    table.add_column("Test", style="cyan", width=25)
+    table.add_column("Status", justify="center", width=4)
+    table.add_column("Time", justify="right", width=6)
+    table.add_column("Expected", style="green", width=35)
+    table.add_column("Actual", style="yellow", width=35)
+    table.add_column("Analysis", style="red", width=40)
+
+    for result in test_results.values():
+        # Wrap long content for table readability
+        expected_wrapped = (
+            "\n".join(textwrap.wrap(result.expected, width=33))
+            if result.expected
+            else ""
+        )
+        actual_wrapped = (
+            "\n".join(textwrap.wrap(result.actual, width=33)) if result.actual else ""
+        )
+
+        # Combine test ID and name
+        combined_test_name = (
+            f"{result.test_id}: {result.test_name} ({result.test_type})"
+        )
+        # Wrap test name to fit column
+        test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=23))
+
+        # Convert pass/fail to check/x status with colors
+        if "PASS" in result.pass_fail:
+            status = "[green]✓[/green]"
+        else:
+            status = "[red]✗[/red]"
+
+        # Format execution time
+        time_str = f"{result.execution_time:.1f}s" if result.execution_time else "N/A"
+
+        # Get analysis for failed tests
+        analysis = ""
+        if "PASS" not in result.pass_fail:
+            try:
+                analysis = _get_llm_analysis(result)
+                # Wrap analysis text for table readability
+                analysis = "\n".join(textwrap.wrap(analysis, width=38))
+            except Exception as e:
+                analysis = f"Analysis failed: {str(e)}"
+
+        table.add_row(
+            test_name_wrapped,
+            status,
+            time_str,
+            expected_wrapped,
+            actual_wrapped,
+            analysis,
+        )
+
+    console.print(table)
+
+
+def _get_llm_analysis(result: TestResult) -> str:
+    """Get LLM analysis of test failure"""
+    prompt = textwrap.dedent(f"""\
+        Analyze this failed eval for an AIOps agent why it failed.
+        TEST: {result.test_name}
+        EXPECTED: {result.expected}
+        ACTUAL: {result.actual}
+        TOOLS CALLED: {', '.join(result.tools_called)}
+        ERROR: {result.error_message or 'Test assertion failed'}
+
+        LOGS:
+        {result.logs if result.logs else 'No logs available'}
+
+        Please provide a concise analysis (2-3 sentences) and categorize this as one of:
+        - Problem with mock data - the test is failing due to incorrect or incomplete mock data, but the agent itself did the correct queries you would expect it to do
+        - Setup issue - the test is failing due to an issue with the test setup, such as missing tools or incorrect before_test/after_test configuration
+        - Real failure - the test is failing because the agent did not perform as expected, and this is a real issue that needs to be fixed
+        """)
+
+    try:
+        response = completion(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.1,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Analysis failed: {e}"
