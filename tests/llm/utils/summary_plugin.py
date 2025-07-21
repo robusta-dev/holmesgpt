@@ -119,12 +119,12 @@ class SummaryPlugin:
         return test_name
 
     def _extract_test_data(self, item, call=None) -> tuple:
-        """Extract expected, actual, and tools called from test output"""
+        """Extract expected, actual, and tools called from user_properties"""
         expected = "Unknown"
         actual = "Unknown"
         tools_called = []
 
-        # Try to get data from captured output first
+        # Get data from user_properties set by test functions
         if hasattr(item, "user_properties"):
             for key, value in item.user_properties:
                 if key == "expected":
@@ -133,41 +133,6 @@ class SummaryPlugin:
                     actual = str(value)
                 elif key == "tools_called":
                     tools_called = value if isinstance(value, list) else [str(value)]
-
-        # Try to get captured stdout from pytest
-        captured_stdout = ""
-        if call and hasattr(call, "result"):
-            if hasattr(call.result, "capstdout"):
-                captured_stdout = call.result.capstdout
-            elif hasattr(call.result, "sections"):
-                # Look through captured sections
-                for section_name, content in call.result.sections:
-                    if section_name == "Captured stdout call":
-                        captured_stdout = content
-                        break
-
-        # Combine all available output
-        all_output = captured_stdout + "\n" + "\n".join(self.current_test_logs)
-
-        # If not found in user_properties, try to extract from captured output
-        if (expected == "Unknown" or actual == "Unknown") and all_output.strip():
-            # Look for ** EXPECTED ** section
-            if "** EXPECTED **" in all_output:
-                lines = all_output.split("\n")
-                for i, line in enumerate(lines):
-                    if "** EXPECTED **" in line and i + 1 < len(lines):
-                        expected_line = lines[i + 1]
-                        if expected_line.startswith("-  "):
-                            expected = expected_line[3:]  # Remove "-  " prefix
-                        break
-
-            # Look for ** OUTPUT ** section or try to find actual output
-            if "** OUTPUT **" in all_output:
-                lines = all_output.split("\n")
-                for i, line in enumerate(lines):
-                    if "** OUTPUT **" in line and i + 1 < len(lines):
-                        actual = lines[i + 1].strip()
-                        break
 
         return expected, actual, tools_called
 
@@ -201,7 +166,12 @@ class SummaryPlugin:
         table.add_column("Actual", style="yellow", width=40)
         table.add_column("Analysis", style="red", width=50)
 
-        for result in test_results.values():
+        results_list = list(test_results.values())
+        for i, result in enumerate(results_list):
+            # Add section separator between tests (except before first test)
+            if i > 0:
+                table.add_section()
+
             # Wrap long content for table readability
             expected_wrapped = (
                 "\n".join(textwrap.wrap(result.expected, width=38))
@@ -282,16 +252,3 @@ class SummaryPlugin:
             return response.choices[0].message.content.strip()
         except Exception as e:
             return f"Analysis failed: {e}"
-
-
-def pytest_configure(config):
-    """Register the plugin"""
-    if not hasattr(config, "summary_plugin"):
-        config.summary_plugin = SummaryPlugin()
-        config.pluginmanager.register(config.summary_plugin, "summary_plugin")
-
-
-def pytest_unconfigure(config):
-    """Unregister the plugin"""
-    if hasattr(config, "summary_plugin"):
-        config.pluginmanager.unregister(config.summary_plugin)
