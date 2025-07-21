@@ -61,7 +61,39 @@ class DummyTracer:
         return None
 
     def wrap_llm(self, llm_module):
-        """No-op LLM wrapping for dummy tracer."""
+        """Auto-detect Braintrust context and wrap if available, otherwise return unwrapped."""
+        try:
+            import braintrust
+
+            # Check if we're in an active Braintrust context
+            current_span = braintrust.current_span()
+            current_experiment = braintrust.current_experiment()
+
+            # Only wrap if we have an active context
+            if (
+                current_span and not str(type(current_span)).endswith("_NoopSpan'>")
+            ) or current_experiment:
+                from braintrust.oai import ChatCompletionWrapper
+
+                class WrappedLiteLLM:
+                    def __init__(self, original_module):
+                        self._original_module = original_module
+                        self._chat_wrapper = ChatCompletionWrapper(
+                            create_fn=original_module.completion, acreate_fn=None
+                        )
+
+                    def completion(self, **kwargs):
+                        return self._chat_wrapper.create(**kwargs)
+
+                    def __getattr__(self, name):
+                        return getattr(self._original_module, name)
+
+                return WrappedLiteLLM(llm_module)
+
+        except ImportError:
+            pass
+
+        # No Braintrust or no active context, return unwrapped
         return llm_module
 
 
@@ -128,28 +160,6 @@ class BraintrustTracer:
 
         return DummySpan()
 
-    def start_span(
-        self, name: str, span_type: Optional[SpanType] = None, **kwargs
-    ) -> Union[Span, DummySpan]:
-        """Start a child span."""
-        if not os.environ.get("BRAINTRUST_API_KEY"):
-            return DummySpan()
-
-        if span_type:
-            kwargs["type"] = getattr(SpanTypeAttribute, span_type.name)
-
-        # Use current span if available
-        current_span = braintrust.current_span()
-        if current_span and not str(type(current_span)).endswith("_NoopSpan'>"):
-            return current_span.start_span(name=name, **kwargs)
-
-        # Fallback to current experiment
-        current_experiment = braintrust.current_experiment()
-        if current_experiment:
-            return current_experiment.start_span(name=name, **kwargs)
-
-        return DummySpan()
-
     def get_trace_url(self) -> Optional[str]:
         """Get URL to view the trace in Braintrust."""
         if not os.environ.get("BRAINTRUST_API_KEY"):
@@ -176,35 +186,38 @@ class BraintrustTracer:
         return None
 
     def wrap_llm(self, llm_module):
-        """Wrap LiteLLM using Braintrust's internal ChatCompletionWrapper for proper tracing."""
-        if not BRAINTRUST_AVAILABLE:
+        """Wrap LiteLLM with Braintrust tracing if in active context, otherwise return unwrapped."""
+        if not BRAINTRUST_AVAILABLE or not os.environ.get("BRAINTRUST_API_KEY"):
             return llm_module
 
         try:
-            from braintrust.oai import ChatCompletionWrapper
+            # Check if we're in an active Braintrust context
+            current_span = braintrust.current_span()
+            current_experiment = braintrust.current_experiment()
 
-            # Create a wrapper that ensures LLM calls are child spans of our investigation span
-            class WrappedLiteLLM:
-                def __init__(self, original_module, tracer):
-                    self._original_module = original_module
-                    self._tracer = tracer
-                    # Create the ChatCompletionWrapper for the original completion function
-                    self._chat_wrapper = ChatCompletionWrapper(
-                        create_fn=original_module.completion,
-                        acreate_fn=None,  # LiteLLM async not structured the same way
-                    )
+            # Only wrap if we have an active context
+            if (
+                current_span and not str(type(current_span)).endswith("_NoopSpan'>")
+            ) or current_experiment:
+                from braintrust.oai import ChatCompletionWrapper
 
-                def completion(self, **kwargs):
-                    # For existing context (evals), the ChatCompletionWrapper should automatically
-                    # detect the current Braintrust span and create child spans
-                    # For new context (holmes ask), we use our start_trace context manager
-                    return self._chat_wrapper.create(**kwargs)
+                class WrappedLiteLLM:
+                    def __init__(self, original_module):
+                        self._original_module = original_module
+                        self._chat_wrapper = ChatCompletionWrapper(
+                            create_fn=original_module.completion, acreate_fn=None
+                        )
 
-                def __getattr__(self, name):
-                    # Delegate all other attributes to the original module
-                    return getattr(self._original_module, name)
+                    def completion(self, **kwargs):
+                        return self._chat_wrapper.create(**kwargs)
 
-            return WrappedLiteLLM(llm_module, self)
+                    def __getattr__(self, name):
+                        return getattr(self._original_module, name)
+
+                return WrappedLiteLLM(llm_module)
+
+            # No active context, return unwrapped
+            return llm_module
 
         except ImportError:
             logging.warning(
