@@ -262,3 +262,10 @@ def is_response_an_incorrect_tool_call(
                     return False
             return True
     return False
+
+
+def clear_json_markdown(text: str):
+    if text and text.startswith("```json") and text.endswith("```"):
+        return text[8:-3]
+
+    return text

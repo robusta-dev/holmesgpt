@@ -2,25 +2,27 @@
 import os
 from pathlib import Path
 from typing import Optional
-
+import json
 import pytest
+from server import workload_health_check
 
-from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
-from holmes.core.investigation import investigate_issues
+
 from holmes.core.supabase_dal import SupabaseDal
 from tests.llm.utils.classifiers import (
     evaluate_correctness,
-    evaluate_sections,
 )
-from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_utils import (
+    Evaluation,
+    HealthCheckTestCase,
+    MockHelper,
+)
 from os import path
 from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
@@ -28,12 +30,12 @@ from unittest.mock import patch
 from tests.llm.utils.tags import add_tags_to_eval
 
 TEST_CASES_FOLDER = Path(
-    path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
+    path.abspath(path.join(path.dirname(__file__), "fixtures", "test_workload_health"))
 )
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase, parent_span: Span):
+    def __init__(self, test_case: HealthCheckTestCase, parent_span: Span):
         super().__init__()
         self._test_case = test_case
         self._parent_span = parent_span
@@ -54,8 +56,8 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("investigate")
-    dataset_name = braintrust_util.get_dataset_name("investigate")
+    experiment_name = braintrust_util.get_experiment_name("health_check")
+    dataset_name = braintrust_util.get_dataset_name("health_check")
 
     mh = MockHelper(TEST_CASES_FOLDER)
 
@@ -65,7 +67,7 @@ def get_test_cases():
         )
         bt_helper.upload_test_cases(mh.load_test_cases())
 
-    test_cases = mh.load_investigate_test_cases()
+    test_cases = mh.load_workload_health_test_cases()
 
     iterations = int(os.environ.get("ITERATIONS", "0"))
     if iterations:
@@ -85,7 +87,7 @@ def get_test_cases():
 
 
 def idfn(val):
-    if isinstance(val, InvestigateTestCase):
+    if isinstance(val, HealthCheckTestCase):
         return val.id
     else:
         return str(val)
@@ -93,8 +95,8 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
-    dataset_name = braintrust_util.get_dataset_name("investigate")
+def test_health_check(experiment_name: str, test_case: HealthCheckTestCase, caplog):
+    dataset_name = braintrust_util.get_dataset_name("health_check")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
     )
@@ -110,30 +112,20 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
         resource_instructions=test_case.resource_instructions,
     )
 
-    input = test_case.investigate_request
+    input = test_case.workload_health_request
     expected = test_case.expected_output
-    result = None
 
     metadata = get_machine_state_tags()
     metadata["model"] = config.model or "Unknown"
-
-    investigate_request = test_case.investigate_request
-    if not investigate_request.sections:
-        investigate_request.sections = DEFAULT_SECTIONS
-
-    with patch.dict(
-        os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
-    ):
+    with patch.multiple("server", dal=mock_dal, config=config):
         with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-            with set_test_env_vars(test_case):
-                result = investigate_issues(
-                    investigate_request=investigate_request, config=config, dal=mock_dal
-                )
-    assert result, "No result returned by investigate_issues()"
+            result = workload_health_check(request=input)
 
+    assert result, "No result returned by workload_health_check()"
+    # check that analysis is json parsable otherwise failed.
+    print(f"** ANALYSIS **\n-  {result.analysis}")
+    json.loads(result.analysis)
     output = result.analysis
-
-    scores = {}
 
     debug_expected = "\n-  ".join(expected)
 
@@ -148,16 +140,8 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     print(
         f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
     )
+    scores = {}
     scores["correctness"] = correctness_eval.score
-
-    if test_case.expected_sections:
-        sections = {
-            key: bool(value) for key, value in test_case.expected_sections.items()
-        }
-        sections_eval = evaluate_sections(
-            sections=sections, output=output, parent_span=eval_span
-        )
-        scores["sections"] = sections_eval.score
 
     if bt_helper and eval_span:
         bt_helper.end_evaluation(
@@ -174,30 +158,8 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
 
-    assert result.sections, "Missing sections"
-    assert (
-        len(result.sections) >= len(investigate_request.sections)
-    ), f"Received {len(result.sections)} sections but expected {len(investigate_request.sections)}. Received: {result.sections.keys()}"
-    for expected_section_title in investigate_request.sections:
-        assert (
-            expected_section_title in result.sections
-        ), f"Expected title {expected_section_title} in sections"
-
-    assert (
-        int(scores.get("correctness", 0)) == 1
-    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})"
-
-    if test_case.expected_sections:
-        for (
-            expected_section_title,
-            expected_section_array_content,
-        ) in test_case.expected_sections.items():
-            if expected_section_array_content:
-                assert (
-                    expected_section_title in result.sections
-                ), f"Expected to see section [{expected_section_title}] in result but that section is missing"
-                for expected_content in expected_section_array_content:
-                    assert (
-                        expected_content
-                        in result.sections.get(expected_section_title, "")
-                    ), f"Expected to see content [{expected_content}] in section [{expected_section_title}] but could not find such content"
+    if test_case.evaluation.correctness:
+        expected_correctness = test_case.evaluation.correctness
+        if isinstance(expected_correctness, Evaluation):
+            expected_correctness = expected_correctness.expected_score
+        assert scores.get("correctness", 0) >= expected_correctness
