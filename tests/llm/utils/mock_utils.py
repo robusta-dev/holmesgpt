@@ -10,7 +10,7 @@ import typing
 from typing import List, Literal, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel, TypeAdapter
-from holmes.core.models import InvestigateRequest
+from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, AUTO_GENERATED_FILE_SUFFIX
@@ -73,6 +73,13 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
 
 
+class HealthCheckTestCase(HolmesTestCase, BaseModel):
+    workload_health_request: WorkloadHealthRequest
+    issue_data: Optional[Dict]
+    resource_instructions: Optional[ResourceInstructions]
+    expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+
+
 pydantic_tool_mock = TypeAdapter(MockMetadata)
 
 
@@ -124,6 +131,9 @@ class MockHelper:
     def __init__(self, test_cases_folder: Path) -> None:
         super().__init__()
         self._test_cases_folder = Path(test_cases_folder)
+
+    def load_workload_health_test_cases(self) -> List[HealthCheckTestCase]:
+        return cast(List[HealthCheckTestCase], self.load_test_cases())
 
     def load_investigate_test_cases(self) -> List[InvestigateTestCase]:
         return cast(List[InvestigateTestCase], self.load_test_cases())
@@ -181,7 +191,7 @@ class MockHelper:
                             error_msg += f"\nAllowed tags are: {allowed_tags}"
                         error_msg += f"\nOriginal error: {str(e)}"
                         raise ValueError(error_msg) from e
-                else:
+                elif self._test_cases_folder.name == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
                     )
@@ -191,6 +201,18 @@ class MockHelper:
                     )
                     config_dict["request"] = TypeAdapter(InvestigateRequest)
                     test_case = TypeAdapter(InvestigateTestCase).validate_python(
+                        config_dict
+                    )
+                elif self._test_cases_folder.name == "test_workload_health":
+                    config_dict["workload_health_request"] = (
+                        load_workload_health_request(test_case_folder)
+                    )
+                    config_dict["issue_data"] = load_issue_data(test_case_folder)
+                    config_dict["resource_instructions"] = load_resource_instructions(
+                        test_case_folder
+                    )
+                    config_dict["request"] = TypeAdapter(WorkloadHealthRequest)
+                    test_case = TypeAdapter(HealthCheckTestCase).validate_python(
                         config_dict
                     )
 
@@ -267,6 +289,19 @@ def load_investigate_request(test_case_folder: Path) -> InvestigateRequest:
         )
     raise Exception(
         f"Investigate test case declared in folder {str(test_case_folder)} should have an investigate_request.json file but none is present"
+    )
+
+
+def load_workload_health_request(test_case_folder: Path) -> WorkloadHealthRequest:
+    workload_health_request_path = test_case_folder.joinpath(
+        Path("workload_health_request.json")
+    )
+    if workload_health_request_path.exists():
+        return TypeAdapter(WorkloadHealthRequest).validate_json(
+            read_file(Path(workload_health_request_path))
+        )
+    raise Exception(
+        f"Workload health test case declared in folder {str(test_case_folder)} should have an workload_health_request.json file but none is present"
     )
 
 

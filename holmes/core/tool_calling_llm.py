@@ -39,6 +39,7 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
+from holmes.core.tracing import DummySpan, SpanType
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -200,9 +201,12 @@ class LLMResult(BaseModel):
 class ToolCallingLLM:
     llm: LLM
 
-    def __init__(self, tool_executor: ToolExecutor, max_steps: int, llm: LLM):
+    def __init__(
+        self, tool_executor: ToolExecutor, max_steps: int, llm: LLM, tracer=None
+    ):
         self.tool_executor = tool_executor
         self.max_steps = max_steps
+        self.tracer = tracer
         self.llm = llm
 
     def prompt_call(
@@ -230,8 +234,11 @@ class ToolCallingLLM:
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
-        return self.call(messages, post_process_prompt, response_format)
+        return self.call(
+            messages, post_process_prompt, response_format, trace_span=trace_span
+        )
 
     @sentry_sdk.trace
     def call(  # type: ignore
@@ -241,6 +248,7 @@ class ToolCallingLLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
@@ -270,6 +278,7 @@ class ToolCallingLLM:
                 perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
+
             try:
                 full_response = self.llm.completion(
                     messages=parse_messages_tags(messages),
@@ -291,6 +300,7 @@ class ToolCallingLLM:
                     )
                 else:
                     raise
+
             response = full_response.choices[0]  # type: ignore
 
             response_message = response.message  # type: ignore
@@ -347,15 +357,17 @@ class ToolCallingLLM:
                 )
 
             perf_timing.measure("pre-tool-calls")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:
+                for tool_index, t in enumerate(tools_to_call, 1):
                     logging.debug(f"Tool to call: {t}")
                     futures.append(
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,
                             previous_tool_calls=tool_calls,
+                            trace_span=trace_span,
+                            tool_number=tool_index,
                         )
                     )
 
@@ -367,10 +379,16 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
+                # Add a blank line after all tools in this batch complete
+                if tools_to_call:
+                    logging.info("")
+
     def _invoke_tool(
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
+        trace_span=DummySpan(),
+        tool_number=None,
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = None
@@ -399,6 +417,10 @@ class ToolCallingLLM:
             )
 
         tool_response = None
+
+        # Create tool span if tracing is enabled
+        tool_span = trace_span.start_span(name=tool_name, type=SpanType.TOOL)
+
         try:
             tool_response = prevent_overly_repeated_tool_call(
                 tool_name=tool.name,
@@ -406,7 +428,7 @@ class ToolCallingLLM:
                 tool_calls=previous_tool_calls,
             )
             if not tool_response:
-                tool_response = tool.invoke(tool_params)
+                tool_response = tool.invoke(tool_params, tool_number=tool_number)
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
@@ -419,6 +441,16 @@ class ToolCallingLLM:
                     params=tool_params,
                 )
 
+            # Log tool execution to trace span
+            tool_span.log(
+                input=tool_params,
+                output=tool_response.data,
+                metadata={
+                    "status": tool_response.status.value,
+                    "error": tool_response.error,
+                },
+            )
+
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -428,6 +460,14 @@ class ToolCallingLLM:
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
+
+            # Log error to trace span
+            tool_span.log(
+                input=tool_params, output=str(e), metadata={"status": "ERROR"}
+            )
+        finally:
+            # End tool span
+            tool_span.end()
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -650,12 +690,14 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:  # type: ignore
+                for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
                     futures.append(
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,  # type: ignore
                             previous_tool_calls=tool_calls,
+                            trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
+                            tool_number=tool_index,
                         )
                     )
                     yield create_sse_message(
