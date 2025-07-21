@@ -19,4 +19,5 @@ ALLOWED_EVAL_TAGS = Literal[
     "chain-of-causation",  # An eval that tests chain-of-causation analysis
     "slackbot",  # An eval related to Slack bot functionality,
     "understanding-real-intent",  # understand the user's real intent behind a question, don't just give a technicaly correct answer that is not useful
+    "counting",  # An eval that tests HolmesGPT's ability to accurately count Kubernetes resources
 ]

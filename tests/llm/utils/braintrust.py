@@ -8,25 +8,7 @@ from pydantic import BaseModel
 
 from tests.llm.utils.mock_utils import HolmesTestCase  # type: ignore
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
-
-
-class DummySpan:
-    """A no-op span implementation for when Braintrust is disabled."""
-
-    def start_span(self, *args, **kwargs):
-        return self
-
-    def log(self, *args, **kwargs):
-        pass
-
-    def end(self):
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+from holmes.core.tracing import DummySpan
 
 
 BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
@@ -144,8 +126,13 @@ class BraintrustEvalHelper:
                     "Experiment must be writable. The above options open=False and update=True ensure this is the case so this exception should never be raised"
                 )
             self.experiment = experiment  # type: ignore
-        self._root_span = self.experiment.start_span(name=name)  # type: ignore
-        return self._root_span
+
+        # Create the span directly from experiment (tests manage their own spans)
+        if self.experiment:
+            self._root_span = self.experiment.start_span(name=name)
+            return self._root_span
+        else:
+            return DummySpan()
 
     def end_evaluation(
         self,

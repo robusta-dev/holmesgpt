@@ -6,6 +6,7 @@ from holmes.plugins.toolsets.bash.common.validators import (
     whitelist_validator,
 )
 from holmes.plugins.toolsets.bash.kubectl.constants import (
+    SAFE_JQ_PATTERN,
     SAFE_NAME_PATTERN,
     SAFE_NAMESPACE_PATTERN,
     SAFE_SELECTOR_PATTERN,
@@ -43,7 +44,7 @@ def create_kubectl_get_parser(kubectl_parser: Any):
     parser.add_argument(
         "-o", "--output", type=whitelist_validator("output", VALID_OUTPUT_FORMATS)
     )
-    parser.add_argument("--sort-by", type=regex_validator("sort-by", SAFE_NAME_PATTERN))
+    parser.add_argument("--sort-by", type=regex_validator("sort-by", SAFE_JQ_PATTERN))
     parser.add_argument(
         "--show-labels",
         action="store_true",
