@@ -81,6 +81,7 @@ class BaseInfraInsightsToolset(Toolset):
     """Base class for all InfraInsights toolsets"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
+        print("DEBUG: InfraInsights toolset config received:", config)
         if not config:
             config = {}
         
