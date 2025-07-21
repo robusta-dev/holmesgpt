@@ -181,21 +181,68 @@ def markdown_table(headers, rows):
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    """Generate GitHub Actions report from SummaryPlugin data"""
+    """Generate GitHub Actions report from terminalreporter.stats (xdist compatible)"""
     if not os.environ.get("PUSH_EVALS_TO_BRAINTRUST"):
         return
 
-    # Get the SummaryPlugin instance
-    if not hasattr(config, "summary_plugin"):
+    if not hasattr(terminalreporter, "stats"):
         return
 
-    summary_plugin = config.summary_plugin
-    test_results = summary_plugin.test_results
+    # Collect test results from all status categories
+    test_results = {}
+
+    for status, reports in terminalreporter.stats.items():
+        for report in reports:
+            # Only process 'call' phase reports for actual test results
+            if getattr(report, "when", None) != "call":
+                continue
+
+            # Only process LLM evaluation tests
+            nodeid = getattr(report, "nodeid", "")
+            if not ("test_ask_holmes" in nodeid or "test_investigate" in nodeid):
+                continue
+
+            # Extract test data from user_properties
+            user_props = dict(getattr(report, "user_properties", {}))
+            if (
+                not user_props
+            ):  # Skip if no user_properties (shouldn't happen for our tests)
+                continue
+
+            # Extract test info
+            test_id = _extract_test_id_from_nodeid(nodeid)
+            test_name = _extract_test_name_from_nodeid(nodeid)
+            test_type = "ask" if "test_ask_holmes" in nodeid else "investigate"
+
+            # Get test data from user_properties
+            expected = user_props.get("expected", "Unknown")
+            actual = user_props.get("actual", "Unknown")
+            tools_called = user_props.get("tools_called", [])
+            expected_correctness_score = float(
+                user_props.get("expected_correctness_score", 1.0)
+            )
+            actual_correctness_score = float(
+                user_props.get("actual_correctness_score", 0.0)
+            )
+
+            # Store result (use nodeid as key to avoid duplicates)
+            test_results[nodeid] = {
+                "test_id": test_id,
+                "test_name": test_name,
+                "test_type": test_type,
+                "expected": expected,
+                "actual": actual,
+                "tools_called": tools_called,
+                "expected_correctness_score": expected_correctness_score,
+                "actual_correctness_score": actual_correctness_score,
+                "status": status,  # passed, failed, error, etc.
+                "outcome": getattr(report, "outcome", "unknown"),
+            }
 
     if not test_results:
         return
 
-    # Generate report using the same logic, but from SummaryPlugin data
+    # Generate report using the same logic as before
     markdown = "## Results of HolmesGPT evals\n\n"
 
     # Count results by test type and status using proper regression logic
@@ -203,10 +250,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     investigate_total = investigate_passed = investigate_regressions = 0
 
     for result in test_results.values():
-        actual_score = int(result.actual_correctness_score)
-        expected_score = int(result.expected_correctness_score)
+        actual_score = int(result["actual_correctness_score"])
+        expected_score = int(result["expected_correctness_score"])
 
-        if result.test_type == "ask":
+        if result["test_type"] == "ask":
             ask_holmes_total += 1
             if actual_score == 1:
                 ask_holmes_passed += 1
@@ -215,7 +262,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 pass
             else:
                 ask_holmes_regressions += 1
-        elif result.test_type == "investigate":
+        elif result["test_type"] == "investigate":
             investigate_total += 1
             if actual_score == 1:
                 investigate_passed += 1
@@ -236,11 +283,11 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     markdown += "| --- | --- | --- |\n"
 
     for result in test_results.values():
-        test_suite = result.test_type
-        test_name = f"{result.test_id}: {result.test_name}"
+        test_suite = result["test_type"]
+        test_name = f"{result['test_id']}: {result['test_name']}"
 
-        actual_score = int(result.actual_correctness_score)
-        expected_score = int(result.expected_correctness_score)
+        actual_score = int(result["actual_correctness_score"])
+        expected_score = int(result["expected_correctness_score"])
 
         if actual_score == 1:
             status = ":white_check_mark:"
@@ -267,3 +314,25 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if total_regressions > 0:
         with open("regressions.txt", "w", encoding="utf-8") as file:
             file.write(f"{total_regressions}")
+
+
+def _extract_test_id_from_nodeid(nodeid: str) -> str:
+    """Extract test ID from nodeid like test_ask_holmes[01_how_many_pods]"""
+    if "[" in nodeid and "]" in nodeid:
+        test_case = nodeid.split("[")[1].split("]")[0]
+        # Extract number from start of test case name
+        return test_case.split("_")[0] if "_" in test_case else test_case
+    return "unknown"
+
+
+def _extract_test_name_from_nodeid(nodeid: str) -> str:
+    """Extract readable test name from nodeid"""
+    try:
+        if "[" in nodeid and "]" in nodeid:
+            test_case = nodeid.split("[")[1].split("]")[0]
+            # Remove number prefix and convert underscores to spaces
+            parts = test_case.split("_")[1:] if "_" in test_case else [test_case]
+            return "_".join(parts)
+    except (IndexError, AttributeError):
+        pass
+    return nodeid.split("::")[-1] if "::" in nodeid else nodeid
