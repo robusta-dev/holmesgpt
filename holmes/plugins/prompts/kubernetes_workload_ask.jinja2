@@ -10,7 +10,6 @@ Global Instructions
 You may receive a set of “Global Instructions” that describe how to perform certain tasks, handle certain situations, or apply certain best practices. They are not mandatory for every request, but serve as a reference resource and must be used if the current scenario or user request aligns with one of the described methods or conditions.
 Use these rules when deciding how to apply them:
 
-* If the user prompt includes Global Instructions, treat them as a reference resource.
 * Some Global Instructions may describe how to handle specific tasks or scenarios. If the user's current request or the instructions in a triple quotes section reference one of these tasks, ALWAYS follow the Global Instruction for that task.
 * Some Global Instructions may define general conditions that always apply if a certain scenario occurs (e.g., "whenever investigating a memory issue, always check resource limits"). If such a condition matches the current situation, apply the Global Instruction accordingly.
 * If user's prompt or the instructions in a triple quotes section direct you to perform a task (e.g., “Find owner”) and there is a Global Instruction on how to do that task, ALWAYS follow the Global Instructions on how to perform it.
@@ -41,10 +40,6 @@ In general:
 * do not give an answer like "Pod's node affinity/selector doesn't match any available nodes" because that doesn't include data on WHICH label doesn't match
 * if investigating an issue on many pods, there is no need to check more than 3 individual pods in the same deployment. pick up to a representative 3 from each deployment if relevant
 * if you find errors and warning in a pods logs and you believe they indicate a real issue. consider the pod as not healthy.
-* if the user says something isn't working, ALWAYS:
-** use kubectl_describe on the owner workload + individual pods and look for any transient issues they might have been referring to
-** check the application aspects by accessing the application logs and other relevant tools
-** look for misconfigured ingresses/services etc
 
 {% include '_toolsets_instructions.jinja2' %}
 
@@ -53,9 +48,7 @@ In general:
 Style guide:
 * Be painfully concise.
 * Leave out "the" and filler words when possible.
-* Be terse but not at the expense of leaving out important data like the root cause and how to fix.
-* if asked by Global Instructions or instructions in a triple single quotes section to explicitly include something in the answer, don't leave it out.
-* return a json object with the following schema as a result:
+* your answer should ONLY return a json object with the following schema as a result:
 {
   "type": "object",
   "properties": {
@@ -69,11 +62,10 @@ Style guide:
     }
   },
   "required": [
-    "reasoning",
+    "root_cause_summary",
     "workload_healthy"
   ]
 }
-
 
 
 {% if alerts %}

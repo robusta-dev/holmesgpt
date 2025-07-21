@@ -23,10 +23,10 @@ REQUIRED_ENV_VARS = [
 
 missing_vars = [var for var in REQUIRED_ENV_VARS if os.environ.get(var) is None]
 
-pytestmark = pytest.mark.skipif(
-    len(missing_vars) > 0,
-    reason=f"Missing required environment variables: {', '.join(missing_vars)}",
-)
+# Use pytest.mark.skip (not skipif) to show a single grouped skip line for the entire module
+# Will show: "SKIPPED [6] module.py: reason" instead of 6 separate skip lines
+if missing_vars:
+    pytestmark = pytest.mark.skip(reason=f"{', '.join(missing_vars)} must be set")
 
 CORALOGIX_API_KEY = os.environ.get("CORALOGIX_API_KEY", "")
 CORALOGIX_DOMAIN = os.environ.get("CORALOGIX_DOMAIN", "")
@@ -48,7 +48,7 @@ def coralogix_config() -> CoralogixConfig:
     # This is defensive programming in case the test is run directly
     for var in REQUIRED_ENV_VARS:
         if os.environ.get(var) is None:
-            pytest.skip(f"Missing required environment variable: {var}")
+            pytest.skip(f"Missing env vars: {var}")
 
     return CoralogixConfig(
         api_key=CORALOGIX_API_KEY,

@@ -57,6 +57,7 @@ azure-mgmt-monitor = "^6.0.2"
 azure-mgmt-alertsmanagement = "^1.0.0"
 azure-mgmt-resource = "^24.0.0"
 protobuf = ">=6.31.1"
+tenacity = "^9.1.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -95,6 +96,7 @@ markers = [
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
     "understanding-real-intent: Tests that require understanding the user's real intent behind a question, not just giving a technically correct answer that is not useful"
+    "counting: Ask holmes to count kubernetes/cloud resources"
 ]
 addopts = [
     "--cov-config=pyproject.toml",
