@@ -139,9 +139,12 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> StructuredToolResult:
+    def invoke(
+        self, params: Dict, tool_number: Optional[int] = None
+    ) -> StructuredToolResult:
+        tool_number_str = f"#{tool_number} " if tool_number else ""
         logging.info(
-            f"Running tool [bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
+            f"Running tool {tool_number_str}[bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
         )
         start_time = time.time()
         result = self._invoke(params)
@@ -152,7 +155,7 @@ class Tool(ABC, BaseModel):
             else str(result)
         )
         logging.info(
-            f"  [dim]Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters - /show to view contents[/dim]\n"
+            f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters - /show to view contents[/dim]"
         )
         return result
 
