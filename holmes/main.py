@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import os
+import sys
 
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -340,6 +341,16 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)  # type: ignore
+
+    # Detect and read piped input
+    piped_data = None
+    if not sys.stdin.isatty():
+        piped_data = sys.stdin.read().strip()
+        if interactive:
+            console.print(
+                "[bold yellow]Interactive mode disabled when reading piped input[/bold yellow]"
+            )
+            interactive = False
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -381,10 +392,19 @@ def ask(
         console.print(
             f"[bold yellow]Loaded prompt from file {prompt_file}[/bold yellow]"
         )
-    elif not prompt and not interactive:
+    elif not prompt and not interactive and not piped_data:
         raise typer.BadParameter(
             "Either the 'prompt' argument or the --prompt-file option must be provided (unless using --interactive mode)."
         )
+
+    # Handle piped data
+    if piped_data:
+        if prompt:
+            # User provided both piped data and a prompt
+            prompt = f"Here's some piped output:\n\n{piped_data}\n\n{prompt}"
+        else:
+            # Only piped data, no prompt - ask what to do with it
+            prompt = f"Here's some piped output:\n\n{piped_data}\n\nWhat can you tell me about this output?"
 
     if echo_request and not interactive and prompt:
         console.print("[bold yellow]User:[/bold yellow] " + prompt)
