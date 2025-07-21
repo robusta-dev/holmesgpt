@@ -10,25 +10,98 @@ Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_b
 
 ### Prerequisites
 
-**K9s must be installed** - See the [K9s installation guide](https://github.com/derailed/k9s#installation){:target="_blank"}
+- **K9s must be installed** - See the [K9s installation guide](https://github.com/derailed/k9s#installation){:target="_blank"}
+- **HolmesGPT CLI and API key** - Follow the [CLI Installation Guide](cli-installation.md) to install Holmes and configure your AI provider
 
-### Install
+### Plugin Options
 
-1. **Install HolmesGPT CLI and set API key** - Follow the [CLI Installation Guide](cli-installation.md) to install Holmes and configure your AI provider
+??? note "Basic Plugin (Shift + H) - Quick investigation with predefined question"
 
-2. **Install the K9s plugin:**
-   ```bash
-   mkdir -p ~/.k9s/plugins
-   curl -o ~/.k9s/plugins/holmes.yaml \
-     https://raw.githubusercontent.com/robusta-dev/holmesgpt/master/k9s-plugin.yaml
-   ```
+    Add to your K9s plugins configuration file:
 
-3. **Try it:**
+    - **Linux**: `~/.config/k9s/plugins.yaml` or `~/.k9s/plugins.yaml`
+    - **macOS**: `~/Library/Application Support/k9s/plugins.yaml` or `~/.k9s/plugins.yaml`
+    - **Windows**: `%APPDATA%/k9s/plugins.yaml`
 
-      1. Run K9s
-      2. Select any Kubernetes resource (pod, deployment, etc.)
-      3. Press `Ctrl+H` to invoke HolmesGPT
-      4. Holmes will analyze the selected resource and display results
+    Read more about K9s plugins [here](https://k9scli.io/topics/plugins/){:target="_blank"} and check your plugin path [here](https://k9scli.io/topics/config/){:target="_blank"}.
+
+    ```yaml
+    plugins:
+      holmesgpt:
+        shortCut: Shift-H
+        description: Ask HolmesGPT
+        scopes:
+          - all
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - |
+            kubectl config use-context $CONTEXT
+            holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+            echo "Press 'q' to exit"
+            while : ; do
+            read -n 1 k <&1
+            if [[ $k = q ]] ; then
+            break
+            fi
+            done
+    ```
+
+??? note "Advanced Plugin (Shift + Q) - Interactive plugin with custom questions"
+
+
+    Add to your K9s plugins configuration file:
+
+    - **Linux**: `~/.config/k9s/plugins.yaml` or `~/.k9s/plugins.yaml`
+    - **macOS**: `~/Library/Application Support/k9s/plugins.yaml` or `~/.k9s/plugins.yaml`
+    - **Windows**: `%APPDATA%/k9s/plugins.yaml`
+
+    Read more about K9s plugins [here](https://k9scli.io/topics/plugins/){:target="_blank"} and check your plugin path [here](https://k9scli.io/topics/config/){:target="_blank"}.
+
+    ```yaml
+    plugins:
+      custom-holmesgpt:
+        shortCut: Shift-Q
+        description: Custom HolmesGPT Ask
+        scopes:
+          - all
+        command: bash
+        background: false
+        confirm: false
+        args:
+          - -c
+          - |
+            INSTRUCTIONS="# Edit the line below. Lines starting with '#' will be ignored."
+            DEFAULT_ASK_COMMAND="why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+            QUESTION_FILE=$(mktemp)
+
+            echo "$INSTRUCTIONS" > "$QUESTION_FILE"
+            echo "$DEFAULT_ASK_COMMAND" >> "$QUESTION_FILE"
+
+            # Open the line in the default text editor
+            ${EDITOR:-nano} "$QUESTION_FILE"
+
+            # Read the modified line, ignoring lines starting with '#'
+            user_input=$(grep -v '^#' "$QUESTION_FILE")
+            kubectl config use-context $CONTEXT
+            echo running: holmes ask "\"$user_input\""
+
+            holmes ask "$user_input"
+            echo "Press 'q' to exit"
+            while : ; do
+            read -n 1 k <&1
+            if [[ $k = q ]] ; then
+            break
+            fi
+            done
+    ```
+
+### Usage
+
+1. Run K9s and select any Kubernetes resource
+2. Press **Shift + H** for quick analysis or **Shift + Q** for custom questions
 
 
 ## Web UI (Robusta)
