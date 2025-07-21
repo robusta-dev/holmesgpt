@@ -66,9 +66,5 @@ holmes investigate alertmanager \
 
 
 ## What's Next?
-
-Once you've seen HolmesGPT investigate a few alerts, you might want to:
-
-- Set up [custom toolsets](../data-sources/custom-toolsets.md) for your specific monitoring stack
-- Send results to Slack channels automatically
-- Create custom investigation workflows for your most common alert types
+- **[Add new data sources](../data-sources/index.md)** - Connect HolmesGPT to your databases, APM tools, and custom APIs for deeper investigations.
+- **[Set up remote MCP](../data-sources/remote-mcp-servers.md)** - Add data sources as remote Model Context Protocol (MCP) servers.
