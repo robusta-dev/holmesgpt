@@ -43,7 +43,6 @@ class MockConfig(Config):
         mock = MockToolsets(
             generate_mocks=self._test_case.generate_mocks,
             test_case_folder=self._test_case.folder,
-            parent_span=None,  # Use tracer context instead
         )
 
         expected_tools = []
