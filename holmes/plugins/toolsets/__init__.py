@@ -93,12 +93,12 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         RunbookToolset(),
         AzureSQLToolset(),
         ServiceNowToolset(),
-        # Revert: InfraInsights toolsets now follow Coralogix pattern (config at runtime)
-        ElasticsearchToolset(),
-        InfraInsightsKafkaToolset(),
-        InfraInsightsKubernetesToolset(),
-        InfraInsightsMongoDBToolset(),
-        InfraInsightsRedisToolset(),
+        # Removed: InfraInsights toolsets are now custom-only (loaded from YAML config)
+        # ElasticsearchToolset(),
+        # InfraInsightsKafkaToolset(),
+        # InfraInsightsKubernetesToolset(),
+        # InfraInsightsMongoDBToolset(),
+        # InfraInsightsRedisToolset(),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
@@ -167,7 +167,25 @@ def load_toolsets_from_config(
             toolset_type = config.get("type", ToolsetType.BUILTIN.value)
             # MCP server is not a built-in toolset, so we need to set the type explicitly
             validated_toolset: Optional[Toolset] = None
-            if toolset_type is ToolsetType.MCP:
+            
+            # Special handling for InfraInsights toolsets
+            if name == "infrainsights_elasticsearch":
+                validated_toolset = ElasticsearchToolset()
+                # Set the config so it gets passed to prerequisites_callable
+                validated_toolset.config = config.get("config")
+            elif name == "infrainsights_kafka":
+                validated_toolset = InfraInsightsKafkaToolset()
+                validated_toolset.config = config.get("config")
+            elif name == "infrainsights_kubernetes":
+                validated_toolset = InfraInsightsKubernetesToolset()
+                validated_toolset.config = config.get("config")
+            elif name == "infrainsights_mongodb":
+                validated_toolset = InfraInsightsMongoDBToolset()
+                validated_toolset.config = config.get("config")
+            elif name == "infrainsights_redis":
+                validated_toolset = InfraInsightsRedisToolset()
+                validated_toolset.config = config.get("config")
+            elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
                 validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
