@@ -412,12 +412,11 @@ def ask(
     with tracer.start_trace(
         f'holmes ask "{prompt}"', span_type=SpanType.TASK
     ) as trace_span:
-        # Log the user's question as input to the top-level span
-        trace_span.log(
-            input=prompt or "holmes-ask", output="", metadata={"type": "user_question"}
-        )
+        trace_span.log(input=prompt, metadata={"type": "user_question"})
         response = ai.call(messages, post_processing_prompt, trace_span=trace_span)
-        # TODO: log result as output
+        trace_span.log(
+            output=response.result,
+        )
         trace_url = tracer.get_trace_url()
 
     messages = response.messages  # type: ignore # Update messages with the full history

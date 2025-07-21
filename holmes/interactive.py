@@ -738,7 +738,6 @@ def run_interactive_loop(
                         f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
                     )
                     continue
-                # If no matches, we'll handle it in the "unknown command" case below
 
                 if command == SlashCommands.EXIT.command:
                     return
@@ -814,13 +813,17 @@ def run_interactive_loop(
             with tracer.start_trace(user_input or "interactive-query") as trace_span:
                 # Log the user's question as input to the top-level span
                 trace_span.log(
-                    input=user_input or "interactive-query",
-                    output="",
+                    input=user_input,
                     metadata={"type": "user_question"},
                 )
                 response = ai.call(
                     messages, post_processing_prompt, trace_span=trace_span
                 )
+                trace_span.log(
+                    output=response.result,
+                )
+                trace_url = tracer.get_trace_url()
+
             messages = response.messages  # type: ignore
             last_response = response
 
@@ -841,7 +844,6 @@ def run_interactive_loop(
                 )
             )
 
-            trace_url = tracer.get_trace_url()
             if trace_url:
                 console.print(f"🔍 View trace: {trace_url}")
 
