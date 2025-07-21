@@ -187,9 +187,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         # The code fetches the evals from Braintrust to print out a summary.
         # Skip running it if the evals have not been uploaded to Braintrust
         return
-
     headers = ["Test suite", "Test case", "Status"]
     rows = []
+    total_regressions = 0
 
     # Do not change the title below without updating the github workflow that references it
     markdown = "## Results of HolmesGPT evals\n"
@@ -236,6 +236,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         status_text = ":warning:"
                     else:
                         regressions += 1
+                        total_regressions += 1
                         status_text = ":x:"
                     rows.append(
                         [
@@ -246,10 +247,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                     )
             markdown += f"\n- [{test_suite}](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/{result.experiment_name}): {successful_test_cases}/{total_test_cases} test cases were successful, {regressions} regressions\n"
 
-        except ValueError:
+        except Exception:
             logging.info(
                 f"Failed to fetch braintrust experiment {PROJECT}-{test_suite}"
             )
+
+    # Always write the report, even if we have no detailed results
 
     if len(rows) > 0:
         markdown += "\n\n"
@@ -260,11 +263,13 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             "\n- :warning: the test failed but is known to be flakky or known to fail"
         )
         markdown += "\n- :x: the test failed and should be fixed before merging the PR"
+    else:
+        markdown += "\n\n*Note: Detailed results could not be fetched from Braintrust. This may be due to timing issues or API connectivity.*"
 
-        with open("evals_report.txt", "w", encoding="utf-8") as file:
-            file.write(markdown)
+    with open("evals_report.txt", "w", encoding="utf-8") as file:
+        file.write(markdown)
 
-        # write number of regresssion to a separate file, if there are any regressions
-        if regressions > 0:
-            with open("regressions.txt", "w", encoding="utf-8") as file:
-                file.write(f"{regressions}")
+    # write number of regresssion to a separate file, if there are any regressions
+    if total_regressions > 0:
+        with open("regressions.txt", "w", encoding="utf-8") as file:
+            file.write(f"{total_regressions}")
