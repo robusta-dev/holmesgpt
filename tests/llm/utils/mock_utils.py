@@ -6,6 +6,7 @@ import logging
 import os
 import re
 from pathlib import Path
+import typing
 from typing import List, Literal, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel, TypeAdapter
@@ -163,7 +164,7 @@ class MockHelper:
                         config_file_path = test_case_folder / CONFIG_FILE_NAME
                         # Extract invalid tags from validation error if present
                         invalid_tags = []
-                        if hasattr(e, "errors") and callable(getattr(e, "errors")):
+                        if hasattr(e, "errors") and callable(e.errors):
                             for error in e.errors():
                                 if error.get(
                                     "type"
@@ -174,11 +175,7 @@ class MockHelper:
 
                         error_msg = f"Validation error in test case '{test_case_id}' at {config_file_path}"
                         if invalid_tags:
-                            from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
-
                             # Get allowed tags from literal type
-                            import typing
-
                             allowed_tags = list(typing.get_args(ALLOWED_EVAL_TAGS))
                             error_msg += f"\nInvalid tags found: {invalid_tags}"
                             error_msg += f"\nAllowed tags are: {allowed_tags}"
