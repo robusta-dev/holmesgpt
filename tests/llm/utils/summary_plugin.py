@@ -64,11 +64,6 @@ class SummaryPlugin:
             if item.nodeid in self.test_start_times:
                 execution_time = time.time() - self.test_start_times[item.nodeid]
 
-            # Debug output
-            print(
-                f"[DEBUG] Plugin captured test {test_id} ({test_name}): expected='{expected[:50]}...', actual='{actual[:50]}...'"
-            )
-
             # Determine pass/fail
             pass_fail = "✅ PASS" if call.excinfo is None else "❌ FAIL"
 
