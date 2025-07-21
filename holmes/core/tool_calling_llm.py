@@ -39,7 +39,7 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.tracing import DummySpan, log_llm_call
+from holmes.core.tracing import DummySpan, SpanType
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -276,9 +276,6 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
-            # Create LLM span for this completion call
-            llm_span = trace_span.start_span(name=f"LLM Call {i}")
-
             try:
                 full_response = self.llm.completion(
                     messages=parse_messages_tags(messages),
@@ -288,9 +285,6 @@ class ToolCallingLLM:
                     drop_params=True,
                 )
                 logging.debug(f"got response {full_response.to_json()}")  # type: ignore
-
-                # Log LLM call to its own span
-                log_llm_call(llm_span, messages, full_response, tools, tool_choice)
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -303,9 +297,6 @@ class ToolCallingLLM:
                     )
                 else:
                     raise
-            finally:
-                # End LLM span
-                llm_span.end()
 
             response = full_response.choices[0]  # type: ignore
 
@@ -425,7 +416,7 @@ class ToolCallingLLM:
         tool_response = None
 
         # Create tool span if tracing is enabled
-        tool_span = trace_span.start_span(name=tool_name)
+        tool_span = trace_span.start_span(name=tool_name, type=SpanType.TOOL)
 
         try:
             tool_response = prevent_overly_repeated_tool_call(

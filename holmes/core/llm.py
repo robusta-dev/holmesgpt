@@ -64,10 +64,13 @@ class DefaultLLM(LLM):
     base_url: Optional[str]
     args: Dict
 
-    def __init__(self, model: str, api_key: Optional[str] = None, args: Dict = {}):
+    def __init__(
+        self, model: str, api_key: Optional[str] = None, args: Dict = {}, tracer=None
+    ):
         self.model = model
         self.api_key = api_key
         self.args = args
+        self.tracer = tracer
 
         if not args:
             self.check_llm(self.model, self.api_key)
@@ -214,17 +217,73 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
-        result = litellm.completion(
-            model=self.model,
-            api_key=self.api_key,
-            messages=messages,
-            temperature=temperature or self.args.pop("temperature", TEMPERATURE),
-            response_format=response_format,
-            drop_params=drop_params,
-            stream=stream,
-            **tools_args,
-            **self.args,
-        )
+        # Use wrapped LiteLLM if tracer is available
+        if self.tracer:
+            wrapped_llm = self.tracer.wrap_llm(litellm)
+            result = wrapped_llm.completion(
+                model=self.model,
+                api_key=self.api_key,
+                messages=messages,
+                temperature=temperature or self.args.pop("temperature", TEMPERATURE),
+                response_format=response_format,
+                drop_params=drop_params,
+                stream=stream,
+                **tools_args,
+                **self.args,
+            )
+        else:
+            # Auto-detect Braintrust context and use ChatCompletionWrapper if available
+            try:
+                import braintrust
+
+                current_span = braintrust.current_span()
+                # Check if current_span is a real span (not NoopSpan)
+                if current_span and not str(type(current_span)).endswith("_NoopSpan'>"):
+                    from braintrust.oai import ChatCompletionWrapper
+
+                    chat_wrapper = ChatCompletionWrapper(
+                        create_fn=litellm.completion, acreate_fn=None
+                    )
+                    result = chat_wrapper.create(
+                        model=self.model,
+                        api_key=self.api_key,
+                        messages=messages,
+                        temperature=temperature
+                        or self.args.pop("temperature", TEMPERATURE),
+                        response_format=response_format,
+                        drop_params=drop_params,
+                        stream=stream,
+                        **tools_args,
+                        **self.args,
+                    )
+                else:
+                    # No Braintrust context, use regular LiteLLM
+                    result = litellm.completion(
+                        model=self.model,
+                        api_key=self.api_key,
+                        messages=messages,
+                        temperature=temperature
+                        or self.args.pop("temperature", TEMPERATURE),
+                        response_format=response_format,
+                        drop_params=drop_params,
+                        stream=stream,
+                        **tools_args,
+                        **self.args,
+                    )
+            except ImportError:
+                # Braintrust not available, use regular LiteLLM
+                result = litellm.completion(
+                    model=self.model,
+                    api_key=self.api_key,
+                    messages=messages,
+                    temperature=temperature
+                    or self.args.pop("temperature", TEMPERATURE),
+                    response_format=response_format,
+                    drop_params=drop_params,
+                    stream=stream,
+                    **tools_args,
+                    **self.args,
+                )
 
         if isinstance(result, ModelResponse):
             return result

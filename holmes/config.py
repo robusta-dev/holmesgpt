@@ -285,19 +285,32 @@ class Config(RobustaBaseConfig):
         return self._server_tool_executor
 
     def create_console_toolcalling_llm(
-        self, dal: Optional[SupabaseDal] = None, refresh_toolsets: bool = False
+        self,
+        dal: Optional[SupabaseDal] = None,
+        refresh_toolsets: bool = False,
+        tracer=None,
     ) -> ToolCallingLLM:
         tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
-        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm())
+        return ToolCallingLLM(
+            tool_executor, self.max_steps, self._get_llm(tracer=tracer)
+        )
 
     def create_toolcalling_llm(
-        self, dal: Optional[SupabaseDal] = None, model: Optional[str] = None
+        self,
+        dal: Optional[SupabaseDal] = None,
+        model: Optional[str] = None,
+        tracer=None,
     ) -> ToolCallingLLM:
         tool_executor = self.create_tool_executor(dal)
-        return ToolCallingLLM(tool_executor, self.max_steps, self._get_llm(model))
+        return ToolCallingLLM(
+            tool_executor, self.max_steps, self._get_llm(model, tracer)
+        )
 
     def create_issue_investigator(
-        self, dal: Optional[SupabaseDal] = None, model: Optional[str] = None
+        self,
+        dal: Optional[SupabaseDal] = None,
+        model: Optional[str] = None,
+        tracer=None,
     ) -> IssueInvestigator:
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
@@ -306,7 +319,7 @@ class Config(RobustaBaseConfig):
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_tool_executor(dal)
         return IssueInvestigator(
-            tool_executor, runbook_manager, self.max_steps, self._get_llm(model)
+            tool_executor, runbook_manager, self.max_steps, self._get_llm(model, tracer)
         )
 
     def create_console_issue_investigator(
@@ -415,7 +428,7 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
-    def _get_llm(self, model_key: Optional[str] = None) -> LLM:
+    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> LLM:
         api_key = self.api_key.get_secret_value() if self.api_key else None
         model = self.model
         model_params = {}
@@ -429,7 +442,7 @@ class Config(RobustaBaseConfig):
             api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
 
-        return DefaultLLM(model, api_key, model_params)  # type: ignore
+        return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:

@@ -40,7 +40,7 @@ from holmes.core.tools import pretty_print_toolset_status
 from holmes.interactive import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
-from holmes.core.tracing import TracingFactory
+from holmes.core.tracing import TracingFactory, SpanType
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
 from holmes.utils.file_utils import write_json_file
@@ -350,11 +350,12 @@ def ask(
     )
 
     # Create tracer if trace option is provided
-    tracer = TracingFactory.create_tracer(trace, context="cli")
+    tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
+        tracer=tracer,
     )
     template_context = {
         "toolsets": ai.tool_executor.toolsets,
@@ -403,8 +404,14 @@ def ask(
         include_file,
     )
 
-    # Use context manager for automatic span lifecycle management
-    with tracer.start_trace(prompt or "holmes-ask") as trace_span:
+    # Create experiment and trace using unified API
+    from datetime import datetime
+
+    experiment_name = f"holmes-ask-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    tracer.start_experiment(
+        experiment_name=experiment_name, metadata={"prompt": prompt or "holmes-ask"}
+    )
+    with tracer.start_trace("holmes-ask", span_type=SpanType.TASK) as trace_span:
         # Log the user's question as input to the top-level span
         trace_span.log(
             input=prompt or "holmes-ask", output="", metadata={"type": "user_question"}
