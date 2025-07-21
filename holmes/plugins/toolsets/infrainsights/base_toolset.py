@@ -80,6 +80,9 @@ class BaseInfraInsightsTool(Tool):
 class BaseInfraInsightsToolset(Toolset):
     """Base class for all InfraInsights toolsets"""
     
+    # Declare as a proper Pydantic field to avoid "no field" error
+    infrainsights_config: Optional[Dict[str, Any]] = None
+    
     def __init__(self):
         # Initialize with required fields
         super().__init__(
@@ -90,7 +93,6 @@ class BaseInfraInsightsToolset(Toolset):
             enabled=True,
             tags=[ToolsetTag.CLUSTER],
         )
-        self.infrainsights_config = None
     
     @abstractmethod
     def get_service_type(self) -> str:
