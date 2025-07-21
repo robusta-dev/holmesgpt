@@ -810,7 +810,7 @@ def run_interactive_loop(
 
             console.print(f"\n[bold {AI_COLOR}]Thinking...[/bold {AI_COLOR}]\n")
 
-            with tracer.start_trace(user_input or "interactive-query") as trace_span:
+            with tracer.start_trace(user_input) as trace_span:
                 # Log the user's question as input to the top-level span
                 trace_span.log(
                     input=user_input,
