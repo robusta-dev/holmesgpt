@@ -69,6 +69,7 @@ def load_toolsets_from_file(
 
 def load_python_toolsets(dal: Optional[SupabaseDal], toolsets_config: dict = None) -> List[Toolset]:
     logging.debug("loading python toolsets")
+    print("DEBUG: load_python_toolsets received toolsets_config =", toolsets_config)
     toolsets: list[Toolset] = [
         InternetToolset(),
         RobustaToolset(dal),
