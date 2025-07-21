@@ -54,6 +54,7 @@ class SummaryPlugin:
     def pytest_runtest_makereport(self, item, call):
         """Capture test results"""
         if call.when == "call":
+            print(f"DEBUG: SummaryPlugin capturing test result: {item.name}")
             # Extract test info from item
             test_id = self._extract_test_id(item.name)
             test_name = self._extract_test_name(item.name)
@@ -158,7 +159,16 @@ class SummaryPlugin:
 
     def pytest_sessionfinish(self, session):
         """Generate summary table and analysis at end of test session"""
+        print(f"\n{'='*80}")
+        print("DEBUG: SummaryPlugin.pytest_sessionfinish called")
+        print(
+            f"DEBUG: Worker ID: {getattr(session.config, 'workerinput', {}).get('workerid', 'MAIN_PROCESS')}"
+        )
+        print(f"DEBUG: test_results count: {len(self.test_results)}")
+        print(f"DEBUG: test_results keys: {list(self.test_results.keys())}")
+
         if not self.test_results:
+            print("DEBUG: No test results, returning early")
             return
 
         print("\n" + "=" * 80)

@@ -6,14 +6,20 @@ from tests.llm.utils.braintrust import get_experiment_name
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
 
-from tests.llm.utils.summary_plugin import SummaryPlugin
+from tests.llm.utils.summary_plugin import SummaryPlugin, TestResult
 
 
 def pytest_configure(config):
     """Register our custom plugins"""
+    worker_id = getattr(config, "workerinput", {}).get("workerid", "MAIN_PROCESS")
+    print(f"DEBUG: pytest_configure called on worker: {worker_id}")
+
     if not hasattr(config, "summary_plugin"):
         config.summary_plugin = SummaryPlugin()
         config.pluginmanager.register(config.summary_plugin, "summary_plugin")
+        print(f"DEBUG: Created SummaryPlugin instance on worker: {worker_id}")
+    else:
+        print(f"DEBUG: SummaryPlugin already exists on worker: {worker_id}")
 
     # Suppress noisy LiteLLM logs during testing
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)
@@ -182,6 +188,17 @@ def markdown_table(headers, rows):
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     """Generate GitHub Actions report from terminalreporter.stats (xdist compatible)"""
+    print(f"\n{'='*80}")
+    print("DEBUG: pytest_terminal_summary called")
+    print(
+        f"DEBUG: PUSH_EVALS_TO_BRAINTRUST = {os.environ.get('PUSH_EVALS_TO_BRAINTRUST')}"
+    )
+    print(f"DEBUG: has terminalreporter.stats = {hasattr(terminalreporter, 'stats')}")
+    if hasattr(terminalreporter, "stats"):
+        total_reports = sum(len(reports) for reports in terminalreporter.stats.values())
+        print(f"DEBUG: Total reports in terminalreporter.stats = {total_reports}")
+    print(f"{'='*80}")
+
     if not os.environ.get("PUSH_EVALS_TO_BRAINTRUST"):
         return
 
@@ -278,11 +295,21 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if investigate_total > 0:
         markdown += f"- investigate: {investigate_passed}/{investigate_total} test cases were successful, {investigate_regressions} regressions\n"
 
+    # Sort results by test_type then test_id for consistent ordering
+    sorted_results = sorted(
+        test_results.values(),
+        key=lambda r: (
+            r["test_type"],
+            int(r["test_id"]) if r["test_id"].isdigit() else 999,
+            r["test_name"],
+        ),
+    )
+
     # Generate detailed table
     markdown += "\n\n| Test suite | Test case | Status |\n"
     markdown += "| --- | --- | --- |\n"
 
-    for result in test_results.values():
+    for result in sorted_results:
         test_suite = result["test_type"]
         test_name = f"{result['test_id']}: {result['test_name']}"
 
@@ -315,6 +342,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         with open("regressions.txt", "w", encoding="utf-8") as file:
             file.write(f"{total_regressions}")
 
+    # Print rich summary table using the same data
+    _print_rich_summary_table(sorted_results)
+
 
 def _extract_test_id_from_nodeid(nodeid: str) -> str:
     """Extract test ID from nodeid like test_ask_holmes[01_how_many_pods]"""
@@ -336,3 +366,49 @@ def _extract_test_name_from_nodeid(nodeid: str) -> str:
     except (IndexError, AttributeError):
         pass
     return nodeid.split("::")[-1] if "::" in nodeid else nodeid
+
+
+def _print_rich_summary_table(sorted_results):
+    """Convert test results to TestResult objects and print rich summary table"""
+    if not sorted_results:
+        return
+
+    # Convert our dict format to TestResult objects
+    test_results = {}
+    for result in sorted_results:
+        # Determine pass/fail status
+        actual_score = int(result["actual_correctness_score"])
+        if actual_score == 1:
+            pass_fail = "✅ PASS"
+        else:
+            pass_fail = "❌ FAIL"
+
+        # Create TestResult object
+        test_result = TestResult(
+            test_id=result["test_id"],
+            test_name=result["test_name"],
+            expected=result["expected"],
+            actual=result["actual"],
+            pass_fail=pass_fail,
+            tools_called=result["tools_called"],
+            logs="",  # We don't have logs in this context
+            test_type=result["test_type"],
+            error_message=None,
+            execution_time=None,
+            expected_correctness_score=result["expected_correctness_score"],
+            actual_correctness_score=result["actual_correctness_score"],
+        )
+
+        # Use a unique key
+        key = f"{result['test_type']}_{result['test_id']}_{result['test_name']}"
+        test_results[key] = test_result
+
+    # Get a SummaryPlugin instance to use its _print_summary_table method
+    summary_plugin = SummaryPlugin()
+
+    print("\n" + "=" * 80)
+    print("🔍 HOLMES TESTS SUMMARY")
+    print("=" * 80)
+
+    # Use the existing Rich table printing logic
+    summary_plugin._print_summary_table(test_results)
