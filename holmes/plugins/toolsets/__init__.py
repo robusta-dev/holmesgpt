@@ -67,7 +67,7 @@ def load_toolsets_from_file(
     return toolsets
 
 
-def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
+def load_python_toolsets(dal: Optional[SupabaseDal], toolsets_config: dict = None) -> List[Toolset]:
     logging.debug("loading python toolsets")
     toolsets: list[Toolset] = [
         InternetToolset(),
@@ -93,11 +93,12 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         RunbookToolset(),
         AzureSQLToolset(),
         ServiceNowToolset(),
-        ElasticsearchToolset(),
-        InfraInsightsKafkaToolset(),
-        InfraInsightsKubernetesToolset(),
-        InfraInsightsMongoDBToolset(),
-        InfraInsightsRedisToolset(),
+        # Patch: Pass config to InfraInsights toolsets
+        ElasticsearchToolset(config=(toolsets_config or {}).get("infrainsights_elasticsearch", {}).get("config")),
+        InfraInsightsKafkaToolset(config=(toolsets_config or {}).get("infrainsights_kafka", {}).get("config")),
+        InfraInsightsKubernetesToolset(config=(toolsets_config or {}).get("infrainsights_kubernetes", {}).get("config")),
+        InfraInsightsMongoDBToolset(config=(toolsets_config or {}).get("infrainsights_mongodb", {}).get("config")),
+        InfraInsightsRedisToolset(config=(toolsets_config or {}).get("infrainsights_redis", {}).get("config")),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
@@ -105,7 +106,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     return toolsets
 
 
-def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
+def load_builtin_toolsets(dal: Optional[SupabaseDal] = None, toolsets_config: dict = None) -> List[Toolset]:
     all_toolsets: List[Toolset] = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
 
@@ -121,7 +122,7 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         toolsets_from_file = load_toolsets_from_file(path, strict_check=True)
         all_toolsets.extend(toolsets_from_file)
 
-    all_toolsets.extend(load_python_toolsets(dal=dal))  # type: ignore
+    all_toolsets.extend(load_python_toolsets(dal=dal, toolsets_config=toolsets_config))  # type: ignore
 
     # disable built-in toolsets by default, and the user can enable them explicitly in config.
     for toolset in all_toolsets:
