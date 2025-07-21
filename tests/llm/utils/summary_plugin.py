@@ -111,11 +111,14 @@ class SummaryPlugin:
 
     def _extract_test_name(self, test_name: str) -> str:
         """Extract readable test name"""
-        if "[" in test_name and "]" in test_name:
-            test_case = test_name.split("[")[1].split("]")[0]
-            # Remove number prefix and convert underscores to spaces
-            parts = test_case.split("_")[1:] if "_" in test_case else [test_case]
-            return "_".join(parts)
+        try:
+            if "[" in test_name and "]" in test_name:
+                test_case = test_name.split("[")[1].split("]")[0]
+                # Remove number prefix and convert underscores to spaces
+                parts = test_case.split("_")[1:] if "_" in test_case else [test_case]
+                return "_".join(parts)
+        except (IndexError, AttributeError):
+            pass
         return test_name
 
     def _extract_test_data(self, item, call=None) -> tuple:
