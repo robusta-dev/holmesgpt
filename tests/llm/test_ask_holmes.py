@@ -175,6 +175,11 @@ def test_ask_holmes(
     print(f"\n** SCORES **\n{scores}")
 
     # Store data for summary plugin
+    expected_correctness_score = (
+        test_case.evaluation.correctness.expected_score
+        if isinstance(test_case.evaluation.correctness, Evaluation)
+        else test_case.evaluation.correctness
+    )
     request.node.user_properties.append(("expected", debug_expected))
     request.node.user_properties.append(("actual", output or ""))
     request.node.user_properties.append(
@@ -182,6 +187,12 @@ def test_ask_holmes(
             "tools_called",
             tools_called if isinstance(tools_called, list) else [str(tools_called)],
         )
+    )
+    request.node.user_properties.append(
+        ("expected_correctness_score", expected_correctness_score)
+    )
+    request.node.user_properties.append(
+        ("actual_correctness_score", scores.get("correctness", 0))
     )
 
     assert (

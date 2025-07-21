@@ -178,3 +178,92 @@ def markdown_table(headers, rows):
     for row in rows:
         markdown += "| " + " | ".join(str(cell) for cell in row) + " |\n"
     return markdown
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Generate GitHub Actions report from SummaryPlugin data"""
+    if not os.environ.get("PUSH_EVALS_TO_BRAINTRUST"):
+        return
+
+    # Get the SummaryPlugin instance
+    if not hasattr(config, "summary_plugin"):
+        return
+
+    summary_plugin = config.summary_plugin
+    test_results = summary_plugin.test_results
+
+    if not test_results:
+        return
+
+    # Generate report using the same logic, but from SummaryPlugin data
+    markdown = "## Results of HolmesGPT evals\n\n"
+
+    # Count results by test type and status using proper regression logic
+    ask_holmes_total = ask_holmes_passed = ask_holmes_regressions = 0
+    investigate_total = investigate_passed = investigate_regressions = 0
+
+    for result in test_results.values():
+        actual_score = int(result.actual_correctness_score)
+        expected_score = int(result.expected_correctness_score)
+
+        if result.test_type == "ask":
+            ask_holmes_total += 1
+            if actual_score == 1:
+                ask_holmes_passed += 1
+            elif actual_score == 0 and expected_score == 0:
+                # Known failure, not a regression
+                pass
+            else:
+                ask_holmes_regressions += 1
+        elif result.test_type == "investigate":
+            investigate_total += 1
+            if actual_score == 1:
+                investigate_passed += 1
+            elif actual_score == 0 and expected_score == 0:
+                # Known failure, not a regression
+                pass
+            else:
+                investigate_regressions += 1
+
+    # Generate summary lines
+    if ask_holmes_total > 0:
+        markdown += f"- ask_holmes: {ask_holmes_passed}/{ask_holmes_total} test cases were successful, {ask_holmes_regressions} regressions\n"
+    if investigate_total > 0:
+        markdown += f"- investigate: {investigate_passed}/{investigate_total} test cases were successful, {investigate_regressions} regressions\n"
+
+    # Generate detailed table
+    markdown += "\n\n| Test suite | Test case | Status |\n"
+    markdown += "| --- | --- | --- |\n"
+
+    for result in test_results.values():
+        test_suite = result.test_type
+        test_name = f"{result.test_id}: {result.test_name}"
+
+        actual_score = int(result.actual_correctness_score)
+        expected_score = int(result.expected_correctness_score)
+
+        if actual_score == 1:
+            status = ":white_check_mark:"
+        elif actual_score == 0 and expected_score == 0:
+            status = ":warning:"  # Known failure
+        else:
+            status = ":x:"  # Regression
+
+        markdown += f"| {test_suite} | {test_name} | {status} |\n"
+
+    markdown += "\n\n**Legend**\n"
+    markdown += "\n- :white_check_mark: the test was successful"
+    markdown += (
+        "\n- :warning: the test failed but is known to be flaky or known to fail"
+    )
+    markdown += "\n- :x: the test failed and should be fixed before merging the PR"
+
+    # Always write the report file
+    with open("evals_report.txt", "w", encoding="utf-8") as file:
+        file.write(markdown)
+
+    # Write regressions file if needed
+    total_regressions = ask_holmes_regressions + investigate_regressions
+    if total_regressions > 0:
+        with open("regressions.txt", "w", encoding="utf-8") as file:
+            file.write(f"{total_regressions}")

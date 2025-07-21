@@ -21,7 +21,7 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper, Evaluation
 from os import path
 from unittest.mock import patch
 
@@ -195,6 +195,11 @@ def test_investigate(
     print(f"\n** SCORES **\n{scores}")
 
     # Store data for summary plugin
+    expected_correctness_score = (
+        test_case.evaluation.correctness.expected_score
+        if isinstance(test_case.evaluation.correctness, Evaluation)
+        else test_case.evaluation.correctness
+    )
     request.node.user_properties.append(("expected", debug_expected))
     request.node.user_properties.append(("actual", output or ""))
     request.node.user_properties.append(
@@ -202,6 +207,12 @@ def test_investigate(
             "tools_called",
             tools_called if isinstance(tools_called, list) else [str(tools_called)],
         )
+    )
+    request.node.user_properties.append(
+        ("expected_correctness_score", expected_correctness_score)
+    )
+    request.node.user_properties.append(
+        ("actual_correctness_score", scores.get("correctness", 0))
     )
 
     assert result.sections, "Missing sections"
