@@ -11,46 +11,70 @@ You can investigate Prometheus/AlertManager alerts using HolmesGPT by connecting
 ## Investigating a Prometheus Alert Using HolmesGPT
 
 
-### Step 1: Create a Test Alert
+### Step 1: Forward AlertManager
 
-Let's create a dummy alert in Prometheus for our investigation. Run the following command to create a`KubePodCrashLooping` alert:
-
-```yaml
-kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
-```
-
-### Step 2: Forward AlertManager
-
-Next you need to forward the AlertManager service to your local machine so HolmesGPT can connect to it. Run the following command in your terminal:
+First, you need to forward the AlertManager service to your local machine so HolmesGPT can connect to it. Run the following command in your terminal:
 
 ```bash
-kubectl port-forward svc/<your-alertmanager-service> 9093:9093
+kubectl port-forward svc/<Your-Alertmanager-Service> 9093:9093
 ```
+
+### Step 2: Create a Test Alert
+
+Now we'll deploy a crashing workload and simulate an alert from AlertManager.
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
+```
+Since it takes some time for the alert to be generated, we will manually send a `KubePodCrashLooping` alert to AlertManager for testing purposes. To do this run:
+```bash
+# Send a KubePodCrashLooping alert directly to AlertManager
+curl -X POST http://localhost:9093/api/v1/alerts \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "labels": {
+        "alertname": "KubePodCrashLooping",
+        "severity": "warning",
+        "namespace": "default",
+        "pod": "payment-processing-worker",
+        "container": "worker",
+        "job": "kubernetes-pods"
+      },
+      "annotations": {
+        "description": "Pod default/payment-processing-worker is crash looping",
+        "summary": "Pod is in CrashLoopBackOff state"
+      },
+      "generatorURL": "http://prometheus:9090/graph?g0.expr=increase%28kube_pod_container_status_restarts_total%5B1h%5D%29%20%3E%205",
+      "startsAt": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+    }
+  ]'
+```
+You should now see the `KubePodCrashLooping` alert in your AlertManager UI at `http://localhost:9093`.
 
 ### Step 3: Investigate Alerts
 
-Run the following command to investigate the alerts:
+Finally let's use the HolmesGPT `investigate` subcommand to investigate the alerts. Run the following command:
 
 ```bash
 holmes investigate alertmanager --alertmanager-url http://localhost:9093
 ```
 ![AlertManager Alert Investigation](../assets/alertmanager-all-alert-investigation.png)
 
-By default, HolmesGPT will fetch all active alerts from AlertManager and analyze them. You can also specify a particular alert to investigate by using the `--alertmanager-alertname` flag.
+By default, HolmesGPT will fetch all active alerts from AlertManager and investigate them.
 
-In this case, to investigate the `KubePodCrashLooping` alert we deployed, run:
-
+For our investigation, we will use the `--alertmanager-alertname` flag to focus on the specific `KubePodCrashLooping` alert we created earlier.
 ```bash
 holmes investigate alertmanager --alertmanager-url http://localhost:9093 --alertmanager-alertname "KubePodCrashLooping"
 ```
 
 ![Single Alert Investigation](../assets/alertmanager-single-alert-investigation.gif)
-
+Once the investigation is complete, HolmesGPT will provide the potential Root Cause, next steps, and more.
 
 
 ## Filtering Alerts
 
-You can also filter alerts by labels. For example, to investigate only critical alerts or alerts in a specific namespace, you can use the `--alertmanager-label` flag:
+The `holmes investigate alertmanager` command supports many flags. For example, to investigate only critical alerts or alerts in a specific namespace, you can use the `--alertmanager-label` flag:
 
 ```bash
 # Critical alerts only
