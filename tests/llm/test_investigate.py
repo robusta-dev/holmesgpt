@@ -7,6 +7,7 @@ import pytest
 
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
+from holmes.core.tool_calling_llm import IssueInvestigator
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
@@ -15,16 +16,17 @@ from tests.llm.utils.classifiers import (
     evaluate_correctness,
     evaluate_sections,
 )
+from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
 from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
 from os import path
-from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
 
 from tests.llm.utils.tags import add_tags_to_eval
+from holmes.core.tracing import SpanType
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -32,16 +34,16 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase, parent_span: Span):
+    def __init__(self, test_case: InvestigateTestCase, tracer):
         super().__init__()
         self._test_case = test_case
-        self._parent_span = parent_span
+        self._tracer = tracer
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         mock = MockToolsets(
             generate_mocks=self._test_case.generate_mocks,
             test_case_folder=self._test_case.folder,
-            parent_span=self._parent_span,
+            parent_span=None,  # Use tracer context instead
         )
 
         expected_tools = []
@@ -50,6 +52,17 @@ class MockConfig(Config):
             expected_tools.append(tool_mock.tool_name)
 
         return ToolExecutor(mock.enabled_toolsets)
+
+    def create_issue_investigator(
+        self,
+        dal: Optional[SupabaseDal] = None,
+        model: Optional[str] = None,
+        tracer=None,
+    ) -> IssueInvestigator:
+        # Use our tracer instead of the passed one
+        return super().create_issue_investigator(
+            dal=dal, model=model, tracer=self._tracer
+        )
 
 
 def get_test_cases():
@@ -93,13 +106,18 @@ def idfn(val):
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
-    dataset_name = braintrust_util.get_dataset_name("investigate")
-    bt_helper = braintrust_util.BraintrustEvalHelper(
-        project_name=PROJECT, dataset_name=dataset_name
-    )
-    eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    # Use unified tracing API for evals
+    from holmes.core.tracing import TracingFactory
 
-    config = MockConfig(test_case, eval_span)
+    tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
+
+    # Create experiment using unified API
+    tracer.start_experiment(
+        experiment_name=experiment_name,
+        metadata=braintrust_util.get_machine_state_tags(),
+    )
+
+    config = MockConfig(test_case, tracer)
     config.model = os.environ.get("MODEL", "gpt-4o")
 
     mock_dal = MockSupabaseDal(
@@ -123,10 +141,13 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     with patch.dict(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
-        with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-            result = investigate_issues(
-                investigate_request=investigate_request, config=config, dal=mock_dal
-            )
+        with tracer.start_trace(
+            name=test_case.id, span_type=SpanType.TASK
+        ) as eval_span:
+            with set_test_env_vars(test_case):
+                result = investigate_issues(
+                    investigate_request=investigate_request, config=config, dal=mock_dal
+                )
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
@@ -157,14 +178,14 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
         )
         scores["sections"] = sections_eval.score
 
-    if bt_helper and eval_span:
-        bt_helper.end_evaluation(
+    # Log evaluation results directly to the span
+    if eval_span:
+        eval_span.log(
             input=input,
             output=output or "",
             expected=str(expected),
-            id=test_case.id,
+            dataset_record_id=test_case.id,
             scores=scores,
-            prompt=None,
             tags=test_case.tags,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
