@@ -29,6 +29,7 @@ from rich.markdown import Markdown, Panel
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.tracing import DummySpan
 
 
 class SlashCommands(Enum):
@@ -715,7 +716,12 @@ def run_interactive_loop(
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
+    tracer=None,
 ) -> None:
+    # Initialize tracer - use DummySpan if no tracer provided
+    if tracer is None:
+        tracer = DummySpan()
+
     style = Style.from_dict(
         {
             "prompt": USER_COLOR,
@@ -813,7 +819,6 @@ def run_interactive_loop(
                         f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
                     )
                     continue
-                # If no matches, we'll handle it in the "unknown command" case below
 
                 if command == SlashCommands.EXIT.command:
                     return
@@ -885,11 +890,24 @@ def run_interactive_loop(
                 messages.append({"role": "user", "content": user_input})
 
             console.print(f"\n[bold {AI_COLOR}]Thinking...[/bold {AI_COLOR}]\n")
-            response = ai.call(messages, post_processing_prompt)
+
+            with tracer.start_trace(user_input) as trace_span:
+                # Log the user's question as input to the top-level span
+                trace_span.log(
+                    input=user_input,
+                    metadata={"type": "user_question"},
+                )
+                response = ai.call(
+                    messages, post_processing_prompt, trace_span=trace_span
+                )
+                trace_span.log(
+                    output=response.result,
+                )
+                trace_url = tracer.get_trace_url()
+
             messages = response.messages  # type: ignore
             last_response = response
 
-            # Add tool calls to history
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
 
@@ -906,6 +924,10 @@ def run_interactive_loop(
                     title_align="left",
                 )
             )
+
+            if trace_url:
+                console.print(f"🔍 View trace: {trace_url}")
+
             console.print("")
         except typer.Abort:
             break
