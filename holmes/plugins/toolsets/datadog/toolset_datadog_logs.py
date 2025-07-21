@@ -151,6 +151,9 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             tags=[ToolsetTag.CORE],
         )
 
+    def logger_name(self) -> str:
+        return "DataDog"
+
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         if not self.dd_config:
             return StructuredToolResult(
