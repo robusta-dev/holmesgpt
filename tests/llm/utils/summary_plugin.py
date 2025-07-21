@@ -1,8 +1,10 @@
 from typing import Dict, List, Optional
 from dataclasses import dataclass
-from tabulate import tabulate  # type: ignore
+from rich.console import Console
+from rich.table import Table
 from litellm import completion
 import textwrap
+import time
 
 
 @dataclass
@@ -16,16 +18,20 @@ class TestResult:
     logs: str
     test_type: str = ""
     error_message: Optional[str] = None
+    execution_time: Optional[float] = None
 
 
 class SummaryPlugin:
     def __init__(self):
         self.test_results: Dict[str, TestResult] = {}
         self.current_test_logs: List[str] = []
+        self.test_start_times: Dict[str, float] = {}
 
     def pytest_runtest_setup(self, item):
         """Capture test setup"""
         self.current_test_logs = []
+        # Record test start time
+        self.test_start_times[item.nodeid] = time.time()
 
     def pytest_runtest_call(self, item):
         """Capture test execution"""
@@ -52,6 +58,11 @@ class SummaryPlugin:
 
             # Get captured output
             expected, actual, tools_called = self._extract_test_data(item, call)
+
+            # Calculate execution time
+            execution_time = None
+            if item.nodeid in self.test_start_times:
+                execution_time = time.time() - self.test_start_times[item.nodeid]
 
             # Debug output
             print(
@@ -87,6 +98,7 @@ class SummaryPlugin:
                     logs="\n".join(self.current_test_logs),
                     test_type=test_type,
                     error_message=error_message,
+                    execution_time=execution_time,
                 )
 
     def _extract_test_id(self, test_name: str) -> str:
@@ -172,56 +184,74 @@ class SummaryPlugin:
         self._print_summary_table(self.test_results)
 
     def _print_summary_table(self, test_results: Dict[str, TestResult]):
-        """Print formatted summary table"""
-        import textwrap
+        """Print formatted summary table using Rich"""
+        console = Console()
 
-        table_data = []
+        table = Table(
+            title="🔍 HOLMES TESTS SUMMARY",
+            show_header=True,
+            header_style="bold magenta",
+        )
+
+        # Add columns with specific widths
+        table.add_column("Test", style="cyan", width=30)
+        table.add_column("Status", justify="center", width=6)
+        table.add_column("Time", justify="right", width=8)
+        table.add_column("Expected", style="green", width=40)
+        table.add_column("Actual", style="yellow", width=40)
+        table.add_column("Analysis", style="red", width=50)
+
         for result in test_results.values():
             # Wrap long content for table readability
             expected_wrapped = (
-                "\n".join(textwrap.wrap(result.expected, width=40))
+                "\n".join(textwrap.wrap(result.expected, width=38))
                 if result.expected
                 else ""
             )
             actual_wrapped = (
-                "\n".join(textwrap.wrap(result.actual, width=40))
+                "\n".join(textwrap.wrap(result.actual, width=38))
                 if result.actual
                 else ""
             )
 
-            # Add test type to ID for clarity
-            test_id_with_type = f"{result.test_id} ({result.test_type})"
+            # Combine test ID and name
+            combined_test_name = (
+                f"{result.test_id}: {result.test_name} ({result.test_type})"
+            )
+            # Wrap test name to fit column
+            test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=28))
+
+            # Convert pass/fail to check/x status with colors
+            if "PASS" in result.pass_fail:
+                status = "[green]✓[/green]"
+            else:
+                status = "[red]✗[/red]"
+
+            # Format execution time
+            time_str = (
+                f"{result.execution_time:.1f}s" if result.execution_time else "N/A"
+            )
 
             # Get analysis for failed tests
             analysis = ""
-            if "❌ FAIL" in result.pass_fail:
+            if "PASS" not in result.pass_fail:
                 try:
                     analysis = self._get_llm_analysis(result)
                     # Wrap analysis text for table readability
-                    analysis = "\n".join(textwrap.wrap(analysis, width=50))
+                    analysis = "\n".join(textwrap.wrap(analysis, width=48))
                 except Exception as e:
                     analysis = f"Analysis failed: {str(e)}"
 
-            table_data.append(
-                [
-                    test_id_with_type,
-                    result.test_name,
-                    expected_wrapped,
-                    actual_wrapped,
-                    result.pass_fail,
-                    analysis,
-                ]
+            table.add_row(
+                test_name_wrapped,
+                status,
+                time_str,
+                expected_wrapped,
+                actual_wrapped,
+                analysis,
             )
 
-        headers = [
-            "Test ID",
-            "Test Name",
-            "Expected",
-            "Actual",
-            "Pass/Fail",
-            "Analysis",
-        ]
-        print(tabulate(table_data, headers=headers, tablefmt="grid"))
+        console.print(table)
 
     def _get_llm_analysis(self, result: TestResult) -> str:
         """Get LLM analysis of test failure"""
