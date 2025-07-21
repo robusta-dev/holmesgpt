@@ -38,11 +38,16 @@ Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_b
         args:
           - -c
           - |
-            TEMP_KUBECONFIG=$(mktemp)
-            cp ${KUBECONFIG:-~/.kube/config} $TEMP_KUBECONFIG
-            KUBECONFIG=$TEMP_KUBECONFIG kubectl config use-context $CONTEXT
-            KUBECONFIG=$TEMP_KUBECONFIG holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
-            rm -f $TEMP_KUBECONFIG
+            # Save current context and switch to K9s context temporarily
+            CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
+            if [ "$CURRENT_CONTEXT" != "$CONTEXT" ]; then
+              kubectl config use-context "$CONTEXT"
+              holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+              # Restore original context
+              [ -n "$CURRENT_CONTEXT" ] && kubectl config use-context "$CURRENT_CONTEXT"
+            else
+              holmes ask "why is $NAME of $RESOURCE_NAME in -n $NAMESPACE not working as expected"
+            fi
             echo "Press 'q' to exit"
             while : ; do
             read -n 1 k <&1
@@ -88,13 +93,18 @@ Integrate HolmesGPT into your [K9s](https://github.com/derailed/k9s){:target="_b
 
             # Read the modified line, ignoring lines starting with '#'
             user_input=$(grep -v '^#' "$QUESTION_FILE")
-            TEMP_KUBECONFIG=$(mktemp)
-            cp ${KUBECONFIG:-~/.kube/config} $TEMP_KUBECONFIG
-            KUBECONFIG=$TEMP_KUBECONFIG kubectl config use-context $CONTEXT
-            echo "Running: holmes ask '$user_input'"
 
-            KUBECONFIG=$TEMP_KUBECONFIG holmes ask "$user_input"
-            rm -f $TEMP_KUBECONFIG
+            echo "Running: holmes ask '$user_input'"
+            # Save current context and switch to K9s context temporarily
+            CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
+            if [ "$CURRENT_CONTEXT" != "$CONTEXT" ]; then
+              kubectl config use-context "$CONTEXT"
+              holmes ask "$user_input"
+              # Restore original context
+              [ -n "$CURRENT_CONTEXT" ] && kubectl config use-context "$CURRENT_CONTEXT"
+            else
+              holmes ask "$user_input"
+            fi
             echo "Press 'q' to exit"
             while : ; do
             read -n 1 k <&1
