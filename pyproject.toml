@@ -96,6 +96,7 @@ markers = [
     "slackbot: Tests involving Slack bot functionality",
     "understanding-real-intent: Tests that require understanding the user's real intent behind a question, not just giving a technically correct answer that is not useful"
 ]
+
 addopts = [
     "--cov-config=pyproject.toml",
     "--cov=holmes",
