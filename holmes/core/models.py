@@ -155,3 +155,27 @@ class WorkloadHealthChatRequest(ChatRequestBaseModel):
     ask: str
     workload_health_result: WorkloadHealthInvestigationResult
     resource: dict
+
+
+workload_health_structured_output = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "WorkloadHealthResult",
+        "strict": False,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "workload_healthy": {
+                    "type": "boolean",
+                    "description": "is the workload in healthy state or in error state",
+                },
+                "root_cause_summary": {
+                    "type": "string",
+                    "description": "concise short explaination leading to the workload_healthy result, pinpoint reason and root cause for the workload issues if any.",
+                },
+            },
+            "required": ["root_cause_summary", "workload_healthy"],
+            "additionalProperties": False,
+        },
+    },
+}
