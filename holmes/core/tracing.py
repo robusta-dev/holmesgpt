@@ -1,7 +1,6 @@
 import os
 import logging
 from typing import Optional, Any, Union
-from contextlib import contextmanager
 from enum import Enum
 
 try:
@@ -19,6 +18,11 @@ except ImportError:
     else:
         Span = Any
         SpanTypeAttribute = Any
+
+
+def _is_noop_span(span) -> bool:
+    """Check if a span is a Braintrust NoopSpan (inactive span)."""
+    return span is None or str(type(span)).endswith("_NoopSpan'>")
 
 
 class SpanType(Enum):
@@ -52,48 +56,19 @@ class DummySpan:
 class DummyTracer:
     """A no-op tracer implementation for when tracing is disabled."""
 
-    @contextmanager
-    def start_trace(self, prompt: str):
-        """Context manager for starting a trace."""
-        yield DummySpan()
+    def start_experiment(self, experiment_name=None, metadata=None):
+        """No-op experiment creation."""
+        return None
+
+    def start_trace(self, name: str, span_type=None):
+        """No-op trace creation."""
+        return DummySpan()
 
     def get_trace_url(self):
         return None
 
     def wrap_llm(self, llm_module):
-        """Auto-detect Braintrust context and wrap if available, otherwise return unwrapped."""
-        try:
-            import braintrust
-
-            # Check if we're in an active Braintrust context
-            current_span = braintrust.current_span()
-            current_experiment = braintrust.current_experiment()
-
-            # Only wrap if we have an active context
-            if (
-                current_span and not str(type(current_span)).endswith("_NoopSpan'>")
-            ) or current_experiment:
-                from braintrust.oai import ChatCompletionWrapper
-
-                class WrappedLiteLLM:
-                    def __init__(self, original_module):
-                        self._original_module = original_module
-                        self._chat_wrapper = ChatCompletionWrapper(
-                            create_fn=original_module.completion, acreate_fn=None
-                        )
-
-                    def completion(self, **kwargs):
-                        return self._chat_wrapper.create(**kwargs)
-
-                    def __getattr__(self, name):
-                        return getattr(self._original_module, name)
-
-                return WrappedLiteLLM(llm_module)
-
-        except ImportError:
-            pass
-
-        # No Braintrust or no active context, return unwrapped
+        """No-op LLM wrapping for dummy tracer."""
         return llm_module
 
 
@@ -150,7 +125,7 @@ class BraintrustTracer:
 
         # Use current Braintrust context (experiment or parent span)
         current_span = braintrust.current_span()
-        if current_span and not str(type(current_span)).endswith("_NoopSpan'>"):
+        if not _is_noop_span(current_span):
             return current_span.start_span(name=name, **kwargs)
 
         # Fallback to current experiment
@@ -175,7 +150,7 @@ class BraintrustTracer:
 
             # Use experiment name for URL construction
             if experiment_name:
-                if current_span and not str(type(current_span)).endswith("_NoopSpan'>"):
+                if not _is_noop_span(current_span):
                     span_id = getattr(current_span, "span_id", None)
                     id_attr = getattr(current_span, "id", None)
                     if span_id and id_attr:
@@ -196,9 +171,7 @@ class BraintrustTracer:
             current_experiment = braintrust.current_experiment()
 
             # Only wrap if we have an active context
-            if (
-                current_span and not str(type(current_span)).endswith("_NoopSpan'>")
-            ) or current_experiment:
+            if not _is_noop_span(current_span) or current_experiment:
                 from braintrust.oai import ChatCompletionWrapper
 
                 class WrappedLiteLLM:

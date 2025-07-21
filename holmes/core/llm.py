@@ -65,14 +65,18 @@ class DefaultLLM(LLM):
     args: Dict
 
     def __init__(
-        self, model: str, api_key: Optional[str] = None, args: Dict = {}, tracer=None
+        self,
+        model: str,
+        api_key: Optional[str] = None,
+        args: Optional[Dict] = None,
+        tracer=None,
     ):
         self.model = model
         self.api_key = api_key
-        self.args = args
+        self.args = args or {}
         self.tracer = tracer
 
-        if not args:
+        if not self.args:
             self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model: str, api_key: Optional[str]):
@@ -217,11 +221,8 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
-        # Always use tracer.wrap_llm - DummyTracer handles auto-detection when no explicit tracer
-        from holmes.core.tracing import DummyTracer
-
-        tracer = self.tracer or DummyTracer()
-        llm_to_use = tracer.wrap_llm(litellm)
+        # Use explicit tracer if provided, otherwise use plain LiteLLM
+        llm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
 
         result = llm_to_use.completion(
             model=self.model,
