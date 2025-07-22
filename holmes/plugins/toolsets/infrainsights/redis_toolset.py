@@ -159,9 +159,13 @@ class GetRedisInfo(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to get Redis info: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -264,9 +268,13 @@ class ListRedisKeys(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to list Redis keys: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -376,9 +384,13 @@ class GetRedisKeyValue(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to get Redis key value: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -478,9 +490,13 @@ class GetRedisMemoryUsage(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to get Redis memory usage: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     

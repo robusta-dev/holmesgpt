@@ -171,9 +171,13 @@ class ListKafkaTopics(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to list Kafka topics: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -255,9 +259,13 @@ class ListKafkaConsumerGroups(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to list Kafka consumer groups: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -371,9 +379,13 @@ class DescribeKafkaTopic(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to describe Kafka topic: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -485,9 +497,13 @@ class GetKafkaConsumerGroupLag(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to get Kafka consumer group lag: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     

@@ -146,9 +146,13 @@ class ListMongoDBDatabases(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to list MongoDB databases: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -246,9 +250,13 @@ class ListMongoDBCollections(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to list MongoDB collections: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -388,9 +396,13 @@ class SearchMongoDBDocuments(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to search MongoDB documents: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -468,9 +480,13 @@ class GetMongoDBServerStatus(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to get MongoDB server status: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     

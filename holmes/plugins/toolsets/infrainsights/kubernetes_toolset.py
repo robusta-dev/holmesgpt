@@ -123,9 +123,13 @@ class ListKubernetesNodes(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to list Kubernetes nodes: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -195,9 +199,13 @@ class GetKubernetesNodeDetails(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to get Kubernetes node details: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -302,9 +310,13 @@ class ListKubernetesPods(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to list Kubernetes pods: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
@@ -367,9 +379,13 @@ class GetKubernetesClusterHealth(BaseInfraInsightsTool):
         except Exception as e:
             error_msg = f"Failed to get Kubernetes cluster health: {str(e)}"
             logging.error(error_msg)
+            
+            # Provide helpful error message for common issues
+            helpful_msg = self.get_helpful_error_message(error_msg)
+            
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=error_msg,
+                error=helpful_msg,
                 params=params,
             )
     
