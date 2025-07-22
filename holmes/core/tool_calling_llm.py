@@ -378,7 +378,6 @@ class ToolCallingLLM:
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
-        raise Exception(f"too many steps {i}/{max_steps}")
 
                 # Add a blank line after all tools in this batch complete
                 if tools_to_call:
