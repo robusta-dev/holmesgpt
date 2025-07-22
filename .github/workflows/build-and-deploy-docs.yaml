@@ -24,5 +24,9 @@ jobs:
           path: .cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs-material
-      - run: mkdocs gh-deploy --force
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
+          poetry config virtualenvs.create false
+      - run: poetry install --with dev
+      - run: poetry run mkdocs gh-deploy --force
