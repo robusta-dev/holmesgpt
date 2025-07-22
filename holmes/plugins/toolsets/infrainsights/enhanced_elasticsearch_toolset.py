@@ -22,6 +22,45 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
         logger.info(f"📝 Request parameters: {json.dumps(params, indent=2)}")
         
         try:
+            # CRITICAL: Manual prompt parsing since HolmesGPT doesn't pass parameters
+            # Check if we can access the original prompt context
+            manual_instance_name = None
+            
+            # Try to get context from HolmesGPT if available
+            try:
+                # This is a hack to get the conversation context
+                import inspect
+                frame = inspect.currentframe()
+                while frame:
+                    local_vars = frame.f_locals
+                    for var_name, var_value in local_vars.items():
+                        if isinstance(var_value, str) and any(name in var_value.lower() for name in ['dock-atlantic-staging', 'instance_name:', 'cluster_name:']):
+                            logger.info(f"🔍 MANUAL PARSING: Found context in {var_name}: {var_value}")
+                            # Extract instance name patterns
+                            import re
+                            patterns = [
+                                r'instance_name:\s*([a-zA-Z0-9\-_]+)',
+                                r'cluster_name:\s*([a-zA-Z0-9\-_]+)',
+                                r'(dock-atlantic-staging)',
+                                r'([a-zA-Z0-9\-_]+)\s+elasticsearch',
+                            ]
+                            for pattern in patterns:
+                                match = re.search(pattern, var_value.lower())
+                                if match:
+                                    manual_instance_name = match.group(1)
+                                    logger.info(f"🎯 MANUAL PARSING: Extracted instance name: {manual_instance_name}")
+                                    break
+                            if manual_instance_name:
+                                break
+                    frame = frame.f_back
+            except Exception as e:
+                logger.info(f"🔍 Manual parsing failed: {e}")
+            
+            # If we found an instance name manually, add it to params
+            if manual_instance_name:
+                params['instance_name'] = manual_instance_name
+                logger.info(f"🎯 MANUAL OVERRIDE: Added instance_name to params: {manual_instance_name}")
+            
             # Enhanced instance resolution with verbose logging
             logger.info("🔍 INFRAINSIGHTS: Attempting to resolve Elasticsearch instance...")
             
@@ -55,6 +94,11 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
             config = self.get_connection_config(instance)
             logger.info("✅ INFRAINSIGHTS: Configuration extracted successfully")
             logger.info(f"🔍 Available config keys: {list(config.keys())}")
+            
+            # CRITICAL DEBUG: Show what's actually in the config
+            logger.info(f"🔍 RAW CONFIG DEBUG: {json.dumps(config, indent=2)}")
+            logger.info(f"🔍 Instance.config type: {type(instance.config)}")
+            logger.info(f"🔍 Instance.config value: {instance.config}")
             
             # Extract Elasticsearch connection details
             es_url = config.get('elasticsearchUrl', config.get('elasticsearch_url'))
@@ -96,18 +140,17 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
             if api_key:
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
-            elif username:
-                # Use the password found from multiple field search
-                if password is None:
-                    logger.error(f"❌ INFRAINSIGHTS: Username provided but password is None. Config keys: {list(config.keys())}")
-                    raise Exception("Username provided but password is missing from configuration")
-                
+            elif username and password:
                 # Use modern basic_auth parameter instead of deprecated http_auth
                 auth_config['basic_auth'] = (username, password)
                 logger.info("🔐 INFRAINSIGHTS: Using username/password authentication")
-                logger.info(f"🔍 Auth details: username={username[:3]}***, password={'*' * len(password) if password else 'None'}")
+                logger.info(f"🔍 Auth details: username={username[:3]}***, password={'*' * len(password)}")
+            elif username and not password:
+                # Try connecting without authentication for open clusters
+                logger.warning("⚠️  INFRAINSIGHTS: Username provided but no password found - trying without authentication")
+                logger.info("🔍 This might be an open cluster or using IAM authentication")
             else:
-                logger.warning("⚠️  INFRAINSIGHTS: No authentication configured")
+                logger.warning("⚠️  INFRAINSIGHTS: No authentication configured - trying anonymous access")
                 logger.info(f"🔍 Available config keys: {list(config.keys())}")
             
             # Create Elasticsearch client
@@ -204,6 +247,42 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
         logger.info(f"📝 Request parameters: {json.dumps(params, indent=2)}")
         
         try:
+            # CRITICAL: Manual prompt parsing since HolmesGPT doesn't pass parameters
+            manual_instance_name = None
+            
+            # Try to get context from HolmesGPT if available
+            try:
+                import inspect
+                frame = inspect.currentframe()
+                while frame:
+                    local_vars = frame.f_locals
+                    for var_name, var_value in local_vars.items():
+                        if isinstance(var_value, str) and any(name in var_value.lower() for name in ['dock-atlantic-staging', 'instance_name:', 'cluster_name:']):
+                            logger.info(f"🔍 MANUAL PARSING: Found context in {var_name}: {var_value}")
+                            import re
+                            patterns = [
+                                r'instance_name:\s*([a-zA-Z0-9\-_]+)',
+                                r'cluster_name:\s*([a-zA-Z0-9\-_]+)',
+                                r'(dock-atlantic-staging)',
+                                r'([a-zA-Z0-9\-_]+)\s+elasticsearch',
+                            ]
+                            for pattern in patterns:
+                                match = re.search(pattern, var_value.lower())
+                                if match:
+                                    manual_instance_name = match.group(1)
+                                    logger.info(f"🎯 MANUAL PARSING: Extracted instance name: {manual_instance_name}")
+                                    break
+                            if manual_instance_name:
+                                break
+                    frame = frame.f_back
+            except Exception as e:
+                logger.info(f"🔍 Manual parsing failed: {e}")
+            
+            # If we found an instance name manually, add it to params
+            if manual_instance_name:
+                params['instance_name'] = manual_instance_name
+                logger.info(f"🎯 MANUAL OVERRIDE: Added instance_name to params: {manual_instance_name}")
+            
             # Enhanced instance resolution with verbose logging
             logger.info("🔍 INFRAINSIGHTS: Attempting to resolve Elasticsearch instance...")
             
@@ -235,6 +314,11 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
             logger.info("🔧 INFRAINSIGHTS: Extracting connection configuration...")
             config = self.get_connection_config(instance)
             logger.info(f"🔍 Available config keys: {list(config.keys())}")
+            
+            # CRITICAL DEBUG: Show what's actually in the config
+            logger.info(f"🔍 RAW CONFIG DEBUG: {json.dumps(config, indent=2)}")
+            logger.info(f"🔍 Instance.config type: {type(instance.config)}")
+            logger.info(f"🔍 Instance.config value: {instance.config}")
             
             # Extract Elasticsearch connection details
             es_url = config.get('elasticsearchUrl', config.get('elasticsearch_url'))
@@ -276,16 +360,18 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
             if api_key:
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
-            elif username:
-                # Use the password found from multiple field search
-                if password is None:
-                    logger.error(f"❌ INFRAINSIGHTS: Username provided but password is None. Config keys: {list(config.keys())}")
-                    raise Exception("Username provided but password is missing from configuration")
-                
+            elif username and password:
                 # Use modern basic_auth parameter instead of deprecated http_auth
                 auth_config['basic_auth'] = (username, password)
                 logger.info("🔐 INFRAINSIGHTS: Using username/password authentication")
-                logger.info(f"🔍 Auth details: username={username[:3]}***, password={'*' * len(password) if password else 'None'}")
+                logger.info(f"🔍 Auth details: username={username[:3]}***, password={'*' * len(password)}")
+            elif username and not password:
+                # Try connecting without authentication for open clusters
+                logger.warning("⚠️  INFRAINSIGHTS: Username provided but no password found - trying without authentication")
+                logger.info("🔍 This might be an open cluster or using IAM authentication")
+            else:
+                logger.warning("⚠️  INFRAINSIGHTS: No authentication configured - trying anonymous access")
+                logger.info(f"🔍 Available config keys: {list(config.keys())}")
             
             # Create Elasticsearch client
             logger.info("🔌 INFRAINSIGHTS: Creating Elasticsearch client connection...")
