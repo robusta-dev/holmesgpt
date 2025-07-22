@@ -1,4 +1,5 @@
-{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_traces"}
+{"toolset_name": "grafana/tempo", "tool_name": "fetch_tempo_traces"}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "fetch_tempo_traces command", "params": {}}
 Trace (traceID=3cb939a36c4e98222d540cfb7da96279) (durationMs=1855)
 	startTime=2025-03-18T05:56:07.529Z rootServiceName=None rootTraceName=/backend/api/checkout
 Trace (traceID=9ac26e58cb2dd8ca5b57d015c13402a2)

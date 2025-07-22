@@ -1,4 +1,5 @@
-{"toolset_name":"grafana/tempo","tool_name":"fetch_tempo_trace_by_id","match_params":{"trace_id":"178ce78f4d8c4efc885f2be03d1d3db"}}
+{"toolset_name": "grafana/tempo", "tool_name": "fetch_tempo_trace_by_id", "match_params": {"trace_id": "178ce78f4d8c4efc885f2be03d1d3db"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "fetch_tempo_trace_by_id command", "params": {"trace_id": "178ce78f4d8c4efc885f2be03d1d3db"}}
 ├─ /backend/api/checkout (backend-service) - 7628.72ms (span_id=bf0d1ee9827694a2)
 │  Datetime: start=2025-03-18T06:18:38.834Z end=2025-03-18T06:18:46.462Z
 │  Resource labels: k8s.pod.name='backend-service-66468d89c8-sxrjj' k8s.namespace.name='minishop' k8s.deployment.name='backend-service' k8s.node.name='local-kind-multi-node-worker2' service.name='backend-service'

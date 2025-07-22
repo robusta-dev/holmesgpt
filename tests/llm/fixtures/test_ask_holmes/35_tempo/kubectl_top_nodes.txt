@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/live-metrics","tool_name":"kubectl_top_nodes","match_params":{}}
+{"toolset_name": "kubernetes/live-metrics", "tool_name": "kubectl_top_nodes", "match_params": {}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_top_nodes command", "params": {}}
 stdout:
 NAME                                  CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%
 local-kind-multi-node-control-plane   117m         0%     1387Mi          1%

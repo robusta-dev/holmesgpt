@@ -1,4 +1,5 @@
-{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"dd1c3198-183a-46a9-824a-eb849b79abb7"}}
+{"toolset_name": "robusta", "tool_name": "fetch_finding_by_id", "match_params": {"id": "dd1c3198-183a-46a9-824a-eb849b79abb7"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "fetch_finding_by_id command", "params": {"id": "dd1c3198-183a-46a9-824a-eb849b79abb7"}}
 account_id: f5497e27-ab3c-478e-952a-c4c12cf57ae4
 aggregation_key: CrashLoopBackoff
 annotations:

@@ -1,4 +1,5 @@
-{"toolset_name":"prometheus/metrics","tool_name":"execute_prometheus_range_query"}
+{"toolset_name": "prometheus/metrics", "tool_name": "execute_prometheus_range_query"}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "execute_prometheus_range_query command", "params": {}}
 {
   "status": "success",
   "random_key": "0we9",

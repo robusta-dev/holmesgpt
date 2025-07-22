@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"customer-orders-766b65899b-lwqnt","namespace":"default"}}
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_describe", "match_params": {"kind": "pod", "name": "customer-orders-766b65899b-lwqnt", "namespace": "default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_describe command", "params": {"kind": "pod", "name": "customer-orders-766b65899b-lwqnt", "namespace": "default"}}
 stdout:
 Name:             customer-orders-766b65899b-lwqnt
 Namespace:        default
