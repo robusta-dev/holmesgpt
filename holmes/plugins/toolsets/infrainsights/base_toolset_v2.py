@@ -1,7 +1,7 @@
 import logging
 from abc import abstractmethod
 from typing import Dict, Any, Tuple, Optional, TYPE_CHECKING, List
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus, Toolset, ToolsetTag, ToolsetStatusEnum, CallablePrerequisite
 from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig, ServiceInstance
 
@@ -228,6 +228,9 @@ Once the issue is resolved, try your investigation query again."""
 
 class BaseInfraInsightsToolsetV2(Toolset):
     """Base class for all InfraInsights toolsets with V2 API support"""
+    
+    # Configure Pydantic to allow arbitrary types
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     
     # Define fields as proper Pydantic fields
     infrainsights_client: Optional[InfraInsightsClientV2] = Field(default=None, exclude=True)
