@@ -202,4 +202,30 @@ class InfraInsightsClient:
             self._make_request('GET', '/api/health')
             return True
         except Exception:
-            return False 
+            return False
+    
+    def get_service_instance_summary(self, service_type: str) -> Dict[str, Any]:
+        """Get a summary of available instances for a service type"""
+        try:
+            instances = self.get_service_instances(service_type)
+            
+            summary = {
+                "service_type": service_type,
+                "total_instances": len(instances),
+                "active_instances": len([i for i in instances if i.status == 'active']),
+                "environments": list(set(i.environment for i in instances)),
+                "instance_names": [i.name for i in instances],
+                "api_accessible": True
+            }
+            
+            return summary
+        except Exception as e:
+            return {
+                "service_type": service_type,
+                "total_instances": 0,
+                "active_instances": 0,
+                "environments": [],
+                "instance_names": [],
+                "api_accessible": False,
+                "error": str(e)
+            } 

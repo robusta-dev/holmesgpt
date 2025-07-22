@@ -29,25 +29,33 @@ class BaseInfraInsightsTool(Tool):
     
     def get_instance_from_params(self, params: Dict[str, Any]) -> ServiceInstance:
         """Get service instance from parameters or user context"""
+        service_type = self.toolset.get_service_type()
+        
         # Check if instance_id is explicitly provided
         instance_id = params.get('instance_id')
         if instance_id:
-            return self.toolset.get_instance_by_id(instance_id)
+            try:
+                return self.toolset.get_instance_by_id(instance_id)
+            except Exception as e:
+                logging.warning(f"Failed to get instance by ID {instance_id}: {str(e)}")
         
         # Check if instance_name is provided
         instance_name = params.get('instance_name')
         if instance_name:
-            return self.toolset.get_instance_by_name(instance_name)
+            try:
+                return self.toolset.get_instance_by_name(instance_name)
+            except Exception as e:
+                logging.warning(f"Failed to get instance by name {instance_name}: {str(e)}")
         
         # Try to identify from prompt
         prompt = params.get('prompt', '')
+        user_id = params.get('user_id')
         if prompt:
-            instance = self.toolset.identify_instance_from_prompt(prompt)
+            instance = self.toolset.identify_instance_from_prompt(prompt, user_id)
             if instance:
                 return instance
         
         # Get current user context
-        user_id = params.get('user_id')
         if user_id:
             instance = self.toolset.get_current_user_instance(user_id)
             if instance:
@@ -56,9 +64,22 @@ class BaseInfraInsightsTool(Tool):
         # Fallback to first available instance
         instances = self.toolset.get_available_instances()
         if instances:
+            logging.info(f"Using first available {service_type} instance: {instances[0].name}")
             return instances[0]
         
-        raise Exception("No service instance available or specified")
+        # More informative error message with suggestions
+        error_msg = f"""No {service_type} instance available or specified.
+        
+Possible solutions:
+1. Ensure InfraInsights API is accessible at the configured URL
+2. Check that {service_type} instances are configured in InfraInsights
+3. Verify authentication credentials are correct
+4. Specify instance explicitly using 'instance_id' or 'instance_name' parameter
+5. Set user context for {service_type} service type
+
+Debug: Check InfraInsights dashboard for available {service_type} instances."""
+        
+        raise Exception(error_msg)
     
     def get_connection_config(self, instance: ServiceInstance) -> Dict[str, Any]:
         """Get connection configuration for a service instance"""
@@ -75,6 +96,53 @@ class BaseInfraInsightsTool(Tool):
             timeout=config.get('timeout', 30)
         )
         return InfraInsightsClient(infrainsights_config)
+    
+    def check_api_connectivity(self) -> Tuple[bool, str]:
+        """Check if InfraInsights API is accessible"""
+        try:
+            client = self.get_infrainsights_client()
+            if client.health_check():
+                return True, "API accessible"
+            else:
+                return False, "InfraInsights API health check failed"
+        except Exception as e:
+            return False, f"Failed to connect to InfraInsights API: {str(e)}"
+    
+    def get_helpful_error_message(self, original_error: str) -> str:
+        """Get a helpful error message for users when investigation fails"""
+        service_type = self.toolset.get_service_type()
+        config = self.toolset.infrainsights_config or {}
+        api_url = config.get('infrainsights_url', 'Not configured')
+        
+        return f"""Investigation failed for {service_type} service: {original_error}
+
+This typically means one of the following:
+
+🔍 **Troubleshooting Steps:**
+
+1. **Check InfraInsights API Status**
+   - URL: {api_url}
+   - Try accessing the InfraInsights dashboard to verify it's running
+
+2. **Verify Service Instance Configuration**
+   - Ensure {service_type} instances are properly configured in InfraInsights
+   - Check that instances are in 'active' status
+
+3. **Authentication Issues**
+   - Verify your API key/credentials are correct and not expired
+   - Check user permissions for {service_type} access
+
+4. **Network Connectivity**
+   - Ensure HolmesGPT can reach the InfraInsights API URL
+   - Check firewall/proxy settings if applicable
+
+5. **Instance Context**
+   - Try specifying an instance explicitly: "Check the production {service_type} cluster"
+   - Set your user context for {service_type} in InfraInsights
+
+💡 **Quick Test:** Access InfraInsights dashboard and verify {service_type} instances are visible and accessible.
+
+Once the issue is resolved, try your investigation query again."""
 
 
 class BaseInfraInsightsToolset(Toolset):
@@ -110,29 +178,29 @@ class BaseInfraInsightsToolset(Toolset):
             # Store config for later use
             self.infrainsights_config = config
             
-            # Create a temporary client to check prerequisites
-            infrainsights_config = InfraInsightsConfig(
-                base_url=config.get('infrainsights_url', 'http://localhost:3000'),
-                api_key=config.get('api_key'),
-                username=config.get('username'),
-                password=config.get('password'),
-                timeout=config.get('timeout', 30)
-            )
-            client = InfraInsightsClient(infrainsights_config)
+            # Basic config validation - don't make network calls during initialization
+            infrainsights_url = config.get('infrainsights_url')
+            api_key = config.get('api_key')
+            username = config.get('username')
+            password = config.get('password')
             
-            # Check if InfraInsights API is accessible
-            if not client.health_check():
-                return False, "InfraInsights API is not accessible"
+            # Check that we have either API key or username/password
+            has_api_key = bool(api_key)
+            has_credentials = bool(username and password)
             
-            # Check if we can get service instances
-            service_type = self.get_service_type()
-            instances = client.get_service_instances(service_type)
-            if not instances:
-                return False, f"No {service_type} instances available"
+            if not infrainsights_url:
+                return False, "InfraInsights URL is required"
             
-            return True, "Prerequisites met"
+            if not (has_api_key or has_credentials):
+                return False, "Either API key or username/password is required"
+            
+            # Don't check API accessibility during initialization
+            # This will be checked lazily when tools are actually invoked
+            logging.info(f"✅ Toolset {self.name}: Configuration validated (will check connectivity when needed)")
+            return True, "Configuration validated"
+            
         except Exception as e:
-            return False, f"Failed to check prerequisites: {str(e)}"
+            return False, f"Failed to validate configuration: {str(e)}"
     
     def get_available_instances(self) -> List[ServiceInstance]:
         """Get all available instances for this service type"""
@@ -140,12 +208,16 @@ class BaseInfraInsightsToolset(Toolset):
         if not self.tools:
             return []
         
-        # Use the first tool to get the client
-        first_tool = self.tools[0]
-        if hasattr(first_tool, 'get_infrainsights_client'):
-            client = first_tool.get_infrainsights_client()
-            service_type = self.get_service_type()
-            return client.get_service_instances(service_type)
+        try:
+            # Use the first tool to get the client
+            first_tool = self.tools[0]
+            if hasattr(first_tool, 'get_infrainsights_client'):
+                client = first_tool.get_infrainsights_client()
+                service_type = self.get_service_type()
+                return client.get_service_instances(service_type)
+        except Exception as e:
+            logging.warning(f"Failed to get available instances for {self.get_service_type()}: {str(e)}")
+            # Return empty list instead of failing - tools can handle this gracefully
         return []
     
     def get_instance_by_id(self, instance_id: str) -> ServiceInstance:
@@ -187,12 +259,15 @@ class BaseInfraInsightsToolset(Toolset):
         if not self.tools:
             return None
         
-        # Use the first tool to get the client
-        first_tool = self.tools[0]
-        if hasattr(first_tool, 'get_infrainsights_client'):
-            client = first_tool.get_infrainsights_client()
-            service_type = self.get_service_type()
-            return client.identify_instance_from_prompt(prompt, service_type, user_id)
+        try:
+            # Use the first tool to get the client
+            first_tool = self.tools[0]
+            if hasattr(first_tool, 'get_infrainsights_client'):
+                client = first_tool.get_infrainsights_client()
+                service_type = self.get_service_type()
+                return client.identify_instance_from_prompt(prompt, service_type, user_id)
+        except Exception as e:
+            logging.warning(f"Failed to identify instance from prompt for {self.get_service_type()}: {str(e)}")
         return None
     
     def get_connection_config(self, instance_id: str) -> Dict[str, Any]:
