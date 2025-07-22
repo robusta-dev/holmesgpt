@@ -56,8 +56,8 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
             elif username:
-                # password is handled separately for security
-                auth_config['http_auth'] = (username, config.get('password'))
+                # Use modern basic_auth parameter instead of deprecated http_auth
+                auth_config['basic_auth'] = (username, config.get('password'))
                 logger.info("🔐 INFRAINSIGHTS: Using username/password authentication")
             else:
                 logger.warning("⚠️  INFRAINSIGHTS: No authentication configured")
@@ -188,7 +188,8 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
             elif username:
-                auth_config['http_auth'] = (username, config.get('password'))
+                # Use modern basic_auth parameter instead of deprecated http_auth
+                auth_config['basic_auth'] = (username, config.get('password'))
                 logger.info("🔐 INFRAINSIGHTS: Using username/password authentication")
             
             # Create Elasticsearch client
