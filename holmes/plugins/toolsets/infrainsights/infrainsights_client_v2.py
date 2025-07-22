@@ -262,21 +262,43 @@ class InfraInsightsClientV2:
             # Simple pattern matching for instance names
             import re
             
-            # Look for patterns like "my xyz instance", "xyz cluster", etc.
+            # Enhanced patterns to capture instance names in various formats
             patterns = [
-                r'(?:my\s+)?([a-zA-Z0-9\-_]+)(?:\s+(?:instance|cluster|service))?',
+                # Specific name patterns with colons (highest priority)
+                r'cluster_name:\s*([a-zA-Z0-9\-_]+)',
+                r'instance_name:\s*([a-zA-Z0-9\-_]+)',
+                r'service_name:\s*([a-zA-Z0-9\-_]+)',
+                
+                # Direct mentions with service types
+                r'([a-zA-Z0-9\-_]+)\s+elasticsearch(?:\s+cluster)?',
+                r'([a-zA-Z0-9\-_]+)\s+kafka(?:\s+cluster)?',
+                r'([a-zA-Z0-9\-_]+)\s+mongodb(?:\s+cluster)?',
+                r'([a-zA-Z0-9\-_]+)\s+redis(?:\s+cluster)?',
+                r'([a-zA-Z0-9\-_]+)\s+kubernetes(?:\s+cluster)?',
+                
+                # "my" patterns
+                r'my\s+([a-zA-Z0-9\-_]+)(?:\s+(?:instance|cluster|service))?',
+                
+                # Generic patterns (lower priority)
                 r'(?:instance|cluster|service)\s+([a-zA-Z0-9\-_]+)',
-                r'([a-zA-Z0-9\-_]+)(?:\s+elasticsearch|\s+kafka|\s+mongodb|\s+redis|\s+kubernetes)',
+                r'([a-zA-Z0-9\-_]{3,})(?:\s+(?:instance|cluster|service))',
             ]
             
-            for pattern in patterns:
+            logger.info(f"🔍 Parsing prompt for {service_type} instance: '{prompt}'")
+            
+            for i, pattern in enumerate(patterns):
                 matches = re.findall(pattern, prompt.lower())
+                logger.info(f"🔍 Pattern {i+1}: '{pattern}' -> matches: {matches}")
+                
                 for match in matches:
                     if len(match) > 2:  # Skip very short matches
+                        logger.info(f"🔍 Trying to resolve: '{match}'")
                         instance = self.resolve_instance(service_type, match, user_id)
                         if instance:
-                            logger.info(f"✅ Identified from prompt: '{match}' -> {instance.name}")
+                            logger.info(f"✅ SUCCESS: Identified from prompt: '{match}' -> {instance.name}")
                             return instance
+                        else:
+                            logger.info(f"❌ No instance found for: '{match}'")
             
             return None
         except Exception as e:

@@ -24,6 +24,28 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
         try:
             # Enhanced instance resolution with verbose logging
             logger.info("🔍 INFRAINSIGHTS: Attempting to resolve Elasticsearch instance...")
+            
+            # Try to extract instance name from various sources
+            instance_hints = []
+            
+            # Check if specific instance identifiers are provided
+            if params.get('instance_name'):
+                instance_hints.append(f"instance_name: {params['instance_name']}")
+            if params.get('cluster_name'):
+                instance_hints.append(f"cluster_name: {params['cluster_name']}")
+            if params.get('instance_id'):
+                instance_hints.append(f"instance_id: {params['instance_id']}")
+            
+            # Check for common prompt patterns in parameter values
+            for key, value in params.items():
+                if isinstance(value, str) and any(keyword in value.lower() for keyword in ['dock-atlantic-staging', 'cluster_name:', 'instance_name:']):
+                    instance_hints.append(f"{key}: {value}")
+            
+            if instance_hints:
+                logger.info(f"🔍 Instance hints found: {', '.join(instance_hints)}")
+            else:
+                logger.info("🔍 No specific instance hints in parameters")
+                
             instance = self.get_instance_from_params(params)
             logger.info(f"✅ INFRAINSIGHTS: Successfully resolved instance: {instance.name} (ID: {instance.instanceId})")
             logger.info(f"🏷️  Instance details: Environment={instance.environment}, Status={instance.status}")
@@ -32,11 +54,14 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
             logger.info("🔧 INFRAINSIGHTS: Extracting connection configuration...")
             config = self.get_connection_config(instance)
             logger.info("✅ INFRAINSIGHTS: Configuration extracted successfully")
+            logger.info(f"🔍 Available config keys: {list(config.keys())}")
             
             # Extract Elasticsearch connection details
             es_url = config.get('elasticsearchUrl', config.get('elasticsearch_url'))
             username = config.get('username')
             api_key = config.get('apiKey', config.get('api_key'))
+            
+            logger.info(f"🔍 Config values: es_url={es_url is not None}, username={username is not None}, api_key={api_key is not None}")
             
             logger.info(f"🔗 INFRAINSIGHTS: Connecting to Elasticsearch at: {es_url}")
             
@@ -56,11 +81,18 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
             elif username:
+                password = config.get('password')
+                if password is None:
+                    logger.error(f"❌ INFRAINSIGHTS: Username provided but password is None. Config keys: {list(config.keys())}")
+                    raise Exception("Username provided but password is missing from configuration")
+                
                 # Use modern basic_auth parameter instead of deprecated http_auth
-                auth_config['basic_auth'] = (username, config.get('password'))
+                auth_config['basic_auth'] = (username, password)
                 logger.info("🔐 INFRAINSIGHTS: Using username/password authentication")
+                logger.info(f"🔍 Auth details: username={username[:3]}***, password={'*' * len(password) if password else 'None'}")
             else:
                 logger.warning("⚠️  INFRAINSIGHTS: No authentication configured")
+                logger.info(f"🔍 Available config keys: {list(config.keys())}")
             
             # Create Elasticsearch client
             logger.info("🔌 INFRAINSIGHTS: Creating Elasticsearch client connection...")
@@ -158,17 +190,42 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
         try:
             # Enhanced instance resolution with verbose logging
             logger.info("🔍 INFRAINSIGHTS: Attempting to resolve Elasticsearch instance...")
+            
+            # Try to extract instance name from various sources
+            instance_hints = []
+            
+            # Check if specific instance identifiers are provided
+            if params.get('instance_name'):
+                instance_hints.append(f"instance_name: {params['instance_name']}")
+            if params.get('cluster_name'):
+                instance_hints.append(f"cluster_name: {params['cluster_name']}")
+            if params.get('instance_id'):
+                instance_hints.append(f"instance_id: {params['instance_id']}")
+            
+            # Check for common prompt patterns in parameter values
+            for key, value in params.items():
+                if isinstance(value, str) and any(keyword in value.lower() for keyword in ['dock-atlantic-staging', 'cluster_name:', 'instance_name:']):
+                    instance_hints.append(f"{key}: {value}")
+            
+            if instance_hints:
+                logger.info(f"🔍 Instance hints found: {', '.join(instance_hints)}")
+            else:
+                logger.info("🔍 No specific instance hints in parameters")
+                
             instance = self.get_instance_from_params(params)
             logger.info(f"✅ INFRAINSIGHTS: Successfully resolved instance: {instance.name}")
             
             # Get connection configuration
             logger.info("🔧 INFRAINSIGHTS: Extracting connection configuration...")
             config = self.get_connection_config(instance)
+            logger.info(f"🔍 Available config keys: {list(config.keys())}")
             
             # Extract Elasticsearch connection details
             es_url = config.get('elasticsearchUrl', config.get('elasticsearch_url'))
             username = config.get('username')
             api_key = config.get('apiKey', config.get('api_key'))
+            
+            logger.info(f"🔍 Config values: es_url={es_url is not None}, username={username is not None}, api_key={api_key is not None}")
             
             logger.info(f"🔗 INFRAINSIGHTS: Connecting to Elasticsearch at: {es_url}")
             
@@ -188,9 +245,15 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
             elif username:
+                password = config.get('password')
+                if password is None:
+                    logger.error(f"❌ INFRAINSIGHTS: Username provided but password is None. Config keys: {list(config.keys())}")
+                    raise Exception("Username provided but password is missing from configuration")
+                
                 # Use modern basic_auth parameter instead of deprecated http_auth
-                auth_config['basic_auth'] = (username, config.get('password'))
+                auth_config['basic_auth'] = (username, password)
                 logger.info("🔐 INFRAINSIGHTS: Using username/password authentication")
+                logger.info(f"🔍 Auth details: username={username[:3]}***, password={'*' * len(password) if password else 'None'}")
             
             # Create Elasticsearch client
             logger.info("🔌 INFRAINSIGHTS: Creating Elasticsearch client connection...")
