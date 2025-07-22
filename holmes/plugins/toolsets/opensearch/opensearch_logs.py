@@ -66,6 +66,9 @@ class OpenSearchLogsToolset(BasePodLoggingToolset):
     def opensearch_config(self) -> Optional[OpenSearchLoggingConfig]:
         return self.config
 
+    def logger_name(self) -> str:
+        return "OpenSearch"
+
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         if not self.opensearch_config:
             return StructuredToolResult(
