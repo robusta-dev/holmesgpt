@@ -7,4 +7,3 @@ after_test: |
   kubectl delete -f ./helm/sock-shop.yaml || true
 evaluation:
   correctness: 1
-generate_mocks: False

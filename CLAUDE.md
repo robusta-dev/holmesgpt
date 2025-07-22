@@ -122,6 +122,11 @@ export MODEL=anthropic/claude-3.5
 poetry run pytest tests/llm/test_ask_holmes.py
 ```
 
+**Test Infrastructure Notes**:
+- All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
+- Mock file tracking and test results are stored in `user_properties` and aggregated in the terminal summary
+- This design ensures tests work correctly when run in parallel with `-n` flag
+
 ## Configuration
 
 **Config File Location**: `~/.holmes/config.yaml`
@@ -137,7 +142,8 @@ poetry run pytest tests/llm/test_ask_holmes.py
 - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: LLM API keys
 - `MODEL`: Override default model
 - `RUN_LIVE`: Use live tools in tests instead of mocks
-- `BRAINTRUST_API_KEY`: For test result tracking
+- `BRAINTRUST_API_KEY`: For test result tracking and CI/CD report generation
+- `BRAINTRUST_ORG`: Braintrust organization name (default: "robustadev")
 
 ## Development Guidelines
 

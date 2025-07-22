@@ -1,5 +1,4 @@
 from typing import Dict, List
-import pyodbc
 import logging
 import struct
 from azure.core.credentials import TokenCredential
@@ -38,6 +37,8 @@ class AzureSQLAPIClient:
         self, server_name: str, database_name: str, query: str
     ) -> List[Dict]:
         """Execute a T-SQL query against the Azure SQL database."""
+        import pyodbc  # type: ignore
+
         conn = None
         cursor = None
 

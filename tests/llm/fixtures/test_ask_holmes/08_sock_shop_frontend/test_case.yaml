@@ -15,4 +15,3 @@ after_test: |
   kubectl delete -f ./helm/trigger-carts-issue.yaml
 evaluation:
   correctness: 0
-generate_mocks: False

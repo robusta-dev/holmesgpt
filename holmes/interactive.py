@@ -2,16 +2,19 @@ import logging
 import os
 import subprocess
 import tempfile
+import threading
 from collections import defaultdict
 from enum import Enum
-from typing import Optional, List, DefaultDict
 from pathlib import Path
+from typing import Optional, List, DefaultDict
 
 import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application import Application
-from prompt_toolkit.completion import Completer, Completion
-from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.completion import Completer, Completion, merge_completers
+from prompt_toolkit.completion.filesystem import ExecutableCompleter, PathCompleter
+from prompt_toolkit.history import InMemoryHistory, FileHistory
+from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit, Window
@@ -19,7 +22,6 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
-import threading
 
 from rich.console import Console
 from rich.markdown import Markdown, Panel
@@ -71,6 +73,71 @@ class SlashCommandCompleter(Completer):
                     yield Completion(
                         cmd, start_position=-len(word), display=f"{cmd} - {description}"
                     )
+
+
+class SmartPathCompleter(Completer):
+    """Path completer that works for relative paths starting with ./ or ../"""
+
+    def __init__(self):
+        self.path_completer = PathCompleter()
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+        words = text.split()
+        if not words:
+            return
+
+        last_word = words[-1]
+        # Only complete if the last word looks like a relative path (not absolute paths starting with /)
+        if last_word.startswith("./") or last_word.startswith("../"):
+            # Create a temporary document with just the path part
+            path_doc = Document(last_word, len(last_word))
+
+            for completion in self.path_completer.get_completions(
+                path_doc, complete_event
+            ):
+                yield Completion(
+                    completion.text,
+                    start_position=completion.start_position - len(last_word),
+                    display=completion.display,
+                    display_meta=completion.display_meta,
+                )
+
+
+class ConditionalExecutableCompleter(Completer):
+    """Executable completer that only works after /run commands"""
+
+    def __init__(self):
+        self.executable_completer = ExecutableCompleter()
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+
+        # Only provide executable completion if the line starts with /run
+        if text.startswith("/run "):
+            # Extract the command part after "/run "
+            command_part = text[5:]  # Remove "/run "
+
+            # Only complete the first word (the executable name)
+            words = command_part.split()
+            if len(words) <= 1:  # Only when typing the first word
+                # Create a temporary document with just the command part
+                cmd_doc = Document(command_part, len(command_part))
+
+                seen_completions = set()
+                for completion in self.executable_completer.get_completions(
+                    cmd_doc, complete_event
+                ):
+                    # Remove duplicates based on text only (display can be FormattedText which is unhashable)
+                    if completion.text not in seen_completions:
+                        seen_completions.add(completion.text)
+                        yield Completion(
+                            completion.text,
+                            start_position=completion.start_position
+                            - len(command_part),
+                            display=completion.display,
+                            display_meta=completion.display_meta,
+                        )
 
 
 USER_COLOR = "#DEFCC0"  # light green
@@ -242,7 +309,11 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         @bindings.add("end")
         def _(event):
             event.app.layout.focus(text_area)
+            # Go to last line, then to beginning of that line
             text_area.buffer.cursor_position = len(text_area.buffer.text)
+            text_area.buffer.cursor_left(
+                count=text_area.buffer.document.cursor_position_col
+            )
 
         @bindings.add("d")
         @bindings.add("c-d")
@@ -415,12 +486,15 @@ def prompt_for_llm_sharing(
     Returns:
         Formatted user input string if user chooses to share, None otherwise
     """
-    share_prompt = session.prompt(
+    # Create a temporary session without history for y/n prompts
+    temp_session = PromptSession(history=InMemoryHistory())  # type: ignore
+
+    share_prompt = temp_session.prompt(
         [("class:prompt", f"Share {content_type} with LLM? (Y/n): ")], style=style
     )
 
     if not share_prompt.lower().startswith("n"):
-        comment_prompt = session.prompt(
+        comment_prompt = temp_session.prompt(
             [("class:prompt", "Optional comment/question (press Enter to skip): ")],
             style=style,
         )
@@ -660,8 +734,19 @@ def run_interactive_loop(
         }
     )
 
-    command_completer = SlashCommandCompleter()
-    history = InMemoryHistory()
+    # Create merged completer with slash commands, conditional executables, and smart paths
+    slash_completer = SlashCommandCompleter()
+    executable_completer = ConditionalExecutableCompleter()
+    path_completer = SmartPathCompleter()
+
+    command_completer = merge_completers(
+        [slash_completer, executable_completer, path_completer]
+    )
+
+    # Use file-based history
+    history_file = os.path.expanduser("~/.holmes/history")
+    os.makedirs(os.path.dirname(history_file), exist_ok=True)
+    history = FileHistory(history_file)
     if initial_user_input:
         history.append_string(initial_user_input)
 

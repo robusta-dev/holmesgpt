@@ -9,7 +9,7 @@ def client():
     return TestClient(app)
 
 
-@patch("holmes.utils.robusta.load_robusta_api_key")
+@patch("server.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_api_chat_all_fields(
@@ -78,7 +78,7 @@ def test_api_chat_all_fields(
         assert "pre_action_notification_text" in action
 
 
-@patch("holmes.utils.robusta.load_robusta_api_key")
+@patch("server.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_api_issue_chat_all_fields(
@@ -140,7 +140,7 @@ def test_api_issue_chat_all_fields(
         assert "result" in tool_call
 
 
-@patch("holmes.utils.robusta.load_robusta_api_key")
+@patch("server.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_api_workload_health_chat(
@@ -205,7 +205,7 @@ def test_api_workload_health_chat(
         assert "result" in tool_call
 
 
-@patch("holmes.utils.robusta.load_robusta_api_key")
+@patch("server.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_workload_issues")
