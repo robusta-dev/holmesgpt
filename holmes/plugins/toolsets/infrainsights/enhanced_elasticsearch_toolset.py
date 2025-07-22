@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,7 @@ class ElasticsearchHealthCheckTool(Tool):
             "required": True
         }
     }
+    toolset: Optional[Any] = None
     
     def __init__(self, toolset=None):
         super().__init__()
@@ -89,6 +90,7 @@ class ElasticsearchListIndicesTool(Tool):
             "required": True
         }
     }
+    toolset: Optional[Any] = None
     
     def __init__(self, toolset=None):
         super().__init__()
