@@ -20,7 +20,7 @@ from tests.llm.utils.mock_toolset import MockMode  # type: ignore[attr-defined]
 
 # Configuration constants
 DEBUG_SEPARATOR = "=" * 80
-LLM_TEST_TYPES = ["test_ask_holmes", "test_investigate"]
+LLM_TEST_TYPES = ["test_ask_holmes", "test_investigate", "test_workload_health"]
 
 
 def is_llm_test(nodeid: str) -> bool:

@@ -63,8 +63,8 @@ class MockSupabaseDal(SupabaseDal):
 
                 return data
 
-    def _get_mock_file_path(self, entity_type: str):
-        return f"{self._test_case_folder}/{entity_type}.json"
+    def _get_mock_file_path(self, entity_type: str) -> Path:
+        return self._test_case_folder / f"{entity_type}.json"
 
     def get_global_instructions_for_account(self) -> Optional[Instructions]:
         return None
