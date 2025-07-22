@@ -1,8 +1,8 @@
+import json
 import time
+import zlib
 from threading import Timer
 from typing import Any, Dict, Optional
-import json
-import bz2
 
 
 class SetEncoder(json.JSONEncoder):
@@ -15,14 +15,14 @@ class SetEncoder(json.JSONEncoder):
 def compress(data):
     json_str = json.dumps(data, cls=SetEncoder)
     json_bytes = json_str.encode("utf-8")
-    compressed = bz2.compress(json_bytes, compresslevel=1)
+    compressed = zlib.compress(json_bytes, level=1)
 
     return compressed
 
 
 def decompress(compressed_data):
     try:
-        decompressed = bz2.decompress(compressed_data)
+        decompressed = zlib.decompress(compressed_data)
         json_str = decompressed.decode("utf-8")
         data = json.loads(json_str)
         return data
