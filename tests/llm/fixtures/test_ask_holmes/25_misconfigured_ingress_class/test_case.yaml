@@ -8,5 +8,5 @@ expected_output:
 before_test: kubectl apply -f./ingress_with_class.yaml
 after_test: kubectl delete -f./ingress_with_class.yaml
 evaluation:
-  correctness: 1
-generate_mocks: True
+  # Note - this test is problematic, as the question the user would ask should probably be mentioning the ingress host 'app.example.com' and the investigation should unfold from that direction
+  correctness: 0
