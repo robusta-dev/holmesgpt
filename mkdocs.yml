@@ -1,9 +1,9 @@
 site_name: HolmesGPT Documentation
 site_description: AI-powered root cause analysis for DevOps and SRE teams
-site_url: https://holmesgpt.robusta.dev
+site_url: https://robusta-dev.github.io/holmesgpt/
 repo_url: https://github.com/robusta-dev/holmesgpt
 repo_name: robusta-dev/holmesgpt
-edit_uri: edit/main/docs/
+edit_uri: edit/master/docs/
 exclude_docs: |
   _*
   snippets/
@@ -63,7 +63,7 @@ plugins:
   #     type: timeago
   # - git-committers:
   #     repository: robusta-dev/holmesgpt
-  #     branch: main
+  #     branch: master
   #     docs_path: docs/
   # - minify:
   #     minify_html: true
@@ -121,7 +121,7 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/robusta-dev/holmesgpt
     - icon: fontawesome/brands/slack
-      link: https://robustacommunity.slack.com
+      link: https://bit.ly/robusta-slack
     - icon: fontawesome/brands/twitter
       link: https://twitter.com/RobustaDev
 
