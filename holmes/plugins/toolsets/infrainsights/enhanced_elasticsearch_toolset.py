@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Dict, Any
 from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult
 from .base_toolset_v2 import BaseInfraInsightsToolV2, BaseInfraInsightsToolsetV2
@@ -21,71 +22,19 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
         logger.info(f"📝 Request parameters: {json.dumps(params, indent=2)}")
         
         try:
-            # CRITICAL: Manual prompt parsing since HolmesGPT doesn't pass parameters
-            # Check if we can access the original prompt context
+            # Optimized: Only extract instance_name from params['prompt']
             manual_instance_name = None
-            
-            # Try to get context from HolmesGPT if available
-            try:
-                # This is a hack to get the conversation context
-                import inspect
-                frame = inspect.currentframe()
-                while frame:
-                    local_vars = frame.f_locals
-                    for var_name, var_value in local_vars.items():
-                        if isinstance(var_value, str):
-                            # Look for specific instance names
-                            instance_patterns = [
-                                'dock-atlantic-staging',
-                                'dock-olyortho-staging', 
-                                'consolidated-demo-prod',
-                                'production-elasticsearch',
-                                'staging-elasticsearch'
-                            ]
-                            
-                            for pattern in instance_patterns:
-                                if pattern in var_value.lower():
-                                    manual_instance_name = pattern
-                                    logger.info(f"🎯 MANUAL PARSING: Found specific instance: {pattern} in {var_name}")
-                                    break
-                            
-                            # Also check for generic patterns
-                            if not manual_instance_name and any(name in var_value.lower() for name in ['instance_name:', 'cluster_name:']):
-                                logger.info(f"🔍 MANUAL PARSING: Found context in {var_name}: {var_value}")
-                                # Extract instance name patterns
-                                import re
-                                patterns = [
-                                    r'instance_name:\s*([a-zA-Z0-9\-_]+)',
-                                    r'cluster_name:\s*([a-zA-Z0-9\-_]+)',
-                                    r'([a-zA-Z0-9\-_]+)\s+elasticsearch',
-                                    r'my\s+([a-zA-Z0-9\-_]+)',
-                                ]
-                                for pattern in patterns:
-                                    match = re.search(pattern, var_value.lower())
-                                    if match:
-                                        manual_instance_name = match.group(1)
-                                        logger.info(f"🎯 MANUAL PARSING: Extracted instance name: {manual_instance_name}")
-                                        break
-                            
-                            if manual_instance_name:
-                                break
-                    
-                    if manual_instance_name:
-                        break
-                    frame = frame.f_back
-            except Exception as e:
-                logger.info(f"🔍 Manual parsing failed: {e}")
-            
-            # If we found an instance name manually, add it to params
-            if manual_instance_name:
-                params['instance_name'] = manual_instance_name
-                logger.info(f"🎯 MANUAL OVERRIDE: Added instance_name to params: {manual_instance_name}")
-            
-            # EMERGENCY FALLBACK: Force dock-atlantic-staging for testing
-            if not params.get('instance_name') and not params.get('cluster_name'):
-                logger.info("🚨 EMERGENCY: No instance name found, checking for dock-atlantic-staging")
-                params['instance_name'] = 'dock-atlantic-staging'
-                logger.info(f"🚨 EMERGENCY FALLBACK: Forcing dock-atlantic-staging for password testing")
+            prompt = params.get('prompt')
+            if prompt:
+                match = re.search(r'instance_name:\s*([a-zA-Z0-9\-_]+)', prompt.lower())
+                if match:
+                    manual_instance_name = match.group(1)
+                    logger.info(f"🎯 MANUAL PARSING: Extracted instance name: {manual_instance_name} from prompt")
+                    params['instance_name'] = manual_instance_name
+            else:
+                logger.warning("⚠️  No prompt found in params. Please ensure the backend passes the prompt to the tool.")
+            if not params.get('instance_name'):
+                logger.warning("⚠️  No instance_name found in prompt. Please specify an instance_name in your prompt.")
             
             # Enhanced instance resolution with verbose logging
             logger.info("🔍 INFRAINSIGHTS: Attempting to resolve Elasticsearch instance...")
@@ -103,7 +52,7 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
             
             # Check for common prompt patterns in parameter values
             for key, value in params.items():
-                if isinstance(value, str) and any(keyword in value.lower() for keyword in ['dock-atlantic-staging', 'dock-olyortho-staging', 'cluster_name:', 'instance_name:']):
+                if isinstance(value, str) and any(keyword in value.lower() for keyword in ['instance_name:', 'cluster_name:']):
                     instance_hints.append(f"{key}: {value}")
             
             if instance_hints:
@@ -131,22 +80,15 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
             username = config.get('username')
             api_key = config.get('apiKey', config.get('api_key'))
             
-            # Try multiple password field names for different platforms
-            password_fields = ['password', 'masterUserPassword', 'elasticsearchPassword', 'auth_password']
-            password = None
-            password_source = None
-            
-            for field in password_fields:
-                if config.get(field):
-                    password = config.get(field)
-                    password_source = field
-                    break
+            # Simplified: Only check for 'password' field
+            password = config.get('password')
+            password_source = 'password' if password else None
             
             logger.info(f"🔍 Config values: es_url={es_url is not None}, username={username is not None}, api_key={api_key is not None}")
             if password:
-                logger.info(f"🔍 Password found in field: {password_source}")
+                logger.info(f"🔍 Password found in field: password")
             else:
-                logger.warning(f"⚠️  No password found in any of these fields: {password_fields}")
+                logger.warning(f"⚠️  No password found in config (expected 'password' field)")
                 logger.info(f"🔍 All config keys for reference: {list(config.keys())}")
             
             logger.info(f"🔗 INFRAINSIGHTS: Connecting to Elasticsearch at: {es_url}")
@@ -301,6 +243,7 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
                             # Also check for generic patterns
                             if not manual_instance_name and any(name in var_value.lower() for name in ['instance_name:', 'cluster_name:']):
                                 logger.info(f"🔍 MANUAL PARSING: Found context in {var_name}: {var_value}")
+                                # Extract instance name patterns
                                 import re
                                 patterns = [
                                     r'instance_name:\s*([a-zA-Z0-9\-_]+)',
@@ -371,22 +314,15 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
             username = config.get('username')
             api_key = config.get('apiKey', config.get('api_key'))
             
-            # Try multiple password field names for different platforms
-            password_fields = ['password', 'masterUserPassword', 'elasticsearchPassword', 'auth_password']
-            password = None
-            password_source = None
-            
-            for field in password_fields:
-                if config.get(field):
-                    password = config.get(field)
-                    password_source = field
-                    break
+            # Simplified: Only check for 'password' field
+            password = config.get('password')
+            password_source = 'password' if password else None
             
             logger.info(f"🔍 Config values: es_url={es_url is not None}, username={username is not None}, api_key={api_key is not None}")
             if password:
-                logger.info(f"🔍 Password found in field: {password_source}")
+                logger.info(f"🔍 Password found in field: password")
             else:
-                logger.warning(f"⚠️  No password found in any of these fields: {password_fields}")
+                logger.warning(f"⚠️  No password found in config (expected 'password' field)")
                 logger.info(f"🔍 All config keys for reference: {list(config.keys())}")
             
             logger.info(f"🔗 INFRAINSIGHTS: Connecting to Elasticsearch at: {es_url}")
