@@ -41,11 +41,10 @@ from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
-from holmes.plugins.toolsets.infrainsights.elasticsearch_toolset import ElasticsearchToolset
-from holmes.plugins.toolsets.infrainsights.kafka_toolset import KafkaToolset as InfraInsightsKafkaToolset
-from holmes.plugins.toolsets.infrainsights.kubernetes_toolset import KubernetesToolset as InfraInsightsKubernetesToolset
-from holmes.plugins.toolsets.infrainsights.mongodb_toolset import MongoDBToolset as InfraInsightsMongoDBToolset
-from holmes.plugins.toolsets.infrainsights.redis_toolset import RedisToolset as InfraInsightsRedisToolset
+
+# Enhanced InfraInsights toolsets
+from holmes.plugins.toolsets.infrainsights.enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
+from holmes.plugins.toolsets.infrainsights.enhanced_kafka_toolset import EnhancedKafkaToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -93,12 +92,6 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         RunbookToolset(),
         AzureSQLToolset(),
         ServiceNowToolset(),
-        # Removed: InfraInsights toolsets are now custom-only (loaded from YAML config)
-        # ElasticsearchToolset(),
-        # InfraInsightsKafkaToolset(),
-        # InfraInsightsKubernetesToolset(),
-        # InfraInsightsMongoDBToolset(),
-        # InfraInsightsRedisToolset(),
     ]
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
@@ -168,22 +161,12 @@ def load_toolsets_from_config(
             # MCP server is not a built-in toolset, so we need to set the type explicitly
             validated_toolset: Optional[Toolset] = None
             
-            # Special handling for InfraInsights toolsets
-            if name == "infrainsights_elasticsearch":
-                validated_toolset = ElasticsearchToolset()
-                # Set the config so it gets passed to prerequisites_callable
+            # Enhanced InfraInsights toolsets
+            if name == "infrainsights_elasticsearch_enhanced":
+                validated_toolset = EnhancedElasticsearchToolset()
                 validated_toolset.config = config.get("config")
-            elif name == "infrainsights_kafka":
-                validated_toolset = InfraInsightsKafkaToolset()
-                validated_toolset.config = config.get("config")
-            elif name == "infrainsights_kubernetes":
-                validated_toolset = InfraInsightsKubernetesToolset()
-                validated_toolset.config = config.get("config")
-            elif name == "infrainsights_mongodb":
-                validated_toolset = InfraInsightsMongoDBToolset()
-                validated_toolset.config = config.get("config")
-            elif name == "infrainsights_redis":
-                validated_toolset = InfraInsightsRedisToolset()
+            elif name == "infrainsights_kafka_enhanced":
+                validated_toolset = EnhancedKafkaToolset()
                 validated_toolset.config = config.get("config")
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
