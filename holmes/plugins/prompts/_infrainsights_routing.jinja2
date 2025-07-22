@@ -1,0 +1,96 @@
+# InfraInsights Instance-Based Routing Instructions
+
+## 🎯 **Toolset Routing Priority**
+
+When the user mentions **specific instance names**, **environments**, or **managed infrastructure**, always prioritize **InfraInsights toolsets** over generic/built-in ones.
+
+### **🔍 Instance Name Patterns That Trigger InfraInsights:**
+- **Named instances**: `dock-atlantic-staging`, `production-es`, `kafka-prod`, `redis-cache-1`
+- **Environment-specific**: `staging-elasticsearch`, `prod-kafka`, `dev-redis`
+- **User possessive**: `my elasticsearch cluster`, `our kafka instance`, `my redis cache`
+- **Explicit environments**: `staging`, `production`, `development`, `testing`
+
+### **⚠️ When to Use InfraInsights vs Built-in Toolsets:**
+
+#### ✅ **Use InfraInsights Toolsets When:**
+- User mentions specific instance names (e.g., `dock-atlantic-staging`)
+- User refers to "my" or "our" infrastructure (`my Elasticsearch cluster`)
+- Query includes environment references (`staging kafka`, `production redis`)
+- User wants to connect to managed instances
+- Instance-specific operations (health checks, configuration, data access)
+
+#### ❌ **Use Built-in/Generic Toolsets When:**
+- User asks general questions without instance specifics
+- Generic monitoring queries (`show all pods`, `cluster resources`)
+- Prometheus metrics without instance context
+- General troubleshooting without named resources
+
+### **🔧 Service Type Routing Rules:**
+
+#### **Elasticsearch Queries:**
+- ✅ **InfraInsights**: `"dock-atlantic-staging Elasticsearch"`, `"my ES cluster"`, `"production elasticsearch health"`
+- ❌ **Prometheus**: `"elasticsearch metrics"`, `"cluster-wide elasticsearch stats"`
+
+#### **Kafka Queries:**
+- ✅ **InfraInsights**: `"kafka-prod topics"`, `"my kafka cluster"`, `"staging kafka consumers"`
+- ❌ **Built-in**: `"kafka cluster overview"`, `"all kafka metrics"`
+
+#### **MongoDB Queries:**
+- ✅ **InfraInsights**: `"mongo-staging databases"`, `"my mongodb instance"`, `"production mongo stats"`
+- ❌ **Generic**: `"mongodb pod status"`, `"mongo container logs"`
+
+#### **Redis Queries:**
+- ✅ **InfraInsights**: `"redis-cache-1 keys"`, `"my redis cluster"`, `"staging redis memory"`
+- ❌ **Built-in**: `"redis pod logs"`, `"redis container status"`
+
+#### **Kubernetes Queries:**
+- ✅ **InfraInsights**: `"k8s-prod cluster"`, `"my kubernetes instance"`, `"staging k8s nodes"`
+- ❌ **Core**: `"all pods"`, `"cluster resources"`, `"namespace overview"`
+
+### **🚨 Error Resolution Patterns:**
+
+If you encounter these patterns, **immediately switch to InfraInsights**:
+- `"Instance X not found"` → User likely refers to an InfraInsights-managed instance
+- Prometheus tools return empty results for named instances
+- Generic tools fail to find specific instance names
+
+### **📝 Logging Recognition:**
+
+Look for these log patterns to confirm InfraInsights toolset usage:
+- ✅ `🔍 INFRAINSIGHTS: Attempting to resolve instance...`
+- ✅ `✅ INFRAINSIGHTS: Successfully resolved instance: dock-atlantic-staging`
+- ❌ `INFO Running tool execute_prometheus_instant_query` (wrong toolset)
+
+### **🎯 Quick Decision Matrix:**
+
+| User Query Contains | Toolset Choice | Example |
+|-------------------|---------------|---------|
+| Specific instance name | ✅ InfraInsights | `dock-atlantic-staging` |
+| "my/our" + service | ✅ InfraInsights | `my elasticsearch cluster` |
+| Environment + service | ✅ InfraInsights | `staging kafka` |
+| Generic service name | ❌ Built-in | `elasticsearch health` |
+| Pod/container focus | ❌ Kubernetes Core | `elasticsearch pods` |
+| Metrics-only query | ❌ Prometheus | `elasticsearch_cluster_health` |
+
+### **🔄 Fallback Strategy:**
+
+1. **First attempt**: Use InfraInsights toolset for named instances
+2. **If InfraInsights fails**: Check error message
+3. **If "instance not found"**: Suggest creating the instance in InfraInsights
+4. **If other error**: Provide troubleshooting steps
+5. **Never fallback** to generic toolsets for named instances without explaining why
+
+### **💡 Example Routing Decisions:**
+
+```
+❌ Wrong: "Check elasticsearch health" → Prometheus toolset
+✅ Right: "Check dock-atlantic-staging elasticsearch health" → InfraInsights toolset
+
+❌ Wrong: "List kafka topics" → Built-in Kafka toolset  
+✅ Right: "List topics in my kafka cluster" → InfraInsights toolset
+
+❌ Wrong: "Show redis memory" → Generic Redis tools
+✅ Right: "Show redis-cache-1 memory usage" → InfraInsights toolset
+```
+
+## 🎯 **Remember: Named instances = InfraInsights. Generic queries = Built-in toolsets.** 
