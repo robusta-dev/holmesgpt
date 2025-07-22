@@ -61,7 +61,23 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
             username = config.get('username')
             api_key = config.get('apiKey', config.get('api_key'))
             
+            # Try multiple password field names for different platforms
+            password_fields = ['password', 'masterUserPassword', 'elasticsearchPassword', 'auth_password']
+            password = None
+            password_source = None
+            
+            for field in password_fields:
+                if config.get(field):
+                    password = config.get(field)
+                    password_source = field
+                    break
+            
             logger.info(f"🔍 Config values: es_url={es_url is not None}, username={username is not None}, api_key={api_key is not None}")
+            if password:
+                logger.info(f"🔍 Password found in field: {password_source}")
+            else:
+                logger.warning(f"⚠️  No password found in any of these fields: {password_fields}")
+                logger.info(f"🔍 All config keys for reference: {list(config.keys())}")
             
             logger.info(f"🔗 INFRAINSIGHTS: Connecting to Elasticsearch at: {es_url}")
             
@@ -81,7 +97,7 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
             elif username:
-                password = config.get('password')
+                # Use the password found from multiple field search
                 if password is None:
                     logger.error(f"❌ INFRAINSIGHTS: Username provided but password is None. Config keys: {list(config.keys())}")
                     raise Exception("Username provided but password is missing from configuration")
@@ -225,7 +241,23 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
             username = config.get('username')
             api_key = config.get('apiKey', config.get('api_key'))
             
+            # Try multiple password field names for different platforms
+            password_fields = ['password', 'masterUserPassword', 'elasticsearchPassword', 'auth_password']
+            password = None
+            password_source = None
+            
+            for field in password_fields:
+                if config.get(field):
+                    password = config.get(field)
+                    password_source = field
+                    break
+            
             logger.info(f"🔍 Config values: es_url={es_url is not None}, username={username is not None}, api_key={api_key is not None}")
+            if password:
+                logger.info(f"🔍 Password found in field: {password_source}")
+            else:
+                logger.warning(f"⚠️  No password found in any of these fields: {password_fields}")
+                logger.info(f"🔍 All config keys for reference: {list(config.keys())}")
             
             logger.info(f"🔗 INFRAINSIGHTS: Connecting to Elasticsearch at: {es_url}")
             
@@ -245,7 +277,7 @@ class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
                 auth_config['api_key'] = api_key
                 logger.info("🔐 INFRAINSIGHTS: Using API key authentication")
             elif username:
-                password = config.get('password')
+                # Use the password found from multiple field search
                 if password is None:
                     logger.error(f"❌ INFRAINSIGHTS: Username provided but password is None. Config keys: {list(config.keys())}")
                     raise Exception("Username provided but password is missing from configuration")

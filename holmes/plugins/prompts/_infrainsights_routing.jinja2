@@ -31,6 +31,28 @@ When the user mentions **specific instance names**, **environments**, or **manag
 - ✅ **InfraInsights**: `"dock-atlantic-staging Elasticsearch"`, `"my ES cluster"`, `"production elasticsearch health"`
 - ❌ **Prometheus**: `"elasticsearch metrics"`, `"cluster-wide elasticsearch stats"`
 
+### **📋 CRITICAL: Parameter Passing Instructions**
+
+When using InfraInsights toolsets, **ALWAYS extract and pass instance identifiers** from user prompts:
+
+#### **Required Parameter Extraction:**
+```python
+# Extract these patterns from user prompts and pass to tools:
+"instance_name: dock-atlantic-staging" → {"instance_name": "dock-atlantic-staging"}
+"cluster_name: production-kafka" → {"cluster_name": "production-kafka"}  
+"my elasticsearch cluster" → {"prompt": "my elasticsearch cluster"}
+"dock-atlantic-staging Elasticsearch" → {"instance_name": "dock-atlantic-staging", "service_type": "elasticsearch"}
+```
+
+#### **Example Tool Calls:**
+```
+elasticsearch_health_check({"instance_name": "dock-atlantic-staging"})
+kafka_list_topics({"cluster_name": "production-kafka"})
+mongodb_stats({"instance_name": "mongo-staging"})
+```
+
+**⚠️ NEVER call InfraInsights tools with empty parameters `{}` when instance names are mentioned in prompts!**
+
 #### **Kafka Queries:**
 - ✅ **InfraInsights**: `"kafka-prod topics"`, `"my kafka cluster"`, `"staging kafka consumers"`
 - ❌ **Built-in**: `"kafka cluster overview"`, `"all kafka metrics"`
