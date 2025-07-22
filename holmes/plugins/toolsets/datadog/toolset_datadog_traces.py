@@ -201,7 +201,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
             filters.append(f"duration>{params['min_duration']}")
 
         filter_str = " AND ".join(filters) if filters else "all traces"
-        return f"fetch traces matching {filter_str}"
+        return f"DataDog: fetch traces matching {filter_str}"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to fetch traces."""
@@ -364,7 +364,9 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
 
     def get_parameterized_one_liner(self, params: dict) -> str:
         """Get a one-liner description of the tool invocation."""
-        return f"fetch trace details for ID {params.get('trace_id', 'unknown')}"
+        return (
+            f"DataDog: fetch trace details for ID {params.get('trace_id', 'unknown')}"
+        )
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to fetch trace details."""
@@ -536,7 +538,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
     def get_parameterized_one_liner(self, params: dict) -> str:
         """Get a one-liner description of the tool invocation."""
         if "query" in params:
-            return f"search spans with query: {params['query']}"
+            return f"DataDog: search spans with query: {params['query']}"
 
         filters = []
         if "service" in params:
@@ -545,7 +547,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
             filters.append(f"operation={params['operation']}")
 
         filter_str = " AND ".join(filters) if filters else "all spans"
-        return f"search spans matching {filter_str}"
+        return f"DataDog: search spans matching {filter_str}"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to search spans."""
