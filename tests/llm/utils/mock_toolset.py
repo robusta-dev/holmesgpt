@@ -24,7 +24,20 @@ ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
 class MockDataError(Exception):
     """Raised when mock data contains ERROR status or is invalid."""
 
-    pass
+    def __init__(self, message, tool_name=None):
+        self.tool_name = tool_name
+        if tool_name:
+            helpful_message = (
+                f"Missing mock data for tool '{tool_name}'. "
+                f"To fix this:\n"
+                f"1. Run with live tools: RUN_LIVE=true pytest ...\n"
+                f"2. Generate missing mocks (keeps existing, may cause inconsistent data): pytest ... --generate-mocks\n"
+                f"3. Regenerate ALL mocks (replaces all existing, ensures consistency): pytest ... --regenerate-all-mocks\n\n"
+                f"Original error: {message}"
+            )
+            super().__init__(helpful_message)
+        else:
+            super().__init__(message)
 
 
 def strip_ansi(text):
@@ -140,7 +153,8 @@ class FallbackToolWrapper(Tool):
             # In test mode (not generating mocks), we should have mock data available
             # If we reach FallbackToolWrapper, it means no mock data exists for this tool
             raise MockDataError(
-                f"No mock data found for tool '{self.name}' with params: {params}"
+                f"No mock data found for tool '{self.name}' with params: {params}",
+                tool_name=self.name,
             )
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -179,7 +193,8 @@ class MockToolWrapper(Tool, BaseModel):
         else:
             # No mock data found - raise error instead of falling back to real tool
             raise MockDataError(
-                f"No mock data found for tool '{self.name}' with params: {params}"
+                f"No mock data found for tool '{self.name}' with params: {params}",
+                tool_name=self.name,
             )
 
         return result

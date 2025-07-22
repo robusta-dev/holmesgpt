@@ -452,30 +452,14 @@ class ToolCallingLLM:
             )
 
         except Exception as e:
-            # Check if this is a MockDataError (missing mock data in test mode)
-            if "MockDataError" in str(type(e).__name__):
-                helpful_message = (
-                    f"Missing mock data for tool '{tool_name}'. "
-                    f"To fix this:\n"
-                    f"1. Run with live tools: RUN_LIVE=true pytest ...\n"
-                    f"2. Generate missing mocks (keeps existing, may cause inconsistent data): pytest ... --generate-mocks\n"
-                    f"3. Regenerate ALL mocks (replaces all existing, ensures consistency): pytest ... --regenerate-all-mocks"
-                )
-                logging.error(helpful_message)
-                tool_response = StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=helpful_message,
-                    params=tool_params,
-                )
-            else:
-                logging.error(
-                    f"Tool call to {tool_name} failed with an Exception", exc_info=True
-                )
-                tool_response = StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Tool call failed: {e}",
-                    params=tool_params,
-                )
+            logging.error(
+                f"Tool call to {tool_name} failed with an Exception", exc_info=True
+            )
+            tool_response = StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Tool call failed: {e}",
+                params=tool_params,
+            )
 
             # Log error to trace span
             tool_span.log(
