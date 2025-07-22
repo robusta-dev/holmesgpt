@@ -40,7 +40,6 @@ export BRAINTRUST_API_KEY=sk-your-api-key-here
 ```bash
 export BRAINTRUST_API_KEY=sk-your-key
 export UPLOAD_DATASET=true
-export PUSH_EVALS_TO_BRAINTRUST=true
 
 pytest ./tests/llm/test_ask_holmes.py
 ```
@@ -58,7 +57,6 @@ pytest -n 10 ./tests/llm/test_*.py
 | Variable | Purpose |
 |----------|---------|
 | `UPLOAD_DATASET` | Sync test cases to Braintrust |
-| `PUSH_EVALS_TO_BRAINTRUST` | Upload evaluation results |
 | `EXPERIMENT_ID` | Name your experiment run. This makes it easier to find and track in Braintrust's UI |
 | `MODEL` | The LLM model for Holmes to use |
 | `CLASSIFIER_MODEL` | The LLM model to use for scoring the answer (LLM as judge) |
