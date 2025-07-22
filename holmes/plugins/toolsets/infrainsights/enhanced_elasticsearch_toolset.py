@@ -1,8 +1,7 @@
 import json
 import logging
 from typing import Dict, Any
-from holmes.core.tools import Tool
-from holmes.core.tool_result import ToolResult, ToolResultStatus, StructuredToolResult
+from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult
 from .base_toolset_v2 import BaseInfraInsightsToolV2, BaseInfraInsightsToolsetV2
 
 logger = logging.getLogger(__name__)
