@@ -21,7 +21,7 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper, Evaluation
 from os import path
 from unittest.mock import patch
 
@@ -43,7 +43,6 @@ class MockConfig(Config):
         mock = MockToolsets(
             generate_mocks=self._test_case.generate_mocks,
             test_case_folder=self._test_case.folder,
-            parent_span=None,  # Use tracer context instead
         )
 
         expected_tools = []
@@ -105,7 +104,9 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
+def test_investigate(
+    experiment_name: str, test_case: InvestigateTestCase, caplog, request
+):
     # Use unified tracing API for evals
     from holmes.core.tracing import TracingFactory
 
@@ -192,6 +193,27 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     print(f"\n** TOOLS CALLED **\n{tools_called}")
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
+
+    # Store data for summary plugin
+    expected_correctness_score = (
+        test_case.evaluation.correctness.expected_score
+        if isinstance(test_case.evaluation.correctness, Evaluation)
+        else test_case.evaluation.correctness
+    )
+    request.node.user_properties.append(("expected", debug_expected))
+    request.node.user_properties.append(("actual", output or ""))
+    request.node.user_properties.append(
+        (
+            "tools_called",
+            tools_called if isinstance(tools_called, list) else [str(tools_called)],
+        )
+    )
+    request.node.user_properties.append(
+        ("expected_correctness_score", expected_correctness_score)
+    )
+    request.node.user_properties.append(
+        ("actual_correctness_score", scores.get("correctness", 0))
+    )
 
     assert result.sections, "Missing sections"
     assert (

@@ -95,7 +95,9 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_health_check(experiment_name: str, test_case: HealthCheckTestCase, caplog):
+def test_health_check(
+    experiment_name: str, test_case: HealthCheckTestCase, caplog, request
+):
     dataset_name = braintrust_util.get_dataset_name("health_check")
     bt_helper = braintrust_util.BraintrustEvalHelper(
         project_name=PROJECT, dataset_name=dataset_name
@@ -157,6 +159,16 @@ def test_health_check(experiment_name: str, test_case: HealthCheckTestCase, capl
     print(f"\n** TOOLS CALLED **\n{tools_called}")
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
+
+    # Store data for summary plugin
+    request.node.user_properties.append(("expected", debug_expected))
+    request.node.user_properties.append(("actual", output or ""))
+    request.node.user_properties.append(
+        (
+            "tools_called",
+            tools_called if isinstance(tools_called, list) else [str(tools_called)],
+        )
+    )
 
     if test_case.evaluation.correctness:
         expected_correctness = test_case.evaluation.correctness
