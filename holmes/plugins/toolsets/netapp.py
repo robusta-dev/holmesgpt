@@ -73,11 +73,11 @@ class NetAppToolset(Toolset):
             "password": "{{ env.NETAPP_PASSWORD }}"
         }
 
-class NetAppGetVolumeDetails(Tool):
+class BaseNetappTool(Tool):
     toolset: "NetAppToolset"
 
+class NetAppGetVolumeDetails(BaseNetappTool):
     def __init__(self, toolset: NetAppToolset):
-        self.toolset=toolset
         super().__init__(
             name="get_netapp_volume_details",
             description="Fetch detailed information for a NetApp volume using its name.",
@@ -88,6 +88,7 @@ class NetAppGetVolumeDetails(Tool):
                     required=True,
                 )
             },
+            toolset=toolset,
         )
 
     def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
