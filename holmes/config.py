@@ -39,6 +39,7 @@ DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
     "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
 )
+ROBUSTA_AI_MODEL_NAME = "Robusta"
 
 
 class SupportedTicketSources(str, Enum):
@@ -151,7 +152,7 @@ class Config(RobustaBaseConfig):
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
         if self._should_load_robusta_ai():
             logging.info("Loading Robusta AI model")
-            self._model_list["Robusta"] = {
+            self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
 
