@@ -229,6 +229,10 @@ Once the issue is resolved, try your investigation query again."""
 class BaseInfraInsightsToolsetV2(Toolset):
     """Base class for all InfraInsights toolsets with V2 API support"""
     
+    # Define fields as proper Pydantic fields
+    infrainsights_client: Optional[InfraInsightsClientV2] = Field(default=None, exclude=True)
+    infrainsights_config: Optional[InfraInsightsConfig] = Field(default=None, exclude=True)
+    
     def __init__(self, name: str):
         # Initialize Toolset with required attributes
         super().__init__(
@@ -239,10 +243,10 @@ class BaseInfraInsightsToolsetV2(Toolset):
             tags=[ToolsetTag.CLUSTER],  # Add required tags
             prerequisites=[
                 CallablePrerequisite(callable=self.prerequisites_callable)
-            ]
+            ],
+            infrainsights_client=None,
+            infrainsights_config=None
         )
-        self.infrainsights_client = None
-        self.infrainsights_config = None
         self.tools = []
         
     def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
