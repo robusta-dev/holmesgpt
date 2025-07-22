@@ -4,6 +4,7 @@ import json
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
@@ -175,8 +176,14 @@ class InfraInsightsClientV2:
             logger.info(f"Attempting name-based lookup: {endpoint}")
             data = self._make_request('GET', endpoint, params=params)
             
+            # CRITICAL DEBUG: Show raw API response
+            logger.info(f"🔍 RAW API RESPONSE: {json.dumps(data, indent=2)}")
+            
             instance_data = data.get('data', data)
             if instance_data:
+                # CRITICAL DEBUG: Show instance data before ServiceInstance creation
+                logger.info(f"🔍 INSTANCE DATA: {json.dumps(instance_data, indent=2)}")
+                logger.info(f"🔍 CONFIG IN INSTANCE DATA: {instance_data.get('config', {})}")
                 instance = ServiceInstance(
                     instanceId=instance_data.get('instanceId', instance_data.get('id', '')),
                     serviceType=instance_data.get('serviceType', service_type),
