@@ -100,6 +100,8 @@ Configure evaluations using these environment variables:
 | `RUN_LIVE` | `RUN_LIVE=true` | Execute `before-test` and `after-test` commands, ignore mock files |
 | `UPLOAD_DATASET` | `UPLOAD_DATASET=true` | Sync dataset to external evaluation platform |
 | `EXPERIMENT_ID` | `EXPERIMENT_ID=my_baseline` | Custom experiment name for result tracking |
+| `BRAINTRUST_API_KEY` | `BRAINTRUST_API_KEY=sk-...` | Enable Braintrust integration for result tracking and CI/CD report generation |
+| `BRAINTRUST_ORG` | `BRAINTRUST_ORG=my-org` | Braintrust organization name (defaults to "robustadev") |
 
 ### Simple Example
 
