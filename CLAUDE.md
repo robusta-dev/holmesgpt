@@ -137,7 +137,8 @@ poetry run pytest tests/llm/test_ask_holmes.py
 - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: LLM API keys
 - `MODEL`: Override default model
 - `RUN_LIVE`: Use live tools in tests instead of mocks
-- `BRAINTRUST_API_KEY`: For test result tracking
+- `BRAINTRUST_API_KEY`: For test result tracking and CI/CD report generation
+- `BRAINTRUST_ORG`: Braintrust organization name (default: "robustadev")
 
 ## Development Guidelines
 

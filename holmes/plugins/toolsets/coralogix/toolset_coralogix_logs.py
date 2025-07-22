@@ -62,6 +62,9 @@ class CoralogixLogsToolset(BasePodLoggingToolset):
     def coralogix_config(self) -> Optional[CoralogixConfig]:
         return self.config
 
+    def logger_name(self) -> str:
+        return "Coralogix"
+
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         if not self.coralogix_config:
             return StructuredToolResult(

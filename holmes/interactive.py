@@ -309,7 +309,11 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         @bindings.add("end")
         def _(event):
             event.app.layout.focus(text_area)
+            # Go to last line, then to beginning of that line
             text_area.buffer.cursor_position = len(text_area.buffer.text)
+            text_area.buffer.cursor_left(
+                count=text_area.buffer.document.cursor_position_col
+            )
 
         @bindings.add("d")
         @bindings.add("c-d")
