@@ -88,6 +88,8 @@ class BaseNetappTool(Tool):
 
     def query_netapp_volume(self, internal_name: str, params: Dict[str, Any]) -> StructuredToolResult:
         toolset: NetAppToolset = self.toolset
+        logging.info(f"Searching for NetApp volume with internal name: {internal_name}")
+
         matched_volume = None
         for name, uuid in toolset.volumes.items():
             if name == internal_name:
@@ -95,6 +97,8 @@ class BaseNetappTool(Tool):
                 break
 
         if not matched_volume:
+            available = list(toolset.volumes.keys())
+            logging.warning(f"No match for internal name '{internal_name}'. Available NetApp volumes: {available}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"No matching NetApp volume for internal name '{internal_name}'.",
@@ -103,6 +107,7 @@ class BaseNetappTool(Tool):
 
         uuid = matched_volume[1]
         endpoint = f"{toolset.config.url}/api/storage/volumes/{uuid}"
+        logging.info(f"Querying NetApp API at: {endpoint}")
 
         try:
             response = requests.get(
@@ -111,17 +116,59 @@ class BaseNetappTool(Tool):
                 verify=False,
             )
             response.raise_for_status()
+            data = response.json()
+            logging.info(f"Full NetApp API response: {data}")
+
+            formatted_output = self._format_netapp_volume(data)
+            logging.info(f"Formatted NetApp volume output:\n{formatted_output}")
+
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=response.json(),
-                params=params
+                output=formatted_output,
+                params=params,
+                raw_output=data
             )
         except requests.RequestException as e:
+            logging.exception("NetApp API query failed")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed NetApp API query: {e}",
                 params=params
             )
+
+    def _format_netapp_volume(self, data: Dict[str, Any]) -> str:
+        try:
+            size = self._human_readable_size(data.get('size', 0))
+            space = data.get('space', {})
+
+            return "\n".join([
+                f"Volume Name: {data.get('name', 'N/A')}",
+                f"UUID: {data.get('uuid', 'N/A')}",
+                f"Created: {data.get('create_time', 'N/A')}",
+                f"State: {data.get('state', 'N/A')}",
+                f"Style: {data.get('style', 'N/A')}",
+                f"Size: {size}",
+                f"Used: {self._human_readable_size(space.get('used', 0))}",
+                f"Available: {self._human_readable_size(space.get('available', 0))}",
+                f"Aggregate: {data.get('aggregates', [{}])[0].get('name', 'N/A')}",
+                f"SVM Name: {data.get('svm', {}).get('name', 'N/A')}",
+                f"Snapshot Policy: {data.get('snapshot_policy', {}).get('name', 'N/A')}",
+                f"Status Messages: {'; '.join(data.get('status', [])) if data.get('status') else 'None'}"
+            ])
+        except Exception as e:
+            logging.exception("Failed to format NetApp volume data")
+            return "Failed to format NetApp volume details"
+
+
+    def _human_readable_size(self, size_bytes: int) -> str:
+        if size_bytes == 0:
+            return "0 B"
+        size_name = ("B", "KB", "MB", "GB", "TB")
+        i = int(min(len(size_name) - 1, (size_bytes.bit_length() - 1) // 10))
+        p = 1 << (i * 10)
+        s = round(size_bytes / p, 2)
+        return f"{s} {size_name[i]}"
+
 
     def get_netapp_volume_by_pv_name(self, pv_name: str, params: Dict[str, Any]) -> StructuredToolResult:
         core_v1 = client.CoreV1Api()
