@@ -82,6 +82,16 @@ def test_ask_holmes(
         with tracer.start_trace(
             name=test_case.id, span_type=SpanType.TASK
         ) as eval_span:
+            # Store span info in user properties for conftest to access
+            if hasattr(eval_span, "id"):
+                request.node.user_properties.append(
+                    ("braintrust_span_id", str(eval_span.id))
+                )
+            if hasattr(eval_span, "root_span_id"):
+                request.node.user_properties.append(
+                    ("braintrust_root_span_id", str(eval_span.root_span_id))
+                )
+
             with eval_span.start_span("Before Test Setup", type=SpanTypeAttribute.TASK):
                 before_test(test_case)
 

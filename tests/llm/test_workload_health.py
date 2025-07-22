@@ -107,6 +107,14 @@ def test_health_check(
     )
     eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
 
+    # Store span info in user properties for conftest to access
+    if hasattr(eval_span, "id"):
+        request.node.user_properties.append(("braintrust_span_id", str(eval_span.id)))
+    if hasattr(eval_span, "root_span_id"):
+        request.node.user_properties.append(
+            ("braintrust_root_span_id", str(eval_span.root_span_id))
+        )
+
     config = MockConfig(test_case, eval_span, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
 

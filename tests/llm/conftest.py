@@ -321,9 +321,19 @@ def braintrust_eval_link(request):
         logs="",
     )
 
+    # Extract span IDs from user properties
+    span_id = None
+    root_span_id = None
+    if hasattr(request.node, "user_properties"):
+        for key, value in request.node.user_properties:
+            if key == "braintrust_span_id":
+                span_id = value
+            elif key == "braintrust_root_span_id":
+                root_span_id = value
+
     # Construct Braintrust URL for this specific test
     braintrust_url = get_braintrust_url(
-        test_suite, temp_result.test_id, temp_result.test_name
+        test_suite, temp_result.test_id, temp_result.test_name, span_id, root_span_id
     )
 
     with force_pytest_output(request):
@@ -428,7 +438,14 @@ def _collect_test_results_from_stats(terminalreporter):
                             break
 
             # Extract test type
-            test_type = "ask" if "test_ask_holmes" in nodeid else "investigate"
+            if "test_ask_holmes" in nodeid:
+                test_type = "ask"
+            elif "test_investigate" in nodeid:
+                test_type = "investigate"
+            elif "test_workload_health" in nodeid:
+                test_type = "workload_health"
+            else:
+                test_type = "unknown"
 
             # Store result (use nodeid as key to avoid duplicates)
             test_results[nodeid] = {
@@ -485,7 +502,13 @@ def _collect_test_results_from_stats(terminalreporter):
     return sorted_results, mock_tracking_data
 
 
-def get_braintrust_url(test_suite: str, test_id: str, test_name: str) -> Optional[str]:
+def get_braintrust_url(
+    test_suite: str,
+    test_id: str,
+    test_name: str,
+    span_id: Optional[str] = None,
+    root_span_id: Optional[str] = None,
+) -> Optional[str]:
     """Generate Braintrust URL for a test.
 
     Args:
@@ -501,19 +524,17 @@ def get_braintrust_url(test_suite: str, test_id: str, test_name: str) -> Optiona
         return None
 
     experiment_name = get_experiment_name(test_suite)
-    test_case_id = f"test_{test_suite}[{test_id}_{test_name}]"
-
     braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
 
-    # URL encode the test case ID for the c parameter
-    import urllib.parse
+    # Build URL with available parameters
+    url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}?c="
 
-    encoded_test_case_id = urllib.parse.quote(test_case_id)
+    # Add span IDs if available
+    if span_id and root_span_id:
+        # Use span_id as r parameter and root_span_id as s parameter
+        url += f"&r={span_id}&s={root_span_id}"
 
-    return (
-        f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/"
-        f"experiments/{experiment_name}?c={encoded_test_case_id}"
-    )
+    return url
 
 
 def _generate_markdown_report(sorted_results):
@@ -521,8 +542,15 @@ def _generate_markdown_report(sorted_results):
     markdown = "## Results of HolmesGPT evals\n\n"
 
     # Count results by test type and status
-    ask_holmes_total = ask_holmes_passed = ask_holmes_regressions = 0
-    investigate_total = investigate_passed = investigate_regressions = 0
+    ask_holmes_total = ask_holmes_passed = ask_holmes_regressions = (
+        ask_holmes_mock_failures
+    ) = 0
+    investigate_total = investigate_passed = investigate_regressions = (
+        investigate_mock_failures
+    ) = 0
+    workload_health_total = workload_health_passed = workload_health_regressions = (
+        workload_health_mock_failures
+    ) = 0
 
     for result in sorted_results:
         status = TestStatus(result)
@@ -533,18 +561,41 @@ def _generate_markdown_report(sorted_results):
                 ask_holmes_passed += 1
             elif status.is_regression:
                 ask_holmes_regressions += 1
+            elif status.is_mock_failure:
+                ask_holmes_mock_failures += 1
         elif result["test_type"] == "investigate":
             investigate_total += 1
             if status.passed:
                 investigate_passed += 1
             elif status.is_regression:
                 investigate_regressions += 1
+            elif status.is_mock_failure:
+                investigate_mock_failures += 1
+        elif result["test_type"] == "workload_health":
+            workload_health_total += 1
+            if status.passed:
+                workload_health_passed += 1
+            elif status.is_regression:
+                workload_health_regressions += 1
+            elif status.is_mock_failure:
+                workload_health_mock_failures += 1
 
     # Generate summary lines
     if ask_holmes_total > 0:
-        markdown += f"- ask_holmes: {ask_holmes_passed}/{ask_holmes_total} test cases were successful, {ask_holmes_regressions} regressions\n"
+        markdown += f"- ask_holmes: {ask_holmes_passed}/{ask_holmes_total} test cases were successful, {ask_holmes_regressions} regressions"
+        if ask_holmes_mock_failures > 0:
+            markdown += f", {ask_holmes_mock_failures} mock failures"
+        markdown += "\n"
     if investigate_total > 0:
-        markdown += f"- investigate: {investigate_passed}/{investigate_total} test cases were successful, {investigate_regressions} regressions\n"
+        markdown += f"- investigate: {investigate_passed}/{investigate_total} test cases were successful, {investigate_regressions} regressions"
+        if investigate_mock_failures > 0:
+            markdown += f", {investigate_mock_failures} mock failures"
+        markdown += "\n"
+    if workload_health_total > 0:
+        markdown += f"- workload_health: {workload_health_passed}/{workload_health_total} test cases were successful, {workload_health_regressions} regressions"
+        if workload_health_mock_failures > 0:
+            markdown += f", {workload_health_mock_failures} mock failures"
+        markdown += "\n"
 
     # Generate detailed table
     markdown += "\n\n| Test suite | Test case | Status |\n"

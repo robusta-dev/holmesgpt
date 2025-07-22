@@ -147,6 +147,16 @@ def test_investigate(
         with tracer.start_trace(
             name=test_case.id, span_type=SpanType.TASK
         ) as eval_span:
+            # Store span info in user properties for conftest to access
+            if hasattr(eval_span, "id"):
+                request.node.user_properties.append(
+                    ("braintrust_span_id", str(eval_span.id))
+                )
+            if hasattr(eval_span, "root_span_id"):
+                request.node.user_properties.append(
+                    ("braintrust_root_span_id", str(eval_span.root_span_id))
+                )
+
             with set_test_env_vars(test_case):
                 result = investigate_issues(
                     investigate_request=investigate_request, config=config, dal=mock_dal

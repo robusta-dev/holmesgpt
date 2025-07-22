@@ -135,6 +135,11 @@ class MockFileManager:
 
         # Find a mock that matches the parameters
         for mock in tool_mocks:
+            logging.debug(f"Checking mock from {mock.source_file}")
+            logging.debug(f"  Mock params: {mock.match_params}")
+            logging.debug(
+                f"  Match result: {self._params_match(mock.match_params, params)}"
+            )
             if self._params_match(mock.match_params, params):
                 logging.debug(f"Found matching mock: {mock.source_file}")
                 return mock
