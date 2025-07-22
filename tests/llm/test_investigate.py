@@ -20,8 +20,8 @@ from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
-from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper, Evaluation
+from tests.llm.utils.mock_toolset import MockToolsetManager
+from tests.llm.utils.test_case_utils import InvestigateTestCase, MockHelper, Evaluation
 from os import path
 from unittest.mock import patch
 
@@ -41,7 +41,7 @@ class MockConfig(Config):
         self._mock_generation_config = mock_generation_config
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
-        mock = MockToolsets(
+        mock = MockToolsetManager(
             generate_mocks=self._mock_generation_config.generate_mocks,
             test_case_folder=self._test_case.folder,
             mock_generation_tracker=self._mock_generation_config,

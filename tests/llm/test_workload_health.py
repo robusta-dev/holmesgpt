@@ -17,8 +17,8 @@ from tests.llm.utils.classifiers import (
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
-from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import (
+from tests.llm.utils.mock_toolset import MockToolsetManager
+from tests.llm.utils.test_case_utils import (
     Evaluation,
     HealthCheckTestCase,
     MockHelper,
@@ -44,7 +44,7 @@ class MockConfig(Config):
         self._mock_generation_config = mock_generation_config
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
-        mock = MockToolsets(
+        mock = MockToolsetManager(
             generate_mocks=self._mock_generation_config.generate_mocks,
             test_case_folder=self._test_case.folder,
             mock_generation_tracker=self._mock_generation_config,

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
-from tests.llm.utils.mock_utils import HolmesTestCase  # type: ignore
+from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 from holmes.core.tracing import DummySpan
 

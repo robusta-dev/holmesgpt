@@ -4,7 +4,7 @@ import os
 import subprocess
 from contextlib import contextmanager
 from typing import Dict, Optional
-from tests.llm.utils.mock_utils import HolmesTestCase
+from tests.llm.utils.test_case_utils import HolmesTestCase
 
 
 def invoke_command(command: str, cwd: str) -> str:

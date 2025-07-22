@@ -1,30 +1,31 @@
 # type: ignore
+import glob
 import json
 import logging
 import os
 import re
+from enum import Enum
 from typing import Any, Dict, List, Optional
+import urllib
 
 from pydantic import BaseModel
-import urllib
+import pytest
 
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
-    ToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
     YAMLToolset,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 
-ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
 
-
+# Custom exceptions for better error handling
 class MockDataError(Exception):
-    """Raised when mock data contains ERROR status or is invalid."""
+    """Base exception for mock data errors."""
 
-    def __init__(self, message, tool_name=None):
+    def __init__(self, message: str, tool_name: Optional[str] = None):
         self.tool_name = tool_name
         if tool_name:
             helpful_message = (
@@ -39,158 +40,92 @@ class MockDataError(Exception):
             super().__init__(message)
 
 
-def strip_ansi(text):
-    return ansi_escape.sub("", text)
+class MockDataNotFoundError(MockDataError):
+    """Raised when mock data file doesn't exist."""
+
+    pass
+
+
+class MockDataCorruptedError(MockDataError):
+    """Raised when mock data file can't be parsed."""
+
+    pass
+
+
+class MockValidationError(MockDataError):
+    """Raised when mock data doesn't match tool signature."""
+
+    pass
+
+
+class MockMode(Enum):
+    """Modes for mock tool execution."""
+
+    MOCK = "mock"  # Use existing mock files
+    GENERATE = "generate"  # Generate new mock files
+    LIVE = "live"  # Use real tools without mocking
 
 
 class MockMetadata(BaseModel):
+    """Metadata stored in mock files."""
+
     toolset_name: str
     tool_name: str
     match_params: Optional[Dict] = None  # None will match all params
 
 
 class ToolMock(MockMetadata):
+    """Complete mock data including metadata and result."""
+
     source_file: str
     return_value: StructuredToolResult
 
 
-def validate_mock_result(
-    original_tool_result: Optional[StructuredToolResult],
-) -> StructuredToolResult:
-    if original_tool_result and original_tool_result.status in [
-        ToolResultStatus.SUCCESS,
-        ToolResultStatus.NO_DATA,
-    ]:
-        return original_tool_result
-    elif original_tool_result:
-        logging.warning(
-            f"Overriding tool call result with a NO_DATA mock value: {original_tool_result.status}"
-        )
-        return StructuredToolResult(
-            status=ToolResultStatus.NO_DATA, params=original_tool_result.params
-        )
-    else:
-        logging.warning("Overriding empty tool call result with NO_DATA status")
-        return StructuredToolResult(status=ToolResultStatus.NO_DATA)
-
-
-class FallbackToolWrapper(Tool):
+def sanitize_filename(original_file_name: str) -> str:
     """
-    Tool that saves the result of the tool call to file if invoked.
+    Sanitizes a potential filename to create a valid filename.
+    http(s)://... -> scheme is removed.
+    Characters not suitable for filenames are replaced with underscores.
     """
+    # Remove scheme (http, https) if present
+    filename = re.sub(r"^https?://", "", original_file_name, flags=re.IGNORECASE)
 
-    _toolset_name: str
-    _unmocked_tool: Tool
-    _test_case_folder: str
-    _add_params_to_mock_file: bool = True
+    # URL decode percent-encoded characters
+    filename = urllib.parse.unquote(filename)
 
-    def __init__(
-        self,
-        unmocked_tool: Tool,
-        test_case_folder: str,
-        toolset_name: str = "Unknown",
-        add_params_to_mock_file: bool = True,
-        generate_mocks: bool = True,
-        mock_generation_tracker=None,
-        request=None,
-    ):
-        super().__init__(
-            name=unmocked_tool.name,
-            description=unmocked_tool.description,
-            parameters=unmocked_tool.parameters,
-            user_description=unmocked_tool.user_description,
-            add_params_to_mock_file=add_params_to_mock_file,
-        )
-        self._toolset_name = toolset_name
-        self._unmocked_tool = unmocked_tool
-        self._test_case_folder = test_case_folder
-        self._add_params_to_mock_file = add_params_to_mock_file
-        self._generate_mocks = generate_mocks
-        # Use object.__setattr__ to bypass Pydantic validation since we're adding this field dynamically
-        object.__setattr__(self, "mock_generation_tracker", mock_generation_tracker)
-        object.__setattr__(self, "request", request)
+    # Replace characters not allowed in filenames
+    filename = re.sub(r"[^\w.-]", "_", filename)
 
-    def _get_mock_file_path(self, tool_params: Dict):
-        if self._add_params_to_mock_file:
-            params_data = "_".join(str(tool_params[k]) for k in sorted(tool_params))
+    # Consolidate multiple consecutive underscores into one
+    filename = re.sub(r"__+", "_", filename)
+
+    # Remove leading/trailing underscores and dots
+    filename = filename.strip("_").strip(".")
+
+    return filename
+
+
+class MockFileManager:
+    """Handles reading and writing mock files."""
+
+    def __init__(self, test_case_folder: str, add_params_to_filename: bool = True):
+        self.test_case_folder = test_case_folder
+        self.add_params_to_filename = add_params_to_filename
+
+    def _get_mock_file_path(self, tool_name: str, params: Dict) -> str:
+        """Generate the path for a mock file."""
+        if self.add_params_to_filename:
+            params_data = "_".join(str(params[k]) for k in sorted(params))
             params_data = f"_{params_data}"
         else:
             params_data = ""
 
         params_data = sanitize_filename(params_data)
-        return f"{self._test_case_folder}/{self.name}{params_data}.txt"
+        return os.path.join(self.test_case_folder, f"{tool_name}{params_data}.txt")
 
-    def _auto_generate_mock_file(self, tool_result: StructuredToolResult, params: Dict):
-        mock_metadata_json = MockMetadata(
-            toolset_name=self._toolset_name, tool_name=self.name, match_params=params
-        ).model_dump_json()
-
-        content = tool_result.data
-        structured_output_without_data = tool_result.model_dump()
-        structured_output_without_data["data"] = None
-
-        mock_file_path = self._get_mock_file_path(params)
-        logging.warning(f"Writing mock file for your convenience at {mock_file_path}")
-        with open(mock_file_path, "w") as f:
-            f.write(mock_metadata_json + "\n")
-            f.write(json.dumps(structured_output_without_data) + "\n")
-            if content:
-                f.write(content)
-
-        # Track the generated mock file using pytest user_properties
-        if hasattr(self, "request") and self.request:
-            test_case = os.path.basename(self._test_case_folder)
-            mock_info = f"{test_case}:{self.name}:{os.path.basename(mock_file_path)}"
-            self.request.node.user_properties.append(("generated_mock_file", mock_info))
-
-    def _invoke(self, params) -> StructuredToolResult:
-        if self._generate_mocks:
-            logging.info(f"Invoking tool {self._unmocked_tool}")
-            tool_result = self._unmocked_tool.invoke(params)
-            self._auto_generate_mock_file(tool_result, params)
-            return tool_result
-        else:
-            # In test mode (not generating mocks), we should have mock data available
-            # If we reach FallbackToolWrapper, it means no mock data exists for this tool
-            raise MockDataError(
-                f"No mock data found for tool '{self.name}' with params: {params}",
-                tool_name=self.name,
-            )
-
-    def get_parameterized_one_liner(self, params) -> str:
-        return self._unmocked_tool.get_parameterized_one_liner(params)
-
-
-class MockToolWrapper(Tool, BaseModel):
-    def __init__(
-        self,
-        unmocked_tool: Tool,
-        test_case_folder: str,
-        add_params_to_mock_file: bool = True,
-    ):
-        super().__init__(
-            name=unmocked_tool.name,
-            description=unmocked_tool.description,
-            parameters=unmocked_tool.parameters,
-            user_description=unmocked_tool.user_description,
-        )
-        self._unmocked_tool: Tool = unmocked_tool
-        self._test_case_folder = test_case_folder
-        self._add_params_to_mock_file = add_params_to_mock_file
-
-    def _get_mock_file_path(self, tool_params: Dict):
-        if self._add_params_to_mock_file:
-            params_data = "_".join(str(tool_params[k]) for k in sorted(tool_params))
-            params_data = f"_{params_data}"
-        else:
-            params_data = ""
-
-        params_data = sanitize_filename(params_data)
-        return f"{self._test_case_folder}/{self.name}{params_data}.txt"
-
-    def _load_mock_from_disk(self, params: Dict) -> Optional[ToolMock]:
-        """Load mock data from disk for the given parameters."""
-        mock_file_path = self._get_mock_file_path(params)
+    def read_mock(self, tool_name: str, params: Dict) -> Optional[ToolMock]:
+        """Read mock data from disk for the given tool and parameters."""
+        mock_file_path = self._get_mock_file_path(tool_name, params)
 
         if not os.path.exists(mock_file_path):
             return None
@@ -199,7 +134,10 @@ class MockToolWrapper(Tool, BaseModel):
             with open(mock_file_path, "r") as f:
                 lines = f.readlines()
                 if len(lines) < 2:
-                    return None
+                    raise MockDataCorruptedError(
+                        f"Mock file {mock_file_path} has insufficient lines",
+                        tool_name=tool_name,
+                    )
 
                 # Parse metadata and structured output
                 mock_metadata = json.loads(lines[0].strip())
@@ -217,100 +155,185 @@ class MockToolWrapper(Tool, BaseModel):
                     source_file=mock_file_path,
                     return_value=StructuredToolResult(**structured_output),
                 )
+        except json.JSONDecodeError as e:
+            raise MockDataCorruptedError(
+                f"Failed to parse JSON in mock file {mock_file_path}: {e}",
+                tool_name=tool_name,
+            )
         except Exception as e:
-            logging.warning(f"Failed to load mock file {mock_file_path}: {e}")
-            return None
-
-    def _invoke(self, params) -> StructuredToolResult:
-        mock = self._load_mock_from_disk(params)
-        if mock:
-            return mock.return_value
-        else:
-            # No mock data found - raise error instead of falling back to real tool
-            raise MockDataError(
-                f"No mock data found for tool '{self.name}' with params: {params}",
-                tool_name=self.name,
+            raise MockDataCorruptedError(
+                f"Failed to load mock file {mock_file_path}: {e}", tool_name=tool_name
             )
 
-    def get_parameterized_one_liner(self, params) -> str:
-        return self._unmocked_tool.get_parameterized_one_liner(params)
+    def write_mock(
+        self,
+        tool_name: str,
+        toolset_name: str,
+        params: Dict,
+        result: StructuredToolResult,
+    ) -> str:
+        """Write mock data to disk."""
+        mock_metadata = MockMetadata(
+            toolset_name=toolset_name, tool_name=tool_name, match_params=params
+        )
+
+        # Prepare structured output without data field
+        structured_output = result.model_dump()
+        content = structured_output.pop("data", None)
+
+        mock_file_path = self._get_mock_file_path(tool_name, params)
+
+        with open(mock_file_path, "w") as f:
+            f.write(mock_metadata.model_dump_json() + "\n")
+            f.write(json.dumps(structured_output) + "\n")
+            if content:
+                f.write(content)
+
+        logging.info(f"Wrote mock file: {mock_file_path}")
+        return mock_file_path
+
+    def clear_mocks(self, request: pytest.FixtureRequest) -> List[str]:
+        """Clear all mock files in the test case folder."""
+        cleared_files = []
+        patterns = [
+            os.path.join(self.test_case_folder, "*.txt"),
+            os.path.join(self.test_case_folder, "*.json"),
+        ]
+
+        for pattern in patterns:
+            for file_path in glob.glob(pattern):
+                try:
+                    os.remove(file_path)
+                    cleared_files.append(os.path.basename(file_path))
+                except Exception as e:
+                    logging.warning(f"Could not remove {file_path}: {e}")
+
+        if cleared_files:
+            # Track via user_properties for xdist compatibility
+            request.node.user_properties.append(
+                ("mocks_cleared", f"{self.test_case_folder}:{len(cleared_files)}")
+            )
+            logging.info(
+                f"Cleared {len(cleared_files)} mock files from {self.test_case_folder}"
+            )
+
+        return cleared_files
+
+    def has_mock_files(self, tool_name: str) -> bool:
+        """Check if any mock files exist for this tool."""
+        import glob
+
+        pattern = os.path.join(self.test_case_folder, f"{tool_name}*.txt")
+        return len(glob.glob(pattern)) > 0
 
 
-class MockToolset(Toolset):
-    def get_status(self):
-        return ToolsetStatusEnum.ENABLED
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
-
-    def fetch_pod_logs(self):
-        # Temporary placeholder to ensure the mocked version of logging toolset is considered a 'new' version
-        # Which will ensure the correct logs prompt is present
-        # it is safe to remove once all logs toolsets have been migrated
-        pass
-
-
-class MockToolsets:
-    unmocked_toolsets: List[Toolset]
-    enabled_toolsets: List[Toolset]
-    configured_toolsets: List[Toolset]
-    generate_mocks: bool
-    test_case_folder: str
-    add_params_to_mock_file: bool = True
+class MockableToolWrapper(Tool):
+    """Wraps a single tool"""
 
     def __init__(
         self,
-        test_case_folder: str,
-        generate_mocks: bool = True,
-        run_live: bool = False,
-        add_params_to_mock_file: bool = True,
-        mock_generation_tracker=None,
-        request=None,
-    ) -> None:
-        self.generate_mocks = generate_mocks
-        self.test_case_folder = test_case_folder
-        self.enabled_toolsets = []
-        self.configured_toolsets = []
-        self.add_params_to_mock_file = add_params_to_mock_file
-        self.mock_generation_tracker = mock_generation_tracker
-        self.request = request
+        tool: Tool,
+        mode: MockMode,
+        file_manager: MockFileManager,
+        toolset_name: str,
+        request: pytest.FixtureRequest,
+    ):
+        super().__init__(
+            name=tool.name,
+            description=tool.description,
+            parameters=tool.parameters,
+            user_description=tool.user_description,
+        )
+        self._tool = tool
+        self._mode = mode
+        self._file_manager = file_manager
+        self._toolset_name = toolset_name
+        self._request = request
 
-        self.run_live = run_live
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Execute the tool based on the current mode."""
+        if self._mode == MockMode.LIVE:
+            # Live mode: just call the real tool
+            logging.info(f"Calling live tool {self.name} with params: {params}")
+            return self._tool.invoke(params)
 
-        # Clear existing mock files if we're in regenerate mode
-        if mock_generation_tracker:
-            mock_generation_tracker.clear_existing_mocks(test_case_folder)
+        elif self._mode == MockMode.MOCK:
+            # Mock mode: read from mock file
+            mock = self._file_manager.read_mock(self.name, params)
+            if not mock:
+                raise MockDataNotFoundError(
+                    f"No mock data found for tool '{self.name}' with params: {params}",
+                    tool_name=self.name,
+                )
+            return mock.return_value
 
-        self._enable_builtin_toolsets(run_live)
-        self._update()
+        elif self._mode == MockMode.GENERATE:
+            # Generate mode: call real tool and save result
+            logging.info(f"Generating mock for tool {self.name} with params: {params}")
+            result = self._tool.invoke(params)
 
-    def _load_toolsets_definitions(self, run_live) -> List[Toolset]:
-        config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
-        toolsets_definitions = None
-        if os.path.isfile(config_path):
-            toolsets_definitions = load_toolsets_from_file(
-                toolsets_path=config_path, strict_check=False
+            # Write mock file
+            mock_file_path = self._file_manager.write_mock(
+                tool_name=self.name,
+                toolset_name=self._toolset_name,
+                params=params,
+                result=result,
             )
 
-        return toolsets_definitions or []
+            # Track generated mock via user_properties
+            test_case = os.path.basename(self._file_manager.test_case_folder)
+            mock_info = f"{test_case}:{self.name}:{os.path.basename(mock_file_path)}"
+            self._request.node.user_properties.append(
+                ("generated_mock_file", mock_info)
+            )
 
-    def _enable_builtin_toolsets(self, run_live: bool):
-        self.unmocked_toolsets = load_builtin_toolsets()
+            return result
 
-        toolset_definitions = self._load_toolsets_definitions(run_live)
+        else:
+            raise ValueError(f"Unknown mock mode: {self._mode}")
 
-        for toolset in self.unmocked_toolsets:
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        """Get a one-line description of the tool with parameters."""
+        return self._tool.get_parameterized_one_liner(params)
+
+
+class ToolsetConfigurator:
+    """Handles toolset loading and configuration."""
+
+    @staticmethod
+    def load_builtin_toolsets() -> List[Toolset]:
+        """Load all built-in toolsets."""
+        return load_builtin_toolsets()
+
+    @staticmethod
+    def load_custom_toolsets(config_path: str) -> List[Toolset]:
+        """Load custom toolsets from a YAML file."""
+        if not os.path.isfile(config_path):
+            return []
+        return load_toolsets_from_file(toolsets_path=config_path, strict_check=False)
+
+    @staticmethod
+    def configure_toolsets(
+        builtin_toolsets: List[Toolset], custom_definitions: List[Toolset]
+    ) -> List[Toolset]:
+        """Configure builtin toolsets with custom definitions."""
+        configured = []
+
+        for toolset in builtin_toolsets:
+            # Enable default toolsets
             if toolset.is_default or isinstance(toolset, YAMLToolset):
                 toolset.enabled = True
 
+            # Apply custom configuration if available
             definition = next(
-                (d for d in toolset_definitions if d.name == toolset.name), None
+                (d for d in custom_definitions if d.name == toolset.name), None
             )
             if definition:
                 toolset.config = definition.config
                 toolset.enabled = definition.enabled
-                self.configured_toolsets.append(toolset)
+                configured.append(toolset)
 
+            # Check prerequisites for enabled toolsets
             if toolset.enabled:
                 try:
                     toolset.check_prerequisites()
@@ -320,118 +343,149 @@ class MockToolsets:
                         exc_info=True,
                     )
 
-    def _has_mock_files_for_tool(self, tool_name: str) -> bool:
-        """Check if any mock files exist for this tool."""
-        import glob
+        return configured
 
-        pattern = f"{self.test_case_folder}/{tool_name}*.txt"
-        return len(glob.glob(pattern)) > 0
 
-    def _wrap_tool(self, tool: Tool, toolset_name: str) -> Tool:
-        return FallbackToolWrapper(
-            unmocked_tool=tool,
-            toolset_name=toolset_name,
-            test_case_folder=self.test_case_folder,
-            add_params_to_mock_file=self.add_params_to_mock_file,
-            generate_mocks=self.generate_mocks,
-            mock_generation_tracker=self.mock_generation_tracker,
-            request=self.request,
+class SimplifiedMockToolset(Toolset):
+    """Simplified mock toolset for testing."""
+
+    def get_status(self):
+        return ToolsetStatusEnum.ENABLED
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
+
+
+class MockToolsetManager:
+    """Manages mock toolsets for testing."""
+
+    def __init__(
+        self,
+        test_case_folder: str,
+        generate_mocks: bool = False,
+        run_live: bool = False,
+        add_params_to_mock_file: bool = True,
+        mock_generation_tracker=None,
+        request: pytest.FixtureRequest = None,
+    ):
+        self.test_case_folder = test_case_folder
+        self.request = request
+
+        # Determine mode
+        if run_live:
+            self.mode = MockMode.LIVE
+        elif generate_mocks:
+            self.mode = MockMode.GENERATE
+        else:
+            self.mode = MockMode.MOCK
+
+        # Initialize components
+        self.file_manager = MockFileManager(test_case_folder, add_params_to_mock_file)
+        self.configurator = ToolsetConfigurator()
+
+        # Clear mocks if regenerating
+        if mock_generation_tracker and mock_generation_tracker.regenerate_all_mocks:
+            if request and test_case_folder not in getattr(
+                mock_generation_tracker, "_cleared_folders", set()
+            ):
+                self.file_manager.clear_mocks(request)
+                if not hasattr(mock_generation_tracker, "_cleared_folders"):
+                    mock_generation_tracker._cleared_folders = set()
+                mock_generation_tracker._cleared_folders.add(test_case_folder)
+
+        # Load and configure toolsets
+        self._initialize_toolsets()
+
+    def _initialize_toolsets(self):
+        """Initialize and configure toolsets."""
+        # Load builtin toolsets
+        builtin_toolsets = self.configurator.load_builtin_toolsets()
+
+        # Load custom toolsets
+        config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
+        custom_definitions = self.configurator.load_custom_toolsets(config_path)
+
+        # Configure toolsets
+        configured_toolsets = self.configurator.configure_toolsets(
+            builtin_toolsets, custom_definitions
         )
 
-    def _update(self):
-        # If running live, bypass all mock logic and just use original toolsets
-        if self.run_live:
-            self.enabled_toolsets = [
-                toolset
-                for toolset in self.unmocked_toolsets
-                if toolset.status == ToolsetStatusEnum.ENABLED
+        # Wrap tools based on mode
+        self.enabled_toolsets = self._wrap_toolsets(
+            builtin_toolsets, configured_toolsets
+        )
+
+    def _wrap_toolsets(
+        self, builtin_toolsets: List[Toolset], configured_toolsets: List[Toolset]
+    ) -> List[Toolset]:
+        """Wrap toolsets with mock-aware tools."""
+        if self.mode == MockMode.LIVE:
+            # In live mode, just return enabled toolsets without wrapping
+            enabled = [
+                t for t in builtin_toolsets if t.status == ToolsetStatusEnum.ENABLED
             ]
-            # Add configured toolsets
-            for toolset in self.configured_toolsets:
-                if toolset not in self.enabled_toolsets:
-                    self.enabled_toolsets.append(toolset)
-            return
+            # Add configured toolsets that aren't already in enabled
+            for toolset in configured_toolsets:
+                if toolset not in enabled:
+                    enabled.append(toolset)
+            return enabled
 
-        # Mock-based logic (when not running live)
-        mocked_toolsets = []
-        for toolset in self.unmocked_toolsets:
-            mocked_tools = []
-            has_mocks = False
+        # For mock/generate modes, wrap tools
+        wrapped_toolsets = []
 
-            for tool in toolset.tools:
-                wrapped_tool = self._wrap_tool(tool=tool, toolset_name=toolset.name)
+        for toolset in builtin_toolsets:
+            # Check if we have any mocks for this toolset
+            has_mocks = any(
+                self.file_manager.has_mock_files(tool.name) for tool in toolset.tools
+            )
 
-                # Check if mock files exist for this tool
-                if self._has_mock_files_for_tool(tool.name):
-                    has_mocks = True
-                    mock_tool = MockToolWrapper(
-                        unmocked_tool=wrapped_tool,
-                        test_case_folder=self.test_case_folder,
-                        add_params_to_mock_file=self.add_params_to_mock_file,
+            # Only include toolsets that are enabled or have mocks
+            if toolset.status == ToolsetStatusEnum.ENABLED or has_mocks:
+                # Create wrapped tools
+                wrapped_tools = [
+                    MockableToolWrapper(
+                        tool=tool,
+                        mode=self.mode,
+                        file_manager=self.file_manager,
+                        toolset_name=toolset.name,
+                        request=self.request,
                     )
-                    mocked_tools.append(mock_tool)
-                else:
-                    mocked_tools.append(wrapped_tool)
+                    for tool in toolset.tools
+                ]
 
-            if has_mocks or toolset.status == ToolsetStatusEnum.ENABLED:
-                mocked_toolset = MockToolset(
+                # Create simplified mock toolset
+                mock_toolset = SimplifiedMockToolset(
                     name=toolset.name,
                     prerequisites=toolset.prerequisites,
-                    tools=toolset.tools,
+                    tools=wrapped_tools,
                     description=toolset.description,
                     llm_instructions=toolset.llm_instructions,
                 )
-                mocked_toolset.tools = mocked_tools
-                mocked_toolset.status = ToolsetStatusEnum.ENABLED
-                mocked_toolsets.append(mocked_toolset)
+                mock_toolset.status = ToolsetStatusEnum.ENABLED
+                wrapped_toolsets.append(mock_toolset)
 
-        enabled_toolsets = mocked_toolsets
-        for toolset in self.configured_toolsets:
-            mocked = None
-            try:
-                mocked = next(
-                    toolset
-                    for mocked_toolset in enabled_toolsets
-                    if mocked_toolset.name == toolset.name
-                )
-            except StopIteration:
-                pass
-            if not mocked:
-                enabled_toolsets.append(toolset)
-        self.enabled_toolsets = enabled_toolsets
+        # Add configured toolsets that aren't already wrapped
+        for toolset in configured_toolsets:
+            if not any(t.name == toolset.name for t in wrapped_toolsets):
+                wrapped_toolsets.append(toolset)
+
+        return wrapped_toolsets
 
 
-def sanitize_filename(original_file_name: str) -> str:
-    """
-    Sanitizes a potential filename to create a valid filename.
-    http(s)://... -> scheme is removed.
-    Characters not suitable for filenames are replaced with underscores.
-    """
+# For backward compatibility
+MockToolsets = MockToolsetManager
 
-    # Remove scheme (http, https) if present
-    filename = re.sub(r"^https?://", "", original_file_name, flags=re.IGNORECASE)
-
-    # URL decode percent-encoded characters
-    # (e.g., %20 becomes space, %2F becomes /)
-    filename = urllib.parse.unquote(filename)
-
-    # Replace characters not allowed in filenames.
-    # Allowed characters are:
-    #   - Alphanumeric (a-z, A-Z, 0-9)
-    #   - Underscore (_)
-    #   - Hyphen (-)
-    #   - Dot (.)
-    # The regex \w matches [a-zA-Z0-9_] in Python.
-    # So, [^\w.-] matches any character that is NOT alphanumeric, underscore, dot, or hyphen.
-    # These non-allowed characters are replaced with a single underscore.
-    filename = re.sub(r"[^\w.-]", "_", filename)
-
-    # Consolidate multiple consecutive underscores into one.
-    filename = re.sub(r"__+", "_", filename)
-
-    # Remove leading/trailing underscores and trailing dots.
-    # Trailing dots can be problematic on some OS (e.g., Windows treats "file." as "file").
-    filename = filename.strip("_")
-    filename = filename.strip(".")
-
-    return filename
+# Export list
+__all__ = [
+    "MockMode",
+    "MockToolsetManager",
+    "MockToolsets",
+    "MockDataError",
+    "MockDataNotFoundError",
+    "MockDataCorruptedError",
+    "MockValidationError",
+    "MockFileManager",
+    "MockableToolWrapper",
+    "ToolsetConfigurator",
+    "sanitize_filename",
+]

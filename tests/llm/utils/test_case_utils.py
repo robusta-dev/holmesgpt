@@ -4,7 +4,6 @@ from typing_extensions import Dict
 import yaml
 import logging
 import os
-import re
 from pathlib import Path
 from typing import List, Literal, Optional, TypeVar, Union, cast
 
@@ -12,9 +11,8 @@ from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 from holmes.core.tool_calling_llm import ResourceInstructions
-from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, AUTO_GENERATED_FILE_SUFFIX
-from tests.llm.utils.mock_toolset import MockMetadata, ToolMock
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
+# Mock-related imports removed - now handled entirely by mock_toolset.py
 
 
 def read_file(file_path: Path):
@@ -51,7 +49,7 @@ class HolmesTestCase(BaseModel):
     add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluations = LLMEvaluations()
-    tool_mocks: List[ToolMock] = []
+    # tool_mocks removed - mocks are now loaded on-demand by MockFileManager
     before_test: Optional[str] = None
     after_test: Optional[str] = None
     conversation_history: Optional[list[dict]] = None
@@ -77,53 +75,6 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
-
-
-pydantic_tool_mock = TypeAdapter(MockMetadata)
-
-
-def parse_mock_metadata(text) -> Optional[MockMetadata]:
-    """
-    Expects the mock metadata to be the first line of the text and be a JSON string.
-    """
-    try:
-        match = re.match(r"^(.*)$", text, re.MULTILINE)
-        if match:
-            first_line = match.group(0)
-            metadata = json.loads(first_line)
-            return pydantic_tool_mock.validate_python(metadata)
-        return None
-    except Exception as e:
-        logging.error(e)
-        return None
-
-
-def parse_structured_json(
-    text: str, metadata: Optional[MockMetadata]
-) -> StructuredToolResult:
-    """
-    Expects the mock metadata to be the first line of the text and be a JSON string.
-    """
-    try:
-        match = re.match(r"^(.*)$", text, re.MULTILINE)
-        first_line = match.group(0)
-        parsed_json = json.loads(first_line)
-        result = StructuredToolResult(**parsed_json)
-        data = text[text.find("\n") + 1 :]  # remove first line
-        result.data = data
-        return result
-    except Exception as e:
-        logging.info(
-            f"Failed to parse mock value as StructuredToolResult: {e}. Using mock value as string"
-        )
-        params = {}
-        if metadata and metadata.match_params:
-            params = metadata.match_params
-        return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
-            data=text,
-            params=params,
-        )
 
 
 class MockHelper:
@@ -200,36 +151,8 @@ class MockHelper:
                 )
                 continue
 
-            mock_file_names: List[str] = os.listdir(test_case_folder)
-
-            for mock_file_name in mock_file_names:
-                if mock_file_name == CONFIG_FILE_NAME:
-                    continue
-                if mock_file_name.endswith(AUTO_GENERATED_FILE_SUFFIX):
-                    continue
-                if not mock_file_name.endswith(".txt"):
-                    continue
-                mock_file_path = test_case_folder.joinpath(mock_file_name)
-                mock_text = read_file(mock_file_path)
-
-                metadata = parse_mock_metadata(mock_text)
-                mock_value = mock_text[mock_text.find("\n") + 1 :]  # remove first line
-
-                tool_structured_result = parse_structured_json(mock_value, metadata)
-                if not metadata:
-                    logging.warning(
-                        f"Failed to parse metadata from test case file at {str(mock_file_path)}. It will be skipped"
-                    )
-                    continue
-                tool_mock = ToolMock(
-                    source_file=mock_file_name,
-                    toolset_name=metadata.toolset_name,
-                    tool_name=metadata.tool_name,
-                    match_params=metadata.match_params,
-                    return_value=tool_structured_result,
-                )
-                logging.info(f"Successfully loaded tool mock {tool_mock}")
-                test_case.tool_mocks.append(tool_mock)
+            # Mock preloading removed - mocks are now loaded on-demand by MockFileManager
+            # This avoids duplicate parsing and keeps all mock file I/O in one place
             test_cases.append(test_case)
         logging.info(f"Found {len(test_cases)} in {self._test_cases_folder}")
 

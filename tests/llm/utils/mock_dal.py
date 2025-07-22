@@ -8,7 +8,7 @@ from pydantic import TypeAdapter
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import Instructions, ResourceInstructions
-from tests.llm.utils.mock_utils import read_file
+from tests.llm.utils.test_case_utils import read_file
 
 
 class MockSupabaseDal(SupabaseDal):
