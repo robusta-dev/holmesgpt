@@ -1,8 +1,8 @@
 import logging
 from abc import abstractmethod
-from typing import Dict, Any, Tuple, Optional, TYPE_CHECKING
+from typing import Dict, Any, Tuple, Optional, TYPE_CHECKING, List
 from pydantic import Field
-from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
+from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus, Toolset, ToolsetTag, ToolsetStatusEnum, CallablePrerequisite
 from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig, ServiceInstance
 
 if TYPE_CHECKING:
@@ -226,11 +226,21 @@ This typically means one of the following:
 Once the issue is resolved, try your investigation query again."""
 
 
-class BaseInfraInsightsToolsetV2:
+class BaseInfraInsightsToolsetV2(Toolset):
     """Base class for all InfraInsights toolsets with V2 API support"""
     
     def __init__(self, name: str):
-        self.name = name
+        # Initialize Toolset with required attributes
+        super().__init__(
+            name=name,
+            description=f"InfraInsights {name} toolset with enhanced instance resolution",
+            enabled=True,
+            tools=[],
+            tags=[ToolsetTag.CLUSTER],  # Add required tags
+            prerequisites=[
+                CallablePrerequisite(callable=self.prerequisites_callable)
+            ]
+        )
         self.infrainsights_client = None
         self.infrainsights_config = None
         self.tools = []

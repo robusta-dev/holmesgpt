@@ -152,6 +152,7 @@ class EnhancedKafkaToolset(BaseInfraInsightsToolsetV2):
     def __init__(self):
         super().__init__("InfraInsights Kafka Enhanced")
         
+        # Set tools after initialization
         self.tools = [
             VerboseKafkaTopicsTool(self)
         ]

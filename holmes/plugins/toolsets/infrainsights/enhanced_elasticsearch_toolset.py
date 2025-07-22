@@ -265,6 +265,7 @@ class EnhancedElasticsearchToolset(BaseInfraInsightsToolsetV2):
     def __init__(self):
         super().__init__("InfraInsights Elasticsearch Enhanced")
         
+        # Set tools after initialization
         self.tools = [
             VerboseElasticsearchHealthTool(self),
             VerboseElasticsearchIndicesTool(self)
