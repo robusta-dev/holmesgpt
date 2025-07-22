@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Dict, Any, Optional
-from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult
+from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult, Toolset, ToolsetTag, CallablePrerequisite
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class ElasticsearchListIndicesTool(Tool):
         return f"elasticsearch_list_indices(instance_name={instance_name})"
 
 
-class EnhancedElasticsearchToolset:
+class EnhancedElasticsearchToolset(Toolset):
     """Enhanced Elasticsearch toolset with InfraInsights integration"""
     
     def __init__(self):
@@ -170,15 +170,42 @@ class EnhancedElasticsearchToolset:
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
         
         # Create tools
-        self.tools = [
+        tools = [
             ElasticsearchHealthCheckTool(toolset=self),
             ElasticsearchListIndicesTool(toolset=self)
         ]
         
-        # Toolset metadata
-        self.name = "infrainsights_elasticsearch_enhanced"
-        self.description = "Enhanced Elasticsearch toolset with InfraInsights instance management"
-        self.enabled = True
-        self.tags = ["cluster"]
-        self.prerequisites = []
-        self.config = None 
+        # Initialize Toolset with required parameters
+        super().__init__(
+            name="infrainsights_elasticsearch_enhanced",
+            description="Enhanced Elasticsearch toolset with InfraInsights instance management",
+            enabled=True,
+            tools=tools,
+            tags=[ToolsetTag.CLUSTER],
+            prerequisites=[
+                CallablePrerequisite(callable=self._check_prerequisites)
+            ]
+        )
+        
+        # Set config to None initially
+        self.config = None
+    
+    def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
+        """Check if InfraInsights client can connect to the backend"""
+        try:
+            # Try to connect to InfraInsights backend
+            if self.infrainsights_client.health_check():
+                return True, "InfraInsights backend is accessible"
+            else:
+                return False, "InfraInsights backend is not accessible"
+        except Exception as e:
+            return False, f"Failed to connect to InfraInsights backend: {str(e)}"
+    
+    def get_example_config(self) -> Dict[str, Any]:
+        """Return example configuration for this toolset"""
+        return {
+            "base_url": "http://localhost:3000",
+            "api_key": "your-api-key-here",
+            "timeout": 30,
+            "enable_name_lookup": True
+        } 
