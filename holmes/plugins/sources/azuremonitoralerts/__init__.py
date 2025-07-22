@@ -51,12 +51,12 @@ class AzureMonitorAlertsSource(SourcePlugin):
             # Build Azure Monitor Alerts API URL
             alerts_url = f"https://management.azure.com/subscriptions/{self.subscription_id}/providers/Microsoft.AlertsManagement/alerts"
             
-            # Parameters for the API call - filter for only fired/active alerts
+            # Parameters for the API call - filter for all active alerts regardless of when they fired
             api_params = {
                 "api-version": "2019-05-05-preview",
-                "alertState": "New",  # Only new/fired alerts
-                "monitorCondition": "Fired",  # Only fired alerts
-                "timeRange": "1d",    # Last 1 day (valid enum value)
+                "alertState": "New,Acknowledged",  # Get both New and Acknowledged active alerts
+                "monitorCondition": "Fired",       # Only fired alerts (not resolved)
+                # Removed timeRange to get ALL active alerts regardless of when they were fired
             }
             
             response = requests.get(
@@ -101,13 +101,14 @@ class AzureMonitorAlertsSource(SourcePlugin):
                     if target_resource.lower() != self.cluster_resource_id.lower():
                         continue
                     
-                    # Create a unique key for deduplication (alert name + rule)
-                    dedup_key = f"{alert_name}|{alert_rule}"
+                    # Use the actual alert ID for deduplication to show all alert instances
+                    # Each alert instance (e.g., different pods) has a unique ID
+                    alert_id = alert.get("id", "")
                     
-                    if dedup_key in processed_alerts:
+                    if alert_id in processed_alerts:
                         continue
                     
-                    processed_alerts.add(dedup_key)
+                    processed_alerts.add(alert_id)
                     
                     if alert_rule:
                         # Fetch alert rule details to get the query
