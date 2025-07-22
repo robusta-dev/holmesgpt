@@ -1,17 +1,23 @@
 import logging
 from abc import abstractmethod
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, TYPE_CHECKING
+from pydantic import Field
 from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
 from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig, ServiceInstance
+
+if TYPE_CHECKING:
+    from . import BaseInfraInsightsToolsetV2
 
 logger = logging.getLogger(__name__)
 
 class BaseInfraInsightsToolV2(Tool):
     """Base class for all InfraInsights tools with V2 API support"""
     
+    # Define toolset as a proper Pydantic field
+    toolset: Optional[Any] = Field(default=None, exclude=True)
+    
     def __init__(self, name: str, description: str, toolset, **kwargs):
-        super().__init__(name=name, description=description, **kwargs)
-        self.toolset = toolset
+        super().__init__(name=name, description=description, toolset=toolset, **kwargs)
     
     @abstractmethod
     def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:

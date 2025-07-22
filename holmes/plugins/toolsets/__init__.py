@@ -161,11 +161,11 @@ def load_toolsets_from_config(
             # MCP server is not a built-in toolset, so we need to set the type explicitly
             validated_toolset: Optional[Toolset] = None
             
-            # Enhanced InfraInsights toolsets
-            if name == "infrainsights_elasticsearch_enhanced":
+            # Enhanced InfraInsights toolsets (support both naming conventions)
+            if name == "infrainsights_elasticsearch_enhanced" or name == "infrainsights_elasticsearch_v2":
                 validated_toolset = EnhancedElasticsearchToolset()
                 validated_toolset.config = config.get("config")
-            elif name == "infrainsights_kafka_enhanced":
+            elif name == "infrainsights_kafka_enhanced" or name == "infrainsights_kafka_v2":
                 validated_toolset = EnhancedKafkaToolset()
                 validated_toolset.config = config.get("config")
             elif toolset_type is ToolsetType.MCP:
