@@ -63,7 +63,11 @@ def idfn(val):
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(
-    experiment_name: str, test_case: AskHolmesTestCase, caplog, request
+    experiment_name: str,
+    test_case: AskHolmesTestCase,
+    caplog,
+    request,
+    mock_generation_config,
 ):
     tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
 
@@ -95,10 +99,18 @@ def test_ask_holmes(
                         **{"now.return_value": mocked_datetime, "side_effect": None}
                     )
                     with set_test_env_vars(test_case):
-                        result = ask_holmes(test_case=test_case, tracer=tracer)
+                        result = ask_holmes(
+                            test_case=test_case,
+                            tracer=tracer,
+                            mock_generation_config=mock_generation_config,
+                        )
             else:
                 with set_test_env_vars(test_case):
-                    result = ask_holmes(test_case=test_case, tracer=tracer)
+                    result = ask_holmes(
+                        test_case=test_case,
+                        tracer=tracer,
+                        mock_generation_config=mock_generation_config,
+                    )
 
     except Exception as e:
         # Log error to span if available
@@ -200,12 +212,15 @@ def test_ask_holmes(
     ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {debug_expected}"
 
 
-def ask_holmes(test_case: AskHolmesTestCase, tracer) -> LLMResult:
+def ask_holmes(
+    test_case: AskHolmesTestCase, tracer, mock_generation_config
+) -> LLMResult:
     run_live = load_bool("RUN_LIVE", default=False)
     mock = MockToolsets(
-        generate_mocks=test_case.generate_mocks,
+        generate_mocks=mock_generation_config.generate_mocks,
         test_case_folder=test_case.folder,
         run_live=run_live,
+        mock_generation_tracker=mock_generation_config,
     )
 
     expected_tools = []

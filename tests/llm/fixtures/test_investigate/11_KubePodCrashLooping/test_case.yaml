@@ -5,4 +5,3 @@ expected_sections:
     - Environment variable DEPLOY_ENV is undefined
 evaluation:
   correctness: 1
-generate_mocks: False

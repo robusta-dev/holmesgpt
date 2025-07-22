@@ -34,15 +34,17 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase, tracer):
+    def __init__(self, test_case: InvestigateTestCase, tracer, mock_generation_config):
         super().__init__()
         self._test_case = test_case
         self._tracer = tracer
+        self._mock_generation_config = mock_generation_config
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         mock = MockToolsets(
-            generate_mocks=self._test_case.generate_mocks,
+            generate_mocks=self._mock_generation_config.generate_mocks,
             test_case_folder=self._test_case.folder,
+            mock_generation_tracker=self._mock_generation_config,
         )
 
         expected_tools = []
@@ -105,7 +107,11 @@ def idfn(val):
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(
-    experiment_name: str, test_case: InvestigateTestCase, caplog, request
+    experiment_name: str,
+    test_case: InvestigateTestCase,
+    caplog,
+    request,
+    mock_generation_config,
 ):
     # Use unified tracing API for evals
     from holmes.core.tracing import TracingFactory
@@ -118,12 +124,12 @@ def test_investigate(
         metadata=braintrust_util.get_machine_state_tags(),
     )
 
-    config = MockConfig(test_case, tracer)
+    config = MockConfig(test_case, tracer, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
-        generate_mocks=test_case.generate_mocks,
+        generate_mocks=mock_generation_config.generate_mocks,
         issue_data=test_case.issue_data,
         resource_instructions=test_case.resource_instructions,
     )

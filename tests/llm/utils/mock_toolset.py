@@ -17,9 +17,14 @@ from holmes.core.tools import (
     YAMLToolset,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
-from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
 
 ansi_escape = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]")
+
+
+class MockDataError(Exception):
+    """Raised when mock data contains ERROR status or is invalid."""
+
+    pass
 
 
 def strip_ansi(text):
@@ -37,7 +42,7 @@ class ToolMock(MockMetadata):
     return_value: StructuredToolResult
 
 
-def ensure_non_error_returned(
+def validate_mock_result(
     original_tool_result: Optional[StructuredToolResult],
 ) -> StructuredToolResult:
     if original_tool_result and original_tool_result.status in [
@@ -74,6 +79,7 @@ class FallbackToolWrapper(Tool):
         toolset_name: str = "Unknown",
         add_params_to_mock_file: bool = True,
         generate_mocks: bool = True,
+        mock_generation_tracker=None,
     ):
         super().__init__(
             name=unmocked_tool.name,
@@ -87,6 +93,8 @@ class FallbackToolWrapper(Tool):
         self._test_case_folder = test_case_folder
         self._add_params_to_mock_file = add_params_to_mock_file
         self._generate_mocks = generate_mocks
+        # Use object.__setattr__ to bypass Pydantic validation since we're adding this field dynamically
+        object.__setattr__(self, "mock_generation_tracker", mock_generation_tracker)
 
     def _get_mock_file_path(self, tool_params: Dict):
         if self._add_params_to_mock_file:
@@ -96,7 +104,7 @@ class FallbackToolWrapper(Tool):
             params_data = ""
 
         params_data = sanitize_filename(params_data)
-        return f"{self._test_case_folder}/{self.name}{params_data}.txt{AUTO_GENERATED_FILE_SUFFIX}"
+        return f"{self._test_case_folder}/{self.name}{params_data}.txt"
 
     def _auto_generate_mock_file(self, tool_result: StructuredToolResult, params: Dict):
         mock_metadata_json = MockMetadata(
@@ -115,16 +123,25 @@ class FallbackToolWrapper(Tool):
             if content:
                 f.write(content)
 
+        # Track the generated mock file
+        if self.mock_generation_tracker:
+            test_case = os.path.basename(self._test_case_folder)
+            self.mock_generation_tracker.track_generated_file(
+                mock_file_path, self.name, test_case
+            )
+
     def _invoke(self, params) -> StructuredToolResult:
-        logging.info(f"Invoking tool {self._unmocked_tool}")
-        tool_result = self._unmocked_tool.invoke(params)
-
         if self._generate_mocks:
+            logging.info(f"Invoking tool {self._unmocked_tool}")
+            tool_result = self._unmocked_tool.invoke(params)
             self._auto_generate_mock_file(tool_result, params)
+            return tool_result
         else:
-            tool_result = ensure_non_error_returned(tool_result)
-
-        return tool_result
+            # In test mode (not generating mocks), we should have mock data available
+            # If we reach FallbackToolWrapper, it means no mock data exists for this tool
+            raise MockDataError(
+                f"No mock data found for tool '{self.name}' with params: {params}"
+            )
 
     def get_parameterized_one_liner(self, params) -> str:
         return self._unmocked_tool.get_parameterized_one_liner(params)
@@ -160,7 +177,10 @@ class MockToolWrapper(Tool, BaseModel):
         if mock:
             result = mock.return_value
         else:
-            result = self._unmocked_tool.invoke(params)
+            # No mock data found - raise error instead of falling back to real tool
+            raise MockDataError(
+                f"No mock data found for tool '{self.name}' with params: {params}"
+            )
 
         return result
 
@@ -197,6 +217,7 @@ class MockToolsets:
         generate_mocks: bool = True,
         run_live: bool = False,
         add_params_to_mock_file: bool = True,
+        mock_generation_tracker=None,
     ) -> None:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
@@ -204,6 +225,12 @@ class MockToolsets:
         self.enabled_toolsets = []
         self.configured_toolsets = []
         self.add_params_to_mock_file = add_params_to_mock_file
+        self.mock_generation_tracker = mock_generation_tracker
+
+        # Clear existing mock files if we're in regenerate mode
+        if mock_generation_tracker:
+            mock_generation_tracker.clear_existing_mocks(test_case_folder)
+
         self._enable_builtin_toolsets(run_live)
         self._update()
         self.run_live = run_live
@@ -265,6 +292,7 @@ class MockToolsets:
             test_case_folder=self.test_case_folder,
             add_params_to_mock_file=self.add_params_to_mock_file,
             generate_mocks=self.generate_mocks,
+            mock_generation_tracker=self.mock_generation_tracker,
         )
 
     def _update(self):

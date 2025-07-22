@@ -1,7 +1,9 @@
 # Standard library imports
+import glob
 import logging
 import os
 import textwrap
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List, Optional
@@ -20,6 +22,73 @@ from tests.llm.utils.classifiers import create_llm_client
 # Configuration constants
 DEBUG_SEPARATOR = "=" * 80
 
+# Global variable to track generated mock files during test session
+_session_mock_tracker = None
+
+
+@pytest.fixture(scope="session")
+def mock_generation_config(request):
+    """Session-scoped fixture that provides mock generation configuration and tracking."""
+    global _session_mock_tracker
+    generate_mocks = request.config.getoption("--generate-mocks")
+    regenerate_all_mocks = request.config.getoption("--regenerate-all-mocks")
+
+    # --regenerate-all-mocks implies --generate-mocks
+    if regenerate_all_mocks:
+        generate_mocks = True
+
+    class MockGenerationTracker:
+        def __init__(self, generate_mocks_enabled, regenerate_all_enabled):
+            self.generate_mocks = generate_mocks_enabled
+            self.regenerate_all_mocks = regenerate_all_enabled
+            self.generated_files = []
+            self.cleared_directories = set()  # Track directories we've cleared
+
+        def track_generated_file(self, file_path, tool_name, test_case):
+            """Track a newly generated mock file."""
+            self.generated_files.append(
+                {"file_path": file_path, "tool_name": tool_name, "test_case": test_case}
+            )
+
+        def clear_existing_mocks(self, test_case_folder):
+            """Clear existing mock files in a test case folder if in regenerate mode."""
+            if not self.regenerate_all_mocks:
+                return
+
+            # Only clear each directory once per session
+            if test_case_folder in self.cleared_directories:
+                return
+
+            # Clear all mock data files (.txt for tools, .json for DAL)
+            mock_files = []
+            mock_files.extend(
+                glob.glob(os.path.join(test_case_folder, "*.txt"))
+            )  # Tool mocks
+            mock_files.extend(
+                glob.glob(os.path.join(test_case_folder, "*.json"))
+            )  # DAL mocks
+
+            cleared_files = []
+
+            for file_path in mock_files:
+                try:
+                    os.remove(file_path)
+                    cleared_files.append(os.path.basename(file_path))
+                except Exception as e:
+                    print(f"Warning: Could not remove {file_path}: {e}")
+
+            if cleared_files:
+                test_case_name = os.path.basename(test_case_folder)
+                print(
+                    f"🧹 Cleared {len(cleared_files)} existing mock files from {test_case_name}"
+                )
+
+            self.cleared_directories.add(test_case_folder)
+
+    tracker = MockGenerationTracker(generate_mocks, regenerate_all_mocks)
+    _session_mock_tracker = tracker
+    return tracker
+
 
 @dataclass
 class TestResult:
@@ -35,6 +104,23 @@ class TestResult:
     execution_time: Optional[float] = None
     expected_correctness_score: float = 1.0
     actual_correctness_score: float = 0.0
+    mock_data_failure: bool = False
+
+
+def pytest_addoption(parser):
+    """Add custom pytest command line options"""
+    parser.addoption(
+        "--generate-mocks",
+        action="store_true",
+        default=False,
+        help="Generate mock data files during test execution instead of using existing mocks",
+    )
+    parser.addoption(
+        "--regenerate-all-mocks",
+        action="store_true",
+        default=False,
+        help="Regenerate all mock data files, replacing existing ones (implies --generate-mocks)",
+    )
 
 
 def pytest_configure(config):
@@ -208,6 +294,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     # Handle console/developer output (Rich table + Braintrust links)
     _handle_console_output(sorted_results)
 
+    # Report generated mock files if any
+    _report_generated_mocks(config)
+
 
 def markdown_table(headers, rows):
     """Generate a markdown table from headers and rows."""
@@ -243,6 +332,14 @@ def _collect_test_results_from_stats(terminalreporter):
             test_name = _extract_test_name_from_nodeid(nodeid)
             test_type = "ask" if "test_ask_holmes" in nodeid else "investigate"
 
+            # Check if this is a MockDataError failure
+            mock_data_failure = False
+            if hasattr(report, "longrepr") and report.longrepr:
+                # Check for MockDataError in the exception chain
+                longrepr_str = str(report.longrepr)
+                if "MockDataError" in longrepr_str:
+                    mock_data_failure = True
+
             # Get test data from user_properties
             expected = user_props.get("expected", "Unknown")
             actual = user_props.get("actual", "Unknown")
@@ -267,6 +364,7 @@ def _collect_test_results_from_stats(terminalreporter):
                 "status": status,  # passed, failed, error, etc.
                 "outcome": getattr(report, "outcome", "unknown"),
                 "execution_time": getattr(report, "duration", None),
+                "mock_data_failure": mock_data_failure,
             }
 
     # Sort results by test_type then test_id for consistent ordering
@@ -317,6 +415,7 @@ def _generate_markdown_report(sorted_results):
     for result in sorted_results:
         actual_score = int(result["actual_correctness_score"])
         expected_score = int(result["expected_correctness_score"])
+        is_mock_data_failure = result.get("mock_data_failure", False)
 
         if result["test_type"] == "ask":
             ask_holmes_total += 1
@@ -324,6 +423,9 @@ def _generate_markdown_report(sorted_results):
                 ask_holmes_passed += 1
             elif actual_score == 0 and expected_score == 0:
                 # Known failure, not a regression
+                pass
+            elif is_mock_data_failure:
+                # Mock data issue, not a regression
                 pass
             else:
                 ask_holmes_regressions += 1
@@ -333,6 +435,9 @@ def _generate_markdown_report(sorted_results):
                 investigate_passed += 1
             elif actual_score == 0 and expected_score == 0:
                 # Known failure, not a regression
+                pass
+            elif is_mock_data_failure:
+                # Mock data issue, not a regression
                 pass
             else:
                 investigate_regressions += 1
@@ -359,7 +464,9 @@ def _generate_markdown_report(sorted_results):
         actual_score = int(result["actual_correctness_score"])
         expected_score = int(result["expected_correctness_score"])
 
-        if actual_score == 1:
+        if result.get("mock_data_failure", False):
+            status = ":wrench:"  # Mock data failure
+        elif actual_score == 1:
             status = ":white_check_mark:"
         elif actual_score == 0 and expected_score == 0:
             status = ":warning:"  # Known failure
@@ -372,6 +479,9 @@ def _generate_markdown_report(sorted_results):
     markdown += "\n- :white_check_mark: the test was successful"
     markdown += (
         "\n- :warning: the test failed but is known to be flaky or known to fail"
+    )
+    markdown += (
+        "\n- :wrench: the test failed due to mock data issues (not a code regression)"
     )
     markdown += "\n- :x: the test failed and should be fixed before merging the PR"
 
@@ -473,6 +583,7 @@ def _handle_console_output(sorted_results):
             execution_time=result.get("execution_time"),
             expected_correctness_score=result["expected_correctness_score"],
             actual_correctness_score=result["actual_correctness_score"],
+            mock_data_failure=result.get("mock_data_failure", False),
         )
 
         # Wrap long content for table readability
@@ -495,7 +606,9 @@ def _handle_console_output(sorted_results):
         test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=23))
 
         # Convert pass/fail to check/x status with colors
-        if "PASS" in pass_fail:
+        if result.get("mock_data_failure", False):
+            status = "[yellow]🔧[/yellow]"  # Mock data failure
+        elif "PASS" in pass_fail:
             status = "[green]✓[/green]"
         else:
             status = "[red]✗[/red]"
@@ -556,6 +669,11 @@ def _get_llm_analysis(result: TestResult) -> str:
     Returns:
         Analysis text explaining why the test failed
     """
+    # Check if this is a MockDataError case and add context
+    mock_data_context = ""
+    if result.mock_data_failure:
+        mock_data_context = "\n\nIMPORTANT CONTEXT: This test failed due to MockDataError - no mock data files were found for the tool calls that the agent tried to make. This is a test infrastructure issue, not a problem with the agent's logic."
+
     prompt = textwrap.dedent(f"""\
         Analyze this failed eval for an AIOps agent why it failed.
         TEST: {result.test_name}
@@ -565,9 +683,11 @@ def _get_llm_analysis(result: TestResult) -> str:
         ERROR: {result.error_message or 'Test assertion failed'}
 
         LOGS:
-        {result.logs if result.logs else 'No logs available'}
+        {result.logs if result.logs else 'No logs available'}{mock_data_context}
 
         Please provide a concise analysis (2-3 sentences) and categorize this as one of:
+        - MockDataError - the test failed because mock data files were missing for the tool calls (this is a test infrastructure issue).
+          To fix: Run with RUN_LIVE=true, or use --generate-mocks (may cause inconsistent data), or use --regenerate-all-mocks (ensures consistency)
         - Problem with mock data - the test is failing due to incorrect or incomplete mock data, but the agent itself did the correct queries you would expect it to do
         - Setup issue - the test is failing due to an issue with the test setup, such as missing tools or incorrect before_test/after_test configuration
         - Real failure - the test is failing because the agent did not perform as expected, and this is a real issue that needs to be fixed
@@ -583,3 +703,117 @@ def _get_llm_analysis(result: TestResult) -> str:
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"Analysis failed: {e}"
+
+
+def _report_generated_mocks(config):
+    """Report generated mock files and check for potential conflicts."""
+    global _session_mock_tracker
+
+    if not config.getoption("--generate-mocks") and not config.getoption(
+        "--regenerate-all-mocks"
+    ):
+        return
+
+    regenerate_mode = config.getoption("--regenerate-all-mocks")
+
+    print("\n" + "=" * 80)
+    if regenerate_mode:
+        print("🔄 MOCK REGENERATION SUMMARY")
+    else:
+        print("🔧 MOCK GENERATION SUMMARY")
+    print("=" * 80)
+
+    if not _session_mock_tracker or not _session_mock_tracker.generated_files:
+        if regenerate_mode:
+            print("✅ Mock regeneration was enabled but no new mock files were created")
+        else:
+            print("✅ Mock generation was enabled but no new mock files were created")
+        print("=" * 80)
+        return
+
+    generated_files = _session_mock_tracker.generated_files
+    cleared_dirs = (
+        len(_session_mock_tracker.cleared_directories) if _session_mock_tracker else 0
+    )
+
+    if regenerate_mode:
+        print(f"🧹 Cleared existing mocks from {cleared_dirs} test directories")
+        print(f"✅ Regenerated {len(generated_files)} mock files:")
+    else:
+        print(f"✅ Generated {len(generated_files)} mock files:")
+    print()
+
+    # Group by test case for better readability
+    by_test_case = {}
+    for file_info in generated_files:
+        test_case = file_info["test_case"]
+        if test_case not in by_test_case:
+            by_test_case[test_case] = []
+        by_test_case[test_case].append(file_info)
+
+    for test_case, files in by_test_case.items():
+        print(f"📁 {test_case}:")
+        for file_info in files:
+            print(f"   - {file_info['tool_name']}: {file_info['file_path']}")
+        print()
+
+    # Check for potential conflicts (skip if we regenerated everything)
+    if not regenerate_mode:
+        _check_mock_conflicts(generated_files)
+    else:
+        print("🔍 CONFLICT DETECTION:")
+        print("   ✅ No conflicts expected - all mocks were regenerated fresh")
+        print()
+
+    print("📋 REVIEW CHECKLIST:")
+    print("   □ Review generated mock files before committing")
+    print("   □ Ensure mock data represents realistic scenarios")
+    print("   □ Check that timestamps/IDs are consistent across related mocks")
+    if regenerate_mode:
+        print("   □ All mocks now represent the same system state")
+    else:
+        print("   □ Remove or update conflicting older mock files if needed")
+    print("=" * 80)
+
+
+def _check_mock_conflicts(generated_files):
+    """Check for potential mock data conflicts and warn the user."""
+
+    print("🔍 CONFLICT DETECTION:")
+
+    # Check each directory for existing mock files that weren't just generated
+    conflicts_found = False
+
+    for file_info in generated_files:
+        test_dir = os.path.dirname(file_info["file_path"])
+        if not os.path.exists(test_dir):
+            continue
+
+        # Look for other .txt files in the same directory
+        existing_mocks = []
+        for filename in os.listdir(test_dir):
+            if filename.endswith(".txt"):
+                file_path = os.path.join(test_dir, filename)
+                # Check if this file was NOT just generated (more than 5 minutes old)
+                if os.path.getmtime(file_path) < time.time() - 300:  # 5 minutes ago
+                    existing_mocks.append(filename)
+
+        if existing_mocks:
+            conflicts_found = True
+            test_case = file_info["test_case"]
+            print(f"   ⚠️  {test_case}: Found {len(existing_mocks)} existing mock files")
+            print(f"      New: {os.path.basename(file_info['file_path'])}")
+            print(
+                f"      Existing: {', '.join(existing_mocks[:3])}{'...' if len(existing_mocks) > 3 else ''}"
+            )
+
+    if conflicts_found:
+        print()
+        print("   🚨 POTENTIAL MOCK DATA CONFLICTS DETECTED!")
+        print("   - Generated mocks may represent different system states")
+        print("   - Consider regenerating ALL mocks to ensure consistency")
+        print("   - Or carefully review timestamps and data coherence")
+    else:
+        print("   ✅ No obvious conflicts detected")
+
+    print()
