@@ -829,7 +829,8 @@ def run_interactive_loop(
                     for cmd, description in SLASH_COMMANDS_REFERENCE.items():
                         console.print(f"  [bold]{cmd}[/bold] - {description}")
                     continue
-                elif command == SlashCommands.RESET.value:
+                elif command == SlashCommands.RESET.command:
+                    console.clear()
                     console.print(
                         f"[bold {STATUS_COLOR}]Context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
                     )
