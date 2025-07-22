@@ -264,7 +264,24 @@ class MockFileManager:
                     if len(lines) < 2:
                         continue
 
-                    structured_output = json.loads(lines[1].strip())
+                    try:
+                        structured_output = json.loads(lines[1].strip())
+                    except json.JSONDecodeError:
+                        # Check if this is an old format mock file
+                        # Old format: Line 1 = metadata JSON, Line 2+ = raw output
+                        # New format: Line 1 = metadata JSON, Line 2 = structured output JSON, Line 3+ = raw output
+                        logging.error(
+                            f"Mock file {file_path} appears to be in old format (missing structured JSON on second line). "
+                            f"The mock file format was updated to include structured tool output metadata. "
+                            f"Old format: Line 1 = metadata JSON, Line 2+ = raw output. "
+                            f"New format: Line 1 = metadata JSON, Line 2 = structured output JSON, Line 3+ = raw output. "
+                            f"This change was introduced in PR https://github.com/robusta-dev/holmesgpt/pull/372. "
+                            f"Please regenerate your mock files using --regenerate-all-mocks or manually update them to the new format."
+                        )
+                        raise ValueError(
+                            f"Mock file {file_path} is in old format and needs to be updated (see PR #372)"
+                        )
+
                     content = "".join(lines[2:]) if len(lines) > 2 else None
                     if content is not None:
                         structured_output["data"] = content
@@ -286,6 +303,9 @@ class MockFileManager:
                         f"Loaded mock for {tool_name} from {file_path}: match_params={mock.match_params}"
                     )
 
+            except ValueError:
+                # Re-raise ValueError (old format error) to propagate it
+                raise
             except Exception as e:
                 logging.warning(f"Failed to load mock file {file_path}: {e}")
                 continue
@@ -327,10 +347,24 @@ class MockableToolWrapper(Tool):
             # Mock mode: read from mock file
             mock = self._file_manager.read_mock(self.name, params)
             if not mock:
-                raise MockDataNotFoundError(
-                    f"No mock data found for tool '{self.name}' with params: {params}",
-                    tool_name=self.name,
+                # Check if there are any mock files for this tool that might be in old format
+                pattern = os.path.join(
+                    self._file_manager.test_case_folder, f"{self.name}*.txt"
                 )
+                existing_files = glob.glob(pattern)
+
+                if existing_files:
+                    # There are mock files, but none matched - could be old format
+                    error_msg = (
+                        f"No mock data found for tool '{self.name}' with params: {params}. "
+                        f"Found {len(existing_files)} mock file(s) for this tool, but none matched the parameters. "
+                        f"This could be due to mock files being in the old format (missing structured JSON on line 2). "
+                        f"See PR https://github.com/robusta-dev/holmesgpt/pull/372 for format details."
+                    )
+                else:
+                    error_msg = f"No mock data found for tool '{self.name}' with params: {params}"
+
+                raise MockDataNotFoundError(error_msg, tool_name=self.name)
             return mock.return_value
 
         elif self._mode == MockMode.GENERATE:
