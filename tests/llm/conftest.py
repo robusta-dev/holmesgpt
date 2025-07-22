@@ -3,7 +3,6 @@ import glob
 import logging
 import os
 import textwrap
-import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List, Optional
@@ -41,14 +40,7 @@ def mock_generation_config(request):
         def __init__(self, generate_mocks_enabled, regenerate_all_enabled):
             self.generate_mocks = generate_mocks_enabled
             self.regenerate_all_mocks = regenerate_all_enabled
-            self.generated_files = []
             self.cleared_directories = set()  # Track directories we've cleared
-
-        def track_generated_file(self, file_path, tool_name, test_case):
-            """Track a newly generated mock file."""
-            self.generated_files.append(
-                {"file_path": file_path, "tool_name": tool_name, "test_case": test_case}
-            )
 
         def clear_existing_mocks(self, test_case_folder):
             """Clear existing mock files in a test case folder if in regenerate mode."""
@@ -283,7 +275,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         return
 
     # Collect and sort test results from terminalreporter.stats
-    sorted_results = _collect_test_results_from_stats(terminalreporter)
+    sorted_results, all_generated_mocks = _collect_test_results_from_stats(
+        terminalreporter
+    )
 
     if not sorted_results:
         return
@@ -295,7 +289,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     _handle_console_output(sorted_results)
 
     # Report generated mock files if any
-    _report_generated_mocks(config)
+    _report_generated_mocks(config, all_generated_mocks)
 
 
 def markdown_table(headers, rows):
@@ -310,6 +304,7 @@ def markdown_table(headers, rows):
 def _collect_test_results_from_stats(terminalreporter):
     """Collect and parse test results from terminalreporter.stats."""
     test_results = {}
+    all_generated_mocks = []  # Collect all generated mock files
 
     for status, reports in terminalreporter.stats.items():
         for report in reports:
@@ -326,6 +321,14 @@ def _collect_test_results_from_stats(terminalreporter):
             user_props = dict(getattr(report, "user_properties", {}))
             if not user_props:  # Skip if no user_properties
                 continue
+
+            # Collect generated mock files from this test
+            generated_mocks = [
+                value
+                for key, value in getattr(report, "user_properties", [])
+                if key == "generated_mock_file"
+            ]
+            all_generated_mocks.extend(generated_mocks)
 
             # Extract test info
             test_id = _extract_test_id_from_nodeid(nodeid)
@@ -365,6 +368,7 @@ def _collect_test_results_from_stats(terminalreporter):
                 "outcome": getattr(report, "outcome", "unknown"),
                 "execution_time": getattr(report, "duration", None),
                 "mock_data_failure": mock_data_failure,
+                "generated_mocks": generated_mocks,
             }
 
     # Sort results by test_type then test_id for consistent ordering
@@ -377,7 +381,7 @@ def _collect_test_results_from_stats(terminalreporter):
         ),
     )
 
-    return sorted_results
+    return sorted_results, all_generated_mocks
 
 
 def _get_braintrust_url(result):
@@ -555,13 +559,13 @@ def _handle_console_output(sorted_results):
         show_lines=True,
     )
 
-    # Add columns with specific widths
-    table.add_column("Test", style="cyan", width=25)
-    table.add_column("Status", justify="center", width=4)
-    table.add_column("Time", justify="right", width=6)
-    table.add_column("Expected", style="green", width=35)
-    table.add_column("Actual", style="yellow", width=35)
-    table.add_column("Analysis", style="red", width=40)
+    # Add columns with specific widths (reduced to fit terminal width)
+    table.add_column("Test", style="cyan", width=12)
+    table.add_column("Status", justify="center", width=13)
+    table.add_column("Time", justify="right", width=5)
+    table.add_column("Expected", style="green", width=22)
+    table.add_column("Actual", style="yellow", width=22)
+    table.add_column("Analysis", style="red", width=28)
 
     # Add rows to table
     for result in sorted_results:
@@ -588,12 +592,12 @@ def _handle_console_output(sorted_results):
 
         # Wrap long content for table readability
         expected_wrapped = (
-            "\n".join(textwrap.wrap(result["expected"], width=33))
+            "\n".join(textwrap.wrap(result["expected"], width=20))
             if result["expected"]
             else ""
         )
         actual_wrapped = (
-            "\n".join(textwrap.wrap(result["actual"], width=33))
+            "\n".join(textwrap.wrap(result["actual"], width=20))
             if result["actual"]
             else ""
         )
@@ -603,15 +607,15 @@ def _handle_console_output(sorted_results):
             f"{result['test_id']}_{result['test_name']} ({result['test_type']})"
         )
         # Wrap test name to fit column
-        test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=23))
+        test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=10))
 
-        # Convert pass/fail to check/x status with colors
+        # Convert pass/fail to status with colors and text
         if result.get("mock_data_failure", False):
-            status = "[yellow]🔧[/yellow]"  # Mock data failure
+            status = "[yellow]MOCK FAILURE[/yellow]"  # Mock data failure
         elif "PASS" in pass_fail:
-            status = "[green]✓[/green]"
+            status = "[green]PASS[/green]"
         else:
-            status = "[red]✗[/red]"
+            status = "[red]FAIL[/red]"
 
         # Format execution time
         time_str = (
@@ -644,7 +648,6 @@ def _handle_console_output(sorted_results):
                     f"* {result['test_id']}_{result['test_name']} "
                     f"({result['test_type']}) - {braintrust_url}"
                 )
-        print(DEBUG_SEPARATOR)
 
 
 def _get_analysis_for_result(result):
@@ -655,7 +658,7 @@ def _get_analysis_for_result(result):
     try:
         analysis = _get_llm_analysis(result)
         # Wrap analysis text for table readability
-        return "\n".join(textwrap.wrap(analysis, width=38))
+        return "\n".join(textwrap.wrap(analysis, width=26))
     except Exception as e:
         return f"Analysis failed: {str(e)}"
 
@@ -687,7 +690,10 @@ def _get_llm_analysis(result: TestResult) -> str:
 
         Please provide a concise analysis (2-3 sentences) and categorize this as one of:
         - MockDataError - the test failed because mock data files were missing for the tool calls (this is a test infrastructure issue).
-          To fix: Run with RUN_LIVE=true, or use --generate-mocks (may cause inconsistent data), or use --regenerate-all-mocks (ensures consistency)
+          To fix (show bullet points with each option - any are valid solutions so user should see all options):
+          - Run with RUN_LIVE=true
+          - Use --generate-mocks (may cause inconsistent data)
+          - Use --regenerate-all-mocks (ensures consistency)
         - Problem with mock data - the test is failing due to incorrect or incomplete mock data, but the agent itself did the correct queries you would expect it to do
         - Setup issue - the test is failing due to an issue with the test setup, such as missing tools or incorrect before_test/after_test configuration
         - Real failure - the test is failing because the agent did not perform as expected, and this is a real issue that needs to be fixed
@@ -705,9 +711,13 @@ def _get_llm_analysis(result: TestResult) -> str:
         return f"Analysis failed: {e}"
 
 
-def _report_generated_mocks(config):
+def _report_generated_mocks(config, all_generated_mocks):
     """Report generated mock files and check for potential conflicts."""
     global _session_mock_tracker
+
+    # Skip mock reporting if running live
+    if os.environ.get("RUN_LIVE", "false").lower() == "true":
+        return
 
     if not config.getoption("--generate-mocks") and not config.getoption(
         "--regenerate-all-mocks"
@@ -715,6 +725,9 @@ def _report_generated_mocks(config):
         return
 
     regenerate_mode = config.getoption("--regenerate-all-mocks")
+    cleared_dirs = (
+        len(_session_mock_tracker.cleared_directories) if _session_mock_tracker else 0
+    )
 
     print("\n" + "=" * 80)
     if regenerate_mode:
@@ -723,97 +736,46 @@ def _report_generated_mocks(config):
         print("🔧 MOCK GENERATION SUMMARY")
     print("=" * 80)
 
-    if not _session_mock_tracker or not _session_mock_tracker.generated_files:
+    if cleared_dirs > 0:
+        print(f"🧹 Cleared existing mocks from {cleared_dirs} test directories")
+
+    if all_generated_mocks:
+        print(f"✅ Generated {len(all_generated_mocks)} mock files:")
+        print()
+
+        # Group by test case for better readability
+        by_test_case = {}
+        for mock_info in all_generated_mocks:
+            # Parse the mock_info format: "test_case:tool_name:filename"
+            parts = mock_info.split(":", 2)
+            if len(parts) == 3:
+                test_case, tool_name, filename = parts
+                if test_case not in by_test_case:
+                    by_test_case[test_case] = []
+                by_test_case[test_case].append(f"{tool_name} -> {filename}")
+
+        for test_case, mock_files in by_test_case.items():
+            print(f"📁 {test_case}:")
+            for mock_file in mock_files:
+                print(f"   - {mock_file}")
+            print()
+    else:
         if regenerate_mode:
             print("✅ Mock regeneration was enabled but no new mock files were created")
         else:
             print("✅ Mock generation was enabled but no new mock files were created")
-        print("=" * 80)
-        return
-
-    generated_files = _session_mock_tracker.generated_files
-    cleared_dirs = (
-        len(_session_mock_tracker.cleared_directories) if _session_mock_tracker else 0
-    )
-
-    if regenerate_mode:
-        print(f"🧹 Cleared existing mocks from {cleared_dirs} test directories")
-        print(f"✅ Regenerated {len(generated_files)} mock files:")
-    else:
-        print(f"✅ Generated {len(generated_files)} mock files:")
-    print()
-
-    # Group by test case for better readability
-    by_test_case = {}
-    for file_info in generated_files:
-        test_case = file_info["test_case"]
-        if test_case not in by_test_case:
-            by_test_case[test_case] = []
-        by_test_case[test_case].append(file_info)
-
-    for test_case, files in by_test_case.items():
-        print(f"📁 {test_case}:")
-        for file_info in files:
-            print(f"   - {file_info['tool_name']}: {file_info['file_path']}")
-        print()
-
-    # Check for potential conflicts (skip if we regenerated everything)
-    if not regenerate_mode:
-        _check_mock_conflicts(generated_files)
-    else:
-        print("🔍 CONFLICT DETECTION:")
-        print("   ✅ No conflicts expected - all mocks were regenerated fresh")
-        print()
 
     print("📋 REVIEW CHECKLIST:")
     print("   □ Review generated mock files before committing")
     print("   □ Ensure mock data represents realistic scenarios")
-    print("   □ Check that timestamps/IDs are consistent across related mocks")
-    if regenerate_mode:
-        print("   □ All mocks now represent the same system state")
-    else:
-        print("   □ Remove or update conflicting older mock files if needed")
+    print("   □ Check data consistency across related mocks (e.g., if a pod appears in")
+    print(
+        "     one mock, it should appear in all related mocks from the same test run)"
+    )
+    print(
+        "   □ Verify timestamps, IDs, and names match between interconnected mock files"
+    )
+    print(
+        "   □ If pod/resource names change across tool calls, regenerate ALL mocks with --regenerate-all-mocks"
+    )
     print("=" * 80)
-
-
-def _check_mock_conflicts(generated_files):
-    """Check for potential mock data conflicts and warn the user."""
-
-    print("🔍 CONFLICT DETECTION:")
-
-    # Check each directory for existing mock files that weren't just generated
-    conflicts_found = False
-
-    for file_info in generated_files:
-        test_dir = os.path.dirname(file_info["file_path"])
-        if not os.path.exists(test_dir):
-            continue
-
-        # Look for other .txt files in the same directory
-        existing_mocks = []
-        for filename in os.listdir(test_dir):
-            if filename.endswith(".txt"):
-                file_path = os.path.join(test_dir, filename)
-                # Check if this file was NOT just generated (more than 5 minutes old)
-                if os.path.getmtime(file_path) < time.time() - 300:  # 5 minutes ago
-                    existing_mocks.append(filename)
-
-        if existing_mocks:
-            conflicts_found = True
-            test_case = file_info["test_case"]
-            print(f"   ⚠️  {test_case}: Found {len(existing_mocks)} existing mock files")
-            print(f"      New: {os.path.basename(file_info['file_path'])}")
-            print(
-                f"      Existing: {', '.join(existing_mocks[:3])}{'...' if len(existing_mocks) > 3 else ''}"
-            )
-
-    if conflicts_found:
-        print()
-        print("   🚨 POTENTIAL MOCK DATA CONFLICTS DETECTED!")
-        print("   - Generated mocks may represent different system states")
-        print("   - Consider regenerating ALL mocks to ensure consistency")
-        print("   - Or carefully review timestamps and data coherence")
-    else:
-        print("   ✅ No obvious conflicts detected")
-
-    print()

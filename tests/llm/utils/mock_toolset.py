@@ -28,12 +28,11 @@ class MockDataError(Exception):
         self.tool_name = tool_name
         if tool_name:
             helpful_message = (
-                f"Missing mock data for tool '{tool_name}'. "
+                f"Missing mock data: '{message}'. \n"
                 f"To fix this:\n"
                 f"1. Run with live tools: RUN_LIVE=true pytest ...\n"
                 f"2. Generate missing mocks (keeps existing, may cause inconsistent data): pytest ... --generate-mocks\n"
                 f"3. Regenerate ALL mocks (replaces all existing, ensures consistency): pytest ... --regenerate-all-mocks\n\n"
-                f"Original error: {message}"
             )
             super().__init__(helpful_message)
         else:
@@ -93,6 +92,7 @@ class FallbackToolWrapper(Tool):
         add_params_to_mock_file: bool = True,
         generate_mocks: bool = True,
         mock_generation_tracker=None,
+        request=None,
     ):
         super().__init__(
             name=unmocked_tool.name,
@@ -108,6 +108,7 @@ class FallbackToolWrapper(Tool):
         self._generate_mocks = generate_mocks
         # Use object.__setattr__ to bypass Pydantic validation since we're adding this field dynamically
         object.__setattr__(self, "mock_generation_tracker", mock_generation_tracker)
+        object.__setattr__(self, "request", request)
 
     def _get_mock_file_path(self, tool_params: Dict):
         if self._add_params_to_mock_file:
@@ -136,12 +137,11 @@ class FallbackToolWrapper(Tool):
             if content:
                 f.write(content)
 
-        # Track the generated mock file
-        if self.mock_generation_tracker:
+        # Track the generated mock file using pytest user_properties
+        if hasattr(self, "request") and self.request:
             test_case = os.path.basename(self._test_case_folder)
-            self.mock_generation_tracker.track_generated_file(
-                mock_file_path, self.name, test_case
-            )
+            mock_info = f"{test_case}:{self.name}:{os.path.basename(mock_file_path)}"
+            self.request.node.user_properties.append(("generated_mock_file", mock_info))
 
     def _invoke(self, params) -> StructuredToolResult:
         if self._generate_mocks:
@@ -162,9 +162,12 @@ class FallbackToolWrapper(Tool):
 
 
 class MockToolWrapper(Tool, BaseModel):
-    mocks: List[ToolMock] = []
-
-    def __init__(self, unmocked_tool: Tool):
+    def __init__(
+        self,
+        unmocked_tool: Tool,
+        test_case_folder: str,
+        add_params_to_mock_file: bool = True,
+    ):
         super().__init__(
             name=unmocked_tool.name,
             description=unmocked_tool.description,
@@ -172,32 +175,62 @@ class MockToolWrapper(Tool, BaseModel):
             user_description=unmocked_tool.user_description,
         )
         self._unmocked_tool: Tool = unmocked_tool
+        self._test_case_folder = test_case_folder
+        self._add_params_to_mock_file = add_params_to_mock_file
 
-    def find_matching_mock(self, params: Dict) -> Optional[ToolMock]:
-        for mock in self.mocks:
-            if not mock.match_params:  # wildcard
-                return mock
+    def _get_mock_file_path(self, tool_params: Dict):
+        if self._add_params_to_mock_file:
+            params_data = "_".join(str(tool_params[k]) for k in sorted(tool_params))
+            params_data = f"_{params_data}"
+        else:
+            params_data = ""
 
-            match = all(
-                key in params and params[key] == mock_val or mock_val == "*"
-                for key, mock_val in mock.match_params.items()
-            )
-            if match:
-                return mock
+        params_data = sanitize_filename(params_data)
+        return f"{self._test_case_folder}/{self.name}{params_data}.txt"
+
+    def _load_mock_from_disk(self, params: Dict) -> Optional[ToolMock]:
+        """Load mock data from disk for the given parameters."""
+        mock_file_path = self._get_mock_file_path(params)
+
+        if not os.path.exists(mock_file_path):
+            return None
+
+        try:
+            with open(mock_file_path, "r") as f:
+                lines = f.readlines()
+                if len(lines) < 2:
+                    return None
+
+                # Parse metadata and structured output
+                mock_metadata = json.loads(lines[0].strip())
+                structured_output = json.loads(lines[1].strip())
+
+                # Get content (everything after line 2)
+                content = "".join(lines[2:]) if len(lines) > 2 else None
+                if content is not None:
+                    structured_output["data"] = content
+
+                return ToolMock(
+                    toolset_name=mock_metadata["toolset_name"],
+                    tool_name=mock_metadata["tool_name"],
+                    match_params=mock_metadata.get("match_params"),
+                    source_file=mock_file_path,
+                    return_value=StructuredToolResult(**structured_output),
+                )
+        except Exception as e:
+            logging.warning(f"Failed to load mock file {mock_file_path}: {e}")
+            return None
 
     def _invoke(self, params) -> StructuredToolResult:
-        mock = self.find_matching_mock(params)
-        result = None
+        mock = self._load_mock_from_disk(params)
         if mock:
-            result = mock.return_value
+            return mock.return_value
         else:
             # No mock data found - raise error instead of falling back to real tool
             raise MockDataError(
                 f"No mock data found for tool '{self.name}' with params: {params}",
                 tool_name=self.name,
             )
-
-        return result
 
     def get_parameterized_one_liner(self, params) -> str:
         return self._unmocked_tool.get_parameterized_one_liner(params)
@@ -221,7 +254,6 @@ class MockToolsets:
     unmocked_toolsets: List[Toolset]
     enabled_toolsets: List[Toolset]
     configured_toolsets: List[Toolset]
-    _mocks: List[ToolMock]
     generate_mocks: bool
     test_case_folder: str
     add_params_to_mock_file: bool = True
@@ -233,14 +265,17 @@ class MockToolsets:
         run_live: bool = False,
         add_params_to_mock_file: bool = True,
         mock_generation_tracker=None,
+        request=None,
     ) -> None:
         self.generate_mocks = generate_mocks
         self.test_case_folder = test_case_folder
-        self._mocks = []
         self.enabled_toolsets = []
         self.configured_toolsets = []
         self.add_params_to_mock_file = add_params_to_mock_file
         self.mock_generation_tracker = mock_generation_tracker
+        self.request = request
+
+        self.run_live = run_live
 
         # Clear existing mock files if we're in regenerate mode
         if mock_generation_tracker:
@@ -248,7 +283,6 @@ class MockToolsets:
 
         self._enable_builtin_toolsets(run_live)
         self._update()
-        self.run_live = run_live
 
     def _load_toolsets_definitions(self, run_live) -> List[Toolset]:
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
@@ -286,19 +320,12 @@ class MockToolsets:
                         exc_info=True,
                     )
 
-    def mock_tool(self, tool_mock: ToolMock):
-        self._mocks.append(tool_mock)
-        self._update()
+    def _has_mock_files_for_tool(self, tool_name: str) -> bool:
+        """Check if any mock files exist for this tool."""
+        import glob
 
-    def _find_mocks_for_tool(self, toolset_name: str, tool_name: str) -> List[ToolMock]:
-        found_mocks = []
-        for tool_mock in self._mocks:
-            if (
-                tool_mock.toolset_name == toolset_name
-                and tool_mock.tool_name == tool_name
-            ):
-                found_mocks.append(tool_mock)
-        return found_mocks
+        pattern = f"{self.test_case_folder}/{tool_name}*.txt"
+        return len(glob.glob(pattern)) > 0
 
     def _wrap_tool(self, tool: Tool, toolset_name: str) -> Tool:
         return FallbackToolWrapper(
@@ -308,24 +335,40 @@ class MockToolsets:
             add_params_to_mock_file=self.add_params_to_mock_file,
             generate_mocks=self.generate_mocks,
             mock_generation_tracker=self.mock_generation_tracker,
+            request=self.request,
         )
 
     def _update(self):
+        # If running live, bypass all mock logic and just use original toolsets
+        if self.run_live:
+            self.enabled_toolsets = [
+                toolset
+                for toolset in self.unmocked_toolsets
+                if toolset.status == ToolsetStatusEnum.ENABLED
+            ]
+            # Add configured toolsets
+            for toolset in self.configured_toolsets:
+                if toolset not in self.enabled_toolsets:
+                    self.enabled_toolsets.append(toolset)
+            return
+
+        # Mock-based logic (when not running live)
         mocked_toolsets = []
         for toolset in self.unmocked_toolsets:
             mocked_tools = []
             has_mocks = False
-            for i in range(len(toolset.tools)):
-                tool = toolset.tools[i]
-                mocks = self._find_mocks_for_tool(
-                    toolset_name=toolset.name, tool_name=tool.name
-                )
+
+            for tool in toolset.tools:
                 wrapped_tool = self._wrap_tool(tool=tool, toolset_name=toolset.name)
 
-                if len(mocks) > 0 and not self.run_live:
+                # Check if mock files exist for this tool
+                if self._has_mock_files_for_tool(tool.name):
                     has_mocks = True
-                    mock_tool = MockToolWrapper(unmocked_tool=wrapped_tool)
-                    mock_tool.mocks = mocks
+                    mock_tool = MockToolWrapper(
+                        unmocked_tool=wrapped_tool,
+                        test_case_folder=self.test_case_folder,
+                        add_params_to_mock_file=self.add_params_to_mock_file,
+                    )
                     mocked_tools.append(mock_tool)
                 else:
                     mocked_tools.append(wrapped_tool)

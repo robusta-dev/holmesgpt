@@ -103,6 +103,7 @@ def test_ask_holmes(
                             test_case=test_case,
                             tracer=tracer,
                             mock_generation_config=mock_generation_config,
+                            request=request,
                         )
             else:
                 with set_test_env_vars(test_case):
@@ -110,6 +111,7 @@ def test_ask_holmes(
                         test_case=test_case,
                         tracer=tracer,
                         mock_generation_config=mock_generation_config,
+                        request=request,
                     )
 
     except Exception as e:
@@ -213,7 +215,7 @@ def test_ask_holmes(
 
 
 def ask_holmes(
-    test_case: AskHolmesTestCase, tracer, mock_generation_config
+    test_case: AskHolmesTestCase, tracer, mock_generation_config, request=None
 ) -> LLMResult:
     run_live = load_bool("RUN_LIVE", default=False)
     mock = MockToolsets(
@@ -221,13 +223,11 @@ def ask_holmes(
         test_case_folder=test_case.folder,
         run_live=run_live,
         mock_generation_tracker=mock_generation_config,
+        request=request,
     )
 
-    expected_tools = []
-    if not run_live:
-        for tool_mock in test_case.tool_mocks:
-            mock.mock_tool(tool_mock)
-            expected_tools.append(tool_mock.tool_name)
+    # With the new simplified mock system, mocks are loaded from disk on each tool invocation
+    # No need to populate mocks in memory anymore
 
     tool_executor = ToolExecutor(mock.enabled_toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
