@@ -7,17 +7,17 @@
     },
     {
       "update_date": "2025-07-16",
-      "description": "Runbook to investigate DNS resolution issue on Kubernetes cluster using Azure Monitor and Prometheus",
+      "description": "Runbook to troubleshoot and investigate DNS resolution issue on Kubernetes cluster using Azure Monitor and Prometheus",
       "link": "networking/dns_troubleshooting_prometheus_instructions.md"
     },
     {
       "update_date": "2025-07-16",
-      "description": "Runbook to investigate Node readiness issues on Kubernetes cluster using Azure Monitor and Prometheus",
+      "description": "Runbook to troubleshoot and investigate node issues on Kubernetes cluster using Azure Monitor and Prometheus",
       "link": "node_troubleshooting_prometheus_instructions.md"
     },
     {
       "update_date": "2025-07-16",
-      "description": "Runbook to investigate pod scheduling issue on Kubernetes cluster using Azure Monitor and Prometheus",
+      "description": "Runbook to troubleshoot and investigate pod issues on Kubernetes cluster using Azure Monitor and Prometheus",
       "link": "pod_troubleshooting_prometheus_instructions.md"
     },
     {
