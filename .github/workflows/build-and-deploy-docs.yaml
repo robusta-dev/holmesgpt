@@ -24,5 +24,6 @@ jobs:
           path: .cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs-material
-      - run: mkdocs gh-deploy --force
+      - run: pip install poetry
+      - run: poetry install --with dev
+      - run: poetry run mkdocs gh-deploy --force
