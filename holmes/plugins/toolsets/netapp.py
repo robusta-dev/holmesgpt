@@ -124,9 +124,8 @@ class BaseNetappTool(Tool):
 
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
-                output=formatted_output,
+                data=formatted_output,
                 params=params,
-                raw_output=data
             )
         except requests.RequestException as e:
             logging.exception("NetApp API query failed")
