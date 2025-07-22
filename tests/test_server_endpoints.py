@@ -9,7 +9,7 @@ def client():
     return TestClient(app)
 
 
-@patch("holmes.utils.robusta.load_robusta_api_key")
+@patch("server.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_api_chat_all_fields(
