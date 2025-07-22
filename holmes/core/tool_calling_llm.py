@@ -249,6 +249,7 @@ class ToolCallingLLM:
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
         trace_span=DummySpan(),
+        tool_number_offset: int = 0,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
@@ -367,7 +368,7 @@ class ToolCallingLLM:
                             tool_to_call=t,
                             previous_tool_calls=tool_calls,
                             trace_span=trace_span,
-                            tool_number=tool_index,
+                            tool_number=tool_number_offset + tool_index,
                         )
                     )
 

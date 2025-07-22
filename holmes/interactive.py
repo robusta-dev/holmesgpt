@@ -35,14 +35,13 @@ from holmes.core.tracing import DummySpan
 class SlashCommands(Enum):
     EXIT = ("/exit", "Exit interactive mode")
     HELP = ("/help", "Show help message with all commands")
-    RESET = ("/reset", "Reset the conversation context")
+    CLEAR = ("/clear", "Clear screen and reset conversation context")
     TOOLS_CONFIG = ("/tools", "Show available toolsets and their status")
     TOGGLE_TOOL_OUTPUT = (
         "/auto",
         "Toggle auto-display of tool outputs after responses",
     )
     LAST_OUTPUT = ("/last", "Show all tool outputs from last response")
-    CLEAR = ("/clear", "Clear the terminal screen")
     RUN = ("/run", "Run a bash command and optionally share with LLM")
     SHELL = (
         "/shell",
@@ -833,9 +832,10 @@ def run_interactive_loop(
                     for cmd, description in SLASH_COMMANDS_REFERENCE.items():
                         console.print(f"  [bold]{cmd}[/bold] - {description}")
                     continue
-                elif command == SlashCommands.RESET.value:
+                elif command == SlashCommands.CLEAR.command:
+                    console.clear()
                     console.print(
-                        f"[bold {STATUS_COLOR}]Context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
+                        f"[bold {STATUS_COLOR}]Screen cleared and context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
                     )
                     messages = None
                     last_response = None
@@ -853,9 +853,6 @@ def run_interactive_loop(
                     continue
                 elif command == SlashCommands.LAST_OUTPUT.command:
                     handle_last_command(last_response, console, all_tool_calls_history)
-                    continue
-                elif command == SlashCommands.CLEAR.command:
-                    console.clear()
                     continue
                 elif command == SlashCommands.CONTEXT.command:
                     handle_context_command(messages, ai, console)
@@ -902,7 +899,10 @@ def run_interactive_loop(
                     metadata={"type": "user_question"},
                 )
                 response = ai.call(
-                    messages, post_processing_prompt, trace_span=trace_span
+                    messages,
+                    post_processing_prompt,
+                    trace_span=trace_span,
+                    tool_number_offset=len(all_tool_calls_history),
                 )
                 trace_span.log(
                     output=response.result,
