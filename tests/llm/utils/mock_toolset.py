@@ -278,8 +278,9 @@ class MockFileManager:
                             f"This change was introduced in PR https://github.com/robusta-dev/holmesgpt/pull/372. "
                             f"Please regenerate your mock files using --regenerate-all-mocks or manually update them to the new format."
                         )
-                        raise ValueError(
-                            f"Mock file {file_path} is in old format and needs to be updated (see PR #372)"
+                        raise MockDataCorruptedError(
+                            f"Mock file {file_path} is in old format and needs to be updated (see PR #372)",
+                            tool_name=metadata.get("tool_name", "unknown"),
                         )
 
                     content = "".join(lines[2:]) if len(lines) > 2 else None
@@ -303,8 +304,8 @@ class MockFileManager:
                         f"Loaded mock for {tool_name} from {file_path}: match_params={mock.match_params}"
                     )
 
-            except ValueError:
-                # Re-raise ValueError (old format error) to propagate it
+            except MockDataError:
+                # Re-raise MockDataError types (including old format error) to propagate them
                 raise
             except Exception as e:
                 logging.warning(f"Failed to load mock file {file_path}: {e}")
