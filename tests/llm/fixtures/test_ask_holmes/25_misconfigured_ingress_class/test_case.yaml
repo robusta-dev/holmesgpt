@@ -7,8 +7,6 @@ expected_output:
   - It should clearly state that example-ingress-class does not exist - saying it just might not exist is not good enough.
 before_test: kubectl apply -f./ingress_with_class.yaml
 after_test: kubectl delete -f./ingress_with_class.yaml
-#include_files:
-#  - ingress_runbook.md
 evaluation:
   correctness: 1
 generate_mocks: True
