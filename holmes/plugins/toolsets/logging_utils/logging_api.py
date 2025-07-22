@@ -42,6 +42,9 @@ class BasePodLoggingToolset(Toolset, ABC):
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         pass
 
+    def logger_name(self) -> str:
+        return ""
+
 
 class PodLoggingTool(Tool):
     """Common tool for fetching pod logs across different logging backends"""
@@ -123,7 +126,10 @@ class PodLoggingTool(Tool):
         if limit:
             extra_params_str += f" limit={limit}"
 
-        return f"Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
+        logger_name = (
+            f"{self._toolset.logger_name()}: " if self._toolset.logger_name() else ""
+        )
+        return f"{logger_name}Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
 
 
 def process_time_parameters(
