@@ -111,6 +111,7 @@ class MockFileManager:
     def __init__(self, test_case_folder: str, add_params_to_filename: bool = True):
         self.test_case_folder = test_case_folder
         self.add_params_to_filename = add_params_to_filename
+        self._mock_cache = None  # Cache for loaded mocks
 
     def _get_mock_file_path(self, tool_name: str, params: Dict) -> str:
         """Generate the path for a mock file."""
@@ -124,46 +125,38 @@ class MockFileManager:
         return os.path.join(self.test_case_folder, f"{tool_name}{params_data}.txt")
 
     def read_mock(self, tool_name: str, params: Dict) -> Optional[ToolMock]:
-        """Read mock data from disk for the given tool and parameters."""
-        mock_file_path = self._get_mock_file_path(tool_name, params)
+        """Read mock data for the given tool and parameters by matching parameters."""
+        # Load all mocks and find a matching one
+        all_mocks = self._load_all_mocks()
+        tool_mocks = all_mocks.get(tool_name, [])
 
-        if not os.path.exists(mock_file_path):
-            return None
+        logging.debug(f"Looking for mock for {tool_name} with params {params}")
+        logging.debug(f"Found {len(tool_mocks)} mocks for {tool_name}")
 
-        try:
-            with open(mock_file_path, "r") as f:
-                lines = f.readlines()
-                if len(lines) < 2:
-                    raise MockDataCorruptedError(
-                        f"Mock file {mock_file_path} has insufficient lines",
-                        tool_name=tool_name,
-                    )
+        # Find a mock that matches the parameters
+        for mock in tool_mocks:
+            if self._params_match(mock.match_params, params):
+                logging.debug(f"Found matching mock: {mock.source_file}")
+                return mock
 
-                # Parse metadata and structured output
-                mock_metadata = json.loads(lines[0].strip())
-                structured_output = json.loads(lines[1].strip())
+        logging.debug(f"No matching mock found for {tool_name}")
+        return None
 
-                # Get content (everything after line 2)
-                content = "".join(lines[2:]) if len(lines) > 2 else None
-                if content is not None:
-                    structured_output["data"] = content
+    def _params_match(self, mock_params: Optional[Dict], actual_params: Dict) -> bool:
+        """Check if mock parameters match the actual parameters.
 
-                return ToolMock(
-                    toolset_name=mock_metadata["toolset_name"],
-                    tool_name=mock_metadata["tool_name"],
-                    match_params=mock_metadata.get("match_params"),
-                    source_file=mock_file_path,
-                    return_value=StructuredToolResult(**structured_output),
-                )
-        except json.JSONDecodeError as e:
-            raise MockDataCorruptedError(
-                f"Failed to parse JSON in mock file {mock_file_path}: {e}",
-                tool_name=tool_name,
-            )
-        except Exception as e:
-            raise MockDataCorruptedError(
-                f"Failed to load mock file {mock_file_path}: {e}", tool_name=tool_name
-            )
+        If mock_params is None, it matches any parameters.
+        Otherwise, all keys in mock_params must exist in actual_params with matching values.
+        """
+        if mock_params is None:
+            return True
+
+        # Check that all mock params exist in actual params with same values
+        for key, value in mock_params.items():
+            if key not in actual_params or actual_params[key] != value:
+                return False
+
+        return True
 
     def write_mock(
         self,
@@ -190,6 +183,10 @@ class MockFileManager:
                 f.write(content)
 
         logging.info(f"Wrote mock file: {mock_file_path}")
+
+        # Invalidate cache when new mock is written
+        self._mock_cache = None
+
         return mock_file_path
 
     def clear_mocks(self, request: pytest.FixtureRequest) -> List[str]:
@@ -217,14 +214,78 @@ class MockFileManager:
                 f"Cleared {len(cleared_files)} mock files from {self.test_case_folder}"
             )
 
+            # Invalidate the cache since mocks were cleared
+            self._mock_cache = None
+
         return cleared_files
 
     def has_mock_files(self, tool_name: str) -> bool:
         """Check if any mock files exist for this tool."""
-        import glob
-
+        # First check with glob pattern for efficiency
         pattern = os.path.join(self.test_case_folder, f"{tool_name}*.txt")
-        return len(glob.glob(pattern)) > 0
+        if len(glob.glob(pattern)) > 0:
+            return True
+
+        # Also check loaded mocks in case filename doesn't match tool name
+        all_mocks = self._load_all_mocks()
+        return tool_name in all_mocks and len(all_mocks[tool_name]) > 0
+
+    def _load_all_mocks(self) -> Dict[str, List[ToolMock]]:
+        """Load all mock files in the directory and organize by tool name."""
+        if self._mock_cache is not None:
+            return self._mock_cache
+
+        self._mock_cache = {}
+
+        # Load all .txt files in the directory
+        for file_path in glob.glob(os.path.join(self.test_case_folder, "*.txt")):
+            try:
+                with open(file_path, "r") as f:
+                    lines = f.readlines()
+                    if len(lines) < 1:
+                        continue
+
+                    # Try to parse first line as JSON metadata
+                    try:
+                        first_line = lines[0].strip()
+                        metadata = json.loads(first_line)
+                        if "tool_name" not in metadata:
+                            continue
+                    except json.JSONDecodeError:
+                        # Not a mock file, skip
+                        continue
+
+                    # This looks like a mock file, parse it
+                    if len(lines) < 2:
+                        continue
+
+                    structured_output = json.loads(lines[1].strip())
+                    content = "".join(lines[2:]) if len(lines) > 2 else None
+                    if content is not None:
+                        structured_output["data"] = content
+
+                    mock = ToolMock(
+                        toolset_name=metadata.get("toolset_name", ""),
+                        tool_name=metadata["tool_name"],
+                        match_params=metadata.get("match_params"),
+                        source_file=file_path,
+                        return_value=StructuredToolResult(**structured_output),
+                    )
+
+                    # Add to cache organized by tool name
+                    tool_name = metadata["tool_name"]
+                    if tool_name not in self._mock_cache:
+                        self._mock_cache[tool_name] = []
+                    self._mock_cache[tool_name].append(mock)
+                    logging.debug(
+                        f"Loaded mock for {tool_name} from {file_path}: match_params={mock.match_params}"
+                    )
+
+            except Exception as e:
+                logging.warning(f"Failed to load mock file {file_path}: {e}")
+                continue
+
+        return self._mock_cache
 
 
 class MockableToolWrapper(Tool):
