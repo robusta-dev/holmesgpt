@@ -1,118 +1,71 @@
 # InfraInsights Instance-Based Routing Instructions
 
-## 🎯 **Toolset Routing Priority**
+## 🎯 **CRITICAL: Parameter Extraction & Tool Calling**
 
-When the user mentions **specific instance names**, **environments**, or **managed infrastructure**, always prioritize **InfraInsights toolsets** over generic/built-in ones.
+When the user mentions **specific instance names**, you **MUST** extract them and pass as tool parameters.
 
-### **🔍 Instance Name Patterns That Trigger InfraInsights:**
-- **Named instances**: `dock-atlantic-staging`, `production-es`, `kafka-prod`, `redis-cache-1`
-- **Environment-specific**: `staging-elasticsearch`, `prod-kafka`, `dev-redis`
-- **User possessive**: `my elasticsearch cluster`, `our kafka instance`, `my redis cache`
-- **Explicit environments**: `staging`, `production`, `development`, `testing`
+### **🔍 REQUIRED Parameter Extraction Patterns:**
 
-### **⚠️ When to Use InfraInsights vs Built-in Toolsets:**
+**User says:** `"Check the health of my dock-atlantic-staging Elasticsearch cluster"`
+**You MUST call:** `elasticsearch_health_check({"instance_name": "dock-atlantic-staging"})`
 
-#### ✅ **Use InfraInsights Toolsets When:**
-- User mentions specific instance names (e.g., `dock-atlantic-staging`)
-- User refers to "my" or "our" infrastructure (`my Elasticsearch cluster`)
-- Query includes environment references (`staging kafka`, `production redis`)
-- User wants to connect to managed instances
-- Instance-specific operations (health checks, configuration, data access)
+**User says:** `"List all indices in dock-olyortho-staging"`
+**You MUST call:** `elasticsearch_list_indices({"instance_name": "dock-olyortho-staging"})`
 
-#### ❌ **Use Built-in/Generic Toolsets When:**
-- User asks general questions without instance specifics
-- Generic monitoring queries (`show all pods`, `cluster resources`)
-- Prometheus metrics without instance context
-- General troubleshooting without named resources
+**User says:** `"Check my production kafka cluster"`
+**You MUST call:** `kafka_health_check({"instance_name": "production"})`
 
-### **🔧 Service Type Routing Rules:**
+### **⚠️ NEVER Call Tools with Empty Parameters:**
+
+❌ **WRONG:** `elasticsearch_health_check({})`
+✅ **RIGHT:** `elasticsearch_health_check({"instance_name": "dock-atlantic-staging"})`
+
+### **🔧 Instance Name Detection Patterns:**
+
+Look for these patterns in user prompts:
+- **Explicit names**: `dock-atlantic-staging`, `dock-olyortho-staging`, `consolidated-demo-prod`
+- **Environment + service**: `staging elasticsearch`, `production kafka`
+- **Possessive + service**: `my elasticsearch cluster`, `our kafka instance`
+- **Specific references**: `the elasticsearch cluster`, `that kafka instance`
+
+### **📋 Toolset Routing Rules:**
 
 #### **Elasticsearch Queries:**
-- ✅ **InfraInsights**: `"dock-atlantic-staging Elasticsearch"`, `"my ES cluster"`, `"production elasticsearch health"`
-- ❌ **Prometheus**: `"elasticsearch metrics"`, `"cluster-wide elasticsearch stats"`
-
-### **📋 CRITICAL: Parameter Passing Instructions**
-
-When using InfraInsights toolsets, **ALWAYS extract and pass instance identifiers** from user prompts:
-
-#### **Required Parameter Extraction:**
-```python
-# Extract these patterns from user prompts and pass to tools:
-"instance_name: dock-atlantic-staging" → {"instance_name": "dock-atlantic-staging"}
-"cluster_name: production-kafka" → {"cluster_name": "production-kafka"}  
-"my elasticsearch cluster" → {"prompt": "my elasticsearch cluster"}
-"dock-atlantic-staging Elasticsearch" → {"instance_name": "dock-atlantic-staging", "service_type": "elasticsearch"}
-```
-
-#### **Example Tool Calls:**
-```
-elasticsearch_health_check({"instance_name": "dock-atlantic-staging"})
-kafka_list_topics({"cluster_name": "production-kafka"})
-mongodb_stats({"instance_name": "mongo-staging"})
-```
-
-**⚠️ NEVER call InfraInsights tools with empty parameters `{}` when instance names are mentioned in prompts!**
+- **Instance-specific**: Use `infrainsights_elasticsearch_enhanced` tools
+- **Tools available**: `elasticsearch_health_check`, `elasticsearch_list_indices`
+- **Required parameter**: `instance_name`
 
 #### **Kafka Queries:**
-- ✅ **InfraInsights**: `"kafka-prod topics"`, `"my kafka cluster"`, `"staging kafka consumers"`
-- ❌ **Built-in**: `"kafka cluster overview"`, `"all kafka metrics"`
+- **Instance-specific**: Use `infrainsights_kafka_enhanced` tools  
+- **Tools available**: `kafka_health_check`, `kafka_list_topics`
+- **Required parameter**: `instance_name`
 
-#### **MongoDB Queries:**
-- ✅ **InfraInsights**: `"mongo-staging databases"`, `"my mongodb instance"`, `"production mongo stats"`
-- ❌ **Generic**: `"mongodb pod status"`, `"mongo container logs"`
+### **🚨 Error Resolution:**
 
-#### **Redis Queries:**
-- ✅ **InfraInsights**: `"redis-cache-1 keys"`, `"my redis cluster"`, `"staging redis memory"`
-- ❌ **Built-in**: `"redis pod logs"`, `"redis container status"`
+If you get these errors:
+- `"instance_name parameter is required"` → You forgot to extract the instance name
+- `"Instance X not found"` → The instance doesn't exist in InfraInsights
+- `"InfraInsights client not available"` → Toolset configuration issue
 
-#### **Kubernetes Queries:**
-- ✅ **InfraInsights**: `"k8s-prod cluster"`, `"my kubernetes instance"`, `"staging k8s nodes"`
-- ❌ **Core**: `"all pods"`, `"cluster resources"`, `"namespace overview"`
-
-### **🚨 Error Resolution Patterns:**
-
-If you encounter these patterns, **immediately switch to InfraInsights**:
-- `"Instance X not found"` → User likely refers to an InfraInsights-managed instance
-- Prometheus tools return empty results for named instances
-- Generic tools fail to find specific instance names
-
-### **📝 Logging Recognition:**
-
-Look for these log patterns to confirm InfraInsights toolset usage:
-- ✅ `🔍 INFRAINSIGHTS: Attempting to resolve instance...`
-- ✅ `✅ INFRAINSIGHTS: Successfully resolved instance: dock-atlantic-staging`
-- ❌ `INFO Running tool execute_prometheus_instant_query` (wrong toolset)
-
-### **🎯 Quick Decision Matrix:**
-
-| User Query Contains | Toolset Choice | Example |
-|-------------------|---------------|---------|
-| Specific instance name | ✅ InfraInsights | `dock-atlantic-staging` |
-| "my/our" + service | ✅ InfraInsights | `my elasticsearch cluster` |
-| Environment + service | ✅ InfraInsights | `staging kafka` |
-| Generic service name | ❌ Built-in | `elasticsearch health` |
-| Pod/container focus | ❌ Kubernetes Core | `elasticsearch pods` |
-| Metrics-only query | ❌ Prometheus | `elasticsearch_cluster_health` |
-
-### **🔄 Fallback Strategy:**
-
-1. **First attempt**: Use InfraInsights toolset for named instances
-2. **If InfraInsights fails**: Check error message
-3. **If "instance not found"**: Suggest creating the instance in InfraInsights
-4. **If other error**: Provide troubleshooting steps
-5. **Never fallback** to generic toolsets for named instances without explaining why
-
-### **💡 Example Routing Decisions:**
+### **💡 Example Tool Calls:**
 
 ```
-❌ Wrong: "Check elasticsearch health" → Prometheus toolset
-✅ Right: "Check dock-atlantic-staging elasticsearch health" → InfraInsights toolset
+User: "Check the health of my dock-atlantic-staging Elasticsearch cluster"
+→ elasticsearch_health_check({"instance_name": "dock-atlantic-staging"})
 
-❌ Wrong: "List kafka topics" → Built-in Kafka toolset  
-✅ Right: "List topics in my kafka cluster" → InfraInsights toolset
+User: "List all indices in dock-olyortho-staging"
+→ elasticsearch_list_indices({"instance_name": "dock-olyortho-staging"})
 
-❌ Wrong: "Show redis memory" → Generic Redis tools
-✅ Right: "Show redis-cache-1 memory usage" → InfraInsights toolset
+User: "Show me the health of production kafka"
+→ kafka_health_check({"instance_name": "production"})
 ```
 
-## 🎯 **Remember: Named instances = InfraInsights. Generic queries = Built-in toolsets.** 
+### **🎯 Decision Matrix:**
+
+| User Query | Toolset | Tool Call | Parameters |
+|------------|---------|-----------|------------|
+| `"dock-atlantic-staging elasticsearch"` | InfraInsights | `elasticsearch_health_check` | `{"instance_name": "dock-atlantic-staging"}` |
+| `"my elasticsearch cluster"` | InfraInsights | `elasticsearch_health_check` | `{"instance_name": "elasticsearch"}` |
+| `"elasticsearch health"` (no instance) | Built-in | `prometheus_instant_query` | `{"query": "elasticsearch_cluster_health"}` |
+
+## **Remember: ALWAYS extract instance names and pass them as parameters!** 

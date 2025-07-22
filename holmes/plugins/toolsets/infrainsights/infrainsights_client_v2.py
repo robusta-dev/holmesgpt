@@ -338,4 +338,114 @@ class InfraInsightsClientV2:
                 "api_accessible": False,
                 "name_lookup_enabled": self.config.enable_name_lookup,
                 "error": str(e)
-            } 
+            }
+
+    def get_elasticsearch_health(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch cluster health for a specific instance"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            
+            if not es_url:
+                raise Exception("Elasticsearch URL not found in instance configuration")
+            
+            # Create Elasticsearch client
+            from elasticsearch import Elasticsearch
+            
+            # Configure client
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Add authentication if available
+            if username and password:
+                client_config['basic_auth'] = (username, password)
+            
+            es_client = Elasticsearch(**client_config)
+            
+            # Get cluster health
+            health_response = es_client.cluster.health()
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'cluster_name': health_response.get('cluster_name'),
+                'status': health_response.get('status'),
+                'number_of_nodes': health_response.get('number_of_nodes'),
+                'active_primary_shards': health_response.get('active_primary_shards'),
+                'active_shards': health_response.get('active_shards'),
+                'relocating_shards': health_response.get('relocating_shards'),
+                'initializing_shards': health_response.get('initializing_shards'),
+                'unassigned_shards': health_response.get('unassigned_shards'),
+                'delayed_unassigned_shards': health_response.get('delayed_unassigned_shards'),
+                'number_of_pending_tasks': health_response.get('number_of_pending_tasks'),
+                'number_of_in_flight_fetch': health_response.get('number_of_in_flight_fetch'),
+                'task_max_waiting_in_queue_millis': health_response.get('task_max_waiting_in_queue_millis'),
+                'active_shards_percent_as_number': health_response.get('active_shards_percent_as_number')
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch health for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch cluster health: {str(e)}")
+
+    def get_elasticsearch_indices(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch indices for a specific instance"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            
+            if not es_url:
+                raise Exception("Elasticsearch URL not found in instance configuration")
+            
+            # Create Elasticsearch client
+            from elasticsearch import Elasticsearch
+            
+            # Configure client
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Add authentication if available
+            if username and password:
+                client_config['basic_auth'] = (username, password)
+            
+            es_client = Elasticsearch(**client_config)
+            
+            # Get indices
+            indices_response = es_client.cat.indices(format='json', v=True)
+            
+            # Format indices data
+            indices = []
+            for index_info in indices_response:
+                indices.append({
+                    'index': index_info.get('index'),
+                    'health': index_info.get('health'),
+                    'status': index_info.get('status'),
+                    'docs_count': index_info.get('docs.count'),
+                    'docs_deleted': index_info.get('docs.deleted'),
+                    'store_size': index_info.get('store.size'),
+                    'pri_store_size': index_info.get('pri.store.size')
+                })
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'total_indices': len(indices),
+                'indices': indices
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch indices for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch indices: {str(e)}") 
