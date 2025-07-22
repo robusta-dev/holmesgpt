@@ -10,7 +10,14 @@ logger = logging.getLogger(__name__)
 class VerboseKafkaTopicsTool(BaseInfraInsightsToolV2):
     """Tool to list Kafka topics with enhanced verbose logging"""
     
-    def run(self, params: Dict[str, Any]) -> StructuredToolResult:
+    def __init__(self, toolset):
+        super().__init__(
+            name="kafka_list_topics",
+            description="List topics in a Kafka cluster managed by InfraInsights",
+            toolset=toolset
+        )
+    
+    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
         logger.info("🔍 INFRAINSIGHTS KAFKA: Starting topics listing")
         logger.info(f"📝 Request parameters: {json.dumps(params, indent=2)}")
         

@@ -1,15 +1,26 @@
 import logging
+from abc import abstractmethod
 from typing import Dict, Any, Tuple, Optional
-from holmes.core.tools import StructuredTool
+from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
 from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig, ServiceInstance
 
 logger = logging.getLogger(__name__)
 
-class BaseInfraInsightsToolV2(StructuredTool):
+class BaseInfraInsightsToolV2(Tool):
     """Base class for all InfraInsights tools with V2 API support"""
     
-    def __init__(self, toolset):
+    def __init__(self, name: str, description: str, toolset, **kwargs):
+        super().__init__(name=name, description=description, **kwargs)
         self.toolset = toolset
+    
+    @abstractmethod
+    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
+        """Override this method to implement tool-specific logic"""
+        pass
+    
+    def get_parameterized_one_liner(self, params: Dict[str, Any]) -> str:
+        """Return a one-liner description of the tool execution"""
+        return f"{self.name} with params: {params}"
         
     def get_infrainsights_client(self) -> InfraInsightsClientV2:
         """Get configured InfraInsights client"""

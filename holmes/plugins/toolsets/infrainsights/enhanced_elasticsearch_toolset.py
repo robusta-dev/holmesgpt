@@ -10,7 +10,14 @@ logger = logging.getLogger(__name__)
 class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
     """Tool to check Elasticsearch cluster health with enhanced verbose logging"""
     
-    def run(self, params: Dict[str, Any]) -> StructuredToolResult:
+    def __init__(self, toolset):
+        super().__init__(
+            name="elasticsearch_health_check",
+            description="Check Elasticsearch cluster health and status for InfraInsights instances",
+            toolset=toolset
+        )
+    
+    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
         logger.info("🔍 INFRAINSIGHTS ELASTICSEARCH: Starting cluster health check")
         logger.info(f"📝 Request parameters: {json.dumps(params, indent=2)}")
         
@@ -137,7 +144,14 @@ class VerboseElasticsearchHealthTool(BaseInfraInsightsToolV2):
 class VerboseElasticsearchIndicesTool(BaseInfraInsightsToolV2):
     """Tool to list Elasticsearch indices with enhanced verbose logging"""
     
-    def run(self, params: Dict[str, Any]) -> StructuredToolResult:
+    def __init__(self, toolset):
+        super().__init__(
+            name="elasticsearch_list_indices",
+            description="List all indices in an Elasticsearch cluster managed by InfraInsights",
+            toolset=toolset
+        )
+    
+    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
         logger.info("🔍 INFRAINSIGHTS ELASTICSEARCH: Starting indices listing")
         logger.info(f"📝 Request parameters: {json.dumps(params, indent=2)}")
         
