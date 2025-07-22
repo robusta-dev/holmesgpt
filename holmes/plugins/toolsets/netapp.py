@@ -1,7 +1,8 @@
 import logging
-import os
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
+
+from pydantic import BaseModel
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -12,95 +13,108 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
+from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
+
+
+class NetAppConfig(BaseModel):
+    url: str
+    username: str
+    password: str
 
 
 class NetAppToolset(Toolset):
-    def __init__(self):
-        self.netapp_url: Optional[str] = None
-        self.username: Optional[str] = None
-        self.password: Optional[str] = None
-        self.volumes: Dict[str, str] = {}  # name -> uuid mapping
+    config: Optional[NetAppConfig] = None
+    volumes: Dict[str, str] = {}
 
+    def __init__(self):
         super().__init__(
             name="netapp",
-            enabled=False,
-            description="Toolset for interacting with NetApp volumes in the cluster using NetApp REST APIs.",
+            description="Toolset for interacting with NetApp volumes using the NetApp REST API.",
+            experimental=True,
             docs_url="",
             icon_url="https://www.netapp.com/favicon.ico",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[NetAppGetVolumeDetails(self)],
-            tags=[ToolsetTag.INTEGRATIONS],
-            is_default=False,
+            tools=[NetAppGetVolumeDetails(toolset=self)],
+            tags=[ToolsetTag.CORE],
         )
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
+    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
+        if not config:
+            return False, TOOLSET_CONFIG_MISSING_ERROR
+
         try:
-            self.netapp_url = config.get("url")
-            self.username = config.get("username")
-            self.password = config.get("password")
-
-            if not all([self.netapp_url, self.username, self.password]):
-                return False, "Missing NetApp configuration: 'url', 'username', and 'password' are required."
-
+            self.config = NetAppConfig(**config)
             self.volumes = self._fetch_all_volumes()
-            return True, f"Loaded {len(self.volumes)} NetApp volumes."
-
+            logging.warning(f"Fetched {self.volumes} NetApp volumes.")
+            return True, ""
         except Exception as e:
-            logging.exception("NetAppToolset initialization failed.")
-            return False, str(e)
+            logging.exception("NetAppToolset failed during prerequisites.")
+            return False, f"Failed to initialize NetApp toolset: {e}"
 
     def _fetch_all_volumes(self) -> Dict[str, str]:
-        endpoint = f"{self.netapp_url}/api/storage/volumes"
+        endpoint = f"{self.config.url}/api/storage/volumes"
         response = requests.get(
             endpoint,
-            auth=(self.username, self.password),
-            verify=False
+            auth=(self.config.username, self.config.password),
+            verify=False,
         )
         response.raise_for_status()
         volumes_data = response.json()
-        # Map volume name to UUID
         return {
-            volume['name']: volume['uuid']
-            for volume in volumes_data.get('records', [])
-            if 'name' in volume and 'uuid' in volume
+            volume["name"]: volume["uuid"]
+            for volume in volumes_data.get("records", [])
+            if "name" in volume and "uuid" in volume
         }
-        
+
     def get_example_config(self) -> Dict[str, Any]:
-        return {}
+        return {
+            "url": "https://netapp-api.example.com",
+            "username": "{{ env.NETAPP_USERNAME }}",
+            "password": "{{ env.NETAPP_PASSWORD }}"
+        }
 
 class NetAppGetVolumeDetails(Tool):
+    toolset: "NetAppToolset"
+
     def __init__(self, toolset: NetAppToolset):
+        self.toolset=toolset
         super().__init__(
             name="get_netapp_volume_details",
-            description="Fetch detailed information for a NetApp volume given its name.",
+            description="Fetch detailed information for a NetApp volume using its name.",
             parameters={
                 "volume_name": ToolParameter(
-                    description="Name of the NetApp volume to query.",
+                    description="Name of the NetApp volume",
                     type="string",
                     required=True,
                 )
             },
-            toolset=toolset,
         )
 
     def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
         volume_name = params.get("volume_name")
         toolset: NetAppToolset = self.toolset
 
+        if not toolset.config:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="NetApp toolset is not configured.",
+                params=params,
+            )
+
         uuid = toolset.volumes.get(volume_name)
         if not uuid:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Volume name '{volume_name}' not found in NetApp volumes.",
-                params=params
+                params=params,
             )
 
-        endpoint = f"{toolset.netapp_url}/api/storage/volumes/{uuid}"
+        endpoint = f"{toolset.config.url}/api/storage/volumes/{uuid}"
         try:
             response = requests.get(
                 endpoint,
-                auth=(toolset.username, toolset.password),
-                verify=False
+                auth=(toolset.config.username, toolset.config.password),
+                verify=False,
             )
             response.raise_for_status()
             volume_data = response.json()
@@ -111,31 +125,30 @@ class NetAppGetVolumeDetails(Tool):
                 status=ToolResultStatus.SUCCESS,
                 output=formatted_output,
                 params=params,
-                raw_output=volume_data
+                raw_output=volume_data,
             )
-
         except requests.RequestException as e:
-            logging.exception("Failed to fetch volume details from NetApp API")
+            logging.exception("Failed to fetch NetApp volume details")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=str(e),
-                params=params
+                params=params,
             )
 
     def _format_volume_info(self, data: Dict[str, Any]) -> str:
         lines = [
-            f"**Volume Name:** {data.get('name')}",
-            f"**UUID:** {data.get('uuid')}",
-            f"**Created On:** {data.get('create_time')}",
-            f"**Size:** {self._human_readable_size(data.get('size', 0))}",
-            f"**Used Space:** {self._human_readable_size(data.get('space', {}).get('used', 0))}",
-            f"**Available Space:** {self._human_readable_size(data.get('space', {}).get('available', 0))}",
-            f"**State:** {data.get('state')}",
-            f"**Style:** {data.get('style')}",
-            f"**Snapshot Policy:** {data.get('snapshot_policy', {}).get('name')}",
-            f"**Aggregate:** {data.get('aggregates', [{}])[0].get('name', 'N/A')}",
-            f"**SVM Name:** {data.get('svm', {}).get('name', 'N/A')}",
-            f"**Status Messages:** {'; '.join(data.get('status', [])) if data.get('status') else 'None'}"
+            f"Volume Name: {data.get('name')}",
+            f"UUID: {data.get('uuid')}",
+            f"Created On: {data.get('create_time')}",
+            f"Size: {self._human_readable_size(data.get('size', 0))}",
+            f"Used Space: {self._human_readable_size(data.get('space', {}).get('used', 0))}",
+            f"Available Space: {self._human_readable_size(data.get('space', {}).get('available', 0))}",
+            f"State: {data.get('state')}",
+            f"Style: {data.get('style')}",
+            f"Snapshot Policy: {data.get('snapshot_policy', {}).get('name')}",
+            f"Aggregate: {data.get('aggregates', [{}])[0].get('name', 'N/A')}",
+            f"SVM Name: {data.get('svm', {}).get('name', 'N/A')}",
+            f"Status Messages: {'; '.join(data.get('status', [])) if data.get('status') else 'None'}",
         ]
         return "\n".join(lines)
 
@@ -149,5 +162,4 @@ class NetAppGetVolumeDetails(Tool):
         return f"{s} {size_name[i]}"
 
     def get_parameterized_one_liner(self, params: Dict[str, Any]) -> str:
-        return f"Get NetApp volume details for volume name: {params.get('volume_name', 'UNKNOWN')}"
-
+        return f"Get NetApp volume details for volume: {params.get('volume_name', 'UNKNOWN')}"
