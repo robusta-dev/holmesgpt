@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 class ElasticsearchHealthCheckTool(Tool):
     """Tool to check Elasticsearch cluster health"""
     
-    name = "elasticsearch_health_check"
-    description = "Check the health status of an Elasticsearch cluster"
-    parameters = {
+    name: str = "elasticsearch_health_check"
+    description: str = "Check the health status of an Elasticsearch cluster"
+    parameters: Dict[str, Any] = {
         "instance_name": {
             "type": "string",
             "description": "Name of the Elasticsearch instance to check",
@@ -80,9 +80,9 @@ class ElasticsearchHealthCheckTool(Tool):
 class ElasticsearchListIndicesTool(Tool):
     """Tool to list Elasticsearch indices"""
     
-    name = "elasticsearch_list_indices"
-    description = "List all indices in an Elasticsearch cluster"
-    parameters = {
+    name: str = "elasticsearch_list_indices"
+    description: str = "List all indices in an Elasticsearch cluster"
+    parameters: Dict[str, Any] = {
         "instance_name": {
             "type": "string", 
             "description": "Name of the Elasticsearch instance",
