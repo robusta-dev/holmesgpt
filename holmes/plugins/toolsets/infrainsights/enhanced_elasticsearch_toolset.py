@@ -155,8 +155,16 @@ class EnhancedElasticsearchToolset:
         from .infrainsights_client_v2 import InfraInsightsClientV2
         from .base_toolset_v2 import InfraInsightsConfig
         
-        # Initialize InfraInsights client
-        self.infrainsights_config = InfraInsightsConfig()
+        # Initialize InfraInsights client with default config
+        self.infrainsights_config = InfraInsightsConfig(
+            base_url="http://localhost:3000",  # Default backend URL
+            api_key=None,  # Will be set from environment or config
+            username=None,
+            password=None,
+            timeout=30,
+            enable_name_lookup=True,
+            use_v2_api=True
+        )
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
         
         # Create tools
