@@ -464,6 +464,8 @@ def _collect_test_results_from_stats(terminalreporter):
                 "outcome": getattr(report, "outcome", "unknown"),
                 "execution_time": getattr(report, "duration", None),
                 "mock_data_failure": mock_data_failure,
+                "braintrust_span_id": user_props.get("braintrust_span_id"),
+                "braintrust_root_span_id": user_props.get("braintrust_root_span_id"),
             }
 
     # Create TestResult objects to get test_id and test_name properties
@@ -610,7 +612,11 @@ def _generate_markdown_report(sorted_results):
             "ask_holmes" if result["test_type"] == "ask" else "investigate"
         )
         braintrust_url = get_braintrust_url(
-            test_suite_full, result["test_id"], result["test_name"]
+            test_suite_full,
+            result["test_id"],
+            result["test_name"],
+            result.get("braintrust_span_id"),
+            result.get("braintrust_root_span_id"),
         )
         if braintrust_url:
             test_name = f"[{test_name}]({braintrust_url})"
@@ -739,7 +745,11 @@ def _handle_console_output(sorted_results):
                 "ask_holmes" if result["test_type"] == "ask" else "investigate"
             )
             braintrust_url = get_braintrust_url(
-                test_suite_full, result["test_id"], result["test_name"]
+                test_suite_full,
+                result["test_id"],
+                result["test_name"],
+                result.get("braintrust_span_id"),
+                result.get("braintrust_root_span_id"),
             )
             if braintrust_url:
                 print(
