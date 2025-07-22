@@ -296,6 +296,16 @@ class BaseInfraInsightsToolsetV2(Toolset):
         """Get the service type for this toolset - to be implemented by subclasses"""
         raise NotImplementedError("Subclasses must implement get_service_type")
     
+    def get_example_config(self) -> Dict[str, Any]:
+        """Get example configuration for this toolset"""
+        return {
+            "infrainsights_url": "http://k8s-ui-service.monitoring:5000",
+            "api_key": "your-jwt-token-here",
+            "timeout": 30,
+            "enable_name_lookup": True,
+            "use_v2_api": True
+        }
+    
     def get_available_instances(self) -> list:
         """Get available instances for this service type"""
         if not self.infrainsights_client:
