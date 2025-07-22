@@ -76,4 +76,4 @@ config:
 
 ## Still stuck?
 
-Join our [Slack community](https://robustacommunity.slack.com) or [open a GitHub issue](https://github.com/robusta-dev/holmesgpt/issues) for help.
+Join our [Slack community](https://bit.ly/robusta-slack) or [open a GitHub issue](https://github.com/robusta-dev/holmesgpt/issues) for help.
