@@ -45,11 +45,9 @@ class HolmesTestCase(BaseModel):
     folder: str
     mocked_date: Optional[str] = None
     tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
-    generate_mocks: bool = False  # If True, generate mocks
     add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluations = LLMEvaluations()
-    # tool_mocks removed - mocks are now loaded on-demand by MockFileManager
     before_test: Optional[str] = None
     after_test: Optional[str] = None
     conversation_history: Optional[list[dict]] = None
@@ -151,8 +149,6 @@ class MockHelper:
                 )
                 continue
 
-            # Mock preloading removed - mocks are now loaded on-demand by MockFileManager
-            # This avoids duplicate parsing and keeps all mock file I/O in one place
             test_cases.append(test_case)
         logging.info(f"Found {len(test_cases)} in {self._test_cases_folder}")
 

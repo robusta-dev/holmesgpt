@@ -91,7 +91,6 @@ pytest ./tests/llm/test_ask_holmes.py -k "99_pod_health_check" -v
 |-------|------|-------------|
 | `before_test` | string | Command to run before test (requires `RUN_LIVE=true`) |
 | `after_test` | string | Command to run after test cleanup |
-| ~~`generate_mocks`~~ | ~~boolean~~ | **DEPRECATED**: Use `--generate-mocks` or `--regenerate-all-mocks` CLI flags instead |
 
 ### Investigation Specific Fields
 

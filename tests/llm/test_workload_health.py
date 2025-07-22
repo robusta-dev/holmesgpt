@@ -45,16 +45,12 @@ class MockConfig(Config):
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         mock = MockToolsetManager(
-            generate_mocks=self._mock_generation_config.generate_mocks,
             test_case_folder=self._test_case.folder,
-            mock_generation_tracker=self._mock_generation_config,
+            mock_generation_config=self._mock_generation_config,
         )
 
-        expected_tools = []
-        for tool_mock in self._test_case.tool_mocks:
-            mock.mock_tool(tool_mock)
-            expected_tools.append(tool_mock.tool_name)
-
+        # With the new file-based mock system, mocks are loaded from disk automatically
+        # No need to call mock_tool() anymore
         return ToolExecutor(mock.enabled_toolsets)
 
 

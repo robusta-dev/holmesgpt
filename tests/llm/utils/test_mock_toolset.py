@@ -117,8 +117,13 @@ def assert_toolset_enabled(mock_toolsets: MockToolsetManager, toolset_name: str)
 def test_enabled_toolsets():
     # This test ensures `MockToolsetManager` behaves like HolmesGPT and that it returns the same
     # list of enabled toolsets as HolmesGPT in production
+    mock_config = Mock()
+    mock_config.mode = MockMode.MOCK
+    mock_config.regenerate_all_mocks = False
+
     mock_toolsets = MockToolsetManager(
-        test_case_folder="../fixtures/test_ask_holmes/01_how_many_pods"
+        test_case_folder="../fixtures/test_ask_holmes/01_how_many_pods",
+        mock_generation_config=mock_config,
     )
     # These toolsets are expected to be enabled by default
     # If this changes it's ok to update the list below
@@ -375,10 +380,16 @@ class TestMockToolsMatching:
                 # Create MockToolsetManager in mock mode
                 mock_request = Mock()
                 mock_request.node.user_properties = []
+
+                # Create a mock config object
+                mock_config = Mock()
+                mock_config.mode = MockMode.MOCK
+                mock_config.generate_mocks = False
+                mock_config.regenerate_all_mocks = False
+
                 mock_toolsets = MockToolsetManager(
                     test_case_folder=tmpdir,
-                    generate_mocks=False,
-                    run_live=False,
+                    mock_generation_config=mock_config,
                     request=mock_request,
                 )
 
@@ -438,10 +449,15 @@ class TestMockToolsMatching:
                     add_params_to_mock_file=False,  # This disables params in filenames
                 )
 
+                # Create a mock config object
+                mock_config = Mock()
+                mock_config.mode = MockMode.MOCK
+                mock_config.generate_mocks = False
+                mock_config.regenerate_all_mocks = False
+
                 mock_toolsets = MockToolsetManager(
                     test_case_folder=tmpdir,
-                    generate_mocks=False,
-                    run_live=False,
+                    mock_generation_config=mock_config,
                     add_params_to_mock_file=test_case.add_params_to_mock_file,
                     request=mock_request,
                 )
@@ -492,10 +508,16 @@ class TestMockToolsMatching:
                 # Create MockToolsetManager in mock mode (not generate mode)
                 mock_request = Mock()
                 mock_request.node.user_properties = []
+
+                # Create a mock config object
+                mock_config = Mock()
+                mock_config.mode = MockMode.MOCK
+                mock_config.generate_mocks = False
+                mock_config.regenerate_all_mocks = False
+
                 mock_toolsets = MockToolsetManager(
                     test_case_folder=tmpdir,
-                    generate_mocks=False,
-                    run_live=False,
+                    mock_generation_config=mock_config,
                     request=mock_request,
                 )
 
@@ -519,10 +541,15 @@ class TestMockToolsMatching:
                 mock_request = Mock()
                 mock_request.node.user_properties = []
 
+                # Create a mock config object
+                mock_config = Mock()
+                mock_config.mode = MockMode.GENERATE
+                mock_config.generate_mocks = True
+                mock_config.regenerate_all_mocks = False
+
                 mock_toolsets = MockToolsetManager(
                     test_case_folder=tmpdir,
-                    generate_mocks=True,  # Generate mode
-                    run_live=False,
+                    mock_generation_config=mock_config,
                     request=mock_request,
                 )
 

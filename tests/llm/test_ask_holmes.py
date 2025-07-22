@@ -7,7 +7,6 @@ from unittest.mock import patch
 from datetime import datetime
 
 from holmes.core.tracing import TracingFactory
-from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
@@ -264,12 +263,9 @@ def test_ask_holmes(
 def ask_holmes(
     test_case: AskHolmesTestCase, tracer, mock_generation_config, request=None
 ) -> LLMResult:
-    run_live = load_bool("RUN_LIVE", default=False)
     mock = MockToolsetManager(
-        generate_mocks=mock_generation_config.generate_mocks,
         test_case_folder=test_case.folder,
-        run_live=run_live,
-        mock_generation_tracker=mock_generation_config,
+        mock_generation_config=mock_generation_config,
         request=request,
     )
 

@@ -504,9 +504,15 @@ def get_braintrust_url(test_suite: str, test_id: str, test_name: str) -> Optiona
     test_case_id = f"test_{test_suite}[{test_id}_{test_name}]"
 
     braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
+
+    # URL encode the test case ID for the c parameter
+    import urllib.parse
+
+    encoded_test_case_id = urllib.parse.quote(test_case_id)
+
     return (
         f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/"
-        f"experiments/{experiment_name}?r=&s=&c={test_case_id}"
+        f"experiments/{experiment_name}?c={encoded_test_case_id}"
     )
 
 

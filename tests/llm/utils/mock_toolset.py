@@ -362,36 +362,27 @@ class MockToolsetManager:
     def __init__(
         self,
         test_case_folder: str,
-        generate_mocks: bool = False,
-        run_live: bool = False,
+        mock_generation_config,
         add_params_to_mock_file: bool = True,
-        mock_generation_tracker=None,
         request: pytest.FixtureRequest = None,
     ):
         self.test_case_folder = test_case_folder
         self.request = request
-
-        # Determine mode
-        if run_live:
-            self.mode = MockMode.LIVE
-        elif generate_mocks:
-            self.mode = MockMode.GENERATE
-        else:
-            self.mode = MockMode.MOCK
+        self.mode = mock_generation_config.mode
 
         # Initialize components
         self.file_manager = MockFileManager(test_case_folder, add_params_to_mock_file)
         self.configurator = ToolsetConfigurator()
 
         # Clear mocks if regenerating
-        if mock_generation_tracker and mock_generation_tracker.regenerate_all_mocks:
+        if mock_generation_config.regenerate_all_mocks:
             if request and test_case_folder not in getattr(
-                mock_generation_tracker, "_cleared_folders", set()
+                mock_generation_config, "_cleared_folders", set()
             ):
                 self.file_manager.clear_mocks(request)
-                if not hasattr(mock_generation_tracker, "_cleared_folders"):
-                    mock_generation_tracker._cleared_folders = set()
-                mock_generation_tracker._cleared_folders.add(test_case_folder)
+                if not hasattr(mock_generation_config, "_cleared_folders"):
+                    mock_generation_config._cleared_folders = set()
+                mock_generation_config._cleared_folders.add(test_case_folder)
 
         # Load and configure toolsets
         self._initialize_toolsets()
