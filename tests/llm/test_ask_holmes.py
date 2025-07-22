@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 from datetime import datetime
 
+from holmes.core.tracing import TracingFactory
 from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
@@ -14,13 +15,14 @@ from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
-from tests.llm.utils.commands import after_test, before_test
+from tests.llm.utils.commands import after_test, before_test, set_test_env_vars
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import MockToolsets
-from braintrust import Span, SpanTypeAttribute
+from braintrust import SpanTypeAttribute
 from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
+from holmes.core.tracing import SpanType
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -60,45 +62,57 @@ def idfn(val):
 
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
-    dataset_name = braintrust_util.get_dataset_name("ask_holmes")
-    bt_helper = braintrust_util.BraintrustEvalHelper(
-        project_name=PROJECT, dataset_name=dataset_name
+def test_ask_holmes(
+    experiment_name: str, test_case: AskHolmesTestCase, caplog, request
+):
+    tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
+
+    # Create experiment using unified API
+    tracer.start_experiment(
+        experiment_name=experiment_name,
+        metadata=braintrust_util.get_machine_state_tags(),
     )
 
-    eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    # Create evaluation span and use as context manager
     result: Optional[LLMResult] = None
     try:
-        with eval_span.start_span("Before Test Setup", type=SpanTypeAttribute.TASK):
-            before_test(test_case)
+        with tracer.start_trace(
+            name=test_case.id, span_type=SpanType.TASK
+        ) as eval_span:
+            with eval_span.start_span("Before Test Setup", type=SpanTypeAttribute.TASK):
+                before_test(test_case)
 
-        # Mock datetime if mocked_date is provided
-        if test_case.mocked_date:
-            mocked_datetime = datetime.fromisoformat(
-                test_case.mocked_date.replace("Z", "+00:00")
-            )
-            with patch("holmes.plugins.prompts.datetime") as mock_datetime:
-                mock_datetime.now.return_value = mocked_datetime
-
-                mock_datetime.side_effect = None
-                mock_datetime.configure_mock(
-                    **{"now.return_value": mocked_datetime, "side_effect": None}
+            # Mock datetime if mocked_date is provided
+            if test_case.mocked_date:
+                mocked_datetime = datetime.fromisoformat(
+                    test_case.mocked_date.replace("Z", "+00:00")
                 )
-                with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-                    result = ask_holmes(test_case=test_case, parent_span=eval_span)
-        else:
-            with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-                result = ask_holmes(test_case=test_case, parent_span=eval_span)
+                with patch("holmes.plugins.prompts.datetime") as mock_datetime:
+                    mock_datetime.now.return_value = mocked_datetime
+
+                    mock_datetime.side_effect = None
+                    mock_datetime.configure_mock(
+                        **{"now.return_value": mocked_datetime, "side_effect": None}
+                    )
+                    with set_test_env_vars(test_case):
+                        result = ask_holmes(test_case=test_case, tracer=tracer)
+            else:
+                with set_test_env_vars(test_case):
+                    result = ask_holmes(test_case=test_case, tracer=tracer)
 
     except Exception as e:
-        bt_helper.end_evaluation(
-            input=test_case.user_prompt,
-            output=result.result if result else str(e),
-            expected=test_case.expected_output,
-            id=test_case.id,
-            scores={},
-            prompt=None,
-        )
+        # Log error to span if available
+        try:
+            if "eval_span" in locals():
+                eval_span.log(
+                    input=test_case.user_prompt,
+                    output=result.result if result else str(e),
+                    expected=test_case.expected_output,
+                    dataset_record_id=test_case.id,
+                    scores={},
+                )
+        except Exception:
+            pass  # Don't fail the test due to logging issues
         after_test(test_case)
         raise
 
@@ -136,19 +150,21 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
         caplog=caplog,
     )
     print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\n{correctness_eval.metadata.get('rationale', '')}"
+        f"\nCORRECTNESS:\nscore = {correctness_eval.score}\nRATIONALE:\n{correctness_eval.metadata.get('rationale', '')}"
     )
 
     scores["correctness"] = correctness_eval.score
 
-    bt_helper.end_evaluation(
-        input=input,
-        output=output or "",
-        expected=str(expected),
-        id=test_case.id,
-        scores=scores,
-        prompt=prompt,
-    )
+    # Log evaluation results directly to the span
+    if eval_span:
+        eval_span.log(
+            input=input,
+            output=output or "",
+            expected=str(expected),
+            dataset_record_id=test_case.id,
+            scores=scores,
+            metadata={"system_prompt": prompt},
+        )
 
     if result.tool_calls:
         tools_called = [tc.description for tc in result.tool_calls]
@@ -158,20 +174,38 @@ def test_ask_holmes(experiment_name: str, test_case: AskHolmesTestCase, caplog):
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
 
-    if test_case.evaluation.correctness:
-        expected_correctness = test_case.evaluation.correctness
-        if isinstance(expected_correctness, Evaluation):
-            expected_correctness = expected_correctness.expected_score
-        assert scores.get("correctness", 0) >= expected_correctness
+    # Store data for summary plugin
+    expected_correctness_score = (
+        test_case.evaluation.correctness.expected_score
+        if isinstance(test_case.evaluation.correctness, Evaluation)
+        else test_case.evaluation.correctness
+    )
+    request.node.user_properties.append(("expected", debug_expected))
+    request.node.user_properties.append(("actual", output or ""))
+    request.node.user_properties.append(
+        (
+            "tools_called",
+            tools_called if isinstance(tools_called, list) else [str(tools_called)],
+        )
+    )
+    request.node.user_properties.append(
+        ("expected_correctness_score", expected_correctness_score)
+    )
+    request.node.user_properties.append(
+        ("actual_correctness_score", scores.get("correctness", 0))
+    )
+
+    assert (
+        int(scores.get("correctness", 0)) == 1
+    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {debug_expected}"
 
 
-def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLMResult:
+def ask_holmes(test_case: AskHolmesTestCase, tracer) -> LLMResult:
     run_live = load_bool("RUN_LIVE", default=False)
     mock = MockToolsets(
         generate_mocks=test_case.generate_mocks,
         test_case_folder=test_case.folder,
         run_live=run_live,
-        parent_span=parent_span,
     )
 
     expected_tools = []
@@ -184,14 +218,18 @@ def ask_holmes(test_case: AskHolmesTestCase, parent_span: Optional[Span]) -> LLM
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
 
     print(f"** ENABLED TOOLSETS **\n{', '.join(enabled_toolsets)}")
+
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
-        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o")),
+        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
     )
 
     chat_request = ChatRequest(ask=test_case.user_prompt)
     messages = build_chat_messages(
         ask=chat_request.ask, conversation_history=test_case.conversation_history, ai=ai
     )
-    return ai.messages_call(messages=messages)
+
+    # Create LLM completion trace within current context
+    with tracer.start_trace("run holmes", span_type=SpanType.LLM) as llm_span:
+        return ai.messages_call(messages=messages, trace_span=llm_span)

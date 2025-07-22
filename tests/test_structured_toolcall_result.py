@@ -143,7 +143,7 @@ def test_format_tool_result_data_error_without_message_with_unserializable():
     assert format_tool_result_data(result) == expected
 
 
-def test_as_tool_call_message():
+def test_as_tool_call_message_without_params():
     structured = StructuredToolResult(status=ToolResultStatus.SUCCESS, data="hello")
     tcr = ToolCallResult(
         tool_call_id="call1",
@@ -157,6 +157,30 @@ def test_as_tool_call_message():
         "role": "tool",
         "name": "toolX",
         "content": "hello",
+    }
+
+
+def test_as_tool_call_message_with_params():
+    structured = StructuredToolResult(
+        status=ToolResultStatus.SUCCESS,
+        data="hello",
+        params={"pod_name": "my-pod", "namespace": "my-namespace"},
+    )
+    tcr = ToolCallResult(
+        tool_call_id="call1",
+        tool_name="toolX",
+        description="desc",
+        result=structured,
+    )
+    message = tcr.as_tool_call_message()
+    assert message == {
+        "tool_call_id": "call1",
+        "role": "tool",
+        "name": "toolX",
+        "content": (
+            'Params used for the tool call: {"pod_name": "my-pod", "namespace": "my-namespace"}. The tool call output follows on the next line.\n'
+            "hello"
+        ),
     }
 
 

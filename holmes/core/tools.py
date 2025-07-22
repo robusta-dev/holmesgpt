@@ -25,6 +25,22 @@ class ToolResultStatus(str, Enum):
     ERROR = "error"
     NO_DATA = "no_data"
 
+    def to_color(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "green"
+        elif self == ToolResultStatus.ERROR:
+            return "red"
+        else:
+            return "white"
+
+    def to_emoji(self) -> str:
+        if self == ToolResultStatus.SUCCESS:
+            return "✔"
+        elif self == ToolResultStatus.ERROR:
+            return "❌"
+        else:
+            return "⚪️"
+
 
 class StructuredToolResult(BaseModel):
     schema_version: str = "robusta:v1.0.0"
@@ -123,9 +139,12 @@ class Tool(ABC, BaseModel):
             tool_parameters=self.parameters,
         )
 
-    def invoke(self, params: Dict) -> StructuredToolResult:
+    def invoke(
+        self, params: Dict, tool_number: Optional[int] = None
+    ) -> StructuredToolResult:
+        tool_number_str = f"#{tool_number} " if tool_number else ""
         logging.info(
-            f"Running tool {self.name}: {self.get_parameterized_one_liner(sanitize_params(params))}"
+            f"Running tool {tool_number_str}[bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
         )
         start_time = time.time()
         result = self._invoke(params)
@@ -135,17 +154,9 @@ class Tool(ABC, BaseModel):
             if hasattr(result, "get_stringified_data")
             else str(result)
         )
-        if len(output_str) == 0:
-            preview = "<empty>"
-        elif len(output_str) > 80:
-            clipped = output_str[:80] + "..."
-            preview = f"{clipped!r}"
-        else:
-            preview = f"{output_str!r}"
         logging.info(
-            f"|--- Finished in {elapsed:.2f}s, output length: {len(output_str):,} characters, preview ⬇\n     {preview}"
+            f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters - /show to view contents[/dim]"
         )
-        # return format_tool_output(result)
         return result
 
     @abstractmethod
@@ -362,7 +373,7 @@ class Toolset(BaseModel):
             exclude_unset=True,
             exclude=("name"),  # type: ignore
         ).items():
-            if field in self.model_fields and value not in (None, [], {}, ""):
+            if field in self.__class__.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
 
     @model_validator(mode="before")

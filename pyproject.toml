@@ -56,8 +56,11 @@ azure-monitor-query = "^1.2.0"
 azure-mgmt-monitor = "^6.0.2"
 azure-mgmt-alertsmanagement = "^1.0.0"
 azure-mgmt-resource = "^24.0.0"
-
+protobuf = ">=6.31.1"
+tenacity = "^9.1.2"
 [tool.poetry.group.dev.dependencies]
+mkdocs-material = "^9.5.39"
+mkdocs-glightbox = "^0.4.0"
 pytest = "^8.3.3"
 pytest-xdist = "^3.6.1"
 ruff = "^0.7.3"
@@ -93,6 +96,7 @@ markers = [
     "k8s-misconfig: Tests involving Kubernetes misconfigurations",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
+    "counting: Ask holmes to count kubernetes/cloud resources"
 ]
 addopts = [
     "--cov-config=pyproject.toml",

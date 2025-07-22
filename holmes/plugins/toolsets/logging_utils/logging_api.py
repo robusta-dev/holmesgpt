@@ -17,6 +17,8 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 DEFAULT_LOG_LIMIT = 2000
 DEFAULT_TIME_SPAN_SECONDS = 3600
 
+POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
+
 
 class LoggingConfig(BaseModel):
     """Base configuration for all logging backends"""
@@ -40,13 +42,16 @@ class BasePodLoggingToolset(Toolset, ABC):
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         pass
 
+    def logger_name(self) -> str:
+        return ""
+
 
 class PodLoggingTool(Tool):
     """Common tool for fetching pod logs across different logging backends"""
 
     def __init__(self, toolset: BasePodLoggingToolset):
         super().__init__(
-            name="fetch_pod_logs",
+            name=POD_LOGGING_TOOL_NAME,
             description="Fetch logs for a Kubernetes pod",
             parameters={
                 "pod_name": ToolParameter(
@@ -58,12 +63,12 @@ class PodLoggingTool(Tool):
                     description="Kubernetes namespace", type="string", required=True
                 ),
                 "start_time": ToolParameter(
-                    description="Start time for logs. Can be an RFC3339 formatted timestamp (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
+                    description="Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
                     type="string",
                     required=False,
                 ),
                 "end_time": ToolParameter(
-                    description="End time for logs. Must be an RFC3339 formatted timestamp (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
+                    description="End time for logs. Must be an RFC3339 formatted datetime (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
                     type="string",
                     required=False,
                 ),
@@ -101,7 +106,30 @@ class PodLoggingTool(Tool):
         """Generate a one-line description of this tool invocation"""
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
-        return f"Fetching logs for pod {pod_name} in namespace {namespace}"
+
+        start_time = params.get("start_time")
+        end_time = params.get("end_time")
+        filter = params.get("filter")
+        limit = params.get("limit")
+
+        extra_params_str = ""
+
+        if start_time and not end_time:
+            extra_params_str += f" start_time={start_time}"
+        elif not start_time and end_time:
+            extra_params_str += f" end_time={end_time}"
+        elif start_time and end_time:
+            extra_params_str += f" time range={start_time}/{end_time}"
+
+        if filter:
+            extra_params_str += f" filter={filter}"
+        if limit:
+            extra_params_str += f" limit={limit}"
+
+        logger_name = (
+            f"{self._toolset.logger_name()}: " if self._toolset.logger_name() else ""
+        )
+        return f"{logger_name}Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
 
 
 def process_time_parameters(

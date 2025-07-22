@@ -43,7 +43,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
           UPLOAD_DATASET: "true"
-          PUSH_EVALS_TO_BRAINTRUST: "true"
           EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         run: |
           poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n 6
@@ -91,4 +90,11 @@ jobs:
             }
       - name: Check test results
         if: always()
-        run: if [[ ${{ steps.evals.outcome }} == 'success' ]]; then exit 0; else exit 1; fi
+        run: |
+          if [[ -f "regressions.txt" ]]; then
+            echo "There are regressions in the evals. Please check the evals file for details."
+            cat regressions.txt
+            exit 1
+          else
+            echo "All tests passed without regressions."
+          fi

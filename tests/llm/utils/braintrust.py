@@ -2,12 +2,14 @@ import os
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
 from tests.llm.utils.mock_utils import HolmesTestCase  # type: ignore
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
+from holmes.core.tracing import DummySpan
+
 
 BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
 
@@ -101,10 +103,12 @@ class BraintrustEvalHelper:
             return None
         return find_dataset_row_by_test_case(self.dataset, test_case)
 
-    def start_evaluation(self, experiment_name: str, name: str) -> Optional[Span]:
+    def start_evaluation(
+        self, experiment_name: str, name: str
+    ) -> Union[Span, DummySpan]:
         if not self.dataset:
             # braintrust is disabled
-            return None
+            return DummySpan()
         if not self.experiment:
             experiment: Experiment | ReadonlyExperiment = braintrust.init(
                 project=self.project_name,
@@ -122,8 +126,13 @@ class BraintrustEvalHelper:
                     "Experiment must be writable. The above options open=False and update=True ensure this is the case so this exception should never be raised"
                 )
             self.experiment = experiment  # type: ignore
-        self._root_span = self.experiment.start_span(name=name)  # type: ignore
-        return self._root_span
+
+        # Create the span directly from experiment (tests manage their own spans)
+        if self.experiment:
+            self._root_span = self.experiment.start_span(name=name)
+            return self._root_span
+        else:
+            return DummySpan()
 
     def end_evaluation(
         self,
