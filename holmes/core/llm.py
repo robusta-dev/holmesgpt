@@ -218,7 +218,7 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
-        self.args.setdefault("temperature", TEMPERATURE)
+        self.args.setdefault("temperature", temperature)
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
 
