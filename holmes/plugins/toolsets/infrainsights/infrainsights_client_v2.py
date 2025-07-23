@@ -347,7 +347,7 @@ class InfraInsightsClientV2:
             }
 
     def get_elasticsearch_health(self, instance: ServiceInstance) -> Dict[str, Any]:
-        """Get Elasticsearch cluster health for a specific instance"""
+        """Get Elasticsearch/OpenSearch cluster health for a specific instance"""
         try:
             if not instance.config:
                 raise Exception("Instance configuration not available")
@@ -355,14 +355,14 @@ class InfraInsightsClientV2:
             es_url = instance.config.get('elasticsearchUrl')
             username = instance.config.get('username')
             password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
             
             if not es_url:
-                raise Exception("Elasticsearch URL not found in instance configuration")
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
             
-            # Create Elasticsearch client
-            from elasticsearch import Elasticsearch
+            logger.info(f"🔍 Detected service type: {service_type}")
             
-            # Configure client
+            # Configure client based on service type
             client_config = {
                 'hosts': [es_url],
                 'verify_certs': False,
@@ -373,35 +373,79 @@ class InfraInsightsClientV2:
             if username and password:
                 client_config['basic_auth'] = (username, password)
             
-            es_client = Elasticsearch(**client_config)
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch client")
+                try:
+                    from opensearchpy import OpenSearch
+                    client = OpenSearch(**client_config)
+                except ImportError:
+                    logger.warning("OpenSearch client not available, falling back to Elasticsearch client with compatibility")
+                    from elasticsearch import Elasticsearch
+                    # For OpenSearch, we can use requests directly or try compatibility mode
+                    import requests
+                    import json as json_lib
+                    
+                    # Use direct HTTP request for OpenSearch compatibility
+                    auth = (username, password) if username and password else None
+                    health_url = f"{es_url.rstrip('/')}/_cluster/health"
+                    
+                    response = requests.get(health_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    health_response = response.json()
+                    
+                    return {
+                        'instance_name': instance.name,
+                        'instance_id': instance.instanceId,
+                        'cluster_name': health_response.get('cluster_name'),
+                        'status': health_response.get('status'),
+                        'number_of_nodes': health_response.get('number_of_nodes'),
+                        'active_primary_shards': health_response.get('active_primary_shards'),
+                        'active_shards': health_response.get('active_shards'),
+                        'relocating_shards': health_response.get('relocating_shards'),
+                        'initializing_shards': health_response.get('initializing_shards'),
+                        'unassigned_shards': health_response.get('unassigned_shards'),
+                        'delayed_unassigned_shards': health_response.get('delayed_unassigned_shards'),
+                        'number_of_pending_tasks': health_response.get('number_of_pending_tasks'),
+                        'number_of_in_flight_fetch': health_response.get('number_of_in_flight_fetch'),
+                        'task_max_waiting_in_queue_millis': health_response.get('task_max_waiting_in_queue_millis'),
+                        'active_shards_percent_as_number': health_response.get('active_shards_percent_as_number'),
+                        'service_type': 'opensearch'
+                    }
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                client = Elasticsearch(**client_config)
             
-            # Get cluster health
-            health_response = es_client.cluster.health()
-            
-            return {
-                'instance_name': instance.name,
-                'instance_id': instance.instanceId,
-                'cluster_name': health_response.get('cluster_name'),
-                'status': health_response.get('status'),
-                'number_of_nodes': health_response.get('number_of_nodes'),
-                'active_primary_shards': health_response.get('active_primary_shards'),
-                'active_shards': health_response.get('active_shards'),
-                'relocating_shards': health_response.get('relocating_shards'),
-                'initializing_shards': health_response.get('initializing_shards'),
-                'unassigned_shards': health_response.get('unassigned_shards'),
-                'delayed_unassigned_shards': health_response.get('delayed_unassigned_shards'),
-                'number_of_pending_tasks': health_response.get('number_of_pending_tasks'),
-                'number_of_in_flight_fetch': health_response.get('number_of_in_flight_fetch'),
-                'task_max_waiting_in_queue_millis': health_response.get('task_max_waiting_in_queue_millis'),
-                'active_shards_percent_as_number': health_response.get('active_shards_percent_as_number')
-            }
+            # Get cluster health using the appropriate client
+            if service_type != 'opensearch' or 'client' in locals():
+                health_response = client.cluster.health()
+                
+                return {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'cluster_name': health_response.get('cluster_name'),
+                    'status': health_response.get('status'),
+                    'number_of_nodes': health_response.get('number_of_nodes'),
+                    'active_primary_shards': health_response.get('active_primary_shards'),
+                    'active_shards': health_response.get('active_shards'),
+                    'relocating_shards': health_response.get('relocating_shards'),
+                    'initializing_shards': health_response.get('initializing_shards'),
+                    'unassigned_shards': health_response.get('unassigned_shards'),
+                    'delayed_unassigned_shards': health_response.get('delayed_unassigned_shards'),
+                    'number_of_pending_tasks': health_response.get('number_of_pending_tasks'),
+                    'number_of_in_flight_fetch': health_response.get('number_of_in_flight_fetch'),
+                    'task_max_waiting_in_queue_millis': health_response.get('task_max_waiting_in_queue_millis'),
+                    'active_shards_percent_as_number': health_response.get('active_shards_percent_as_number'),
+                    'service_type': service_type
+                }
             
         except Exception as e:
-            logger.error(f"Failed to get Elasticsearch health for {instance.name}: {e}")
-            raise Exception(f"Failed to get Elasticsearch cluster health: {str(e)}")
+            logger.error(f"Failed to get Elasticsearch/OpenSearch health for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch cluster health: {str(e)}")
 
     def get_elasticsearch_indices(self, instance: ServiceInstance) -> Dict[str, Any]:
-        """Get Elasticsearch indices for a specific instance"""
+        """Get Elasticsearch/OpenSearch indices for a specific instance"""
         try:
             if not instance.config:
                 raise Exception("Instance configuration not available")
@@ -409,14 +453,14 @@ class InfraInsightsClientV2:
             es_url = instance.config.get('elasticsearchUrl')
             username = instance.config.get('username')
             password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
             
             if not es_url:
-                raise Exception("Elasticsearch URL not found in instance configuration")
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
             
-            # Create Elasticsearch client
-            from elasticsearch import Elasticsearch
+            logger.info(f"🔍 Detected service type: {service_type}")
             
-            # Configure client
+            # Configure client based on service type
             client_config = {
                 'hosts': [es_url],
                 'verify_certs': False,
@@ -427,12 +471,31 @@ class InfraInsightsClientV2:
             if username and password:
                 client_config['basic_auth'] = (username, password)
             
-            es_client = Elasticsearch(**client_config)
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    client = OpenSearch(**client_config)
+                    indices_response = client.cat.indices(format='json', v=True)
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    # Use direct HTTP request for OpenSearch compatibility
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    indices_url = f"{es_url.rstrip('/')}/_cat/indices?format=json&v=true"
+                    
+                    response = requests.get(indices_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    indices_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                client = Elasticsearch(**client_config)
+                indices_response = client.cat.indices(format='json', v=True)
             
-            # Get indices
-            indices_response = es_client.cat.indices(format='json', v=True)
-            
-            # Format indices data
+            # Format indices data (same format for both)
             indices = []
             for index_info in indices_response:
                 indices.append({
@@ -449,9 +512,10 @@ class InfraInsightsClientV2:
                 'instance_name': instance.name,
                 'instance_id': instance.instanceId,
                 'total_indices': len(indices),
-                'indices': indices
+                'indices': indices,
+                'service_type': service_type
             }
             
         except Exception as e:
-            logger.error(f"Failed to get Elasticsearch indices for {instance.name}: {e}")
-            raise Exception(f"Failed to get Elasticsearch indices: {str(e)}") 
+            logger.error(f"Failed to get Elasticsearch/OpenSearch indices for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch indices: {str(e)}") 

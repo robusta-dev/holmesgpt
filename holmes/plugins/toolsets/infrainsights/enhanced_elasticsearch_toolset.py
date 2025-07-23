@@ -7,13 +7,13 @@ logger = logging.getLogger(__name__)
 
 
 class ElasticsearchHealthCheckTool(Tool):
-    """Tool to check Elasticsearch cluster health"""
+    """Tool to check Elasticsearch/OpenSearch cluster health"""
     
     name: str = "elasticsearch_health_check"
-    description: str = "Check the health status of an Elasticsearch cluster"
+    description: str = "Check the health status of an Elasticsearch or OpenSearch cluster"
     parameters: Dict[str, ToolParameter] = {
         "instance_name": ToolParameter(
-            description="Name of the Elasticsearch instance to check",
+            description="Name of the Elasticsearch or OpenSearch instance to check",
             type="string",
             required=True
         )
@@ -34,7 +34,7 @@ class ElasticsearchHealthCheckTool(Tool):
                     params=params
                 )
             
-            logger.info(f"🔍 Checking health for Elasticsearch instance: {instance_name}")
+            logger.info(f"🔍 Checking health for Elasticsearch/OpenSearch instance: {instance_name}")
             
             # Get instance configuration from toolset
             if not self.toolset or not self.toolset.infrainsights_client:
@@ -52,7 +52,7 @@ class ElasticsearchHealthCheckTool(Tool):
             if not instance:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error=f"Elasticsearch instance '{instance_name}' not found",
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
                     params=params
                 )
             
@@ -79,13 +79,13 @@ class ElasticsearchHealthCheckTool(Tool):
 
 
 class ElasticsearchListIndicesTool(Tool):
-    """Tool to list Elasticsearch indices"""
+    """Tool to list Elasticsearch/OpenSearch indices"""
     
     name: str = "elasticsearch_list_indices"
-    description: str = "List all indices in an Elasticsearch cluster"
+    description: str = "List all indices in an Elasticsearch or OpenSearch cluster"
     parameters: Dict[str, ToolParameter] = {
         "instance_name": ToolParameter(
-            description="Name of the Elasticsearch instance",
+            description="Name of the Elasticsearch or OpenSearch instance",
             type="string",
             required=True
         )
@@ -106,7 +106,7 @@ class ElasticsearchListIndicesTool(Tool):
                     params=params
                 )
             
-            logger.info(f"🔍 Listing indices for Elasticsearch instance: {instance_name}")
+            logger.info(f"🔍 Listing indices for Elasticsearch/OpenSearch instance: {instance_name}")
             
             # Get instance configuration from toolset
             if not self.toolset or not self.toolset.infrainsights_client:
@@ -124,7 +124,7 @@ class ElasticsearchListIndicesTool(Tool):
             if not instance:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error=f"Elasticsearch instance '{instance_name}' not found",
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
                     params=params
                 )
             
@@ -151,7 +151,7 @@ class ElasticsearchListIndicesTool(Tool):
 
 
 class EnhancedElasticsearchToolset(Toolset):
-    """Enhanced Elasticsearch toolset with InfraInsights integration"""
+    """Enhanced Elasticsearch/OpenSearch toolset with InfraInsights integration"""
     
     # Define custom fields for this toolset
     infrainsights_config: Optional[Any] = None
@@ -172,7 +172,7 @@ class EnhancedElasticsearchToolset(Toolset):
         # Initialize Toolset with required parameters
         super().__init__(
             name="infrainsights_elasticsearch_enhanced",
-            description="Enhanced Elasticsearch toolset with InfraInsights instance management",
+            description="Enhanced Elasticsearch/OpenSearch toolset with InfraInsights instance management",
             enabled=True,
             tools=tools,
             tags=[ToolsetTag.CLUSTER],
