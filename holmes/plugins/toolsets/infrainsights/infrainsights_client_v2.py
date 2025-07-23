@@ -1290,4 +1290,964 @@ class InfraInsightsClientV2:
             
         except Exception as e:
             logger.error(f"Failed to get Elasticsearch/OpenSearch snapshot status for {instance.name}: {e}")
-            raise Exception(f"Failed to get Elasticsearch/OpenSearch snapshot status: {str(e)}") 
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch snapshot status: {str(e)}")
+
+    # MongoDB client methods
+    def get_mongodb_health(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get MongoDB instance health and server status"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            database = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Connecting to MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                from pymongo.errors import ServerSelectionTimeoutError, OperationFailure
+                
+                # Parse connection string and create client
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                
+                # Test connection and get server status
+                db = client[database]
+                server_status = db.command("serverStatus")
+                is_master = db.command("isMaster")
+                
+                # Get basic health metrics
+                health_data = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'connection_status': 'healthy',
+                    'server_status': {
+                        'version': server_status.get('version'),
+                        'uptime': server_status.get('uptime'),
+                        'connections': server_status.get('connections'),
+                        'mem': server_status.get('mem'),
+                        'extra_info': server_status.get('extra_info'),
+                        'host': server_status.get('host'),
+                        'process': server_status.get('process')
+                    },
+                    'replica_set_status': {
+                        'ismaster': is_master.get('ismaster'),
+                        'secondary': is_master.get('secondary'),
+                        'setName': is_master.get('setName'),
+                        'hosts': is_master.get('hosts', []),
+                        'primary': is_master.get('primary')
+                    },
+                    'timestamp': server_status.get('localTime')
+                }
+                
+                client.close()
+                return health_data
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            except ServerSelectionTimeoutError:
+                raise Exception("Failed to connect to MongoDB server - timeout")
+            except OperationFailure as e:
+                raise Exception(f"MongoDB operation failed: {str(e)}")
+            
+        except Exception as e:
+            logger.error(f"Failed to get MongoDB health for {instance.name}: {e}")
+            raise Exception(f"Failed to get MongoDB health: {str(e)}")
+
+    def get_mongodb_databases(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get list of databases in MongoDB instance"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Getting databases for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                
+                # List all databases
+                db_list = client.list_database_names()
+                
+                databases_info = []
+                for db_name in db_list:
+                    db = client[db_name]
+                    try:
+                        stats = db.command("dbStats")
+                        db_info = {
+                            'name': db_name,
+                            'sizeOnDisk': stats.get('storageSize', 0),
+                            'dataSize': stats.get('dataSize', 0),
+                            'indexSize': stats.get('indexSize', 0),
+                            'collections': stats.get('collections', 0),
+                            'objects': stats.get('objects', 0),
+                            'avgObjSize': stats.get('avgObjSize', 0),
+                            'indexes': stats.get('indexes', 0)
+                        }
+                        databases_info.append(db_info)
+                    except Exception as e:
+                        # Some databases might not allow dbStats
+                        databases_info.append({
+                            'name': db_name,
+                            'error': f"Unable to get stats: {str(e)}"
+                        })
+                
+                client.close()
+                
+                return {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'total_databases': len(databases_info),
+                    'databases': databases_info
+                }
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to get MongoDB databases for {instance.name}: {e}")
+            raise Exception(f"Failed to get MongoDB databases: {str(e)}")
+
+    def get_mongodb_collection_stats(self, instance: ServiceInstance, database_name: str, collection_name: Optional[str] = None) -> Dict[str, Any]:
+        """Get MongoDB collection statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Getting collection stats for MongoDB instance: {instance.name}, database: {database_name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database_name]
+                
+                collections_stats = []
+                
+                if collection_name:
+                    # Get stats for specific collection
+                    collection_names = [collection_name]
+                else:
+                    # Get stats for all collections
+                    collection_names = db.list_collection_names()
+                
+                for coll_name in collection_names:
+                    try:
+                        collection = db[coll_name]
+                        stats = db.command("collStats", coll_name)
+                        
+                        # Get index information
+                        indexes = list(collection.list_indexes())
+                        
+                        coll_stats = {
+                            'name': coll_name,
+                            'count': stats.get('count', 0),
+                            'size': stats.get('size', 0),
+                            'storageSize': stats.get('storageSize', 0),
+                            'totalIndexSize': stats.get('totalIndexSize', 0),
+                            'avgObjSize': stats.get('avgObjSize', 0),
+                            'nindexes': stats.get('nindexes', 0),
+                            'indexes': [
+                                {
+                                    'name': idx.get('name'),
+                                    'key': idx.get('key'),
+                                    'unique': idx.get('unique', False),
+                                    'sparse': idx.get('sparse', False)
+                                } for idx in indexes
+                            ]
+                        }
+                        collections_stats.append(coll_stats)
+                        
+                    except Exception as e:
+                        collections_stats.append({
+                            'name': coll_name,
+                            'error': f"Unable to get stats: {str(e)}"
+                        })
+                
+                client.close()
+                
+                return {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'database_name': database_name,
+                    'collection_name': collection_name or 'all',
+                    'total_collections': len(collections_stats),
+                    'collections': collections_stats
+                }
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to get MongoDB collection stats for {instance.name}: {e}")
+            raise Exception(f"Failed to get MongoDB collection stats: {str(e)}")
+
+    def get_mongodb_performance_metrics(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get MongoDB performance metrics and server statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            database = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Getting performance metrics for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database]
+                
+                # Get comprehensive server status
+                server_status = db.command("serverStatus")
+                
+                # Extract key performance metrics
+                performance_metrics = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'opcounters': server_status.get('opcounters', {}),
+                    'opcountersRepl': server_status.get('opcountersRepl', {}),
+                    'connections': server_status.get('connections', {}),
+                    'memory': server_status.get('mem', {}),
+                    'globalLock': server_status.get('globalLock', {}),
+                    'locks': server_status.get('locks', {}),
+                    'network': server_status.get('network', {}),
+                    'metrics': {
+                        'cursor': server_status.get('metrics', {}).get('cursor', {}),
+                        'document': server_status.get('metrics', {}).get('document', {}),
+                        'operation': server_status.get('metrics', {}).get('operation', {}),
+                        'queryExecutor': server_status.get('metrics', {}).get('queryExecutor', {}),
+                        'repl': server_status.get('metrics', {}).get('repl', {})
+                    },
+                    'wiredTiger': server_status.get('wiredTiger', {}),
+                    'extra_info': server_status.get('extra_info', {}),
+                    'timestamp': server_status.get('localTime')
+                }
+                
+                client.close()
+                return performance_metrics
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to get MongoDB performance metrics for {instance.name}: {e}")
+            raise Exception(f"Failed to get MongoDB performance metrics: {str(e)}")
+
+    def get_mongodb_slow_queries(self, instance: ServiceInstance, database_name: Optional[str] = None, slow_threshold_ms: int = 100) -> Dict[str, Any]:
+        """Get MongoDB slow queries analysis"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            admin_db = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing slow queries for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                
+                # Set profiling level to capture slow operations
+                if database_name:
+                    databases = [database_name]
+                else:
+                    databases = client.list_database_names()
+                
+                slow_queries_data = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'slow_threshold_ms': slow_threshold_ms,
+                    'databases_analyzed': [],
+                    'total_slow_queries': 0
+                }
+                
+                for db_name in databases:
+                    if db_name in ['admin', 'local', 'config']:
+                        continue
+                        
+                    try:
+                        db = client[db_name]
+                        
+                        # Check current profiling status
+                        profile_status = db.command("profile", -1)
+                        
+                        # Get profiler data if available
+                        if 'system.profile' in db.list_collection_names():
+                            profile_collection = db['system.profile']
+                            
+                            # Query for slow operations
+                            slow_ops = list(profile_collection.find({
+                                'millis': {'$gte': slow_threshold_ms}
+                            }).sort('ts', -1).limit(50))
+                            
+                            db_analysis = {
+                                'database': db_name,
+                                'profiling_level': profile_status.get('was'),
+                                'slow_operations_count': len(slow_ops),
+                                'slow_operations': [
+                                    {
+                                        'timestamp': op.get('ts'),
+                                        'operation': op.get('op'),
+                                        'namespace': op.get('ns'),
+                                        'duration_ms': op.get('millis'),
+                                        'command': op.get('command', {}),
+                                        'docsExamined': op.get('docsExamined'),
+                                        'docsReturned': op.get('docsReturned'),
+                                        'planSummary': op.get('planSummary')
+                                    } for op in slow_ops
+                                ]
+                            }
+                            
+                            slow_queries_data['databases_analyzed'].append(db_analysis)
+                            slow_queries_data['total_slow_queries'] += len(slow_ops)
+                        
+                    except Exception as e:
+                        slow_queries_data['databases_analyzed'].append({
+                            'database': db_name,
+                            'error': f"Unable to analyze: {str(e)}"
+                        })
+                
+                client.close()
+                return slow_queries_data
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze MongoDB slow queries for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze MongoDB slow queries: {str(e)}")
+
+    def get_mongodb_index_analysis(self, instance: ServiceInstance, database_name: str, collection_name: Optional[str] = None) -> Dict[str, Any]:
+        """Get MongoDB index analysis and optimization recommendations"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing indexes for MongoDB instance: {instance.name}, database: {database_name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database_name]
+                
+                if collection_name:
+                    collection_names = [collection_name]
+                else:
+                    collection_names = db.list_collection_names()
+                
+                index_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'database_name': database_name,
+                    'collection_name': collection_name or 'all',
+                    'collections_analyzed': []
+                }
+                
+                for coll_name in collection_names:
+                    try:
+                        collection = db[coll_name]
+                        
+                        # Get all indexes
+                        indexes = list(collection.list_indexes())
+                        
+                        # Get index usage statistics if available
+                        try:
+                            index_stats = db.command("collStats", coll_name, indexDetails=True)
+                        except:
+                            index_stats = {}
+                        
+                        collection_analysis = {
+                            'collection': coll_name,
+                            'total_indexes': len(indexes),
+                            'indexes': [
+                                {
+                                    'name': idx.get('name'),
+                                    'key': idx.get('key'),
+                                    'unique': idx.get('unique', False),
+                                    'sparse': idx.get('sparse', False),
+                                    'partialFilterExpression': idx.get('partialFilterExpression'),
+                                    'expireAfterSeconds': idx.get('expireAfterSeconds'),
+                                    'background': idx.get('background', False)
+                                } for idx in indexes
+                            ],
+                            'recommendations': []
+                        }
+                        
+                        # Add basic recommendations
+                        if len(indexes) == 1:  # Only _id index
+                            collection_analysis['recommendations'].append(
+                                "Consider adding indexes for frequently queried fields"
+                            )
+                        elif len(indexes) > 10:
+                            collection_analysis['recommendations'].append(
+                                "High number of indexes detected - review if all are necessary"
+                            )
+                        
+                        index_analysis['collections_analyzed'].append(collection_analysis)
+                        
+                    except Exception as e:
+                        index_analysis['collections_analyzed'].append({
+                            'collection': coll_name,
+                            'error': f"Unable to analyze: {str(e)}"
+                        })
+                
+                client.close()
+                return index_analysis
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze MongoDB indexes for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze MongoDB indexes: {str(e)}")
+
+    def get_mongodb_replica_set_status(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get MongoDB replica set status and configuration"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            database = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Getting replica set status for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database]
+                
+                try:
+                    # Get replica set status
+                    rs_status = db.command("replSetGetStatus")
+                    rs_config = db.command("replSetGetConfig")
+                    
+                    replica_set_data = {
+                        'instance_name': instance.name,
+                        'instance_id': instance.instanceId,
+                        'replica_set_name': rs_status.get('set'),
+                        'status': {
+                            'ok': rs_status.get('ok'),
+                            'date': rs_status.get('date'),
+                            'myState': rs_status.get('myState'),
+                            'term': rs_status.get('term'),
+                            'heartbeatIntervalMillis': rs_status.get('heartbeatIntervalMillis')
+                        },
+                        'members': [
+                            {
+                                'name': member.get('name'),
+                                'health': member.get('health'),
+                                'state': member.get('state'),
+                                'stateStr': member.get('stateStr'),
+                                'uptime': member.get('uptime'),
+                                'optimeDate': member.get('optimeDate'),
+                                'lastHeartbeat': member.get('lastHeartbeat'),
+                                'lastHeartbeatRecv': member.get('lastHeartbeatRecv'),
+                                'pingMs': member.get('pingMs'),
+                                'electionTime': member.get('electionTime'),
+                                'electionDate': member.get('electionDate')
+                            } for member in rs_status.get('members', [])
+                        ],
+                        'config': {
+                            'version': rs_config.get('config', {}).get('version'),
+                            'members': [
+                                {
+                                    'id': member.get('_id'),
+                                    'host': member.get('host'),
+                                    'priority': member.get('priority'),
+                                    'votes': member.get('votes'),
+                                    'arbiterOnly': member.get('arbiterOnly', False),
+                                    'hidden': member.get('hidden', False)
+                                } for member in rs_config.get('config', {}).get('members', [])
+                            ]
+                        }
+                    }
+                    
+                except Exception as rs_error:
+                    # Not a replica set or no access
+                    replica_set_data = {
+                        'instance_name': instance.name,
+                        'instance_id': instance.instanceId,
+                        'replica_set_status': 'standalone_or_no_access',
+                        'error': str(rs_error)
+                    }
+                
+                client.close()
+                return replica_set_data
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to get MongoDB replica set status for {instance.name}: {e}")
+            raise Exception(f"Failed to get MongoDB replica set status: {str(e)}")
+
+    def get_mongodb_connection_analysis(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get MongoDB connection analysis and statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            database = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing connections for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database]
+                
+                # Get server status for connection info
+                server_status = db.command("serverStatus")
+                
+                # Get current operations to see active connections
+                try:
+                    current_ops = db.command("currentOp", True)
+                except:
+                    current_ops = {'inprog': []}
+                
+                connections_data = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'connection_stats': server_status.get('connections', {}),
+                    'network_stats': server_status.get('network', {}),
+                    'active_operations': len(current_ops.get('inprog', [])),
+                    'operations_by_type': {},
+                    'operations_by_client': {},
+                    'long_running_operations': []
+                }
+                
+                # Analyze current operations
+                for op in current_ops.get('inprog', []):
+                    op_type = op.get('op', 'unknown')
+                    client_addr = op.get('client', 'unknown')
+                    duration = op.get('secs_running', 0)
+                    
+                    # Count by operation type
+                    connections_data['operations_by_type'][op_type] = connections_data['operations_by_type'].get(op_type, 0) + 1
+                    
+                    # Count by client
+                    connections_data['operations_by_client'][client_addr] = connections_data['operations_by_client'].get(client_addr, 0) + 1
+                    
+                    # Track long-running operations (>30 seconds)
+                    if duration > 30:
+                        connections_data['long_running_operations'].append({
+                            'operation': op_type,
+                            'duration_seconds': duration,
+                            'client': client_addr,
+                            'description': op.get('desc', ''),
+                            'namespace': op.get('ns', '')
+                        })
+                
+                client.close()
+                return connections_data
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze MongoDB connections for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze MongoDB connections: {str(e)}")
+
+    def get_mongodb_operations_analysis(self, instance: ServiceInstance, operation_threshold_ms: int = 1000) -> Dict[str, Any]:
+        """Get MongoDB operations analysis and current operations"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            database = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing operations for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database]
+                
+                # Get current operations
+                try:
+                    current_ops = db.command("currentOp", True)
+                except:
+                    current_ops = {'inprog': []}
+                
+                # Get server status for operation counters
+                server_status = db.command("serverStatus")
+                
+                operations_data = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'operation_threshold_ms': operation_threshold_ms,
+                    'total_active_operations': len(current_ops.get('inprog', [])),
+                    'operation_counters': server_status.get('opcounters', {}),
+                    'operation_counters_repl': server_status.get('opcountersRepl', {}),
+                    'current_operations': [],
+                    'long_running_operations': [],
+                    'operations_by_type': {},
+                    'operations_by_database': {}
+                }
+                
+                # Analyze current operations
+                for op in current_ops.get('inprog', []):
+                    op_info = {
+                        'opid': op.get('opid'),
+                        'operation': op.get('op'),
+                        'namespace': op.get('ns'),
+                        'duration_seconds': op.get('secs_running', 0),
+                        'client': op.get('client'),
+                        'description': op.get('desc'),
+                        'command': op.get('command', {}),
+                        'waiting_for_lock': op.get('waitingForLock', False),
+                        'lock_stats': op.get('lockStats', {})
+                    }
+                    
+                    operations_data['current_operations'].append(op_info)
+                    
+                    # Count by type
+                    op_type = op.get('op', 'unknown')
+                    operations_data['operations_by_type'][op_type] = operations_data['operations_by_type'].get(op_type, 0) + 1
+                    
+                    # Count by database
+                    namespace = op.get('ns', '')
+                    if '.' in namespace:
+                        db_name = namespace.split('.')[0]
+                        operations_data['operations_by_database'][db_name] = operations_data['operations_by_database'].get(db_name, 0) + 1
+                    
+                    # Track long-running operations
+                    duration_ms = op.get('secs_running', 0) * 1000
+                    if duration_ms >= operation_threshold_ms:
+                        operations_data['long_running_operations'].append(op_info)
+                
+                client.close()
+                return operations_data
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze MongoDB operations for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze MongoDB operations: {str(e)}")
+
+    def get_mongodb_security_audit(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Perform MongoDB security audit and best practices check"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            database = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Performing security audit for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database]
+                
+                security_audit = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'authentication': {},
+                    'authorization': {},
+                    'encryption': {},
+                    'security_recommendations': [],
+                    'compliance_checks': {}
+                }
+                
+                # Check authentication mechanism
+                try:
+                    build_info = db.command("buildInfo")
+                    security_audit['authentication']['mongodb_version'] = build_info.get('version')
+                    
+                    # Check if authentication is enabled
+                    try:
+                        users = db.command("usersInfo")
+                        security_audit['authentication']['auth_enabled'] = True
+                        security_audit['authentication']['total_users'] = len(users.get('users', []))
+                    except:
+                        security_audit['authentication']['auth_enabled'] = False
+                        security_audit['security_recommendations'].append(
+                            "Authentication is not enabled - consider enabling authentication"
+                        )
+                    
+                    # Check SSL/TLS
+                    server_status = db.command("serverStatus")
+                    security_audit['encryption']['ssl_mode'] = server_status.get('transportSecurity', {}).get('mode', 'disabled')
+                    
+                    if security_audit['encryption']['ssl_mode'] == 'disabled':
+                        security_audit['security_recommendations'].append(
+                            "SSL/TLS encryption is not enabled - consider enabling for data in transit"
+                        )
+                    
+                    # Check for default database names
+                    db_names = client.list_database_names()
+                    if 'test' in db_names:
+                        security_audit['security_recommendations'].append(
+                            "Default 'test' database exists - consider removing if not needed"
+                        )
+                    
+                    # Basic compliance checks
+                    security_audit['compliance_checks'] = {
+                        'authentication_enabled': security_audit['authentication']['auth_enabled'],
+                        'encryption_in_transit': security_audit['encryption']['ssl_mode'] != 'disabled',
+                        'no_default_databases': 'test' not in db_names,
+                        'mongodb_version_supported': True  # Would need to check against EOL versions
+                    }
+                    
+                except Exception as audit_error:
+                    security_audit['error'] = f"Security audit incomplete: {str(audit_error)}"
+                
+                client.close()
+                return security_audit
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to perform MongoDB security audit for {instance.name}: {e}")
+            raise Exception(f"Failed to perform MongoDB security audit: {str(e)}")
+
+    def get_mongodb_backup_analysis(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Analyze MongoDB backup status and strategies"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            database = instance.config.get('database', 'admin')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing backup status for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                db = client[database]
+                
+                backup_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'backup_recommendations': [],
+                    'point_in_time_recovery': {},
+                    'storage_analysis': {}
+                }
+                
+                # Check if oplog exists (needed for point-in-time recovery)
+                try:
+                    oplog_stats = db.command("collStats", "oplog.rs")
+                    backup_analysis['point_in_time_recovery'] = {
+                        'oplog_available': True,
+                        'oplog_size_mb': oplog_stats.get('size', 0) / (1024 * 1024),
+                        'oplog_max_size_mb': oplog_stats.get('maxSize', 0) / (1024 * 1024),
+                        'oplog_usage_percent': (oplog_stats.get('size', 0) / max(oplog_stats.get('maxSize', 1), 1)) * 100
+                    }
+                    
+                    if backup_analysis['point_in_time_recovery']['oplog_usage_percent'] > 80:
+                        backup_analysis['backup_recommendations'].append(
+                            "Oplog usage is high - consider increasing oplog size for better point-in-time recovery"
+                        )
+                        
+                except:
+                    backup_analysis['point_in_time_recovery'] = {
+                        'oplog_available': False
+                    }
+                    backup_analysis['backup_recommendations'].append(
+                        "Oplog not available - point-in-time recovery may not be possible"
+                    )
+                
+                # Get storage information
+                try:
+                    db_stats = db.command("dbStats")
+                    backup_analysis['storage_analysis'] = {
+                        'data_size_mb': db_stats.get('dataSize', 0) / (1024 * 1024),
+                        'storage_size_mb': db_stats.get('storageSize', 0) / (1024 * 1024),
+                        'index_size_mb': db_stats.get('indexSize', 0) / (1024 * 1024),
+                        'total_collections': db_stats.get('collections', 0)
+                    }
+                except:
+                    pass
+                
+                # Add general backup recommendations
+                backup_analysis['backup_recommendations'].extend([
+                    "Implement regular automated backups",
+                    "Test backup restoration procedures regularly",
+                    "Store backups in geographically distributed locations",
+                    "Monitor backup success and failure rates",
+                    "Document backup and recovery procedures"
+                ])
+                
+                client.close()
+                return backup_analysis
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze MongoDB backup status for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze MongoDB backup status: {str(e)}")
+
+    def get_mongodb_capacity_planning(self, instance: ServiceInstance, projection_days: int = 30) -> Dict[str, Any]:
+        """Analyze MongoDB capacity and provide growth projections"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            connection_string = instance.config.get('connectionString')
+            
+            if not connection_string:
+                raise Exception("MongoDB connection string not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing capacity planning for MongoDB instance: {instance.name}")
+            
+            try:
+                from pymongo import MongoClient
+                from datetime import datetime, timedelta
+                
+                client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+                
+                capacity_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'projection_days': projection_days,
+                    'current_usage': {},
+                    'database_breakdown': [],
+                    'growth_projections': {},
+                    'capacity_recommendations': []
+                }
+                
+                # Get current storage usage
+                total_data_size = 0
+                total_storage_size = 0
+                total_index_size = 0
+                
+                db_names = client.list_database_names()
+                
+                for db_name in db_names:
+                    if db_name in ['admin', 'local', 'config']:
+                        continue
+                    
+                    try:
+                        db = client[db_name]
+                        db_stats = db.command("dbStats")
+                        
+                        db_info = {
+                            'database': db_name,
+                            'data_size_mb': db_stats.get('dataSize', 0) / (1024 * 1024),
+                            'storage_size_mb': db_stats.get('storageSize', 0) / (1024 * 1024),
+                            'index_size_mb': db_stats.get('indexSize', 0) / (1024 * 1024),
+                            'collections': db_stats.get('collections', 0),
+                            'objects': db_stats.get('objects', 0)
+                        }
+                        
+                        capacity_analysis['database_breakdown'].append(db_info)
+                        
+                        total_data_size += db_info['data_size_mb']
+                        total_storage_size += db_info['storage_size_mb']
+                        total_index_size += db_info['index_size_mb']
+                        
+                    except Exception as e:
+                        capacity_analysis['database_breakdown'].append({
+                            'database': db_name,
+                            'error': f"Unable to get stats: {str(e)}"
+                        })
+                
+                capacity_analysis['current_usage'] = {
+                    'total_data_size_mb': total_data_size,
+                    'total_storage_size_mb': total_storage_size,
+                    'total_index_size_mb': total_index_size,
+                    'total_size_mb': total_data_size + total_index_size,
+                    'storage_efficiency_percent': (total_data_size / max(total_storage_size, 1)) * 100
+                }
+                
+                # Simple growth projection (would be more sophisticated with historical data)
+                # Assume 10% monthly growth as baseline
+                monthly_growth_rate = 0.10
+                daily_growth_rate = monthly_growth_rate / 30
+                
+                projected_size = total_data_size * (1 + (daily_growth_rate * projection_days))
+                
+                capacity_analysis['growth_projections'] = {
+                    'current_size_mb': total_data_size,
+                    'projected_size_mb': projected_size,
+                    'growth_mb': projected_size - total_data_size,
+                    'growth_percent': ((projected_size - total_data_size) / max(total_data_size, 1)) * 100,
+                    'projection_date': (datetime.now() + timedelta(days=projection_days)).isoformat()
+                }
+                
+                # Add capacity recommendations
+                if capacity_analysis['current_usage']['storage_efficiency_percent'] < 50:
+                    capacity_analysis['capacity_recommendations'].append(
+                        "Low storage efficiency detected - consider running compact operations"
+                    )
+                
+                if projected_size > total_data_size * 2:
+                    capacity_analysis['capacity_recommendations'].append(
+                        f"High growth projected - plan for {projected_size:.1f}MB capacity in {projection_days} days"
+                    )
+                
+                capacity_analysis['capacity_recommendations'].extend([
+                    "Monitor storage usage trends regularly",
+                    "Plan for at least 20% buffer above projected usage",
+                    "Consider archiving old data if growth is unsustainable",
+                    "Review index usage and optimize if necessary"
+                ])
+                
+                client.close()
+                return capacity_analysis
+                
+            except ImportError:
+                raise Exception("pymongo library not available. Please install: pip install pymongo")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze MongoDB capacity planning for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze MongoDB capacity planning: {str(e)}") 

@@ -1,3 +1,4 @@
 # InfraInsights Enhanced Toolsets
 from .enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
-from .enhanced_kafka_toolset import EnhancedKafkaToolset 
+from .enhanced_kafka_toolset import EnhancedKafkaToolset
+from .enhanced_mongodb_toolset import EnhancedMongoDBToolset 

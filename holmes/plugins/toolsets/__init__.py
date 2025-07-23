@@ -45,6 +45,7 @@ from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 # Enhanced InfraInsights toolsets
 from holmes.plugins.toolsets.infrainsights.enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_kafka_toolset import EnhancedKafkaToolset
+from holmes.plugins.toolsets.infrainsights.enhanced_mongodb_toolset import EnhancedMongoDBToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -185,6 +186,18 @@ def load_toolsets_from_config(
                 # Call configure method to initialize InfraInsights client with config
                 if validated_toolset.config:
                     validated_toolset.configure(validated_toolset.config)
+            elif name == "infrainsights_mongodb_enhanced" or name == "infrainsights_mongodb_v2":
+                logging.info(f"🔧 Loading enhanced MongoDB toolset: {name}")
+                logging.info(f"🔧 Config received: {config}")
+                validated_toolset = EnhancedMongoDBToolset()
+                validated_toolset.config = config.get("config")
+                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
+                # Call configure method to initialize InfraInsights client with config
+                if validated_toolset.config:
+                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
+                    validated_toolset.configure(validated_toolset.config)
+                else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
