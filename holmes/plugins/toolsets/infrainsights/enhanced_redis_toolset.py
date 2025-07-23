@@ -75,8 +75,846 @@ class RedisHealthCheckTool(Tool):
         return f"redis_health_check(instance_name={instance_name})"
 
 
+class RedisPerformanceMetricsTool(Tool):
+    """Tool to analyze Redis performance metrics and throughput"""
+    
+    name: str = "redis_performance_metrics"
+    description: str = "Analyze Redis performance metrics including operations per second, latency, hit rates, and throughput statistics"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        ),
+        "time_range": ToolParameter(
+            description="Time range for metrics (e.g., '1h', '24h', '7d')",
+            type="string",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing performance metrics for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            metrics_data = self.toolset.infrainsights_client.get_redis_performance_metrics(
+                instance, params.get('time_range', '1h')
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=metrics_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis performance: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis performance: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        time_range = params.get('time_range', '1h')
+        return f"redis_performance_metrics(instance_name={instance_name}, time_range={time_range})"
+
+
+class RedisMemoryAnalysisTool(Tool):
+    """Tool to analyze Redis memory usage and optimization opportunities"""
+    
+    name: str = "redis_memory_analysis"
+    description: str = "Analyze Redis memory usage patterns, identify memory optimization opportunities, and check for memory fragmentation"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        ),
+        "include_key_analysis": ToolParameter(
+            description="Include detailed analysis of large keys",
+            type="boolean",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing memory usage for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            memory_data = self.toolset.infrainsights_client.get_redis_memory_analysis(
+                instance, params.get('include_key_analysis', False)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=memory_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis memory: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis memory: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        include_key_analysis = params.get('include_key_analysis', False)
+        return f"redis_memory_analysis(instance_name={instance_name}, include_key_analysis={include_key_analysis})"
+
+
+class RedisKeyAnalysisTool(Tool):
+    """Tool to analyze Redis keys, patterns, and data distribution"""
+    
+    name: str = "redis_key_analysis"
+    description: str = "Analyze Redis key patterns, identify large keys, check TTL distribution, and understand data organization"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        ),
+        "pattern": ToolParameter(
+            description="Key pattern to analyze (e.g., 'user:*', 'session:*')",
+            type="string",
+            required=False
+        ),
+        "limit": ToolParameter(
+            description="Maximum number of keys to analyze",
+            type="integer",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing keys for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            key_data = self.toolset.infrainsights_client.get_redis_key_analysis(
+                instance, 
+                pattern=params.get('pattern'),
+                limit=params.get('limit', 100)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=key_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis keys: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis keys: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        pattern = params.get('pattern', '*')
+        return f"redis_key_analysis(instance_name={instance_name}, pattern={pattern})"
+
+
+class RedisSlowLogAnalysisTool(Tool):
+    """Tool to analyze Redis slow query log and identify performance bottlenecks"""
+    
+    name: str = "redis_slow_log_analysis"
+    description: str = "Analyze Redis slow query log to identify performance bottlenecks, problematic commands, and optimization opportunities"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        ),
+        "limit": ToolParameter(
+            description="Number of slow log entries to analyze",
+            type="integer",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing slow log for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            slow_log_data = self.toolset.infrainsights_client.get_redis_slow_log_analysis(
+                instance, params.get('limit', 50)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=slow_log_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis slow log: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis slow log: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        limit = params.get('limit', 50)
+        return f"redis_slow_log_analysis(instance_name={instance_name}, limit={limit})"
+
+
+class RedisConnectionAnalysisTool(Tool):
+    """Tool to analyze Redis client connections and connection pooling"""
+    
+    name: str = "redis_connection_analysis"
+    description: str = "Analyze Redis client connections, identify connection issues, and review connection pooling efficiency"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        ),
+        "include_client_details": ToolParameter(
+            description="Include detailed client connection information",
+            type="boolean",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing connections for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            connection_data = self.toolset.infrainsights_client.get_redis_connection_analysis(
+                instance, params.get('include_client_details', False)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=connection_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis connections: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis connections: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        include_details = params.get('include_client_details', False)
+        return f"redis_connection_analysis(instance_name={instance_name}, include_client_details={include_details})"
+
+
+class RedisReplicationStatusTool(Tool):
+    """Tool to check Redis replication status and lag"""
+    
+    name: str = "redis_replication_status"
+    description: str = "Check Redis replication status, monitor replication lag, and identify replication issues"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to check",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Checking replication status for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            replication_data = self.toolset.infrainsights_client.get_redis_replication_status(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=replication_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error checking Redis replication: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to check Redis replication: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"redis_replication_status(instance_name={instance_name})"
+
+
+class RedisPersistenceAnalysisTool(Tool):
+    """Tool to analyze Redis persistence configuration and status"""
+    
+    name: str = "redis_persistence_analysis"
+    description: str = "Analyze Redis persistence configuration (RDB/AOF), check backup status, and identify persistence issues"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing persistence for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            persistence_data = self.toolset.infrainsights_client.get_redis_persistence_analysis(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=persistence_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis persistence: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis persistence: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"redis_persistence_analysis(instance_name={instance_name})"
+
+
+class RedisClusterAnalysisTool(Tool):
+    """Tool to analyze Redis cluster health and configuration"""
+    
+    name: str = "redis_cluster_analysis"
+    description: str = "Analyze Redis cluster health, node distribution, slot allocation, and cluster-wide performance"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis cluster to analyze",
+            type="string",
+            required=True
+        ),
+        "check_slot_distribution": ToolParameter(
+            description="Check slot distribution across nodes",
+            type="boolean",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing Redis cluster: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis cluster '{instance_name}' not found",
+                    params=params
+                )
+            
+            cluster_data = self.toolset.infrainsights_client.get_redis_cluster_analysis(
+                instance, params.get('check_slot_distribution', True)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=cluster_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis cluster: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis cluster: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        check_slots = params.get('check_slot_distribution', True)
+        return f"redis_cluster_analysis(instance_name={instance_name}, check_slot_distribution={check_slots})"
+
+
+class RedisSecurityAuditTool(Tool):
+    """Tool to audit Redis security configuration and access controls"""
+    
+    name: str = "redis_security_audit"
+    description: str = "Audit Redis security configuration, check authentication settings, ACL rules, and identify security vulnerabilities"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to audit",
+            type="string",
+            required=True
+        ),
+        "check_acl": ToolParameter(
+            description="Include detailed ACL analysis",
+            type="boolean",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Auditing security for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            security_data = self.toolset.infrainsights_client.get_redis_security_audit(
+                instance, params.get('check_acl', True)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=security_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error auditing Redis security: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to audit Redis security: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        check_acl = params.get('check_acl', True)
+        return f"redis_security_audit(instance_name={instance_name}, check_acl={check_acl})"
+
+
+class RedisCapacityPlanningTool(Tool):
+    """Tool to analyze Redis capacity and provide scaling recommendations"""
+    
+    name: str = "redis_capacity_planning"
+    description: str = "Analyze Redis capacity utilization, growth trends, and provide scaling recommendations"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        ),
+        "forecast_days": ToolParameter(
+            description="Number of days to forecast capacity needs",
+            type="integer",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing capacity for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            capacity_data = self.toolset.infrainsights_client.get_redis_capacity_planning(
+                instance, params.get('forecast_days', 30)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=capacity_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis capacity: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis capacity: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        forecast_days = params.get('forecast_days', 30)
+        return f"redis_capacity_planning(instance_name={instance_name}, forecast_days={forecast_days})"
+
+
+class RedisConfigurationAnalysisTool(Tool):
+    """Tool to analyze Redis configuration and provide optimization recommendations"""
+    
+    name: str = "redis_configuration_analysis"
+    description: str = "Analyze Redis configuration parameters, identify misconfigurations, and provide optimization recommendations"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Redis instance to analyze",
+            type="string",
+            required=True
+        ),
+        "check_defaults": ToolParameter(
+            description="Check for parameters using default values",
+            type="boolean",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Analyzing configuration for Redis instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "redis", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Redis instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            config_data = self.toolset.infrainsights_client.get_redis_configuration_analysis(
+                instance, params.get('check_defaults', True)
+            )
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=config_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error analyzing Redis configuration: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to analyze Redis configuration: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        check_defaults = params.get('check_defaults', True)
+        return f"redis_configuration_analysis(instance_name={instance_name}, check_defaults={check_defaults})"
+
+
 class EnhancedRedisToolset(Toolset):
-    """Enhanced Redis toolset with InfraInsights integration - MINIMAL VERSION with 1 tool"""
+    """Enhanced Redis toolset with InfraInsights integration for comprehensive caching and data store monitoring"""
     
     # Define custom fields for this toolset
     infrainsights_config: Optional[Any] = None
@@ -85,25 +923,51 @@ class EnhancedRedisToolset(Toolset):
     def __init__(self):
         from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig
         
-        logger.info("🚀🚀🚀 CREATING MINIMAL REDIS TOOLSET (1 TOOL ONLY) 🚀🚀🚀")
+        logger.info("🚀🚀🚀 CREATING COMPREHENSIVE REDIS TOOLSET 🚀🚀🚀")
         
         # Initialize Toolset with required parameters first
         super().__init__(
             name="infrainsights_redis_enhanced",
-            description="Enhanced Redis toolset with InfraInsights instance management - MINIMAL VERSION",
+            description="Enhanced Redis toolset with InfraInsights instance management for comprehensive caching analysis, performance monitoring, and operational excellence",
             enabled=True,
             tools=[],  # Start with empty tools list
             tags=[ToolsetTag.CLUSTER],
             prerequisites=[]  # Remove prerequisites during initialization
         )
         
-        # Create ONLY ONE Redis tool to start
+        # Create comprehensive Redis tools
         self.tools = [
+            # Basic operations and health
             RedisHealthCheckTool(toolset=None),
+            
+            # Performance and monitoring
+            RedisPerformanceMetricsTool(toolset=None),
+            RedisMemoryAnalysisTool(toolset=None),
+            RedisSlowLogAnalysisTool(toolset=None),
+            
+            # Data and key analysis
+            RedisKeyAnalysisTool(toolset=None),
+            
+            # Connection and networking
+            RedisConnectionAnalysisTool(toolset=None),
+            
+            # Replication and clustering
+            RedisReplicationStatusTool(toolset=None),
+            RedisClusterAnalysisTool(toolset=None),
+            
+            # Persistence and reliability
+            RedisPersistenceAnalysisTool(toolset=None),
+            
+            # Security and compliance
+            RedisSecurityAuditTool(toolset=None),
+            
+            # Capacity and optimization
+            RedisCapacityPlanningTool(toolset=None),
+            RedisConfigurationAnalysisTool(toolset=None),
         ]
         
-        # CRITICAL: Validate the single tool
-        logger.info(f"🔧 Validating {len(self.tools)} Redis tool...")
+        # Validate all tools
+        logger.info(f"🔧 Validating {len(self.tools)} Redis tools...")
         for i, tool in enumerate(self.tools):
             if tool is None:
                 logger.error(f"🔧 Tool {i} is None!")
@@ -115,7 +979,7 @@ class EnhancedRedisToolset(Toolset):
                 logger.error(f"🔧 Tool {i} has no 'name' attribute: {type(tool)}")
                 raise ValueError(f"Redis tool {i} has no 'name' attribute")
             logger.info(f"🔧 Tool {i} validated: {tool.name} ({type(tool).__name__})")
-        logger.info(f"✅ Redis tool validated successfully!")
+        logger.info(f"✅ All {len(self.tools)} Redis tools validated successfully!")
         
         # Initialize InfraInsights client with default config
         self.infrainsights_config = InfraInsightsConfig(
@@ -138,11 +1002,11 @@ class EnhancedRedisToolset(Toolset):
         # Set config to None initially
         self.config = None
         
-        logger.info("✅✅✅ MINIMAL REDIS TOOLSET CREATED SUCCESSFULLY ✅✅✅")
+        logger.info("✅✅✅ COMPREHENSIVE REDIS TOOLSET CREATED SUCCESSFULLY ✅✅✅")
     
     def configure(self, config: Dict[str, Any]) -> None:
         """Configure the toolset with the provided configuration"""
-        logger.info(f"🚀🚀🚀 CONFIGURING MINIMAL REDIS TOOLSET 🚀🚀🚀")
+        logger.info(f"🚀🚀🚀 CONFIGURING COMPREHENSIVE REDIS TOOLSET 🚀🚀🚀")
         logger.info(f"🔧 Config received: {config}")
         
         # Store the config
@@ -191,7 +1055,7 @@ class EnhancedRedisToolset(Toolset):
         # Now add prerequisites after configuration is complete
         self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
         
-        logger.info(f"✅✅✅ MINIMAL REDIS TOOLSET CONFIGURED WITH URL: {base_url} ✅✅✅")
+        logger.info(f"✅✅✅ COMPREHENSIVE REDIS TOOLSET CONFIGURED WITH URL: {base_url} ✅✅✅")
     
     def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
         """Check if InfraInsights client can connect to the backend"""
