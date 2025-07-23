@@ -202,15 +202,18 @@ def load_toolsets_from_config(
             elif name == "infrainsights_redis_enhanced" or name == "infrainsights_redis" or name == "redis":
                 logging.info(f"🔧 Loading enhanced Redis toolset: {name}")
                 logging.info(f"🔧 Config received: {config}")
-                validated_toolset = EnhancedRedisToolset()
-                validated_toolset.config = config.get("config")
-                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
-                # Call configure method to initialize InfraInsights client with config
-                if validated_toolset.config:
-                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
-                    validated_toolset.configure(validated_toolset.config)
-                else:
-                    logging.warning(f"🔧 No config found for {name}, using defaults")
+                # Temporarily disable Redis toolset to test if it's causing the dict error
+                logging.warning(f"🔧 TEMPORARILY SKIPPING REDIS TOOLSET FOR DEBUGGING")
+                continue
+                # validated_toolset = EnhancedRedisToolset()
+                # validated_toolset.config = config.get("config")
+                # logging.info(f"🔧 Extracted config: {validated_toolset.config}")
+                # # Call configure method to initialize InfraInsights client with config
+                # if validated_toolset.config:
+                #     logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
+                #     validated_toolset.configure(validated_toolset.config)
+                # else:
+                #     logging.warning(f"🔧 No config found for {name}, using defaults")
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:

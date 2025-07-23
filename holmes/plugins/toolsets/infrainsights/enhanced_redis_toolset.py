@@ -946,7 +946,8 @@ class EnhancedRedisToolset(Toolset):
         logger.info(f"🔧 Initialized with default URL: {self.infrainsights_config.base_url}")
         
         # Set toolset reference for tools
-        for tool in self.tools:
+        for i, tool in enumerate(self.tools):
+            logger.info(f"🔧 Setting toolset reference for tool {i}: {tool.name} ({type(tool).__name__})")
             tool.toolset = self
         
         # Set config to None initially
