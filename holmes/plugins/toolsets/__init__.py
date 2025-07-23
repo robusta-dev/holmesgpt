@@ -46,6 +46,7 @@ from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_kafka_toolset import EnhancedKafkaToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_mongodb_toolset import EnhancedMongoDBToolset
+from holmes.plugins.toolsets.infrainsights.enhanced_redis_toolset import EnhancedRedisToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -190,6 +191,18 @@ def load_toolsets_from_config(
                 logging.info(f"🔧 Loading enhanced MongoDB toolset: {name}")
                 logging.info(f"🔧 Config received: {config}")
                 validated_toolset = EnhancedMongoDBToolset()
+                validated_toolset.config = config.get("config")
+                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
+                # Call configure method to initialize InfraInsights client with config
+                if validated_toolset.config:
+                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
+                    validated_toolset.configure(validated_toolset.config)
+                else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
+            elif name == "infrainsights_redis_enhanced" or name == "infrainsights_redis" or name == "redis":
+                logging.info(f"🔧 Loading enhanced Redis toolset: {name}")
+                logging.info(f"🔧 Config received: {config}")
+                validated_toolset = EnhancedRedisToolset()
                 validated_toolset.config = config.get("config")
                 logging.info(f"🔧 Extracted config: {validated_toolset.config}")
                 # Call configure method to initialize InfraInsights client with config
