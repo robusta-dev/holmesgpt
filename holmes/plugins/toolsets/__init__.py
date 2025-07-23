@@ -145,6 +145,9 @@ def load_toolsets_from_config(
     :param strict_check: If True, all required fields for a toolset must be present.
     :return: List of validated Toolset objects.
     """
+    
+    logging.info("🚀🚀🚀 LOADING TOOLSETS FROM CONFIG - ENHANCED VERSION 🚀🚀🚀")
+    logging.info(f"📝 Received toolsets config: {list(toolsets.keys()) if toolsets else 'None'}")
 
     if not toolsets:
         return []
@@ -156,6 +159,7 @@ def load_toolsets_from_config(
         raise ValueError(message)
 
     for name, config in toolsets.items():
+        logging.info(f"🔧🔧🔧 PROCESSING TOOLSET: {name} 🔧🔧🔧")
         try:
             toolset_type = config.get("type", ToolsetType.BUILTIN.value)
             # MCP server is not a built-in toolset, so we need to set the type explicitly

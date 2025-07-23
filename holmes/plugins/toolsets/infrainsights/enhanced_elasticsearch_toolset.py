@@ -161,7 +161,7 @@ class EnhancedElasticsearchToolset(Toolset):
         from .infrainsights_client_v2 import InfraInsightsClientV2
         from .base_toolset_v2 import InfraInsightsConfig
         
-        logger.info("🔧 Creating EnhancedElasticsearchToolset instance")
+        logger.info("🚀🚀🚀 CREATING ENHANCED ELASTICSEARCH TOOLSET 🚀🚀🚀")
         
         # Create tools first
         tools = [
@@ -176,9 +176,7 @@ class EnhancedElasticsearchToolset(Toolset):
             enabled=True,
             tools=tools,
             tags=[ToolsetTag.CLUSTER],
-            prerequisites=[
-                CallablePrerequisite(callable=self._check_prerequisites)
-            ]
+            prerequisites=[]  # Remove prerequisites during initialization
         )
         
         # Initialize InfraInsights client with default config
@@ -202,11 +200,12 @@ class EnhancedElasticsearchToolset(Toolset):
         # Set config to None initially
         self.config = None
         
-        logger.info("✅ EnhancedElasticsearchToolset instance created successfully")
+        logger.info("✅✅✅ ENHANCED ELASTICSEARCH TOOLSET CREATED SUCCESSFULLY ✅✅✅")
     
     def configure(self, config: Dict[str, Any]) -> None:
         """Configure the toolset with the provided configuration"""
-        logger.info(f"🔧 Configuring EnhancedElasticsearchToolset with config: {config}")
+        logger.info(f"🚀🚀🚀 CONFIGURING ENHANCED ELASTICSEARCH TOOLSET 🚀🚀🚀")
+        logger.info(f"🔧 Config received: {config}")
         
         # Store the config
         self.config = config
@@ -249,28 +248,30 @@ class EnhancedElasticsearchToolset(Toolset):
         from .infrainsights_client_v2 import InfraInsightsClientV2
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
         
-        logger.info(f"✅ EnhancedElasticsearchToolset configured successfully with URL: {base_url}")
+        # Now add prerequisites after configuration is complete
+        self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
+        
+        logger.info(f"✅✅✅ ENHANCED ELASTICSEARCH TOOLSET CONFIGURED WITH URL: {base_url} ✅✅✅")
     
     def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
         """Check if InfraInsights client can connect to the backend"""
         try:
             logger.info(f"🔍 Checking prerequisites for InfraInsights client")
             logger.info(f"🔍 Current base_url: {self.infrainsights_config.base_url}")
-            
-            # Skip health check if still using default localhost (configuration not applied yet)
-            if self.infrainsights_config.base_url == "http://localhost:3000":
-                logger.info("🔍 Using default localhost URL, assuming configuration will be applied later")
-                return True, "InfraInsights configuration pending"
+            logger.info(f"🔍 API key configured: {'Yes' if self.infrainsights_config.api_key else 'No'}")
             
             # Try to connect to InfraInsights backend
+            logger.info(f"🔍 Attempting health check to: {self.infrainsights_config.base_url}/api/health")
             if self.infrainsights_client.health_check():
-                return True, "InfraInsights backend is accessible"
+                logger.info("✅ InfraInsights backend health check passed")
+                return True, f"InfraInsights backend is accessible at {self.infrainsights_config.base_url}"
             else:
-                return False, "InfraInsights backend is not accessible"
+                logger.warning("❌ InfraInsights backend health check failed")
+                return False, f"InfraInsights backend at {self.infrainsights_config.base_url} is not accessible"
         except Exception as e:
-            logger.warning(f"🔍 Prerequisites check failed: {str(e)}")
-            # Don't fail completely - allow toolset to load even if health check fails
-            return True, f"InfraInsights backend health check failed: {str(e)}"
+            logger.error(f"🔍 Prerequisites check failed: {str(e)}")
+            # Still allow toolset to load even if health check fails
+            return True, f"InfraInsights backend health check failed: {str(e)} (toolset still enabled)"
     
     def get_example_config(self) -> Dict[str, Any]:
         """Return example configuration for this toolset"""

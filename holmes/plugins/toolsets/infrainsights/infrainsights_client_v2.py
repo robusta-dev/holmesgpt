@@ -70,8 +70,12 @@ class InfraInsightsClientV2:
     def health_check(self) -> bool:
         """Check if InfraInsights API is accessible"""
         try:
-            response = self._make_request('GET', '/health')
-            return response.get('status') == 'healthy' or 'status' in response
+            logger.info(f"🔍 Health check: Calling {self.config.base_url}/api/health")
+            response = self._make_request('GET', '/api/health')
+            logger.info(f"🔍 Health check response: {response}")
+            is_healthy = response.get('status') == 'healthy' or 'status' in response
+            logger.info(f"🔍 Health check result: {'✅ Healthy' if is_healthy else '❌ Unhealthy'}")
+            return is_healthy
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return False
