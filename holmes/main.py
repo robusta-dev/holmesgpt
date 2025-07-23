@@ -14,6 +14,7 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 import json
 import logging
+import select
 import socket
 import uuid
 from datetime import datetime
@@ -219,16 +220,17 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)  # type: ignore
-
     # Detect and read piped input
     piped_data = None
     if not sys.stdin.isatty():
-        piped_data = sys.stdin.read().strip()
-        if interactive:
-            console.print(
-                "[bold yellow]Interactive mode disabled when reading piped input[/bold yellow]"
-            )
-            interactive = False
+        # Check if there's actually data available to read
+        if select.select([sys.stdin], [], [], 0.0)[0]:
+            piped_data = sys.stdin.read().strip()
+            if interactive:
+                console.print(
+                    "[bold yellow]Interactive mode disabled when reading piped input[/bold yellow]"
+                )
+                interactive = False
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
