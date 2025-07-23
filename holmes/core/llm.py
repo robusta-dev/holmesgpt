@@ -218,6 +218,7 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
+        self.args.setdefault("temperature", TEMPERATURE)
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
 
@@ -225,7 +226,6 @@ class DefaultLLM(LLM):
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,
             stream=stream,
