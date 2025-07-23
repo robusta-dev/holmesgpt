@@ -202,18 +202,24 @@ def load_toolsets_from_config(
             elif name == "infrainsights_redis_enhanced" or name == "infrainsights_redis" or name == "redis":
                 logging.info(f"🔧 Loading enhanced Redis toolset: {name}")
                 logging.info(f"🔧 Config received: {config}")
-                # Temporarily disable Redis toolset to test if it's causing the dict error
-                logging.warning(f"🔧 TEMPORARILY SKIPPING REDIS TOOLSET FOR DEBUGGING")
-                continue
-                # validated_toolset = EnhancedRedisToolset()
-                # validated_toolset.config = config.get("config")
-                # logging.info(f"🔧 Extracted config: {validated_toolset.config}")
-                # # Call configure method to initialize InfraInsights client with config
-                # if validated_toolset.config:
-                #     logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
-                #     validated_toolset.configure(validated_toolset.config)
-                # else:
-                #     logging.warning(f"🔧 No config found for {name}, using defaults")
+                validated_toolset = EnhancedRedisToolset()
+                validated_toolset.config = config.get("config")
+                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
+                
+                # Safety check: Verify all tools are proper Tool objects
+                logging.info(f"🔧 SAFETY CHECK: Verifying {len(validated_toolset.tools)} Redis tools")
+                for i, tool in enumerate(validated_toolset.tools):
+                    if not hasattr(tool, 'name'):
+                        logging.error(f"🔧 SAFETY CHECK FAILED: Tool {i} is not a proper Tool object: {type(tool)}")
+                        raise ValueError(f"Redis toolset tool {i} is not a proper Tool object: {type(tool)}")
+                    logging.info(f"🔧 SAFETY CHECK: Tool {i} OK: {tool.name} ({type(tool).__name__})")
+                
+                # Call configure method to initialize InfraInsights client with config
+                if validated_toolset.config:
+                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
+                    validated_toolset.configure(validated_toolset.config)
+                else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
