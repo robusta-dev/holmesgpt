@@ -90,7 +90,7 @@
 
 **Step 1 - Find Cluster Data Types** - Execute using azure mcp server with any table name (e.g., --table-name ContainerLogV2):
 ```kql
-find where TimeGenerated > ago(2h) and _ResourceId == "{CLUSTER_RESOURCE_ID}"
+find where TimeGenerated > ago(2h) and _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize count() by Type
 ```
 
@@ -137,11 +137,11 @@ by DataType
 
 ### 3. Enhanced ContainerLogV2 Namespace Analysis
 
-**Comprehensive Namespace Query** - Raw analysis of ALL namespaces without filtering bias:
+**Comprehensive Namespace Query** - Raw analysis of ALL namespaces with actionable recommendations:
 ```kql
 ContainerLogV2
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize 
     LogCount = count(),
     SizeBytes = sum(estimate_data_size(*)),
@@ -160,17 +160,75 @@ by PodNamespace
 | extend 
     PercentageOfTotal = round(SizeBytes * 100.0 / toscalar(
         ContainerLogV2 
-        | where TimeGenerated > ago(2h) and _ResourceId == "{CLUSTER_RESOURCE_ID}"
+        | where TimeGenerated > ago(2h) and _ResourceId =` "{CLUSTER_RESOURCE_ID}"
+        | summarize sum(estimate_data_size(*))
+    ), 2),
+    FilteringRecommendation = case(
+        SizeGB > 1.0, strcat("HIGH PRIORITY: ", PodNamespace, " (", round(SizeGB, 3), " GB/month, $", round(MonthlyAnalyticsCostUSD, 2), ") - Filter to save $", round(PotentialMonthlySavingsUSD, 2), "/month"),
+        SizeGB > 0.1, strcat("MEDIUM: ", PodNamespace, " (", round(SizeGB, 3), " GB/month, $", round(MonthlyAnalyticsCostUSD, 2), ") - Consider filtering to save $", round(PotentialMonthlySavingsUSD, 2), "/month"),
+        SizeGB > 0.01, strcat("LOW: ", PodNamespace, " (", round(SizeGB, 3), " GB/month, $", round(MonthlyAnalyticsCostUSD, 2), ") - Minimal impact"),
+        strcat("MINIMAL: ", PodNamespace, " (", round(SizeGB, 3), " GB/month, $", round(MonthlyAnalyticsCostUSD, 2), ") - Keep")
+    ),
+    ConfigMapEntry = case(
+        SizeGB > 0.05, strcat('"', PodNamespace, '"'),
+        ""
+    )
+| order by SizeGB desc
+```
+
+**Namespace ConfigMap Generator** - Generate dynamic ConfigMap recommendations based on analysis:
+```kql
+ContainerLogV2
+| where TimeGenerated > ago(2h)
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
+| summarize 
+    LogCount = count(),
+    SizeBytes = sum(estimate_data_size(*)),
+    UniqueContainers = dcount(ContainerName),
+    UniquePods = dcount(PodName)
+by PodNamespace
+| extend 
+    SizeGB = SizeBytes / 1024.0 / 1024.0 / 1024.0,
+    MonthlyAnalyticsCostUSD = SizeBytes / 1024.0 / 1024.0 / 1024.0 * 2.99 * 12 * 30,
+    PotentialMonthlySavingsUSD = SizeBytes / 1024.0 / 1024.0 / 1024.0 * 2.49 * 12 * 30,
+    PercentageOfTotal = round(SizeBytes * 100.0 / toscalar(
+        ContainerLogV2 
+        | where TimeGenerated > ago(2h) and _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
         | summarize sum(estimate_data_size(*))
     ), 2)
-| order by SizeGB desc
+| where SizeGB > 0.05  // Only include namespaces with meaningful volume
+| extend 
+    FilterCategory = case(
+        PodNamespace in ("kube-system", "kube-public", "kube-node-lease"), "SYSTEM",
+        PodNamespace contains "monitoring" or PodNamespace contains "prometheus" or PodNamespace contains "grafana", "MONITORING", 
+        PodNamespace contains "logging" or PodNamespace contains "fluent" or PodNamespace contains "elastic", "LOGGING",
+        PodNamespace contains "istio" or PodNamespace contains "linkerd" or PodNamespace contains "envoy", "SERVICE_MESH",
+        SizeGB > 1.0, "HIGH_VOLUME_APP",
+        "NORMAL_APP"
+    )
+| extend 
+    FilterPriority = case(
+        FilterCategory == "SYSTEM" and SizeGB > 0.5, 1,
+        FilterCategory == "MONITORING" and SizeGB > 0.3, 2,
+        FilterCategory == "LOGGING" and SizeGB > 0.3, 3,
+        FilterCategory == "SERVICE_MESH" and SizeGB > 0.2, 4,
+        FilterCategory == "HIGH_VOLUME_APP", 5,
+        999
+    )
+| extend 
+    ConfigMapGuidance = case(
+        FilterPriority <= 5, strcat("RECOMMENDED: Add '", PodNamespace, "' to exclude_namespaces (saves $", round(PotentialMonthlySavingsUSD, 2), "/month)"),
+        strcat("OPTIONAL: Consider '", PodNamespace, "' for filtering if needed")
+    )
+| order by FilterPriority asc, SizeGB desc
+| project PodNamespace, SizeGB, MonthlyAnalyticsCostUSD, PotentialMonthlySavingsUSD, PercentageOfTotal, FilterCategory, ConfigMapGuidance
 ```
 
 **Namespace Pattern Analysis** - Simple volume and cost analysis by namespace:
 ```kql
 ContainerLogV2
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize 
     TotalSizeBytes = sum(estimate_data_size(*)),
     LogCount = count(),
@@ -183,7 +241,7 @@ by PodNamespace
     BasicLogsSavingsUSD = TotalSizeBytes / 1024.0 / 1024.0 / 1024.0 * 2.49 * 12 * 30,
     PercentageOfTotal = round(TotalSizeBytes * 100.0 / toscalar(
         ContainerLogV2 
-        | where TimeGenerated > ago(2h) and _ResourceId == "{CLUSTER_RESOURCE_ID}"
+        | where TimeGenerated > ago(2h) and _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
         | summarize sum(estimate_data_size(*))
     ), 2)
 | order by TotalSizeGB desc
@@ -195,7 +253,7 @@ by PodNamespace
 ```kql
 ContainerLogV2
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | extend LogLevelParsed = case(
     // Primary: Check structured LogLevel column (case-insensitive)
     tolower(tostring(LogLevel)) == "info", "INFO",
@@ -237,12 +295,12 @@ by LogLevelParsed
     MonthlyAnalyticsCostUSD = SizeBytes / 1024.0 / 1024.0 / 1024.0 * 2.99 * 12 * 30,
     PercentageOfLogs = round(LogCount * 100.0 / toscalar(
         ContainerLogV2 
-        | where TimeGenerated > ago(2h) and _ResourceId == "{CLUSTER_RESOURCE_ID}"
+        | where TimeGenerated > ago(2h) and _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
         | count
     ), 2),
     PercentageOfVolume = round(SizeBytes * 100.0 / toscalar(
         ContainerLogV2 
-        | where TimeGenerated > ago(2h) and _ResourceId == "{CLUSTER_RESOURCE_ID}"
+        | where TimeGenerated > ago(2h) and _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
         | summarize sum(estimate_data_size(*))
     ), 2)
 | order by SizeGB desc
@@ -252,7 +310,7 @@ by LogLevelParsed
 ```kql
 ContainerLogV2
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | extend HasStructuredLogLevel = case(
     isnotempty(LogLevel) and LogLevel != "", "STRUCTURED",
     LogMessage contains '"level"' or LogMessage contains '"severity"', "JSON_STRUCTURED", 
@@ -269,7 +327,7 @@ by HasStructuredLogLevel
     TotalMonthlyCostUSD = TotalSizeBytes / 1024.0 / 1024.0 / 1024.0 * 2.99 * 12 * 30,
     LogStructurePercentage = round(TotalLogCount * 100.0 / toscalar(
         ContainerLogV2 
-        | where TimeGenerated > ago(2h) and _ResourceId == "{CLUSTER_RESOURCE_ID}"
+        | where TimeGenerated > ago(2h) and _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
         | count
     ), 1),
     FilteringFeasibility = case(
@@ -286,7 +344,7 @@ by HasStructuredLogLevel
 ```kql
 ContainerLog
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize 
     LogCount = count(),
     SizeBytes = sum(estimate_data_size(*)),
@@ -314,7 +372,7 @@ ContainerLog
 ```kql
 ContainerLog
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize 
     LogCount = count(),
     SizeBytes = sum(estimate_data_size(*)),
@@ -340,7 +398,7 @@ by Computer
 ```kql
 ContainerLog
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize 
     LogCount = count(),
     SizeBytes = sum(estimate_data_size(*)),
@@ -397,7 +455,7 @@ Usage
 ```kql
 KubePodInventory
 | where TimeGenerated > ago(2h)
-| where ClusterName contains "{CLUSTER_RESOURCE_ID}" or _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where ClusterName contains "{CLUSTER_RESOURCE_ID}" or _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize 
     PodCount = dcount(PodUid),
     NamespaceCount = dcount(Namespace),
@@ -420,7 +478,7 @@ by Namespace
 ```kql
 ContainerLogV2
 | where TimeGenerated > ago(2h)
-| where _ResourceId == "{CLUSTER_RESOURCE_ID}"
+| where _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
 | summarize 
     LogCount = count(),
     SizeBytes = sum(estimate_data_size(*))
@@ -912,10 +970,46 @@ Present findings using this structure:
 - **Not suitable for**: Real-time monitoring, long-term data retention, complex analytics
 
 **3. Namespace Filtering Optimization**
-- **Analysis-Driven Targets**: ${top_volume_namespaces_from_analysis}
-- **Expected Volume Reduction**: ${namespace_volume_reduction_percent}%
-- **Expected Savings**: $${namespace_filtering_savings}/month
-- **Implementation**: Deploy ConfigMap with namespace exclusions based on analysis results
+
+**EXECUTE NAMESPACE ANALYSIS IMMEDIATELY**: When generating this report, you MUST execute the "Namespace ConfigMap Generator" query from Section 3 and provide actual namespace-by-namespace results, NOT placeholder text.
+
+**Namespace Analysis Results**: Based on executed ContainerLogV2 namespace queries, provide detailed breakdown:
+
+**Volume & Cost by Namespace:**
+- Display results from "Comprehensive Namespace Query" showing each namespace's volume, cost, and filtering recommendations
+- Include specific GB amounts, USD costs, and percentage of total cluster logs per namespace
+- Show the actual FilteringRecommendation field results for each namespace
+
+**ConfigMap Implementation Guidance:**
+- Display results from "Namespace ConfigMap Generator" query showing specific namespaces to filter
+- Provide exact namespace names and their FilterCategory (SYSTEM, MONITORING, LOGGING, etc.)
+- Include specific dollar savings amounts per namespace from the ConfigMapGuidance field
+
+**Sample ConfigMap with Real Data:**
+Generate dynamic ConfigMap based on actual analysis results:
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: container-azm-ms-agentconfig
+  namespace: kube-system
+data:
+  schema-version: v1
+  config-version: ver1
+  log-data-collection-settings: |-
+    [log_collection_settings]
+       [log_collection_settings.stdout]
+          enabled = true
+          # Based on analysis results - add high-volume namespaces here:
+          # exclude_namespaces = [ACTUAL_NAMESPACE_LIST_FROM_ANALYSIS]
+       [log_collection_settings.stderr]
+          enabled = true
+          # exclude_namespaces = [ACTUAL_NAMESPACE_LIST_FROM_ANALYSIS]
+       [log_collection_settings.schema]
+          containerlog_schema_version = "v2"
+```
+
+**MANDATORY EXECUTION**: Do NOT use generic text like "No high-volume namespaces detected" - ALWAYS execute the namespace analysis queries and provide actual cluster-specific results with real namespace names, volumes, and costs.
 
 **4. Log Level Filtering (Conditional)**
 - **Debug/Trace Volume**: ${debug_trace_volume_gb} GB/month (${debug_trace_status})
