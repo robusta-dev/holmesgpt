@@ -89,14 +89,24 @@ class EnhancedRedisToolset(Toolset):
         
         logger.info("🚀🚀🚀 CREATING MINIMAL REDIS TOOLSET (1 TOOL ONLY) 🚀🚀🚀")
         
+        # Initialize Toolset with required parameters first
+        super().__init__(
+            name="infrainsights_redis_enhanced",
+            description="Enhanced Redis toolset with InfraInsights instance management - MINIMAL VERSION",
+            enabled=True,
+            tools=[],  # Start with empty tools list
+            tags=[ToolsetTag.CLUSTER],
+            prerequisites=[]  # Remove prerequisites during initialization
+        )
+        
         # Create ONLY ONE Redis tool to start
-        tools = [
-            RedisHealthCheckTool(toolset=None),
+        self.tools = [
+            RedisHealthCheckTool(toolset=self),  # Pass self as toolset immediately
         ]
         
         # CRITICAL: Validate the single tool
-        logger.info(f"🔧 Validating {len(tools)} Redis tool...")
-        for i, tool in enumerate(tools):
+        logger.info(f"🔧 Validating {len(self.tools)} Redis tool...")
+        for i, tool in enumerate(self.tools):
             if tool is None:
                 logger.error(f"🔧 Tool {i} is None!")
                 raise ValueError(f"Redis tool {i} is None")
@@ -108,16 +118,6 @@ class EnhancedRedisToolset(Toolset):
                 raise ValueError(f"Redis tool {i} has no 'name' attribute")
             logger.info(f"🔧 Tool {i} validated: {tool.name} ({type(tool).__name__})")
         logger.info(f"✅ Redis tool validated successfully!")
-        
-        # Initialize Toolset with required parameters
-        super().__init__(
-            name="infrainsights_redis_enhanced",
-            description="Enhanced Redis toolset with InfraInsights instance management - MINIMAL VERSION",
-            enabled=True,
-            tools=tools,
-            tags=[ToolsetTag.CLUSTER],
-            prerequisites=[]  # Remove prerequisites during initialization
-        )
         
         # Initialize InfraInsights client with default config
         self.infrainsights_config = InfraInsightsConfig(
@@ -132,10 +132,6 @@ class EnhancedRedisToolset(Toolset):
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
         
         logger.info(f"🔧 Initialized with default URL: {self.infrainsights_config.base_url}")
-        
-        # Set toolset reference for tools
-        for tool in self.tools:
-            tool.toolset = self
         
         # Set config to None initially
         self.config = None
