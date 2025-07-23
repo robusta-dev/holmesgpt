@@ -12,7 +12,6 @@ import litellm
 import os
 from holmes.common.env_vars import (
     THINKING,
-    TEMPERATURE,
 )
 
 
