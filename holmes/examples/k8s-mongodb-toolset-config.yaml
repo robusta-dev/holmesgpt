@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: holmesgpt-mongodb-toolset-config
+  namespace: monitoring
+data:
+  config.yaml: |
+    toolsets:
+      - name: "infrainsights_mongodb_enhanced"
+        description: "Enhanced MongoDB toolset with comprehensive monitoring and analysis"
+        enabled: true
+        config:
+          infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+          api_key: "${INFRAINSIGHTS_API_KEY}"
+          timeout: 30
+          enable_name_lookup: true
+          use_v2_api: true
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: holmesgpt-infrainsights-credentials
+  namespace: monitoring
+type: Opaque
+data:
+  api-key: <base64-encoded-api-key>  # Optional
+
+---
+# Example HolmesGPT Deployment with MongoDB Toolset
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: holmesgpt
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holmesgpt
+  template:
+    metadata:
+      labels:
+        app: holmesgpt
+    spec:
+      containers:
+      - name: holmesgpt
+        image: holmesgpt:latest
+        env:
+        - name: INFRAINSIGHTS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: holmesgpt-infrainsights-credentials
+              key: api-key
+              optional: true
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        command: ["/app/holmes"]
+        args: ["--config", "/app/config/config.yaml"]
+      volumes:
+      - name: config
+        configMap:
+          name: holmesgpt-mongodb-toolset-config
+
+---
+# Helm values.yaml example
+helm_values_example: |
+  # values.yaml for HolmesGPT Helm chart
+  holmesgpt:
+    toolsets:
+      infrainsights_mongodb_enhanced:
+        enabled: true
+        config:
+          infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+          api_key: "${INFRAINSIGHTS_API_KEY}"
+          timeout: 30
+          enable_name_lookup: true
+          use_v2_api: true
+    
+    env:
+      - name: INFRAINSIGHTS_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: infrainsights-credentials
+            key: api-key
+            optional: true 

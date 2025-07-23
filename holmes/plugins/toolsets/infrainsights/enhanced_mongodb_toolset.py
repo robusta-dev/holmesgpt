@@ -954,7 +954,7 @@ class EnhancedMongoDBToolset(Toolset):
             description="Enhanced MongoDB toolset with InfraInsights instance management for comprehensive database monitoring, performance analysis, and operational excellence",
             enabled=True,
             tools=tools,
-            tags=[ToolsetTag.DATABASE],
+            tags=[ToolsetTag.CLUSTER],
             prerequisites=[]  # Remove prerequisites during initialization
         )
         

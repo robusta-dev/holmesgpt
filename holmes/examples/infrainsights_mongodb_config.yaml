@@ -1,0 +1,51 @@
+# HolmesGPT Configuration with Enhanced MongoDB Toolset
+# Save this as config.yaml or add to your existing HolmesGPT config
+
+toolsets:
+  # Enhanced MongoDB Toolset Configuration
+  - name: "infrainsights_mongodb_enhanced"
+    description: "Enhanced MongoDB toolset with comprehensive monitoring and analysis"
+    enabled: true
+    config:
+      # InfraInsights Backend Configuration
+      infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+      api_key: "${INFRAINSIGHTS_API_KEY}"  # Optional API key for authentication
+      timeout: 30
+      enable_name_lookup: true
+      use_v2_api: true
+
+# Alternative configuration with environment-specific URLs
+toolsets_alternative:
+  - name: "infrainsights_mongodb_enhanced"
+    description: "Enhanced MongoDB toolset for production environment"
+    enabled: true
+    config:
+      infrainsights_url: "${INFRAINSIGHTS_BACKEND_URL:-http://localhost:3000}"
+      api_key: "${INFRAINSIGHTS_API_KEY}"
+      timeout: 45
+      enable_name_lookup: true
+      use_v2_api: true
+
+# Multiple environment example
+toolsets_multi_env:
+  # Production MongoDB Toolset
+  - name: "infrainsights_mongodb_enhanced"
+    description: "Production MongoDB monitoring"
+    enabled: true
+    config:
+      infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+      api_key: "${PROD_INFRAINSIGHTS_API_KEY}"
+      timeout: 30
+      enable_name_lookup: true
+      use_v2_api: true
+  
+  # Staging MongoDB Toolset (if using different backend)
+  - name: "infrainsights_mongodb_staging"
+    description: "Staging MongoDB monitoring"
+    enabled: true
+    config:
+      infrainsights_url: "http://staging-infrainsights.monitoring:5000"
+      api_key: "${STAGING_INFRAINSIGHTS_API_KEY}"
+      timeout: 30
+      enable_name_lookup: true
+      use_v2_api: true 
