@@ -2714,7 +2714,14 @@ class InfraInsightsClientV2:
                 slowest_commands = []
                 
                 for entry in slow_log_entries:
-                    timestamp, duration_microseconds, command_args, client_addr = entry[:4]
+                    # Handle both tuple/list format (older Redis) and dict format (newer Redis)
+                    if isinstance(entry, dict):
+                        timestamp = entry.get('start_time', 0)
+                        duration_microseconds = entry.get('duration', 0)
+                        command_args = entry.get('command', [])
+                        client_addr = entry.get('client_name', 'unknown')
+                    else:
+                        timestamp, duration_microseconds, command_args, client_addr = entry[:4]
                     
                     command = command_args[0] if command_args else 'UNKNOWN'
                     duration_ms = duration_microseconds / 1000
