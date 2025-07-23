@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Dict, Any, Optional
 from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult, Toolset, ToolsetTag, CallablePrerequisite, ToolParameter
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class RedisHealthCheckTool(Tool):
             required=True
         )
     }
+    toolset: Optional[Any] = Field(default=None, exclude=True)
     
     def __init__(self, toolset=None):
         super().__init__()
