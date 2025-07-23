@@ -129,7 +129,7 @@ class RedisPerformanceMetricsTool(Tool):
                 )
             
             metrics_data = self.toolset.infrainsights_client.get_redis_performance_metrics(
-                instance, params.get('time_range', '1h')
+                instance
             )
             
             return StructuredToolResult(
@@ -206,7 +206,7 @@ class RedisMemoryAnalysisTool(Tool):
                 )
             
             memory_data = self.toolset.infrainsights_client.get_redis_memory_analysis(
-                instance, params.get('include_key_analysis', False)
+                instance
             )
             
             return StructuredToolResult(
@@ -289,8 +289,9 @@ class RedisKeyAnalysisTool(Tool):
             
             key_data = self.toolset.infrainsights_client.get_redis_key_analysis(
                 instance, 
-                pattern=params.get('pattern'),
-                limit=params.get('limit', 100)
+                0,  # database_id - default to 0
+                params.get('pattern'),  # pattern
+                params.get('limit', 100)  # sample_size
             )
             
             return StructuredToolResult(
@@ -444,7 +445,7 @@ class RedisConnectionAnalysisTool(Tool):
                 )
             
             connection_data = self.toolset.infrainsights_client.get_redis_connection_analysis(
-                instance, params.get('include_client_details', False)
+                instance
             )
             
             return StructuredToolResult(
@@ -659,7 +660,7 @@ class RedisClusterAnalysisTool(Tool):
                 )
             
             cluster_data = self.toolset.infrainsights_client.get_redis_cluster_analysis(
-                instance, params.get('check_slot_distribution', True)
+                instance
             )
             
             return StructuredToolResult(
@@ -736,7 +737,7 @@ class RedisSecurityAuditTool(Tool):
                 )
             
             security_data = self.toolset.infrainsights_client.get_redis_security_audit(
-                instance, params.get('check_acl', True)
+                instance
             )
             
             return StructuredToolResult(
@@ -890,7 +891,7 @@ class RedisConfigurationAnalysisTool(Tool):
                 )
             
             config_data = self.toolset.infrainsights_client.get_redis_configuration_analysis(
-                instance, params.get('check_defaults', True)
+                instance
             )
             
             return StructuredToolResult(
