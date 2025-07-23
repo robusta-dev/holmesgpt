@@ -5,4 +5,3 @@ expected_output:
 evaluation:
   # Often Holmes does not suggest the correct namespace even if it consistently identify the namespace is wrong
   correctness: 0
-generate_mocks: False

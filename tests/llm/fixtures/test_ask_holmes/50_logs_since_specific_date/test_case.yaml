@@ -15,4 +15,3 @@ expected_output:
 evaluation:
   # Holmes SYSTEMATICALLY fetches the logs from 2023 instead of the current year (2025)
   correctness: 0
-generate_mocks: False
