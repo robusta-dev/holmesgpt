@@ -1,5 +1,5 @@
 # type: ignore
-from tests.llm.utils.mock_utils import HolmesTestCase
+from tests.llm.utils.test_case_utils import HolmesTestCase
 import pytest
 
 

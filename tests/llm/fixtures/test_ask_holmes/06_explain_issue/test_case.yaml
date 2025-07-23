@@ -3,5 +3,4 @@ expected_output:
   - low ephemeral storage on the node
 evaluation:
   correctness: 0
-generate_mocks: False
 # the LLM sometimes confuses the issue id for a resource and tries to run `kubectl get -A --show-labels -o wide pod | grep asodfkq1209edyhqawdo2uydqawidh`

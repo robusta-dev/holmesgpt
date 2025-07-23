@@ -6,6 +6,5 @@ expected_output:
 mocked_date: "2025-06-23T11:34:00Z"
 evaluation:
   correctness: 1
-generate_mocks: False
 tags:
   - datetime

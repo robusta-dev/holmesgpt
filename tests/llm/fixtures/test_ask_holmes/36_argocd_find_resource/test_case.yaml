@@ -4,4 +4,3 @@ expected_output:
   - Mention of my-demoshop-namespaces not found
 evaluation:
   correctness: 1
-generate_mocks: False
