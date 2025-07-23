@@ -39,14 +39,22 @@ def get_infrainsights_toolsets(config: Dict[str, Any] = None) -> List[Toolset]:
         except Exception as e:
             logger.error(f"❌ Failed to load Enhanced MongoDB toolset: {e}")
     
-    # Enhanced Redis toolset
-    if config.get('redis', {}).get('enabled', False):
-        try:
-            redis_toolset = EnhancedRedisToolset()
-            redis_toolset.configure(config.get('redis', {}))
-            toolsets.append(redis_toolset)
-            logger.info("✅ Enhanced Redis toolset loaded")
-        except Exception as e:
-            logger.error(f"❌ Failed to load Enhanced Redis toolset: {e}")
+    # Enhanced Redis toolset - support multiple config key variations
+    redis_configs = [
+        config.get('redis', {}),
+        config.get('infrainsights_redis', {}),
+        config.get('infrainsights_redis_enhanced', {})
+    ]
+    
+    for redis_config in redis_configs:
+        if redis_config.get('enabled', False):
+            try:
+                redis_toolset = EnhancedRedisToolset()
+                redis_toolset.configure(redis_config)
+                toolsets.append(redis_toolset)
+                logger.info("✅ Enhanced Redis toolset loaded")
+                break  # Only load one instance of Redis toolset
+            except Exception as e:
+                logger.error(f"❌ Failed to load Enhanced Redis toolset: {e}")
     
     return toolsets 
