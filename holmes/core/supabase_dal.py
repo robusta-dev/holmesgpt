@@ -182,6 +182,10 @@ class SupabaseDal:
         res = self.client.auth.sign_in_with_password(
             {"email": self.email, "password": self.password}
         )
+        if not res.session:
+            raise ValueError("Authentication failed: no session returned")
+        if not res.user:
+            raise ValueError("Authentication failed: no user returned")
         self.client.auth.set_session(
             res.session.access_token, res.session.refresh_token
         )
