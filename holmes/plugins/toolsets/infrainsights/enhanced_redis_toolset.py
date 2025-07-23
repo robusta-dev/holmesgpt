@@ -912,6 +912,15 @@ class EnhancedRedisToolset(Toolset):
             RedisCapacityPlanningTool(toolset=None),
         ]
         
+        # Verify all tools are properly created
+        logger.info(f"🔧 Created {len(tools)} Redis tools")
+        for i, tool in enumerate(tools):
+            if not hasattr(tool, 'name'):
+                logger.error(f"🔧 Tool {i} is not a proper Tool object: {type(tool)}")
+                raise ValueError(f"Tool {i} is not a proper Tool object: {type(tool)}")
+            else:
+                logger.info(f"🔧 Tool {i}: {tool.name} ({type(tool).__name__})")
+        
         # Initialize Toolset with required parameters
         super().__init__(
             name="infrainsights_redis_enhanced",
@@ -991,8 +1000,8 @@ class EnhancedRedisToolset(Toolset):
         from .infrainsights_client_v2 import InfraInsightsClientV2
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
         
-        # Now add prerequisites after configuration is complete
-        self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
+        # DON'T add prerequisites to avoid race condition where prerequisites are checked before config is complete
+        # self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
         
         logger.info(f"✅✅✅ ENHANCED REDIS TOOLSET CONFIGURED WITH URL: {base_url} ✅✅✅")
     
@@ -1000,8 +1009,19 @@ class EnhancedRedisToolset(Toolset):
         """Check if InfraInsights client can connect to the backend"""
         try:
             logger.info(f"🔍 Checking prerequisites for InfraInsights Redis client")
+            
+            # Check if infrainsights_config is properly initialized
+            if not self.infrainsights_config or not hasattr(self.infrainsights_config, 'base_url'):
+                logger.warning("🔍 InfraInsights config not properly initialized")
+                return True, "InfraInsights config not initialized (toolset still enabled)"
+            
             logger.info(f"🔍 Current base_url: {self.infrainsights_config.base_url}")
             logger.info(f"🔍 API key configured: {'Yes' if self.infrainsights_config.api_key else 'No'}")
+            
+            # Check if client is available
+            if not self.infrainsights_client:
+                logger.warning("🔍 InfraInsights client not available")
+                return True, "InfraInsights client not available (toolset still enabled)"
             
             # Try to connect to InfraInsights backend
             logger.info(f"🔍 Attempting health check to: {self.infrainsights_config.base_url}/api/health")
