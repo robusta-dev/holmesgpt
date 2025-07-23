@@ -8,4 +8,3 @@ after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/job_run_forever/job_run_forever.yaml
 evaluation:
   correctness: 1
-generate_mocks: False

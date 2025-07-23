@@ -7,7 +7,6 @@ from unittest.mock import patch
 from datetime import datetime
 
 from holmes.core.tracing import TracingFactory
-from holmes.common.env_vars import load_bool
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.models import ChatRequest
@@ -17,9 +16,9 @@ import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import after_test, before_test, set_test_env_vars
 from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.mock_toolset import MockToolsets
+from tests.llm.utils.mock_toolset import MockToolsetManager
 from braintrust import SpanTypeAttribute
-from tests.llm.utils.mock_utils import AskHolmesTestCase, Evaluation, MockHelper
+from tests.llm.utils.test_case_utils import AskHolmesTestCase, Evaluation, MockHelper
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
 from holmes.core.tracing import SpanType
@@ -63,7 +62,11 @@ def idfn(val):
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(
-    experiment_name: str, test_case: AskHolmesTestCase, caplog, request
+    experiment_name: str,
+    test_case: AskHolmesTestCase,
+    caplog,
+    request,
+    mock_generation_config,
 ):
     tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
 
@@ -79,6 +82,16 @@ def test_ask_holmes(
         with tracer.start_trace(
             name=test_case.id, span_type=SpanType.TASK
         ) as eval_span:
+            # Store span info in user properties for conftest to access
+            if hasattr(eval_span, "id"):
+                request.node.user_properties.append(
+                    ("braintrust_span_id", str(eval_span.id))
+                )
+            if hasattr(eval_span, "root_span_id"):
+                request.node.user_properties.append(
+                    ("braintrust_root_span_id", str(eval_span.root_span_id))
+                )
+
             with eval_span.start_span("Before Test Setup", type=SpanTypeAttribute.TASK):
                 before_test(test_case)
 
@@ -95,10 +108,20 @@ def test_ask_holmes(
                         **{"now.return_value": mocked_datetime, "side_effect": None}
                     )
                     with set_test_env_vars(test_case):
-                        result = ask_holmes(test_case=test_case, tracer=tracer)
+                        result = ask_holmes(
+                            test_case=test_case,
+                            tracer=tracer,
+                            mock_generation_config=mock_generation_config,
+                            request=request,
+                        )
             else:
                 with set_test_env_vars(test_case):
-                    result = ask_holmes(test_case=test_case, tracer=tracer)
+                    result = ask_holmes(
+                        test_case=test_case,
+                        tracer=tracer,
+                        mock_generation_config=mock_generation_config,
+                        request=request,
+                    )
 
     except Exception as e:
         # Log error to span if available
@@ -113,6 +136,37 @@ def test_ask_holmes(
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
+
+        # Check if this is a MockDataError
+        is_mock_error = "MockDataError" in type(e).__name__ or any(
+            "MockData" in base.__name__ for base in type(e).__mro__
+        )
+
+        if is_mock_error:
+            # Store minimal data for summary before failing
+            expected = test_case.expected_output
+            if not isinstance(expected, list):
+                expected = [expected]
+            debug_expected = "\n-  ".join(expected)
+
+            expected_correctness_score = (
+                test_case.evaluation.correctness.expected_score
+                if isinstance(test_case.evaluation.correctness, Evaluation)
+                else test_case.evaluation.correctness
+            )
+
+            # Record the mock failure in user_properties
+            request.node.user_properties.append(("expected", debug_expected))
+            request.node.user_properties.append(
+                ("actual", f"Mock data error: {str(e)}")
+            )
+            request.node.user_properties.append(("tools_called", []))
+            request.node.user_properties.append(
+                ("expected_correctness_score", expected_correctness_score)
+            )
+            request.node.user_properties.append(("actual_correctness_score", 0))
+            request.node.user_properties.append(("mock_data_failure", True))
+
         after_test(test_case)
         raise
 
@@ -195,24 +249,38 @@ def test_ask_holmes(
         ("actual_correctness_score", scores.get("correctness", 0))
     )
 
+    # Check if the output contains MockDataError (indicating a mock failure)
+    if output and any(
+        error_type in output
+        for error_type in [
+            "MockDataError",
+            "MockDataNotFoundError",
+            "MockDataCorruptedError",
+        ]
+    ):
+        # Record mock failure in user_properties
+        request.node.user_properties.append(("mock_data_failure", True))
+        # Fail the test
+        pytest.fail(
+            f"Test {test_case.id} failed due to mock data error\nActual: {output}\nExpected: {debug_expected}"
+        )
+
     assert (
         int(scores.get("correctness", 0)) == 1
     ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {debug_expected}"
 
 
-def ask_holmes(test_case: AskHolmesTestCase, tracer) -> LLMResult:
-    run_live = load_bool("RUN_LIVE", default=False)
-    mock = MockToolsets(
-        generate_mocks=test_case.generate_mocks,
+def ask_holmes(
+    test_case: AskHolmesTestCase, tracer, mock_generation_config, request=None
+) -> LLMResult:
+    mock = MockToolsetManager(
         test_case_folder=test_case.folder,
-        run_live=run_live,
+        mock_generation_config=mock_generation_config,
+        request=request,
     )
 
-    expected_tools = []
-    if not run_live:
-        for tool_mock in test_case.tool_mocks:
-            mock.mock_tool(tool_mock)
-            expected_tools.append(tool_mock.tool_name)
+    # With the new simplified mock system, mocks are loaded from disk on each tool invocation
+    # No need to populate mocks in memory anymore
 
     tool_executor = ToolExecutor(mock.enabled_toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]

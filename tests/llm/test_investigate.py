@@ -20,8 +20,8 @@ from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
-from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import InvestigateTestCase, MockHelper, Evaluation
+from tests.llm.utils.mock_toolset import MockToolsetManager
+from tests.llm.utils.test_case_utils import InvestigateTestCase, MockHelper, Evaluation
 from os import path
 from unittest.mock import patch
 
@@ -34,22 +34,20 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase, tracer):
+    def __init__(self, test_case: InvestigateTestCase, tracer, mock_generation_config):
         super().__init__()
         self._test_case = test_case
         self._tracer = tracer
+        self._mock_generation_config = mock_generation_config
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
-        mock = MockToolsets(
-            generate_mocks=self._test_case.generate_mocks,
+        mock = MockToolsetManager(
             test_case_folder=self._test_case.folder,
+            mock_generation_config=self._mock_generation_config,
         )
 
-        expected_tools = []
-        for tool_mock in self._test_case.tool_mocks:
-            mock.mock_tool(tool_mock)
-            expected_tools.append(tool_mock.tool_name)
-
+        # With the new file-based mock system, mocks are loaded from disk automatically
+        # No need to call mock_tool() anymore
         return ToolExecutor(mock.enabled_toolsets)
 
     def create_issue_investigator(
@@ -105,7 +103,11 @@ def idfn(val):
 @pytest.mark.llm
 @pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
 def test_investigate(
-    experiment_name: str, test_case: InvestigateTestCase, caplog, request
+    experiment_name: str,
+    test_case: InvestigateTestCase,
+    caplog,
+    request,
+    mock_generation_config,
 ):
     # Use unified tracing API for evals
     from holmes.core.tracing import TracingFactory
@@ -118,12 +120,12 @@ def test_investigate(
         metadata=braintrust_util.get_machine_state_tags(),
     )
 
-    config = MockConfig(test_case, tracer)
+    config = MockConfig(test_case, tracer, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
-        generate_mocks=test_case.generate_mocks,
+        generate_mocks=mock_generation_config.generate_mocks,
         issue_data=test_case.issue_data,
         resource_instructions=test_case.resource_instructions,
     )
@@ -145,6 +147,16 @@ def test_investigate(
         with tracer.start_trace(
             name=test_case.id, span_type=SpanType.TASK
         ) as eval_span:
+            # Store span info in user properties for conftest to access
+            if hasattr(eval_span, "id"):
+                request.node.user_properties.append(
+                    ("braintrust_span_id", str(eval_span.id))
+                )
+            if hasattr(eval_span, "root_span_id"):
+                request.node.user_properties.append(
+                    ("braintrust_root_span_id", str(eval_span.root_span_id))
+                )
+
             with set_test_env_vars(test_case):
                 result = investigate_issues(
                     investigate_request=investigate_request, config=config, dal=mock_dal
