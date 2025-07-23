@@ -2,6 +2,5 @@ expected_output:
   - Fraud service is slow due to a database query
 evaluation:
   correctness: 1
-generate_mocks: False
 # Unreliable. Some tool calls fail
 # Success rate 98.99%  for 99 evals

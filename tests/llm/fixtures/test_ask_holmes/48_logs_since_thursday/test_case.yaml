@@ -14,4 +14,3 @@ expected_output:
 evaluation:
   # Holmes fetches data excluding Thurday and starting Friday in 5% of cases
   correctness: 0
-generate_mocks: False

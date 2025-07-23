@@ -26,4 +26,3 @@ evaluation:
     type: "loose"
 include_files:
   - dns_troubleshooting_instructions.md
-generate_mocks: False

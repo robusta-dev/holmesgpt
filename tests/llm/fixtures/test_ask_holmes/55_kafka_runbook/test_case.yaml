@@ -17,4 +17,3 @@ include_files:
 evaluation:
   # gpt-4o does not get to the root cause which is slower consumer due to email processing.
   correctness: 0
-generate_mocks: False

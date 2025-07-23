@@ -122,6 +122,11 @@ export MODEL=anthropic/claude-3.5
 poetry run pytest tests/llm/test_ask_holmes.py
 ```
 
+**Test Infrastructure Notes**:
+- All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
+- Mock file tracking and test results are stored in `user_properties` and aggregated in the terminal summary
+- This design ensures tests work correctly when run in parallel with `-n` flag
+
 ## Configuration
 
 **Config File Location**: `~/.holmes/config.yaml`
