@@ -165,9 +165,15 @@ def load_toolsets_from_config(
             if name == "infrainsights_elasticsearch_enhanced" or name == "infrainsights_elasticsearch_v2":
                 validated_toolset = EnhancedElasticsearchToolset()
                 validated_toolset.config = config.get("config")
+                # Call configure method to initialize InfraInsights client with config
+                if validated_toolset.config:
+                    validated_toolset.configure(validated_toolset.config)
             elif name == "infrainsights_kafka_enhanced" or name == "infrainsights_kafka_v2":
                 validated_toolset = EnhancedKafkaToolset()
                 validated_toolset.config = config.get("config")
+                # Call configure method to initialize InfraInsights client with config
+                if validated_toolset.config:
+                    validated_toolset.configure(validated_toolset.config)
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:

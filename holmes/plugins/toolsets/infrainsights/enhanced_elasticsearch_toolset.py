@@ -161,6 +161,8 @@ class EnhancedElasticsearchToolset(Toolset):
         from .infrainsights_client_v2 import InfraInsightsClientV2
         from .base_toolset_v2 import InfraInsightsConfig
         
+        logger.info("🔧 Creating EnhancedElasticsearchToolset instance")
+        
         # Create tools first
         tools = [
             ElasticsearchHealthCheckTool(toolset=None),  # Will set toolset after initialization
@@ -191,12 +193,16 @@ class EnhancedElasticsearchToolset(Toolset):
         )
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
         
+        logger.info(f"🔧 Initialized with default URL: {self.infrainsights_config.base_url}")
+        
         # Set toolset reference for tools
         for tool in self.tools:
             tool.toolset = self
         
         # Set config to None initially
         self.config = None
+        
+        logger.info("✅ EnhancedElasticsearchToolset instance created successfully")
     
     def configure(self, config: Dict[str, Any]) -> None:
         """Configure the toolset with the provided configuration"""
