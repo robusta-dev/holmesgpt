@@ -2,15 +2,12 @@ import json
 import logging
 from typing import Dict, Any, Optional
 from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult, Toolset, ToolsetTag, CallablePrerequisite, ToolParameter
-from pydantic import ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
 
 class RedisHealthCheckTool(Tool):
     """Tool to check Redis instance health and server information"""
-    
-    model_config = ConfigDict(extra="forbid")
     
     name: str = "redis_health_check"
     description: str = "Check the health status of a Redis instance including server info, memory usage, and connectivity"
@@ -21,7 +18,7 @@ class RedisHealthCheckTool(Tool):
             required=True
         )
     }
-    toolset: Optional[Any] = Field(default=None, exclude=True)
+    toolset: Optional[Any] = None
     
     def __init__(self, toolset=None):
         super().__init__()
@@ -102,7 +99,7 @@ class EnhancedRedisToolset(Toolset):
         
         # Create ONLY ONE Redis tool to start
         self.tools = [
-            RedisHealthCheckTool(toolset=self),  # Pass self as toolset immediately
+            RedisHealthCheckTool(toolset=None),
         ]
         
         # CRITICAL: Validate the single tool
@@ -133,6 +130,10 @@ class EnhancedRedisToolset(Toolset):
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
         
         logger.info(f"🔧 Initialized with default URL: {self.infrainsights_config.base_url}")
+        
+        # Set toolset reference for tools
+        for tool in self.tools:
+            tool.toolset = self
         
         # Set config to None initially
         self.config = None

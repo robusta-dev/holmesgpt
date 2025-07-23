@@ -199,7 +199,7 @@ def load_toolsets_from_config(
                     validated_toolset.configure(validated_toolset.config)
                 else:
                     logging.warning(f"🔧 No config found for {name}, using defaults")
-            elif name == "infrainsights_redis_enhanced" or name == "infrainsights_redis" or name == "redis":
+            elif name == "infrainsights_redis_enhanced" or name == "infrainsights_redis":
                 logging.info(f"🔧 Loading enhanced Redis toolset: {name}")
                 logging.info(f"🔧 Config received: {config}")
                 validated_toolset = EnhancedRedisToolset()
