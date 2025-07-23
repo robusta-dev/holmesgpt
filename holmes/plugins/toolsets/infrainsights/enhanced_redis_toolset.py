@@ -874,16 +874,12 @@ class RedisConfigurationAnalysisTool(Tool):
 class EnhancedRedisToolset(Toolset):
     """Enhanced Redis toolset with InfraInsights integration for comprehensive cache monitoring and analysis"""
     
-    # Define custom fields for this toolset
-    infrainsights_config: Optional[Any] = None
-    infrainsights_client: Optional[Any] = None
-    
     def __init__(self):
         from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig
         
         logger.info("🚀🚀🚀 CREATING ENHANCED REDIS TOOLSET 🚀🚀🚀")
         
-        # Create comprehensive Redis tools
+        # Create comprehensive Redis tools following the exact same pattern as MongoDB/Elasticsearch
         tools = [
             # Basic operations and health
             RedisHealthCheckTool(toolset=None),
