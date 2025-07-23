@@ -541,4 +541,753 @@ class InfraInsightsClientV2:
             
         except Exception as e:
             logger.error(f"Failed to get Elasticsearch/OpenSearch indices for {instance.name}: {e}")
-            raise Exception(f"Failed to get Elasticsearch/OpenSearch indices: {str(e)}") 
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch indices: {str(e)}")
+
+    def get_elasticsearch_cluster_stats(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch cluster-wide statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    # OpenSearch client uses different auth parameter format
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    stats_response = client.cluster.stats()
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    stats_url = f"{es_url.rstrip('/')}/_cluster/stats"
+                    
+                    response = requests.get(stats_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    stats_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                # Elasticsearch client uses basic_auth parameter
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                stats_response = client.cluster.stats()
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'cluster_stats': stats_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch cluster stats for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch cluster stats: {str(e)}")
+
+    def get_elasticsearch_node_stats(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch node statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    stats_response = client.nodes.stats()
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    stats_url = f"{es_url.rstrip('/')}/_nodes/stats"
+                    
+                    response = requests.get(stats_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    stats_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                stats_response = client.nodes.stats()
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'node_stats': stats_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch node stats for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch node stats: {str(e)}")
+
+    def get_elasticsearch_index_stats(self, instance: ServiceInstance, index_name: Optional[str] = None) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch index statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    if index_name:
+                        stats_response = client.indices.stats(index=index_name)
+                    else:
+                        stats_response = client.indices.stats()
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    if index_name:
+                        stats_url = f"{es_url.rstrip('/')}/{index_name}/_stats"
+                    else:
+                        stats_url = f"{es_url.rstrip('/')}/_stats"
+                    
+                    response = requests.get(stats_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    stats_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                if index_name:
+                    stats_response = client.indices.stats(index=index_name)
+                else:
+                    stats_response = client.indices.stats()
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'index_name': index_name or 'all',
+                'index_stats': stats_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch index stats for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch index stats: {str(e)}")
+
+    def get_elasticsearch_shard_allocation(self, instance: ServiceInstance, index_name: Optional[str] = None) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch shard allocation information"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    if index_name:
+                        shards_response = client.cat.shards(index=index_name, format='json', v=True)
+                    else:
+                        shards_response = client.cat.shards(format='json', v=True)
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    if index_name:
+                        shards_url = f"{es_url.rstrip('/')}/_cat/shards/{index_name}?v&format=json"
+                    else:
+                        shards_url = f"{es_url.rstrip('/')}/_cat/shards?v&format=json"
+                    
+                    response = requests.get(shards_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    shards_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                if index_name:
+                    shards_response = client.cat.shards(index=index_name, format='json', v=True)
+                else:
+                    shards_response = client.cat.shards(format='json', v=True)
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'index_name': index_name or 'all',
+                'shard_allocation': shards_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch shard allocation for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch shard allocation: {str(e)}")
+
+    def get_elasticsearch_tasks(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch running tasks"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    tasks_response = client.tasks.list(detailed=True)
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    tasks_url = f"{es_url.rstrip('/')}/_tasks?detailed"
+                    
+                    response = requests.get(tasks_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    tasks_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                tasks_response = client.tasks.list(detailed=True)
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'tasks': tasks_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch tasks for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch tasks: {str(e)}")
+
+    def get_elasticsearch_pending_tasks(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch pending tasks"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    pending_response = client.cluster.pending_tasks()
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    pending_url = f"{es_url.rstrip('/')}/_cluster/pending_tasks"
+                    
+                    response = requests.get(pending_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    pending_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                pending_response = client.cluster.pending_tasks()
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'pending_tasks': pending_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch pending tasks for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch pending tasks: {str(e)}")
+
+    def get_elasticsearch_thread_pool_stats(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch thread pool statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    stats_response = client.nodes.stats(metric='thread_pool')
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    stats_url = f"{es_url.rstrip('/')}/_nodes/stats/thread_pool"
+                    
+                    response = requests.get(stats_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    stats_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                stats_response = client.nodes.stats(metric='thread_pool')
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'thread_pool_stats': stats_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch thread pool stats for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch thread pool stats: {str(e)}")
+
+    def get_elasticsearch_index_mapping(self, instance: ServiceInstance, index_name: str) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch index mapping"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    mapping_response = client.indices.get_mapping(index=index_name)
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    mapping_url = f"{es_url.rstrip('/')}/{index_name}/_mapping"
+                    
+                    response = requests.get(mapping_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    mapping_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                mapping_response = client.indices.get_mapping(index=index_name)
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'index_name': index_name,
+                'mapping': mapping_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch index mapping for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch index mapping: {str(e)}")
+
+    def get_elasticsearch_index_settings(self, instance: ServiceInstance, index_name: str) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch index settings"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    settings_response = client.indices.get_settings(index=index_name)
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    settings_url = f"{es_url.rstrip('/')}/{index_name}/_settings"
+                    
+                    response = requests.get(settings_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    settings_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                settings_response = client.indices.get_settings(index=index_name)
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'index_name': index_name,
+                'settings': settings_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch index settings for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch index settings: {str(e)}")
+
+    def get_elasticsearch_hot_threads(self, instance: ServiceInstance, node_name: Optional[str] = None) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch hot threads analysis"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    if node_name:
+                        hot_threads_response = client.nodes.hot_threads(node_id=node_name, threads=3)
+                    else:
+                        hot_threads_response = client.nodes.hot_threads(threads=3)
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    if node_name:
+                        hot_threads_url = f"{es_url.rstrip('/')}/_nodes/{node_name}/hot_threads?threads=3"
+                    else:
+                        hot_threads_url = f"{es_url.rstrip('/')}/_nodes/hot_threads?threads=3"
+                    
+                    response = requests.get(hot_threads_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    hot_threads_response = response.text  # Hot threads returns text, not JSON
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                if node_name:
+                    hot_threads_response = client.nodes.hot_threads(node_id=node_name, threads=3)
+                else:
+                    hot_threads_response = client.nodes.hot_threads(threads=3)
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'node_name': node_name or 'all',
+                'hot_threads': hot_threads_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch hot threads for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch hot threads: {str(e)}")
+
+    def get_elasticsearch_snapshot_status(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Elasticsearch/OpenSearch snapshot status"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            es_url = instance.config.get('elasticsearchUrl')
+            username = instance.config.get('username')
+            password = instance.config.get('password')
+            service_type = instance.config.get('type', 'elasticsearch').lower()
+            
+            if not es_url:
+                raise Exception("Elasticsearch/OpenSearch URL not found in instance configuration")
+            
+            logger.info(f"🔍 Detected service type: {service_type}")
+            
+            # Configure client based on service type
+            client_config = {
+                'hosts': [es_url],
+                'verify_certs': False,
+                'request_timeout': 30
+            }
+            
+            # Create appropriate client based on service type
+            if service_type == 'opensearch':
+                logger.info("🔍 Using OpenSearch-compatible approach")
+                try:
+                    from opensearchpy import OpenSearch
+                    
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                    
+                    client = OpenSearch(**client_config)
+                    snapshot_response = client.snapshot.status()
+                except ImportError:
+                    logger.warning("OpenSearch client not available, using direct HTTP request")
+                    import requests
+                    
+                    auth = (username, password) if username and password else None
+                    snapshot_url = f"{es_url.rstrip('/')}/_snapshot/_status"
+                    
+                    response = requests.get(snapshot_url, auth=auth, verify=False, timeout=30)
+                    response.raise_for_status()
+                    snapshot_response = response.json()
+            else:
+                logger.info("🔍 Using Elasticsearch client")
+                from elasticsearch import Elasticsearch
+                
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                
+                client = Elasticsearch(**client_config)
+                snapshot_response = client.snapshot.status()
+            
+            return {
+                'instance_name': instance.name,
+                'instance_id': instance.instanceId,
+                'snapshot_status': snapshot_response,
+                'service_type': service_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Elasticsearch/OpenSearch snapshot status for {instance.name}: {e}")
+            raise Exception(f"Failed to get Elasticsearch/OpenSearch snapshot status: {str(e)}") 

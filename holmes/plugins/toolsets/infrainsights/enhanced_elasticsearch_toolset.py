@@ -150,7 +150,824 @@ class ElasticsearchListIndicesTool(Tool):
         return f"elasticsearch_list_indices(instance_name={instance_name})"
 
 
-class EnhancedElasticsearchToolset(Toolset):
+class ElasticsearchClusterStatsTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch cluster statistics"""
+    
+    name: str = "elasticsearch_cluster_stats"
+    description: str = "Retrieve cluster-wide statistics including disk usage, shard distribution, and data nodes"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting cluster stats for Elasticsearch/OpenSearch instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            stats_data = self.toolset.infrainsights_client.get_elasticsearch_cluster_stats(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=stats_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting cluster stats: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get cluster stats: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"elasticsearch_cluster_stats(instance_name={instance_name})"
+
+
+class ElasticsearchNodeStatsTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch node statistics"""
+    
+    name: str = "elasticsearch_node_stats"
+    description: str = "Fetch detailed statistics for all nodes including JVM memory, CPU usage, and thread pool metrics"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting node stats for Elasticsearch/OpenSearch instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            stats_data = self.toolset.infrainsights_client.get_elasticsearch_node_stats(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=stats_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting node stats: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get node stats: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"elasticsearch_node_stats(instance_name={instance_name})"
+
+
+class ElasticsearchIndexStatsTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch index statistics"""
+    
+    name: str = "elasticsearch_index_stats"
+    description: str = "Retrieve statistics for a specific index including document count, size, and shard status"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        ),
+        "index_name": ToolParameter(
+            description="Name of the index (optional - if not provided, returns stats for all indices)",
+            type="string",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            index_name = params.get('index_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting index stats for Elasticsearch/OpenSearch instance: {instance_name}, index: {index_name or 'all'}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            stats_data = self.toolset.infrainsights_client.get_elasticsearch_index_stats(instance, index_name)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=stats_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting index stats: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get index stats: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        index_name = params.get('index_name', 'all')
+        return f"elasticsearch_index_stats(instance_name={instance_name}, index_name={index_name})"
+
+
+class ElasticsearchShardAllocationTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch shard allocation information"""
+    
+    name: str = "elasticsearch_shard_allocation"
+    description: str = "Fetch shard allocation and unassigned shard information for the cluster or a specific index"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        ),
+        "index_name": ToolParameter(
+            description="Name of the index (optional - if not provided, returns allocation for all indices)",
+            type="string",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            index_name = params.get('index_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting shard allocation for Elasticsearch/OpenSearch instance: {instance_name}, index: {index_name or 'all'}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            allocation_data = self.toolset.infrainsights_client.get_elasticsearch_shard_allocation(instance, index_name)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=allocation_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting shard allocation: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get shard allocation: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        index_name = params.get('index_name', 'all')
+        return f"elasticsearch_shard_allocation(instance_name={instance_name}, index_name={index_name})"
+
+
+class ElasticsearchTasksTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch running tasks"""
+    
+    name: str = "elasticsearch_tasks"
+    description: str = "List all currently running tasks in the cluster including task type and duration"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting running tasks for Elasticsearch/OpenSearch instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            tasks_data = self.toolset.infrainsights_client.get_elasticsearch_tasks(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=tasks_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting tasks: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get tasks: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"elasticsearch_tasks(instance_name={instance_name})"
+
+
+class ElasticsearchPendingTasksTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch pending tasks"""
+    
+    name: str = "elasticsearch_pending_tasks"
+    description: str = "List pending cluster-level tasks that might indicate bottlenecks"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting pending tasks for Elasticsearch/OpenSearch instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            pending_data = self.toolset.infrainsights_client.get_elasticsearch_pending_tasks(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=pending_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting pending tasks: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get pending tasks: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"elasticsearch_pending_tasks(instance_name={instance_name})"
+
+
+class ElasticsearchThreadPoolStatsTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch thread pool statistics"""
+    
+    name: str = "elasticsearch_thread_pool_stats"
+    description: str = "Retrieve thread pool statistics for all nodes including queue size, active threads, and rejections"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting thread pool stats for Elasticsearch/OpenSearch instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            stats_data = self.toolset.infrainsights_client.get_elasticsearch_thread_pool_stats(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=stats_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting thread pool stats: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get thread pool stats: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"elasticsearch_thread_pool_stats(instance_name={instance_name})"
+
+
+class ElasticsearchIndexMappingTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch index mapping"""
+    
+    name: str = "elasticsearch_index_mapping"
+    description: str = "Retrieve the mapping details of an index to analyze its structure and field types"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        ),
+        "index_name": ToolParameter(
+            description="Name of the index to get mapping for",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            index_name = params.get('index_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+                
+            if not index_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="index_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting index mapping for Elasticsearch/OpenSearch instance: {instance_name}, index: {index_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            mapping_data = self.toolset.infrainsights_client.get_elasticsearch_index_mapping(instance, index_name)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=mapping_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting index mapping: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get index mapping: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        index_name = params.get('index_name', 'unknown')
+        return f"elasticsearch_index_mapping(instance_name={instance_name}, index_name={index_name})"
+
+
+class ElasticsearchIndexSettingsTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch index settings"""
+    
+    name: str = "elasticsearch_index_settings"
+    description: str = "Retrieve the settings of an index including replication factor and refresh interval"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        ),
+        "index_name": ToolParameter(
+            description="Name of the index to get settings for",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            index_name = params.get('index_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+                
+            if not index_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="index_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting index settings for Elasticsearch/OpenSearch instance: {instance_name}, index: {index_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            settings_data = self.toolset.infrainsights_client.get_elasticsearch_index_settings(instance, index_name)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=settings_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting index settings: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get index settings: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        index_name = params.get('index_name', 'unknown')
+        return f"elasticsearch_index_settings(instance_name={instance_name}, index_name={index_name})"
+
+
+class ElasticsearchHotThreadsTool(Tool):
+    """Tool to analyze hot threads on Elasticsearch/OpenSearch nodes"""
+    
+    name: str = "elasticsearch_hot_threads"
+    description: str = "Analyze hot threads on nodes to diagnose performance bottlenecks"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        ),
+        "node_name": ToolParameter(
+            description="Name of the specific node (optional - if not provided, returns for all nodes)",
+            type="string",
+            required=False
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            node_name = params.get('node_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting hot threads for Elasticsearch/OpenSearch instance: {instance_name}, node: {node_name or 'all'}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            hot_threads_data = self.toolset.infrainsights_client.get_elasticsearch_hot_threads(instance, node_name)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=hot_threads_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting hot threads: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get hot threads: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        node_name = params.get('node_name', 'all')
+        return f"elasticsearch_hot_threads(instance_name={instance_name}, node_name={node_name})"
+
+
+class ElasticsearchSnapshotStatusTool(Tool):
+    """Tool to get Elasticsearch/OpenSearch snapshot status"""
+    
+    name: str = "elasticsearch_snapshot_status"
+    description: str = "Fetch the status of ongoing snapshots in the cluster"
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch or OpenSearch instance",
+            type="string",
+            required=True
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
+        super().__init__()
+        self.toolset = toolset
+    
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            instance_name = params.get('instance_name')
+            
+            if not instance_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="instance_name parameter is required",
+                    params=params
+                )
+            
+            logger.info(f"🔍 Getting snapshot status for Elasticsearch/OpenSearch instance: {instance_name}")
+            
+            if not self.toolset or not self.toolset.infrainsights_client:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="InfraInsights client not available",
+                    params=params
+                )
+            
+            instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
+                "elasticsearch", instance_name
+            )
+            
+            if not instance:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Elasticsearch/OpenSearch instance '{instance_name}' not found",
+                    params=params
+                )
+            
+            snapshot_data = self.toolset.infrainsights_client.get_elasticsearch_snapshot_status(instance)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=snapshot_data,
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting snapshot status: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to get snapshot status: {str(e)}",
+                params=params
+            )
+    
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        instance_name = params.get('instance_name', 'unknown')
+        return f"elasticsearch_snapshot_status(instance_name={instance_name})"
+
+
+class ElasticsearchEnhancedToolset(Toolset):
     """Enhanced Elasticsearch/OpenSearch toolset with InfraInsights integration"""
     
     # Define custom fields for this toolset
@@ -163,10 +980,30 @@ class EnhancedElasticsearchToolset(Toolset):
         
         logger.info("🚀🚀🚀 CREATING ENHANCED ELASTICSEARCH TOOLSET 🚀🚀🚀")
         
-        # Create tools first
+        # Create comprehensive tools
         tools = [
-            ElasticsearchHealthCheckTool(toolset=None),  # Will set toolset after initialization
-            ElasticsearchListIndicesTool(toolset=None)
+            # Basic operations
+            ElasticsearchHealthCheckTool(toolset=None),
+            ElasticsearchListIndicesTool(toolset=None),
+            
+            # Cluster and node monitoring
+            ElasticsearchClusterStatsTool(toolset=None),
+            ElasticsearchNodeStatsTool(toolset=None),
+            ElasticsearchThreadPoolStatsTool(toolset=None),
+            
+            # Index operations
+            ElasticsearchIndexStatsTool(toolset=None),
+            ElasticsearchIndexMappingTool(toolset=None),
+            ElasticsearchIndexSettingsTool(toolset=None),
+            ElasticsearchShardAllocationTool(toolset=None),
+            
+            # Task management and performance
+            ElasticsearchTasksTool(toolset=None),
+            ElasticsearchPendingTasksTool(toolset=None),
+            ElasticsearchHotThreadsTool(toolset=None),
+            
+            # Backup and maintenance
+            ElasticsearchSnapshotStatusTool(toolset=None),
         ]
         
         # Initialize Toolset with required parameters
