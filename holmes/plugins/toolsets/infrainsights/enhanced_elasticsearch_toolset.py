@@ -198,6 +198,38 @@ class EnhancedElasticsearchToolset(Toolset):
         # Set config to None initially
         self.config = None
     
+    def configure(self, config: Dict[str, Any]) -> None:
+        """Configure the toolset with the provided configuration"""
+        logger.info(f"🔧 Configuring EnhancedElasticsearchToolset with config: {config}")
+        
+        # Store the config
+        self.config = config
+        
+        # Extract InfraInsights configuration
+        infrainsights_config = config.get('config', {})
+        
+        # Update InfraInsights client configuration
+        base_url = infrainsights_config.get('infrainsights_url', 'http://localhost:3000')
+        api_key = infrainsights_config.get('api_key')
+        timeout = infrainsights_config.get('timeout', 30)
+        enable_name_lookup = infrainsights_config.get('enable_name_lookup', True)
+        use_v2_api = infrainsights_config.get('use_v2_api', True)
+        
+        logger.info(f"🔧 Updating InfraInsights client with base_url: {base_url}")
+        
+        # Update the InfraInsights config
+        self.infrainsights_config.base_url = base_url
+        self.infrainsights_config.api_key = api_key
+        self.infrainsights_config.timeout = timeout
+        self.infrainsights_config.enable_name_lookup = enable_name_lookup
+        self.infrainsights_config.use_v2_api = use_v2_api
+        
+        # Reinitialize the client with updated config
+        from .infrainsights_client_v2 import InfraInsightsClientV2
+        self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
+        
+        logger.info(f"✅ EnhancedElasticsearchToolset configured successfully")
+    
     def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
         """Check if InfraInsights client can connect to the backend"""
         try:
@@ -212,8 +244,11 @@ class EnhancedElasticsearchToolset(Toolset):
     def get_example_config(self) -> Dict[str, Any]:
         """Return example configuration for this toolset"""
         return {
-            "base_url": "http://localhost:3000",
-            "api_key": "your-api-key-here",
-            "timeout": 30,
-            "enable_name_lookup": True
+            "config": {
+                "infrainsights_url": "http://k8s-ui-service.monitoring:5000",
+                "api_key": "your-api-key-here",
+                "timeout": 30,
+                "enable_name_lookup": True,
+                "use_v2_api": True
+            }
         } 
