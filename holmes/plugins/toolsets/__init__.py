@@ -163,12 +163,19 @@ def load_toolsets_from_config(
             
             # Enhanced InfraInsights toolsets (support both naming conventions)
             if name == "infrainsights_elasticsearch_enhanced" or name == "infrainsights_elasticsearch_v2":
+                logging.info(f"🔧 Loading enhanced Elasticsearch toolset: {name}")
+                logging.info(f"🔧 Config received: {config}")
                 validated_toolset = EnhancedElasticsearchToolset()
                 validated_toolset.config = config.get("config")
+                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
                 # Call configure method to initialize InfraInsights client with config
                 if validated_toolset.config:
+                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
                     validated_toolset.configure(validated_toolset.config)
+                else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
             elif name == "infrainsights_kafka_enhanced" or name == "infrainsights_kafka_v2":
+                logging.info(f"🔧 Loading enhanced Kafka toolset: {name}")
                 validated_toolset = EnhancedKafkaToolset()
                 validated_toolset.config = config.get("config")
                 # Call configure method to initialize InfraInsights client with config
