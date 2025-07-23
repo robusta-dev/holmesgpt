@@ -2250,4 +2250,1419 @@ class InfraInsightsClientV2:
             
         except Exception as e:
             logger.error(f"Failed to analyze MongoDB capacity planning for {instance.name}: {e}")
-            raise Exception(f"Failed to analyze MongoDB capacity planning: {str(e)}") 
+            raise Exception(f"Failed to analyze MongoDB capacity planning: {str(e)}")
+
+    # Redis client methods
+    def get_redis_health(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Redis instance health and server information"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Connecting to Redis instance: {instance.name} at {host}:{port}")
+            
+            try:
+                import redis
+                
+                # Create Redis client
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30,
+                    socket_connect_timeout=30
+                )
+                
+                # Test connection and get server info
+                info = client.info()
+                ping_result = client.ping()
+                
+                # Get key statistics
+                dbsize = client.dbsize()
+                
+                health_data = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'connection_status': 'healthy' if ping_result else 'unhealthy',
+                    'server_info': {
+                        'redis_version': info.get('redis_version'),
+                        'redis_mode': info.get('redis_mode', 'standalone'),
+                        'arch_bits': info.get('arch_bits'),
+                        'uptime_in_seconds': info.get('uptime_in_seconds'),
+                        'uptime_in_days': info.get('uptime_in_days'),
+                        'tcp_port': info.get('tcp_port'),
+                        'process_id': info.get('process_id')
+                    },
+                    'memory_info': {
+                        'used_memory': info.get('used_memory'),
+                        'used_memory_human': info.get('used_memory_human'),
+                        'used_memory_rss': info.get('used_memory_rss'),
+                        'used_memory_peak': info.get('used_memory_peak'),
+                        'used_memory_peak_human': info.get('used_memory_peak_human'),
+                        'mem_fragmentation_ratio': info.get('mem_fragmentation_ratio')
+                    },
+                    'stats': {
+                        'total_connections_received': info.get('total_connections_received'),
+                        'total_commands_processed': info.get('total_commands_processed'),
+                        'connected_clients': info.get('connected_clients'),
+                        'blocked_clients': info.get('blocked_clients'),
+                        'expired_keys': info.get('expired_keys'),
+                        'evicted_keys': info.get('evicted_keys'),
+                        'keyspace_hits': info.get('keyspace_hits'),
+                        'keyspace_misses': info.get('keyspace_misses')
+                    },
+                    'database_info': {
+                        'total_keys': dbsize,
+                        'databases': {}
+                    }
+                }
+                
+                # Get database-specific key counts
+                for key, value in info.items():
+                    if key.startswith('db'):
+                        health_data['database_info']['databases'][key] = value
+                
+                client.close()
+                return health_data
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            except redis.ConnectionError:
+                raise Exception("Failed to connect to Redis server")
+            except redis.AuthenticationError:
+                raise Exception("Redis authentication failed - check password")
+            except redis.TimeoutError:
+                raise Exception("Redis connection timeout")
+            
+        except Exception as e:
+            logger.error(f"Failed to get Redis health for {instance.name}: {e}")
+            raise Exception(f"Failed to get Redis health: {str(e)}")
+
+    def get_redis_performance_metrics(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Redis performance metrics and statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Getting performance metrics for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get comprehensive server info
+                info = client.info()
+                
+                # Calculate hit ratio
+                hits = info.get('keyspace_hits', 0)
+                misses = info.get('keyspace_misses', 0)
+                total_requests = hits + misses
+                hit_ratio = (hits / total_requests * 100) if total_requests > 0 else 0
+                
+                # Calculate operations per second (approximation)
+                uptime = info.get('uptime_in_seconds', 1)
+                total_commands = info.get('total_commands_processed', 0)
+                ops_per_second = total_commands / uptime if uptime > 0 else 0
+                
+                performance_metrics = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'performance_summary': {
+                        'hit_ratio_percent': round(hit_ratio, 2),
+                        'operations_per_second': round(ops_per_second, 2),
+                        'memory_efficiency_percent': round((1 - info.get('mem_fragmentation_ratio', 1)) * 100, 2),
+                        'connected_clients': info.get('connected_clients', 0)
+                    },
+                    'command_stats': {
+                        'total_commands_processed': info.get('total_commands_processed', 0),
+                        'instantaneous_ops_per_sec': info.get('instantaneous_ops_per_sec', 0),
+                        'keyspace_hits': info.get('keyspace_hits', 0),
+                        'keyspace_misses': info.get('keyspace_misses', 0)
+                    },
+                    'memory_metrics': {
+                        'used_memory': info.get('used_memory', 0),
+                        'used_memory_rss': info.get('used_memory_rss', 0),
+                        'used_memory_peak': info.get('used_memory_peak', 0),
+                        'mem_fragmentation_ratio': info.get('mem_fragmentation_ratio', 0),
+                        'maxmemory': info.get('maxmemory', 0),
+                        'maxmemory_policy': info.get('maxmemory_policy', 'noeviction')
+                    },
+                    'connection_metrics': {
+                        'connected_clients': info.get('connected_clients', 0),
+                        'client_recent_max_input_buffer': info.get('client_recent_max_input_buffer', 0),
+                        'client_recent_max_output_buffer': info.get('client_recent_max_output_buffer', 0),
+                        'blocked_clients': info.get('blocked_clients', 0),
+                        'total_connections_received': info.get('total_connections_received', 0),
+                        'rejected_connections': info.get('rejected_connections', 0)
+                    },
+                    'persistence_metrics': {
+                        'rdb_changes_since_last_save': info.get('rdb_changes_since_last_save', 0),
+                        'rdb_last_save_time': info.get('rdb_last_save_time', 0),
+                        'aof_enabled': info.get('aof_enabled', 0),
+                        'aof_rewrite_in_progress': info.get('aof_rewrite_in_progress', 0),
+                        'aof_pending_rewrite': info.get('aof_pending_rewrite', 0)
+                    },
+                    'network_metrics': {
+                        'total_net_input_bytes': info.get('total_net_input_bytes', 0),
+                        'total_net_output_bytes': info.get('total_net_output_bytes', 0),
+                        'instantaneous_input_kbps': info.get('instantaneous_input_kbps', 0),
+                        'instantaneous_output_kbps': info.get('instantaneous_output_kbps', 0)
+                    }
+                }
+                
+                client.close()
+                return performance_metrics
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to get Redis performance metrics for {instance.name}: {e}")
+            raise Exception(f"Failed to get Redis performance metrics: {str(e)}")
+
+    def get_redis_memory_analysis(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Analyze Redis memory usage and fragmentation"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing memory usage for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                info = client.info('memory')
+                
+                # Calculate memory utilization
+                used_memory = info.get('used_memory', 0)
+                maxmemory = info.get('maxmemory', 0)
+                memory_utilization = (used_memory / maxmemory * 100) if maxmemory > 0 else 0
+                
+                # Get memory breakdown by data structure if available
+                memory_usage = {}
+                try:
+                    memory_usage = client.memory_usage('*') if hasattr(client, 'memory_usage') else {}
+                except:
+                    pass
+                
+                memory_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'memory_overview': {
+                        'used_memory_bytes': used_memory,
+                        'used_memory_human': info.get('used_memory_human', '0B'),
+                        'used_memory_rss_bytes': info.get('used_memory_rss', 0),
+                        'used_memory_peak_bytes': info.get('used_memory_peak', 0),
+                        'used_memory_peak_human': info.get('used_memory_peak_human', '0B'),
+                        'maxmemory_bytes': maxmemory,
+                        'memory_utilization_percent': round(memory_utilization, 2)
+                    },
+                    'fragmentation_analysis': {
+                        'mem_fragmentation_ratio': info.get('mem_fragmentation_ratio', 0),
+                        'mem_fragmentation_bytes': info.get('mem_fragmentation_bytes', 0),
+                        'allocator_frag_ratio': info.get('allocator_frag_ratio', 0),
+                        'allocator_frag_bytes': info.get('allocator_frag_bytes', 0),
+                        'allocator_rss_ratio': info.get('allocator_rss_ratio', 0),
+                        'allocator_rss_bytes': info.get('allocator_rss_bytes', 0)
+                    },
+                    'memory_policies': {
+                        'maxmemory_policy': info.get('maxmemory_policy', 'noeviction'),
+                        'evicted_keys': client.info().get('evicted_keys', 0),
+                        'expired_keys': client.info().get('expired_keys', 0)
+                    },
+                    'optimization_recommendations': []
+                }
+                
+                # Add optimization recommendations
+                fragmentation_ratio = info.get('mem_fragmentation_ratio', 0)
+                if fragmentation_ratio > 1.5:
+                    memory_analysis['optimization_recommendations'].append(
+                        f"High memory fragmentation detected ({fragmentation_ratio:.2f}). Consider running MEMORY PURGE or restarting Redis during low traffic."
+                    )
+                
+                if memory_utilization > 80:
+                    memory_analysis['optimization_recommendations'].append(
+                        f"High memory utilization ({memory_utilization:.1f}%). Consider increasing maxmemory or implementing key expiration policies."
+                    )
+                
+                if info.get('maxmemory_policy') == 'noeviction' and maxmemory > 0:
+                    memory_analysis['optimization_recommendations'].append(
+                        "No eviction policy set. Consider setting an appropriate eviction policy (e.g., allkeys-lru) to prevent out-of-memory errors."
+                    )
+                
+                client.close()
+                return memory_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis memory for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis memory: {str(e)}")
+
+    def get_redis_key_analysis(self, instance: ServiceInstance, database_id: int = 0, pattern: Optional[str] = None, sample_size: int = 1000) -> Dict[str, Any]:
+        """Analyze Redis keys and patterns"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing keys for Redis instance: {instance.name}, DB: {database_id}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    db=database_id,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get basic key statistics
+                dbsize = client.dbsize()
+                
+                # Sample keys for analysis
+                if pattern:
+                    sample_keys = list(client.scan_iter(match=pattern, count=min(sample_size, 100)))
+                else:
+                    sample_keys = list(client.scan_iter(count=min(sample_size, 100)))
+                
+                # Limit sample size to prevent performance issues
+                sample_keys = sample_keys[:sample_size]
+                
+                # Analyze key patterns and types
+                key_types = {}
+                key_patterns = {}
+                key_sizes = []
+                large_keys = []
+                ttl_analysis = {'with_ttl': 0, 'without_ttl': 0}
+                
+                for key in sample_keys:
+                    try:
+                        # Get key type
+                        key_type = client.type(key)
+                        key_types[key_type] = key_types.get(key_type, 0) + 1
+                        
+                        # Analyze key patterns
+                        if ':' in key:
+                            pattern_prefix = key.split(':')[0]
+                            key_patterns[pattern_prefix] = key_patterns.get(pattern_prefix, 0) + 1
+                        
+                        # Get key size (memory usage)
+                        try:
+                            if hasattr(client, 'memory_usage'):
+                                key_size = client.memory_usage(key)
+                                key_sizes.append(key_size)
+                                
+                                # Track large keys (>1MB)
+                                if key_size > 1024 * 1024:
+                                    large_keys.append({
+                                        'key': key,
+                                        'type': key_type,
+                                        'size_bytes': key_size,
+                                        'size_human': f"{key_size / (1024*1024):.2f}MB"
+                                    })
+                        except:
+                            pass
+                        
+                        # Check TTL
+                        ttl = client.ttl(key)
+                        if ttl > 0:
+                            ttl_analysis['with_ttl'] += 1
+                        else:
+                            ttl_analysis['without_ttl'] += 1
+                            
+                    except Exception as key_error:
+                        logger.warning(f"Error analyzing key {key}: {key_error}")
+                        continue
+                
+                # Calculate statistics
+                avg_key_size = sum(key_sizes) / len(key_sizes) if key_sizes else 0
+                total_sampled_memory = sum(key_sizes) if key_sizes else 0
+                
+                key_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'database_id': database_id,
+                    'pattern': pattern or 'all',
+                    'key_statistics': {
+                        'total_keys_in_db': dbsize,
+                        'sampled_keys': len(sample_keys),
+                        'sample_size_requested': sample_size
+                    },
+                    'key_type_distribution': key_types,
+                    'key_pattern_analysis': dict(sorted(key_patterns.items(), key=lambda x: x[1], reverse=True)[:20]),
+                    'memory_analysis': {
+                        'average_key_size_bytes': round(avg_key_size, 2),
+                        'total_sampled_memory_bytes': total_sampled_memory,
+                        'large_keys_count': len(large_keys),
+                        'large_keys': large_keys[:10]  # Top 10 largest keys
+                    },
+                    'ttl_analysis': ttl_analysis,
+                    'recommendations': []
+                }
+                
+                # Add recommendations
+                if ttl_analysis['without_ttl'] > ttl_analysis['with_ttl']:
+                    key_analysis['recommendations'].append(
+                        "Many keys without TTL detected. Consider setting appropriate expiration times to manage memory usage."
+                    )
+                
+                if len(large_keys) > 0:
+                    key_analysis['recommendations'].append(
+                        f"Found {len(large_keys)} large keys (>1MB). Consider data structure optimization or data partitioning."
+                    )
+                
+                most_common_type = max(key_types.items(), key=lambda x: x[1])[0] if key_types else None
+                if most_common_type == 'string' and key_types.get('string', 0) > len(sample_keys) * 0.8:
+                    key_analysis['recommendations'].append(
+                        "High percentage of string keys. Consider using more efficient data structures like hashes for structured data."
+                    )
+                
+                client.close()
+                return key_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis keys for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis keys: {str(e)}")
+
+    def get_redis_slow_log_analysis(self, instance: ServiceInstance, max_entries: int = 100) -> Dict[str, Any]:
+        """Analyze Redis slow log for performance issues"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing slow log for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get slow log entries
+                slow_log_entries = client.slowlog_get(max_entries)
+                
+                # Get slow log configuration
+                slow_log_len = client.slowlog_len()
+                config_info = client.config_get('slowlog-*')
+                
+                # Analyze slow log entries
+                command_frequency = {}
+                total_execution_time = 0
+                slowest_commands = []
+                
+                for entry in slow_log_entries:
+                    timestamp, duration_microseconds, command_args, client_addr = entry[:4]
+                    
+                    command = command_args[0] if command_args else 'UNKNOWN'
+                    duration_ms = duration_microseconds / 1000
+                    
+                    # Count command frequency
+                    command_frequency[command] = command_frequency.get(command, 0) + 1
+                    total_execution_time += duration_ms
+                    
+                    # Track slowest commands
+                    slowest_commands.append({
+                        'timestamp': timestamp,
+                        'duration_ms': round(duration_ms, 2),
+                        'command': command,
+                        'full_command': ' '.join(str(arg) for arg in command_args),
+                        'client': client_addr
+                    })
+                
+                # Sort by duration
+                slowest_commands.sort(key=lambda x: x['duration_ms'], reverse=True)
+                
+                slow_log_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'slow_log_config': {
+                        'slowlog_log_slower_than': config_info.get('slowlog-log-slower-than', 'unknown'),
+                        'slowlog_max_len': config_info.get('slowlog-max-len', 'unknown'),
+                        'current_entries': slow_log_len,
+                        'analyzed_entries': len(slow_log_entries)
+                    },
+                    'performance_summary': {
+                        'total_slow_commands': len(slow_log_entries),
+                        'total_execution_time_ms': round(total_execution_time, 2),
+                        'average_execution_time_ms': round(total_execution_time / len(slow_log_entries), 2) if slow_log_entries else 0,
+                        'slowest_command_ms': slowest_commands[0]['duration_ms'] if slowest_commands else 0
+                    },
+                    'command_analysis': {
+                        'command_frequency': dict(sorted(command_frequency.items(), key=lambda x: x[1], reverse=True)),
+                        'slowest_commands': slowest_commands[:20]  # Top 20 slowest
+                    },
+                    'recommendations': []
+                }
+                
+                # Add recommendations
+                if len(slow_log_entries) > 50:
+                    slow_log_analysis['recommendations'].append(
+                        f"High number of slow commands detected ({len(slow_log_entries)}). Investigate query optimization opportunities."
+                    )
+                
+                # Analyze most frequent slow commands
+                if command_frequency:
+                    most_frequent = max(command_frequency.items(), key=lambda x: x[1])
+                    if most_frequent[1] > len(slow_log_entries) * 0.3:
+                        slow_log_analysis['recommendations'].append(
+                            f"Command '{most_frequent[0]}' appears frequently in slow log ({most_frequent[1]} times). Consider optimization."
+                        )
+                
+                # Check for blocking commands
+                blocking_commands = ['KEYS', 'FLUSHALL', 'FLUSHDB', 'SORT']
+                found_blocking = [cmd for cmd in command_frequency.keys() if cmd in blocking_commands]
+                if found_blocking:
+                    slow_log_analysis['recommendations'].append(
+                        f"Blocking commands detected: {', '.join(found_blocking)}. Consider alternatives or run during maintenance windows."
+                    )
+                
+                client.close()
+                return slow_log_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis slow log for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis slow log: {str(e)}")
+
+    def get_redis_connection_analysis(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Analyze Redis connections and client statistics"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing connections for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get connection info from server stats
+                info = client.info()
+                
+                # Get client list
+                try:
+                    client_list = client.client_list()
+                except:
+                    client_list = []
+                
+                # Analyze client connections
+                client_by_type = {}
+                client_by_addr = {}
+                idle_clients = 0
+                long_running_clients = 0
+                
+                for client_info in client_list:
+                    client_type = client_info.get('name', 'unknown')
+                    client_addr = client_info.get('addr', 'unknown')
+                    idle_time = client_info.get('idle', 0)
+                    
+                    client_by_type[client_type] = client_by_type.get(client_type, 0) + 1
+                    client_by_addr[client_addr] = client_by_addr.get(client_addr, 0) + 1
+                    
+                    if idle_time > 300:  # 5 minutes
+                        idle_clients += 1
+                    if idle_time > 3600:  # 1 hour
+                        long_running_clients += 1
+                
+                connection_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'connection_overview': {
+                        'connected_clients': info.get('connected_clients', 0),
+                        'client_recent_max_input_buffer': info.get('client_recent_max_input_buffer', 0),
+                        'client_recent_max_output_buffer': info.get('client_recent_max_output_buffer', 0),
+                        'blocked_clients': info.get('blocked_clients', 0),
+                        'total_connections_received': info.get('total_connections_received', 0),
+                        'rejected_connections': info.get('rejected_connections', 0)
+                    },
+                    'client_analysis': {
+                        'total_active_clients': len(client_list),
+                        'clients_by_type': client_by_type,
+                        'unique_client_addresses': len(client_by_addr),
+                        'idle_clients_5min_plus': idle_clients,
+                        'long_running_clients_1hr_plus': long_running_clients
+                    },
+                    'connection_patterns': {
+                        'top_client_addresses': dict(sorted(client_by_addr.items(), key=lambda x: x[1], reverse=True)[:10])
+                    },
+                    'recommendations': []
+                }
+                
+                # Add recommendations
+                if info.get('rejected_connections', 0) > 0:
+                    connection_analysis['recommendations'].append(
+                        f"Rejected connections detected ({info.get('rejected_connections')}). Consider increasing maxclients or optimizing connection usage."
+                    )
+                
+                if idle_clients > len(client_list) * 0.5:
+                    connection_analysis['recommendations'].append(
+                        f"High number of idle clients ({idle_clients}/{len(client_list)}). Consider implementing connection pooling or reducing connection timeouts."
+                    )
+                
+                if info.get('connected_clients', 0) > 1000:
+                    connection_analysis['recommendations'].append(
+                        "High number of connected clients. Monitor for connection leaks and consider connection limits."
+                    )
+                
+                client.close()
+                return connection_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis connections for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis connections: {str(e)}")
+
+    def get_redis_replication_status(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Get Redis replication status and master-slave health"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Checking replication status for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get replication info
+                replication_info = client.info('replication')
+                
+                replication_status = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'replication_role': replication_info.get('role', 'unknown'),
+                    'master_info': {},
+                    'slave_info': {},
+                    'replication_health': 'healthy'
+                }
+                
+                if replication_info.get('role') == 'master':
+                    # Master node analysis
+                    connected_slaves = replication_info.get('connected_slaves', 0)
+                    slaves = []
+                    
+                    for i in range(connected_slaves):
+                        slave_key = f'slave{i}'
+                        if slave_key in replication_info:
+                            slave_data = replication_info[slave_key]
+                            # Parse slave info (format: ip=X,port=Y,state=online,offset=Z,lag=N)
+                            slave_info = {}
+                            for item in slave_data.split(','):
+                                if '=' in item:
+                                    key, value = item.split('=', 1)
+                                    slave_info[key] = value
+                            slaves.append(slave_info)
+                    
+                    replication_status['master_info'] = {
+                        'connected_slaves': connected_slaves,
+                        'slaves': slaves,
+                        'master_replid': replication_info.get('master_replid'),
+                        'master_replid2': replication_info.get('master_replid2'),
+                        'master_repl_offset': replication_info.get('master_repl_offset'),
+                        'second_repl_offset': replication_info.get('second_repl_offset')
+                    }
+                    
+                    # Check for replication lag
+                    max_lag = 0
+                    for slave in slaves:
+                        lag = int(slave.get('lag', 0))
+                        if lag > max_lag:
+                            max_lag = lag
+                    
+                    if max_lag > 10:  # 10 seconds lag
+                        replication_status['replication_health'] = 'degraded'
+                    
+                elif replication_info.get('role') == 'slave':
+                    # Slave node analysis
+                    replication_status['slave_info'] = {
+                        'master_host': replication_info.get('master_host'),
+                        'master_port': replication_info.get('master_port'),
+                        'master_link_status': replication_info.get('master_link_status'),
+                        'master_last_io_seconds_ago': replication_info.get('master_last_io_seconds_ago'),
+                        'master_sync_in_progress': replication_info.get('master_sync_in_progress'),
+                        'slave_repl_offset': replication_info.get('slave_repl_offset'),
+                        'slave_priority': replication_info.get('slave_priority'),
+                        'slave_read_only': replication_info.get('slave_read_only')
+                    }
+                    
+                    # Check slave health
+                    if replication_info.get('master_link_status') != 'up':
+                        replication_status['replication_health'] = 'unhealthy'
+                    elif replication_info.get('master_last_io_seconds_ago', 0) > 30:
+                        replication_status['replication_health'] = 'degraded'
+                
+                else:
+                    # Standalone instance
+                    replication_status['standalone_info'] = {
+                        'message': 'This is a standalone Redis instance (not part of replication)'
+                    }
+                
+                client.close()
+                return replication_status
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to check Redis replication status for {instance.name}: {e}")
+            raise Exception(f"Failed to check Redis replication status: {str(e)}")
+
+    def get_redis_persistence_analysis(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Analyze Redis persistence configuration and backup status"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing persistence for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                import time
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get persistence-related info
+                persistence_info = client.info('persistence')
+                config_info = client.config_get('*save*')
+                aof_config = client.config_get('*aof*')
+                
+                # Calculate time since last save
+                last_save_time = persistence_info.get('rdb_last_save_time', 0)
+                current_time = int(time.time())
+                time_since_last_save = current_time - last_save_time
+                
+                persistence_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'rdb_configuration': {
+                        'save_points': config_info.get('save', 'disabled'),
+                        'rdb_changes_since_last_save': persistence_info.get('rdb_changes_since_last_save', 0),
+                        'rdb_bgsave_in_progress': persistence_info.get('rdb_bgsave_in_progress', 0),
+                        'rdb_last_save_time': last_save_time,
+                        'time_since_last_save_seconds': time_since_last_save,
+                        'rdb_last_bgsave_status': persistence_info.get('rdb_last_bgsave_status', 'unknown'),
+                        'rdb_last_bgsave_time_sec': persistence_info.get('rdb_last_bgsave_time_sec', 0)
+                    },
+                    'aof_configuration': {
+                        'aof_enabled': aof_config.get('appendonly', 'no') == 'yes',
+                        'aof_rewrite_in_progress': persistence_info.get('aof_rewrite_in_progress', 0),
+                        'aof_rewrite_scheduled': persistence_info.get('aof_rewrite_scheduled', 0),
+                        'aof_last_rewrite_time_sec': persistence_info.get('aof_last_rewrite_time_sec', 0),
+                        'aof_current_rewrite_time_sec': persistence_info.get('aof_current_rewrite_time_sec', 0),
+                        'aof_last_bgrewrite_status': persistence_info.get('aof_last_bgrewrite_status', 'unknown'),
+                        'aof_last_write_status': persistence_info.get('aof_last_write_status', 'unknown')
+                    },
+                    'data_safety_analysis': {
+                        'unsaved_changes': persistence_info.get('rdb_changes_since_last_save', 0),
+                        'persistence_enabled': config_info.get('save', 'disabled') != 'disabled' or aof_config.get('appendonly', 'no') == 'yes'
+                    },
+                    'recommendations': []
+                }
+                
+                # Add recommendations
+                if config_info.get('save', 'disabled') == 'disabled' and aof_config.get('appendonly', 'no') == 'no':
+                    persistence_analysis['recommendations'].append(
+                        "No persistence configured! Data will be lost on restart. Enable RDB snapshots or AOF logging."
+                    )
+                
+                if persistence_info.get('rdb_changes_since_last_save', 0) > 10000:
+                    persistence_analysis['recommendations'].append(
+                        f"High number of unsaved changes ({persistence_info.get('rdb_changes_since_last_save')}). Consider more frequent saves."
+                    )
+                
+                if time_since_last_save > 3600 and persistence_info.get('rdb_changes_since_last_save', 0) > 0:
+                    persistence_analysis['recommendations'].append(
+                        f"Last save was {time_since_last_save // 60} minutes ago with unsaved changes. Check save configuration."
+                    )
+                
+                if persistence_info.get('rdb_last_bgsave_status') == 'err':
+                    persistence_analysis['recommendations'].append(
+                        "Last background save failed. Check disk space and permissions."
+                    )
+                
+                if aof_config.get('appendonly', 'no') == 'yes' and persistence_info.get('aof_last_write_status') == 'err':
+                    persistence_analysis['recommendations'].append(
+                        "AOF write errors detected. Check disk space and I/O performance."
+                    )
+                
+                client.close()
+                return persistence_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis persistence for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis persistence: {str(e)}")
+
+    def get_redis_cluster_analysis(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Analyze Redis Cluster status and node health"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing cluster status for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Check if cluster mode is enabled
+                cluster_info = None
+                cluster_nodes = None
+                cluster_enabled = False
+                
+                try:
+                    cluster_info = client.cluster_info()
+                    cluster_nodes = client.cluster_nodes()
+                    cluster_enabled = True
+                except:
+                    # Not a cluster or cluster commands not available
+                    pass
+                
+                if cluster_enabled:
+                    # Parse cluster nodes information
+                    nodes = []
+                    for node_line in cluster_nodes.split('\n'):
+                        if node_line.strip():
+                            parts = node_line.split()
+                            if len(parts) >= 8:
+                                node_info = {
+                                    'id': parts[0],
+                                    'address': parts[1],
+                                    'flags': parts[2].split(','),
+                                    'master_id': parts[3] if parts[3] != '-' else None,
+                                    'ping_sent': parts[4],
+                                    'pong_recv': parts[5],
+                                    'config_epoch': parts[6],
+                                    'link_state': parts[7],
+                                    'slots': parts[8:] if len(parts) > 8 else []
+                                }
+                                nodes.append(node_info)
+                    
+                    # Analyze cluster health
+                    cluster_state = cluster_info.get('cluster_state', 'unknown')
+                    cluster_slots_assigned = cluster_info.get('cluster_slots_assigned', 0)
+                    cluster_slots_ok = cluster_info.get('cluster_slots_ok', 0)
+                    cluster_slots_pfail = cluster_info.get('cluster_slots_pfail', 0)
+                    cluster_slots_fail = cluster_info.get('cluster_slots_fail', 0)
+                    
+                    # Count node types
+                    masters = [n for n in nodes if 'master' in n.get('flags', [])]
+                    slaves = [n for n in nodes if 'slave' in n.get('flags', [])]
+                    
+                    cluster_analysis = {
+                        'instance_name': instance.name,
+                        'instance_id': instance.instanceId,
+                        'cluster_enabled': True,
+                        'cluster_status': {
+                            'state': cluster_state,
+                            'slots_assigned': cluster_slots_assigned,
+                            'slots_ok': cluster_slots_ok,
+                            'slots_pfail': cluster_slots_pfail,
+                            'slots_fail': cluster_slots_fail,
+                            'total_nodes': len(nodes),
+                            'master_nodes': len(masters),
+                            'slave_nodes': len(slaves)
+                        },
+                        'node_details': nodes,
+                        'health_summary': {
+                            'healthy': cluster_state == 'ok' and cluster_slots_fail == 0,
+                            'issues': []
+                        },
+                        'recommendations': []
+                    }
+                    
+                    # Health checks
+                    if cluster_state != 'ok':
+                        cluster_analysis['health_summary']['healthy'] = False
+                        cluster_analysis['health_summary']['issues'].append(f"Cluster state is {cluster_state}")
+                    
+                    if cluster_slots_fail > 0:
+                        cluster_analysis['health_summary']['healthy'] = False
+                        cluster_analysis['health_summary']['issues'].append(f"{cluster_slots_fail} slots in failed state")
+                    
+                    if cluster_slots_pfail > 0:
+                        cluster_analysis['health_summary']['issues'].append(f"{cluster_slots_pfail} slots in probable failure state")
+                    
+                    # Check for nodes with link state issues
+                    disconnected_nodes = [n for n in nodes if n.get('link_state') != 'connected']
+                    if disconnected_nodes:
+                        cluster_analysis['health_summary']['healthy'] = False
+                        cluster_analysis['health_summary']['issues'].append(f"{len(disconnected_nodes)} nodes disconnected")
+                    
+                    # Recommendations
+                    if not cluster_analysis['health_summary']['healthy']:
+                        cluster_analysis['recommendations'].append("Cluster health issues detected. Investigate node connectivity and slot assignments.")
+                    
+                    if len(masters) < 3:
+                        cluster_analysis['recommendations'].append("Less than 3 master nodes. Consider adding more masters for better fault tolerance.")
+                    
+                    if len(slaves) == 0:
+                        cluster_analysis['recommendations'].append("No slave nodes detected. Add slave nodes for high availability.")
+                
+                else:
+                    # Not a cluster
+                    cluster_analysis = {
+                        'instance_name': instance.name,
+                        'instance_id': instance.instanceId,
+                        'cluster_enabled': False,
+                        'message': 'This Redis instance is not configured for cluster mode',
+                        'recommendations': ['Consider Redis Cluster for horizontal scaling and high availability']
+                    }
+                
+                client.close()
+                return cluster_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis cluster for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis cluster: {str(e)}")
+
+    def get_redis_security_audit(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Perform Redis security audit and configuration analysis"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Performing security audit for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get security-related configuration
+                auth_config = client.config_get('*auth*')
+                acl_config = client.config_get('*acl*')
+                security_config = client.config_get('*protected*')
+                bind_config = client.config_get('bind')
+                
+                # Check Redis version
+                server_info = client.info('server')
+                redis_version = server_info.get('redis_version', 'unknown')
+                
+                # Check for dangerous commands
+                dangerous_commands = ['FLUSHALL', 'FLUSHDB', 'KEYS', 'DEBUG', 'CONFIG', 'SHUTDOWN', 'EVAL']
+                command_info = {}
+                
+                try:
+                    # Try to get command info (available in newer Redis versions)
+                    for cmd in dangerous_commands:
+                        try:
+                            client.command_info(cmd)
+                            command_info[cmd] = 'available'
+                        except:
+                            command_info[cmd] = 'unknown'
+                except:
+                    # Fallback for older Redis versions
+                    for cmd in dangerous_commands:
+                        command_info[cmd] = 'unknown'
+                
+                security_audit = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'redis_version': redis_version,
+                    'authentication': {
+                        'password_protected': bool(password),
+                        'requirepass_set': bool(auth_config.get('requirepass')),
+                        'auth_enabled': bool(password or auth_config.get('requirepass'))
+                    },
+                    'access_control': {
+                        'protected_mode': security_config.get('protected-mode', 'unknown'),
+                        'bind_addresses': bind_config.get('bind', 'unknown'),
+                        'acl_enabled': 'aclfile' in acl_config or len([k for k in acl_config.keys() if 'acl' in k]) > 0
+                    },
+                    'dangerous_commands': command_info,
+                    'security_recommendations': [],
+                    'compliance_checks': {}
+                }
+                
+                # Security recommendations
+                if not security_audit['authentication']['auth_enabled']:
+                    security_audit['security_recommendations'].append(
+                        "No authentication configured. Set requirepass or use ACL for security."
+                    )
+                
+                if security_config.get('protected-mode', 'yes') == 'no':
+                    security_audit['security_recommendations'].append(
+                        "Protected mode is disabled. Enable protected mode for better security."
+                    )
+                
+                if bind_config.get('bind', '') in ['0.0.0.0', ''] or '0.0.0.0' in bind_config.get('bind', ''):
+                    security_audit['security_recommendations'].append(
+                        "Redis is bound to all interfaces (0.0.0.0). Consider binding to specific interfaces only."
+                    )
+                
+                # Check for default port
+                if port == 6379:
+                    security_audit['security_recommendations'].append(
+                        "Using default Redis port (6379). Consider using a non-standard port for security."
+                    )
+                
+                # Version-specific recommendations
+                try:
+                    version_parts = redis_version.split('.')
+                    major_version = int(version_parts[0])
+                    minor_version = int(version_parts[1])
+                    
+                    if major_version < 6:
+                        security_audit['security_recommendations'].append(
+                            f"Redis version {redis_version} is outdated. Consider upgrading for security improvements and ACL support."
+                        )
+                    elif major_version == 6 and not security_audit['access_control']['acl_enabled']:
+                        security_audit['security_recommendations'].append(
+                            "Redis 6+ supports ACLs for fine-grained access control. Consider implementing ACL instead of simple passwords."
+                        )
+                except:
+                    pass
+                
+                # Compliance checks
+                security_audit['compliance_checks'] = {
+                    'authentication_enabled': security_audit['authentication']['auth_enabled'],
+                    'protected_mode_enabled': security_config.get('protected-mode', 'yes') == 'yes',
+                    'not_bound_to_all_interfaces': '0.0.0.0' not in bind_config.get('bind', ''),
+                    'recent_redis_version': redis_version >= '6.0.0',
+                    'acl_configured': security_audit['access_control']['acl_enabled']
+                }
+                
+                client.close()
+                return security_audit
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to perform Redis security audit for {instance.name}: {e}")
+            raise Exception(f"Failed to perform Redis security audit: {str(e)}")
+
+    def get_redis_capacity_planning(self, instance: ServiceInstance, projection_days: int = 30) -> Dict[str, Any]:
+        """Analyze Redis capacity and provide growth projections"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing capacity planning for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                from datetime import datetime, timedelta
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get current memory and key statistics
+                info = client.info()
+                
+                current_memory = info.get('used_memory', 0)
+                max_memory = info.get('maxmemory', 0)
+                total_keys = client.dbsize()
+                
+                # Get key count for all databases
+                db_key_counts = {}
+                for key, value in info.items():
+                    if key.startswith('db'):
+                        # Parse db0:keys=X,expires=Y,avg_ttl=Z format
+                        db_stats = {}
+                        for item in value.split(','):
+                            if '=' in item:
+                                stat_key, stat_value = item.split('=', 1)
+                                db_stats[stat_key] = int(stat_value)
+                        db_key_counts[key] = db_stats.get('keys', 0)
+                
+                # Simple growth projection based on current usage
+                # In production, this would use historical data
+                daily_growth_rate = 0.02  # 2% daily growth assumption
+                projected_memory = current_memory * (1 + (daily_growth_rate * projection_days))
+                projected_keys = total_keys * (1 + (daily_growth_rate * projection_days))
+                
+                capacity_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'projection_days': projection_days,
+                    'current_usage': {
+                        'memory_bytes': current_memory,
+                        'memory_human': info.get('used_memory_human', '0B'),
+                        'max_memory_bytes': max_memory,
+                        'memory_utilization_percent': (current_memory / max_memory * 100) if max_memory > 0 else 0,
+                        'total_keys': total_keys,
+                        'databases': db_key_counts
+                    },
+                    'growth_projections': {
+                        'projected_memory_bytes': int(projected_memory),
+                        'projected_memory_human': f"{projected_memory / (1024**2):.2f}MB",
+                        'projected_keys': int(projected_keys),
+                        'memory_growth_bytes': int(projected_memory - current_memory),
+                        'key_growth_count': int(projected_keys - total_keys),
+                        'projection_date': (datetime.now() + timedelta(days=projection_days)).isoformat()
+                    },
+                    'capacity_recommendations': [],
+                    'performance_projections': {
+                        'fragmentation_risk': 'low',
+                        'eviction_risk': 'low'
+                    }
+                }
+                
+                # Calculate capacity recommendations
+                current_utilization = (current_memory / max_memory * 100) if max_memory > 0 else 0
+                projected_utilization = (projected_memory / max_memory * 100) if max_memory > 0 else 0
+                
+                if max_memory == 0:
+                    capacity_analysis['capacity_recommendations'].append(
+                        "No memory limit set (maxmemory=0). Consider setting a memory limit to prevent OOM issues."
+                    )
+                elif projected_utilization > 80:
+                    capacity_analysis['capacity_recommendations'].append(
+                        f"Projected memory usage will reach {projected_utilization:.1f}% in {projection_days} days. Plan for memory increase."
+                    )
+                    capacity_analysis['performance_projections']['eviction_risk'] = 'high'
+                
+                # Fragmentation analysis
+                fragmentation_ratio = info.get('mem_fragmentation_ratio', 1.0)
+                if fragmentation_ratio > 1.5:
+                    capacity_analysis['capacity_recommendations'].append(
+                        f"High memory fragmentation ({fragmentation_ratio:.2f}). Consider memory defragmentation strategies."
+                    )
+                    capacity_analysis['performance_projections']['fragmentation_risk'] = 'high'
+                
+                # Key growth analysis
+                if projected_keys > total_keys * 2:
+                    capacity_analysis['capacity_recommendations'].append(
+                        f"High key growth projected ({projected_keys:,} keys). Consider implementing key expiration policies."
+                    )
+                
+                # Performance recommendations
+                ops_per_sec = info.get('instantaneous_ops_per_sec', 0)
+                if ops_per_sec > 10000:
+                    capacity_analysis['capacity_recommendations'].append(
+                        f"High operation rate ({ops_per_sec} ops/sec). Monitor for performance bottlenecks as data grows."
+                    )
+                
+                # General recommendations
+                capacity_analysis['capacity_recommendations'].extend([
+                    f"Monitor memory usage trends regularly",
+                    f"Plan for at least 20% buffer above projected usage",
+                    f"Implement key expiration policies for non-persistent data",
+                    f"Consider Redis Cluster for horizontal scaling if needed"
+                ])
+                
+                client.close()
+                return capacity_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis capacity planning for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis capacity planning: {str(e)}")
+
+    def get_redis_configuration_analysis(self, instance: ServiceInstance) -> Dict[str, Any]:
+        """Analyze Redis configuration and optimization opportunities"""
+        try:
+            if not instance.config:
+                raise Exception("Instance configuration not available")
+            
+            host = instance.config.get('host')
+            password = instance.config.get('password')
+            port = instance.config.get('port', 6379)
+            
+            if not host:
+                raise Exception("Redis host not found in instance configuration")
+            
+            logger.info(f"🔍 Analyzing configuration for Redis instance: {instance.name}")
+            
+            try:
+                import redis
+                
+                client = redis.Redis(
+                    host=host,
+                    port=port,
+                    password=password,
+                    decode_responses=True,
+                    socket_timeout=30
+                )
+                
+                # Get all configuration parameters
+                all_config = client.config_get('*')
+                
+                # Categorize configuration
+                memory_config = {k: v for k, v in all_config.items() if 'memory' in k or 'maxmemory' in k}
+                persistence_config = {k: v for k, v in all_config.items() if any(x in k for x in ['save', 'aof', 'rdb'])}
+                network_config = {k: v for k, v in all_config.items() if any(x in k for x in ['timeout', 'tcp', 'bind', 'port'])}
+                security_config = {k: v for k, v in all_config.items() if any(x in k for x in ['auth', 'protected', 'acl'])}
+                performance_config = {k: v for k, v in all_config.items() if any(x in k for x in ['slow', 'client', 'hz'])}
+                
+                # Get current server info for context
+                server_info = client.info()
+                
+                config_analysis = {
+                    'instance_name': instance.name,
+                    'instance_id': instance.instanceId,
+                    'configuration_categories': {
+                        'memory_management': memory_config,
+                        'persistence': persistence_config,
+                        'network': network_config,
+                        'security': security_config,
+                        'performance': performance_config
+                    },
+                    'optimization_analysis': {
+                        'memory_optimizations': [],
+                        'performance_optimizations': [],
+                        'reliability_optimizations': [],
+                        'security_optimizations': []
+                    },
+                    'configuration_score': {
+                        'memory': 0,
+                        'performance': 0,
+                        'reliability': 0,
+                        'security': 0,
+                        'overall': 0
+                    }
+                }
+                
+                # Analyze memory configuration
+                maxmemory = int(memory_config.get('maxmemory', 0))
+                maxmemory_policy = memory_config.get('maxmemory-policy', 'noeviction')
+                used_memory = server_info.get('used_memory', 0)
+                
+                memory_score = 0
+                if maxmemory > 0:
+                    memory_score += 25
+                    if maxmemory_policy != 'noeviction':
+                        memory_score += 25
+                    if (used_memory / maxmemory) < 0.8:
+                        memory_score += 25
+                    memory_score += 25  # Base score for having memory config
+                else:
+                    config_analysis['optimization_analysis']['memory_optimizations'].append(
+                        "Set maxmemory to prevent OOM issues and enable memory management"
+                    )
+                
+                if maxmemory_policy == 'noeviction' and maxmemory > 0:
+                    config_analysis['optimization_analysis']['memory_optimizations'].append(
+                        "Consider setting an eviction policy (e.g., allkeys-lru) instead of noeviction"
+                    )
+                
+                # Analyze performance configuration
+                performance_score = 0
+                hz = int(performance_config.get('hz', 10))
+                slowlog_slower_than = int(performance_config.get('slowlog-log-slower-than', 10000))
+                
+                if hz >= 10:
+                    performance_score += 25
+                if slowlog_slower_than <= 10000:  # 10ms
+                    performance_score += 25
+                performance_score += 50  # Base score
+                
+                if hz < 10:
+                    config_analysis['optimization_analysis']['performance_optimizations'].append(
+                        f"Increase hz from {hz} to 10+ for better background task frequency"
+                    )
+                
+                if slowlog_slower_than > 10000:
+                    config_analysis['optimization_analysis']['performance_optimizations'].append(
+                        f"Lower slowlog-log-slower-than from {slowlog_slower_than} to 10000 (10ms) for better monitoring"
+                    )
+                
+                # Analyze reliability configuration
+                reliability_score = 0
+                save_config = persistence_config.get('save', '')
+                aof_enabled = persistence_config.get('appendonly', 'no') == 'yes'
+                
+                if save_config != '' or aof_enabled:
+                    reliability_score += 50
+                    if save_config != '' and aof_enabled:
+                        reliability_score += 50
+                else:
+                    config_analysis['optimization_analysis']['reliability_optimizations'].append(
+                        "Enable persistence (RDB snapshots or AOF) to prevent data loss on restart"
+                    )
+                
+                # Analyze security configuration
+                security_score = 0
+                requirepass = security_config.get('requirepass', '')
+                protected_mode = security_config.get('protected-mode', 'yes')
+                
+                if requirepass:
+                    security_score += 40
+                if protected_mode == 'yes':
+                    security_score += 30
+                security_score += 30  # Base score
+                
+                if not requirepass:
+                    config_analysis['optimization_analysis']['security_optimizations'].append(
+                        "Set requirepass for authentication"
+                    )
+                
+                if protected_mode != 'yes':
+                    config_analysis['optimization_analysis']['security_optimizations'].append(
+                        "Enable protected-mode for better security"
+                    )
+                
+                # Calculate overall scores
+                config_analysis['configuration_score'] = {
+                    'memory': memory_score,
+                    'performance': performance_score,
+                    'reliability': reliability_score,
+                    'security': security_score,
+                    'overall': (memory_score + performance_score + reliability_score + security_score) // 4
+                }
+                
+                client.close()
+                return config_analysis
+                
+            except ImportError:
+                raise Exception("redis library not available. Please install: pip install redis")
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze Redis configuration for {instance.name}: {e}")
+            raise Exception(f"Failed to analyze Redis configuration: {str(e)}")

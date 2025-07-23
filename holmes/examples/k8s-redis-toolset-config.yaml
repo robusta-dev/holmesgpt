@@ -1,0 +1,195 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: holmesgpt-redis-toolset-config
+  namespace: monitoring
+data:
+  config.yaml: |
+    # HolmesGPT Configuration with InfraInsights Redis Toolset
+    
+    # Global configuration
+    global_config:
+      timezone: "UTC"
+      log_level: "INFO"
+      max_log_file_size_mb: 100
+      
+    # InfraInsights Redis toolset configuration
+    toolsets:
+      infrainsights_redis:
+        enabled: true
+        config:
+          infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+          timeout: 30
+          enable_name_lookup: true
+          use_v2_api: true
+          
+    # AI/LLM configuration
+    model_config:
+      model: "gpt-4"
+      temperature: 0.1
+      max_tokens: 4000
+      
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: holmesgpt-redis-toolset-secrets
+  namespace: monitoring
+type: Opaque
+data:
+  # Base64 encoded API key (optional)
+  infrainsights-api-key: eW91ci1hcGkta2V5LWhlcmU=  # "your-api-key-here"
+  
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: holmesgpt-redis-toolset
+  namespace: monitoring
+  labels:
+    app: holmesgpt
+    component: redis-toolset
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holmesgpt
+      component: redis-toolset
+  template:
+    metadata:
+      labels:
+        app: holmesgpt
+        component: redis-toolset
+    spec:
+      containers:
+      - name: holmesgpt
+        image: holmesgpt:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: INFRAINSIGHTS_URL
+          value: "http://k8s-ui-service.monitoring:5000"
+        - name: INFRAINSIGHTS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: holmesgpt-redis-toolset-secrets
+              key: infrainsights-api-key
+              optional: true
+        - name: INFRAINSIGHTS_TIMEOUT
+          value: "30"
+        - name: INFRAINSIGHTS_ENABLE_NAME_LOOKUP
+          value: "true"
+        - name: INFRAINSIGHTS_USE_V2_API
+          value: "true"
+        - name: REDIS_DEFAULT_PORT
+          value: "6379"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: holmesgpt-redis-toolset-config
+      serviceAccountName: holmesgpt
+      
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: holmesgpt-redis-toolset-service
+  namespace: monitoring
+  labels:
+    app: holmesgpt
+    component: redis-toolset
+spec:
+  selector:
+    app: holmesgpt
+    component: redis-toolset
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+  
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: holmesgpt
+  namespace: monitoring
+  
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: holmesgpt-redis-toolset
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+  
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: holmesgpt-redis-toolset
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: holmesgpt-redis-toolset
+subjects:
+- kind: ServiceAccount
+  name: holmesgpt
+  namespace: monitoring
+
+---
+# Optional: HorizontalPodAutoscaler for scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: holmesgpt-redis-toolset-hpa
+  namespace: monitoring
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: holmesgpt-redis-toolset
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80 

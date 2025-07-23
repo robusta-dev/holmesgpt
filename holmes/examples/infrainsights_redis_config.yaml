@@ -1,0 +1,121 @@
+# InfraInsights Redis Toolset Configuration Examples
+# This file shows different ways to configure the Redis toolset
+
+# Example 1: Basic Redis toolset configuration
+infrainsights_toolsets:
+  redis:
+    enabled: true
+    config:
+      infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+      api_key: "your-api-key-here"  # Optional, can also use environment variable
+      timeout: 30
+      enable_name_lookup: true
+      use_v2_api: true
+
+# Example 2: Local development configuration
+local_dev:
+  infrainsights_toolsets:
+    redis:
+      enabled: true
+      config:
+        infrainsights_url: "http://localhost:3000"
+        timeout: 15
+        enable_name_lookup: true
+
+# Example 3: Production configuration with security
+production:
+  infrainsights_toolsets:
+    redis:
+      enabled: true
+      config:
+        infrainsights_url: "https://infrainsights.company.com"
+        api_key: "${INFRAINSIGHTS_API_KEY}"  # Use environment variable
+        timeout: 45
+        enable_name_lookup: true
+        use_v2_api: true
+
+# Example 4: Multiple environment configuration
+environments:
+  staging:
+    infrainsights_toolsets:
+      redis:
+        enabled: true
+        config:
+          infrainsights_url: "http://k8s-ui-service.staging:5000"
+          timeout: 30
+          
+  production:
+    infrainsights_toolsets:
+      redis:
+        enabled: true
+        config:
+          infrainsights_url: "http://k8s-ui-service.production:5000"
+          timeout: 45
+
+# Example 5: Kubernetes service configuration
+kubernetes:
+  infrainsights_toolsets:
+    redis:
+      enabled: true
+      config:
+        infrainsights_url: "http://k8s-ui-service.monitoring.svc.cluster.local:5000"
+        timeout: 30
+        enable_name_lookup: true
+        use_v2_api: true
+
+# Example 6: Complete HolmesGPT configuration with Redis toolset
+complete_config:
+  # Global HolmesGPT settings
+  global_config:
+    timezone: "UTC"
+    log_level: "INFO"
+    max_log_file_size_mb: 100
+
+  # InfraInsights toolsets
+  toolsets:
+    infrainsights_redis:
+      enabled: true
+      config:
+        infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+        api_key: "${INFRAINSIGHTS_API_KEY}"
+        timeout: 30
+        enable_name_lookup: true
+        use_v2_api: true
+
+  # AI/LLM configuration
+  model_config:
+    model: "gpt-4"
+    temperature: 0.1
+    max_tokens: 4000
+
+# Available Redis instance management tools:
+# 1. redis_health_check - Check Redis instance health and server information
+# 2. redis_performance_metrics - Get comprehensive performance metrics and statistics  
+# 3. redis_memory_analysis - Analyze memory usage, fragmentation, and optimization opportunities
+# 4. redis_key_analysis - Analyze key patterns, types, and key space distribution
+# 5. redis_slow_log_analysis - Analyze slow log for performance bottlenecks
+# 6. redis_connection_analysis - Analyze connections and client statistics
+# 7. redis_replication_status - Check replication status and master-slave health
+# 8. redis_persistence_analysis - Analyze persistence configuration and backup status
+# 9. redis_cluster_analysis - Analyze Redis Cluster status and node health
+# 10. redis_security_audit - Perform security audit and configuration analysis
+# 11. redis_capacity_planning - Analyze capacity and provide growth projections
+# 12. redis_configuration_analysis - Analyze configuration and optimization opportunities
+
+# Expected Redis instance API response format:
+# {
+#   "success": true,
+#   "data": {
+#     "instanceId": "redis-1751088086904",
+#     "serviceType": "redis",
+#     "name": "consolidated-demo-prod",
+#     "description": "consolidated demo prod redis",
+#     "environment": "production",
+#     "status": "active",
+#     "config": {
+#       "password": "Innoredis@604",
+#       "host": "redisdb.consolidated-demo-prod",
+#       "port": 6379  // Optional, defaults to 6379
+#     }
+#   }
+# } 
