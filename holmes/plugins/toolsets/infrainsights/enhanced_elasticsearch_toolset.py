@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Dict, Any, Optional
-from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult, Toolset, ToolsetTag, CallablePrerequisite
+from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult, Toolset, ToolsetTag, CallablePrerequisite, ToolParameter
 
 logger = logging.getLogger(__name__)
 
@@ -11,12 +11,12 @@ class ElasticsearchHealthCheckTool(Tool):
     
     name: str = "elasticsearch_health_check"
     description: str = "Check the health status of an Elasticsearch cluster"
-    parameters: Dict[str, Any] = {
-        "instance_name": {
-            "type": "string",
-            "description": "Name of the Elasticsearch instance to check",
-            "required": True
-        }
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch instance to check",
+            type="string",
+            required=True
+        )
     }
     toolset: Optional[Any] = None
     
@@ -83,12 +83,12 @@ class ElasticsearchListIndicesTool(Tool):
     
     name: str = "elasticsearch_list_indices"
     description: str = "List all indices in an Elasticsearch cluster"
-    parameters: Dict[str, Any] = {
-        "instance_name": {
-            "type": "string", 
-            "description": "Name of the Elasticsearch instance",
-            "required": True
-        }
+    parameters: Dict[str, ToolParameter] = {
+        "instance_name": ToolParameter(
+            description="Name of the Elasticsearch instance",
+            type="string",
+            required=True
+        )
     }
     toolset: Optional[Any] = None
     
