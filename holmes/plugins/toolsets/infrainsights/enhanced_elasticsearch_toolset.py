@@ -153,26 +153,18 @@ class ElasticsearchListIndicesTool(Tool):
 class EnhancedElasticsearchToolset(Toolset):
     """Enhanced Elasticsearch toolset with InfraInsights integration"""
     
+    # Define custom fields for this toolset
+    infrainsights_config: Optional[Any] = None
+    infrainsights_client: Optional[Any] = None
+    
     def __init__(self):
         from .infrainsights_client_v2 import InfraInsightsClientV2
         from .base_toolset_v2 import InfraInsightsConfig
         
-        # Initialize InfraInsights client with default config
-        self.infrainsights_config = InfraInsightsConfig(
-            base_url="http://localhost:3000",  # Default backend URL
-            api_key=None,  # Will be set from environment or config
-            username=None,
-            password=None,
-            timeout=30,
-            enable_name_lookup=True,
-            use_v2_api=True
-        )
-        self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
-        
-        # Create tools
+        # Create tools first
         tools = [
-            ElasticsearchHealthCheckTool(toolset=self),
-            ElasticsearchListIndicesTool(toolset=self)
+            ElasticsearchHealthCheckTool(toolset=None),  # Will set toolset after initialization
+            ElasticsearchListIndicesTool(toolset=None)
         ]
         
         # Initialize Toolset with required parameters
@@ -186,6 +178,22 @@ class EnhancedElasticsearchToolset(Toolset):
                 CallablePrerequisite(callable=self._check_prerequisites)
             ]
         )
+        
+        # Initialize InfraInsights client with default config
+        self.infrainsights_config = InfraInsightsConfig(
+            base_url="http://localhost:3000",  # Default backend URL
+            api_key=None,  # Will be set from environment or config
+            username=None,
+            password=None,
+            timeout=30,
+            enable_name_lookup=True,
+            use_v2_api=True
+        )
+        self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
+        
+        # Set toolset reference for tools
+        for tool in self.tools:
+            tool.toolset = self
         
         # Set config to None initially
         self.config = None
