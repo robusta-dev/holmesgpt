@@ -1,0 +1,12 @@
+user_prompt: "detect why the k8s pod client under namespace test-ns cannot resolve dns"
+tags:
+  - network
+  - runbooks
+expected_output: mention that a network policy named `default-deny-egress` is or may be the root cause of DNS issues
+before_test: |
+  kubectl apply -f./manifest.yaml
+  sleep 10
+after_test: kubectl delete -f./manifest.yaml
+evaluation:
+  correctness: 0 # It works 0% of the time with gpt-4o and 60% with Claude Sonnet 4.0.
+# generate_mocks: True # Note: there are dozens of mocks that are generated each time. I did not commit them.
