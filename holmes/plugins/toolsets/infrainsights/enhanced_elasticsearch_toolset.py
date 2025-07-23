@@ -967,7 +967,7 @@ class ElasticsearchSnapshotStatusTool(Tool):
         return f"elasticsearch_snapshot_status(instance_name={instance_name})"
 
 
-class ElasticsearchEnhancedToolset(Toolset):
+class EnhancedElasticsearchToolset(Toolset):
     """Enhanced Elasticsearch/OpenSearch toolset with InfraInsights integration"""
     
     # Define custom fields for this toolset
@@ -975,8 +975,7 @@ class ElasticsearchEnhancedToolset(Toolset):
     infrainsights_client: Optional[Any] = None
     
     def __init__(self):
-        from .infrainsights_client_v2 import InfraInsightsClientV2
-        from .base_toolset_v2 import InfraInsightsConfig
+        from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig
         
         logger.info("🚀🚀🚀 CREATING ENHANCED ELASTICSEARCH TOOLSET 🚀🚀🚀")
         
