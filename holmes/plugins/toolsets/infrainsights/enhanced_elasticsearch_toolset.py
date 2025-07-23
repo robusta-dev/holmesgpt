@@ -46,7 +46,7 @@ class ElasticsearchHealthCheckTool(Tool):
             
             # Resolve instance
             instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
-                instance_name, "elasticsearch"
+                "elasticsearch", instance_name
             )
             
             if not instance:
@@ -118,7 +118,7 @@ class ElasticsearchListIndicesTool(Tool):
             
             # Resolve instance
             instance = self.toolset.infrainsights_client.get_instance_by_name_and_type(
-                instance_name, "elasticsearch"
+                "elasticsearch", instance_name
             )
             
             if not instance:

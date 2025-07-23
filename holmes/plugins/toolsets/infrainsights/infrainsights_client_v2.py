@@ -177,7 +177,9 @@ class InfraInsightsClientV2:
             params = {'includeConfig': 'true'} if include_config else {}
             endpoint = f'/api/service-instances/{service_type}/{name}'
             
-            logger.info(f"Attempting name-based lookup: {endpoint}")
+            logger.info(f"🔍 Constructing URL with service_type='{service_type}', name='{name}'")
+            logger.info(f"🔍 Final endpoint: {endpoint}")
+            logger.info(f"🔍 Full URL: {self.config.base_url}{endpoint}")
             data = self._make_request('GET', endpoint, params=params)
             
             # CRITICAL DEBUG: Show raw API response
