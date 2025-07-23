@@ -7,4 +7,3 @@ before_test: kubectl apply -f ./custom_resources.yaml
 after_test: kubectl delete -f ./custom_resources.yaml
 evaluation:
   correctness: 1
-generate_mocks: False

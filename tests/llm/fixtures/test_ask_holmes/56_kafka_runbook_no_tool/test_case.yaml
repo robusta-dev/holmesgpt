@@ -12,4 +12,3 @@ include_files:
   - kafka_lag_instructions.md
 evaluation:
   correctness: 0 # Does not always specifically ask user to install kafka/admin toolset
-generate_mocks: False

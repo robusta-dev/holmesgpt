@@ -4,4 +4,3 @@ expected_output:
   - The answer should quote a specific error
 evaluation:
   correctness: 0
-generate_mocks: False
