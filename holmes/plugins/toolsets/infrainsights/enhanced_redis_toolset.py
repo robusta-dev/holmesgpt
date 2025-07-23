@@ -19,10 +19,12 @@ class RedisHealthCheckTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -88,10 +90,12 @@ class RedisPerformanceMetricsTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -157,10 +161,12 @@ class RedisMemoryAnalysisTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -241,10 +247,12 @@ class RedisKeyAnalysisTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -321,10 +329,12 @@ class RedisSlowLogAnalysisTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -393,10 +403,12 @@ class RedisConnectionAnalysisTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -462,10 +474,12 @@ class RedisReplicationStatusTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -531,10 +545,12 @@ class RedisPersistenceAnalysisTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -600,10 +616,12 @@ class RedisClusterAnalysisTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -669,10 +687,12 @@ class RedisSecurityAuditTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -743,10 +763,12 @@ class RedisCapacityPlanningTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -815,10 +837,12 @@ class RedisConfigurationAnalysisTool(Tool):
         )
     }
     toolset: Optional[Any] = None
+    additional_instructions: str = ""  # Add this field that Pydantic expects
     
     def __init__(self, toolset=None):
         super().__init__()
         self.toolset = toolset
+        self.additional_instructions = ""  # Initialize the field
     
     def _invoke(self, params: Dict) -> StructuredToolResult:
         try:
@@ -998,16 +1022,23 @@ class EnhancedRedisToolset(Toolset):
         logger.info(f"🔧   enable_name_lookup: {enable_name_lookup}")
         logger.info(f"🔧   use_v2_api: {use_v2_api}")
         
-        # Update the InfraInsights config
-        self.infrainsights_config.base_url = base_url
-        self.infrainsights_config.api_key = api_key
-        self.infrainsights_config.timeout = timeout
-        self.infrainsights_config.enable_name_lookup = enable_name_lookup
-        self.infrainsights_config.use_v2_api = use_v2_api
+        # CRITICAL FIX: Create new config object instead of updating the existing one
+        from .infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig
+        
+        self.infrainsights_config = InfraInsightsConfig(
+            base_url=base_url,
+            api_key=api_key,
+            username=None,
+            password=None,
+            timeout=timeout,
+            enable_name_lookup=enable_name_lookup,
+            use_v2_api=use_v2_api
+        )
         
         # Reinitialize the client with updated config
-        from .infrainsights_client_v2 import InfraInsightsClientV2
         self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
+        
+        logger.info(f"🔧 Created new config object: base_url={self.infrainsights_config.base_url}, api_key={'***' if self.infrainsights_config.api_key else 'None'}")
         
         # Now add prerequisites after configuration is complete
         self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
