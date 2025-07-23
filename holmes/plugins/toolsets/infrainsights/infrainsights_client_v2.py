@@ -369,19 +369,22 @@ class InfraInsightsClientV2:
                 'request_timeout': 30
             }
             
-            # Add authentication if available
-            if username and password:
-                client_config['basic_auth'] = (username, password)
-            
             # Create appropriate client based on service type
             if service_type == 'opensearch':
                 logger.info("🔍 Using OpenSearch client")
                 try:
                     from opensearchpy import OpenSearch
+                    
+                    # OpenSearch client uses different auth parameter format
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                        logger.info(f"🔍 OpenSearch auth configured: username={username}")
+                    
+                    config_display = {k: ('***' if k == 'http_auth' else v) for k, v in client_config.items()}
+                    logger.info(f"🔍 OpenSearch client config: {config_display}")
                     client = OpenSearch(**client_config)
                 except ImportError:
-                    logger.warning("OpenSearch client not available, falling back to Elasticsearch client with compatibility")
-                    from elasticsearch import Elasticsearch
+                    logger.warning("OpenSearch client not available, falling back to direct HTTP requests")
                     # For OpenSearch, we can use requests directly or try compatibility mode
                     import requests
                     import json as json_lib
@@ -415,6 +418,14 @@ class InfraInsightsClientV2:
             else:
                 logger.info("🔍 Using Elasticsearch client")
                 from elasticsearch import Elasticsearch
+                
+                # Elasticsearch client uses basic_auth parameter
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                    logger.info(f"🔍 Elasticsearch auth configured: username={username}")
+                
+                config_display = {k: ('***' if k == 'basic_auth' else v) for k, v in client_config.items()}
+                logger.info(f"🔍 Elasticsearch client config: {config_display}")
                 client = Elasticsearch(**client_config)
             
             # Get cluster health using the appropriate client
@@ -467,15 +478,19 @@ class InfraInsightsClientV2:
                 'request_timeout': 30
             }
             
-            # Add authentication if available
-            if username and password:
-                client_config['basic_auth'] = (username, password)
-            
             # Create appropriate client based on service type
             if service_type == 'opensearch':
                 logger.info("🔍 Using OpenSearch-compatible approach")
                 try:
                     from opensearchpy import OpenSearch
+                    
+                    # OpenSearch client uses different auth parameter format
+                    if username and password:
+                        client_config['http_auth'] = (username, password)
+                        logger.info(f"🔍 OpenSearch auth configured: username={username}")
+                    
+                    config_display = {k: ('***' if k == 'http_auth' else v) for k, v in client_config.items()}
+                    logger.info(f"🔍 OpenSearch client config: {config_display}")
                     client = OpenSearch(**client_config)
                     indices_response = client.cat.indices(format='json', v=True)
                 except ImportError:
@@ -492,6 +507,14 @@ class InfraInsightsClientV2:
             else:
                 logger.info("🔍 Using Elasticsearch client")
                 from elasticsearch import Elasticsearch
+                
+                # Elasticsearch client uses basic_auth parameter
+                if username and password:
+                    client_config['basic_auth'] = (username, password)
+                    logger.info(f"🔍 Elasticsearch auth configured: username={username}")
+                
+                config_display = {k: ('***' if k == 'basic_auth' else v) for k, v in client_config.items()}
+                logger.info(f"🔍 Elasticsearch client config: {config_display}")
                 client = Elasticsearch(**client_config)
                 indices_response = client.cat.indices(format='json', v=True)
             
