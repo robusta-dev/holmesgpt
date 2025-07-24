@@ -11,7 +11,7 @@ from kubernetes.config import kube_config
 from kubernetes.config.kube_config import KubeConfigLoader
 import base64
 
-from holmes.plugins.toolsets.interfaces import (
+from holmes.core.tools import (
     Toolset, Tool, ToolsetTag, CallablePrerequisite, ToolParameter, 
     ToolResultStatus, StructuredToolResult
 )
