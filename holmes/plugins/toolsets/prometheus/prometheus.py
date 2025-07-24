@@ -64,7 +64,7 @@ class PrometheusConfig(BaseModel):
             if not self.headers.get("Authorization"):
                 openshift_token = load_openshift_token()
                 if openshift_token:
-                    logging.info("Using openshift for token prometheus toolset auth")
+                    logging.info("Using openshift token for prometheus toolset auth")
                     self.headers["Authorization"] = f"Bearer {openshift_token}"
             if self.healthcheck == "-/healthy":
                 self.healthcheck = "api/v1/query?query=up"
