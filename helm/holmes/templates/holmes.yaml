@@ -55,6 +55,10 @@ spec:
           {{ if .Values.enablePostProcessing -}}
           - name: HOLMES_POST_PROCESSING_PROMPT
             value: {{ .Values.postProcessingPrompt }}
+          {{- if .Values.openshift.enabled }}
+          - name: IS_OPENSHIFT
+            value: "True"
+          {{- end }}
           {{- end }}
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
