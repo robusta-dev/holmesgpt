@@ -3168,6 +3168,22 @@ pytest = ">=6.2.5"
 dev = ["pre-commit", "pytest-asyncio", "tox"]
 
 [[package]]
+name = "pytest-shared-session-scope"
+version = "0.4.0"
+description = "Pytest session-scoped fixture that works with xdist"
+optional = false
+python-versions = ">=3.10"
+files = [
+    {file = "pytest_shared_session_scope-0.4.0-py3-none-any.whl", hash = "sha256:583508332f0ffdf306fb50487893e4bd4f893caf21778b7b0ea9fad6767fecce"},
+    {file = "pytest_shared_session_scope-0.4.0.tar.gz", hash = "sha256:30da6ced4c734bb7cdbc10310da754ca9c8ae75c1384ceb3eda82fa76db647d2"},
+]
+
+[package.dependencies]
+filelock = ">=3.16.0"
+pytest = ">=7.0.0"
+typing-extensions = ">=3.6.2"
+
+[[package]]
 name = "pytest-xdist"
 version = "3.6.1"
 description = "pytest xdist plugin for distributed testing, most importantly across multiple CPUs"
@@ -4597,4 +4613,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "e46c01cfb23840ad9e4279210c97c08c6f9c1e21918ceca416828a72eb7c69d9"
+content-hash = "dd05b6f4bc7d9c875fae14230df8b3170f03d8c0d387293dd4c9731b2e036382"

@@ -66,6 +66,13 @@ class MockMode(Enum):
     LIVE = "live"  # Use real tools without mocking
 
 
+class MockGenerationConfig:
+    def __init__(self, generate_mocks_enabled, regenerate_all_enabled, mock_mode):
+        self.generate_mocks = generate_mocks_enabled
+        self.regenerate_all_mocks = regenerate_all_enabled
+        self.mode = mock_mode
+
+
 class MockMetadata(BaseModel):
     """Metadata stored in mock files."""
 
@@ -281,7 +288,7 @@ class MockFileManager:
                         raise MockDataCorruptedError(
                             f"Mock file {file_path} is in old format and needs to be updated (see PR #372)",
                             tool_name=metadata.get("tool_name", "unknown"),
-                        )
+                        ) from None
 
                     content = "".join(lines[2:]) if len(lines) > 2 else None
                     if content is not None:
@@ -434,9 +441,10 @@ class ToolsetConfigurator:
                 toolset.enabled = definition.enabled
                 configured.append(toolset)
 
-            # Check prerequisites for enabled toolsets
+            # Check prerequisites for enabled toolsets with timeout
             if toolset.enabled:
                 try:
+                    # TODO: add timeout
                     toolset.check_prerequisites()
                 except Exception:
                     logging.error(
@@ -475,15 +483,8 @@ class MockToolsetManager:
         self.file_manager = MockFileManager(test_case_folder, add_params_to_mock_file)
         self.configurator = ToolsetConfigurator()
 
-        # Clear mocks if regenerating
-        if mock_generation_config.regenerate_all_mocks:
-            if request and test_case_folder not in getattr(
-                mock_generation_config, "_cleared_folders", set()
-            ):
-                self.file_manager.clear_mocks(request)
-                if not hasattr(mock_generation_config, "_cleared_folders"):
-                    mock_generation_config._cleared_folders = set()
-                mock_generation_config._cleared_folders.add(test_case_folder)
+        # Note: Mock clearing is now handled by the shared_test_infrastructure fixture
+        # to ensure it only happens once across all workers when using --regenerate-all-mocks
 
         # Load and configure toolsets
         self._initialize_toolsets()

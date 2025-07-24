@@ -1,31 +1,42 @@
-# Standard library imports
 import logging
 import os
 import textwrap
+import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List, Optional
 
-# Third-party imports
 import pytest
 from litellm import completion
 from rich.console import Console
 from rich.table import Table
+from pytest_shared_session_scope import (
+    shared_session_scope_json,
+    SetupToken,
+    CleanupToken,
+)
 
-# Local imports
 from tests.llm.utils.braintrust import get_experiment_name
 from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.classifiers import create_llm_client
-from tests.llm.utils.mock_toolset import MockMode  # type: ignore[attr-defined]
+from tests.llm.utils.mock_toolset import MockMode, MockGenerationConfig  # type: ignore[attr-defined]
 
 # Configuration constants
 DEBUG_SEPARATOR = "=" * 80
 LLM_TEST_TYPES = ["test_ask_holmes", "test_investigate", "test_workload_health"]
+MAX_ERROR_LINES = 10
+MAX_WORKERS = 30
 
 
 def is_llm_test(nodeid: str) -> bool:
     """Check if a test nodeid is for an LLM test."""
-    return any(test_type in nodeid for test_type in LLM_TEST_TYPES)
+    return any(
+        [
+            "test_ask_holmes" in nodeid,
+            "test_investigate" in nodeid,
+            "test_workload_health" in nodeid,
+        ]
+    )
 
 
 # Status determination types
@@ -85,6 +96,7 @@ class TestStatus:
 @pytest.fixture(scope="session")
 def mock_generation_config(request):
     """Session-scoped fixture that provides mock generation configuration and mode."""
+    # Safely get options with defaults in case they're not registered
     generate_mocks = request.config.getoption("--generate-mocks")
     regenerate_all_mocks = request.config.getoption("--regenerate-all-mocks")
 
@@ -93,20 +105,109 @@ def mock_generation_config(request):
         generate_mocks = True
 
     # Determine mode based on environment and options
-    if os.environ.get("RUN_LIVE"):
+    if os.getenv("RUN_LIVE", "False").lower() in ("true", "1", "t"):
         mode = MockMode.LIVE
     elif generate_mocks:
         mode = MockMode.GENERATE
     else:
         mode = MockMode.MOCK
 
-    class MockGenerationConfig:
-        def __init__(self, generate_mocks_enabled, regenerate_all_enabled, mock_mode):
-            self.generate_mocks = generate_mocks_enabled
-            self.regenerate_all_mocks = regenerate_all_enabled
-            self.mode = mock_mode
-
     return MockGenerationConfig(generate_mocks, regenerate_all_mocks, mode)
+
+
+# Handles before_test and after_test
+# see https://github.com/StefanBRas/pytest-shared-session-scope
+@shared_session_scope_json()
+def shared_test_infrastructure(request, mock_generation_config: MockGenerationConfig):
+    """Shared session-scoped fixture for test infrastructure setup/cleanup coordination"""
+    collect_only = request.config.getoption("--collect-only")
+
+    # If we're in collect-only mode or RUN_LIVE is not set, skip setup/cleanup entirely
+    if collect_only or mock_generation_config.mode == MockMode.MOCK:
+        print(
+            f"Skipping shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
+        )
+        # Must yield twice even when skipping due to ohw pytest-shared-session-scope works
+        initial = yield
+        cleanup_token = yield {"test_cases_for_cleanup": []}
+        return
+    print(
+        f"Running shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
+    )
+
+    # First yield: get initial value (SetupToken.FIRST if first worker, data if subsequent)
+    initial = yield
+
+    if initial is SetupToken.FIRST:
+        # This is the first worker to run the fixture
+        test_cases = _extract_test_cases_needing_setup(request.session)
+
+        # Clear mock directories if --regenerate-all-mocks is set
+        cleared_directories = []
+        regenerate_all = request.config.getoption("--regenerate-all-mocks")
+
+        if regenerate_all:
+            cleared_directories = _clear_mock_directories(request.session)
+
+        # Run setup unless --skip-setup is set
+        # Check skip-setup option
+        skip_setup = request.config.getoption("--skip-setup")
+
+        if test_cases and not skip_setup:
+            _run_test_setup(test_cases)
+        elif skip_setup:
+            print("\n⏭️  Skipping test setup due to --skip-setup flag")
+
+        data = {
+            "test_cases_for_cleanup": [tc.id for tc in test_cases],
+            "cleared_mock_directories": cleared_directories,
+        }
+    else:
+        # This is a worker using the fixture after the first worker
+        data = initial
+
+    # Actual test runs here when we yield - then we get back a cleanup token from pytest-shared-session-scope
+    cleanup_token = yield data
+
+    if cleanup_token is CleanupToken.LAST:
+        # This is the last worker to exit - responsible for cleanup
+        test_case_ids = data.get("test_cases_for_cleanup", [])
+
+        # Check skip-cleanup option
+        skip_cleanup = request.config.getoption("--skip-cleanup")
+
+        if test_case_ids and not skip_cleanup:
+            # Reconstruct test cases from IDs
+            from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]  # type: ignore[attr-defined]
+
+            cleanup_test_cases = []
+
+            for item in request.session.items:
+                if (
+                    item.get_closest_marker("llm")
+                    and hasattr(item, "callspec")
+                    and "test_case" in item.callspec.params
+                ):
+                    test_case = item.callspec.params["test_case"]
+                    if (
+                        isinstance(test_case, HolmesTestCase)
+                        and test_case.id in test_case_ids
+                        and test_case not in cleanup_test_cases
+                    ):
+                        cleanup_test_cases.append(test_case)
+
+            if cleanup_test_cases:
+                _run_test_cleanup(cleanup_test_cases)
+        elif skip_cleanup:
+            print("\n⏭️  Skipping test cleanup due to --skip-cleanup flag")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_infrastructure_coordination(shared_test_infrastructure):
+    """Ensure the shared test infrastructure fixture is used (triggers setup/cleanup)"""
+    # This fixture just ensures shared_test_infrastructure runs for all sessions
+    # All the actual logic is in shared_test_infrastructure
+    yield
 
 
 @dataclass
@@ -153,28 +254,6 @@ class TestResult:
         return self.nodeid.split("::")[-1] if "::" in self.nodeid else self.nodeid
 
 
-def pytest_addoption(parser):
-    """Add custom pytest command line options"""
-    parser.addoption(
-        "--generate-mocks",
-        action="store_true",
-        default=False,
-        help="Generate mock data files during test execution instead of using existing mocks",
-    )
-    parser.addoption(
-        "--regenerate-all-mocks",
-        action="store_true",
-        default=False,
-        help="Regenerate all mock data files, replacing existing ones (implies --generate-mocks)",
-    )
-
-
-def pytest_configure(config):
-    """Configure pytest settings"""
-    # Suppress noisy LiteLLM logs during testing
-    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-
-
 @contextmanager
 def force_pytest_output(request):
     """Context manager to force output display even when pytest captures stdout"""
@@ -213,10 +292,13 @@ def check_llm_api_with_test_call():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def llm_session_setup(request):
+def llm_availablity_check(request):
     """Handle LLM test session setup: show warning, check API, and skip if needed"""
     # Don't show messages during collection-only mode
-    if request.config.getoption("--collect-only"):
+    # Check if we're in collect-only mode
+    collect_only = request.config.getoption("--collect-only")
+
+    if collect_only:
         return
 
     # Check if LLM marker is being excluded
@@ -332,6 +414,7 @@ def braintrust_eval_link(request):
                 root_span_id = value
 
     # Construct Braintrust URL for this specific test
+    # NATAN - this link is correct
     braintrust_url = get_braintrust_url(
         test_suite, temp_result.test_id, temp_result.test_name, span_id, root_span_id
     )
@@ -341,9 +424,33 @@ def braintrust_eval_link(request):
         print()
 
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
+def _safe_print(terminalreporter, message=""):
+    """Safely print to terminal reporter to avoid I/O errors"""
+    try:
+        terminalreporter.write_line(message)
+    except Exception:
+        # If write_line fails, try direct write
+        try:
+            terminalreporter._tw.write(message + "\n")
+        except Exception:
+            # Last resort - ignore if all writing fails
+            pass
+
+
+def xxxxxpytest_terminal_summary2(terminalreporter, exitstatus, config):
     """Generate GitHub Actions report and Rich summary table from terminalreporter.stats (xdist compatible)"""
     if not hasattr(terminalreporter, "stats"):
+        return
+
+    # When using xdist, only the master process should display the summary
+    # Check if we're in a worker process
+    worker_id = (
+        getattr(config, "workerinput", {}).get("workerid", None)
+        if hasattr(config, "workerinput")
+        else None
+    )
+    if worker_id is not None:
+        # We're in a worker process, don't display summary
         return
 
     # Collect and sort test results from terminalreporter.stats
@@ -358,10 +465,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     _handle_github_output(sorted_results)
 
     # Handle console/developer output (Rich table + Braintrust links)
-    _handle_console_output(sorted_results)
+    _handle_console_output(sorted_results, terminalreporter)
 
     # Report mock operation statistics
-    _report_mock_operations(config, mock_tracking_data)
+    _report_mock_operations(config, mock_tracking_data, terminalreporter)
 
 
 def markdown_table(headers, rows):
@@ -654,7 +761,7 @@ def _handle_github_output(sorted_results):
                 file.write(f"{total_regressions}")
 
 
-def _handle_console_output(sorted_results):
+def _handle_console_output(sorted_results, terminalreporter=None):
     """Display Rich table and Braintrust links for developers."""
     if not sorted_results:
         return
@@ -735,27 +842,8 @@ def _handle_console_output(sorted_results):
             analysis,
         )
 
+    # Use force_terminal to ensure output is displayed even when captured
     console.print(table)
-
-    # Print Braintrust links if enabled
-    if os.environ.get("BRAINTRUST_API_KEY"):
-        print("🔍 BRAINTRUST EVAL LINKS:")
-        for result in sorted_results:
-            test_suite_full = (
-                "ask_holmes" if result["test_type"] == "ask" else "investigate"
-            )
-            braintrust_url = get_braintrust_url(
-                test_suite_full,
-                result["test_id"],
-                result["test_name"],
-                result.get("braintrust_span_id"),
-                result.get("braintrust_root_span_id"),
-            )
-            if braintrust_url:
-                print(
-                    f"* {result['test_id']}_{result['test_name']} "
-                    f"({result['test_type']}) - {braintrust_url}"
-                )
 
 
 def _get_analysis_for_result(result):
@@ -819,35 +907,46 @@ def _get_llm_analysis(result: TestResult) -> str:
         return f"Analysis failed: {e}"
 
 
-def _report_mock_operations(config, mock_tracking_data):
+def _report_mock_operations(config, mock_tracking_data, terminalreporter=None):
     """Report mock file operations and statistics."""
-    if not config.getoption("--generate-mocks") and not config.getoption(
-        "--regenerate-all-mocks"
-    ):
+    # Use default parameter to safely handle missing options
+    generate_mocks = False
+    regenerate_all_mocks = False
+
+    try:
+        generate_mocks = config.getoption("--generate-mocks", default=False)
+        regenerate_all_mocks = config.getoption("--regenerate-all-mocks", default=False)
+    except (AttributeError, ValueError):
+        # Options not available, use defaults
+        pass
+
+    if not generate_mocks and not regenerate_all_mocks:
         return
 
-    regenerate_mode = config.getoption("--regenerate-all-mocks")
+    regenerate_mode = regenerate_all_mocks
     generated_mocks = mock_tracking_data["generated_mocks"]
-    cleared_dirs = mock_tracking_data["cleared_directories"]
     mock_failures = mock_tracking_data["mock_failures"]
 
-    # Header
-    print(f"\n{'=' * 80}")
-    print(
-        f"{'🔄 MOCK REGENERATION SUMMARY' if regenerate_mode else '🔧 MOCK GENERATION SUMMARY'}"
-    )
-    print(f"{'=' * 80}")
+    # If no terminalreporter, skip output
+    if not terminalreporter:
+        return
 
-    # Cleared directories
-    if cleared_dirs:
-        print(f"🧹 Cleared existing mocks from {len(cleared_dirs)} test directories:")
-        for dir_name in sorted(cleared_dirs):
-            print(f"   - {dir_name}")
-        print()
+    # Header
+    _safe_print(terminalreporter, f"\n{'=' * 80}")
+    _safe_print(
+        terminalreporter,
+        f"{'🔄 MOCK REGENERATION SUMMARY' if regenerate_mode else '🔧 MOCK GENERATION SUMMARY'}",
+    )
+    _safe_print(terminalreporter, f"{'=' * 80}")
+
+    # Note: Cleared directories are now handled by shared_test_infrastructure fixture
+    # and reported during setup phase to ensure single execution across workers
 
     # Generated mocks
     if generated_mocks:
-        print(f"✅ Generated {len(generated_mocks)} mock files:\n")
+        _safe_print(
+            terminalreporter, f"✅ Generated {len(generated_mocks)} mock files:\n"
+        )
 
         # Group by test case
         by_test_case = {}
@@ -860,20 +959,25 @@ def _report_mock_operations(config, mock_tracking_data):
                 )
 
         for test_case, mock_files in sorted(by_test_case.items()):
-            print(f"📁 {test_case}:")
+            _safe_print(terminalreporter, f"📁 {test_case}:")
             for mock_file in mock_files:
-                print(f"   - {mock_file}")
-            print()
+                _safe_print(terminalreporter, f"   - {mock_file}")
+            _safe_print(terminalreporter)
     else:
         mode_text = "regeneration" if regenerate_mode else "generation"
-        print(f"✅ Mock {mode_text} was enabled but no new mock files were created")
+        _safe_print(
+            terminalreporter,
+            f"✅ Mock {mode_text} was enabled but no new mock files were created",
+        )
 
     # Failures
     if mock_failures:
-        print(f"⚠️  {len(mock_failures)} mock-related failures occurred:")
+        _safe_print(
+            terminalreporter, f"⚠️  {len(mock_failures)} mock-related failures occurred:"
+        )
         for failure in mock_failures:
-            print(f"   - {failure}")
-        print()
+            _safe_print(terminalreporter, f"   - {failure}")
+        _safe_print(terminalreporter)
 
     # Checklist
     checklist = [
@@ -885,7 +989,278 @@ def _report_mock_operations(config, mock_tracking_data):
         "If pod/resource names change across tool calls, regenerate ALL mocks with --regenerate-all-mocks",
     ]
 
-    print("📋 REVIEW CHECKLIST:")
+    _safe_print(terminalreporter, "📋 REVIEW CHECKLIST:")
     for item in checklist:
-        print(f"   □ {item}")
-    print("=" * 80)
+        _safe_print(terminalreporter, f"   □ {item}")
+    _safe_print(terminalreporter, "=" * 80)
+
+
+def _format_error_output(error_details: str) -> str:
+    """Format error details with truncation if needed"""
+    from tests.llm.utils.test_helpers import truncate_output
+
+    return truncate_output(error_details, max_lines=MAX_ERROR_LINES)
+
+
+def _run_test_setup(test_cases):
+    """Run before_test for each test case in parallel"""
+    from tests.llm.utils.commands import before_test
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import time
+
+    print(f"Setting up infrastructure for {len(test_cases)} test cases")
+
+    start_time = time.time()
+    successful_test_cases = 0
+    failed_test_cases = 0
+    timed_out_test_cases = 0
+
+    with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
+        # Submit all setup tasks
+        future_to_test_case = {
+            executor.submit(before_test, test_case): test_case
+            for test_case in test_cases
+        }
+
+        # Wait for all tasks to complete and handle results
+        for future in as_completed(future_to_test_case):
+            test_case = future_to_test_case[future]
+            try:
+                result = future.result()  # Single CommandResult for the test case
+                remaining_cases = (
+                    len(test_cases)
+                    - successful_test_cases
+                    - failed_test_cases
+                    - timed_out_test_cases
+                )
+                if result.success:
+                    successful_test_cases += 1
+                    print(
+                        f"✅ Setup {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); setups remaining: {remaining_cases}"
+                    )
+                elif result.error_type == "timeout":
+                    timed_out_test_cases += 1
+                    print(
+                        f"⏰ Setup {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; setups remaining: {remaining_cases}"
+                    )
+
+                    # Show the exact command that timed out
+                    truncated_error = _format_error_output(result.error_details)
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Setup timeout: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Setup timeout for test {test_case.id}: Command '{result.command}' timed out after {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                else:
+                    failed_test_cases += 1
+                    print(
+                        f"❌ Setup {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); setups remaining: {remaining_cases}"
+                    )
+
+                    # Limit error details to 10 lines and add proper formatting
+                    truncated_error = _format_error_output(result.error_details)
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Setup failed: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Setup failed for test {test_case.id}: Command '{result.command}' failed with {result.exit_info} in {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
+            except Exception as e:
+                failed_test_cases += 1
+                print(f"❌ Setup {test_case.id}: EXCEPTION - {e}")
+                logging.error(f"Setup exception for {test_case.id}: {str(e)}")
+
+                # Emit warning to make it visible in pytest output
+                warnings.warn(
+                    f"Setup exception for test {test_case.id}: {str(e)}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+    elapsed_time = time.time() - start_time
+    print(
+        f"\n🕐 Setup completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
+    )
+
+
+def _run_test_cleanup(test_cases):
+    """Run after_test for each test case in parallel"""
+    from tests.llm.utils.commands import after_test
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import time
+
+    print(f"Cleaning up infrastructure after tests for {len(test_cases)} test cases")
+
+    start_time = time.time()
+    successful_test_cases = 0
+    failed_test_cases = 0
+    timed_out_test_cases = 0
+
+    with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
+        # Submit all cleanup tasks
+        future_to_test_case = {
+            executor.submit(after_test, test_case): test_case
+            for test_case in test_cases
+        }
+
+        # Wait for all tasks to complete and handle results
+        for future in as_completed(future_to_test_case):
+            test_case = future_to_test_case[future]
+            try:
+                result = future.result()  # Single CommandResult for the test case
+                remaining_cases = (
+                    len(test_cases)
+                    - successful_test_cases
+                    - failed_test_cases
+                    - timed_out_test_cases
+                )
+
+                if result.success:
+                    successful_test_cases += 1
+                    print(
+                        f"✅ Cleanup {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); cleanups remaining: {remaining_cases}"
+                    )
+                elif result.error_type == "timeout":
+                    timed_out_test_cases += 1
+                    print(
+                        f"⏰ Cleanup {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; cleanups remaining: {remaining_cases}"
+                    )
+
+                    # Show the exact command that timed out
+                    truncated_error = _format_error_output(result.error_details)
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Cleanup timeout: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Cleanup timeout for test {test_case.id}: Command '{result.command}' timed out after {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                else:
+                    failed_test_cases += 1
+                    print(
+                        f"❌ Cleanup {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); cleanups remaining: {remaining_cases}"
+                    )
+
+                    # Limit error details to 10 lines and add proper formatting
+                    truncated_error = _format_error_output(result.error_details)
+                    print(textwrap.indent(truncated_error, "   "))
+                    logging.error(
+                        f"[{test_case.id}] Cleanup failed: {result.error_details}"
+                    )
+
+                    # Emit warning to make it visible in pytest output
+                    warnings.warn(
+                        f"Cleanup failed for test {test_case.id}: Command '{result.command}' failed with {result.exit_info} in {result.elapsed_time:.2f}s. Output: {result.error_details}",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+
+            except Exception as e:
+                failed_test_cases += 1
+                print(f"❌ Cleanup {test_case.id}: EXCEPTION - {e}")
+                logging.error(f"Cleanup exception for {test_case.id}: {str(e)}")
+
+                # Emit warning to make it visible in pytest output
+                warnings.warn(
+                    f"Cleanup exception for test {test_case.id}: {str(e)}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+    elapsed_time = time.time() - start_time
+    print(
+        f"\n🕐 Cleanup completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
+    )
+
+
+def _extract_test_cases_needing_setup(session):
+    """Extract unique test cases that need setup from session items"""
+    from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
+
+    seen_ids = set()
+    test_cases = []
+
+    for item in session.items:
+        if (
+            item.get_closest_marker("llm")
+            and hasattr(item, "callspec")
+            and "test_case" in item.callspec.params
+        ):
+            test_case = item.callspec.params["test_case"]
+            if (
+                isinstance(test_case, HolmesTestCase)
+                and test_case.before_test
+                and test_case.id not in seen_ids
+            ):
+                test_cases.append(test_case)
+                seen_ids.add(test_case.id)
+
+    return test_cases
+
+
+def _clear_mock_directories(session):
+    """Clear mock directories for all test cases when --regenerate-all-mocks is set"""
+    from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
+    import glob
+
+    print("\n🧹 Clearing mock files for --regenerate-all-mocks")
+
+    cleared_directories = set()
+    total_files_removed = 0
+
+    # Extract all unique test case folders
+    test_folders = set()
+    for item in session.items:
+        if (
+            item.get_closest_marker("llm")
+            and hasattr(item, "callspec")
+            and "test_case" in item.callspec.params
+        ):
+            test_case = item.callspec.params["test_case"]
+            if isinstance(test_case, HolmesTestCase):
+                test_folders.add(test_case.folder)
+
+    # Clear mock files from each folder
+    for folder in test_folders:
+        patterns = [
+            os.path.join(folder, "*.txt"),
+            os.path.join(folder, "*.json"),
+        ]
+
+        folder_files_removed = 0
+        for pattern in patterns:
+            for file_path in glob.glob(pattern):
+                try:
+                    os.remove(file_path)
+                    folder_files_removed += 1
+                    total_files_removed += 1
+                except Exception as e:
+                    logging.warning(f"Could not remove {file_path}: {e}")
+
+        if folder_files_removed > 0:
+            cleared_directories.add(folder)
+            print(
+                f"   ✅ Cleared {folder_files_removed} mock files from {os.path.basename(folder)}"
+            )
+
+    print(
+        f"   📊 Total: Cleared {total_files_removed} files from {len(cleared_directories)} directories\n"
+    )
+
+    return list(cleared_directories)
