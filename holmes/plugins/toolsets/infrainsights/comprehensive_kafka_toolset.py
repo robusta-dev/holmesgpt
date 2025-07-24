@@ -858,15 +858,20 @@ class KafkaProducerPerformanceTool(Tool):
                 
                 # Performance test
                 start_time = time.time()
-                futures = []
+                successful = 0
+                failed = 0
                 
                 for i in range(num_messages):
-                    future = producer.send(
-                        topic_name,
-                        value=test_message,
-                        key=f"test-{i}".encode('utf-8')
-                    )
-                    futures.append(future)
+                    try:
+                        producer.produce(
+                            topic_name,
+                            value=test_message,
+                            key=f"test-{i}".encode('utf-8')
+                        )
+                        successful += 1
+                    except Exception as e:
+                        failed += 1
+                        logger.warning(f"Failed to produce message {i}: {e}")
                 
                 # Wait for all messages to be sent
                 producer.flush()
@@ -874,16 +879,6 @@ class KafkaProducerPerformanceTool(Tool):
                 # Calculate metrics
                 end_time = time.time()
                 duration = end_time - start_time
-                
-                # Check for failures
-                successful = 0
-                failed = 0
-                for future in futures:
-                    try:
-                        future.get(timeout=10)
-                        successful += 1
-                    except:
-                        failed += 1
                 
                 producer.close()
                 
