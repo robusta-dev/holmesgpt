@@ -96,7 +96,7 @@ class MockHelper:
         ]  # ignoring hidden files like Mac's .DS_Store
         for test_case_id in test_cases_ids:
             test_case_folder = self._test_cases_folder.joinpath(test_case_id)
-            logging.info("Evaluating potential test case folder: {test_case_folder}")
+            logging.debug(f"Evaluating potential test case folder: {test_case_folder}")
             try:
                 config_dict = yaml.safe_load(
                     read_file(test_case_folder.joinpath(CONFIG_FILE_NAME))
@@ -142,15 +142,15 @@ class MockHelper:
                         config_dict
                     )
 
-                logging.info(f"Successfully loaded test case {test_case_id}")
+                logging.debug(f"Successfully loaded test case {test_case_id}")
             except FileNotFoundError:
-                logging.info(
+                logging.debug(
                     f"Folder {self._test_cases_folder}/{test_case_id} ignored because it is missing a {CONFIG_FILE_NAME} file."
                 )
                 continue
 
             test_cases.append(test_case)
-        logging.info(f"Found {len(test_cases)} in {self._test_cases_folder}")
+        logging.debug(f"Found {len(test_cases)} in {self._test_cases_folder}")
 
         return test_cases
 
