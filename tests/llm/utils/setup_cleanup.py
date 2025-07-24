@@ -20,6 +20,7 @@ MAX_WORKERS = 30
 def log(msg):
     """Force a log to be written even with xdist, which captures stdout."""
     sys.stderr.write(msg)
+    sys.stderr.write("\n")
 
 
 def format_error_output(error_details: str) -> str:
@@ -46,7 +47,7 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
     operation_plural = f"{operation_lower}s"
 
     log(
-        f"⚙️ {'Setting up' if operation == Operation.SETUP else 'Cleaning up'} infrastructure {'before' if operation == Operation.SETUP else 'after tests for'} {len(test_cases)} test cases: {', '.join(tc.id for tc in test_cases)}"
+        f"\n⚙️ {'Setting up' if operation == Operation.SETUP else 'Cleaning up'} infrastructure {'before' if operation == Operation.SETUP else 'after tests for'} {len(test_cases)} test cases: {', '.join(tc.id for tc in test_cases)}"
     )
 
     start_time = time.time()
@@ -80,7 +81,7 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                     - successful_test_cases
                     - failed_test_cases
                     - timed_out_test_cases
-                )
+                ) - 1  # Subtract 1 for the current test case
                 if result.success:
                     successful_test_cases += 1
                     log(
@@ -139,7 +140,7 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
 
     elapsed_time = time.time() - start_time
     log(
-        f"\n⚙️ {operation.value} completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
+        f"⚙️ {operation.value} completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
     )
 
 

@@ -73,20 +73,20 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
     # If we're in collect-only mode or RUN_LIVE is not set, skip setup/cleanup entirely
     if collect_only or mock_generation_config.mode == MockMode.MOCK:
         log(
-            f"⚙️ Skipping shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
+            f"\n⚙️ Skipping shared test infrastructure setup/cleanup on worker (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
         )
         # Must yield twice even when skipping due to how pytest-shared-session-scope works
         initial = yield
         cleanup_token = yield {"test_cases_for_cleanup": []}
         return
-    log(
-        f"⚙️ Running shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
-    )
 
     # First yield: get initial value (SetupToken.FIRST if first worker, data if subsequent)
     initial = yield
 
     if initial is SetupToken.FIRST:
+        log(
+            "\n⚙️ Running shared test infrastructure setup/cleanup on worker chosen for setup"
+        )
         # This is the first worker to run the fixture
         test_cases = extract_test_cases_needing_setup(request.session)
 
@@ -113,6 +113,7 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             "cleared_mock_directories": cleared_directories,
         }
     else:
+        log("⚙️ NOT running shared test infrastructure setup/cleanup on other worker.")
         # This is a worker using the fixture after the first worker
         data = initial
 
