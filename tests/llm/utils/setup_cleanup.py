@@ -47,7 +47,7 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
     operation_plural = f"{operation_lower}s"
 
     log(
-        f"\n⚙️ {'Setting up' if operation == Operation.SETUP else 'Cleaning up'} infrastructure {'before' if operation == Operation.SETUP else 'after tests for'} {len(test_cases)} test cases: {', '.join(tc.id for tc in test_cases)}"
+        f"\n⚙️ {'Running before_test' if operation == Operation.SETUP else 'Running after_test'} for {len(test_cases)} unique evals: {', '.join(tc.id for tc in test_cases)}"
     )
 
     start_time = time.time()
