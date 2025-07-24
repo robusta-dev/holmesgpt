@@ -219,16 +219,20 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)  # type: ignore
-
     # Detect and read piped input
     piped_data = None
-    if not sys.stdin.isatty():
+
+    # when attaching a pycharm debugger sys.stdin.isatty() returns false and sys.stdin.read() is stuck
+    running_from_pycharm = os.environ.get("PYCHARM_HOSTED", False)
+
+    if not sys.stdin.isatty() and not running_from_pycharm:
         piped_data = sys.stdin.read().strip()
         if interactive:
             console.print(
                 "[bold yellow]Interactive mode disabled when reading piped input[/bold yellow]"
             )
             interactive = False
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
