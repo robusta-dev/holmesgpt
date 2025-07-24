@@ -290,7 +290,7 @@ class ToolsetManager:
                 [toolset for toolset in all_toolsets_with_status if toolset.enabled]
             )
             logging.info(
-                f"Using {num_available_toolsets} datasources (toolsets). To refresh: `holmes toolset refresh`"
+                f"Using {num_available_toolsets} datasources (toolsets). To refresh: use flag `--refresh-toolsets`"
             )
         return all_toolsets_with_status
 
