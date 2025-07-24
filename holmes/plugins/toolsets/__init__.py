@@ -44,7 +44,7 @@ from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 
 # Enhanced InfraInsights toolsets
 from holmes.plugins.toolsets.infrainsights.enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
-from holmes.plugins.toolsets.infrainsights.enhanced_kafka_toolset import EnhancedKafkaToolset
+from holmes.plugins.toolsets.infrainsights.comprehensive_kafka_toolset import ComprehensiveKafkaToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_mongodb_toolset import EnhancedMongoDBToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_redis_toolset import EnhancedRedisToolset
 
@@ -180,9 +180,9 @@ def load_toolsets_from_config(
                     validated_toolset.configure(validated_toolset.config)
                 else:
                     logging.warning(f"🔧 No config found for {name}, using defaults")
-            elif name == "infrainsights_kafka_enhanced" or name == "infrainsights_kafka_v2":
-                logging.info(f"🔧 Loading enhanced Kafka toolset: {name}")
-                validated_toolset = EnhancedKafkaToolset()
+            elif name == "infrainsights_kafka_enhanced" or name == "infrainsights_kafka_v2" or name == "infrainsights_kafka_comprehensive":
+                logging.info(f"🔧 Loading comprehensive Kafka toolset: {name}")
+                validated_toolset = ComprehensiveKafkaToolset()
                 validated_toolset.config = config.get("config")
                 # Call configure method to initialize InfraInsights client with config
                 if validated_toolset.config:

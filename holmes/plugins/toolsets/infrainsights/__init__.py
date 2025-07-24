@@ -9,12 +9,14 @@ logger = logging.getLogger(__name__)
 from .enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
 from .enhanced_mongodb_toolset import EnhancedMongoDBToolset
 from .enhanced_redis_toolset import EnhancedRedisToolset
+from .comprehensive_kafka_toolset import ComprehensiveKafkaToolset
 
 # List of available toolsets - used by the loader
 AVAILABLE_TOOLSETS = {
     'enhanced_elasticsearch': EnhancedElasticsearchToolset,
     'enhanced_mongodb': EnhancedMongoDBToolset,
     'enhanced_redis': EnhancedRedisToolset,
+    'comprehensive_kafka': ComprehensiveKafkaToolset,
 }
 
 def get_infrainsights_toolsets(config: Dict[str, Any] = None) -> List[Toolset]:
@@ -63,5 +65,23 @@ def get_infrainsights_toolsets(config: Dict[str, Any] = None) -> List[Toolset]:
                 break  # Only load one instance of Redis toolset
             except Exception as e:
                 logger.error(f"❌ Failed to load Enhanced Redis toolset: {e}")
+    
+    # Comprehensive Kafka toolset - support multiple config key variations
+    kafka_configs = [
+        config.get('kafka', {}),
+        config.get('infrainsights_kafka', {}),
+        config.get('infrainsights_kafka_comprehensive', {})
+    ]
+    
+    for kafka_config in kafka_configs:
+        if kafka_config.get('enabled', False):
+            try:
+                kafka_toolset = ComprehensiveKafkaToolset()
+                kafka_toolset.configure(kafka_config)
+                toolsets.append(kafka_toolset)
+                logger.info("✅ Comprehensive Kafka toolset loaded")
+                break  # Only load one instance of Kafka toolset
+            except Exception as e:
+                logger.error(f"❌ Failed to load Comprehensive Kafka toolset: {e}")
     
     return toolsets 
