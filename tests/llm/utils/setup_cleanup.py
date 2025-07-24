@@ -1,6 +1,6 @@
 """Setup and cleanup infrastructure for test cases."""
 
-import logging
+import sys
 import textwrap
 import time
 import warnings
@@ -15,6 +15,11 @@ from tests.llm.utils.test_helpers import truncate_output
 # Configuration
 MAX_ERROR_LINES = 10
 MAX_WORKERS = 30
+
+
+def log(msg):
+    """Force a log to be written even with xdist, which captures stdout."""
+    sys.stderr.write(msg)
 
 
 def format_error_output(error_details: str) -> str:
@@ -40,8 +45,8 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
     operation_lower = operation.value.lower()
     operation_plural = f"{operation_lower}s"
 
-    print(
-        f"{'Setting up' if operation == Operation.SETUP else 'Cleaning up'} infrastructure {'before' if operation == Operation.SETUP else 'after tests for'} {len(test_cases)} test cases: {', '.join(tc.id for tc in test_cases)}"
+    log(
+        f"⚙️ {'Setting up' if operation == Operation.SETUP else 'Cleaning up'} infrastructure {'before' if operation == Operation.SETUP else 'after tests for'} {len(test_cases)} test cases: {', '.join(tc.id for tc in test_cases)}"
     )
 
     start_time = time.time()
@@ -78,19 +83,19 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                 )
                 if result.success:
                     successful_test_cases += 1
-                    print(
+                    log(
                         f"✅ {operation.value} {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
                     )
                 elif result.error_type == "timeout":
                     timed_out_test_cases += 1
-                    print(
+                    log(
                         f"⏰ {operation.value} {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; {operation_plural} remaining: {remaining_cases}"
                     )
 
                     # Show the exact command that timed out
                     truncated_error = format_error_output(result.error_details)
-                    print(textwrap.indent(truncated_error, "   "))
-                    logging.error(
+                    log(textwrap.indent(truncated_error, "   "))
+                    log(
                         f"[{test_case.id}] {operation.value} timeout: {result.error_details}"
                     )
 
@@ -102,14 +107,14 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                     )
                 else:
                     failed_test_cases += 1
-                    print(
+                    log(
                         f"❌ {operation.value} {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
                     )
 
                     # Limit error details to 10 lines and add proper formatting
                     truncated_error = format_error_output(result.error_details)
-                    print(textwrap.indent(truncated_error, "   "))
-                    logging.error(
+                    log(textwrap.indent(truncated_error, "   "))
+                    log(
                         f"[{test_case.id}] {operation.value} failed: {result.error_details}"
                     )
 
@@ -122,10 +127,8 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
 
             except Exception as e:
                 failed_test_cases += 1
-                print(f"❌ {operation.value} {test_case.id}: EXCEPTION - {e}")
-                logging.error(
-                    f"{operation.value} exception for {test_case.id}: {str(e)}"
-                )
+                log(f"❌ {operation.value} {test_case.id}: EXCEPTION - {e}")
+                log(f"{operation.value} exception for {test_case.id}: {str(e)}")
 
                 # Emit warning to make it visible in pytest output
                 warnings.warn(
@@ -135,8 +138,8 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                 )
 
     elapsed_time = time.time() - start_time
-    print(
-        f"\n🕐 {operation.value} completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
+    log(
+        f"\n⚙️ {operation.value} completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
     )
 
 

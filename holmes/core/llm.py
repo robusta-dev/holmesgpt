@@ -140,14 +140,11 @@ class DefaultLLM(LLM):
         https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
         """
         model_name = self.model
-        if model_name.startswith("openai/"):
-            model_name = model_name[len("openai/") :]  # Strip the 'openai/' prefix
-        elif model_name.startswith("bedrock/"):
-            model_name = model_name[len("bedrock/") :]  # Strip the 'bedrock/' prefix
-        elif model_name.startswith("vertex_ai/"):
-            model_name = model_name[
-                len("vertex_ai/") :
-            ]  # Strip the 'vertex_ai/' prefix
+        prefixes = ["openai/", "bedrock/", "vertex_ai/", "anthropic/"]
+
+        for prefix in prefixes:
+            if model_name.startswith(prefix):
+                return model_name[len(prefix) :]
 
         return model_name
 

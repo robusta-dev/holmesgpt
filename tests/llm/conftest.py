@@ -22,6 +22,7 @@ from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
     run_all_test_cleanup,
     extract_test_cases_needing_setup,
+    log,
 )
 
 # Configuration constants
@@ -71,15 +72,15 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
 
     # If we're in collect-only mode or RUN_LIVE is not set, skip setup/cleanup entirely
     if collect_only or mock_generation_config.mode == MockMode.MOCK:
-        print(
-            f"Skipping shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
+        log(
+            f"⚙️ Skipping shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
         )
         # Must yield twice even when skipping due to how pytest-shared-session-scope works
         initial = yield
         cleanup_token = yield {"test_cases_for_cleanup": []}
         return
-    print(
-        f"Running shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
+    log(
+        f"⚙️ Running shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
     )
 
     # First yield: get initial value (SetupToken.FIRST if first worker, data if subsequent)
@@ -105,7 +106,7 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         if test_cases and not skip_setup:
             run_all_test_setup(test_cases)
         elif skip_setup:
-            print("\n⏭️  Skipping test setup due to --skip-setup flag")
+            log("⚙️ Skipping test setup due to --skip-setup flag")
 
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],
@@ -148,7 +149,7 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             if cleanup_test_cases:
                 run_all_test_cleanup(cleanup_test_cases)
         elif skip_cleanup:
-            print("\n⏭️  Skipping test cleanup due to --skip-cleanup flag")
+            log("⚙️ Skipping test cleanup due to --skip-cleanup flag")
 
 
 # TODO: do we actually need this?
@@ -320,7 +321,6 @@ def braintrust_eval_link(request):
                 root_span_id = value
 
     # Construct Braintrust URL for this specific test
-    # NATAN - this link is correct
     braintrust_url = get_braintrust_url(
         test_suite, temp_result.test_id, temp_result.test_name, span_id, root_span_id
     )
