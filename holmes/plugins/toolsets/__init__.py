@@ -242,10 +242,6 @@ def load_toolsets_from_config(
                     validated_toolset.configure(validated_toolset.config)
                 else:
                     logging.warning(f"🔧 No config found for {name}, using defaults")
-                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
-                    validated_toolset.configure(validated_toolset.config)
-                else:
-                    logging.warning(f"🔧 No config found for {name}, using defaults")
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
