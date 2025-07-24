@@ -61,6 +61,10 @@ jobs:
         (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
       shell: pwsh
 
+    - name: Install unixODBC (macOS)
+      if: matrix.os == 'macos-latest'
+      run: brew install unixodbc
+
     # if you change something here, you must also change it in .github/workflows/build-and-test.yaml
     - name: Build with PyInstaller
       shell: bash
