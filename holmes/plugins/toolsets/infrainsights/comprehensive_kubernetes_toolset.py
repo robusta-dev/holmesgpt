@@ -1791,24 +1791,46 @@ class InfraInsightsKubernetesToolset(Toolset):
     def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
         """Check if prerequisites are met"""
         try:
+            logger.info("🔍 Checking prerequisites for InfraInsights Kubernetes toolset")
+            
             infrainsights_client = getattr(self, 'infrainsights_client', None)
             if not infrainsights_client:
+                logger.warning("🔍 InfraInsights client not configured")
                 return False, "InfraInsights client not configured"
+            
+            logger.info("🔍 InfraInsights client configured, checking API accessibility")
             
             # Check if InfraInsights API is accessible
             if not infrainsights_client.health_check():
+                logger.warning("🔍 InfraInsights API is not accessible")
                 return False, "InfraInsights API is not accessible"
+            
+            logger.info("🔍 InfraInsights API is accessible, checking kubectl availability")
             
             # Check if kubectl is available
             try:
-                subprocess.run(['kubectl', 'version', '--client'], 
-                             capture_output=True, check=True, timeout=10)
-            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-                return False, "kubectl is not available or not working"
+                result = subprocess.run(['kubectl', 'version', '--client'], 
+                                      capture_output=True, text=True, timeout=10)
+                logger.info(f"🔍 kubectl version check result: {result.returncode}")
+                if result.returncode != 0:
+                    logger.warning(f"🔍 kubectl version check failed: {result.stderr}")
+                    return False, f"kubectl version check failed: {result.stderr}"
+                logger.info("🔍 kubectl is available and working")
+            except FileNotFoundError:
+                logger.warning("🔍 kubectl command not found")
+                return False, "kubectl is not available (command not found)"
+            except subprocess.TimeoutExpired:
+                logger.warning("🔍 kubectl version check timed out")
+                return False, "kubectl version check timed out"
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"🔍 kubectl version check failed with error: {e}")
+                return False, f"kubectl version check failed: {e}"
             
+            logger.info("✅ All prerequisites check passed for InfraInsights Kubernetes toolset")
             return True, ""
             
         except Exception as e:
+            logger.error(f"🔍 Prerequisites check failed with exception: {e}")
             return False, f"Prerequisites check failed: {str(e)}"
 
     def get_instance(self, instance_name: str) -> Optional[ServiceInstance]:
