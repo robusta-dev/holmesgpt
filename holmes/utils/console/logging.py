@@ -46,6 +46,7 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
 
     if verbosity == Verbosity.VERY_VERBOSE:
         logging.basicConfig(
+            force=True,
             level=logging.DEBUG,
             format="%(message)s",
             handlers=[
@@ -60,6 +61,7 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
         )
     elif verbosity == Verbosity.VERBOSE:
         logging.basicConfig(
+            force=True,
             level=logging.INFO,
             format="%(message)s",
             handlers=[
@@ -76,6 +78,7 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
         suppress_noisy_logs()
     else:
         logging.basicConfig(
+            force=True,
             level=logging.INFO,
             format="%(message)s",
             handlers=[
