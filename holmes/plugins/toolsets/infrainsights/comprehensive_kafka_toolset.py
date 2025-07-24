@@ -96,23 +96,23 @@ class KafkaHealthCheckTool(Tool):
             try:
                 admin_client = KafkaAdminClient(**admin_config)
                 
-                # Get cluster metadata
-                metadata = admin_client._client.cluster
+                # Get cluster metadata (kafka-python API)
+                cluster_metadata = admin_client._client.cluster
                 
                 health_data = {
                     'status': 'healthy',
-                    'cluster_id': metadata.cluster_id,
-                    'controller_id': metadata.controller_id,
+                    'cluster_id': getattr(cluster_metadata, 'cluster_id', 'unknown'),
+                    'controller_id': getattr(cluster_metadata, 'controller_id', 'unknown'),
                     'brokers': [
                         {
-                            'id': broker.nodeId,
-                            'host': broker.host,
-                            'port': broker.port,
-                            'rack': broker.rack
+                            'id': getattr(broker, 'nodeId', getattr(broker, 'id', 'unknown')),
+                            'host': getattr(broker, 'host', 'unknown'),
+                            'port': getattr(broker, 'port', 'unknown'),
+                            'rack': getattr(broker, 'rack', None)
                         }
-                        for broker in metadata.brokers()
+                        for broker in cluster_metadata.brokers()
                     ],
-                    'broker_count': len(metadata.brokers()),
+                    'broker_count': len(cluster_metadata.brokers()),
                     'connection_info': {
                         'bootstrap_servers': brokers,
                         'security_protocol': security_protocol,
@@ -226,31 +226,47 @@ class KafkaListTopicsTool(Tool):
             try:
                 admin_client = KafkaAdminClient(**admin_config)
                 
-                # List all topics
-                topics_metadata = admin_client.list_topics()
+                # List all topics (kafka-python API returns list of topic names)
+                topic_names = admin_client.list_topics()
                 
                 topics_data = []
-                for topic_name, topic_metadata in topics_metadata.items():
+                for topic_name in topic_names:
                     # Skip internal topics if not requested
                     if not params.get('include_internal', False) and topic_name.startswith('__'):
                         continue
                     
-                    topic_info = {
-                        'name': topic_name,
-                        'partitions': len(topic_metadata.partitions),
-                        'replication_factor': len(topic_metadata.partitions[0].replicas) if topic_metadata.partitions else 0,
-                        'is_internal': topic_name.startswith('__'),
-                        'partition_details': [
-                            {
-                                'partition': p.partition,
-                                'leader': p.leader,
-                                'replicas': p.replicas,
-                                'isr': p.isr
-                            }
-                            for p in topic_metadata.partitions.values()
-                        ]
-                    }
-                    topics_data.append(topic_info)
+                    # Get topic metadata for each topic
+                    try:
+                        topic_metadata = admin_client._client.cluster.topics(topic_name)
+                        partitions = topic_metadata.partitions() if hasattr(topic_metadata, 'partitions') else []
+                        
+                        topic_info = {
+                            'name': topic_name,
+                            'partitions': len(partitions),
+                            'replication_factor': len(partitions[0].replicas) if partitions else 0,
+                            'is_internal': topic_name.startswith('__'),
+                            'partition_details': [
+                                {
+                                    'partition': getattr(p, 'partition', getattr(p, 'id', 0)),
+                                    'leader': getattr(p, 'leader', 'unknown'),
+                                    'replicas': getattr(p, 'replicas', []),
+                                    'isr': getattr(p, 'isr', [])
+                                }
+                                for p in partitions
+                            ]
+                        }
+                        topics_data.append(topic_info)
+                    except Exception as e:
+                        # If we can't get detailed metadata, just add basic info
+                        topic_info = {
+                            'name': topic_name,
+                            'partitions': 0,
+                            'replication_factor': 0,
+                            'is_internal': topic_name.startswith('__'),
+                            'partition_details': [],
+                            'error': f"Could not get metadata: {str(e)}"
+                        }
+                        topics_data.append(topic_info)
                 
                 admin_client.close()
                 
