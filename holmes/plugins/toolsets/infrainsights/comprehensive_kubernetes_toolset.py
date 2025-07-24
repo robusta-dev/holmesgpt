@@ -1519,11 +1519,11 @@ class KubernetesResourceAnalysisTool(Tool):
 class InfraInsightsKubernetesToolset(Toolset):
     """InfraInsights Kubernetes toolset for advanced Kubernetes monitoring and management"""
     
-    # Define custom fields for this toolset
-    infrainsights_config: Optional[InfraInsightsConfig] = None
-    infrainsights_client: Optional[InfraInsightsClientV2] = None
-
     def __init__(self):
+        # Initialize instance variables
+        self.infrainsights_config: Optional[InfraInsightsConfig] = None
+        self.infrainsights_client: Optional[InfraInsightsClientV2] = None
+        
         super().__init__(
             name="infrainsights_kubernetes",
             description="Comprehensive Kubernetes monitoring, troubleshooting, and analysis toolset powered by InfraInsights. Features 9 advanced tools for cluster health checks, resource management, log analysis, metrics monitoring, advanced troubleshooting (probes, network, storage), and resource optimization. Seamlessly integrates with InfraInsights API for secure kubeconfig management and multi-cluster support.",
