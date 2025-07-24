@@ -3,6 +3,7 @@ tags:
   - logs
   - kafka
   - runbooks
+  - reproducible
 expected_output: |
   `invoices-app` is slow to process messages because email sending is slow
 # Manual port-forward is required:

@@ -1,6 +1,7 @@
 user_prompt: "Find 'query failed' in the logs of my-app-53"
 tags:
   - logs
+  - reproducible
 expected_output: |
   A summary with the following errors in whichever order:
     1. DB query issues due to a syntax error

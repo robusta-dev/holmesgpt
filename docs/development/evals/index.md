@@ -215,7 +215,6 @@ poetry run pytest -m "llm and not synthetic"
 - `network` - Tests requiring network connectivity
 - `runbooks` - Runbook functionality tests
 - `misleading-history` - Tests with misleading historical data
-- `k8s-misconfig` - Kubernetes misconfiguration tests
 - `chain-of-causation` - Chain of causation analysis tests
 - `slackbot` - Slack integration tests
 - `counting` - Resource counting tests
