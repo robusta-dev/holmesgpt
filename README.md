@@ -89,7 +89,7 @@ Robusta can investigate alerts - or just answer questions - from the following s
   <img src="images/integration_logos/all-installation-methods.png" alt="All Installation Methods" style="max-width:100%; height:auto;">
 </a>
 
-Read the [installation documentation](https://robusta-dev.github.io/holmesgpt/installation/) to learn how to install HolmesGPT.
+Read the [installation documentation](https://robusta-dev.github.io/holmesgpt/installation/cli-installation/) to learn how to install HolmesGPT.
 
 ## Supported LLM Providers
 
