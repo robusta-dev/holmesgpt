@@ -45,7 +45,6 @@ class HolmesTestCase(BaseModel):
     folder: str
     mocked_date: Optional[str] = None
     tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
-    add_params_to_mock_file: bool = True
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluations = LLMEvaluations()
     before_test: Optional[str] = None
@@ -92,8 +91,11 @@ class MockHelper:
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
         test_cases_ids: List[str] = [
-            f for f in os.listdir(self._test_cases_folder) if not f.startswith(".")
-        ]  # ignoring hidden files like Mac's .DS_Store
+            f
+            for f in os.listdir(self._test_cases_folder)
+            if not f.startswith(".")
+            and os.path.isdir(self._test_cases_folder.joinpath(f))
+        ]  # ignoring hidden files like Mac's .DS_Store and non-directory files
         for test_case_id in test_cases_ids:
             test_case_folder = self._test_cases_folder.joinpath(test_case_id)
             logging.debug(f"Evaluating potential test case folder: {test_case_folder}")

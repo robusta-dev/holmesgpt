@@ -437,18 +437,6 @@ class TestMockToolsMatching:
                 mock_request = Mock()
                 mock_request.node.user_properties = []
 
-                # Need to pass add_params_to_mock_file=False through test case config
-                # For this test, we'll create the mock directly
-                from tests.llm.utils.test_case_utils import AskHolmesTestCase
-
-                test_case = AskHolmesTestCase(
-                    id="test",
-                    folder=tmpdir,
-                    user_prompt="test",
-                    expected_output="test",
-                    add_params_to_mock_file=False,  # This disables params in filenames
-                )
-
                 # Create a mock config object
                 mock_config = Mock()
                 mock_config.mode = MockMode.MOCK
@@ -458,7 +446,6 @@ class TestMockToolsMatching:
                 mock_toolsets = MockToolsetManager(
                     test_case_folder=tmpdir,
                     mock_generation_config=mock_config,
-                    add_params_to_mock_file=test_case.add_params_to_mock_file,
                     request=mock_request,
                 )
 
