@@ -203,7 +203,7 @@ class TestMockFileManager:
             mock_request.node.user_properties = []
 
             # Clear mocks
-            cleared = manager.clear_mocks(mock_request)
+            cleared = manager.clear_mocks_for_test(mock_request)
 
             assert len(cleared) == 2
             assert not os.path.exists(os.path.join(tmpdir, "mock1.txt"))
