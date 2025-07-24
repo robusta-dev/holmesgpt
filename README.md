@@ -85,27 +85,19 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 ## Installation
 
-HolmesGPT supports multiple installation methods to fit your workflow - from CLI tools to web interfaces and APIs for custom integrations.
-
 <a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
-  <img src="images/all-installation-methods.png" alt="All Installation Methods" style="max-width:100%; height:auto;">
+  <img src="images/integration_logos/all-installation-methods.png" alt="All Installation Methods" style="max-width:100%; height:auto;">
 </a>
 
-Choose the installation method that best fits your needs:
-- **CLI**: Perfect for local development, shell scripts, and CI/CD pipelines
-- **Web UI**: Browser-based access through Robusta SaaS or K9s plugin integration
-- **API**: Embed HolmesGPT into your applications with HTTP API or Python SDK
-
+Read the [installation documentation](https://robusta-dev.github.io/holmesgpt/installation/) to learn how to install HolmesGPT.
 
 ## Supported LLM Providers
 
-HolmesGPT works with all major AI providers. Select your preferred provider and follow the setup instructions for API key configuration.
-
 <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/">
-  <img src="images/all-integration-providers.png" alt="All Integration Providers" style="max-width:100%; height:auto;">
+  <img src="images/integration_logos/all-integration-providers.png" alt="All Integration Providers" style="max-width:100%; height:auto;">
 </a>
 
-Supported providers include OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Google Vertex AI, Gemini, and Ollama. You can also use any OpenAI-compatible models - see our [compatibility guide](https://robusta-dev.github.io/holmesgpt/ai-providers/openai-compatible/) for details.
+Read the [LLM Providers documentation](https://robusta-dev.github.io/holmesgpt/ai-providers/) to learn how to set up your LLM API key.
 
 ### Using HolmesGPT
 
