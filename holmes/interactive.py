@@ -6,15 +6,15 @@ import threading
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Optional, List, DefaultDict
+from typing import DefaultDict, List, Optional
 
 import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application import Application
 from prompt_toolkit.completion import Completer, Completion, merge_completers
 from prompt_toolkit.completion.filesystem import ExecutableCompleter, PathCompleter
-from prompt_toolkit.history import InMemoryHistory, FileHistory
 from prompt_toolkit.document import Document
+from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit, Window
@@ -22,7 +22,6 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
-
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
@@ -30,7 +29,7 @@ from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
 from holmes.version import check_version_async
-from holmes.core.tracing import DummySpan
+from holmes.core.tracing import DummyTracer
 
 
 class SlashCommands(Enum):
@@ -310,7 +309,11 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         @bindings.add("end")
         def _(event):
             event.app.layout.focus(text_area)
+            # Go to last line, then to beginning of that line
             text_area.buffer.cursor_position = len(text_area.buffer.text)
+            text_area.buffer.cursor_left(
+                count=text_area.buffer.document.cursor_position_col
+            )
 
         @bindings.add("d")
         @bindings.add("c-d")
@@ -719,9 +722,9 @@ def run_interactive_loop(
     show_tool_output: bool,
     tracer=None,
 ) -> None:
-    # Initialize tracer - use DummySpan if no tracer provided
+    # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
-        tracer = DummySpan()
+        tracer = DummyTracer()
 
     style = Style.from_dict(
         {

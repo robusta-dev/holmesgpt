@@ -16,15 +16,11 @@ import json
 import logging
 import socket
 import uuid
-import warnings
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
 import typer
-from rich.console import Console
-from rich.logging import RichHandler
 from rich.markdown import Markdown
 from rich.rule import Rule
 
@@ -37,14 +33,16 @@ from holmes.config import (
 )
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
-from holmes.core.tool_calling_llm import LLMResult
 from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.tracing import SpanType, TracingFactory
 from holmes.interactive import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
-from holmes.core.tracing import TracingFactory, SpanType
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
+from holmes.utils.console.consts import system_prompt_help
+from holmes.utils.console.logging import init_logging
+from holmes.utils.console.result import handle_result
 from holmes.utils.file_utils import write_json_file
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
@@ -69,94 +67,6 @@ toolset_app = typer.Typer(
     help="Toolset management commands",
 )
 app.add_typer(toolset_app, name="toolset")
-
-
-class Verbosity(Enum):
-    NORMAL = 0
-    LOG_QUERIES = 1  # TODO: currently unused
-    VERBOSE = 2
-    VERY_VERBOSE = 3
-
-
-def cli_flags_to_verbosity(verbose_flags: List[bool]) -> Verbosity:
-    if verbose_flags is None or len(verbose_flags) == 0:
-        return Verbosity.NORMAL
-    elif len(verbose_flags) == 1:
-        return Verbosity.LOG_QUERIES
-    elif len(verbose_flags) == 2:
-        return Verbosity.VERBOSE
-    else:
-        return Verbosity.VERY_VERBOSE
-
-
-def suppress_noisy_logs():
-    # disable INFO logs from OpenAI
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    # disable INFO logs from LiteLLM
-    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-    # disable INFO logs from AWS (relevant when using bedrock)
-    logging.getLogger("boto3").setLevel(logging.WARNING)
-    logging.getLogger("botocore").setLevel(logging.WARNING)
-    # when running in --verbose mode we don't want to see DEBUG logs from these libraries
-    logging.getLogger("openai._base_client").setLevel(logging.INFO)
-    logging.getLogger("httpcore").setLevel(logging.INFO)
-    logging.getLogger("markdown_it").setLevel(logging.INFO)
-    # suppress UserWarnings from the slack_sdk module
-    warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
-
-
-def init_logging(verbose_flags: Optional[List[bool]] = None):
-    verbosity = cli_flags_to_verbosity(verbose_flags)  # type: ignore
-
-    if verbosity == Verbosity.VERY_VERBOSE:
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(message)s",
-            handlers=[
-                RichHandler(
-                    show_level=False,
-                    markup=True,
-                    show_time=False,
-                    show_path=False,
-                    console=Console(width=None),
-                )
-            ],
-        )
-    elif verbosity == Verbosity.VERBOSE:
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(message)s",
-            handlers=[
-                RichHandler(
-                    show_level=False,
-                    markup=True,
-                    show_time=False,
-                    show_path=False,
-                    console=Console(width=None),
-                )
-            ],
-        )
-        logging.getLogger().setLevel(logging.DEBUG)
-        suppress_noisy_logs()
-    else:
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(message)s",
-            handlers=[
-                RichHandler(
-                    show_level=False,
-                    markup=True,
-                    show_time=False,
-                    show_path=False,
-                    console=Console(width=None),
-                )
-            ],
-        )
-        suppress_noisy_logs()
-
-    logging.debug(f"verbosity is {verbosity}")
-
-    return Console()
 
 
 # Common cli options
@@ -234,9 +144,6 @@ opt_documents: Optional[str] = typer.Option(
     help="Additional documents to provide the LLM (typically URLs to runbooks)",
 )
 
-# Common help texts
-system_prompt_help = "Advanced. System prompt for LLM. Values starting with builtin:// are loaded from holmes/plugins/prompts, values starting with file:// are loaded from the given path, other values are interpreted as a prompt string"
-
 
 def parse_documents(documents: Optional[str]) -> List[ResourceInstructionDocument]:
     resource_documents = []
@@ -248,35 +155,6 @@ def parse_documents(documents: Optional[str]) -> List[ResourceInstructionDocumen
             resource_documents.append(resource_document)
 
     return resource_documents
-
-
-def handle_result(
-    result: LLMResult,
-    console: Console,
-    destination: DestinationType,
-    config: Config,
-    issue: Issue,
-    show_tool_output: bool,
-    add_separator: bool,
-):
-    if destination == DestinationType.CLI:
-        if show_tool_output and result.tool_calls:
-            for tool_call in result.tool_calls:
-                console.print("[bold magenta]Used Tool:[/bold magenta]", end="")
-                # we need to print this separately with markup=False because it contains arbitrary text and we don't want console.print to interpret it
-                console.print(
-                    f"{tool_call.description}. Output=\n{tool_call.result}",
-                    markup=False,
-                )
-
-        console.print("[bold green]AI:[/bold green]", end=" ")
-        console.print(Markdown(result.result))  # type: ignore
-        if add_separator:
-            console.print(Rule())
-
-    elif destination == DestinationType.SLACK:
-        slack = config.create_slack_destination()
-        slack.send_issue(issue, result)
 
 
 # TODO: add streaming output
@@ -341,16 +219,20 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)  # type: ignore
-
     # Detect and read piped input
     piped_data = None
-    if not sys.stdin.isatty():
+
+    # when attaching a pycharm debugger sys.stdin.isatty() returns false and sys.stdin.read() is stuck
+    running_from_pycharm = os.environ.get("PYCHARM_HOSTED", False)
+
+    if not sys.stdin.isatty() and not running_from_pycharm:
         piped_data = sys.stdin.read().strip()
         if interactive:
             console.print(
                 "[bold yellow]Interactive mode disabled when reading piped input[/bold yellow]"
             )
             interactive = False
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,

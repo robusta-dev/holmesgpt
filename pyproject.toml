@@ -40,7 +40,7 @@ starlette = "^0.40"
 google-api-python-client = "^2.156.0"
 opensearch-py = "^2.8.0"
 backoff = "^2.2.1"
-litellm = "1.66.0"
+litellm = "1.74.7"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
@@ -59,6 +59,7 @@ azure-mgmt-resource = "^24.0.0"
 protobuf = ">=6.31.1"
 tenacity = "^9.1.2"
 [tool.poetry.group.dev.dependencies]
+mkdocs-material = "^9.5.39"
 mkdocs-glightbox = "^0.4.0"
 pytest = "^8.3.3"
 pytest-xdist = "^3.6.1"
@@ -95,8 +96,10 @@ markers = [
     "k8s-misconfig: Tests involving Kubernetes misconfigurations",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
+    "understanding-real-intent: Tests that require understanding the user's real intent behind a question, not just giving a technically correct answer that is not useful",
     "counting: Ask holmes to count kubernetes/cloud resources"
 ]
+
 addopts = [
     "--cov-config=pyproject.toml",
     "--cov=holmes",

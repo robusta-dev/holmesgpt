@@ -100,6 +100,8 @@ Configure evaluations using these environment variables:
 | `RUN_LIVE` | `RUN_LIVE=true` | Execute `before-test` and `after-test` commands, ignore mock files |
 | `UPLOAD_DATASET` | `UPLOAD_DATASET=true` | Sync dataset to external evaluation platform |
 | `EXPERIMENT_ID` | `EXPERIMENT_ID=my_baseline` | Custom experiment name for result tracking |
+| `BRAINTRUST_API_KEY` | `BRAINTRUST_API_KEY=sk-...` | Enable Braintrust integration for result tracking and CI/CD report generation |
+| `BRAINTRUST_ORG` | `BRAINTRUST_ORG=my-org` | Braintrust organization name (defaults to "robustadev") |
 
 ### Simple Example
 
@@ -142,7 +144,7 @@ Live testing requires a Kubernetes cluster and will execute `before-test` and `a
 
 1. **Missing API keys**: Some tests are skipped without proper API keys
 2. **Live test failures**: Ensure Kubernetes cluster access and proper permissions
-3. **Mock file mismatches**: Regenerate mocks with `generate_mocks: true`
+3. **Mock file mismatches**: Regenerate mocks with `--regenerate-all-mocks` or `--generate-mocks` CLI flags
 4. **Timeout errors**: Increase test timeout or check network connectivity
 
 ### Debug Mode

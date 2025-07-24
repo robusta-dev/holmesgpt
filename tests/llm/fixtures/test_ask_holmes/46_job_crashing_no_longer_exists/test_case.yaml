@@ -13,4 +13,3 @@ after_test: |
   kubectl delete namespace ask-holmes-namespace-46
 evaluation:
   correctness: 0
-generate_mocks: False
