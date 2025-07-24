@@ -886,16 +886,16 @@ class KubernetesLogsTool(Tool):
             if since:
                 cmd_args.extend(['--since', since])
 
-                         # Execute command
-             kwargs = {'follow': False}
-             if tail:
-                 kwargs['tail_lines'] = tail
-             if since:
-                 since_seconds = self._parse_since_seconds(since)
-                 if since_seconds:
-                     kwargs['since_seconds'] = since_seconds
-             
-             result = core_api.read_namespaced_pod_log(name=pod_name, namespace=namespace, **kwargs)
+            # Execute command
+            kwargs = {'follow': False}
+            if tail:
+                kwargs['tail_lines'] = tail
+            if since:
+                since_seconds = self._parse_since_seconds(since)
+                if since_seconds:
+                    kwargs['since_seconds'] = since_seconds
+            
+            result = core_api.read_namespaced_pod_log(name=pod_name, namespace=namespace, **kwargs)
             
             return result
             
@@ -1108,31 +1108,31 @@ class KubernetesEventsTool(Tool):
                 if resource_type and resource_name:
                     cmd_args.extend(['--for', f'{resource_type}/{resource_name}'])
 
-                         # Execute command
-             if namespace:
-                 result = events_api.list_namespaced_event(namespace=namespace, watch=False)
-             else:
-                 result = events_api.list_event_for_all_namespaces(watch=False)
-             
-             # Convert to string representation
-             events_list = []
-             for event in result.items:
-                 event_info = {
-                     "type": event.type,
-                     "reason": event.reason,
-                     "message": event.message,
-                     "count": event.count,
-                     "first_timestamp": str(event.first_timestamp) if event.first_timestamp else None,
-                     "last_timestamp": str(event.last_timestamp) if event.last_timestamp else None,
-                     "involved_object": {
-                         "kind": event.involved_object.kind,
-                         "name": event.involved_object.name,
-                         "namespace": event.involved_object.namespace
-                     } if event.involved_object else None
-                 }
-                 events_list.append(event_info)
-             
-             return str(events_list)
+            # Execute command
+            if namespace:
+                result = events_api.list_namespaced_event(namespace=namespace, watch=False)
+            else:
+                result = events_api.list_event_for_all_namespaces(watch=False)
+            
+            # Convert to string representation
+            events_list = []
+            for event in result.items:
+                event_info = {
+                    "type": event.type,
+                    "reason": event.reason,
+                    "message": event.message,
+                    "count": event.count,
+                    "first_timestamp": str(event.first_timestamp) if event.first_timestamp else None,
+                    "last_timestamp": str(event.last_timestamp) if event.last_timestamp else None,
+                    "involved_object": {
+                        "kind": event.involved_object.kind,
+                        "name": event.involved_object.name,
+                        "namespace": event.involved_object.namespace
+                    } if event.involved_object else None
+                }
+                events_list.append(event_info)
+            
+            return str(events_list)
             
         except ApiException as e:
             if e.status == 404:
@@ -1534,43 +1534,43 @@ class KubernetesMetricsTool(Tool):
             elif resource_type == 'pods':
                 cmd_args.append('-A')
 
-                         # Execute command
-             if resource_type == 'pods':
-                 if namespace:
-                     result = core_api.list_namespaced_pod(namespace=namespace, watch=False)
-                 else:
-                     result = core_api.list_pod_for_all_namespaces(watch=False)
-                 
-                 # Convert to string representation
-                 pods_list = []
-                 for pod in result.items:
-                     pod_info = {
-                         "name": pod.metadata.name,
-                         "namespace": pod.metadata.namespace,
-                         "status": pod.status.phase,
-                         "ready": f"{len([cs for cs in pod.status.container_statuses if cs.ready])}/{len(pod.spec.containers)}" if pod.status.container_statuses else "0/0",
-                         "restarts": sum(cs.restart_count for cs in pod.status.container_statuses) if pod.status.container_statuses else 0,
-                         "age": str(pod.metadata.creation_timestamp) if pod.metadata.creation_timestamp else "Unknown"
-                     }
-                     pods_list.append(pod_info)
-                 
-                 return str(pods_list)
-             elif resource_type == 'nodes':
-                 result = core_api.list_node(watch=False)
-                 
-                 # Convert to string representation
-                 nodes_list = []
-                 for node in result.items:
-                     node_info = {
-                         "name": node.metadata.name,
-                         "status": next((cond.status for cond in node.status.conditions if cond.type == "Ready"), "Unknown"),
-                         "age": str(node.metadata.creation_timestamp) if node.metadata.creation_timestamp else "Unknown"
-                     }
-                     nodes_list.append(node_info)
-                 
-                 return str(nodes_list)
-             else:
-                 return f"Unsupported resource type: {resource_type}. Supported types: pods, nodes"
+            # Execute command
+            if resource_type == 'pods':
+                if namespace:
+                    result = core_api.list_namespaced_pod(namespace=namespace, watch=False)
+                else:
+                    result = core_api.list_pod_for_all_namespaces(watch=False)
+                
+                # Convert to string representation
+                pods_list = []
+                for pod in result.items:
+                    pod_info = {
+                        "name": pod.metadata.name,
+                        "namespace": pod.metadata.namespace,
+                        "status": pod.status.phase,
+                        "ready": f"{len([cs for cs in pod.status.container_statuses if cs.ready])}/{len(pod.spec.containers)}" if pod.status.container_statuses else "0/0",
+                        "restarts": sum(cs.restart_count for cs in pod.status.container_statuses) if pod.status.container_statuses else 0,
+                        "age": str(pod.metadata.creation_timestamp) if pod.metadata.creation_timestamp else "Unknown"
+                    }
+                    pods_list.append(pod_info)
+                
+                return str(pods_list)
+            elif resource_type == 'nodes':
+                result = core_api.list_node(watch=False)
+                
+                # Convert to string representation
+                nodes_list = []
+                for node in result.items:
+                    node_info = {
+                        "name": node.metadata.name,
+                        "status": next((cond.status for cond in node.status.conditions if cond.type == "Ready"), "Unknown"),
+                        "age": str(node.metadata.creation_timestamp) if node.metadata.creation_timestamp else "Unknown"
+                    }
+                    nodes_list.append(node_info)
+                
+                return str(nodes_list)
+            else:
+                return f"Unsupported resource type: {resource_type}. Supported types: pods, nodes"
             
         except ApiException as e:
             if e.status == 404:
