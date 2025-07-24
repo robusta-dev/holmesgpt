@@ -1,4 +1,5 @@
-{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"4cf4508e-faa6-43d7-aa8a-576b818083a7"}}
+{"toolset_name": "robusta", "tool_name": "fetch_finding_by_id", "match_params": {"id": "4cf4508e-faa6-43d7-aa8a-576b818083a7"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "fetch_finding_by_id command", "params": {"id": "4cf4508e-faa6-43d7-aa8a-576b818083a7"}}
 account_id: f5497e27-ab3c-478e-952a-c4c12cf57ae4
 aggregation_key: KubePodNotReady
 annotations:

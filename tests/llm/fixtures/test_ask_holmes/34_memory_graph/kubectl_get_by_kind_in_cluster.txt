@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_cluster","match_params":{"kind":"pod"}}
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_get_by_kind_in_cluster", "match_params": {"kind": "pod"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_get_by_kind_in_cluster command", "params": {"kind": "pod"}}
 stdout:
 NAMESPACE            NAME                                                          READY   STATUS             RESTARTS        AGE     IP            NODE                                  NOMINATED NODE   READINESS GATES   LABELS
 default              alertmanager-robusta-kube-prometheus-st-alertmanager-0        2/2     Running            4 (20m ago)     2d21h   10.244.1.13   local-kind-multi-node-worker          <none>           <none>            alertmanager=robusta-kube-prometheus-st-alertmanager,app.kubernetes.io/instance=robusta-kube-prometheus-st-alertmanager,app.kubernetes.io/managed-by=prometheus-operator,app.kubernetes.io/name=alertmanager,app.kubernetes.io/version=0.26.0,apps.kubernetes.io/pod-index=0,controller-revision-hash=alertmanager-robusta-kube-prometheus-st-alertmanager-57cd7fb46f,statefulset.kubernetes.io/pod-name=alertmanager-robusta-kube-prometheus-st-alertmanager-0

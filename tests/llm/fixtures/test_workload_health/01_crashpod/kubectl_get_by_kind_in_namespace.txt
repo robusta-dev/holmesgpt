@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_namespace","match_params":{"kind": "Pod","namespace": "default"}}
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_get_by_kind_in_namespace", "match_params": {"kind": "Pod", "namespace": "default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_get_by_kind_in_namespace command", "params": {"kind": "Pod", "namespace": "default"}}
 stdout:
  "NAME                                                          READY   STATUS             RESTARTS      AGE     IP             NODE                                         NOMINATED NODE   READINESS GATES   LABELS
 aws-cloudwatch-mcp-6f756749bd-6rvgn                           1/1     Running            0             3h44m   10.0.218.59    ip-10-0-203-129.us-east-2.compute.internal   <none>           <none>            app=aws-cloudwatch-mcp,pod-template-hash=6f756749bd
