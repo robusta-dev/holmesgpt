@@ -191,6 +191,35 @@ Live testing requires a Kubernetes cluster and will execute `before-test` and `a
 
 3. **Compare Results**: Use evaluation tracking tools to analyze performance differences
 
+## Test Markers
+
+Filter tests using pytest markers:
+
+```bash
+# Run only LLM tests
+poetry run pytest -m "llm"
+
+# Run tests that don't require network
+poetry run pytest -m "not network"
+
+# Combine markers
+poetry run pytest -m "llm and not synthetic"
+```
+
+**Available markers:**
+- `llm` - LLM behavior tests
+- `datetime` - Datetime functionality tests
+- `logs` - Log processing tests
+- `context_window` - Context window handling tests
+- `synthetic` - Tests using synthetic data
+- `network` - Tests requiring network connectivity
+- `runbooks` - Runbook functionality tests
+- `misleading-history` - Tests with misleading historical data
+- `k8s-misconfig` - Kubernetes misconfiguration tests
+- `chain-of-causation` - Chain of causation analysis tests
+- `slackbot` - Slack integration tests
+- `counting` - Resource counting tests
+
 ## Troubleshooting
 
 ### Common Issues
@@ -212,3 +241,18 @@ This shows detailed output including:
 - Tool calls made by the LLM
 - Evaluation scores and rationales
 - Debugging information
+
+### Common Pytest Flags
+
+| Flag | Description |
+|------|--------------|
+| `-n <number>` | Run tests in parallel with specified workers |
+| `-k <pattern>` | Run tests matching the pattern |
+| `-m <marker>` | Run tests with specific marker |
+| `-v/-vv` | Verbose output (more v's = more verbose) |
+| `-s` | Show print statements |
+| `--no-cov` | Disable coverage reporting |
+| `--disable-warnings` | Disable warning summary |
+| `--collect-only` | List tests without running |
+| `-q` | Quiet mode |
+| `--timeout=<seconds>` | Set test timeout |
