@@ -3,9 +3,6 @@ name: Build and Release
 on:
   release:
     types: [created]
-  push:
-    branches:
-      - build-fix
 
 jobs:
   build:
@@ -90,9 +87,7 @@ jobs:
             --hiddenimport litellm.litellm_core_utils.tokenizers \
             --collect-data litellm
         ls dist
-        echo "✅ PyInstaller completed successfully"
-        echo "❌ Failing intentionally for test verification" && exit 1
-        
+
     - name: Zip the application (Unix and Mac)
       if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-22.04'
       run: |
