@@ -15,8 +15,8 @@ from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
     MockGenerationConfig,
     report_mock_operations,
 )
-from tests.llm.reporting.terminal_reporter import handle_console_output
-from tests.llm.reporting.github_reporter import handle_github_output
+from tests.llm.utils.reporting.terminal_reporter import handle_console_output
+from tests.llm.utils.reporting.github_reporter import handle_github_output
 from tests.llm.utils.braintrust import get_braintrust_url
 from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
@@ -198,7 +198,7 @@ def check_llm_api_with_test_call():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def llm_availablity_check(request):
+def llm_availability_check(request):
     """Handle LLM test session setup: show warning, check API, and skip if needed"""
     # Don't show messages during collection-only mode
     # Check if we're in collect-only mode
@@ -332,9 +332,7 @@ def braintrust_eval_link(request):
 
 def show_llm_summary_report(terminalreporter, exitstatus, config):
     """Generate GitHub Actions report and Rich summary table from terminalreporter.stats (xdist compatible)"""
-    print("\n\n[DEBUG] pytest_terminal_summary called!")
     if not hasattr(terminalreporter, "stats"):
-        print("[DEBUG] terminalreporter has no stats attribute")
         return
 
     # When using xdist, only the master process should display the summary
@@ -353,9 +351,7 @@ def show_llm_summary_report(terminalreporter, exitstatus, config):
         terminalreporter
     )
 
-    print(f"[DEBUG] Found {len(sorted_results)} test results")
     if not sorted_results:
-        print("[DEBUG] No sorted results found, returning")
         return
 
     # Handle GitHub/CI output (markdown + file writing)
@@ -370,9 +366,6 @@ def show_llm_summary_report(terminalreporter, exitstatus, config):
 
 def _collect_test_results_from_stats(terminalreporter):
     """Collect and parse test results from terminalreporter.stats."""
-    print(
-        f"[DEBUG] _collect_test_results_from_stats called, stats keys: {list(terminalreporter.stats.keys())}"
-    )
     test_results = {}
     mock_tracking_data = {
         "generated_mocks": [],
@@ -387,7 +380,6 @@ def _collect_test_results_from_stats(terminalreporter):
     ]
 
     for status, reports in terminalreporter.stats.items():
-        print(f"[DEBUG] Status '{status}' has {len(reports)} reports")
         for report in reports:
             # Only process 'call' phase reports for actual test results
             if getattr(report, "when", None) != "call":
