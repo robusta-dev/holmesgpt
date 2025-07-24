@@ -32,12 +32,13 @@ class SpanType(Enum):
     TOOL = "tool"
     TASK = "task"
     SCORE = "score"
+    EVAL = "eval"
 
 
 class DummySpan:
     """A no-op span implementation for when tracing is disabled."""
 
-    def start_span(self, name: str, span_type: Optional[SpanType] = None, **kwargs):
+    def start_span(self, name: str, span_type=None, **kwargs):
         return DummySpan()
 
     def log(self, *args, **kwargs):
@@ -121,17 +122,17 @@ class BraintrustTracer:
         # Add span type to kwargs if provided
         kwargs = {}
         if span_type:
-            kwargs["type"] = getattr(SpanTypeAttribute, span_type.name)
+            kwargs["type"] = span_type.value
 
         # Use current Braintrust context (experiment or parent span)
         current_span = braintrust.current_span()
         if not _is_noop_span(current_span):
-            return current_span.start_span(name=name, **kwargs)
+            return current_span.start_span(name=name, **kwargs)  # type: ignore
 
         # Fallback to current experiment
         current_experiment = braintrust.current_experiment()
         if current_experiment:
-            return current_experiment.start_span(name=name, **kwargs)
+            return current_experiment.start_span(name=name, **kwargs)  # type: ignore
 
         return DummySpan()
 

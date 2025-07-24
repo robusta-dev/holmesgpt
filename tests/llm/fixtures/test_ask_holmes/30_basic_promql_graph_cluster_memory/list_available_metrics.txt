@@ -1,4 +1,5 @@
-{"toolset_name":"prometheus/metrics","tool_name":"list_available_metrics","match_params":{}}
+{"toolset_name": "prometheus/metrics", "tool_name": "list_available_metrics", "match_params": {}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "list_available_metrics command", "params": {}}
 Metric | Type | Description | Labels
 ----------------------------------------------------------------------------------------------------
 container_memory_cache | gauge | Number of bytes of page cache memory. | container, endpoint, id, image, instance, job, metrics_path, name, namespace, node, pod, service

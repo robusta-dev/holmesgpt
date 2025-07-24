@@ -14,14 +14,28 @@ from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
-from tests.llm.utils.commands import after_test, before_test, set_test_env_vars
+from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.mock_toolset import MockToolsetManager
-from braintrust import SpanTypeAttribute
+from tests.llm.utils.mock_toolset import (
+    MockToolsetManager,
+    MockMode,
+    MockGenerationConfig,
+)
 from tests.llm.utils.test_case_utils import AskHolmesTestCase, Evaluation, MockHelper
+from tests.llm.utils.property_manager import (
+    set_initial_properties,
+    update_test_results,
+    update_mock_error,
+)
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
 from holmes.core.tracing import SpanType
+from tests.llm.utils.test_helpers import (
+    print_expected_output,
+    print_correctness_evaluation,
+    print_tool_calls_summary,
+    print_tool_calls_detailed,
+)
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -66,21 +80,46 @@ def test_ask_holmes(
     test_case: AskHolmesTestCase,
     caplog,
     request,
-    mock_generation_config,
+    mock_generation_config: MockGenerationConfig,
+    shared_test_infrastructure,  # type: ignore
 ):
-    tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
+    # Set initial properties early so they're available even if test fails
+    set_initial_properties(request, test_case)
 
-    # Create experiment using unified API
+    print(f"\n🧪 TEST: {test_case.id}")
+    print("   CONFIGURATION:")
+    print(
+        f"   • Mode: {'⚪️ MOCKED' if mock_generation_config.mode == MockMode.MOCK else '🔥 LIVE'}, Generate Mocks: {mock_generation_config.generate_mocks}"
+    )
+    print(f"   • User Prompt: {test_case.user_prompt}")
+    print(f"   • Expected Output: {test_case.expected_output}")
+    if test_case.before_test:
+        if "\n" in test_case.before_test:
+            print("   • Before Test:")
+            for line in test_case.before_test.strip().split("\n"):
+                print(f"       {line}")
+        else:
+            print(f"   • Before Test: {test_case.before_test}")
+
+    if test_case.after_test:
+        if "\n" in test_case.after_test:
+            print("   • After Test:")
+            for line in test_case.after_test.strip().split("\n"):
+                print(f"       {line}")
+        else:
+            print(f"   • After Test: {test_case.after_test}")
+
+    tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
     tracer.start_experiment(
         experiment_name=experiment_name,
         metadata=braintrust_util.get_machine_state_tags(),
     )
 
-    # Create evaluation span and use as context manager
     result: Optional[LLMResult] = None
+
     try:
         with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.TASK
+            name=test_case.id, span_type=SpanType.EVAL
         ) as eval_span:
             # Store span info in user properties for conftest to access
             if hasattr(eval_span, "id"):
@@ -91,9 +130,6 @@ def test_ask_holmes(
                 request.node.user_properties.append(
                     ("braintrust_root_span_id", str(eval_span.root_span_id))
                 )
-
-            with eval_span.start_span("Before Test Setup", type=SpanTypeAttribute.TASK):
-                before_test(test_case)
 
             # Mock datetime if mocked_date is provided
             if test_case.mocked_date:
@@ -143,36 +179,15 @@ def test_ask_holmes(
         )
 
         if is_mock_error:
-            # Store minimal data for summary before failing
-            expected = test_case.expected_output
-            if not isinstance(expected, list):
-                expected = [expected]
-            debug_expected = "\n-  ".join(expected)
+            # Update properties for mock error
+            update_mock_error(request, e)
 
-            expected_correctness_score = (
-                test_case.evaluation.correctness.expected_score
-                if isinstance(test_case.evaluation.correctness, Evaluation)
-                else test_case.evaluation.correctness
-            )
-
-            # Record the mock failure in user_properties
-            request.node.user_properties.append(("expected", debug_expected))
-            request.node.user_properties.append(
-                ("actual", f"Mock data error: {str(e)}")
-            )
-            request.node.user_properties.append(("tools_called", []))
-            request.node.user_properties.append(
-                ("expected_correctness_score", expected_correctness_score)
-            )
-            request.node.user_properties.append(("actual_correctness_score", 0))
-            request.node.user_properties.append(("mock_data_failure", True))
-
-        after_test(test_case)
+        # Cleanup is handled by session-scoped fixture now
         raise
 
     finally:
-        with eval_span.start_span("After Test Teardown", type=SpanTypeAttribute.TASK):
-            after_test(test_case)
+        # Cleanup is handled by session-scoped fixture now
+        pass
 
     input = test_case.user_prompt
     output = result.result
@@ -183,8 +198,7 @@ def test_ask_holmes(
     if not isinstance(expected, list):
         expected = [expected]
 
-    debug_expected = "\n-  ".join(expected)
-    print(f"** EXPECTED **\n-  {debug_expected}")
+    print_expected_output(expected)
 
     prompt = (
         result.messages[0]["content"]
@@ -203,9 +217,10 @@ def test_ask_holmes(
         evaluation_type=evaluation_type,
         caplog=caplog,
     )
-    print(
-        f"\nCORRECTNESS:\nscore = {correctness_eval.score}\nRATIONALE:\n{correctness_eval.metadata.get('rationale', '')}"
-    )
+    print("\n💬 ACTUAL OUTPUT:")
+    print(f"   {output}")
+
+    print_correctness_evaluation(correctness_eval)
 
     scores["correctness"] = correctness_eval.score
 
@@ -220,34 +235,19 @@ def test_ask_holmes(
             metadata={"system_prompt": prompt},
         )
 
+    # Print tool calls summary
+    print_tool_calls_summary(result.tool_calls)
+
     if result.tool_calls:
         tools_called = [tc.description for tc in result.tool_calls]
     else:
         tools_called = "None"
-    print(f"\n** TOOLS CALLED **\n{tools_called}")
-    print(f"\n** OUTPUT **\n{output}")
-    print(f"\n** SCORES **\n{scores}")
 
-    # Store data for summary plugin
-    expected_correctness_score = (
-        test_case.evaluation.correctness.expected_score
-        if isinstance(test_case.evaluation.correctness, Evaluation)
-        else test_case.evaluation.correctness
-    )
-    request.node.user_properties.append(("expected", debug_expected))
-    request.node.user_properties.append(("actual", output or ""))
-    request.node.user_properties.append(
-        (
-            "tools_called",
-            tools_called if isinstance(tools_called, list) else [str(tools_called)],
-        )
-    )
-    request.node.user_properties.append(
-        ("expected_correctness_score", expected_correctness_score)
-    )
-    request.node.user_properties.append(
-        ("actual_correctness_score", scores.get("correctness", 0))
-    )
+    # Print detailed tool output
+    print_tool_calls_detailed(result.tool_calls)
+
+    # Update test results
+    update_test_results(request, output, tools_called, scores)
 
     # Check if the output contains MockDataError (indicating a mock failure)
     if output and any(
@@ -261,13 +261,22 @@ def test_ask_holmes(
         # Record mock failure in user_properties
         request.node.user_properties.append(("mock_data_failure", True))
         # Fail the test
+        # Get expected from test_case since debug_expected is no longer in local scope
+        expected_output = test_case.expected_output
+        if isinstance(expected_output, list):
+            expected_output = "\n-  ".join(expected_output)
         pytest.fail(
-            f"Test {test_case.id} failed due to mock data error\nActual: {output}\nExpected: {debug_expected}"
+            f"Test {test_case.id} failed due to mock data error\nActual: {output}\nExpected: {expected_output}"
         )
+
+    # Get expected for assertion message
+    expected_output = test_case.expected_output
+    if isinstance(expected_output, list):
+        expected_output = "\n-  ".join(expected_output)
 
     assert (
         int(scores.get("correctness", 0)) == 1
-    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {debug_expected}"
+    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {expected_output}"
 
 
 def ask_holmes(
@@ -285,7 +294,9 @@ def ask_holmes(
     tool_executor = ToolExecutor(mock.enabled_toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
 
-    print(f"** ENABLED TOOLSETS **\n{', '.join(enabled_toolsets)}")
+    print(
+        f"\n🛠️  ENABLED TOOLSETS ({len(enabled_toolsets)}):", ", ".join(enabled_toolsets)
+    )
 
     ai = ToolCallingLLM(
         tool_executor=tool_executor,

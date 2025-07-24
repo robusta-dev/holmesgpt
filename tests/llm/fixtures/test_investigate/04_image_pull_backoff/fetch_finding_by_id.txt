@@ -1,4 +1,5 @@
-{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"5fa9728c-4dbe-4c10-81ce-48ecfa7c4ce1"}}
+{"toolset_name": "robusta", "tool_name": "fetch_finding_by_id", "match_params": {"id": "5fa9728c-4dbe-4c10-81ce-48ecfa7c4ce1"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "fetch_finding_by_id command", "params": {"id": "5fa9728c-4dbe-4c10-81ce-48ecfa7c4ce1"}}
 {
   "account_id": "debe17e5-0fe2-4c9c-9a7b-5dba04b83f89",
   "aggregation_key": "KubernetesWarningEvent",

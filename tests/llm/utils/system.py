@@ -8,13 +8,29 @@ from pathlib import Path
 
 
 def get_active_branch_name():
-    head_dir = Path(".", ".git", "HEAD")
-    with head_dir.open("r") as f:
-        content = f.read().splitlines()
+    try:
+        # First check if .git is a file (worktree case)
+        git_path = Path(".git")
+        if git_path.is_file():
+            # Read the worktree git directory path
+            with git_path.open("r") as f:
+                content = f.read().strip()
+                if content.startswith("gitdir:"):
+                    worktree_git_dir = Path(content.split("gitdir:", 1)[1].strip())
+                    head_file = worktree_git_dir / "HEAD"
+                else:
+                    return "Unknown"
+        else:
+            # Regular .git directory
+            head_file = git_path / "HEAD"
 
-        for line in content:
-            if line[0:4] == "ref:":
-                return line.partition("refs/heads/")[2]
+        with head_file.open("r") as f:
+            content = f.read().splitlines()
+            for line in content:
+                if line[0:4] == "ref:":
+                    return line.partition("refs/heads/")[2]
+    except Exception:
+        pass
 
     return "Unknown"
 

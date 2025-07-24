@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/logs","tool_name":"kubectl_logs_all_containers","match_params":{"pod_name":"checkout-service-66cb4b6c4b-77chl","namespace":"minishop"}}
+{"toolset_name": "kubernetes/logs", "tool_name": "kubectl_logs_all_containers", "match_params": {"pod_name": "checkout-service-66cb4b6c4b-77chl", "namespace": "minishop"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_logs_all_containers command", "params": {"pod_name": "checkout-service-66cb4b6c4b-77chl", "namespace": "minishop"}}
 stdout:
 {"level":30,"time":1742277256921,"pid":1,"hostname":"checkout-service-66cb4b6c4b-77chl","msg":"Server listening at http://127.0.0.1:3004"}
 Backend server is running on http://localhost:3004
