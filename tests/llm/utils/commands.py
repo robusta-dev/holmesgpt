@@ -8,6 +8,9 @@ from typing import Dict, Optional
 from tests.llm.utils.test_case_utils import HolmesTestCase
 
 
+EVAL_SETUP_TIMEOUT = int(os.environ.get("EVAL_SETUP_TIMEOUT", "180"))
+
+
 class CommandResult:
     def __init__(
         self,
@@ -46,6 +49,7 @@ def _invoke_command(command: str, cwd: str) -> str:
             check=True,
             stdin=subprocess.DEVNULL,
             cwd=cwd,
+            timeout=EVAL_SETUP_TIMEOUT,
         )
 
         output = f"{result.stdout}\n{result.stderr}"
@@ -107,7 +111,7 @@ def run_commands(
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
         error_details = "\n".join(combined_output)
-        error_details += f"\n$ {e.cmd}\nTIMEOUT after {e.timeout}s"
+        error_details += f"\n$ {e.cmd}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",
