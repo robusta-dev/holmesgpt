@@ -1,0 +1,10 @@
+# we ask about app-57 namespace but the deployment is in test-57 namespace
+user_prompt: "get last logs from video-streamer in app-57 namespace"
+expected_output: "video-streamer not found in namespace app-57, did you mean namespace test-57?"
+before_test: 'kubectl apply -f ./manifest.yaml'
+after_test: 'kubectl delete -f ./manifest.yaml'
+evaluation:
+  correctness: 0
+generate_mocks: False
+tags:
+  - logs
