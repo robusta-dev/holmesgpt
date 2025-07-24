@@ -90,7 +90,7 @@ def generate_markdown_report(sorted_results: List[dict]) -> Tuple[str, List[dict
 
     for result in sorted_results:
         test_suite = result["test_type"]
-        test_name = f"{result['test_id']}: {result['test_name']}"
+        test_name = f"{result['test_id']}_{result['test_name']}"
 
         # Add Braintrust link to test name if available
         test_suite_full = (
