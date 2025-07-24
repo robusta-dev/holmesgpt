@@ -2291,6 +2291,9 @@ class InfraInsightsKubernetesToolset(Toolset):
             
             logger.info(f"✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CONFIGURED WITH URL: {infrainsights_url} ✅✅✅")
             
+            # Enable the toolset after successful configuration
+            self.enabled = True
+            
             # Now add prerequisites after configuration is complete
             self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
             
