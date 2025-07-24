@@ -58,16 +58,19 @@ class PrometheusConfig(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_openshift_token(self):
+    def validate_prom_config(self):
         # If openshift is enabled, and the user didn't configure auth headers, we will try to load the token from the service account.
         if IS_OPENSHIFT:
-            if not self.headers.get("Authorization"):
-                openshift_token = load_openshift_token()
-                if openshift_token:
-                    logging.info("Using openshift token for prometheus toolset auth")
-                    self.headers["Authorization"] = f"Bearer {openshift_token}"
             if self.healthcheck == "-/healthy":
                 self.healthcheck = "api/v1/query?query=up"
+
+            if self.headers.get("Authorization"):
+                return self
+
+            openshift_token = load_openshift_token()
+            if openshift_token:
+                logging.info("Using openshift token for prometheus toolset auth")
+                self.headers["Authorization"] = f"Bearer {openshift_token}"
 
         return self
 
