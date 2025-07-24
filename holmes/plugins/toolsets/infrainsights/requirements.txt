@@ -11,7 +11,8 @@ pydantic>=1.10.0
 elasticsearch>=8.0.0
 
 # Kafka support
-confluent-kafka>=2.0.0
+kafka-python>=2.0.0
+confluent-kafka>=2.0.0  # Alternative Kafka client
 
 # MongoDB support
 pymongo>=4.0.0
