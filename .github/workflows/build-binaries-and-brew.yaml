@@ -3,6 +3,9 @@ name: Build and Release
 on:
   release:
     types: [created]
+  push:
+    branches:
+      - build-fix
 
 jobs:
   build:
@@ -61,6 +64,10 @@ jobs:
         (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
       shell: pwsh
 
+    - name: Install unixODBC (macOS)
+      if: matrix.os == 'macos-latest'
+      run: brew install unixodbc
+
     # if you change something here, you must also change it in .github/workflows/build-and-test.yaml
     - name: Build with PyInstaller
       shell: bash
@@ -83,7 +90,9 @@ jobs:
             --hiddenimport litellm.litellm_core_utils.tokenizers \
             --collect-data litellm
         ls dist
-
+        echo "✅ PyInstaller completed successfully"
+        echo "❌ Failing intentionally for test verification" && exit 1
+        
     - name: Zip the application (Unix and Mac)
       if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-22.04'
       run: |
