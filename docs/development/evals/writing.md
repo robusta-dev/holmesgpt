@@ -287,6 +287,29 @@ pytest ./tests/llm/test_ask_holmes.py -k "your_test" --generate-mocks
 
 # Or regenerate ALL mocks to ensure consistency
 pytest ./tests/llm/test_ask_holmes.py -k "your_test" --regenerate-all-mocks
+
+# Skip setup/cleanup for faster debugging
+pytest ./tests/llm/test_ask_holmes.py -k "your_test" --skip-setup --skip-cleanup
+
+# Run with specific number of iterations
+ITERATIONS=10 pytest ./tests/llm/test_ask_holmes.py -k "your_test"
 ```
+
+### CLI Flags Reference
+
+**Custom HolmesGPT Flags:**
+- `--generate-mocks` - Generate mock files during test execution
+- `--regenerate-all-mocks` - Regenerate all mock files (implies --generate-mocks)
+- `--skip-setup` - Skip `before_test` commands
+- `--skip-cleanup` - Skip `after_test` commands
+
+**Common Pytest Flags:**
+- `-n <number>` - Run tests in parallel
+- `-k <pattern>` - Run tests matching pattern
+- `-m <marker>` - Run tests with specific marker
+- `-v/-vv` - Verbose output
+- `-s` - Show print statements
+- `--no-cov` - Disable coverage
+- `--collect-only` - List tests without running
 
 This completes the evaluation writing guide. The next step is setting up reporting and analysis using Braintrust.
