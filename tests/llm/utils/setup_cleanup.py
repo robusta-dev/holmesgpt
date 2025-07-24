@@ -6,7 +6,7 @@ import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
-from enum import StrEnum
+from strenum import StrEnum
 
 from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
