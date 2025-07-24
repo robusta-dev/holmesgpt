@@ -328,6 +328,15 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
+
+            if (
+                hasattr(response_message, "reasoning_content")
+                and response_message.reasoning_content
+            ):
+                logging.debug(
+                    f"[bold {AI_COLOR}]AI (reasoning) 🤔:[/bold {AI_COLOR}] {response_message.reasoning_content}\n"
+                )
+
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 # this only works for calls where user prompt is explicitly passed through
