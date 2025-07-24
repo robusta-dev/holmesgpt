@@ -1526,7 +1526,7 @@ class InfraInsightsKubernetesToolset(Toolset):
     def __init__(self):
         super().__init__(
             name="infrainsights_kubernetes",
-            description="InfraInsights Kubernetes Investigation Tools",
+            description="Comprehensive Kubernetes monitoring, troubleshooting, and analysis toolset powered by InfraInsights. Features 9 advanced tools for cluster health checks, resource management, log analysis, metrics monitoring, advanced troubleshooting (probes, network, storage), and resource optimization. Seamlessly integrates with InfraInsights API for secure kubeconfig management and multi-cluster support.",
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/infrainsights.html",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
             prerequisites=[
