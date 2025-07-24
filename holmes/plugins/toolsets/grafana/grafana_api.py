@@ -18,6 +18,8 @@ from holmes.plugins.toolsets.grafana.common import (
     and e.response.status_code < 500,
 )
 def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
+    if not config.healthcheck:
+        return True, ""
     base_url = get_base_url(config)
     url = f"{base_url}/{config.healthcheck}"
     try:
