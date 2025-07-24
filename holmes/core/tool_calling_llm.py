@@ -384,6 +384,8 @@ class ToolCallingLLM:
                 if tools_to_call:
                     logging.info("")
 
+        raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
+
     def _invoke_tool(
         self,
         tool_to_call: ChatCompletionMessageToolCall,
@@ -720,6 +722,10 @@ class ToolCallingLLM:
                     yield create_sse_message(
                         "tool_calling_result", streaming_result_dict
                     )
+
+        raise Exception(
+            f"Too many LLM calls - exceeded max_steps: {i}/{self.max_steps}"
+        )
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes_cli.py
