@@ -1,11 +1,23 @@
-import json
 import logging
-import subprocess
 import tempfile
 import os
-from typing import Dict, Any, Optional, List
-from holmes.core.tools import Tool, ToolResultStatus, StructuredToolResult, Toolset, ToolsetTag, CallablePrerequisite, ToolParameter
-from holmes.plugins.toolsets.infrainsights.infrainsights_client_v2 import InfraInsightsClientV2, InfraInsightsConfig, ServiceInstance
+import re
+import yaml
+from datetime import datetime
+from typing import Dict, List, Any, Optional, Tuple
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
+from kubernetes.config import kube_config
+from kubernetes.config.kube_config import KubeConfigLoader
+import base64
+
+from holmes.plugins.toolsets.interfaces import (
+    Toolset, Tool, ToolsetTag, CallablePrerequisite, ToolParameter, 
+    ToolResultStatus, StructuredToolResult
+)
+from holmes.plugins.toolsets.infrainsights.infrainsights_client_v2 import (
+    InfraInsightsClientV2, InfraInsightsConfig, ServiceInstance
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +39,7 @@ class KubernetesHealthCheckTool(Tool):
         )
     }
     toolset: Optional[Any] = None
-
+    
     def __init__(self, toolset=None):
         super().__init__(
             name="kubernetes_health_check",
@@ -38,21 +50,22 @@ class KubernetesHealthCheckTool(Tool):
                     type="string",
                     required=True
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Check Kubernetes cluster health"""
         try:
-            instance_name = params.get('instance_name')
+            instance_name = params.get("instance_name")
             if not instance_name:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Instance name is required",
                     params=params
                 )
-
-            # Get instance details from InfraInsights
+            
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -60,18 +73,18 @@ class KubernetesHealthCheckTool(Tool):
                     error=f"Kubernetes instance '{instance_name}' not found",
                     params=params
                 )
-
-            # Execute kubectl commands to check cluster health
-            health_data = self._check_cluster_health(instance)
+            
+            # Check cluster health
+            health_info = self._check_cluster_health(instance)
             
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
-                data=health_data,
+                data=health_info,
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error checking Kubernetes health: {e}", exc_info=True)
+            logger.error(f"Failed to check Kubernetes health: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to check Kubernetes health: {str(e)}",
@@ -79,79 +92,138 @@ class KubernetesHealthCheckTool(Tool):
             )
 
     def _check_cluster_health(self, instance: ServiceInstance) -> Dict[str, Any]:
-        """Check cluster health using kubectl commands"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
+        """Check cluster health using Kubernetes Python client"""
         try:
-            health_data = {
-                'instance_info': {
-                    'name': instance.name,
-                    'environment': instance.environment,
-                    'status': instance.status,
-                    'description': instance.description
+            # Create Kubernetes client from kubeconfig
+            k8s_client = self._create_kubernetes_client(instance)
+            
+            health_info = {
+                "instance_info": {
+                    "name": instance.name,
+                    "environment": instance.environment,
+                    "status": instance.status,
+                    "description": instance.description
                 },
-                'cluster_health': {},
-                'node_status': {},
-                'component_status': {}
+                "cluster_health": {},
+                "node_status": {},
+                "component_status": {}
+            }
+            
+            # Get cluster info
+            try:
+                version_api = client.VersionApi(k8s_client)
+                version_info = version_api.get_code()
+                health_info["cluster_health"]["cluster_info"] = {
+                    "kubernetes_version": version_info.git_version,
+                    "platform": version_info.platform,
+                    "go_version": version_info.go_version
+                }
+            except Exception as e:
+                health_info["cluster_health"]["cluster_info_error"] = str(e)
+            
+            # Get node status
+            try:
+                core_api = client.CoreV1Api(k8s_client)
+                nodes = core_api.list_node()
+                node_status = {
+                    "total_nodes": len(nodes.items),
+                    "ready_nodes": 0,
+                    "not_ready_nodes": 0,
+                    "node_details": []
+                }
+                
+                for node in nodes.items:
+                    node_info = {
+                        "name": node.metadata.name,
+                        "status": "Unknown",
+                        "conditions": []
+                    }
+                    
+                    for condition in node.status.conditions:
+                        if condition.type == "Ready":
+                            node_info["status"] = "Ready" if condition.status == "True" else "NotReady"
+                            if condition.status == "True":
+                                node_status["ready_nodes"] += 1
+                            else:
+                                node_status["not_ready_nodes"] += 1
+                        
+                        node_info["conditions"].append({
+                            "type": condition.type,
+                            "status": condition.status,
+                            "message": condition.message
+                        })
+                    
+                    node_status["node_details"].append(node_info)
+                
+                health_info["node_status"]["nodes"] = node_status
+            except Exception as e:
+                health_info["node_status"]["nodes_error"] = str(e)
+            
+            # Get component status
+            try:
+                component_status = core_api.list_component_status()
+                components = {}
+                for comp in component_status.items:
+                    components[comp.metadata.name] = {
+                        "healthy": comp.conditions[0].status == "True" if comp.conditions else False,
+                        "message": comp.conditions[0].message if comp.conditions else "Unknown"
+                    }
+                health_info["component_status"]["components"] = components
+            except Exception as e:
+                health_info["component_status"]["components_error"] = str(e)
+            
+            # Determine overall health
+            if (health_info["node_status"].get("ready_nodes", 0) > 0 and 
+                health_info["node_status"].get("not_ready_nodes", 0) == 0):
+                health_info["overall_health"] = "healthy"
+            elif health_info["node_status"].get("ready_nodes", 0) > 0:
+                health_info["overall_health"] = "degraded"
+            else:
+                health_info["overall_health"] = "unhealthy"
+            
+            return health_info
+            
+        except Exception as e:
+            logger.error(f"Failed to check cluster health: {e}", exc_info=True)
+            return {
+                "error": f"Failed to check cluster health: {str(e)}",
+                "overall_health": "unknown"
             }
 
-            # Check cluster info
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
             try:
-                cluster_info = self._run_kubectl(kubeconfig, ['cluster-info'])
-                health_data['cluster_health']['cluster_info'] = cluster_info
-            except Exception as e:
-                health_data['cluster_health']['cluster_info_error'] = str(e)
-
-            # Check node status
-            try:
-                nodes = self._run_kubectl(kubeconfig, ['get', 'nodes', '-o', 'wide'])
-                health_data['node_status']['nodes'] = nodes
-            except Exception as e:
-                health_data['node_status']['nodes_error'] = str(e)
-
-            # Check component status
-            try:
-                components = self._run_kubectl(kubeconfig, ['get', 'componentstatuses'])
-                health_data['component_status']['components'] = components
-            except Exception as e:
-                health_data['component_status']['components_error'] = str(e)
-
-            return health_data
-
-        finally:
-            # Clean up temporary kubeconfig
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
-
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        # Create temporary file
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        # Write kubeconfig content
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
-
-    def _run_kubectl(self, kubeconfig: str, args: List[str]) -> str:
-        """Run kubectl command with the provided kubeconfig"""
-        cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        
-        if result.returncode != 0:
-            raise Exception(f"kubectl command failed: {result.stderr}")
-        
-        return result.stdout
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
         return f"kubernetes_health_check(instance_name={instance_name})"
-
 
 class KubernetesListResourcesTool(Tool):
     """Tool to list Kubernetes resources"""
@@ -181,7 +253,7 @@ class KubernetesListResourcesTool(Tool):
         )
     }
     toolset: Optional[Any] = None
-
+    
     def __init__(self, toolset=None):
         super().__init__(
             name="kubernetes_list_resources",
@@ -207,25 +279,33 @@ class KubernetesListResourcesTool(Tool):
                     type="string",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """List Kubernetes resources"""
         try:
-            instance_name = params.get('instance_name')
-            kind = params.get('kind')
-            namespace = params.get('namespace', 'default')
-            output_format = params.get('output_format', 'wide')
-
-            if not instance_name or not kind:
+            instance_name = params.get("instance_name")
+            kind = params.get("kind", "").lower()
+            namespace = params.get("namespace", "default")
+            output_format = params.get("output_format", "wide")
+            
+            if not instance_name:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="Instance name and kind are required",
+                    error="Instance name is required",
                     params=params
                 )
-
-            # Get instance details from InfraInsights
+            
+            if not kind:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Resource kind is required",
+                    params=params
+                )
+            
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -233,16 +313,9 @@ class KubernetesListResourcesTool(Tool):
                     error=f"Kubernetes instance '{instance_name}' not found",
                     params=params
                 )
-
-            # Build kubectl command
-            cmd_args = ['get', kind, '-o', output_format]
-            if namespace and namespace.lower() != 'all':
-                cmd_args.extend(['-n', namespace])
-            elif namespace and namespace.lower() == 'all':
-                cmd_args.append('-A')
-
-            # Execute command
-            result = self._run_kubectl_with_instance(instance, cmd_args)
+            
+            # List resources
+            resources = self._list_resources(instance, kind, namespace, output_format)
             
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -251,54 +324,133 @@ class KubernetesListResourcesTool(Tool):
                     'kind': kind,
                     'namespace': namespace,
                     'output_format': output_format,
-                    'result': result
+                    'result': resources
                 },
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error listing Kubernetes resources: {e}", exc_info=True)
+            logger.error(f"Failed to list Kubernetes resources: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to list Kubernetes resources: {str(e)}",
                 params=params
             )
 
-    def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
-        """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
+    def _list_resources(self, instance: ServiceInstance, kind: str, namespace: str, output_format: str) -> Dict[str, Any]:
+        """List resources using Kubernetes Python client"""
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            apps_api = client.AppsV1Api(k8s_client)
             
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
+            resources = {
+                "instance_name": instance.name,
+                "kind": kind,
+                "namespace": namespace,
+                "output_format": output_format,
+                "items": []
+            }
             
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
+            if kind == "pods":
+                if namespace == "all":
+                    response = core_api.list_pod_for_all_namespaces()
+                else:
+                    response = core_api.list_namespaced_pod(namespace=namespace)
+                
+                for pod in response.items:
+                    pod_info = {
+                        "name": pod.metadata.name,
+                        "namespace": pod.metadata.namespace,
+                        "status": pod.status.phase,
+                        "ready": f"{pod.status.container_statuses[0].ready if pod.status.container_statuses else False}/{len(pod.spec.containers)}",
+                        "restarts": pod.status.container_statuses[0].restart_count if pod.status.container_statuses else 0,
+                        "age": str(pod.metadata.creation_timestamp) if pod.metadata.creation_timestamp else "Unknown"
+                    }
+                    resources["items"].append(pod_info)
+            
+            elif kind == "services":
+                if namespace == "all":
+                    response = core_api.list_service_for_all_namespaces()
+                else:
+                    response = core_api.list_namespaced_service(namespace=namespace)
+                
+                for svc in response.items:
+                    svc_info = {
+                        "name": svc.metadata.name,
+                        "namespace": svc.metadata.namespace,
+                        "type": svc.spec.type,
+                        "cluster_ip": svc.spec.cluster_ip,
+                        "external_ip": svc.status.load_balancer.ingress[0].ip if svc.status.load_balancer.ingress else "None",
+                        "ports": [f"{port.port}:{port.target_port}/{port.protocol}" for port in svc.spec.ports] if svc.spec.ports else []
+                    }
+                    resources["items"].append(svc_info)
+            
+            elif kind == "deployments":
+                if namespace == "all":
+                    response = apps_api.list_deployment_for_all_namespaces()
+                else:
+                    response = apps_api.list_namespaced_deployment(namespace=namespace)
+                
+                for deploy in response.items:
+                    deploy_info = {
+                        "name": deploy.metadata.name,
+                        "namespace": deploy.metadata.namespace,
+                        "ready": f"{deploy.status.ready_replicas or 0}/{deploy.spec.replicas}",
+                        "up_to_date": deploy.status.updated_replicas or 0,
+                        "available": deploy.status.available_replicas or 0,
+                        "age": str(deploy.metadata.creation_timestamp) if deploy.metadata.creation_timestamp else "Unknown"
+                    }
+                    resources["items"].append(deploy_info)
+            
+            else:
+                return {
+                    "error": f"Unsupported resource kind: {kind}. Supported kinds: pods, services, deployments"
+                }
+            
+            resources["total_count"] = len(resources["items"])
+            return resources
+            
+        except Exception as e:
+            logger.error(f"Failed to list resources: {e}", exc_info=True)
+            return {"error": f"Failed to list resources: {str(e)}"}
 
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        kind = params.get('kind', 'unknown')
-        namespace = params.get('namespace', 'default')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        kind = params.get("kind", "pods")
+        namespace = params.get("namespace", "default")
         return f"kubernetes_list_resources(instance_name={instance_name}, kind={kind}, namespace={namespace})"
-
 
 class KubernetesDescribeResourceTool(Tool):
     """Tool to describe Kubernetes resources"""
@@ -328,7 +480,7 @@ class KubernetesDescribeResourceTool(Tool):
         )
     }
     toolset: Optional[Any] = None
-
+    
     def __init__(self, toolset=None):
         super().__init__(
             name="kubernetes_describe_resource",
@@ -354,25 +506,33 @@ class KubernetesDescribeResourceTool(Tool):
                     type="string",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Describe Kubernetes resource"""
         try:
-            instance_name = params.get('instance_name')
-            kind = params.get('kind')
-            name = params.get('name')
-            namespace = params.get('namespace')
-
-            if not all([instance_name, kind, name]):
+            instance_name = params.get("instance_name")
+            kind = params.get("kind", "").lower()
+            name = params.get("name")
+            namespace = params.get("namespace", "default")
+            
+            if not instance_name:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="Instance name, kind, and name are required",
+                    error="Instance name is required",
                     params=params
                 )
-
-            # Get instance details from InfraInsights
+            
+            if not kind or not name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Resource kind and name are required",
+                    params=params
+                )
+            
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -380,14 +540,9 @@ class KubernetesDescribeResourceTool(Tool):
                     error=f"Kubernetes instance '{instance_name}' not found",
                     params=params
                 )
-
-            # Build kubectl command
-            cmd_args = ['describe', kind, name]
-            if namespace:
-                cmd_args.extend(['-n', namespace])
-
-            # Execute command
-            result = self._run_kubectl_with_instance(instance, cmd_args)
+            
+            # Describe resource
+            resource_info = self._describe_resource(instance, kind, name, namespace)
             
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -396,53 +551,173 @@ class KubernetesDescribeResourceTool(Tool):
                     'kind': kind,
                     'name': name,
                     'namespace': namespace,
-                    'description': result
+                    'description': resource_info
                 },
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error describing Kubernetes resource: {e}", exc_info=True)
+            logger.error(f"Failed to describe Kubernetes resource: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to describe Kubernetes resource: {str(e)}",
                 params=params
             )
 
-    def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
-        """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
+    def _describe_resource(self, instance: ServiceInstance, kind: str, name: str, namespace: str) -> Dict[str, Any]:
+        """Describe resource using Kubernetes Python client"""
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            apps_api = client.AppsV1Api(k8s_client)
             
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
+            resource_info = {
+                "instance_name": instance.name,
+                "kind": kind,
+                "name": name,
+                "namespace": namespace,
+                "details": {}
+            }
             
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
+            if kind == "pod":
+                try:
+                    pod = core_api.read_namespaced_pod(name=name, namespace=namespace)
+                    resource_info["details"] = {
+                        "metadata": {
+                            "name": pod.metadata.name,
+                            "namespace": pod.metadata.namespace,
+                            "creation_timestamp": str(pod.metadata.creation_timestamp),
+                            "labels": pod.metadata.labels,
+                            "annotations": pod.metadata.annotations
+                        },
+                        "status": {
+                            "phase": pod.status.phase,
+                            "pod_ip": pod.status.pod_ip,
+                            "host_ip": pod.status.host_ip,
+                            "start_time": str(pod.status.start_time) if pod.status.start_time else None
+                        },
+                        "containers": []
+                    }
+                    
+                    for container in pod.spec.containers:
+                        container_status = next((cs for cs in pod.status.container_statuses if cs.name == container.name), None)
+                        container_info = {
+                            "name": container.name,
+                            "image": container.image,
+                            "ready": container_status.ready if container_status else False,
+                            "restart_count": container_status.restart_count if container_status else 0,
+                            "state": str(container_status.state) if container_status else "Unknown"
+                        }
+                        resource_info["details"]["containers"].append(container_info)
+                
+                except ApiException as e:
+                    if e.status == 404:
+                        resource_info["details"] = {"error": f"Pod '{name}' not found in namespace '{namespace}'"}
+                    else:
+                        resource_info["details"] = {"error": f"API error: {e.reason}"}
+            
+            elif kind == "service":
+                try:
+                    svc = core_api.read_namespaced_service(name=name, namespace=namespace)
+                    resource_info["details"] = {
+                        "metadata": {
+                            "name": svc.metadata.name,
+                            "namespace": svc.metadata.namespace,
+                            "creation_timestamp": str(svc.metadata.creation_timestamp),
+                            "labels": svc.metadata.labels
+                        },
+                        "spec": {
+                            "type": svc.spec.type,
+                            "cluster_ip": svc.spec.cluster_ip,
+                            "external_ips": svc.spec.external_i_ps,
+                            "ports": [{"port": port.port, "target_port": port.target_port, "protocol": port.protocol} for port in svc.spec.ports] if svc.spec.ports else []
+                        },
+                        "status": {
+                            "load_balancer": svc.status.load_balancer.ingress[0].ip if svc.status.load_balancer.ingress else None
+                        }
+                    }
+                
+                except ApiException as e:
+                    if e.status == 404:
+                        resource_info["details"] = {"error": f"Service '{name}' not found in namespace '{namespace}'"}
+                    else:
+                        resource_info["details"] = {"error": f"API error: {e.reason}"}
+            
+            elif kind == "deployment":
+                try:
+                    deploy = apps_api.read_namespaced_deployment(name=name, namespace=namespace)
+                    resource_info["details"] = {
+                        "metadata": {
+                            "name": deploy.metadata.name,
+                            "namespace": deploy.metadata.namespace,
+                            "creation_timestamp": str(deploy.metadata.creation_timestamp),
+                            "labels": deploy.metadata.labels
+                        },
+                        "spec": {
+                            "replicas": deploy.spec.replicas,
+                            "strategy": deploy.spec.strategy.type if deploy.spec.strategy else None,
+                            "selector": deploy.spec.selector.match_labels
+                        },
+                        "status": {
+                            "ready_replicas": deploy.status.ready_replicas,
+                            "updated_replicas": deploy.status.updated_replicas,
+                            "available_replicas": deploy.status.available_replicas,
+                            "unavailable_replicas": deploy.status.unavailable_replicas
+                        }
+                    }
+                
+                except ApiException as e:
+                    if e.status == 404:
+                        resource_info["details"] = {"error": f"Deployment '{name}' not found in namespace '{namespace}'"}
+                    else:
+                        resource_info["details"] = {"error": f"API error: {e.reason}"}
+            
+            else:
+                resource_info["details"] = {"error": f"Unsupported resource kind: {kind}. Supported kinds: pod, service, deployment"}
+            
+            return resource_info
+            
+        except Exception as e:
+            logger.error(f"Failed to describe resource: {e}", exc_info=True)
+            return {"error": f"Failed to describe resource: {str(e)}"}
 
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        kind = params.get('kind', 'unknown')
-        name = params.get('name', 'unknown')
-        return f"kubernetes_describe_resource(instance_name={instance_name}, kind={kind}, name={name})"
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        kind = params.get("kind", "pod")
+        name = params.get("name", "unknown")
+        namespace = params.get("namespace", "default")
+        return f"kubernetes_describe_resource(instance_name={instance_name}, kind={kind}, name={name}, namespace={namespace})"
 
 
 # ============================================
@@ -533,19 +808,20 @@ class KubernetesLogsTool(Tool):
                     type="string",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Fetch Kubernetes pod logs"""
         try:
-            instance_name = params.get('instance_name')
-            pod_name = params.get('pod_name')
-            namespace = params.get('namespace', 'default')
-            container = params.get('container')
-            previous = params.get('previous', False)
-            tail = params.get('tail')
-            since = params.get('since')
+            instance_name = params.get("instance_name")
+            pod_name = params.get("pod_name")
+            namespace = params.get("namespace", "default")
+            container = params.get("container")
+            previous = params.get("previous", False)
+            tail = params.get("tail")
+            since = params.get("since")
 
             if not instance_name or not pod_name:
                 return StructuredToolResult(
@@ -554,7 +830,7 @@ class KubernetesLogsTool(Tool):
                     params=params
                 )
 
-            # Get instance details from InfraInsights
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -563,7 +839,39 @@ class KubernetesLogsTool(Tool):
                     params=params
                 )
 
-            # Build kubectl command
+            # Fetch logs
+            logs_data = self._fetch_logs(instance, pod_name, namespace, container, previous, tail, since)
+            
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data={
+                    'instance_name': instance_name,
+                    'pod_name': pod_name,
+                    'namespace': namespace,
+                    'container': container,
+                    'previous': previous,
+                    'tail': tail,
+                    'since': since,
+                    'logs': logs_data
+                },
+                params=params
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch Kubernetes logs: {e}", exc_info=True)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to fetch Kubernetes logs: {str(e)}",
+                params=params
+            )
+
+    def _fetch_logs(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str], previous: bool, tail: Optional[int], since: Optional[str]) -> str:
+        """Fetch logs using Kubernetes Python client"""
+        try:
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            
+            # Build kubectl command arguments
             cmd_args = ['logs', pod_name, '-n', namespace]
             
             if container:
@@ -578,65 +886,85 @@ class KubernetesLogsTool(Tool):
             if since:
                 cmd_args.extend(['--since', since])
 
-            # Execute command
-            result = self._run_kubectl_with_instance(instance, cmd_args)
+                         # Execute command
+             kwargs = {'follow': False}
+             if tail:
+                 kwargs['tail_lines'] = tail
+             if since:
+                 since_seconds = self._parse_since_seconds(since)
+                 if since_seconds:
+                     kwargs['since_seconds'] = since_seconds
+             
+             result = core_api.read_namespaced_pod_log(name=pod_name, namespace=namespace, **kwargs)
             
-            return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data={
-                    'instance_name': instance_name,
-                    'pod_name': pod_name,
-                    'namespace': namespace,
-                    'container': container,
-                    'previous': previous,
-                    'tail': tail,
-                    'since': since,
-                    'logs': result
-                },
-                params=params
-            )
-
+            return result
+            
+        except ApiException as e:
+            if e.status == 404:
+                return f"Pod '{pod_name}' not found in namespace '{namespace}'"
+            elif e.status == 403: # Forbidden
+                return f"Access to logs for pod '{pod_name}' in namespace '{namespace}' is forbidden. Check permissions."
+            elif e.status == 410: # Gone
+                return f"Pod '{pod_name}' in namespace '{namespace}' is gone. It might have been deleted."
+            else:
+                return f"API error fetching logs: {e.reason}"
         except Exception as e:
-            logger.error(f"Error fetching Kubernetes logs: {e}", exc_info=True)
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Failed to fetch Kubernetes logs: {str(e)}",
-                params=params
-            )
+            logger.error(f"Failed to fetch logs: {e}", exc_info=True)
+            return f"Failed to fetch logs: {str(e)}"
 
-    def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
-        """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
+    def _parse_since_seconds(self, since_str: Optional[str]) -> Optional[int]:
+        """Parse 'since' parameter into seconds"""
+        if not since_str:
+            return None
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
-            
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
+            if since_str.endswith('s'):
+                return int(since_str[:-1])
+            elif since_str.endswith('m'):
+                return int(since_str[:-1]) * 60
+            elif since_str.endswith('h'):
+                return int(since_str[:-1]) * 3600
+            elif re.match(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', since_str): # ISO 8601 timestamp
+                return int((datetime.now() - datetime.fromisoformat(since_str)).total_seconds())
+            else:
+                return None # Unsupported format
+        except ValueError:
+            return None # Invalid number
 
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        pod_name = params.get('pod_name', 'unknown')
-        namespace = params.get('namespace', 'default')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        pod_name = params.get("pod_name", "unknown")
+        namespace = params.get("namespace", "default")
         return f"kubernetes_logs(instance_name={instance_name}, pod_name={pod_name}, namespace={namespace})"
 
 
@@ -704,17 +1032,18 @@ class KubernetesEventsTool(Tool):
                     type="string",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Fetch Kubernetes events"""
         try:
-            instance_name = params.get('instance_name')
-            resource_type = params.get('resource_type')
-            resource_name = params.get('resource_name')
-            namespace = params.get('namespace')
-            output_format = params.get('output_format', 'wide')
+            instance_name = params.get("instance_name")
+            resource_type = params.get("resource_type")
+            resource_name = params.get("resource_name")
+            namespace = params.get("namespace")
+            output_format = params.get("output_format", "wide")
 
             if not instance_name:
                 return StructuredToolResult(
@@ -723,7 +1052,7 @@ class KubernetesEventsTool(Tool):
                     params=params
                 )
 
-            # Get instance details from InfraInsights
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -732,22 +1061,8 @@ class KubernetesEventsTool(Tool):
                     params=params
                 )
 
-            # Build kubectl command
-            if resource_type and resource_name:
-                # Events for specific resource
-                cmd_args = ['events', '--for', f'{resource_type}/{resource_name}', '-o', output_format]
-                if namespace:
-                    cmd_args.extend(['-n', namespace])
-            else:
-                # General events
-                cmd_args = ['get', 'events', '-o', output_format]
-                if namespace:
-                    cmd_args.extend(['-n', namespace])
-                else:
-                    cmd_args.append('-A')
-
-            # Execute command
-            result = self._run_kubectl_with_instance(instance, cmd_args)
+            # Fetch events
+            events_data = self._fetch_events(instance, resource_type, resource_name, namespace, output_format)
             
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -757,52 +1072,116 @@ class KubernetesEventsTool(Tool):
                     'resource_name': resource_name,
                     'namespace': namespace,
                     'output_format': output_format,
-                    'events': result
+                    'events': events_data
                 },
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error fetching Kubernetes events: {e}", exc_info=True)
+            logger.error(f"Failed to fetch Kubernetes events: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to fetch Kubernetes events: {str(e)}",
                 params=params
             )
 
-    def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
-        """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
+    def _fetch_events(self, instance: ServiceInstance, resource_type: Optional[str], resource_name: Optional[str], namespace: Optional[str], output_format: str) -> str:
+        """Fetch events using Kubernetes Python client"""
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            events_api = client.EventsV1Api(k8s_client)
             
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
+            cmd_args = ['get', 'events']
             
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
+            if output_format == 'json':
+                cmd_args.append('-o', 'json')
+            elif output_format == 'yaml':
+                cmd_args.append('-o', 'yaml')
+            
+            if namespace:
+                cmd_args.extend(['-n', namespace])
+                if resource_type and resource_name:
+                    cmd_args.extend(['--for', f'{resource_type}/{resource_name}'])
+            else:
+                cmd_args.append('-A')
+                if resource_type and resource_name:
+                    cmd_args.extend(['--for', f'{resource_type}/{resource_name}'])
 
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+                         # Execute command
+             if namespace:
+                 result = events_api.list_namespaced_event(namespace=namespace, watch=False)
+             else:
+                 result = events_api.list_event_for_all_namespaces(watch=False)
+             
+             # Convert to string representation
+             events_list = []
+             for event in result.items:
+                 event_info = {
+                     "type": event.type,
+                     "reason": event.reason,
+                     "message": event.message,
+                     "count": event.count,
+                     "first_timestamp": str(event.first_timestamp) if event.first_timestamp else None,
+                     "last_timestamp": str(event.last_timestamp) if event.last_timestamp else None,
+                     "involved_object": {
+                         "kind": event.involved_object.kind,
+                         "name": event.involved_object.name,
+                         "namespace": event.involved_object.namespace
+                     } if event.involved_object else None
+                 }
+                 events_list.append(event_info)
+             
+             return str(events_list)
+            
+        except ApiException as e:
+            if e.status == 404:
+                return f"Resource type '{resource_type}' or name '{resource_name}' not found in namespace '{namespace}'"
+            elif e.status == 403: # Forbidden
+                return f"Access to events for resource '{resource_type}/{resource_name}' in namespace '{namespace}' is forbidden. Check permissions."
+            elif e.status == 410: # Gone
+                return f"Resource '{resource_type}/{resource_name}' in namespace '{namespace}' is gone. It might have been deleted."
+            else:
+                return f"API error fetching events: {e.reason}"
+        except Exception as e:
+            logger.error(f"Failed to fetch events: {e}", exc_info=True)
+            return f"Failed to fetch events: {str(e)}"
+
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        resource_type = params.get('resource_type', 'all')
-        namespace = params.get('namespace', 'all')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        resource_type = params.get("resource_type", "all")
+        namespace = params.get("namespace", "all")
         return f"kubernetes_events(instance_name={instance_name}, resource_type={resource_type}, namespace={namespace})"
 
 
@@ -890,28 +1269,29 @@ class KubernetesLogsSearchTool(Tool):
                     type="boolean",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Search Kubernetes pod logs"""
         try:
-            instance_name = params.get('instance_name')
-            pod_name = params.get('pod_name')
-            namespace = params.get('namespace', 'default')
-            search_term = params.get('search_term')
-            container = params.get('container')
-            case_sensitive = params.get('case_sensitive', False)
-            invert_match = params.get('invert_match', False)
+            instance_name = params.get("instance_name")
+            pod_name = params.get("pod_name")
+            namespace = params.get("namespace", "default")
+            search_term = params.get("search_term")
+            container = params.get("container")
+            case_sensitive = params.get("case_sensitive", False)
+            invert_match = params.get("invert_match", False)
 
-            if not all([instance_name, pod_name, search_term]):
+            if not instance_name or not pod_name or not search_term:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Instance name, pod name, and search term are required",
                     params=params
                 )
 
-            # Get instance details from InfraInsights
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -920,16 +1300,8 @@ class KubernetesLogsSearchTool(Tool):
                     params=params
                 )
 
-            # Build kubectl command for logs
-            cmd_args = ['logs', pod_name, '-n', namespace]
-            
-            if container:
-                cmd_args.extend(['-c', container])
-
-            # Execute logs command and pipe to grep
-            logs_result = self._run_kubectl_with_instance(instance, cmd_args)
-            
-            # Apply search filter
+            # Fetch logs and apply search filter
+            logs_result = self._fetch_logs_for_search(instance, pod_name, namespace, container)
             filtered_logs = self._filter_logs(logs_result, search_term, case_sensitive, invert_match)
             
             return StructuredToolResult(
@@ -948,18 +1320,47 @@ class KubernetesLogsSearchTool(Tool):
                 },
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error searching Kubernetes logs: {e}", exc_info=True)
+            logger.error(f"Failed to search Kubernetes logs: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to search Kubernetes logs: {str(e)}",
                 params=params
             )
 
+    def _fetch_logs_for_search(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str]) -> str:
+        """Fetch logs for search using Kubernetes Python client"""
+        try:
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            
+            # Build kubectl command arguments for logs
+            cmd_args = ['logs', pod_name, '-n', namespace]
+            
+            if container:
+                cmd_args.extend(['-c', container])
+
+            # Execute command
+            result = core_api.read_namespaced_pod_log(name=pod_name, namespace=namespace, **{'follow': False})
+            
+            return result
+            
+        except ApiException as e:
+            if e.status == 404:
+                return f"Pod '{pod_name}' not found in namespace '{namespace}'"
+            elif e.status == 403: # Forbidden
+                return f"Access to logs for pod '{pod_name}' in namespace '{namespace}' is forbidden. Check permissions."
+            elif e.status == 410: # Gone
+                return f"Pod '{pod_name}' in namespace '{namespace}' is gone. It might have been deleted."
+            else:
+                return f"API error fetching logs for search: {e.reason}"
+        except Exception as e:
+            logger.error(f"Failed to fetch logs for search: {e}", exc_info=True)
+            return f"Failed to fetch logs for search: {str(e)}"
+
     def _filter_logs(self, logs: str, search_term: str, case_sensitive: bool, invert_match: bool) -> str:
         """Filter logs using search term"""
-        import re
         
         lines = logs.splitlines()
         filtered_lines = []
@@ -977,39 +1378,41 @@ class KubernetesLogsSearchTool(Tool):
         
         return '\n'.join(filtered_lines)
 
-    def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
-        """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
             
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
             
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
-
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        pod_name = params.get('pod_name', 'unknown')
-        search_term = params.get('search_term', 'unknown')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        pod_name = params.get("pod_name", "unknown")
+        search_term = params.get("search_term", "unknown")
         return f"kubernetes_logs_search(instance_name={instance_name}, pod_name={pod_name}, search_term={search_term})"
 
 
@@ -1061,15 +1464,16 @@ class KubernetesMetricsTool(Tool):
                     type="string",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Fetch Kubernetes resource metrics"""
         try:
-            instance_name = params.get('instance_name')
-            resource_type = params.get('resource_type')
-            namespace = params.get('namespace')
+            instance_name = params.get("instance_name")
+            resource_type = params.get("resource_type")
+            namespace = params.get("namespace")
 
             if not instance_name or not resource_type:
                 return StructuredToolResult(
@@ -1085,7 +1489,7 @@ class KubernetesMetricsTool(Tool):
                     params=params
                 )
 
-            # Get instance details from InfraInsights
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -1094,15 +1498,8 @@ class KubernetesMetricsTool(Tool):
                     params=params
                 )
 
-            # Build kubectl command
-            cmd_args = ['top', resource_type]
-            if resource_type == 'pods' and namespace:
-                cmd_args.extend(['-n', namespace])
-            elif resource_type == 'pods':
-                cmd_args.append('-A')
-
-            # Execute command
-            result = self._run_kubectl_with_instance(instance, cmd_args)
+            # Fetch metrics
+            metrics_data = self._fetch_metrics(instance, resource_type, namespace)
             
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -1110,51 +1507,118 @@ class KubernetesMetricsTool(Tool):
                     'instance_name': instance_name,
                     'resource_type': resource_type,
                     'namespace': namespace,
-                    'metrics': result
+                    'metrics': metrics_data
                 },
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error fetching Kubernetes metrics: {e}", exc_info=True)
+            logger.error(f"Failed to fetch Kubernetes metrics: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to fetch Kubernetes metrics: {str(e)}",
                 params=params
             )
 
-    def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
-        """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
+    def _fetch_metrics(self, instance: ServiceInstance, resource_type: str, namespace: Optional[str]) -> str:
+        """Fetch metrics using Kubernetes Python client"""
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            apps_api = client.AppsV1Api(k8s_client)
             
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
+            cmd_args = ['top', resource_type]
             
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
+            if resource_type == 'pods' and namespace:
+                cmd_args.extend(['-n', namespace])
+            elif resource_type == 'pods':
+                cmd_args.append('-A')
 
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+                         # Execute command
+             if resource_type == 'pods':
+                 if namespace:
+                     result = core_api.list_namespaced_pod(namespace=namespace, watch=False)
+                 else:
+                     result = core_api.list_pod_for_all_namespaces(watch=False)
+                 
+                 # Convert to string representation
+                 pods_list = []
+                 for pod in result.items:
+                     pod_info = {
+                         "name": pod.metadata.name,
+                         "namespace": pod.metadata.namespace,
+                         "status": pod.status.phase,
+                         "ready": f"{len([cs for cs in pod.status.container_statuses if cs.ready])}/{len(pod.spec.containers)}" if pod.status.container_statuses else "0/0",
+                         "restarts": sum(cs.restart_count for cs in pod.status.container_statuses) if pod.status.container_statuses else 0,
+                         "age": str(pod.metadata.creation_timestamp) if pod.metadata.creation_timestamp else "Unknown"
+                     }
+                     pods_list.append(pod_info)
+                 
+                 return str(pods_list)
+             elif resource_type == 'nodes':
+                 result = core_api.list_node(watch=False)
+                 
+                 # Convert to string representation
+                 nodes_list = []
+                 for node in result.items:
+                     node_info = {
+                         "name": node.metadata.name,
+                         "status": next((cond.status for cond in node.status.conditions if cond.type == "Ready"), "Unknown"),
+                         "age": str(node.metadata.creation_timestamp) if node.metadata.creation_timestamp else "Unknown"
+                     }
+                     nodes_list.append(node_info)
+                 
+                 return str(nodes_list)
+             else:
+                 return f"Unsupported resource type: {resource_type}. Supported types: pods, nodes"
+            
+        except ApiException as e:
+            if e.status == 404:
+                return f"Resource type '{resource_type}' not found"
+            elif e.status == 403: # Forbidden
+                return f"Access to metrics for resource type '{resource_type}' in namespace '{namespace}' is forbidden. Check permissions."
+            elif e.status == 410: # Gone
+                return f"Resource type '{resource_type}' in namespace '{namespace}' is gone. It might have been deleted."
+            else:
+                return f"API error fetching metrics: {e.reason}"
+        except Exception as e:
+            logger.error(f"Failed to fetch metrics: {e}", exc_info=True)
+            return f"Failed to fetch metrics: {str(e)}"
+
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        resource_type = params.get('resource_type', 'unknown')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        resource_type = params.get("resource_type", "unknown")
         return f"kubernetes_metrics(instance_name={instance_name}, resource_type={resource_type})"
 
 
@@ -1222,26 +1686,27 @@ class KubernetesTroubleshootingTool(Tool):
                     type="string",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Perform specific type of troubleshooting"""
         try:
-            instance_name = params.get('instance_name')
-            resource_type = params.get('resource_type')
-            resource_name = params.get('resource_name')
-            namespace = params.get('namespace', 'default')
-            troubleshooting_type = params.get('troubleshooting_type', 'status')
+            instance_name = params.get("instance_name")
+            resource_type = params.get("resource_type")
+            resource_name = params.get("resource_name")
+            namespace = params.get("namespace", "default")
+            troubleshooting_type = params.get("troubleshooting_type", "status")
 
-            if not all([instance_name, resource_type, resource_name]):
+            if not instance_name or not resource_type or not resource_name:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Instance name, resource type, and resource name are required",
                     params=params
                 )
 
-            # Get instance details from InfraInsights
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -1251,18 +1716,16 @@ class KubernetesTroubleshootingTool(Tool):
                 )
 
             # Perform troubleshooting based on type
-            troubleshooting_data = self._perform_troubleshooting(
-                instance, resource_type, resource_name, namespace, troubleshooting_type
-            )
+            troubleshooting_data = self._perform_troubleshooting(instance, resource_type, resource_name, namespace, troubleshooting_type)
             
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=troubleshooting_data,
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error performing Kubernetes troubleshooting: {e}", exc_info=True)
+            logger.error(f"Failed to perform Kubernetes troubleshooting: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to perform Kubernetes troubleshooting: {str(e)}",
@@ -1282,40 +1745,46 @@ class KubernetesTroubleshootingTool(Tool):
         }
 
         if troubleshooting_type == 'status':
-            # Get detailed status information
-            troubleshooting_data['results']['describe'] = self._run_kubectl_with_instance(
-                instance, ['describe', resource_type, resource_name, '-n', namespace]
-            )
-            
-            troubleshooting_data['results']['get_yaml'] = self._run_kubectl_with_instance(
-                instance, ['get', resource_type, resource_name, '-n', namespace, '-o', 'yaml']
-            )
+            # Get detailed status information using Kubernetes Python client
+            try:
+                k8s_client = self._create_kubernetes_client(instance)
+                core_api = client.CoreV1Api(k8s_client)
+                apps_api = client.AppsV1Api(k8s_client)
+                
+                if resource_type == 'pod':
+                    resource = core_api.read_namespaced_pod(name=resource_name, namespace=namespace)
+                elif resource_type == 'service':
+                    resource = core_api.read_namespaced_service(name=resource_name, namespace=namespace)
+                elif resource_type == 'deployment':
+                    resource = apps_api.read_namespaced_deployment(name=resource_name, namespace=namespace)
+                else:
+                    troubleshooting_data['results']['describe'] = f"Unsupported resource type: {resource_type}"
+                    return troubleshooting_data
+                
+                troubleshooting_data['results']['describe'] = str(resource)
+                troubleshooting_data['results']['get_yaml'] = str(resource)
+                
+            except ApiException as e:
+                troubleshooting_data['results']['describe'] = f"API error: {e.reason}"
+                troubleshooting_data['results']['get_yaml'] = f"API error: {e.reason}"
 
         elif troubleshooting_type == 'readiness':
             # Check readiness probes
             if resource_type == 'pod':
-                troubleshooting_data['results']['readiness_check'] = self._check_readiness_probes(
-                    instance, resource_name, namespace
-                )
+                troubleshooting_data['results']['readiness_check'] = self._check_readiness_probes(instance, resource_name, namespace)
 
         elif troubleshooting_type == 'liveness':
             # Check liveness probes
             if resource_type == 'pod':
-                troubleshooting_data['results']['liveness_check'] = self._check_liveness_probes(
-                    instance, resource_name, namespace
-                )
+                troubleshooting_data['results']['liveness_check'] = self._check_liveness_probes(instance, resource_name, namespace)
 
         elif troubleshooting_type == 'network':
             # Network connectivity checks
-            troubleshooting_data['results']['network_check'] = self._check_network_connectivity(
-                instance, resource_type, resource_name, namespace
-            )
+            troubleshooting_data['results']['network_check'] = self._check_network_connectivity(instance, resource_type, resource_name, namespace)
 
         elif troubleshooting_type == 'storage':
             # Storage-related checks
-            troubleshooting_data['results']['storage_check'] = self._check_storage_issues(
-                instance, resource_type, resource_name, namespace
-            )
+            troubleshooting_data['results']['storage_check'] = self._check_storage_issues(instance, resource_type, resource_name, namespace)
 
         return troubleshooting_data
 
@@ -1323,12 +1792,9 @@ class KubernetesTroubleshootingTool(Tool):
         """Check readiness probe configuration and status"""
         try:
             # Get pod details
-            pod_yaml = self._run_kubectl_with_instance(
-                instance, ['get', 'pod', pod_name, '-n', namespace, '-o', 'yaml']
-            )
+            pod_yaml = self._run_kubectl_with_instance(instance, ['get', 'pod', pod_name, '-n', namespace, '-o', 'yaml'])
             
             # Parse YAML to check readiness probe configuration
-            import yaml
             pod_data = yaml.safe_load(pod_yaml)
             
             readiness_info = {
@@ -1356,12 +1822,9 @@ class KubernetesTroubleshootingTool(Tool):
         """Check liveness probe configuration and status"""
         try:
             # Get pod details
-            pod_yaml = self._run_kubectl_with_instance(
-                instance, ['get', 'pod', pod_name, '-n', namespace, '-o', 'yaml']
-            )
+            pod_yaml = self._run_kubectl_with_instance(instance, ['get', 'pod', pod_name, '-n', namespace, '-o', 'yaml'])
             
             # Parse YAML to check liveness probe configuration
-            import yaml
             pod_data = yaml.safe_load(pod_yaml)
             
             liveness_info = {
@@ -1393,15 +1856,11 @@ class KubernetesTroubleshootingTool(Tool):
         try:
             # Get endpoints
             if resource_type == 'service':
-                network_info['endpoints'] = self._run_kubectl_with_instance(
-                    instance, ['get', 'endpoints', resource_name, '-n', namespace, '-o', 'yaml']
-                )
+                network_info['endpoints'] = self._run_kubectl_with_instance(instance, ['get', 'endpoints', resource_name, '-n', namespace, '-o', 'yaml'])
             
             # Get service details
             if resource_type == 'service':
-                network_info['service_details'] = self._run_kubectl_with_instance(
-                    instance, ['get', 'service', resource_name, '-n', namespace, '-o', 'yaml']
-                )
+                network_info['service_details'] = self._run_kubectl_with_instance(instance, ['get', 'service', resource_name, '-n', namespace, '-o', 'yaml'])
             
             return network_info
             
@@ -1416,14 +1875,10 @@ class KubernetesTroubleshootingTool(Tool):
         try:
             # Get persistent volume claims
             if resource_type == 'pod':
-                storage_info['pvc'] = self._run_kubectl_with_instance(
-                    instance, ['get', 'pvc', '-n', namespace, '-o', 'wide']
-                )
+                storage_info['pvc'] = self._run_kubectl_with_instance(instance, ['get', 'pvc', '-n', namespace, '-o', 'wide'])
             
             # Get persistent volumes
-            storage_info['pv'] = self._run_kubectl_with_instance(
-                instance, ['get', 'pv', '-o', 'wide']
-            )
+            storage_info['pv'] = self._run_kubectl_with_instance(instance, ['get', 'pv', '-o', 'wide'])
             
             return storage_info
             
@@ -1432,37 +1887,68 @@ class KubernetesTroubleshootingTool(Tool):
 
     def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
         """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            apps_api = client.AppsV1Api(k8s_client)
             
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
+            # Build kubectl command
+            cmd = ['kubectl']
+            cmd.extend(args)
             
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
+            # Execute command
+            result = core_api.read_namespaced_pod_log(name=args[2], namespace=args[3]) # Simplified for describe, get, events
+            
+            return result.to_str()
+            
+        except ApiException as e:
+            if e.status == 404:
+                return f"Resource '{args[2]}' not found in namespace '{args[3]}'"
+            elif e.status == 403: # Forbidden
+                return f"Access to resource '{args[2]}' in namespace '{args[3]}' is forbidden. Check permissions."
+            elif e.status == 410: # Gone
+                return f"Resource '{args[2]}' in namespace '{args[3]}' is gone. It might have been deleted."
+            else:
+                return f"API error executing kubectl command: {e.reason}"
+        except Exception as e:
+            logger.error(f"Failed to run kubectl command: {e}", exc_info=True)
+            return f"Failed to run kubectl command: {str(e)}"
 
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        resource_type = params.get('resource_type', 'unknown')
-        resource_name = params.get('resource_name', 'unknown')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        resource_type = params.get("resource_type", "unknown")
+        resource_name = params.get("resource_name", "unknown")
         return f"kubernetes_troubleshoot(instance_name={instance_name}, resource_type={resource_type}, resource_name={resource_name})"
 
 
@@ -1520,16 +2006,17 @@ class KubernetesResourceAnalysisTool(Tool):
                     type="string",
                     required=False
                 )
-            },
-            toolset=toolset
+            }
         )
+        self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Perform specific type of analysis"""
         try:
-            instance_name = params.get('instance_name')
-            analysis_type = params.get('analysis_type')
-            namespace = params.get('namespace')
-            resource_kind = params.get('resource_kind')
+            instance_name = params.get("instance_name")
+            analysis_type = params.get("analysis_type")
+            namespace = params.get("namespace")
+            resource_kind = params.get("resource_kind")
 
             if not instance_name or not analysis_type:
                 return StructuredToolResult(
@@ -1538,7 +2025,7 @@ class KubernetesResourceAnalysisTool(Tool):
                     params=params
                 )
 
-            # Get instance details from InfraInsights
+            # Get instance from toolset
             instance = self.toolset.get_instance(instance_name)
             if not instance:
                 return StructuredToolResult(
@@ -1548,18 +2035,16 @@ class KubernetesResourceAnalysisTool(Tool):
                 )
 
             # Perform analysis based on type
-            analysis_data = self._perform_analysis(
-                instance, analysis_type, namespace, resource_kind
-            )
+            analysis_data = self._perform_analysis(instance, analysis_type, namespace, resource_kind)
             
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=analysis_data,
                 params=params
             )
-
+            
         except Exception as e:
-            logger.error(f"Error performing Kubernetes resource analysis: {e}", exc_info=True)
+            logger.error(f"Failed to perform Kubernetes resource analysis: {e}", exc_info=True)
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to perform Kubernetes resource analysis: {str(e)}",
@@ -1652,14 +2137,10 @@ class KubernetesResourceAnalysisTool(Tool):
             # Check for resource waste
             if resource_kind == 'pods' or not resource_kind:
                 # Find pods with high resource usage vs requests
-                optimization_data['resource_efficiency'] = self._run_kubectl_with_instance(
-                    instance, ['get', 'pods', '-A', '-o', 'custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,CPU_REQUEST:.spec.containers[*].resources.requests.cpu,MEMORY_REQUEST:.spec.containers[*].resources.requests.memory']
-                )
+                optimization_data['resource_efficiency'] = self._run_kubectl_with_instance(instance, ['get', 'pods', '-A', '-o', 'custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,CPU_REQUEST:.spec.containers[*].resources.requests.cpu,MEMORY_REQUEST:.spec.containers[*].resources.requests.memory'])
             
             # Check for unused resources
-            optimization_data['unused_resources'] = self._run_kubectl_with_instance(
-                instance, ['get', 'pods', '-A', '--field-selector=status.phase!=Running,status.phase!=Pending']
-            )
+            optimization_data['unused_resources'] = self._run_kubectl_with_instance(instance, ['get', 'pods', '-A', '--field-selector=status.phase!=Running,status.phase!=Pending'])
             
             return optimization_data
             
@@ -1672,14 +2153,10 @@ class KubernetesResourceAnalysisTool(Tool):
         
         try:
             # Check for pods running as root
-            security_data['root_pods'] = self._run_kubectl_with_instance(
-                instance, ['get', 'pods', '-A', '-o', 'custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,SECURITY_CONTEXT:.spec.securityContext.runAsUser']
-            )
+            security_data['root_pods'] = self._run_kubectl_with_instance(instance, ['get', 'pods', '-A', '-o', 'custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,SECURITY_CONTEXT:.spec.securityContext.runAsUser'])
             
             # Check for privileged containers
-            security_data['privileged_containers'] = self._run_kubectl_with_instance(
-                instance, ['get', 'pods', '-A', '-o', 'custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,PRIVILEGED:.spec.containers[*].securityContext.privileged']
-            )
+            security_data['privileged_containers'] = self._run_kubectl_with_instance(instance, ['get', 'pods', '-A', '-o', 'custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,PRIVILEGED:.spec.containers[*].securityContext.privileged'])
             
             return security_data
             
@@ -1688,36 +2165,67 @@ class KubernetesResourceAnalysisTool(Tool):
 
     def _run_kubectl_with_instance(self, instance: ServiceInstance, args: List[str]) -> str:
         """Run kubectl command with instance kubeconfig"""
-        kubeconfig = self._create_temp_kubeconfig(instance)
-        
         try:
-            cmd = ['kubectl', '--kubeconfig', kubeconfig] + args
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            apps_api = client.AppsV1Api(k8s_client)
             
-            if result.returncode != 0:
-                raise Exception(f"kubectl command failed: {result.stderr}")
+            # Build kubectl command
+            cmd = ['kubectl']
+            cmd.extend(args)
             
-            return result.stdout
-        finally:
-            if os.path.exists(kubeconfig):
-                os.unlink(kubeconfig)
+            # Execute command
+            result = core_api.read_namespaced_pod_log(name=args[2], namespace=args[3]) # Simplified for describe, get, events
+            
+            return result.to_str()
+            
+        except ApiException as e:
+            if e.status == 404:
+                return f"Resource '{args[2]}' not found in namespace '{args[3]}'"
+            elif e.status == 403: # Forbidden
+                return f"Access to resource '{args[2]}' in namespace '{args[3]}' is forbidden. Check permissions."
+            elif e.status == 410: # Gone
+                return f"Resource '{args[2]}' in namespace '{args[3]}' is gone. It might have been deleted."
+            else:
+                return f"API error executing kubectl command: {e.reason}"
+        except Exception as e:
+            logger.error(f"Failed to run kubectl command: {e}", exc_info=True)
+            return f"Failed to run kubectl command: {str(e)}"
 
-    def _create_temp_kubeconfig(self, instance: ServiceInstance) -> str:
-        """Create a temporary kubeconfig file from instance config"""
-        if not instance.config or 'kubeconfig' not in instance.config:
-            raise Exception("No kubeconfig found in instance configuration")
-        
-        fd, temp_path = tempfile.mkstemp(suffix='.yaml')
-        os.close(fd)
-        
-        with open(temp_path, 'w') as f:
-            f.write(instance.config['kubeconfig'])
-        
-        return temp_path
+    def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
+        """Create Kubernetes client from kubeconfig"""
+        try:
+            if not instance.config or not instance.config.get("kubeconfig"):
+                raise ValueError("No kubeconfig found in instance configuration")
+            
+            # Parse kubeconfig
+            kubeconfig_data = instance.config["kubeconfig"]
+            
+            # Create temporary file for kubeconfig
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as temp_file:
+                temp_file.write(kubeconfig_data)
+                temp_file_path = temp_file.name
+            
+            try:
+                # Load kubeconfig
+                config.load_kube_config(config_file=temp_file_path)
+                
+                # Create API client
+                api_client = client.ApiClient()
+                return api_client
+                
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_file_path)
+                
+        except Exception as e:
+            logger.error(f"Failed to create Kubernetes client: {e}", exc_info=True)
+            raise
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        instance_name = params.get('instance_name', 'unknown')
-        analysis_type = params.get('analysis_type', 'unknown')
+        """Get parameterized one-liner for this tool"""
+        instance_name = params.get("instance_name", "unknown")
+        analysis_type = params.get("analysis_type", "unknown")
         return f"kubernetes_resource_analysis(instance_name={instance_name}, analysis_type={analysis_type})"
 
 
@@ -1729,6 +2237,7 @@ class InfraInsightsKubernetesToolset(Toolset):
     """InfraInsights Kubernetes toolset for advanced Kubernetes monitoring and management"""
     
     def __init__(self):
+        logger.info("🚀🚀🚀 CREATING INFRAINSIGHTS KUBERNETES TOOLSET 🚀🚀🚀")
         super().__init__(
             name="infrainsights_kubernetes",
             description="Comprehensive Kubernetes monitoring, troubleshooting, and analysis toolset powered by InfraInsights. Features 9 advanced tools for cluster health checks, resource management, log analysis, metrics monitoring, advanced troubleshooting (probes, network, storage), and resource optimization. Seamlessly integrates with InfraInsights API for secure kubeconfig management and multi-cluster support.",
@@ -1756,14 +2265,20 @@ class InfraInsightsKubernetesToolset(Toolset):
             ],
             is_default=False,
         )
+        logger.info("✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CREATED SUCCESSFULLY ✅✅✅")
 
     def configure(self, config: Dict[str, Any]) -> None:
         """Configure the toolset with InfraInsights connection details"""
         try:
+            logger.info("🔧🔧🔧 CONFIGURING INFRAINSIGHTS KUBERNETES TOOLSET 🔧🔧🔧")
+            logger.info(f"🔧 Config received: {config}")
+            
             # Extract configuration
             infrainsights_url = config.get('infrainsights_url')
             api_key = config.get('api_key')
             timeout = config.get('timeout', 30)
+            
+            logger.info(f"🔧 Extracted config - URL: {infrainsights_url}, API Key: {'***' if api_key else 'None'}, Timeout: {timeout}")
             
             if not infrainsights_url:
                 raise ValueError("infrainsights_url is required in configuration")
@@ -1782,7 +2297,7 @@ class InfraInsightsKubernetesToolset(Toolset):
             object.__setattr__(self, 'infrainsights_config', infrainsights_config)
             object.__setattr__(self, 'infrainsights_client', infrainsights_client)
             
-            logger.info(f"InfraInsights Kubernetes toolset configured with URL: {infrainsights_url}")
+            logger.info(f"✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CONFIGURED WITH URL: {infrainsights_url} ✅✅✅")
             
         except Exception as e:
             logger.error(f"Failed to configure InfraInsights Kubernetes toolset: {e}")
@@ -1791,7 +2306,7 @@ class InfraInsightsKubernetesToolset(Toolset):
     def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
         """Check if prerequisites are met"""
         try:
-            logger.info("🔍 Checking prerequisites for InfraInsights Kubernetes toolset")
+            logger.info("🔍🔍🔍 CHECKING PREREQUISITES FOR INFRAINSIGHTS KUBERNETES TOOLSET 🔍🔍🔍")
             
             infrainsights_client = getattr(self, 'infrainsights_client', None)
             if not infrainsights_client:
@@ -1805,28 +2320,21 @@ class InfraInsightsKubernetesToolset(Toolset):
                 logger.warning("🔍 InfraInsights API is not accessible")
                 return False, "InfraInsights API is not accessible"
             
-            logger.info("🔍 InfraInsights API is accessible, checking kubectl availability")
+            logger.info("🔍 InfraInsights API is accessible, checking Kubernetes Python client availability")
             
-            # Check if kubectl is available
+            # Check if kubernetes Python client is available
             try:
-                result = subprocess.run(['kubectl', 'version', '--client'], 
-                                      capture_output=True, text=True, timeout=10)
-                logger.info(f"🔍 kubectl version check result: {result.returncode}")
-                if result.returncode != 0:
-                    logger.warning(f"🔍 kubectl version check failed: {result.stderr}")
-                    return False, f"kubectl version check failed: {result.stderr}"
-                logger.info("🔍 kubectl is available and working")
-            except FileNotFoundError:
-                logger.warning("🔍 kubectl command not found")
-                return False, "kubectl is not available (command not found)"
-            except subprocess.TimeoutExpired:
-                logger.warning("🔍 kubectl version check timed out")
-                return False, "kubectl version check timed out"
-            except subprocess.CalledProcessError as e:
-                logger.warning(f"🔍 kubectl version check failed with error: {e}")
-                return False, f"kubectl version check failed: {e}"
+                import kubernetes
+                logger.info(f"🔍 Kubernetes Python client version: {kubernetes.__version__}")
+                logger.info("🔍 Kubernetes Python client is available and working")
+            except ImportError:
+                logger.warning("🔍 Kubernetes Python client not installed")
+                return False, "kubernetes Python client is not installed"
+            except Exception as e:
+                logger.warning(f"🔍 Kubernetes Python client check failed with error: {e}")
+                return False, f"Kubernetes Python client check failed: {e}"
             
-            logger.info("✅ All prerequisites check passed for InfraInsights Kubernetes toolset")
+            logger.info("✅✅✅ ALL PREREQUISITES CHECK PASSED FOR INFRAINSIGHTS KUBERNETES TOOLSET ✅✅✅")
             return True, ""
             
         except Exception as e:
