@@ -1520,10 +1520,6 @@ class InfraInsightsKubernetesToolset(Toolset):
     """InfraInsights Kubernetes toolset for advanced Kubernetes monitoring and management"""
     
     def __init__(self):
-        # Initialize instance variables
-        self.infrainsights_config: Optional[InfraInsightsConfig] = None
-        self.infrainsights_client: Optional[InfraInsightsClientV2] = None
-        
         super().__init__(
             name="infrainsights_kubernetes",
             description="Comprehensive Kubernetes monitoring, troubleshooting, and analysis toolset powered by InfraInsights. Features 9 advanced tools for cluster health checks, resource management, log analysis, metrics monitoring, advanced troubleshooting (probes, network, storage), and resource optimization. Seamlessly integrates with InfraInsights API for secure kubeconfig management and multi-cluster support.",
@@ -1564,14 +1560,18 @@ class InfraInsightsKubernetesToolset(Toolset):
                 raise ValueError("infrainsights_url is required in configuration")
             
             # Create InfraInsights config
-            self.infrainsights_config = InfraInsightsConfig(
+            infrainsights_config = InfraInsightsConfig(
                 base_url=infrainsights_url,
                 api_key=api_key,
                 timeout=timeout
             )
             
             # Initialize client
-            self.infrainsights_client = InfraInsightsClientV2(self.infrainsights_config)
+            infrainsights_client = InfraInsightsClientV2(infrainsights_config)
+            
+            # Set attributes using object.__setattr__ to bypass Pydantic restrictions
+            object.__setattr__(self, 'infrainsights_config', infrainsights_config)
+            object.__setattr__(self, 'infrainsights_client', infrainsights_client)
             
             logger.info(f"InfraInsights Kubernetes toolset configured with URL: {infrainsights_url}")
             
@@ -1582,11 +1582,12 @@ class InfraInsightsKubernetesToolset(Toolset):
     def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
         """Check if prerequisites are met"""
         try:
-            if not self.infrainsights_client:
+            infrainsights_client = getattr(self, 'infrainsights_client', None)
+            if not infrainsights_client:
                 return False, "InfraInsights client not configured"
             
             # Check if InfraInsights API is accessible
-            if not self.infrainsights_client.health_check():
+            if not infrainsights_client.health_check():
                 return False, "InfraInsights API is not accessible"
             
             # Check if kubectl is available
@@ -1604,11 +1605,12 @@ class InfraInsightsKubernetesToolset(Toolset):
     def get_instance(self, instance_name: str) -> Optional[ServiceInstance]:
         """Get Kubernetes instance by name"""
         try:
-            if not self.infrainsights_client:
+            infrainsights_client = getattr(self, 'infrainsights_client', None)
+            if not infrainsights_client:
                 raise Exception("InfraInsights client not configured")
             
             # Get instance with configuration
-            instance = self.infrainsights_client.get_instance_by_name_and_type(
+            instance = infrainsights_client.get_instance_by_name_and_type(
                 service_type='kubernetes',
                 name=instance_name,
                 include_config=True
