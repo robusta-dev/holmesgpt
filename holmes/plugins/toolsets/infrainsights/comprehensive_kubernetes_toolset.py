@@ -495,26 +495,41 @@ class KubernetesLogsTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name="kubernetes_describe_resource",
-            description="Get detailed description of a Kubernetes resource",
+            name="kubernetes_logs",
+            description="Fetch logs from Kubernetes pods with various filtering options",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
                     type="string",
                     required=True
                 ),
-                "kind": ToolParameter(
-                    description="Resource kind (e.g., pod, service, deployment)",
-                    type="string",
-                    required=True
-                ),
-                "name": ToolParameter(
-                    description="Resource name",
+                "pod_name": ToolParameter(
+                    description="Name of the pod to get logs from",
                     type="string",
                     required=True
                 ),
                 "namespace": ToolParameter(
-                    description="Namespace (optional)",
+                    description="Namespace of the pod",
+                    type="string",
+                    required=False
+                ),
+                "container": ToolParameter(
+                    description="Container name (for multi-container pods)",
+                    type="string",
+                    required=False
+                ),
+                "previous": ToolParameter(
+                    description="Get logs from previous pod instance",
+                    type="boolean",
+                    required=False
+                ),
+                "tail": ToolParameter(
+                    description="Number of lines to show from the end",
+                    type="integer",
+                    required=False
+                ),
+                "since": ToolParameter(
+                    description="Show logs since timestamp (e.g., 1h, 2m, 2023-01-01T00:00:00Z)",
                     type="string",
                     required=False
                 )
@@ -661,26 +676,31 @@ class KubernetesEventsTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name="kubernetes_describe_resource",
-            description="Get detailed description of a Kubernetes resource",
+            name="kubernetes_events",
+            description="Fetch Kubernetes events for resources or namespaces",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
                     type="string",
                     required=True
                 ),
-                "kind": ToolParameter(
-                    description="Resource kind (e.g., pod, service, deployment)",
+                "resource_type": ToolParameter(
+                    description="Resource type (e.g., pod, service, deployment)",
                     type="string",
-                    required=True
+                    required=False
                 ),
-                "name": ToolParameter(
+                "resource_name": ToolParameter(
                     description="Resource name",
                     type="string",
-                    required=True
+                    required=False
                 ),
                 "namespace": ToolParameter(
-                    description="Namespace (optional)",
+                    description="Namespace to get events from",
+                    type="string",
+                    required=False
+                ),
+                "output_format": ToolParameter(
+                    description="Output format (wide, json, yaml)",
                     type="string",
                     required=False
                 )
@@ -832,27 +852,42 @@ class KubernetesLogsSearchTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name="kubernetes_describe_resource",
-            description="Get detailed description of a Kubernetes resource",
+            name="kubernetes_logs_search",
+            description="Search Kubernetes pod logs for specific patterns or terms",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
                     type="string",
                     required=True
                 ),
-                "kind": ToolParameter(
-                    description="Resource kind (e.g., pod, service, deployment)",
-                    type="string",
-                    required=True
-                ),
-                "name": ToolParameter(
-                    description="Resource name",
+                "pod_name": ToolParameter(
+                    description="Name of the pod to search logs from",
                     type="string",
                     required=True
                 ),
                 "namespace": ToolParameter(
-                    description="Namespace (optional)",
+                    description="Namespace of the pod",
                     type="string",
+                    required=False
+                ),
+                "search_term": ToolParameter(
+                    description="Search term or pattern to look for",
+                    type="string",
+                    required=True
+                ),
+                "container": ToolParameter(
+                    description="Container name (for multi-container pods)",
+                    type="string",
+                    required=False
+                ),
+                "case_sensitive": ToolParameter(
+                    description="Case sensitive search",
+                    type="boolean",
+                    required=False
+                ),
+                "invert_match": ToolParameter(
+                    description="Invert match (show lines that don't match)",
+                    type="boolean",
                     required=False
                 )
             },
@@ -1008,26 +1043,21 @@ class KubernetesMetricsTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name="kubernetes_describe_resource",
-            description="Get detailed description of a Kubernetes resource",
+            name="kubernetes_metrics",
+            description="Fetch real-time CPU and memory metrics for pods and nodes",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
                     type="string",
                     required=True
                 ),
-                "kind": ToolParameter(
-                    description="Resource kind (e.g., pod, service, deployment)",
-                    type="string",
-                    required=True
-                ),
-                "name": ToolParameter(
-                    description="Resource name",
+                "resource_type": ToolParameter(
+                    description="Resource type (pods, nodes)",
                     type="string",
                     required=True
                 ),
                 "namespace": ToolParameter(
-                    description="Namespace (optional)",
+                    description="Namespace (for pods only)",
                     type="string",
                     required=False
                 )
@@ -1164,26 +1194,31 @@ class KubernetesTroubleshootingTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name="kubernetes_describe_resource",
-            description="Get detailed description of a Kubernetes resource",
+            name="kubernetes_troubleshoot",
+            description="Advanced troubleshooting for Kubernetes resources including status analysis and debugging",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
                     type="string",
                     required=True
                 ),
-                "kind": ToolParameter(
-                    description="Resource kind (e.g., pod, service, deployment)",
+                "resource_type": ToolParameter(
+                    description="Resource type (pod, deployment, service, etc.)",
                     type="string",
                     required=True
                 ),
-                "name": ToolParameter(
+                "resource_name": ToolParameter(
                     description="Resource name",
                     type="string",
                     required=True
                 ),
                 "namespace": ToolParameter(
-                    description="Namespace (optional)",
+                    description="Namespace",
+                    type="string",
+                    required=False
+                ),
+                "troubleshooting_type": ToolParameter(
+                    description="Type of troubleshooting (status, readiness, liveness, network, storage)",
                     type="string",
                     required=False
                 )
@@ -1462,26 +1497,26 @@ class KubernetesResourceAnalysisTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name="kubernetes_describe_resource",
-            description="Get detailed description of a Kubernetes resource",
+            name="kubernetes_resource_analysis",
+            description="Comprehensive analysis of Kubernetes resources including resource usage, configuration, and optimization opportunities",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
                     type="string",
                     required=True
                 ),
-                "kind": ToolParameter(
-                    description="Resource kind (e.g., pod, service, deployment)",
-                    type="string",
-                    required=True
-                ),
-                "name": ToolParameter(
-                    description="Resource name",
+                "analysis_type": ToolParameter(
+                    description="Type of analysis (resource_usage, configuration, optimization, security)",
                     type="string",
                     required=True
                 ),
                 "namespace": ToolParameter(
-                    description="Namespace (optional)",
+                    description="Namespace to analyze (optional)",
+                    type="string",
+                    required=False
+                ),
+                "resource_kind": ToolParameter(
+                    description="Resource kind to focus on (optional)",
                     type="string",
                     required=False
                 )
