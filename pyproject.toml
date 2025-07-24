@@ -95,6 +95,7 @@ markers = [
     "network: Tests requiring network connectivity",
     "runbooks: Tests involving runbook functionality",
     "kafka: Tests involving Kafka functionality",
+    "missing-tool: Tests where required tools are unavailable",
     "misleading-history: Tests with misleading historical data",
     "k8s-misconfig: Tests involving Kubernetes misconfigurations",
     "chain-of-causation: Tests involving chain-of-causation analysis",
