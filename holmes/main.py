@@ -3,6 +3,7 @@ import os
 import sys
 
 from holmes.utils.cert_utils import add_custom_certificate
+from holmes.utils.colors import USER_COLOR
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -289,7 +290,7 @@ def ask(
             prompt = f"Here's some piped output:\n\n{piped_data}\n\nWhat can you tell me about this output?"
 
     if echo_request and not interactive and prompt:
-        console.print("[bold yellow]User:[/bold yellow] " + prompt)
+        console.print(f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {prompt}")
 
     if interactive:
         run_interactive_loop(

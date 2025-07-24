@@ -29,6 +29,14 @@ from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
 from holmes.core.tracing import DummyTracer
+from holmes.utils.colors import (
+    USER_COLOR,
+    AI_COLOR,
+    TOOLS_COLOR,
+    HELP_COLOR,
+    ERROR_COLOR,
+    STATUS_COLOR,
+)
 
 
 class SlashCommands(Enum):
@@ -138,13 +146,6 @@ class ConditionalExecutableCompleter(Completer):
                             display_meta=completion.display_meta,
                         )
 
-
-USER_COLOR = "#DEFCC0"  # light green
-AI_COLOR = "#00FFFF"  # cyan
-TOOLS_COLOR = "magenta"
-HELP_COLOR = "cyan"  # same as AI_COLOR for now
-ERROR_COLOR = "red"
-STATUS_COLOR = "yellow"
 
 WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 

@@ -40,6 +40,7 @@ from holmes.utils.global_instructions import (
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan, SpanType
+from holmes.utils.colors import AI_COLOR
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -356,6 +357,11 @@ class ToolCallingLLM:
                     messages=messages,
                 )
 
+            if text_response and text_response.strip():
+                logging.info(f"[bold {AI_COLOR}]AI:[/bold {AI_COLOR}] {text_response}")
+            logging.info(
+                f"The AI requested [bold]{len(tools_to_call) if tools_to_call else 0}[/bold] tool call(s)."
+            )
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
