@@ -47,6 +47,7 @@ from holmes.plugins.toolsets.infrainsights.enhanced_elasticsearch_toolset import
 from holmes.plugins.toolsets.infrainsights.comprehensive_kafka_toolset import ComprehensiveKafkaToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_mongodb_toolset import EnhancedMongoDBToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_redis_toolset import EnhancedRedisToolset
+from holmes.plugins.toolsets.infrainsights.comprehensive_kubernetes_toolset import InfraInsightsKubernetesToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -216,6 +217,31 @@ def load_toolsets_from_config(
                 
                 # Call configure method to initialize InfraInsights client with config
                 if validated_toolset.config:
+                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
+                    validated_toolset.configure(validated_toolset.config)
+                else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
+            elif name == "infrainsights_kubernetes_enhanced" or name == "infrainsights_kubernetes_v2" or name == "infrainsights_kubernetes":
+                logging.info(f"🔧 Loading enhanced Kubernetes toolset: {name}")
+                logging.info(f"🔧 Config received: {config}")
+                validated_toolset = InfraInsightsKubernetesToolset()
+                validated_toolset.config = config.get("config")
+                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
+                
+                # Safety check: Verify all tools are proper Tool objects
+                logging.info(f"🔧 SAFETY CHECK: Verifying {len(validated_toolset.tools)} Kubernetes tools")
+                for i, tool in enumerate(validated_toolset.tools):
+                    if not hasattr(tool, 'name'):
+                        logging.error(f"🔧 SAFETY CHECK FAILED: Tool {i} is not a proper Tool object: {type(tool)}")
+                        raise ValueError(f"Kubernetes toolset tool {i} is not a proper Tool object: {type(tool)}")
+                    logging.info(f"🔧 SAFETY CHECK: Tool {i} OK: {tool.name} ({type(tool).__name__})")
+                
+                # Call configure method to initialize InfraInsights client with config
+                if validated_toolset.config:
+                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
+                    validated_toolset.configure(validated_toolset.config)
+                else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
                     logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
                     validated_toolset.configure(validated_toolset.config)
                 else:
