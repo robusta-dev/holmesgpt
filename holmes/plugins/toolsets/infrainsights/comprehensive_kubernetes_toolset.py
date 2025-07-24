@@ -2237,34 +2237,26 @@ class InfraInsightsKubernetesToolset(Toolset):
     """InfraInsights Kubernetes toolset for advanced Kubernetes monitoring and management"""
     
     def __init__(self):
-        logger.info("🚀🚀🚀 CREATING INFRAINSIGHTS KUBERNETES TOOLSET 🚀🚀🚀")
         super().__init__(
             name="infrainsights_kubernetes",
             description="Comprehensive Kubernetes monitoring, troubleshooting, and analysis toolset powered by InfraInsights. Features 9 advanced tools for cluster health checks, resource management, log analysis, metrics monitoring, advanced troubleshooting (probes, network, storage), and resource optimization. Seamlessly integrates with InfraInsights API for secure kubeconfig management and multi-cluster support.",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/infrainsights.html",
-            icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
-            prerequisites=[
-                CallablePrerequisite(callable=self._check_prerequisites)
-            ],
+            prerequisites=[],  # Empty list during initialization
             tools=[
-                # Phase 1 tools
                 KubernetesHealthCheckTool(self),
                 KubernetesListResourcesTool(self),
                 KubernetesDescribeResourceTool(self),
-                # Phase 2 tools
                 KubernetesLogsTool(self),
                 KubernetesEventsTool(self),
                 KubernetesLogsSearchTool(self),
-                # Phase 3 tools
                 KubernetesMetricsTool(self),
                 KubernetesTroubleshootingTool(self),
                 KubernetesResourceAnalysisTool(self),
             ],
-            tags=[
-                ToolsetTag.CORE,
-            ],
-            is_default=False,
+            tags=[ToolsetTag.CORE],
+            enabled=False,
         )
+        
+        logger.info("🚀🚀🚀 CREATING INFRAINSIGHTS KUBERNETES TOOLSET 🚀🚀🚀")
         logger.info("✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CREATED SUCCESSFULLY ✅✅✅")
 
     def configure(self, config: Dict[str, Any]) -> None:
@@ -2299,6 +2291,14 @@ class InfraInsightsKubernetesToolset(Toolset):
             
             logger.info(f"✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CONFIGURED WITH URL: {infrainsights_url} ✅✅✅")
             
+            # Now add prerequisites after configuration is complete
+            self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
+            
+            # Test prerequisites check
+            logger.info("🔍🔍🔍 TESTING PREREQUISITES CHECK AFTER CONFIGURATION 🔍🔍🔍")
+            prereq_result, prereq_message = self._check_prerequisites({})
+            logger.info(f"🔍 Prerequisites check result: {prereq_result}, message: {prereq_message}")
+            
         except Exception as e:
             logger.error(f"Failed to configure InfraInsights Kubernetes toolset: {e}")
             raise
@@ -2307,18 +2307,25 @@ class InfraInsightsKubernetesToolset(Toolset):
         """Check if prerequisites are met"""
         try:
             logger.info("🔍🔍🔍 CHECKING PREREQUISITES FOR INFRAINSIGHTS KUBERNETES TOOLSET 🔍🔍🔍")
+            logger.info(f"🔍 Context received: {context}")
             
             infrainsights_client = getattr(self, 'infrainsights_client', None)
             if not infrainsights_client:
                 logger.warning("🔍 InfraInsights client not configured")
-                return False, "InfraInsights client not configured"
+                return True, f"InfraInsights client not configured (toolset still enabled)"
             
             logger.info("🔍 InfraInsights client configured, checking API accessibility")
             
             # Check if InfraInsights API is accessible
-            if not infrainsights_client.health_check():
-                logger.warning("🔍 InfraInsights API is not accessible")
-                return False, "InfraInsights API is not accessible"
+            try:
+                health_result = infrainsights_client.health_check()
+                logger.info(f"🔍 Health check result: {health_result}")
+                if not health_result:
+                    logger.warning("🔍 InfraInsights API is not accessible")
+                    return True, f"InfraInsights API at {self.infrainsights_config.base_url} is not accessible (toolset still enabled)"
+            except Exception as e:
+                logger.warning(f"🔍 InfraInsights API health check failed: {e}")
+                return True, f"InfraInsights API health check failed: {str(e)} (toolset still enabled)"
             
             logger.info("🔍 InfraInsights API is accessible, checking Kubernetes Python client availability")
             
@@ -2339,7 +2346,7 @@ class InfraInsightsKubernetesToolset(Toolset):
             
         except Exception as e:
             logger.error(f"🔍 Prerequisites check failed with exception: {e}")
-            return False, f"Prerequisites check failed: {str(e)}"
+            return True, f"Prerequisites check failed: {str(e)} (toolset still enabled)"
 
     def get_instance(self, instance_name: str) -> Optional[ServiceInstance]:
         """Get Kubernetes instance by name"""
