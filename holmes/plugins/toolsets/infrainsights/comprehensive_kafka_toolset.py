@@ -120,7 +120,7 @@ class KafkaHealthCheckTool(Tool):
                     }
                 }
                 
-                admin_client.close()
+                
                 
             except Exception as e:
                 health_data = {
@@ -267,7 +267,7 @@ class KafkaListTopicsTool(Tool):
                         }
                         topics_data.append(topic_info)
                 
-                admin_client.close()
+                
                 
                 result_data = {
                     'total_topics': len(topics_data),
@@ -404,7 +404,7 @@ class KafkaTopicDetailsTool(Tool):
                 metadata = admin_client.list_topics(timeout=10)
                 
                 if topic_name not in metadata.topics:
-                    admin_client.close()
+                    
                     return StructuredToolResult(
                         status=ToolResultStatus.ERROR,
                         error=f"Topic '{topic_name}' not found",
@@ -439,7 +439,7 @@ class KafkaTopicDetailsTool(Tool):
                         'offline_replicas': partition_metadata.offline_replicas
                     })
                 
-                admin_client.close()
+                
                 
                 # Get consumer group information
                 consumer_groups = self._get_consumer_groups_for_topic(config, topic_name)
@@ -520,7 +520,7 @@ class KafkaTopicDetailsTool(Tool):
             except:
                 pass  # Consumer group operations might not be available
             
-            admin_client.close()
+            
             return consumer_groups
             
         except:
@@ -628,7 +628,7 @@ class KafkaConsumerGroupsTool(Tool):
                         group_details['type'] = group_type
                         groups_data.append(group_details)
                 
-                admin_client.close()
+                
                 
                 result_data = {
                     'total_groups': len(groups_data),
@@ -1111,7 +1111,7 @@ class KafkaConsumerLagTool(Tool):
                         logger.warning(f"Failed to get lag for group {group_id}: {e}")
                         continue
                 
-                admin_client.close()
+                
                 
                 # Sort groups by lag
                 lag_analysis['group_details'].sort(key=lambda x: x['total_lag'], reverse=True)
@@ -1321,7 +1321,7 @@ class KafkaPartitionAnalysisTool(Tool):
                 for broker_id in broker_stats:
                     broker_stats[broker_id]['topics'] = list(broker_stats[broker_id]['topics'])
                 
-                admin_client.close()
+                
                 
                 partition_analysis = {
                     'cluster_summary': {
@@ -1818,7 +1818,7 @@ class KafkaBrokerMetricsTool(Tool):
                     
                     broker_metrics.append(broker_metric)
                 
-                admin_client.close()
+                
                 
                 result_data = {
                     'cluster_id': metadata.cluster_id,
@@ -1998,7 +1998,7 @@ class KafkaSecurityAuditTool(Tool):
                         'supported': False
                     }
                     
-                    admin_client.close()
+                    
                 except:
                     security_audit['acl_analysis'] = {
                         'error': 'Unable to retrieve ACL information'
@@ -2199,7 +2199,7 @@ class KafkaCapacityPlanningTool(Tool):
                     estimated_data_size_gb += topic_size / 1024
                 
                 consumer.close()
-                admin_client.close()
+                
                 
                 # Sort topics by size
                 topic_sizes.sort(key=lambda x: x['estimated_size_mb'], reverse=True)
@@ -2458,7 +2458,7 @@ class KafkaConfigurationOptimizationTool(Tool):
                                 'recommendation': 'Consider reducing retention for cost optimization'
                             })
                 
-                admin_client.close()
+                
                 
                 configuration_analysis = {
                     'cluster_size': len(brokers),
