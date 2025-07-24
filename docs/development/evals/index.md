@@ -88,6 +88,59 @@ poetry run pytest ./tests/llm/test_ask_holmes.py -k "01_how_many_pods" --no-cov 
 
 > It is possible to investigate and debug why an eval fails by the output provided in the console. The output includes the correctness score, the reasoning for the score, information about what tools were called, the expected answer, as well as the LLM's answer.
 
+### Custom Evaluation Flags
+
+HolmesGPT provides custom pytest flags for evaluation workflows:
+
+| Flag | Description | Usage |
+|------|-------------|-------|
+| `--generate-mocks` | Generate mock data files during test execution | Use when adding new tests or updating existing ones |
+| `--regenerate-all-mocks` | Regenerate all mock files (implies --generate-mocks) | Use to ensure mock consistency across all tests |
+| `--skip-setup` | Skip `before_test` commands | Use for faster iteration during development |
+| `--skip-cleanup` | Skip `after_test` commands | Use for debugging test failures |
+
+### Common Evaluation Patterns
+
+#### Rapid Test Development Workflow
+
+When developing or debugging tests, use this pattern for faster iteration:
+
+```bash
+# 1. Initial run with setup (skip cleanup to keep resources)
+poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-cleanup
+
+# 2. Quick iterations without setup/cleanup
+poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-setup --skip-cleanup
+
+# 3. Final cleanup when done
+poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-setup
+```
+
+#### Mock Generation
+
+```bash
+# Generate mocks for specific test
+poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
+
+# Generate mocks with multiple iterations to cover all investigative paths
+ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
+
+# Regenerate all mocks for consistency
+poetry run pytest tests/llm/ --regenerate-all-mocks
+```
+
+#### Parallel Execution
+
+For faster test runs, use pytest's parallel execution:
+
+```bash
+# Run with 6 parallel workers
+poetry run pytest tests/llm/ -n 6 --no-cov --disable-warnings
+
+# Run with auto-detected worker count
+poetry run pytest tests/llm/ -n auto --no-cov --disable-warnings
+```
+
 ### Environment Variables
 
 Configure evaluations using these environment variables:

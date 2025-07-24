@@ -35,7 +35,7 @@ class CommandResult:
         )
 
 
-def invoke_command(command: str, cwd: str) -> str:
+def _invoke_command(command: str, cwd: str) -> str:
     try:
         logging.debug(f"Running `{command}` in {cwd}")
         result = subprocess.run(
@@ -58,7 +58,7 @@ def invoke_command(command: str, cwd: str) -> str:
         raise e
 
 
-def _run_commands(
+def run_commands(
     test_case: HolmesTestCase, commands_str: str, operation: str
 ) -> CommandResult:
     """Generic command runner for setup/cleanup operations."""
@@ -80,7 +80,7 @@ def _run_commands(
     try:
         for command in commands:
             if command.strip():  # Skip empty lines
-                output = invoke_command(command=command, cwd=test_case.folder)
+                output = _invoke_command(command=command, cwd=test_case.folder)
                 combined_output.append(f"$ {command}\n{output}")
 
         elapsed_time = time.time() - start_time
@@ -130,22 +130,6 @@ def _run_commands(
             error_type="failure",
             error_details=error_details,
         )
-
-
-def before_test(test_case: HolmesTestCase) -> CommandResult:
-    """Run before_test commands for a test case.
-
-    Returns a CommandResult with success=True if no setup is needed or all commands succeed.
-    """
-    return _run_commands(test_case, test_case.before_test, "setup")
-
-
-def after_test(test_case: HolmesTestCase) -> CommandResult:
-    """Run after_test commands for a test case.
-
-    Returns a CommandResult with success=True if no cleanup is needed or all commands succeed.
-    """
-    return _run_commands(test_case, test_case.after_test, "cleanup")
 
 
 @contextmanager

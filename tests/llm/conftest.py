@@ -19,8 +19,8 @@ from tests.llm.reporting.terminal_reporter import handle_console_output
 from tests.llm.reporting.github_reporter import handle_github_output
 from tests.llm.utils.braintrust import get_braintrust_url
 from tests.llm.utils.setup_cleanup import (
-    run_test_setup,
-    run_test_cleanup,
+    run_all_test_setup,
+    run_all_test_cleanup,
     extract_test_cases_needing_setup,
 )
 
@@ -103,7 +103,7 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         skip_setup = request.config.getoption("--skip-setup")
 
         if test_cases and not skip_setup:
-            run_test_setup(test_cases)
+            run_all_test_setup(test_cases)
         elif skip_setup:
             print("\n⏭️  Skipping test setup due to --skip-setup flag")
 
@@ -146,7 +146,7 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
                         cleanup_test_cases.append(test_case)
 
             if cleanup_test_cases:
-                run_test_cleanup(cleanup_test_cases)
+                run_all_test_cleanup(cleanup_test_cases)
         elif skip_cleanup:
             print("\n⏭️  Skipping test cleanup due to --skip-cleanup flag")
 

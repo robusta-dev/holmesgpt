@@ -118,9 +118,61 @@ export RUN_LIVE=true
 poetry run pytest tests/llm/test_ask_holmes.py
 
 # Test with different models
-export MODEL=anthropic/claude-3.5
+export MODEL=anthropic/claude-3.5-sonnet-20241022
 poetry run pytest tests/llm/test_ask_holmes.py
 ```
+
+### Evaluation CLI Reference
+
+**Custom Pytest Flags**:
+- `--generate-mocks`: Generate mock data files during test execution
+- `--regenerate-all-mocks`: Regenerate all mock files (implies --generate-mocks)
+- `--skip-setup`: Skip before_test commands (useful for iterative testing)
+- `--skip-cleanup`: Skip after_test commands (useful for debugging)
+
+**Environment Variables**:
+- `MODEL`: LLM model to use (e.g., `gpt-4o`, `anthropic/claude-3-5-sonnet-20241022`)
+- `CLASSIFIER_MODEL`: Model for scoring answers (defaults to MODEL)
+- `RUN_LIVE=true`: Execute real commands instead of using mocks
+- `ITERATIONS=<number>`: Run each test multiple times
+- `UPLOAD_DATASET=true`: Sync dataset to Braintrust
+- `EXPERIMENT_ID`: Custom experiment name for tracking
+- `BRAINTRUST_API_KEY`: Enable Braintrust integration
+
+**Common Evaluation Patterns**:
+
+```bash
+
+# Generate/update mocks for specific tests
+poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
+
+# Run tests multiple times for reliability
+ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "flaky_test"
+
+# Model comparison workflow
+EXPERIMENT_ID=gpt4o_baseline MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
+EXPERIMENT_ID=claude35_test MODEL=anthropic/claude-3-5-sonnet-20241022 poetry run pytest tests/llm/ -n 6
+
+# Debug with verbose output
+poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
+
+# List tests by marker
+poetry run pytest -m "llm and not network" --collect-only -q
+```
+
+**Available Test Markers**:
+- `llm`: LLM behavior tests
+- `datetime`: Datetime functionality
+- `logs`: Log processing
+- `context_window`: Context window handling
+- `synthetic`: Synthetic data tests
+- `network`: Network-dependent tests
+- `runbooks`: Runbook functionality
+- `misleading-history`: Misleading data scenarios
+- `k8s-misconfig`: Kubernetes misconfigurations
+- `chain-of-causation`: Causation analysis
+- `slackbot`: Slack integration
+- `counting`: Resource counting tests
 
 **Test Infrastructure Notes**:
 - All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
