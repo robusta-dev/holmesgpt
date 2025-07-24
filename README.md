@@ -85,150 +85,27 @@ Robusta can investigate alerts - or just answer questions - from the following s
 
 ## Installation
 
-You can install HolmesGPT in one of the follow three methods:
+HolmesGPT supports multiple installation methods to fit your workflow - from CLI tools to web interfaces and APIs for custom integrations.
 
-1. [Standalone](https://robusta-dev.github.io/holmesgpt/installation/cli-installation/): Run HolmesGPT from your terminal as a CLI tool. Typically installed with **Homebrew** or **Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
-2. **Web UIs and TUIs**: HolmesGPT is embedded in several third-party tools, like [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and [K9s](https://robusta-dev.github.io/holmesgpt/installation/ui-installation/) (as a plugin).
-3. **API**: Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and [Python SDK](https://robusta-dev.github.io/holmesgpt/installation/python-installation/), as well as [Helm chart](./helm/) to deploy the HTTP server on Kubernetes.
+<a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
+  <img src="images/all-installation-methods.png" alt="All Installation Methods" style="max-width:100%; height:auto;">
+</a>
 
-<table width="100%">
-  <tr valign="top">
-    <td colspan="2">
-      <h3>Standalone</h3>
-      <table width="100%">
-        <tr>
-          <td align="center" width="120">
-            <a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
-              <img src="images/integration_logos/brew_logo.png" alt="Brew" width="50"><br>
-              <strong>Brew</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
-              <img src="images/integration_logos/pipx_logo.png" alt="pipx" width="50"><br>
-              <strong>Pipx</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
-              <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
-              <strong>Docker</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
-              <img src="images/integration_logos/docker_logo.png" alt="Docker Build" width="50"><br>
-              <strong>Docker Build</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
-              <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
-              <strong>Poetry</strong>
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-  <tr valign="top">
-   <td width="30%">
-      <h3>Web UIs and TUIs</h3>
-      <table>
-        <tr>
-          <td align="center" width="120">
-            <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-              <img src="images/integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
-              <strong>Robusta SaaS</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="https://robusta-dev.github.io/holmesgpt/installation/ui-installation/">
-              <img src="images/integration_logos/k9s_logo.png" alt="K9s Plugin" width="50"><br>
-              <strong>K9s Plugin</strong>
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td>
-    <td width="30%">
-      <h3>API</h3>
-      <table>
-        <tr>
-          <td align="center" width="120">
-            <a href="helm">
-              <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
-              <strong>Helm Chart</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="https://robusta-dev.github.io/holmesgpt/installation/python-installation/">
-              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
-              <strong>Python API</strong>
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td>
-
-  </tr>
-</table>
+Choose the installation method that best fits your needs:
+- **CLI**: Perfect for local development, shell scripts, and CI/CD pipelines
+- **Web UI**: Browser-based access through Robusta SaaS or K9s plugin integration
+- **API**: Embed HolmesGPT into your applications with HTTP API or Python SDK
 
 
 ## Supported LLM Providers
 
-Select your LLM provider to see how to set up your API Key.
+HolmesGPT works with all major AI providers. Select your preferred provider and follow the setup instructions for API key configuration.
 
-<table>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/openai/">
-        <img src="images/integration_logos/openai_logo.png" alt="OpenAI" width="50"><br>
-        <strong>OpenAI</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/anthropic/">
-        <img src="images/integration_logos/anthropic_logo.png" alt="Anthropic" width="50"><br>
-        <strong>Anthropic</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/aws-bedrock/">
-        <img src="images/integration_logos/aws_bedrock_logo.png" alt="AWS Bedrock" width="50"><br>
-        <strong>AWS Bedrock</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/azure-openai/">
-        <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
-        <strong>Azure OpenAI</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/google-vertex-ai/">
-        <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
-        <strong>Google Vertex AI</strong>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/gemini/">
-        <img src="images/integration_logos/gemini_logo.png" alt="Gemini" width="50"><br>
-        <strong>Gemini</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="https://robusta-dev.github.io/holmesgpt/ai-providers/ollama/">
-        <img src="images/integration_logos/ollama_logo.png" alt="Ollama" width="50"><br>
-        <strong>Ollama</strong>
-      </a>
-    </td>
-  </tr>
-</table>
+<a href="https://robusta-dev.github.io/holmesgpt/ai-providers/">
+  <img src="images/all-integration-providers.png" alt="All Integration Providers" style="max-width:100%; height:auto;">
+</a>
 
-You can also use any OpenAI-compatible models, read [here](https://robusta-dev.github.io/holmesgpt/ai-providers/openai-compatible/) for instructions.
+Supported providers include OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Google Vertex AI, Gemini, and Ollama. You can also use any OpenAI-compatible models - see our [compatibility guide](https://robusta-dev.github.io/holmesgpt/ai-providers/openai-compatible/) for details.
 
 ### Using HolmesGPT
 
