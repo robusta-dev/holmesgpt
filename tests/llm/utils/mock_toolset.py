@@ -73,6 +73,67 @@ class MockGenerationConfig:
         self.mode = mock_mode
 
 
+def clear_all_mocks(session) -> List[str]:
+    """Clear mock files for all test cases when --regenerate-all-mocks is set.
+
+    This is a session-level operation that clears all mock files across all test cases.
+    Used during pytest session setup.
+
+    Args:
+        session: pytest session object containing all test items
+
+    Returns:
+        List of directories that had files cleared
+    """
+    from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
+
+    print("\n🧹 Clearing mock files for --regenerate-all-mocks")
+
+    cleared_directories = set()
+    total_files_removed = 0
+
+    # Extract all unique test case folders
+    test_folders = set()
+    for item in session.items:
+        if (
+            item.get_closest_marker("llm")
+            and hasattr(item, "callspec")
+            and "test_case" in item.callspec.params
+        ):
+            test_case = item.callspec.params["test_case"]
+            if isinstance(test_case, HolmesTestCase):
+                test_folders.add(test_case.folder)
+
+    # Clear mock files from each folder
+    for folder in test_folders:
+        patterns = [
+            os.path.join(folder, "*.txt"),
+            os.path.join(folder, "*.json"),
+        ]
+
+        folder_files_removed = 0
+        for pattern in patterns:
+            for file_path in glob.glob(pattern):
+                try:
+                    os.remove(file_path)
+                    folder_files_removed += 1
+                    total_files_removed += 1
+                except Exception as e:
+                    logging.warning(f"Could not remove {file_path}: {e}")
+
+        if folder_files_removed > 0:
+            cleared_directories.add(folder)
+            print(
+                f"   ✅ Cleared {folder_files_removed} mock files from {os.path.basename(folder)}"
+            )
+
+    print(
+        f"   📊 Total: Cleared {total_files_removed} files from {len(cleared_directories)} directories\n"
+    )
+
+    return list(cleared_directories)
+
+
 class MockMetadata(BaseModel):
     """Metadata stored in mock files."""
 
@@ -201,8 +262,8 @@ class MockFileManager:
 
         return mock_file_path
 
-    def clear_mocks(self, request: pytest.FixtureRequest) -> List[str]:
-        """Clear all mock files in the test case folder."""
+    def clear_mocks_for_test(self, request: pytest.FixtureRequest) -> List[str]:
+        """Clear all mock files for a single test case folder."""
         cleared_files = []
         patterns = [
             os.path.join(self.test_case_folder, "*.txt"),
@@ -568,6 +629,110 @@ class MockToolsetManager:
 # For backward compatibility
 MockToolsets = MockToolsetManager
 
+
+def report_mock_operations(
+    config, mock_tracking_data: Dict[str, List], terminalreporter=None
+) -> None:
+    """Report mock file operations and statistics."""
+    # Use default parameter to safely handle missing options
+    generate_mocks = False
+    regenerate_all_mocks = False
+
+    try:
+        generate_mocks = config.getoption("--generate-mocks", default=False)
+        regenerate_all_mocks = config.getoption("--regenerate-all-mocks", default=False)
+    except (AttributeError, ValueError):
+        # Options not available, use defaults
+        pass
+
+    if not generate_mocks and not regenerate_all_mocks:
+        return
+
+    regenerate_mode = regenerate_all_mocks
+    generated_mocks = mock_tracking_data["generated_mocks"]
+    mock_failures = mock_tracking_data["mock_failures"]
+
+    # If no terminalreporter, skip output
+    if not terminalreporter:
+        return
+
+    # Header
+    _safe_print(terminalreporter, f"\n{'=' * 80}")
+    _safe_print(
+        terminalreporter,
+        f"{'🔄 MOCK REGENERATION SUMMARY' if regenerate_mode else '🔧 MOCK GENERATION SUMMARY'}",
+    )
+    _safe_print(terminalreporter, f"{'=' * 80}")
+
+    # Note: Cleared directories are now handled by shared_test_infrastructure fixture
+    # and reported during setup phase to ensure single execution across workers
+
+    # Generated mocks
+    if generated_mocks:
+        _safe_print(
+            terminalreporter, f"✅ Generated {len(generated_mocks)} mock files:\n"
+        )
+
+        # Group by test case
+        by_test_case: Dict[str, List[str]] = {}
+        for mock_info in generated_mocks:
+            parts = mock_info.split(":", 2)
+            if len(parts) == 3:
+                test_case, tool_name, filename = parts
+                by_test_case.setdefault(test_case, []).append(
+                    f"{tool_name} -> {filename}"
+                )
+
+        for test_case, mock_files in sorted(by_test_case.items()):
+            _safe_print(terminalreporter, f"📁 {test_case}:")
+            for mock_file in mock_files:
+                _safe_print(terminalreporter, f"   - {mock_file}")
+            _safe_print(terminalreporter)
+    else:
+        mode_text = "regeneration" if regenerate_mode else "generation"
+        _safe_print(
+            terminalreporter,
+            f"✅ Mock {mode_text} was enabled but no new mock files were created",
+        )
+
+    # Failures
+    if mock_failures:
+        _safe_print(
+            terminalreporter, f"⚠️  {len(mock_failures)} mock-related failures occurred:"
+        )
+        for failure in mock_failures:
+            _safe_print(terminalreporter, f"   - {failure}")
+        _safe_print(terminalreporter)
+
+    # Checklist
+    checklist = [
+        "Review generated mock files before committing",
+        "Ensure mock data represents realistic scenarios",
+        "Check data consistency across related mocks (e.g., if a pod appears in",
+        "  one mock, it should appear in all related mocks from the same test run)",
+        "Verify timestamps, IDs, and names match between interconnected mock files",
+        "If pod/resource names change across tool calls, regenerate ALL mocks with --regenerate-all-mocks",
+    ]
+
+    _safe_print(terminalreporter, "📋 REVIEW CHECKLIST:")
+    for item in checklist:
+        _safe_print(terminalreporter, f"   □ {item}")
+    _safe_print(terminalreporter, "=" * 80)
+
+
+def _safe_print(terminalreporter, message: str = "") -> None:
+    """Safely print to terminal reporter to avoid I/O errors"""
+    try:
+        terminalreporter.write_line(message)
+    except Exception:
+        # If write_line fails, try direct write
+        try:
+            terminalreporter._tw.write(message + "\n")
+        except Exception:
+            # Last resort - ignore if all writing fails
+            pass
+
+
 # Export list
 __all__ = [
     "MockMode",
@@ -581,4 +746,6 @@ __all__ = [
     "MockableToolWrapper",
     "ToolsetConfigurator",
     "sanitize_filename",
+    "clear_all_mocks",
+    "report_mock_operations",
 ]

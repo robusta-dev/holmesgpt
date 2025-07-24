@@ -22,6 +22,11 @@ from tests.llm.utils.mock_toolset import (
     MockGenerationConfig,
 )
 from tests.llm.utils.test_case_utils import AskHolmesTestCase, Evaluation, MockHelper
+from tests.llm.utils.property_manager import (
+    set_initial_properties,
+    update_test_results,
+    update_mock_error,
+)
 from os import path
 from tests.llm.utils.tags import add_tags_to_eval
 from holmes.core.tracing import SpanType
@@ -79,6 +84,9 @@ def test_ask_holmes(
     mock_generation_config: MockGenerationConfig,
     shared_test_infrastructure,  # type: ignore
 ):
+    # Set initial properties early so they're available even if test fails
+    set_initial_properties(request, test_case)
+
     print(f"\n🧪 TEST: {test_case.id}")
     print("   CONFIGURATION:")
     print(
@@ -178,29 +186,8 @@ def test_ask_holmes(
         )
 
         if is_mock_error:
-            # Store minimal data for summary before failing
-            expected = test_case.expected_output
-            if not isinstance(expected, list):
-                expected = [expected]
-            debug_expected = "\n-  ".join(expected)
-
-            expected_correctness_score = (
-                test_case.evaluation.correctness.expected_score
-                if isinstance(test_case.evaluation.correctness, Evaluation)
-                else test_case.evaluation.correctness
-            )
-
-            # Record the mock failure in user_properties
-            request.node.user_properties.append(("expected", debug_expected))
-            request.node.user_properties.append(
-                ("actual", f"Mock data error: {str(e)}")
-            )
-            request.node.user_properties.append(("tools_called", []))
-            request.node.user_properties.append(
-                ("expected_correctness_score", expected_correctness_score)
-            )
-            request.node.user_properties.append(("actual_correctness_score", 0))
-            request.node.user_properties.append(("mock_data_failure", True))
+            # Update properties for mock error
+            update_mock_error(request, e)
 
         # Cleanup is handled by session-scoped fixture now
         raise
@@ -266,27 +253,8 @@ def test_ask_holmes(
     # Print detailed tool output
     print_tool_calls_detailed(result.tool_calls)
 
-    # Store data for summary plugin
-    expected_correctness_score = (
-        test_case.evaluation.correctness.expected_score
-        if isinstance(test_case.evaluation.correctness, Evaluation)
-        else test_case.evaluation.correctness
-    )
-    debug_expected = "\n-  ".join(expected)
-    request.node.user_properties.append(("expected", debug_expected))
-    request.node.user_properties.append(("actual", output or ""))
-    request.node.user_properties.append(
-        (
-            "tools_called",
-            tools_called if isinstance(tools_called, list) else [str(tools_called)],
-        )
-    )
-    request.node.user_properties.append(
-        ("expected_correctness_score", expected_correctness_score)
-    )
-    request.node.user_properties.append(
-        ("actual_correctness_score", scores.get("correctness", 0))
-    )
+    # Update test results
+    update_test_results(request, output, tools_called, scores)
 
     # Check if the output contains MockDataError (indicating a mock failure)
     if output and any(
@@ -300,13 +268,22 @@ def test_ask_holmes(
         # Record mock failure in user_properties
         request.node.user_properties.append(("mock_data_failure", True))
         # Fail the test
+        # Get expected from test_case since debug_expected is no longer in local scope
+        expected_output = test_case.expected_output
+        if isinstance(expected_output, list):
+            expected_output = "\n-  ".join(expected_output)
         pytest.fail(
-            f"Test {test_case.id} failed due to mock data error\nActual: {output}\nExpected: {debug_expected}"
+            f"Test {test_case.id} failed due to mock data error\nActual: {output}\nExpected: {expected_output}"
         )
+
+    # Get expected for assertion message
+    expected_output = test_case.expected_output
+    if isinstance(expected_output, list):
+        expected_output = "\n-  ".join(expected_output)
 
     assert (
         int(scores.get("correctness", 0)) == 1
-    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {debug_expected}"
+    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {expected_output}"
 
 
 def ask_holmes(

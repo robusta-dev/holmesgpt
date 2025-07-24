@@ -1,31 +1,32 @@
-import logging
 import os
-import textwrap
-import warnings
 from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import List, Optional
 
 import pytest
-from litellm import completion
-from rich.console import Console
-from rich.table import Table
 from pytest_shared_session_scope import (
     shared_session_scope_json,
     SetupToken,
     CleanupToken,
 )
 
-from tests.llm.utils.braintrust import get_experiment_name
-from tests.llm.utils.constants import PROJECT
+from tests.llm.utils.test_results import TestResult
 from tests.llm.utils.classifiers import create_llm_client
-from tests.llm.utils.mock_toolset import MockMode, MockGenerationConfig  # type: ignore[attr-defined]
+from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
+    MockMode,
+    MockGenerationConfig,
+    report_mock_operations,
+)
+from tests.llm.reporting.terminal_reporter import handle_console_output
+from tests.llm.reporting.github_reporter import handle_github_output
+from tests.llm.utils.braintrust import get_braintrust_url
+from tests.llm.utils.setup_cleanup import (
+    run_test_setup,
+    run_test_cleanup,
+    extract_test_cases_needing_setup,
+)
 
 # Configuration constants
 DEBUG_SEPARATOR = "=" * 80
 LLM_TEST_TYPES = ["test_ask_holmes", "test_investigate", "test_workload_health"]
-MAX_ERROR_LINES = 10
-MAX_WORKERS = 30
 
 
 def is_llm_test(nodeid: str) -> bool:
@@ -37,60 +38,6 @@ def is_llm_test(nodeid: str) -> bool:
             "test_workload_health" in nodeid,
         ]
     )
-
-
-# Status determination types
-class TestStatus:
-    """Encapsulates test status determination logic."""
-
-    def __init__(self, result: dict):
-        self.actual_score = int(result.get("actual_correctness_score", 0))
-        self.expected_score = int(result.get("expected_correctness_score", 1))
-        self.is_mock_failure = result.get("mock_data_failure", False)
-
-    @property
-    def passed(self) -> bool:
-        return (
-            self.actual_score == 1
-        )  # TODO: possibly add `and not self.is_mock_failure`
-
-    @property
-    def is_regression(self) -> bool:
-        if self.passed or self.is_mock_failure:
-            return False
-        # Known failure (expected to fail)
-        if self.actual_score == 0 and self.expected_score == 0:
-            return False
-        return True
-
-    @property
-    def markdown_symbol(self) -> str:
-        if self.is_mock_failure:
-            return ":wrench:"
-        elif self.passed:
-            return ":white_check_mark:"
-        elif self.actual_score == 0 and self.expected_score == 0:
-            return ":warning:"
-        else:
-            return ":x:"
-
-    @property
-    def console_status(self) -> str:
-        if self.is_mock_failure:
-            return "[yellow]MOCK FAILURE[/yellow]"
-        elif self.passed:
-            return "[green]PASS[/green]"
-        else:
-            return "[red]FAIL[/red]"
-
-    @property
-    def short_status(self) -> str:
-        if self.is_mock_failure:
-            return "MOCK FAILURE"
-        elif self.passed:
-            return "PASS"
-        else:
-            return "FAIL"
 
 
 @pytest.fixture(scope="session")
@@ -127,7 +74,7 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         print(
             f"Skipping shared test infrastructure setup/cleanup (mode: {mock_generation_config.mode}, collect_only: {collect_only})"
         )
-        # Must yield twice even when skipping due to ohw pytest-shared-session-scope works
+        # Must yield twice even when skipping due to how pytest-shared-session-scope works
         initial = yield
         cleanup_token = yield {"test_cases_for_cleanup": []}
         return
@@ -140,21 +87,23 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
 
     if initial is SetupToken.FIRST:
         # This is the first worker to run the fixture
-        test_cases = _extract_test_cases_needing_setup(request.session)
+        test_cases = extract_test_cases_needing_setup(request.session)
 
         # Clear mock directories if --regenerate-all-mocks is set
         cleared_directories = []
         regenerate_all = request.config.getoption("--regenerate-all-mocks")
 
         if regenerate_all:
-            cleared_directories = _clear_mock_directories(request.session)
+            from tests.llm.utils.mock_toolset import clear_all_mocks  # type: ignore[attr-defined]
+
+            cleared_directories = clear_all_mocks(request.session)
 
         # Run setup unless --skip-setup is set
         # Check skip-setup option
         skip_setup = request.config.getoption("--skip-setup")
 
         if test_cases and not skip_setup:
-            _run_test_setup(test_cases)
+            run_test_setup(test_cases)
         elif skip_setup:
             print("\n⏭️  Skipping test setup due to --skip-setup flag")
 
@@ -197,61 +146,18 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
                         cleanup_test_cases.append(test_case)
 
             if cleanup_test_cases:
-                _run_test_cleanup(cleanup_test_cases)
+                run_test_cleanup(cleanup_test_cases)
         elif skip_cleanup:
             print("\n⏭️  Skipping test cleanup due to --skip-cleanup flag")
 
 
+# TODO: do we actually need this?
 @pytest.fixture(scope="session", autouse=True)
 def test_infrastructure_coordination(shared_test_infrastructure):
     """Ensure the shared test infrastructure fixture is used (triggers setup/cleanup)"""
     # This fixture just ensures shared_test_infrastructure runs for all sessions
     # All the actual logic is in shared_test_infrastructure
     yield
-
-
-@dataclass
-class TestResult:
-    nodeid: str
-    expected: str
-    actual: str
-    pass_fail: str
-    tools_called: List[str]
-    logs: str
-    test_type: str = ""
-    error_message: Optional[str] = None
-    execution_time: Optional[float] = None
-    expected_correctness_score: float = 1.0
-    actual_correctness_score: float = 0.0
-    mock_data_failure: bool = False
-
-    @property
-    def test_id(self) -> str:
-        """Extract test ID from pytest nodeid.
-
-        Example: 'test_ask_holmes[01_how_many_pods]' -> '01'
-        """
-        if "[" in self.nodeid and "]" in self.nodeid:
-            test_case = self.nodeid.split("[")[1].split("]")[0]
-            # Extract number from start of test case name
-            return test_case.split("_")[0] if "_" in test_case else test_case
-        return "unknown"
-
-    @property
-    def test_name(self) -> str:
-        """Extract readable test name from pytest nodeid.
-
-        Example: 'test_ask_holmes[01_how_many_pods]' -> 'how_many_pods'
-        """
-        try:
-            if "[" in self.nodeid and "]" in self.nodeid:
-                test_case = self.nodeid.split("[")[1].split("]")[0]
-                # Remove number prefix and convert underscores to spaces
-                parts = test_case.split("_")[1:] if "_" in test_case else [test_case]
-                return "_".join(parts)
-        except (IndexError, AttributeError):
-            pass
-        return self.nodeid.split("::")[-1] if "::" in self.nodeid else self.nodeid
 
 
 @contextmanager
@@ -424,22 +330,11 @@ def braintrust_eval_link(request):
         print()
 
 
-def _safe_print(terminalreporter, message=""):
-    """Safely print to terminal reporter to avoid I/O errors"""
-    try:
-        terminalreporter.write_line(message)
-    except Exception:
-        # If write_line fails, try direct write
-        try:
-            terminalreporter._tw.write(message + "\n")
-        except Exception:
-            # Last resort - ignore if all writing fails
-            pass
-
-
-def xxxxxpytest_terminal_summary2(terminalreporter, exitstatus, config):
+def show_llm_summary_report(terminalreporter, exitstatus, config):
     """Generate GitHub Actions report and Rich summary table from terminalreporter.stats (xdist compatible)"""
+    print("\n\n[DEBUG] pytest_terminal_summary called!")
     if not hasattr(terminalreporter, "stats"):
+        print("[DEBUG] terminalreporter has no stats attribute")
         return
 
     # When using xdist, only the master process should display the summary
@@ -458,30 +353,26 @@ def xxxxxpytest_terminal_summary2(terminalreporter, exitstatus, config):
         terminalreporter
     )
 
+    print(f"[DEBUG] Found {len(sorted_results)} test results")
     if not sorted_results:
+        print("[DEBUG] No sorted results found, returning")
         return
 
     # Handle GitHub/CI output (markdown + file writing)
-    _handle_github_output(sorted_results)
+    handle_github_output(sorted_results)
 
     # Handle console/developer output (Rich table + Braintrust links)
-    _handle_console_output(sorted_results, terminalreporter)
+    handle_console_output(sorted_results, terminalreporter)
 
     # Report mock operation statistics
-    _report_mock_operations(config, mock_tracking_data, terminalreporter)
-
-
-def markdown_table(headers, rows):
-    """Generate a markdown table from headers and rows."""
-    markdown = "| " + " | ".join(headers) + " |\n"
-    markdown += "| " + " | ".join(["---" for _ in headers]) + " |\n"
-    for row in rows:
-        markdown += "| " + " | ".join(str(cell) for cell in row) + " |\n"
-    return markdown
+    report_mock_operations(config, mock_tracking_data, terminalreporter)
 
 
 def _collect_test_results_from_stats(terminalreporter):
     """Collect and parse test results from terminalreporter.stats."""
+    print(
+        f"[DEBUG] _collect_test_results_from_stats called, stats keys: {list(terminalreporter.stats.keys())}"
+    )
     test_results = {}
     mock_tracking_data = {
         "generated_mocks": [],
@@ -496,6 +387,7 @@ def _collect_test_results_from_stats(terminalreporter):
     ]
 
     for status, reports in terminalreporter.stats.items():
+        print(f"[DEBUG] Status '{status}' has {len(reports)} reports")
         for report in reports:
             # Only process 'call' phase reports for actual test results
             if getattr(report, "when", None) != "call":
@@ -609,658 +501,3 @@ def _collect_test_results_from_stats(terminalreporter):
     )
 
     return sorted_results, mock_tracking_data
-
-
-def get_braintrust_url(
-    test_suite: str,
-    test_id: str,
-    test_name: str,
-    span_id: Optional[str] = None,
-    root_span_id: Optional[str] = None,
-) -> Optional[str]:
-    """Generate Braintrust URL for a test.
-
-    Args:
-        test_suite: Either "ask_holmes" or "investigate"
-        test_id: Test ID like "01"
-        test_name: Test name like "how_many_pods"
-
-    Returns:
-        Braintrust URL string, or None if Braintrust is not configured
-    """
-    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
-    if not braintrust_api_key:
-        return None
-
-    experiment_name = get_experiment_name(test_suite)
-    braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
-
-    # Build URL with available parameters
-    url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}?c="
-
-    # Add span IDs if available
-    if span_id and root_span_id:
-        # Use span_id as r parameter and root_span_id as s parameter
-        url += f"&r={span_id}&s={root_span_id}"
-
-    return url
-
-
-def _generate_markdown_report(sorted_results):
-    """Generate markdown report from sorted test results."""
-    markdown = "## Results of HolmesGPT evals\n\n"
-
-    # Count results by test type and status
-    ask_holmes_total = ask_holmes_passed = ask_holmes_regressions = (
-        ask_holmes_mock_failures
-    ) = 0
-    investigate_total = investigate_passed = investigate_regressions = (
-        investigate_mock_failures
-    ) = 0
-    workload_health_total = workload_health_passed = workload_health_regressions = (
-        workload_health_mock_failures
-    ) = 0
-
-    for result in sorted_results:
-        status = TestStatus(result)
-
-        if result["test_type"] == "ask":
-            ask_holmes_total += 1
-            if status.passed:
-                ask_holmes_passed += 1
-            elif status.is_regression:
-                ask_holmes_regressions += 1
-            elif status.is_mock_failure:
-                ask_holmes_mock_failures += 1
-        elif result["test_type"] == "investigate":
-            investigate_total += 1
-            if status.passed:
-                investigate_passed += 1
-            elif status.is_regression:
-                investigate_regressions += 1
-            elif status.is_mock_failure:
-                investigate_mock_failures += 1
-        elif result["test_type"] == "workload_health":
-            workload_health_total += 1
-            if status.passed:
-                workload_health_passed += 1
-            elif status.is_regression:
-                workload_health_regressions += 1
-            elif status.is_mock_failure:
-                workload_health_mock_failures += 1
-
-    # Generate summary lines
-    if ask_holmes_total > 0:
-        markdown += f"- ask_holmes: {ask_holmes_passed}/{ask_holmes_total} test cases were successful, {ask_holmes_regressions} regressions"
-        if ask_holmes_mock_failures > 0:
-            markdown += f", {ask_holmes_mock_failures} mock failures"
-        markdown += "\n"
-    if investigate_total > 0:
-        markdown += f"- investigate: {investigate_passed}/{investigate_total} test cases were successful, {investigate_regressions} regressions"
-        if investigate_mock_failures > 0:
-            markdown += f", {investigate_mock_failures} mock failures"
-        markdown += "\n"
-    if workload_health_total > 0:
-        markdown += f"- workload_health: {workload_health_passed}/{workload_health_total} test cases were successful, {workload_health_regressions} regressions"
-        if workload_health_mock_failures > 0:
-            markdown += f", {workload_health_mock_failures} mock failures"
-        markdown += "\n"
-
-    # Generate detailed table
-    markdown += "\n\n| Test suite | Test case | Status |\n"
-    markdown += "| --- | --- | --- |\n"
-
-    for result in sorted_results:
-        test_suite = result["test_type"]
-        test_name = f"{result['test_id']}: {result['test_name']}"
-
-        # Add Braintrust link to test name if available
-        test_suite_full = (
-            "ask_holmes" if result["test_type"] == "ask" else "investigate"
-        )
-        braintrust_url = get_braintrust_url(
-            test_suite_full,
-            result["test_id"],
-            result["test_name"],
-            result.get("braintrust_span_id"),
-            result.get("braintrust_root_span_id"),
-        )
-        if braintrust_url:
-            test_name = f"[{test_name}]({braintrust_url})"
-
-        status = TestStatus(result)
-        markdown += f"| {test_suite} | {test_name} | {status.markdown_symbol} |\n"
-
-    markdown += "\n\n**Legend**\n"
-    markdown += "\n- :white_check_mark: the test was successful"
-    markdown += (
-        "\n- :warning: the test failed but is known to be flaky or known to fail"
-    )
-    markdown += (
-        "\n- :wrench: the test failed due to mock data issues (not a code regression)"
-    )
-    markdown += "\n- :x: the test failed and should be fixed before merging the PR"
-
-    return markdown, sorted_results, ask_holmes_regressions + investigate_regressions
-
-
-def _handle_github_output(sorted_results):
-    """Generate and write GitHub Actions report files."""
-    # Generate markdown report
-    markdown, _, total_regressions = _generate_markdown_report(sorted_results)
-
-    # Write report files if Braintrust is configured
-    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
-    if braintrust_api_key:
-        with open("evals_report.txt", "w", encoding="utf-8") as file:
-            file.write(markdown)
-
-        # Write regressions file if needed
-        if total_regressions > 0:
-            with open("regressions.txt", "w", encoding="utf-8") as file:
-                file.write(f"{total_regressions}")
-
-
-def _handle_console_output(sorted_results, terminalreporter=None):
-    """Display Rich table and Braintrust links for developers."""
-    if not sorted_results:
-        return
-
-    # Create Rich table
-    console = Console()
-    table = Table(
-        title="🔍 HOLMES TESTS SUMMARY",
-        show_header=True,
-        header_style="bold magenta",
-        show_lines=True,
-    )
-
-    # Add columns with specific widths (reduced to fit terminal width)
-    table.add_column("Test", style="cyan", width=12)
-    table.add_column("Status", justify="center", width=13)
-    table.add_column("Time", justify="right", width=5)
-    table.add_column("Expected", style="green", width=22)
-    table.add_column("Actual", style="yellow", width=22)
-    table.add_column("Analysis", style="red", width=28)
-
-    # Add rows to table
-    for result in sorted_results:
-        status = TestStatus(result)
-        pass_fail = "✅ PASS" if status.passed else "❌ FAIL"
-
-        # Create TestResult object for analysis function
-        test_result = TestResult(
-            nodeid=result.get("nodeid", ""),
-            expected=result["expected"],
-            actual=result["actual"],
-            pass_fail=pass_fail,
-            tools_called=result["tools_called"],
-            logs="",  # We don't have logs in this context
-            test_type=result["test_type"],
-            error_message=None,
-            execution_time=result.get("execution_time"),
-            expected_correctness_score=result["expected_correctness_score"],
-            actual_correctness_score=result["actual_correctness_score"],
-            mock_data_failure=result.get("mock_data_failure", False),
-        )
-
-        # Wrap long content for table readability
-        expected_wrapped = (
-            "\n".join(textwrap.wrap(result["expected"], width=20))
-            if result["expected"]
-            else ""
-        )
-        actual_wrapped = (
-            "\n".join(textwrap.wrap(result["actual"], width=20))
-            if result["actual"]
-            else ""
-        )
-
-        # Combine test ID and name using TestResult properties
-        combined_test_name = (
-            f"{test_result.test_id}_{test_result.test_name} ({result['test_type']})"
-        )
-        # Wrap test name to fit column
-        test_name_wrapped = "\n".join(textwrap.wrap(combined_test_name, width=10))
-
-        # Format execution time
-        time_str = (
-            f"{result.get('execution_time'):.1f}s"
-            if result.get("execution_time")
-            else "N/A"
-        )
-
-        # Get analysis for failed tests
-        analysis = _get_analysis_for_result(test_result)
-
-        table.add_row(
-            test_name_wrapped,
-            status.console_status,
-            time_str,
-            expected_wrapped,
-            actual_wrapped,
-            analysis,
-        )
-
-    # Use force_terminal to ensure output is displayed even when captured
-    console.print(table)
-
-
-def _get_analysis_for_result(result):
-    """Get analysis text for a test result, with proper text wrapping."""
-    if "PASS" in result.pass_fail:
-        return ""
-
-    try:
-        analysis = _get_llm_analysis(result)
-        # Wrap analysis text for table readability
-        return "\n".join(textwrap.wrap(analysis, width=26))
-    except Exception as e:
-        return f"Analysis failed: {str(e)}"
-
-
-def _get_llm_analysis(result: TestResult) -> str:
-    """Get LLM analysis of test failure using GPT-4o.
-
-    Args:
-        result: TestResult object containing test details
-
-    Returns:
-        Analysis text explaining why the test failed
-    """
-    # Check if this is a MockDataError case and add context
-    mock_data_context = ""
-    if result.mock_data_failure:
-        mock_data_context = "\n\nIMPORTANT CONTEXT: This test failed due to MockDataError - no mock data files were found for the tool calls that the agent tried to make. This is a test infrastructure issue, not a problem with the agent's logic."
-
-    prompt = textwrap.dedent(f"""\
-        Analyze this failed eval for an AIOps agent why it failed.
-        TEST: {result.test_name}
-        EXPECTED: {result.expected}
-        ACTUAL: {result.actual}
-        TOOLS CALLED: {', '.join(result.tools_called)}
-        ERROR: {result.error_message or 'Test assertion failed'}
-
-        LOGS:
-        {result.logs if result.logs else 'No logs available'}{mock_data_context}
-
-        Please provide a concise analysis (2-3 sentences) and categorize this as one of:
-        - MockDataError - the test failed because mock data files were missing for the tool calls (this is a test infrastructure issue).
-          To fix (show bullet points with each option - any are valid solutions so user should see all options):
-          - Run with RUN_LIVE=true
-          - Use --generate-mocks (may cause inconsistent data)
-          - Use --regenerate-all-mocks (ensures consistency)
-        - Problem with mock data - the test is failing due to incorrect or incomplete mock data, but the agent itself did the correct queries you would expect it to do
-        - Setup issue - the test is failing due to an issue with the test setup, such as missing tools or incorrect before_test/after_test configuration
-        - Real failure - the test is failing because the agent did not perform as expected, and this is a real issue that needs to be fixed
-        """)
-
-    try:
-        response = completion(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=200,
-            temperature=0.1,
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Analysis failed: {e}"
-
-
-def _report_mock_operations(config, mock_tracking_data, terminalreporter=None):
-    """Report mock file operations and statistics."""
-    # Use default parameter to safely handle missing options
-    generate_mocks = False
-    regenerate_all_mocks = False
-
-    try:
-        generate_mocks = config.getoption("--generate-mocks", default=False)
-        regenerate_all_mocks = config.getoption("--regenerate-all-mocks", default=False)
-    except (AttributeError, ValueError):
-        # Options not available, use defaults
-        pass
-
-    if not generate_mocks and not regenerate_all_mocks:
-        return
-
-    regenerate_mode = regenerate_all_mocks
-    generated_mocks = mock_tracking_data["generated_mocks"]
-    mock_failures = mock_tracking_data["mock_failures"]
-
-    # If no terminalreporter, skip output
-    if not terminalreporter:
-        return
-
-    # Header
-    _safe_print(terminalreporter, f"\n{'=' * 80}")
-    _safe_print(
-        terminalreporter,
-        f"{'🔄 MOCK REGENERATION SUMMARY' if regenerate_mode else '🔧 MOCK GENERATION SUMMARY'}",
-    )
-    _safe_print(terminalreporter, f"{'=' * 80}")
-
-    # Note: Cleared directories are now handled by shared_test_infrastructure fixture
-    # and reported during setup phase to ensure single execution across workers
-
-    # Generated mocks
-    if generated_mocks:
-        _safe_print(
-            terminalreporter, f"✅ Generated {len(generated_mocks)} mock files:\n"
-        )
-
-        # Group by test case
-        by_test_case = {}
-        for mock_info in generated_mocks:
-            parts = mock_info.split(":", 2)
-            if len(parts) == 3:
-                test_case, tool_name, filename = parts
-                by_test_case.setdefault(test_case, []).append(
-                    f"{tool_name} -> {filename}"
-                )
-
-        for test_case, mock_files in sorted(by_test_case.items()):
-            _safe_print(terminalreporter, f"📁 {test_case}:")
-            for mock_file in mock_files:
-                _safe_print(terminalreporter, f"   - {mock_file}")
-            _safe_print(terminalreporter)
-    else:
-        mode_text = "regeneration" if regenerate_mode else "generation"
-        _safe_print(
-            terminalreporter,
-            f"✅ Mock {mode_text} was enabled but no new mock files were created",
-        )
-
-    # Failures
-    if mock_failures:
-        _safe_print(
-            terminalreporter, f"⚠️  {len(mock_failures)} mock-related failures occurred:"
-        )
-        for failure in mock_failures:
-            _safe_print(terminalreporter, f"   - {failure}")
-        _safe_print(terminalreporter)
-
-    # Checklist
-    checklist = [
-        "Review generated mock files before committing",
-        "Ensure mock data represents realistic scenarios",
-        "Check data consistency across related mocks (e.g., if a pod appears in",
-        "  one mock, it should appear in all related mocks from the same test run)",
-        "Verify timestamps, IDs, and names match between interconnected mock files",
-        "If pod/resource names change across tool calls, regenerate ALL mocks with --regenerate-all-mocks",
-    ]
-
-    _safe_print(terminalreporter, "📋 REVIEW CHECKLIST:")
-    for item in checklist:
-        _safe_print(terminalreporter, f"   □ {item}")
-    _safe_print(terminalreporter, "=" * 80)
-
-
-def _format_error_output(error_details: str) -> str:
-    """Format error details with truncation if needed"""
-    from tests.llm.utils.test_helpers import truncate_output
-
-    return truncate_output(error_details, max_lines=MAX_ERROR_LINES)
-
-
-def _run_test_setup(test_cases):
-    """Run before_test for each test case in parallel"""
-    from tests.llm.utils.commands import before_test
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    import time
-
-    print(f"Setting up infrastructure for {len(test_cases)} test cases")
-
-    start_time = time.time()
-    successful_test_cases = 0
-    failed_test_cases = 0
-    timed_out_test_cases = 0
-
-    with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
-        # Submit all setup tasks
-        future_to_test_case = {
-            executor.submit(before_test, test_case): test_case
-            for test_case in test_cases
-        }
-
-        # Wait for all tasks to complete and handle results
-        for future in as_completed(future_to_test_case):
-            test_case = future_to_test_case[future]
-            try:
-                result = future.result()  # Single CommandResult for the test case
-                remaining_cases = (
-                    len(test_cases)
-                    - successful_test_cases
-                    - failed_test_cases
-                    - timed_out_test_cases
-                )
-                if result.success:
-                    successful_test_cases += 1
-                    print(
-                        f"✅ Setup {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); setups remaining: {remaining_cases}"
-                    )
-                elif result.error_type == "timeout":
-                    timed_out_test_cases += 1
-                    print(
-                        f"⏰ Setup {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; setups remaining: {remaining_cases}"
-                    )
-
-                    # Show the exact command that timed out
-                    truncated_error = _format_error_output(result.error_details)
-                    print(textwrap.indent(truncated_error, "   "))
-                    logging.error(
-                        f"[{test_case.id}] Setup timeout: {result.error_details}"
-                    )
-
-                    # Emit warning to make it visible in pytest output
-                    warnings.warn(
-                        f"Setup timeout for test {test_case.id}: Command '{result.command}' timed out after {result.elapsed_time:.2f}s. Output: {result.error_details}",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-                else:
-                    failed_test_cases += 1
-                    print(
-                        f"❌ Setup {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); setups remaining: {remaining_cases}"
-                    )
-
-                    # Limit error details to 10 lines and add proper formatting
-                    truncated_error = _format_error_output(result.error_details)
-                    print(textwrap.indent(truncated_error, "   "))
-                    logging.error(
-                        f"[{test_case.id}] Setup failed: {result.error_details}"
-                    )
-
-                    # Emit warning to make it visible in pytest output
-                    warnings.warn(
-                        f"Setup failed for test {test_case.id}: Command '{result.command}' failed with {result.exit_info} in {result.elapsed_time:.2f}s. Output: {result.error_details}",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-
-            except Exception as e:
-                failed_test_cases += 1
-                print(f"❌ Setup {test_case.id}: EXCEPTION - {e}")
-                logging.error(f"Setup exception for {test_case.id}: {str(e)}")
-
-                # Emit warning to make it visible in pytest output
-                warnings.warn(
-                    f"Setup exception for test {test_case.id}: {str(e)}",
-                    UserWarning,
-                    stacklevel=2,
-                )
-
-    elapsed_time = time.time() - start_time
-    print(
-        f"\n🕐 Setup completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
-    )
-
-
-def _run_test_cleanup(test_cases):
-    """Run after_test for each test case in parallel"""
-    from tests.llm.utils.commands import after_test
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    import time
-
-    print(f"Cleaning up infrastructure after tests for {len(test_cases)} test cases")
-
-    start_time = time.time()
-    successful_test_cases = 0
-    failed_test_cases = 0
-    timed_out_test_cases = 0
-
-    with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
-        # Submit all cleanup tasks
-        future_to_test_case = {
-            executor.submit(after_test, test_case): test_case
-            for test_case in test_cases
-        }
-
-        # Wait for all tasks to complete and handle results
-        for future in as_completed(future_to_test_case):
-            test_case = future_to_test_case[future]
-            try:
-                result = future.result()  # Single CommandResult for the test case
-                remaining_cases = (
-                    len(test_cases)
-                    - successful_test_cases
-                    - failed_test_cases
-                    - timed_out_test_cases
-                )
-
-                if result.success:
-                    successful_test_cases += 1
-                    print(
-                        f"✅ Cleanup {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); cleanups remaining: {remaining_cases}"
-                    )
-                elif result.error_type == "timeout":
-                    timed_out_test_cases += 1
-                    print(
-                        f"⏰ Cleanup {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; cleanups remaining: {remaining_cases}"
-                    )
-
-                    # Show the exact command that timed out
-                    truncated_error = _format_error_output(result.error_details)
-                    print(textwrap.indent(truncated_error, "   "))
-                    logging.error(
-                        f"[{test_case.id}] Cleanup timeout: {result.error_details}"
-                    )
-
-                    # Emit warning to make it visible in pytest output
-                    warnings.warn(
-                        f"Cleanup timeout for test {test_case.id}: Command '{result.command}' timed out after {result.elapsed_time:.2f}s. Output: {result.error_details}",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-                else:
-                    failed_test_cases += 1
-                    print(
-                        f"❌ Cleanup {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); cleanups remaining: {remaining_cases}"
-                    )
-
-                    # Limit error details to 10 lines and add proper formatting
-                    truncated_error = _format_error_output(result.error_details)
-                    print(textwrap.indent(truncated_error, "   "))
-                    logging.error(
-                        f"[{test_case.id}] Cleanup failed: {result.error_details}"
-                    )
-
-                    # Emit warning to make it visible in pytest output
-                    warnings.warn(
-                        f"Cleanup failed for test {test_case.id}: Command '{result.command}' failed with {result.exit_info} in {result.elapsed_time:.2f}s. Output: {result.error_details}",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-
-            except Exception as e:
-                failed_test_cases += 1
-                print(f"❌ Cleanup {test_case.id}: EXCEPTION - {e}")
-                logging.error(f"Cleanup exception for {test_case.id}: {str(e)}")
-
-                # Emit warning to make it visible in pytest output
-                warnings.warn(
-                    f"Cleanup exception for test {test_case.id}: {str(e)}",
-                    UserWarning,
-                    stacklevel=2,
-                )
-
-    elapsed_time = time.time() - start_time
-    print(
-        f"\n🕐 Cleanup completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
-    )
-
-
-def _extract_test_cases_needing_setup(session):
-    """Extract unique test cases that need setup from session items"""
-    from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
-
-    seen_ids = set()
-    test_cases = []
-
-    for item in session.items:
-        if (
-            item.get_closest_marker("llm")
-            and hasattr(item, "callspec")
-            and "test_case" in item.callspec.params
-        ):
-            test_case = item.callspec.params["test_case"]
-            if (
-                isinstance(test_case, HolmesTestCase)
-                and test_case.before_test
-                and test_case.id not in seen_ids
-            ):
-                test_cases.append(test_case)
-                seen_ids.add(test_case.id)
-
-    return test_cases
-
-
-def _clear_mock_directories(session):
-    """Clear mock directories for all test cases when --regenerate-all-mocks is set"""
-    from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
-    import glob
-
-    print("\n🧹 Clearing mock files for --regenerate-all-mocks")
-
-    cleared_directories = set()
-    total_files_removed = 0
-
-    # Extract all unique test case folders
-    test_folders = set()
-    for item in session.items:
-        if (
-            item.get_closest_marker("llm")
-            and hasattr(item, "callspec")
-            and "test_case" in item.callspec.params
-        ):
-            test_case = item.callspec.params["test_case"]
-            if isinstance(test_case, HolmesTestCase):
-                test_folders.add(test_case.folder)
-
-    # Clear mock files from each folder
-    for folder in test_folders:
-        patterns = [
-            os.path.join(folder, "*.txt"),
-            os.path.join(folder, "*.json"),
-        ]
-
-        folder_files_removed = 0
-        for pattern in patterns:
-            for file_path in glob.glob(pattern):
-                try:
-                    os.remove(file_path)
-                    folder_files_removed += 1
-                    total_files_removed += 1
-                except Exception as e:
-                    logging.warning(f"Could not remove {file_path}: {e}")
-
-        if folder_files_removed > 0:
-            cleared_directories.add(folder)
-            print(
-                f"   ✅ Cleared {folder_files_removed} mock files from {os.path.basename(folder)}"
-            )
-
-    print(
-        f"   📊 Total: Cleared {total_files_removed} files from {len(cleared_directories)} directories\n"
-    )
-
-    return list(cleared_directories)

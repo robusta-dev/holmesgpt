@@ -1,8 +1,7 @@
 import logging
-from tests.llm.conftest import xxxxxpytest_terminal_summary2
+from tests.llm.conftest import show_llm_summary_report
 
 
-# Register the same options that the LLM conftest expects
 def pytest_addoption(parser):
     """Add custom pytest command line options"""
     parser.addoption(
@@ -29,10 +28,6 @@ def pytest_addoption(parser):
         default=False,
         help="Skip running after_test commands for test cases (useful for debugging test failures)",
     )
-
-
-# reexport the pytest_terminal_summary2 function to be used in the main conftest.py
-pytest_terminal_summary = xxxxxpytest_terminal_summary2
 
 
 def pytest_configure(config):
@@ -87,3 +82,8 @@ def pytest_configure(config):
     # Suppress httpx HTTP request logs
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+
+# due to pytest quirks, we need to define this in the main conftest.py - when defined in the llm conftest.py it
+# is SOMETIMES picked up and sometimes not, depending on how the test was invokedr
+pytest_terminal_summary = show_llm_summary_report

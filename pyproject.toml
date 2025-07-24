@@ -104,7 +104,7 @@ addopts = [
     "--cov=holmes",
     "-rs",  # Show skip reasons by default
     "--tb=short",  # Show shorter tracebacks by default
-    "--durations=5",  # Show 5 slowest tests after each run
+    "--durations=10",  # Show 5 slowest tests after each run
 ]
 
 # Logging configuration for pytest
