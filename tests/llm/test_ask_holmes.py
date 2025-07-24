@@ -31,7 +31,6 @@ from os import path
 from tests.llm.utils.tags import add_tags_to_eval
 from holmes.core.tracing import SpanType
 from tests.llm.utils.test_helpers import (
-    log_tool_calls_to_spans,
     print_expected_output,
     print_correctness_evaluation,
     print_tool_calls_summary,
@@ -120,7 +119,7 @@ def test_ask_holmes(
 
     try:
         with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.TASK
+            name=test_case.id, span_type=SpanType.EVAL
         ) as eval_span:
             # Store span info in user properties for conftest to access
             if hasattr(eval_span, "id"):
@@ -131,8 +130,6 @@ def test_ask_holmes(
                 request.node.user_properties.append(
                     ("braintrust_root_span_id", str(eval_span.root_span_id))
                 )
-
-            # Setup is handled by session-scoped fixture now
 
             # Mock datetime if mocked_date is provided
             if test_case.mocked_date:
@@ -161,10 +158,6 @@ def test_ask_holmes(
                         mock_generation_config=mock_generation_config,
                         request=request,
                     )
-
-            if result.tool_calls:
-                # Log tool calls to Braintrust spans
-                log_tool_calls_to_spans(result.tool_calls, eval_span)
 
     except Exception as e:
         # Log error to span if available

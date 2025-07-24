@@ -1,5 +1,6 @@
 """Setup and cleanup infrastructure for test cases."""
 
+import logging
 import sys
 import textwrap
 import time
@@ -21,6 +22,8 @@ def log(msg):
     """Force a log to be written even with xdist, which captures stdout."""
     sys.stderr.write(msg)
     sys.stderr.write("\n")
+    # we also log to stderr so its visible when xdist is not used
+    logging.info(msg)
 
 
 def format_error_output(error_details: str) -> str:

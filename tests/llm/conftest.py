@@ -325,7 +325,10 @@ def braintrust_eval_link(request):
     )
 
     with force_pytest_output(request):
-        print(f"\n🔍 View eval result: {braintrust_url}")
+        # Use ANSI escape codes to create a clickable link in terminals that support it
+        # Format: \033]8;;URL\033\\TEXT\033]8;;\033\\
+        clickable_url = f"\033]8;;{braintrust_url}\033\\{braintrust_url}\033]8;;\033\\"
+        print(f"\n🔍 View eval result: \033[94m{clickable_url}\033[0m")
         print()
 
 

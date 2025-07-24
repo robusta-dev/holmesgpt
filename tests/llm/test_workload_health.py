@@ -6,6 +6,7 @@ import json
 import pytest
 from server import workload_health_check
 
+from holmes.core.tracing import SpanType
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
@@ -25,7 +26,7 @@ from tests.llm.utils.test_case_utils import (
 )
 from tests.llm.utils.property_manager import set_initial_properties, update_test_results
 from os import path
-from braintrust import Span, SpanTypeAttribute
+from braintrust import Span
 from unittest.mock import patch
 
 from tests.llm.utils.tags import add_tags_to_eval
@@ -135,7 +136,7 @@ def test_health_check(
     metadata = get_machine_state_tags()
     metadata["model"] = config.model or "Unknown"
     with patch.multiple("server", dal=mock_dal, config=config):
-        with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
+        with eval_span.start_span("Holmes Run", type=SpanType.LLM):
             result = workload_health_check(request=input)
 
     assert result, "No result returned by workload_health_check()"

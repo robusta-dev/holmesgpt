@@ -58,20 +58,3 @@ def print_correctness_evaluation(correctness_eval: Any) -> None:
     for line in rationale.split("\n"):
         if line.strip():
             print(f"      {line}")
-
-
-def log_tool_calls_to_spans(tool_calls: List[Any], parent_span: Any) -> None:
-    """Log tool calls to Braintrust spans for traceability."""
-    if not tool_calls or not parent_span:
-        return
-
-    for tc in tool_calls:
-        with parent_span.start_span(name=tc.tool_name, type="tool") as tool_span:
-            tool_span.log(
-                input={"description": tc.description},
-                output={
-                    "data": tc.result.data
-                    if hasattr(tc.result, "data")
-                    else str(tc.result)
-                },
-            )

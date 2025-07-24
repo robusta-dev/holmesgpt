@@ -39,7 +39,7 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.tracing import DummySpan, SpanType
+from holmes.core.tracing import DummySpan
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -422,7 +422,7 @@ class ToolCallingLLM:
         tool_response = None
 
         # Create tool span if tracing is enabled
-        tool_span = trace_span.start_span(name=tool_name, type=SpanType.TOOL)
+        tool_span = trace_span.start_span(name=tool_name, type="tool")
 
         try:
             tool_response = prevent_overly_repeated_tool_call(
@@ -451,6 +451,8 @@ class ToolCallingLLM:
                 metadata={
                     "status": tool_response.status.value,
                     "error": tool_response.error,
+                    "description": tool.get_parameterized_one_liner(tool_params),
+                    "structured_tool_result": tool_response,
                 },
             )
 

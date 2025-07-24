@@ -149,7 +149,7 @@ def test_investigate(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
         with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.TASK
+            name=test_case.id, span_type=SpanType.EVAL
         ) as eval_span:
             # Store span info in user properties for conftest to access
             if hasattr(eval_span, "id"):
