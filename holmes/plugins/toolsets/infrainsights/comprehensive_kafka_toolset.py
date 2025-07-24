@@ -77,19 +77,19 @@ class KafkaHealthCheckTool(Tool):
             
             # Build connection config
             admin_config = {
-                'bootstrap_servers': brokers,
-                'security_protocol': security_protocol,
-                'request_timeout_ms': 10000,
-                'connections_max_idle_ms': 10000
+                'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+                'security.protocol': security_protocol.lower(),
+                'request.timeout.ms': 10000,
+                'connections.max.idle.ms': 10000
             }
             
             # Add SASL config if present
             if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
                 sasl_config = config['sasl']
                 admin_config.update({
-                    'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                    'sasl_plain_username': sasl_config.get('username'),
-                    'sasl_plain_password': sasl_config.get('password')
+                    'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                    'sasl.username': sasl_config.get('username'),
+                    'sasl.password': sasl_config.get('password')
                 })
             
             # Try to connect and get cluster info
@@ -209,13 +209,13 @@ class KafkaListTopicsTool(Tool):
             config = instance.config or {}
             brokers = config.get('brokers', [])
             
-            # Import Kafka admin client
+            # Import Kafka admin client (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient
+                from confluent_kafka.admin import AdminClient
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -296,24 +296,24 @@ class KafkaListTopicsTool(Tool):
             )
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -476,24 +476,24 @@ class KafkaTopicDetailsTool(Tool):
             )
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -689,7 +689,7 @@ class KafkaConsumerGroupsTool(Tool):
                 
                 partitions = consumer.partitions_for_topic(topic)
                 if partitions and partition in partitions:
-                    from kafka import TopicPartition
+                    from confluent_kafka import TopicPartition
                     tp = TopicPartition(topic, partition)
                     consumer.assign([tp])
                     consumer.seek_to_end(tp)
@@ -730,24 +730,24 @@ class KafkaConsumerGroupsTool(Tool):
             }
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -1138,24 +1138,24 @@ class KafkaConsumerLagTool(Tool):
             )
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -1361,24 +1361,24 @@ class KafkaPartitionAnalysisTool(Tool):
             )
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -1848,24 +1848,24 @@ class KafkaBrokerMetricsTool(Tool):
             )
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -1988,9 +1988,9 @@ class KafkaSecurityAuditTool(Tool):
             # Try to get ACLs if requested and supported
             if params.get('include_acl_details', False):
                 try:
-                    from kafka import KafkaAdminClient
+                    from confluent_kafka.admin import AdminClient
                     admin_config = self._build_admin_config(config)
-                    admin_client = KafkaAdminClient(**admin_config)
+                    admin_client = AdminClient(admin_config)
                     
                     # Note: ACL operations require admin privileges
                     security_audit['acl_analysis'] = {
@@ -2048,24 +2048,24 @@ class KafkaSecurityAuditTool(Tool):
         return min(score, 100)
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -2283,24 +2283,24 @@ class KafkaCapacityPlanningTool(Tool):
         return recommended
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
@@ -2581,24 +2581,24 @@ class KafkaConfigurationOptimizationTool(Tool):
         return max(0, score)
     
     def _build_admin_config(self, config: Dict) -> Dict:
-        """Build Kafka admin client configuration"""
+        """Build Kafka admin client configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         admin_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'request_timeout_ms': 10000,
-            'connections_max_idle_ms': 10000
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'request.timeout.ms': 10000,
+            'connections.max.idle.ms': 10000
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             admin_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return admin_config
