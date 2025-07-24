@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-57
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-streamer
+  namespace: test-57
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: video-streamer
+  template:
+    metadata:
+      labels:
+        app: video-streamer
+    spec:
+      containers:
+      - name: app-container
+        image: busybox:1.35
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          echo "$(date) INFO: Application starting up"
+          echo "$(date) INFO: Connecting to database"
+          echo "$(date) WARN: Database connection slow"
+          echo "$(date) ERROR: Failed to connect to database: connection timeout"
+          echo "$(date) ERROR: Retrying database connection..."
+          echo "$(date) ERROR: Database connection failed after 3 retries"
+          echo "$(date) INFO: Switching to backup database"
+          echo "$(date) ERROR: Backup database also unavailable"
+          echo "$(date) ERROR: Application cannot start without database"
+          echo "$(date) FATAL: Shutting down application"
+          while true; do sleep 3600; done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"
