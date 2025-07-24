@@ -1,0 +1,50 @@
+# InfraInsights Kubernetes Toolset Configuration Example
+# This file demonstrates how to configure the comprehensive Kubernetes toolset for InfraInsights
+
+toolsets:
+  # Enhanced InfraInsights Kubernetes Toolset
+  infrainsights_kubernetes:
+    enabled: true
+    config:
+      infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+      api_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImNoaXRlbmRlci5rdW1hckBpbm5vdmFjY2VyLmNvbSIsInJvbGVzIjpbIkFkbWluIiwiUG93ZXJVc2VyIl0sInB1cnBvc2UiOiJhcGktYWNjZXNzIiwiZmVhdHVyZXMiOltdLCJpYXQiOjE3NTMzNTI0NjUsImp0aSI6IjYzNDMzYTUzLTI5MTItNGM5ZS05ZDA3LTIyNjZlZGM1ZjA3YSIsImV4cCI6MTc1NTk0NDQ2NSwiYXVkIjoiaG9sbWVzZ3B0IiwiaXNzIjoiaW5mcmFpbnNpZ2h0cyJ9.ue4_z5oLwiWeGQKBC_cQmLP_O5XCCu5vb059okFpCsA"
+      timeout: 30
+
+  # Alternative naming conventions (all supported)
+  infrainsights_kubernetes_enhanced:
+    enabled: true
+    config:
+      infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+      api_key: "your-jwt-token-here"
+      timeout: 30
+
+  infrainsights_kubernetes_v2:
+    enabled: true
+    config:
+      infrainsights_url: "http://k8s-ui-service.monitoring:5000"
+      api_key: "your-jwt-token-here"
+      timeout: 30
+
+# Available Tools in the InfraInsights Kubernetes Toolset:
+#
+# Phase 1: Basic Infrastructure
+# - kubernetes_health_check: Check cluster health and connectivity
+# - kubernetes_list_resources: List resources by kind/namespace
+# - kubernetes_describe_resource: Get detailed resource descriptions
+#
+# Phase 2: Logs and Events
+# - kubernetes_logs: Fetch pod logs with advanced filtering
+# - kubernetes_events: Fetch Kubernetes events
+# - kubernetes_logs_search: Pattern-based log searching
+#
+# Phase 3: Advanced Analysis
+# - kubernetes_metrics: Real-time resource metrics
+# - kubernetes_troubleshoot: Multi-faceted troubleshooting
+# - kubernetes_resource_analysis: Comprehensive resource analysis
+#
+# Example Usage:
+# - "Check the health of my Kubernetes cluster 'multitenant-prod'"
+# - "List all pods in the default namespace for cluster 'multitenant-prod'"
+# - "Get logs from pod 'my-app-pod' in namespace 'production'"
+# - "Analyze resource usage for cluster 'multitenant-prod'"
+# - "Troubleshoot the deployment 'my-deployment' in namespace 'apps'" 
