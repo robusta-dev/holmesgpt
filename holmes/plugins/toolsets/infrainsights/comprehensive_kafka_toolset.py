@@ -64,14 +64,14 @@ class KafkaHealthCheckTool(Tool):
             brokers = config.get('brokers', [])
             security_protocol = config.get('securityProtocol', 'PLAINTEXT')
             
-            # Import Kafka admin client
+            # Import Kafka admin client (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient
-                from kafka.errors import KafkaError
+                from confluent_kafka.admin import AdminClient
+                from confluent_kafka import KafkaError
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -94,25 +94,25 @@ class KafkaHealthCheckTool(Tool):
             
             # Try to connect and get cluster info
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
-                # Get cluster metadata (kafka-python API)
-                cluster_metadata = admin_client._client.cluster
+                # Get cluster metadata (confluent-kafka API)
+                metadata = admin_client.list_topics(timeout=10)
                 
                 health_data = {
                     'status': 'healthy',
-                    'cluster_id': getattr(cluster_metadata, 'cluster_id', 'unknown'),
-                    'controller_id': getattr(cluster_metadata, 'controller_id', 'unknown'),
+                    'cluster_id': getattr(metadata, 'cluster_id', 'unknown'),
+                    'controller_id': getattr(metadata, 'controller_id', 'unknown'),
                     'brokers': [
                         {
-                            'id': getattr(broker, 'nodeId', getattr(broker, 'id', 'unknown')),
-                            'host': getattr(broker, 'host', 'unknown'),
-                            'port': getattr(broker, 'port', 'unknown'),
+                            'id': broker.id,
+                            'host': broker.host,
+                            'port': broker.port,
                             'rack': getattr(broker, 'rack', None)
                         }
-                        for broker in cluster_metadata.brokers()
+                        for broker in metadata.brokers.values()
                     ],
-                    'broker_count': len(cluster_metadata.brokers()),
+                    'broker_count': len(metadata.brokers),
                     'connection_info': {
                         'bootstrap_servers': brokers,
                         'security_protocol': security_protocol,
@@ -224,21 +224,20 @@ class KafkaListTopicsTool(Tool):
             
             # Get topics
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
-                # List all topics (kafka-python API returns list of topic names)
-                topic_names = admin_client.list_topics()
+                # List all topics (confluent-kafka API returns metadata with topics)
+                metadata = admin_client.list_topics(timeout=10)
                 
                 topics_data = []
-                for topic_name in topic_names:
+                for topic_name, topic_metadata in metadata.topics.items():
                     # Skip internal topics if not requested
                     if not params.get('include_internal', False) and topic_name.startswith('__'):
                         continue
                     
                     # Get topic metadata for each topic
                     try:
-                        topic_metadata = admin_client._client.cluster.topics(topic_name)
-                        partitions = topic_metadata.partitions() if hasattr(topic_metadata, 'partitions') else []
+                        partitions = topic_metadata.partitions
                         
                         topic_info = {
                             'name': topic_name,
@@ -247,12 +246,12 @@ class KafkaListTopicsTool(Tool):
                             'is_internal': topic_name.startswith('__'),
                             'partition_details': [
                                 {
-                                    'partition': getattr(p, 'partition', getattr(p, 'id', 0)),
-                                    'leader': getattr(p, 'leader', 'unknown'),
-                                    'replicas': getattr(p, 'replicas', []),
-                                    'isr': getattr(p, 'isr', [])
+                                    'partition': p.id,
+                                    'leader': p.leader,
+                                    'replicas': p.replicas,
+                                    'isr': p.isr
                                 }
-                                for p in partitions
+                                for p in partitions.values()
                             ]
                         }
                         topics_data.append(topic_info)
@@ -384,14 +383,14 @@ class KafkaTopicDetailsTool(Tool):
             # Extract connection config
             config = instance.config or {}
             
-            # Import Kafka clients
+            # Import Kafka clients (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient, KafkaConsumer
-                from kafka.admin import ConfigResource, ConfigResourceType
+                from confluent_kafka.admin import AdminClient, ConfigResource, ConfigResourceType
+                from confluent_kafka import Consumer
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -399,12 +398,12 @@ class KafkaTopicDetailsTool(Tool):
             admin_config = self._build_admin_config(config)
             
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
                 # Get topic metadata
-                topics_metadata = admin_client.list_topics()
+                metadata = admin_client.list_topics(timeout=10)
                 
-                if topic_name not in topics_metadata:
+                if topic_name not in metadata.topics:
                     admin_client.close()
                     return StructuredToolResult(
                         status=ToolResultStatus.ERROR,
@@ -412,7 +411,7 @@ class KafkaTopicDetailsTool(Tool):
                         params=params
                     )
                 
-                topic_metadata = topics_metadata[topic_name]
+                topic_metadata = metadata.topics[topic_name]
                 
                 # Get topic configuration
                 resource = ConfigResource(ConfigResourceType.TOPIC, topic_name)
@@ -502,9 +501,9 @@ class KafkaTopicDetailsTool(Tool):
     def _get_consumer_groups_for_topic(self, config: Dict, topic_name: str) -> List[str]:
         """Get list of consumer groups consuming from this topic"""
         try:
-            from kafka import KafkaAdminClient
+            from confluent_kafka.admin import AdminClient
             admin_config = self._build_admin_config(config)
-            admin_client = KafkaAdminClient(**admin_config)
+            admin_client = AdminClient(admin_config)
             
             # List all consumer groups
             consumer_groups = []
@@ -594,13 +593,13 @@ class KafkaConsumerGroupsTool(Tool):
             # Extract connection config
             config = instance.config or {}
             
-            # Import Kafka admin client
+            # Import Kafka admin client (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient
+                from confluent_kafka.admin import AdminClient
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -608,7 +607,7 @@ class KafkaConsumerGroupsTool(Tool):
             admin_config = self._build_admin_config(config)
             
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
                 # Get specific group or all groups
                 group_id = params.get('group_id')
@@ -682,11 +681,11 @@ class KafkaConsumerGroupsTool(Tool):
                     }
                 
                 # Get high water mark (latest offset)
-                from kafka import KafkaConsumer
-                consumer = KafkaConsumer(
-                    bootstrap_servers=admin_client._client.cluster.brokers(),
-                    security_protocol=admin_client._client.config.get('security_protocol', 'PLAINTEXT')
-                )
+                from confluent_kafka import Consumer
+                consumer = Consumer({
+                    'bootstrap.servers': ','.join(admin_client._client.cluster.brokers()),
+                    'security.protocol': admin_client._client.config.get('security_protocol', 'PLAINTEXT')
+                })
                 
                 partitions = consumer.partitions_for_topic(topic)
                 if partitions and partition in partitions:
@@ -830,14 +829,14 @@ class KafkaProducerPerformanceTool(Tool):
             # Extract connection config
             config = instance.config or {}
             
-            # Import Kafka producer
+            # Import Kafka producer (confluent-kafka)
             try:
-                from kafka import KafkaProducer
+                from confluent_kafka import Producer
                 import time
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -850,7 +849,7 @@ class KafkaProducerPerformanceTool(Tool):
             test_message = b'x' * message_size
             
             try:
-                producer = KafkaProducer(**producer_config)
+                producer = Producer(producer_config)
                 
                 # Warm up
                 for _ in range(10):
@@ -926,27 +925,27 @@ class KafkaProducerPerformanceTool(Tool):
             )
     
     def _build_producer_config(self, config: Dict) -> Dict:
-        """Build Kafka producer configuration"""
+        """Build Kafka producer configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         producer_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
             'acks': 'all',
             'retries': 0,
-            'batch_size': 16384,
-            'linger_ms': 0,
-            'buffer_memory': 33554432
+            'batch.size': 16384,
+            'linger.ms': 0,
+            'buffer.memory': 33554432
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             producer_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return producer_config
@@ -1015,14 +1014,14 @@ class KafkaConsumerLagTool(Tool):
             config = instance.config or {}
             lag_threshold = params.get('lag_threshold', 1000)
             
-            # Import Kafka clients
+            # Import Kafka clients (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient, KafkaConsumer
-                from kafka import TopicPartition
+                from confluent_kafka.admin import AdminClient
+                from confluent_kafka import Consumer, TopicPartition
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -1030,7 +1029,7 @@ class KafkaConsumerLagTool(Tool):
             admin_config = self._build_admin_config(config)
             
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
                 # Get all consumer groups
                 groups = admin_client.list_consumer_groups()
@@ -1054,7 +1053,7 @@ class KafkaConsumerLagTool(Tool):
                         topic_lags = {}
                         
                         # Create consumer to get high water marks
-                        consumer = KafkaConsumer(**self._build_consumer_config(config))
+                        consumer = Consumer(self._build_consumer_config(config))
                         
                         for topic_partition, offset_metadata in offsets.items():
                             topic = topic_partition.topic
@@ -1162,11 +1161,11 @@ class KafkaConsumerLagTool(Tool):
         return admin_config
     
     def _build_consumer_config(self, config: Dict) -> Dict:
-        """Build Kafka consumer configuration"""
+        """Build Kafka consumer configuration (confluent-kafka format)"""
         consumer_config = self._build_admin_config(config)
         consumer_config.update({
-            'enable_auto_commit': False,
-            'group_id': 'infrainsights-lag-checker'
+            'enable.auto.commit': False,
+            'group.id': 'infrainsights-lag-checker'
         })
         return consumer_config
     
@@ -1237,13 +1236,13 @@ class KafkaPartitionAnalysisTool(Tool):
             # Extract connection config
             config = instance.config or {}
             
-            # Import Kafka admin client
+            # Import Kafka admin client (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient
+                from confluent_kafka.admin import AdminClient
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -1251,11 +1250,11 @@ class KafkaPartitionAnalysisTool(Tool):
             admin_config = self._build_admin_config(config)
             
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
                 # Get cluster metadata
-                metadata = admin_client._client.cluster
-                brokers = list(metadata.brokers())
+                metadata = admin_client.list_topics(timeout=10)
+                brokers = list(metadata.brokers.values())
                 
                 # Analyze partition distribution
                 broker_stats = {}
@@ -1265,8 +1264,8 @@ class KafkaPartitionAnalysisTool(Tool):
                 
                 # Initialize broker stats
                 for broker in brokers:
-                    broker_stats[broker.nodeId] = {
-                        'id': broker.nodeId,
+                    broker_stats[broker.id] = {
+                        'id': broker.id,
                         'host': broker.host,
                         'port': broker.port,
                         'leader_partitions': 0,
@@ -1275,7 +1274,7 @@ class KafkaPartitionAnalysisTool(Tool):
                     }
                 
                 # Get all topics metadata
-                topics_metadata = admin_client.list_topics()
+                topics_metadata = metadata.topics
                 
                 for topic_name, topic_metadata in topics_metadata.items():
                     topic_stats[topic_name] = {
@@ -1305,7 +1304,7 @@ class KafkaPartitionAnalysisTool(Tool):
                                 'partition': partition_id,
                                 'replicas': partition.replicas,
                                 'isr': partition.isr,
-                                'offline_replicas': partition.offline_replicas
+                                'offline_replicas': getattr(partition, 'offline_replicas', [])
                             })
                             topic_stats[topic_name]['under_replicated_partitions'] += 1
                         
@@ -1459,15 +1458,15 @@ class KafkaMessageAnalysisTool(Tool):
             # Extract connection config
             config = instance.config or {}
             
-            # Import Kafka consumer
+            # Import Kafka consumer (confluent-kafka)
             try:
-                from kafka import KafkaConsumer, TopicPartition
+                from confluent_kafka import Consumer, TopicPartition
                 import json as json_lib
                 import time
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -1478,18 +1477,18 @@ class KafkaMessageAnalysisTool(Tool):
             
             try:
                 # Create consumer
-                consumer = KafkaConsumer(
-                    topic_name,
-                    **consumer_config,
-                    auto_offset_reset='earliest' if from_beginning else 'latest',
-                    enable_auto_commit=False,
-                    consumer_timeout_ms=5000,
-                    max_poll_records=sample_size
-                )
+                consumer_config.update({
+                    'auto.offset.reset': 'earliest' if from_beginning else 'latest',
+                    'enable.auto.commit': False,
+                    'session.timeout.ms': 5000,
+                    'max.poll.records': sample_size
+                })
+                consumer = Consumer(consumer_config)
+                consumer.subscribe([topic_name])
                 
                 # Get topic partitions
-                partitions = consumer.partitions_for_topic(topic_name)
-                if not partitions:
+                metadata = consumer.list_topics(topic_name, timeout=10)
+                if topic_name not in metadata.topics:
                     consumer.close()
                     return StructuredToolResult(
                         status=ToolResultStatus.ERROR,
@@ -1497,38 +1496,28 @@ class KafkaMessageAnalysisTool(Tool):
                         params=params
                     )
                 
+                topic_metadata = metadata.topics[topic_name]
+                partitions = list(topic_metadata.partitions.keys())
+                
                 # Get partition info
                 partition_info = {}
                 total_messages = 0
                 
                 for partition in partitions:
-                    tp = TopicPartition(topic_name, partition)
-                    consumer.assign([tp])
+                    # Get beginning and end offsets using low and high watermarks
+                    low, high = consumer.get_watermark_offsets(TopicPartition(topic_name, partition))
                     
-                    # Get beginning and end offsets
-                    consumer.seek_to_beginning(tp)
-                    beginning_offset = consumer.position(tp)
-                    
-                    consumer.seek_to_end(tp)
-                    end_offset = consumer.position(tp)
-                    
-                    partition_messages = end_offset - beginning_offset
+                    partition_messages = high - low
                     total_messages += partition_messages
                     
                     partition_info[partition] = {
                         'partition': partition,
-                        'beginning_offset': beginning_offset,
-                        'end_offset': end_offset,
+                        'beginning_offset': low,
+                        'end_offset': high,
                         'message_count': partition_messages
                     }
                 
                 # Sample messages
-                consumer.unsubscribe()
-                consumer.subscribe([topic_name])
-                
-                if from_beginning:
-                    consumer.seek_to_beginning()
-                
                 messages = []
                 message_sizes = []
                 key_patterns = {}
@@ -1537,31 +1526,35 @@ class KafkaMessageAnalysisTool(Tool):
                 start_time = time.time()
                 message_count = 0
                 
-                for message in consumer:
-                    if message_count >= sample_size:
+                # Poll for messages
+                while message_count < sample_size:
+                    msg = consumer.poll(timeout=1.0)
+                    if msg is None:
                         break
+                    if msg.error():
+                        continue
                     
                     # Analyze message
-                    message_size = len(message.value) if message.value else 0
+                    message_size = len(msg.value()) if msg.value() else 0
                     message_sizes.append(message_size)
                     
                     # Analyze key
-                    key_str = message.key.decode('utf-8') if message.key else 'null'
+                    key_str = msg.key().decode('utf-8') if msg.key() else 'null'
                     key_pattern = self._extract_pattern(key_str)
                     key_patterns[key_pattern] = key_patterns.get(key_pattern, 0) + 1
                     
                     # Analyze value type
-                    value_type = self._detect_value_type(message.value)
+                    value_type = self._detect_value_type(msg.value())
                     value_types[value_type] = value_types.get(value_type, 0) + 1
                     
                     # Sample message details
                     if len(messages) < 10:  # Keep first 10 messages as samples
                         messages.append({
-                            'partition': message.partition,
-                            'offset': message.offset,
-                            'timestamp': message.timestamp,
+                            'partition': msg.partition(),
+                            'offset': msg.offset(),
+                            'timestamp': msg.timestamp()[1] if msg.timestamp() else None,
                             'key': key_str,
-                            'value_preview': self._preview_value(message.value),
+                            'value_preview': self._preview_value(msg.value()),
                             'size_bytes': message_size
                         })
                     
@@ -1610,23 +1603,23 @@ class KafkaMessageAnalysisTool(Tool):
             )
     
     def _build_consumer_config(self, config: Dict) -> Dict:
-        """Build Kafka consumer configuration"""
+        """Build Kafka consumer configuration (confluent-kafka format)"""
         brokers = config.get('brokers', [])
         security_protocol = config.get('securityProtocol', 'PLAINTEXT')
         
         consumer_config = {
-            'bootstrap_servers': brokers,
-            'security_protocol': security_protocol,
-            'group_id': f'infrainsights-analyzer-{int(time.time())}'
+            'bootstrap.servers': ','.join(brokers) if isinstance(brokers, list) else brokers,
+            'security.protocol': security_protocol.lower(),
+            'group.id': f'infrainsights-analyzer-{int(time.time())}'
         }
         
         # Add SASL config if present
         if security_protocol in ['SASL_PLAINTEXT', 'SASL_SSL'] and 'sasl' in config:
             sasl_config = config['sasl']
             consumer_config.update({
-                'sasl_mechanism': sasl_config.get('mechanism', 'PLAIN'),
-                'sasl_plain_username': sasl_config.get('username'),
-                'sasl_plain_password': sasl_config.get('password')
+                'sasl.mechanism': sasl_config.get('mechanism', 'PLAIN'),
+                'sasl.username': sasl_config.get('username'),
+                'sasl.password': sasl_config.get('password')
             })
         
         return consumer_config
@@ -1751,14 +1744,13 @@ class KafkaBrokerMetricsTool(Tool):
             # Extract connection config
             config = instance.config or {}
             
-            # Import Kafka admin client
+            # Import Kafka admin client (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient
-                from kafka.admin import ConfigResource, ConfigResourceType
+                from confluent_kafka.admin import AdminClient, ConfigResource, ConfigResourceType
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -1766,23 +1758,24 @@ class KafkaBrokerMetricsTool(Tool):
             admin_config = self._build_admin_config(config)
             
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
                 # Get cluster metadata
-                metadata = admin_client._client.cluster
-                brokers = list(metadata.brokers())
+                metadata = admin_client.list_topics(timeout=10)
+                brokers = list(metadata.brokers.values())
                 
                 broker_metrics = []
                 
                 for broker in brokers:
                     # Filter by broker_id if specified
-                    if params.get('broker_id') is not None and broker.nodeId != params['broker_id']:
+                    if params.get('broker_id') is not None and broker.id != params['broker_id']:
                         continue
                     
                     # Get broker configuration
-                    broker_resource = ConfigResource(ConfigResourceType.BROKER, str(broker.nodeId))
+                    broker_resource = ConfigResource(ConfigResourceType.BROKER, str(broker.id))
                     configs = admin_client.describe_configs(config_resources=[broker_resource])
                     
+                    broker_config = {}
                     for config_resource, config_response in configs.items():
                         for config_name, config_value in config_response.configs.items():
                             # Filter important configs
@@ -1795,19 +1788,19 @@ class KafkaBrokerMetricsTool(Tool):
                     leader_partitions = 0
                     follower_partitions = 0
                     
-                    topics_metadata = admin_client.list_topics()
+                    topics_metadata = metadata.topics
                     for topic_name, topic_metadata in topics_metadata.items():
                         for partition in topic_metadata.partitions.values():
-                            if partition.leader == broker.nodeId:
+                            if partition.leader == broker.id:
                                 leader_partitions += 1
-                            if broker.nodeId in partition.replicas and broker.nodeId != partition.leader:
+                            if broker.id in partition.replicas and broker.id != partition.leader:
                                 follower_partitions += 1
                     
                     broker_metric = {
-                        'broker_id': broker.nodeId,
+                        'broker_id': broker.id,
                         'host': broker.host,
                         'port': broker.port,
-                        'rack': broker.rack,
+                        'rack': getattr(broker, 'rack', None),
                         'partition_stats': {
                             'leader_partitions': leader_partitions,
                             'follower_partitions': follower_partitions,
@@ -2141,14 +2134,14 @@ class KafkaCapacityPlanningTool(Tool):
             config = instance.config or {}
             growth_rate = params.get('growth_rate_percent', 20) / 100.0
             
-            # Import Kafka admin client
+            # Import Kafka admin client (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient, KafkaConsumer
-                from kafka import TopicPartition
+                from confluent_kafka.admin import AdminClient
+                from confluent_kafka import Consumer, TopicPartition
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -2156,14 +2149,14 @@ class KafkaCapacityPlanningTool(Tool):
             admin_config = self._build_admin_config(config)
             
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
                 # Get cluster metadata
-                metadata = admin_client._client.cluster
-                brokers = list(metadata.brokers())
+                metadata = admin_client.list_topics(timeout=10)
+                brokers = list(metadata.brokers.values())
                 
                 # Get all topics metadata
-                topics_metadata = admin_client.list_topics()
+                topics_metadata = metadata.topics
                 
                 # Calculate current capacity metrics
                 total_partitions = 0
@@ -2175,7 +2168,7 @@ class KafkaCapacityPlanningTool(Tool):
                 
                 # Create consumer for offset checks
                 consumer_config = self._build_consumer_config(config)
-                consumer = KafkaConsumer(**consumer_config)
+                consumer = Consumer(consumer_config)
                 
                 for topic_name, topic_metadata in topics_metadata.items():
                     partitions = len(topic_metadata.partitions)
@@ -2188,16 +2181,12 @@ class KafkaCapacityPlanningTool(Tool):
                     topic_size = 0
                     for partition_id in topic_metadata.partitions.keys():
                         tp = TopicPartition(topic_name, partition_id)
-                        consumer.assign([tp])
                         
-                        consumer.seek_to_beginning(tp)
-                        beginning = consumer.position(tp)
-                        
-                        consumer.seek_to_end(tp)
-                        end = consumer.position(tp)
+                        # Get beginning and end offsets using watermarks
+                        low, high = consumer.get_watermark_offsets(tp)
                         
                         # Estimate 1KB per message (configurable)
-                        partition_size_mb = (end - beginning) * 1 / 1024
+                        partition_size_mb = (high - low) * 1 / 1024
                         topic_size += partition_size_mb
                     
                     topic_sizes.append({
@@ -2317,11 +2306,11 @@ class KafkaCapacityPlanningTool(Tool):
         return admin_config
     
     def _build_consumer_config(self, config: Dict) -> Dict:
-        """Build Kafka consumer configuration"""
+        """Build Kafka consumer configuration (confluent-kafka format)"""
         consumer_config = self._build_admin_config(config)
         consumer_config.update({
-            'enable_auto_commit': False,
-            'group_id': 'infrainsights-capacity-analyzer'
+            'enable.auto.commit': False,
+            'group.id': 'infrainsights-capacity-analyzer'
         })
         return consumer_config
     
@@ -2389,14 +2378,13 @@ class KafkaConfigurationOptimizationTool(Tool):
             config = instance.config or {}
             focus_area = params.get('focus_area', 'performance').lower()
             
-            # Import Kafka admin client
+            # Import Kafka admin client (confluent-kafka)
             try:
-                from kafka import KafkaAdminClient
-                from kafka.admin import ConfigResource, ConfigResourceType
+                from confluent_kafka.admin import AdminClient, ConfigResource, ConfigResourceType
             except ImportError:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="kafka-python library not installed",
+                    error="confluent-kafka library not installed",
                     params=params
                 )
             
@@ -2404,20 +2392,20 @@ class KafkaConfigurationOptimizationTool(Tool):
             admin_config = self._build_admin_config(config)
             
             try:
-                admin_client = KafkaAdminClient(**admin_config)
+                admin_client = AdminClient(admin_config)
                 
                 # Get cluster metadata
-                metadata = admin_client._client.cluster
-                brokers = list(metadata.brokers())
+                metadata = admin_client.list_topics(timeout=10)
+                brokers = list(metadata.brokers.values())
                 
                 # Get broker configurations
                 broker_configs = {}
                 for broker in brokers:
-                    broker_resource = ConfigResource(ConfigResourceType.BROKER, str(broker.nodeId))
+                    broker_resource = ConfigResource(ConfigResourceType.BROKER, str(broker.id))
                     configs = admin_client.describe_configs(config_resources=[broker_resource])
                     
                     for config_resource, config_response in configs.items():
-                        broker_configs[broker.nodeId] = {
+                        broker_configs[broker.id] = {
                             name: {
                                 'value': config.value,
                                 'is_default': config.is_default
@@ -2441,7 +2429,7 @@ class KafkaConfigurationOptimizationTool(Tool):
                     recommendations.extend(self._get_cost_recommendations(broker_configs))
                 
                 # Get topic-level recommendations
-                topics_metadata = admin_client.list_topics()
+                topics_metadata = metadata.topics
                 topic_recommendations = []
                 
                 for topic_name, topic_metadata in topics_metadata.items():
