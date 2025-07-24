@@ -30,9 +30,15 @@ class KubernetesHealthCheckTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_health_check",
+            description="Check the health status of a Kubernetes cluster including node status and basic cluster info",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance to check",
+                    type="string",
+                    required=True
+                )
+            },
             toolset=toolset
         )
 
@@ -178,9 +184,30 @@ class KubernetesListResourcesTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_list_resources",
+            description="List Kubernetes resources by kind, namespace, and other filters",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pods, services, deployments)",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace to search in (optional, use 'all' for all namespaces)",
+                    type="string",
+                    required=False
+                ),
+                "output_format": ToolParameter(
+                    description="Output format (wide, json, yaml)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
@@ -304,9 +331,30 @@ class KubernetesDescribeResourceTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_describe_resource",
+            description="Get detailed description of a Kubernetes resource",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pod, service, deployment)",
+                    type="string",
+                    required=True
+                ),
+                "name": ToolParameter(
+                    description="Resource name",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace (optional)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
@@ -447,9 +495,30 @@ class KubernetesLogsTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_describe_resource",
+            description="Get detailed description of a Kubernetes resource",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pod, service, deployment)",
+                    type="string",
+                    required=True
+                ),
+                "name": ToolParameter(
+                    description="Resource name",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace (optional)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
@@ -592,9 +661,30 @@ class KubernetesEventsTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_describe_resource",
+            description="Get detailed description of a Kubernetes resource",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pod, service, deployment)",
+                    type="string",
+                    required=True
+                ),
+                "name": ToolParameter(
+                    description="Resource name",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace (optional)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
@@ -742,9 +832,30 @@ class KubernetesLogsSearchTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_describe_resource",
+            description="Get detailed description of a Kubernetes resource",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pod, service, deployment)",
+                    type="string",
+                    required=True
+                ),
+                "name": ToolParameter(
+                    description="Resource name",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace (optional)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
@@ -897,9 +1008,30 @@ class KubernetesMetricsTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_describe_resource",
+            description="Get detailed description of a Kubernetes resource",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pod, service, deployment)",
+                    type="string",
+                    required=True
+                ),
+                "name": ToolParameter(
+                    description="Resource name",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace (optional)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
@@ -1032,9 +1164,30 @@ class KubernetesTroubleshootingTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_describe_resource",
+            description="Get detailed description of a Kubernetes resource",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pod, service, deployment)",
+                    type="string",
+                    required=True
+                ),
+                "name": ToolParameter(
+                    description="Resource name",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace (optional)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
@@ -1309,9 +1462,30 @@ class KubernetesResourceAnalysisTool(Tool):
 
     def __init__(self, toolset=None):
         super().__init__(
-            name=self.name,
-            description=self.description,
-            parameters=self.parameters,
+            name="kubernetes_describe_resource",
+            description="Get detailed description of a Kubernetes resource",
+            parameters={
+                "instance_name": ToolParameter(
+                    description="Name of the Kubernetes instance",
+                    type="string",
+                    required=True
+                ),
+                "kind": ToolParameter(
+                    description="Resource kind (e.g., pod, service, deployment)",
+                    type="string",
+                    required=True
+                ),
+                "name": ToolParameter(
+                    description="Resource name",
+                    type="string",
+                    required=True
+                ),
+                "namespace": ToolParameter(
+                    description="Namespace (optional)",
+                    type="string",
+                    required=False
+                )
+            },
             toolset=toolset
         )
 
