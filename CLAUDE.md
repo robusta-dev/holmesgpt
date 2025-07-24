@@ -178,6 +178,9 @@ poetry run pytest -m "llm and not network" --collect-only -q
 - All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
 - Mock file tracking and test results are stored in `user_properties` and aggregated in the terminal summary
 - This design ensures tests work correctly when run in parallel with `-n` flag
+- **Important for LLM tests**: Each test must use a dedicated namespace `app-<testid>` (e.g., `app-01`, `app-02`) to prevent conflicts when tests run simultaneously
+- All pod names must be unique across tests (e.g., `giant-narwhal`, `blue-whale`, `sea-turtle`) - never reuse pod names between tests
+- **Resource naming in evals**: Never use names that hint at the problem or expected behavior (e.g., avoid `broken-pod`, `test-project-that-does-not-exist`, `crashloop-app`). Use neutral names that don't give away what the LLM should discover
 
 ## Configuration
 
