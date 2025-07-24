@@ -249,7 +249,7 @@ class KafkaListTopicsTool(Tool):
                                     'partition': p.id,
                                     'leader': p.leader,
                                     'replicas': p.replicas,
-                                    'isr': p.isr
+                                    'isr': getattr(p, 'isr', p.replicas)  # Use replicas as fallback if isr not available
                                 }
                                 for p in partitions.values()
                             ]
@@ -259,7 +259,7 @@ class KafkaListTopicsTool(Tool):
                         # If we can't get detailed metadata, just add basic info
                         topic_info = {
                             'name': topic_name,
-                            'partitions': 0,
+                            'partitions': len(partitions) if 'partitions' in locals() else 0,
                             'replication_factor': 0,
                             'is_internal': topic_name.startswith('__'),
                             'partition_details': [],
@@ -435,8 +435,8 @@ class KafkaTopicDetailsTool(Tool):
                         'partition': partition_id,
                         'leader': partition_metadata.leader,
                         'replicas': partition_metadata.replicas,
-                        'isr': partition_metadata.isr,
-                        'offline_replicas': partition_metadata.offline_replicas
+                        'isr': getattr(partition_metadata, 'isr', partition_metadata.replicas),
+                        'offline_replicas': getattr(partition_metadata, 'offline_replicas', [])
                     })
                 
                 
@@ -1298,12 +1298,13 @@ class KafkaPartitionAnalysisTool(Tool):
                                 broker_stats[replica]['topics'].add(topic_name)
                         
                         # Check for under-replicated partitions
-                        if len(partition.isr) < len(partition.replicas):
+                        isr = getattr(partition, 'isr', partition.replicas)
+                        if len(isr) < len(partition.replicas):
                             under_replicated_partitions.append({
                                 'topic': topic_name,
                                 'partition': partition_id,
                                 'replicas': partition.replicas,
-                                'isr': partition.isr,
+                                'isr': isr,
                                 'offline_replicas': getattr(partition, 'offline_replicas', [])
                             })
                             topic_stats[topic_name]['under_replicated_partitions'] += 1
