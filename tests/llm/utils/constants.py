@@ -5,7 +5,7 @@ try:
     import tomllib
 except ImportError:
     import tomli
-    
+
     tomllib = tomli
 
 
