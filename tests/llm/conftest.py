@@ -8,6 +8,7 @@ from pytest_shared_session_scope import (
     CleanupToken,
 )
 
+from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.test_results import TestResult
 from tests.llm.utils.classifiers import create_llm_client
 from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
@@ -17,13 +18,14 @@ from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
 )
 from tests.llm.utils.reporting.terminal_reporter import handle_console_output
 from tests.llm.utils.reporting.github_reporter import handle_github_output
-from tests.llm.utils.braintrust import get_braintrust_url
+from tests.llm.utils.braintrust import get_braintrust_url, get_experiment_name
 from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
     run_all_test_cleanup,
     extract_test_cases_needing_setup,
     log,
 )
+
 
 # Configuration constants
 DEBUG_SEPARATOR = "=" * 80
@@ -365,6 +367,9 @@ def show_llm_summary_report(terminalreporter, exitstatus, config):
     # Report mock operation statistics
     report_mock_operations(config, mock_tracking_data, terminalreporter)
 
+    # Display single Braintrust experiment link at the very end
+    _display_braintrust_experiment_link(sorted_results, terminalreporter)
+
 
 def _collect_test_results_from_stats(terminalreporter):
     """Collect and parse test results from terminalreporter.stats."""
@@ -495,3 +500,42 @@ def _collect_test_results_from_stats(terminalreporter):
     )
 
     return sorted_results, mock_tracking_data
+
+
+def _display_braintrust_experiment_link(sorted_results, terminalreporter):
+    """Display a single Braintrust experiment link at the end of test output."""
+    # Check if Braintrust is enabled
+    if not os.environ.get("BRAINTRUST_API_KEY"):
+        return
+
+    # Determine test suite from the results
+    test_suites = set()
+    for result in sorted_results:
+        test_type = result.get("test_type", "unknown")
+        if test_type == "ask":
+            test_suites.add("ask_holmes")
+        elif test_type == "investigate":
+            test_suites.add("investigate")
+        elif test_type == "workload_health":
+            test_suites.add("workload_health")
+
+    if not test_suites:
+        return
+
+    # If multiple test suites, just use the first one
+    test_suite = sorted(test_suites)[0]
+
+    # Get experiment name
+    experiment_name = get_experiment_name(test_suite)
+    braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
+
+    # Build experiment URL
+    experiment_url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}"
+
+    print("\n" + "=" * 70)
+    print("🧠 Braintrust Experiment Summary")
+    print("=" * 70)
+    # Make it clickable in terminals that support it
+    clickable_url = f"\033]8;;{experiment_url}\033\\{experiment_url}\033]8;;\033\\"
+    print(f"View full experiment results: \033[94m{clickable_url}\033[0m")
+    print("=" * 70 + "\n")

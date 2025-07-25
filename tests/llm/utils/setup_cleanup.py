@@ -19,7 +19,7 @@ MAX_WORKERS = 30
 
 
 def log(msg):
-    """Force a log to be written even with xdist, which captures stdout."""
+    """Force a log to be written even with xdist, which captures stdout. (must use -s to see this)"""
     sys.stderr.write(msg)
     sys.stderr.write("\n")
     # we also log to stderr so its visible when xdist is not used
