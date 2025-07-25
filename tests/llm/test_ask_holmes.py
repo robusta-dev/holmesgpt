@@ -21,7 +21,12 @@ from tests.llm.utils.mock_toolset import (
     MockMode,
     MockGenerationConfig,
 )
-from tests.llm.utils.test_case_utils import AskHolmesTestCase, Evaluation, MockHelper
+from tests.llm.utils.test_case_utils import (
+    AskHolmesTestCase,
+    Evaluation,
+    MockHelper,
+    check_and_skip_test,
+)
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     update_test_results,
@@ -85,6 +90,9 @@ def test_ask_holmes(
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
+
+    # Check if test should be skipped
+    check_and_skip_test(test_case)
 
     print(f"\n🧪 TEST: {test_case.id}")
     print("   CONFIGURATION:")
