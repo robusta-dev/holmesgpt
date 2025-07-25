@@ -1116,123 +1116,50 @@ class KubernetesEventsTool(Tool):
             )
 
     def _fetch_events(self, instance: ServiceInstance, resource_type: Optional[str], resource_name: Optional[str], namespace: Optional[str], output_format: str) -> str:
-        """Fetch events using Kubernetes Python client"""
+        """Fetch events using Kubernetes Python client with raw API calls to handle None event_time values"""
         try:
             logger.info(f"🔍 Starting to fetch events for resource_type={resource_type}, resource_name={resource_name}, namespace={namespace}")
             
             k8s_client = self._create_kubernetes_client(instance)
-            core_api = client.CoreV1Api(k8s_client)
-            events_api = client.EventsV1Api(k8s_client)
             
-            logger.info(f"🔍 Created Kubernetes client, fetching events...")
+            logger.info(f"🔍 Created Kubernetes client, fetching events using raw API...")
             
-            # Execute command with error handling for None event_time values
-            try:
-                if namespace:
-                    result = events_api.list_namespaced_event(namespace=namespace, watch=False)
-                else:
-                    result = events_api.list_event_for_all_namespaces(watch=False)
-                logger.info(f"🔍 Retrieved {len(result.items)} events from API")
-            except ValueError as ve:
-                if "event_time" in str(ve) and "must not be 'None'" in str(ve):
-                    logger.warning(f"🔍 Kubernetes API returned events with None event_time, using raw API call")
-                    # Use raw API call to bypass model validation
-                    if namespace:
-                        api_response = k8s_client.call_api(
-                            '/api/v1/namespaces/{namespace}/events',
-                            'GET',
-                            path_params={'namespace': namespace},
-                            query_params=[('watch', False)]
-                        )
-                    else:
-                        api_response = k8s_client.call_api(
-                            '/api/v1/events',
-                            'GET',
-                            query_params=[('watch', False)]
-                        )
-                    
-                    # Manually process the raw response
-                    raw_events = api_response[0].get('items', [])
-                    logger.info(f"🔍 Retrieved {len(raw_events)} events from raw API")
-                    
-                    # Convert raw events to our format
-                    events_list = []
-                    for i, raw_event in enumerate(raw_events):
-                        try:
-                            logger.debug(f"🔍 Processing raw event {i+1}/{len(raw_events)}")
-                            event_info = {
-                                "type": raw_event.get('type', 'Unknown'),
-                                "reason": raw_event.get('reason', 'Unknown'),
-                                "message": raw_event.get('message', 'No message'),
-                                "count": raw_event.get('count', 0),
-                                "first_timestamp": raw_event.get('firstTimestamp', 'Unknown'),
-                                "last_timestamp": raw_event.get('lastTimestamp', 'Unknown'),
-                                "involved_object": raw_event.get('involvedObject', {})
-                            }
-                            events_list.append(event_info)
-                        except Exception as event_error:
-                            logger.warning(f"🔍 Failed to process raw event {i+1}: {event_error}")
-                            events_list.append({
-                                "type": "Unknown",
-                                "reason": "EventProcessingError",
-                                "message": f"Failed to process event: {str(event_error)}",
-                                "count": 1,
-                                "first_timestamp": "Unknown",
-                                "last_timestamp": "Unknown",
-                                "involved_object": None
-                            })
-                    
-                    # Filter events if resource_type and resource_name are specified
-                    if resource_type and resource_name:
-                        filtered_events = []
-                        for event in events_list:
-                            involved_obj = event.get("involved_object", {})
-                            if (involved_obj and 
-                                involved_obj.get("kind", "").lower() == resource_type.lower() and
-                                involved_obj.get("name", "") == resource_name):
-                                filtered_events.append(event)
-                        events_list = filtered_events
-                        logger.info(f"🔍 Filtered to {len(events_list)} events for {resource_type}/{resource_name}")
-                    
-                    # Format output
-                    if output_format == 'json':
-                        return json.dumps(events_list, indent=2)
-                    elif output_format == 'yaml':
-                        return yaml.dump(events_list, default_flow_style=False)
-                    else:
-                        formatted_events = []
-                        for event in events_list:
-                            formatted_events.append(
-                                f"Type: {event['type']}, Reason: {event['reason']}, "
-                                f"Message: {event['message']}, Count: {event['count']}, "
-                                f"First: {event['first_timestamp']}, Last: {event['last_timestamp']}"
-                            )
-                        return "\n".join(formatted_events) if formatted_events else "No events found"
-                else:
-                    raise ve
+            # Use raw API call to bypass model validation issues with None event_time values
+            if namespace:
+                api_response = k8s_client.call_api(
+                    '/api/v1/namespaces/{namespace}/events',
+                    'GET',
+                    path_params={'namespace': namespace},
+                    query_params=[('watch', False)]
+                )
+            else:
+                api_response = k8s_client.call_api(
+                    '/api/v1/events',
+                    'GET',
+                    query_params=[('watch', False)]
+                )
             
-            # Convert to string representation (original path for valid events)
+            # Manually process the raw response
+            raw_events = api_response[0].get('items', [])
+            logger.info(f"🔍 Retrieved {len(raw_events)} events from raw API")
+            
+            # Convert raw events to our format
             events_list = []
-            for i, event in enumerate(result.items):
+            for i, raw_event in enumerate(raw_events):
                 try:
-                    logger.debug(f"🔍 Processing event {i+1}/{len(result.items)}")
+                    logger.debug(f"🔍 Processing raw event {i+1}/{len(raw_events)}")
                     event_info = {
-                        "type": getattr(event, 'type', 'Unknown'),
-                        "reason": getattr(event, 'reason', 'Unknown'),
-                        "message": getattr(event, 'message', 'No message'),
-                        "count": getattr(event, 'count', 0),
-                        "first_timestamp": str(event.first_timestamp) if event.first_timestamp else "Unknown",
-                        "last_timestamp": str(event.last_timestamp) if event.last_timestamp else "Unknown",
-                        "involved_object": {
-                            "kind": event.involved_object.kind,
-                            "name": event.involved_object.name,
-                            "namespace": event.involved_object.namespace
-                        } if event.involved_object else None
+                        "type": raw_event.get('type', 'Unknown'),
+                        "reason": raw_event.get('reason', 'Unknown'),
+                        "message": raw_event.get('message', 'No message'),
+                        "count": raw_event.get('count', 0),
+                        "first_timestamp": raw_event.get('firstTimestamp', 'Unknown'),
+                        "last_timestamp": raw_event.get('lastTimestamp', 'Unknown'),
+                        "involved_object": raw_event.get('involvedObject', {})
                     }
                     events_list.append(event_info)
                 except Exception as event_error:
-                    logger.warning(f"🔍 Failed to process event {i+1}: {event_error}")
-                    # Add a basic event entry if processing fails
+                    logger.warning(f"🔍 Failed to process raw event {i+1}: {event_error}")
                     events_list.append({
                         "type": "Unknown",
                         "reason": "EventProcessingError",
@@ -1249,13 +1176,15 @@ class KubernetesEventsTool(Tool):
             if resource_type and resource_name:
                 filtered_events = []
                 for event in events_list:
-                    if (event.get("involved_object") and 
-                        event["involved_object"].get("kind", "").lower() == resource_type.lower() and
-                        event["involved_object"].get("name", "") == resource_name):
+                    involved_obj = event.get("involved_object", {})
+                    if (involved_obj and 
+                        involved_obj.get("kind", "").lower() == resource_type.lower() and
+                        involved_obj.get("name", "") == resource_name):
                         filtered_events.append(event)
                 events_list = filtered_events
                 logger.info(f"🔍 Filtered to {len(events_list)} events for {resource_type}/{resource_name}")
             
+            # Format output
             if output_format == 'json':
                 return json.dumps(events_list, indent=2)
             elif output_format == 'yaml':
@@ -1264,8 +1193,11 @@ class KubernetesEventsTool(Tool):
                 # Format as readable text
                 formatted_events = []
                 for event in events_list:
+                    involved_obj = event.get("involved_object", {})
+                    obj_info = f"{involved_obj.get('kind', 'Unknown')}/{involved_obj.get('name', 'Unknown')}" if involved_obj else "Unknown"
                     formatted_events.append(
                         f"Type: {event['type']}, Reason: {event['reason']}, "
+                        f"Object: {obj_info}, "
                         f"Message: {event['message']}, Count: {event['count']}, "
                         f"First: {event['first_timestamp']}, Last: {event['last_timestamp']}"
                     )
