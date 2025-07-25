@@ -231,3 +231,6 @@ poetry run pytest -m "llm and not network" --collect-only -q
 - No secrets should be committed to repository
 - Use environment variables or config files for API keys
 - RBAC permissions are respected for Kubernetes access
+
+## Eval Notes
+- You can run evals with --skip-cleanup or --skip-setup if you are debugging the eval itself
