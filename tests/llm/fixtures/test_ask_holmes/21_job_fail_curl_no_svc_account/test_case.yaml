@@ -18,4 +18,3 @@ evaluation:
 # The scenario here is that job is created without a service account. The job pod creation fails.
 # Then the service account is being created. The job pod creation succeeds. and fails due to invalid host name.
 # Currenlty holmes is able to answer the question correctly only around 10% of the time.
-add_params_to_mock_file: true
