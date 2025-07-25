@@ -1,6 +1,6 @@
 <div align="center">
   <h1 align="center">AI Agent for Cloud Troubleshooting and Alert Investigation</h1>
-  
+
 HolmesGPT is an AI agent for investigating problems in your cloud, finding the root cause, and suggesting remediations. It has dozens of built-in integrations for cloud providers, observability tools, and on-call systems.
 
 HolmesGPT has been submitted to the CNCF as a sandbox project ([view status](https://github.com/cncf/sandbox/issues/392)). You can learn more about HolmesGPT's maintainers and adopters [here](./ADOPTERS.md).
