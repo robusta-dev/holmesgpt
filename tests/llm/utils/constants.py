@@ -1,9 +1,11 @@
 from typing import Literal, get_args
 from pathlib import Path
+
 try:
     import tomllib
 except ImportError:
     import tomli
+    
     tomllib = tomli
 
 
