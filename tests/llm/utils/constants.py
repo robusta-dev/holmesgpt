@@ -2,6 +2,12 @@ from typing import Literal, get_args
 from pathlib import Path
 import tomllib
 
+try:
+    import tomllib
+except ImportError:
+    import tomli
+    tomllib = tomli
+
 
 PROJECT = "HolmesGPT"
 

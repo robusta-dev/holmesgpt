@@ -532,8 +532,7 @@ class MockToolsetManager:
     def __init__(
         self,
         test_case_folder: str,
-        mock_generation_config,
-        add_params_to_mock_file: bool = True,
+        mock_generation_config: MockGenerationConfig,
         request: pytest.FixtureRequest = None,
         force_mocks: bool = False,
     ):
@@ -544,7 +543,7 @@ class MockToolsetManager:
             self.mode = MockMode.MOCK
 
         # Initialize components
-        self.file_manager = MockFileManager(test_case_folder, add_params_to_mock_file)
+        self.file_manager = MockFileManager(test_case_folder)
         self.configurator = ToolsetConfigurator()
 
         # Note: Mock clearing is now handled by the shared_test_infrastructure fixture
