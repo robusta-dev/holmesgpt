@@ -70,6 +70,7 @@ autoevals = "^0.0.129"
 pre-commit = "^4.0.1"
 responses = "^0.23.1"
 freezegun = "^1.5.1"
+tomli = {version = "^2.0.1", python = "<3.11"}
 mypy = "^1.16.0"
 pytest-cov = "^6.2.1"
 
@@ -93,12 +94,19 @@ markers = [
     "synthetic: Tests using synthetic data",
     "network: Tests requiring network connectivity",
     "runbooks: Tests involving runbook functionality",
+    "kafka: Tests involving Kafka functionality",
+    "missing-tool: Tests where required tools are unavailable",
     "misleading-history: Tests with misleading historical data",
-    "k8s-misconfig: Tests involving Kubernetes misconfigurations",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
     "understanding-real-intent: Tests that require understanding the user's real intent behind a question, not just giving a technically correct answer that is not useful",
-    "counting: Ask holmes to count kubernetes/cloud resources"
+    "counting: Ask holmes to count kubernetes/cloud resources",
+    "reproducible: Tests with before_test setup that can be reliably reproduced",
+    "kubernetes: Tests for Kubernetes-specific troubleshooting scenarios",
+    "hard: Tests that are hard and holmes does not pass today",
+    "easy: Tests that are supposed to pass - if these fail, it indicates a regression",
+    "missing-tool: Verify holmes knows how to communicate this to the user",
+    "kafka: Tests involving Kafka functionality"
 ]
 
 addopts = [

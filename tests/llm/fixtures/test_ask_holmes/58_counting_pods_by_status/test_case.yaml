@@ -10,3 +10,4 @@ evaluation:
   correctness: 0
 tags:
   - counting
+  - reproducible
