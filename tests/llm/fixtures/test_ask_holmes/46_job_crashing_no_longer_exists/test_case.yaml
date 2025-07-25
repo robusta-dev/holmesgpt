@@ -2,10 +2,8 @@ user_prompt: "What is the issue with job typescript-transpiler in namespace `ts-
 tags:
   - logs
   - reproducible
-  # this eval makes no sense, holmes can't possibly know the answer unless its connected to an external logs source
-  # we need to add an external logs source for this eval, then re-enable it and it will be a great test for cases
-  # where job is no longer in cluster but we have persistent logs and can answer anyway
-  - skip
+skip: true
+skip_reason: "This eval makes no sense - Holmes can't possibly know the answer unless it's connected to an external logs source. We need to add an external logs source for this eval, then re-enable it and it will be a great test for cases where job is no longer in cluster but we have persistent logs and can answer anyway"
 expected_output:
   - failure to connect to the database at `prod-db:3333`
 before_test: |
