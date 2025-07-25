@@ -80,7 +80,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: flaky-service-1
+  name: batch-processor-1
   namespace: test-60
 spec:
   restartPolicy: Always
@@ -92,7 +92,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: flaky-service-2
+  name: batch-processor-2
   namespace: test-60
 spec:
   restartPolicy: Always
@@ -104,7 +104,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: flaky-worker-1
+  name: data-analyzer-1
   namespace: test-60
 spec:
   restartPolicy: Always
@@ -116,7 +116,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: flaky-worker-2
+  name: data-analyzer-2
   namespace: test-60
 spec:
   restartPolicy: Always

@@ -28,11 +28,10 @@ spec:
           readOnly: true
         resources:
           requests:
-            memory: "32Mi"
-            cpu: "50m"
+            memory: "64Mi"
+            cpu: "10m"
           limits:
-            memory: "32Mi"
-            cpu: "50m"
+            memory: "64Mi"
       volumes:
       - name: app-code
         secret:

@@ -36,8 +36,8 @@ spec:
           value: "100"
         resources:
           requests:
-            memory: "128Mi"
+            memory: "64Mi"
             cpu: "10m"
           limits:
-            memory: "128Mi"
+            memory: "64Mi"
       restartPolicy: Always
