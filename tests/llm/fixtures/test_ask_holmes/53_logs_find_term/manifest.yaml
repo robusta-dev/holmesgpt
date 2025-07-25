@@ -22,6 +22,7 @@ spec:
     spec:
       containers:
       - name: main-container
+
         image: us-central1-docker.pkg.dev/genuine-flight-317411/devel/multiple-errors-in-logs:v1
         imagePullPolicy: Always
         env:
@@ -35,9 +36,8 @@ spec:
           value: "100"
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
+            memory: "128Mi"
+            cpu: "10m"
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "128Mi"
       restartPolicy: Always

@@ -22,3 +22,5 @@ generate_mocks: True
 tags:
   - logs
   - reproducible
+  # Hardcoded error messages in deployment spec reveal exactly what errors will occur
+  - leaked-information

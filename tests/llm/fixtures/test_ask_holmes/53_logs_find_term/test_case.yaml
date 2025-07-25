@@ -3,6 +3,8 @@ tags:
   - logs
   - reproducible
   - easy
+  # Image name "multiple-errors-in-logs:v1" and env vars like SHOW_DB_ERRORS reveal the problem
+  - leaked-information
 expected_output: |
   A summary with the following errors in whichever order:
     1. DB query issues due to a syntax error

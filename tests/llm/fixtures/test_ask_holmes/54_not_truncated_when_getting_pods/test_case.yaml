@@ -9,3 +9,5 @@ evaluation:
 
 tags:
   - reproducible
+  # Pod name "fast-fail-pod" reveals it's expected to fail
+  - leaked-information
