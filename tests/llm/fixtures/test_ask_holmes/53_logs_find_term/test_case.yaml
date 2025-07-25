@@ -2,6 +2,7 @@ user_prompt: "Find 'query failed' in the logs of my-app-53"
 tags:
   - logs
   - reproducible
+  - easy
 expected_output: |
   A summary with the following errors in whichever order:
     1. DB query issues due to a syntax error
@@ -9,4 +10,4 @@ expected_output: |
 before_test: kubectl apply -f ./manifest.yaml && sleep 60
 after_test: kubectl delete -f ./manifest.yaml
 evaluation:
-  correctness: 0
+  correctness: 1
