@@ -874,6 +874,29 @@ class KubernetesLogsTool(Tool):
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
             
+            # First check if the pod exists and get its status
+            try:
+                pod_info = core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
+                logger.info(f"🔍 Pod status: {pod_info.status.phase}")
+                
+                # Check if pod is ready for logs
+                if pod_info.status.phase not in ['Running', 'Succeeded', 'Failed']:
+                    return f"Pod '{pod_name}' is in '{pod_info.status.phase}' state. Logs may not be available yet."
+                
+                # Check container status
+                if pod_info.status.container_statuses:
+                    ready_containers = [cs for cs in pod_info.status.container_statuses if cs.ready]
+                    if not ready_containers:
+                        return f"Pod '{pod_name}' exists but no containers are ready. Container statuses: {[cs.state for cs in pod_info.status.container_statuses]}"
+                
+            except ApiException as pod_e:
+                if pod_e.status == 404:
+                    return f"Pod '{pod_name}' not found in namespace '{namespace}'"
+                elif pod_e.status == 403:
+                    return f"Access to pod '{pod_name}' in namespace '{namespace}' is forbidden. Check permissions."
+                else:
+                    logger.warning(f"🔍 Could not check pod status: {pod_e.status} - {pod_e.reason}")
+            
             # Build API parameters
             kwargs = {}
             
@@ -912,7 +935,7 @@ class KubernetesLogsTool(Tool):
             elif e.status == 410: # Gone
                 return f"Pod '{pod_name}' in namespace '{namespace}' is gone. It might have been deleted."
             elif e.status == 400: # Bad Request
-                return f"Bad request for pod '{pod_name}' in namespace '{namespace}'. This might be due to invalid parameters or the pod not being ready."
+                return f"Bad request for pod '{pod_name}' in namespace '{namespace}'. This might be due to invalid parameters or the pod not being ready. Try without the 'previous' parameter or check if the pod has any previous instances."
             else:
                 return f"API error fetching logs: {e.reason}"
         except Exception as e:
@@ -1103,15 +1126,92 @@ class KubernetesEventsTool(Tool):
             
             logger.info(f"🔍 Created Kubernetes client, fetching events...")
             
-            # Execute command
-            if namespace:
-                result = events_api.list_namespaced_event(namespace=namespace, watch=False)
-            else:
-                result = events_api.list_event_for_all_namespaces(watch=False)
+            # Execute command with error handling for None event_time values
+            try:
+                if namespace:
+                    result = events_api.list_namespaced_event(namespace=namespace, watch=False)
+                else:
+                    result = events_api.list_event_for_all_namespaces(watch=False)
+                logger.info(f"🔍 Retrieved {len(result.items)} events from API")
+            except ValueError as ve:
+                if "event_time" in str(ve) and "must not be 'None'" in str(ve):
+                    logger.warning(f"🔍 Kubernetes API returned events with None event_time, using raw API call")
+                    # Use raw API call to bypass model validation
+                    if namespace:
+                        api_response = k8s_client.call_api(
+                            '/api/v1/namespaces/{namespace}/events',
+                            'GET',
+                            path_params={'namespace': namespace},
+                            query_params=[('watch', False)]
+                        )
+                    else:
+                        api_response = k8s_client.call_api(
+                            '/api/v1/events',
+                            'GET',
+                            query_params=[('watch', False)]
+                        )
+                    
+                    # Manually process the raw response
+                    raw_events = api_response[0].get('items', [])
+                    logger.info(f"🔍 Retrieved {len(raw_events)} events from raw API")
+                    
+                    # Convert raw events to our format
+                    events_list = []
+                    for i, raw_event in enumerate(raw_events):
+                        try:
+                            logger.debug(f"🔍 Processing raw event {i+1}/{len(raw_events)}")
+                            event_info = {
+                                "type": raw_event.get('type', 'Unknown'),
+                                "reason": raw_event.get('reason', 'Unknown'),
+                                "message": raw_event.get('message', 'No message'),
+                                "count": raw_event.get('count', 0),
+                                "first_timestamp": raw_event.get('firstTimestamp', 'Unknown'),
+                                "last_timestamp": raw_event.get('lastTimestamp', 'Unknown'),
+                                "involved_object": raw_event.get('involvedObject', {})
+                            }
+                            events_list.append(event_info)
+                        except Exception as event_error:
+                            logger.warning(f"🔍 Failed to process raw event {i+1}: {event_error}")
+                            events_list.append({
+                                "type": "Unknown",
+                                "reason": "EventProcessingError",
+                                "message": f"Failed to process event: {str(event_error)}",
+                                "count": 1,
+                                "first_timestamp": "Unknown",
+                                "last_timestamp": "Unknown",
+                                "involved_object": None
+                            })
+                    
+                    # Filter events if resource_type and resource_name are specified
+                    if resource_type and resource_name:
+                        filtered_events = []
+                        for event in events_list:
+                            involved_obj = event.get("involved_object", {})
+                            if (involved_obj and 
+                                involved_obj.get("kind", "").lower() == resource_type.lower() and
+                                involved_obj.get("name", "") == resource_name):
+                                filtered_events.append(event)
+                        events_list = filtered_events
+                        logger.info(f"🔍 Filtered to {len(events_list)} events for {resource_type}/{resource_name}")
+                    
+                    # Format output
+                    if output_format == 'json':
+                        return json.dumps(events_list, indent=2)
+                    elif output_format == 'yaml':
+                        return yaml.dump(events_list, default_flow_style=False)
+                    else:
+                        formatted_events = []
+                        for event in events_list:
+                            formatted_events.append(
+                                f"Type: {event['type']}, Reason: {event['reason']}, "
+                                f"Message: {event['message']}, Count: {event['count']}, "
+                                f"First: {event['first_timestamp']}, Last: {event['last_timestamp']}"
+                            )
+                        return "\n".join(formatted_events) if formatted_events else "No events found"
+                else:
+                    raise ve
             
-            logger.info(f"🔍 Retrieved {len(result.items)} events from API")
-            
-            # Convert to string representation
+            # Convert to string representation (original path for valid events)
             events_list = []
             for i, event in enumerate(result.items):
                 try:
