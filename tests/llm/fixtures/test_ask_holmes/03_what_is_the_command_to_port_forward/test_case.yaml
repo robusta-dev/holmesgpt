@@ -4,9 +4,9 @@ expected_output:
   - Must include the correct port (3000)
   - "Full kubectl port-forward command like: kubectl port-forward -n app-03 grafana-7f8b9c6d5-x2m4n 3000:3000"
   - Should NOT just say "find grafana in your cluster" or give generic instructions
-evaluation:
-  correctness: 1
-
+tags:
+  - kubernetes
+  - easy
 before_test: |
   kubectl create namespace app-03
   cat <<EOF | kubectl apply -f -

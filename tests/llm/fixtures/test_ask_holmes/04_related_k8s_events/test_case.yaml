@@ -9,6 +9,6 @@ before_test: |
   sleep 30
 after_test: |
   kubectl delete -f manifest.yaml
-tags: []
-evaluation:
-  correctness: 1
+tags:
+  - easy
+  - kubernetes
