@@ -1,3 +1,8 @@
+---
+update_date: 2025-07-24
+description: Runbook to diagnose and resolve Kubernetes pod scheduling failures (Pending pods, FailedScheduling events)
+---
+
 # Kubernetes Pod Scheduling Failure Runbook
 
 ## Initial Assessment
