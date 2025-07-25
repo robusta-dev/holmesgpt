@@ -10,6 +10,7 @@ from kubernetes.client.rest import ApiException
 from kubernetes.config import kube_config
 from kubernetes.config.kube_config import KubeConfigLoader
 import base64
+import json
 
 from holmes.core.tools import (
     Toolset, Tool, ToolsetTag, CallablePrerequisite, ToolParameter, 
@@ -871,33 +872,31 @@ class KubernetesLogsTool(Tool):
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
             
-            # Build kubectl command arguments
-            cmd_args = ['logs', pod_name, '-n', namespace]
+            # Build API parameters
+            kwargs = {}
             
             if container:
-                cmd_args.extend(['-c', container])
+                kwargs['container'] = container
             
             if previous:
-                cmd_args.append('--previous')
+                kwargs['previous'] = True
             
-            if tail:
-                cmd_args.extend(['--tail', str(tail)])
-            
-            if since:
-                cmd_args.extend(['--since', since])
-
-            # Execute command
-            kwargs = {'follow': False}
             if tail:
                 kwargs['tail_lines'] = tail
+            
             if since:
                 since_seconds = self._parse_since_seconds(since)
                 if since_seconds:
                     kwargs['since_seconds'] = since_seconds
             
-            result = core_api.read_namespaced_pod_log(name=pod_name, namespace=namespace, **kwargs)
+            # Execute API call
+            result = core_api.read_namespaced_pod_log(
+                name=pod_name, 
+                namespace=namespace, 
+                **kwargs
+            )
             
-            return result
+            return result if result else "No logs available"
             
         except ApiException as e:
             if e.status == 404:
@@ -906,6 +905,8 @@ class KubernetesLogsTool(Tool):
                 return f"Access to logs for pod '{pod_name}' in namespace '{namespace}' is forbidden. Check permissions."
             elif e.status == 410: # Gone
                 return f"Pod '{pod_name}' in namespace '{namespace}' is gone. It might have been deleted."
+            elif e.status == 400: # Bad Request
+                return f"Bad request for pod '{pod_name}' in namespace '{namespace}'. This might be due to invalid parameters or the pod not being ready."
             else:
                 return f"API error fetching logs: {e.reason}"
         except Exception as e:
@@ -1092,22 +1093,6 @@ class KubernetesEventsTool(Tool):
             core_api = client.CoreV1Api(k8s_client)
             events_api = client.EventsV1Api(k8s_client)
             
-            cmd_args = ['get', 'events']
-            
-            if output_format == 'json':
-                cmd_args.append('-o', 'json')
-            elif output_format == 'yaml':
-                cmd_args.append('-o', 'yaml')
-            
-            if namespace:
-                cmd_args.extend(['-n', namespace])
-                if resource_type and resource_name:
-                    cmd_args.extend(['--for', f'{resource_type}/{resource_name}'])
-            else:
-                cmd_args.append('-A')
-                if resource_type and resource_name:
-                    cmd_args.extend(['--for', f'{resource_type}/{resource_name}'])
-
             # Execute command
             if namespace:
                 result = events_api.list_namespaced_event(namespace=namespace, watch=False)
@@ -1117,22 +1102,58 @@ class KubernetesEventsTool(Tool):
             # Convert to string representation
             events_list = []
             for event in result.items:
-                event_info = {
-                    "type": event.type,
-                    "reason": event.reason,
-                    "message": event.message,
-                    "count": event.count,
-                    "first_timestamp": str(event.first_timestamp) if event.first_timestamp else None,
-                    "last_timestamp": str(event.last_timestamp) if event.last_timestamp else None,
-                    "involved_object": {
-                        "kind": event.involved_object.kind,
-                        "name": event.involved_object.name,
-                        "namespace": event.involved_object.namespace
-                    } if event.involved_object else None
-                }
-                events_list.append(event_info)
+                try:
+                    event_info = {
+                        "type": getattr(event, 'type', 'Unknown'),
+                        "reason": getattr(event, 'reason', 'Unknown'),
+                        "message": getattr(event, 'message', 'No message'),
+                        "count": getattr(event, 'count', 0),
+                        "first_timestamp": str(event.first_timestamp) if event.first_timestamp else "Unknown",
+                        "last_timestamp": str(event.last_timestamp) if event.last_timestamp else "Unknown",
+                        "involved_object": {
+                            "kind": event.involved_object.kind,
+                            "name": event.involved_object.name,
+                            "namespace": event.involved_object.namespace
+                        } if event.involved_object else None
+                    }
+                    events_list.append(event_info)
+                except Exception as event_error:
+                    logger.warning(f"Failed to process event: {event_error}")
+                    # Add a basic event entry if processing fails
+                    events_list.append({
+                        "type": "Unknown",
+                        "reason": "EventProcessingError",
+                        "message": f"Failed to process event: {str(event_error)}",
+                        "count": 1,
+                        "first_timestamp": "Unknown",
+                        "last_timestamp": "Unknown",
+                        "involved_object": None
+                    })
             
-            return str(events_list)
+            # Filter events if resource_type and resource_name are specified
+            if resource_type and resource_name:
+                filtered_events = []
+                for event in events_list:
+                    if (event.get("involved_object") and 
+                        event["involved_object"].get("kind", "").lower() == resource_type.lower() and
+                        event["involved_object"].get("name", "") == resource_name):
+                        filtered_events.append(event)
+                events_list = filtered_events
+            
+            if output_format == 'json':
+                return json.dumps(events_list, indent=2)
+            elif output_format == 'yaml':
+                return yaml.dump(events_list, default_flow_style=False)
+            else:
+                # Format as readable text
+                formatted_events = []
+                for event in events_list:
+                    formatted_events.append(
+                        f"Type: {event['type']}, Reason: {event['reason']}, "
+                        f"Message: {event['message']}, Count: {event['count']}, "
+                        f"First: {event['first_timestamp']}, Last: {event['last_timestamp']}"
+                    )
+                return "\n".join(formatted_events) if formatted_events else "No events found"
             
         except ApiException as e:
             if e.status == 404:
