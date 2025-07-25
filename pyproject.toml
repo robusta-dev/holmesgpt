@@ -106,7 +106,8 @@ markers = [
     "hard: Tests that are hard and holmes does not pass today",
     "easy: Tests that are supposed to pass - if these fail, it indicates a regression",
     "missing-tool: Verify holmes knows how to communicate this to the user",
-    "kafka: Tests involving Kafka functionality"
+    "kafka: Tests involving Kafka functionality",
+    "skip: Broken or non-reproducible tests"
 ]
 
 addopts = [
