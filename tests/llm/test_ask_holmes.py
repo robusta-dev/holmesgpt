@@ -294,6 +294,7 @@ def ask_holmes(
         test_case_folder=test_case.folder,
         mock_generation_config=mock_generation_config,
         request=request,
+        force_mocks=test_case.force_mocks,
     )
 
     # With the new simplified mock system, mocks are loaded from disk on each tool invocation

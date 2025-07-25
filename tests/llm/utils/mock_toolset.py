@@ -534,10 +534,13 @@ class MockToolsetManager:
         test_case_folder: str,
         mock_generation_config: MockGenerationConfig,
         request: pytest.FixtureRequest = None,
+        force_mocks: bool = False,
     ):
         self.test_case_folder = test_case_folder
         self.request = request
         self.mode = mock_generation_config.mode
+        if force_mocks:
+            self.mode = MockMode.MOCK
 
         # Initialize components
         self.file_manager = MockFileManager(test_case_folder)

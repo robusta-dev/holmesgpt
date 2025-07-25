@@ -49,6 +49,7 @@ class MockConfig(Config):
         mock = MockToolsetManager(
             test_case_folder=self._test_case.folder,
             mock_generation_config=self._mock_generation_config,
+            force_mocks=self._test_case.force_mocks,
         )
 
         # With the new file-based mock system, mocks are loaded from disk automatically
