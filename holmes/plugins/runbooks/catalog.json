@@ -14,6 +14,11 @@
       "update_date": "2025-07-24",
       "description": "Runbook to diagnose and resolve Kubernetes pod scheduling failures (Pending pods, FailedScheduling events)",
       "link": "kubernetes/pod_scheduling_failures_instructions.md"
+    },
+    {
+      "update_date": "2025-07-25",
+      "description": "Runbook to troubleshoot Kubernetes replica mismatch issues (deployment replica failures, scaling problems)",
+      "link": "kubernetes/replica_mismatch_troubleshooting.md"
     }
   ]
 }

@@ -1,0 +1,232 @@
+description: |
+  Test case similar to node affinity/zone constraint examples but with node taints.
+  Uses deployment requiring specific zone (like runbook examples) but with 4 replicas,
+  and the actual issue is missing tolerations for node taints, not zone constraints.
+  Tests that LLM identifies the real scheduling constraint.
+
+instructions: |
+  The user will ask about a deployment that requires zone-specific placement.
+  While the deployment has zone requirements, the actual issue preventing scheduling is node taints.
+  Don't assume it's purely a zone issue - check all scheduling constraints.
+
+mocks:
+  kubectl_get_pods_database_production:
+    command_type: kubectl
+    command: get pods -n production -l app=database-primary -o wide
+    output: |
+      NAME                                READY   STATUS    RESTARTS   AGE   IP       NODE     NOMINATED NODE   READINESS GATES
+      database-primary-6d4b7c8f9d-2wxyz   0/1     Pending   0          6m    <none>   <none>   <none>           <none>
+      database-primary-6d4b7c8f9d-4mnop   0/1     Pending   0          6m    <none>   <none>   <none>           <none>
+      database-primary-6d4b7c8f9d-6qrst   0/1     Pending   0          6m    <none>   <none>   <none>           <none>
+      database-primary-6d4b7c8f9d-8uvwx   0/1     Pending   0          6m    <none>   <none>   <none>           <none>
+
+  kubectl_describe_pod_database_pending:
+    command_type: kubectl
+    command: describe pod database-primary-6d4b7c8f9d-2wxyz -n production
+    output: |
+      Name:             database-primary-6d4b7c8f9d-2wxyz
+      Namespace:        production
+      Priority:         0
+      Service Account:  default
+      Node:             <none>
+      Labels:           app=database-primary
+                        pod-template-hash=6d4b7c8f9d
+      Status:           Pending
+      IP:
+      IPs:              <none>
+      Controlled By:    ReplicaSet/database-primary-6d4b7c8f9d
+      Containers:
+        postgres:
+          Image:      postgres:14-alpine
+          Port:       5432/TCP
+          Host Port:  0/TCP
+          Requests:
+            cpu:     500m
+            memory:  2Gi
+          Environment:
+            POSTGRES_DB:       maindb
+            POSTGRES_USER:     dbadmin
+          Mounts:
+            /var/lib/postgresql/data from postgres-storage (rw)
+            /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-xxxxx (ro)
+      Conditions:
+        Type           Status
+        PodScheduled   False
+      Volumes:
+        postgres-storage:
+          Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+          ClaimName:  postgres-pvc-us-east-1a
+          ReadOnly:   false
+        kube-api-access-xxxxx:
+          Type:                    Projected (a volume that contains injected data from multiple sources)
+          TokenExpirationSeconds:  3607
+          ConfigMapName:           kube-root-ca.crt
+          ConfigMapOptional:       <nil>
+          DownwardAPI:             true
+      QoS Class:                   Burstable
+      Node-Selectors:              <none>
+      Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                                   node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+      Topology Spread Constraints:
+        topology.kubernetes.io/zone:ScheduleAnyway when max skew 1 is exceeded for selector app=database-primary
+      Events:
+        Type     Reason            Age                 From               Message
+        ----     ------            ----                ----               -------
+        Warning  FailedScheduling  1m (x26 over 6m)    default-scheduler  0/5 nodes are available: 2 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 3 node(s) had untolerated taint {dedicated: database}. preemption: 0/5 nodes are available: 5 Preemption is not helpful for scheduling.
+
+  kubectl_get_nodes_show_taints:
+    command_type: kubectl
+    command: get nodes -o wide
+    output: |
+      NAME         STATUS   ROLES           AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION   CONTAINER-RUNTIME
+      control-01   Ready    control-plane   90d   v1.28.2   10.0.1.10     <none>        Ubuntu 22.04.3 LTS   5.15.0-88        containerd://1.7.2
+      control-02   Ready    control-plane   90d   v1.28.2   10.0.1.11     <none>        Ubuntu 22.04.3 LTS   5.15.0-88        containerd://1.7.2
+      worker-01    Ready    <none>          90d   v1.28.2   10.0.2.10     <none>        Ubuntu 22.04.3 LTS   5.15.0-88        containerd://1.7.2
+      worker-02    Ready    <none>          90d   v1.28.2   10.0.2.11     <none>        Ubuntu 22.04.3 LTS   5.15.0-88        containerd://1.7.2
+      worker-03    Ready    <none>          90d   v1.28.2   10.0.2.12     <none>        Ubuntu 22.04.3 LTS   5.15.0-88        containerd://1.7.2
+
+  kubectl_describe_nodes_taints:
+    command_type: kubectl
+    command: describe nodes
+    output: |
+      Name:               control-01
+      Roles:              control-plane
+      Labels:             topology.kubernetes.io/zone=us-east-1a
+      Taints:             node-role.kubernetes.io/control-plane:NoSchedule
+
+      Name:               control-02
+      Roles:              control-plane
+      Labels:             topology.kubernetes.io/zone=us-east-1b
+      Taints:             node-role.kubernetes.io/control-plane:NoSchedule
+
+      Name:               worker-01
+      Roles:              <none>
+      Labels:             topology.kubernetes.io/zone=us-east-1a
+                          node-type=database
+      Taints:             dedicated=database:NoSchedule
+      Capacity:
+        cpu:                4
+        memory:             16Gi
+      Allocatable:
+        cpu:                3800m
+        memory:             15Gi
+      Allocated resources:
+        Resource           Requests    Limits
+        --------           --------    ------
+        cpu                800m (21%)  1600m (42%)
+        memory             4Gi (27%)   8Gi (53%)
+
+      Name:               worker-02
+      Roles:              <none>
+      Labels:             topology.kubernetes.io/zone=us-east-1a
+                          node-type=database
+      Taints:             dedicated=database:NoSchedule
+      Capacity:
+        cpu:                4
+        memory:             16Gi
+      Allocatable:
+        cpu:                3800m
+        memory:             15Gi
+      Allocated resources:
+        Resource           Requests    Limits
+        --------           --------    ------
+        cpu                600m (15%)  1200m (31%)
+        memory             3Gi (20%)   6Gi (40%)
+
+      Name:               worker-03
+      Roles:              <none>
+      Labels:             topology.kubernetes.io/zone=us-east-1b
+                          node-type=database
+      Taints:             dedicated=database:NoSchedule
+      Capacity:
+        cpu:                4
+        memory:             16Gi
+      Allocatable:
+        cpu:                3800m
+        memory:             15Gi
+      Allocated resources:
+        Resource           Requests    Limits
+        --------           --------    ------
+        cpu                1000m (26%) 2000m (52%)
+        memory             5Gi (33%)   10Gi (66%)
+
+  kubectl_get_deployments_production:
+    command_type: kubectl
+    command: get deployments -n production
+    output: |
+      NAME               READY   UP-TO-DATE   AVAILABLE   AGE
+      database-primary   0/4     4            0           6m
+      app-server         5/5     5            5           2d
+      cache              3/3     3            3           5d
+
+  kubectl_describe_deployment_database:
+    command_type: kubectl
+    command: describe deployment database-primary -n production
+    output: |
+      Name:                   database-primary
+      Namespace:              production
+      CreationTimestamp:      Thu, 25 Jul 2025 11:00:00 +0000
+      Labels:                 app=database-primary
+      Annotations:            deployment.kubernetes.io/revision: 1
+      Selector:               app=database-primary
+      Replicas:               4 desired | 4 updated | 4 total | 0 available | 4 unavailable
+      StrategyType:           RollingUpdate
+      MinReadySeconds:        0
+      RollingUpdateStrategy:  25% max unavailable, 25% max surge
+      Pod Template:
+        Labels:  app=database-primary
+        Containers:
+         postgres:
+          Image:      postgres:14-alpine
+          Port:       5432/TCP
+          Host Port:  0/TCP
+          Requests:
+            cpu:     500m
+            memory:  2Gi
+          Environment:
+            POSTGRES_DB:    maindb
+            POSTGRES_USER:  dbadmin
+          Mounts:
+            /var/lib/postgresql/data from postgres-storage (rw)
+        Volumes:
+         postgres-storage:
+          Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+          ClaimName:  postgres-pvc-us-east-1a
+          ReadOnly:   false
+      Conditions:
+        Type           Status  Reason
+        ----           ------  ------
+        Available      False   MinimumReplicasUnavailable
+        Progressing    False   ProgressDeadlineExceeded
+      OldReplicaSets:  <none>
+      NewReplicaSet:   database-primary-6d4b7c8f9d (4/4 replicas created)
+
+  kubectl_get_pvc_production:
+    command_type: kubectl
+    command: get pvc -n production
+    output: |
+      NAME                      STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+      postgres-pvc-us-east-1a   Bound    pvc-12345678-1234-1234-1234-123456789abc   50Gi       RWO            gp3            7d
+
+user_question: "The database-primary deployment in production isn't starting. It's using zone-aware storage in us-east-1a. What's wrong?"
+
+expected_output: |
+  The issue should be identified as missing tolerations for node taints, not just zone constraints.
+  The output should mention:
+  - 0/4 replicas running (not a different count from runbook examples)
+  - All 4 pods are Pending for 6+ minutes
+  - Root cause: Pods cannot tolerate the "dedicated=database:NoSchedule" taint
+  - 3 worker nodes have the required zone (us-east-1a) and are labeled for database workloads
+  - These nodes have sufficient resources but require toleration for the taint
+  - The deployment is missing the toleration in its pod spec
+  - Remediation should focus on adding the toleration, not zone constraints
+
+judge_question: |
+  Did the assistant correctly identify that the issue is missing tolerations for the "dedicated=database" taint?
+  Did they recognize that while the deployment has zone requirements (PVC in us-east-1a), the actual scheduling failure is due to taints?
+  Did they provide appropriate remediation steps for adding tolerations to the deployment?
+
+judge_options:
+  - correct
+  - partial
+  - incorrect
