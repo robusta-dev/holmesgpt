@@ -35,16 +35,20 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase, tracer, mock_generation_config):
+    def __init__(
+        self, test_case: InvestigateTestCase, tracer, request, mock_generation_config
+    ):
         super().__init__()
         self._test_case = test_case
         self._tracer = tracer
+        self._request = request
         self._mock_generation_config = mock_generation_config
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         mock = MockToolsetManager(
             test_case_folder=self._test_case.folder,
             mock_generation_config=self._mock_generation_config,
+            request=self._request,
         )
 
         # With the new file-based mock system, mocks are loaded from disk automatically
@@ -124,7 +128,7 @@ def test_investigate(
         metadata=braintrust_util.get_machine_state_tags(),
     )
 
-    config = MockConfig(test_case, tracer, mock_generation_config)
+    config = MockConfig(test_case, tracer, request, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
 
     mock_dal = MockSupabaseDal(
