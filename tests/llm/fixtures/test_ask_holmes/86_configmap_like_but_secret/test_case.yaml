@@ -4,164 +4,28 @@ description: |
   instead of 5, and the root cause is a missing Secret instead of ConfigMap.
   Tests that LLM actually diagnoses the issue rather than pattern matching.
 
-instructions: |
-  The user will ask about a frontend deployment issue. You need to investigate why replicas are failing.
-  Look for the actual root cause - don't assume it's a ConfigMap issue just because it's a frontend deployment.
-
-mocks:
-  kubectl_get_pods_frontend_production:
-    command_type: kubectl
-    command: get pods -n production -l app=frontend -o wide
-    output: |
-      NAME                        READY   STATUS                       RESTARTS   AGE     IP             NODE         NOMINATED NODE   READINESS GATES
-      frontend-5d8b7c6f9b-2kxlm   1/1     Running                      0          45m     10.244.1.15    node-01      <none>           <none>
-      frontend-5d8b7c6f9b-4mnpq   1/1     Running                      0          45m     10.244.2.18    node-02      <none>           <none>
-      frontend-5d8b7c6f9b-7hjkl   1/1     Running                      0          45m     10.244.3.21    node-03      <none>           <none>
-      frontend-5d8b7c6f9b-9rstw   0/1     CreateContainerConfigError   0          12m     10.244.1.22    node-01      <none>           <none>
-      frontend-5d8b7c6f9b-bcdxy   0/1     CreateContainerConfigError   0          12m     10.244.2.25    node-02      <none>           <none>
-      frontend-5d8b7c6f9b-fghij   0/1     CreateContainerConfigError   0          12m     10.244.3.28    node-03      <none>           <none>
-      frontend-5d8b7c6f9b-lmnop   0/1     CreateContainerConfigError   0          12m     10.244.1.31    node-01      <none>           <none>
-
-  kubectl_describe_pod_frontend_production:
-    command_type: kubectl
-    command: describe pod frontend-5d8b7c6f9b-9rstw -n production
-    output: |
-      Name:             frontend-5d8b7c6f9b-9rstw
-      Namespace:        production
-      Priority:         0
-      Service Account:  default
-      Node:             node-01/10.0.1.10
-      Start Time:       Thu, 25 Jul 2025 10:15:00 +0000
-      Labels:           app=frontend
-                        pod-template-hash=5d8b7c6f9b
-      Status:           Pending
-      IP:               10.244.1.22
-      IPs:
-        IP:           10.244.1.22
-      Controlled By:    ReplicaSet/frontend-5d8b7c6f9b
-      Containers:
-        frontend:
-          Container ID:
-          Image:          company.io/frontend:v3.2.1
-          Image ID:
-          Port:           8080/TCP
-          Host Port:      0/TCP
-          State:          Waiting
-            Reason:       CreateContainerConfigError
-          Ready:          False
-          Restart Count:  0
-          Environment:
-            PORT:  8080
-          Mounts:
-            /etc/app-secrets from api-credentials (ro)
-            /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-xxxxx (ro)
-      Conditions:
-        Type              Status
-        Initialized       True
-        Ready             False
-        ContainersReady   False
-        PodScheduled      True
-      Volumes:
-        api-credentials:
-          Type:       Secret (a volume populated by a Secret)
-          SecretName: frontend-api-keys
-          Optional:   false
-        kube-api-access-xxxxx:
-          Type:                    Projected (a volume that contains injected data from multiple sources)
-          TokenExpirationSeconds:  3607
-          ConfigMapName:           kube-root-ca.crt
-          ConfigMapOptional:       <nil>
-          DownwardAPI:             true
-      QoS Class:                   BestEffort
-      Node-Selectors:              <none>
-      Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
-                                   node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
-      Events:
-        Type     Reason       Age                   From               Message
-        ----     ------       ----                  ----               -------
-        Normal   Scheduled    12m                   default-scheduler  Successfully assigned production/frontend-5d8b7c6f9b-9rstw to node-01
-        Warning  Failed       11m (x8 over 12m)     kubelet            Error: secret "frontend-api-keys" not found
-        Normal   Pulled       2m15s (x50 over 12m)  kubelet            Container image "company.io/frontend:v3.2.1" already present on machine
-
-  kubectl_get_deployments_production:
-    command_type: kubectl
-    command: get deployments -n production
-    output: |
-      NAME       READY   UP-TO-DATE   AVAILABLE   AGE
-      frontend   3/7     7            3           45m
-      backend    5/5     5            5           2d
-      database   3/3     3            3           5d
-
-  kubectl_get_secrets_production:
-    command_type: kubectl
-    command: get secrets -n production
-    output: |
-      NAME                  TYPE                                  DATA   AGE
-      backend-api-keys      Opaque                                3      2d
-      database-credentials  Opaque                                2      5d
-      default-token-xxxxx   kubernetes.io/service-account-token   3      10d
-      tls-certificates      kubernetes.io/tls                     2      7d
-
-  kubectl_describe_deployment_frontend_production:
-    command_type: kubectl
-    command: describe deployment frontend -n production
-    output: |
-      Name:                   frontend
-      Namespace:              production
-      CreationTimestamp:      Thu, 25 Jul 2025 09:30:00 +0000
-      Labels:                 app=frontend
-      Annotations:            deployment.kubernetes.io/revision: 2
-      Selector:               app=frontend
-      Replicas:               7 desired | 7 updated | 7 total | 3 available | 4 unavailable
-      StrategyType:           RollingUpdate
-      MinReadySeconds:        0
-      RollingUpdateStrategy:  25% max unavailable, 25% max surge
-      Pod Template:
-        Labels:  app=frontend
-        Containers:
-         frontend:
-          Image:      company.io/frontend:v3.2.1
-          Port:       8080/TCP
-          Host Port:  0/TCP
-          Environment:
-            PORT:  8080
-          Mounts:
-            /etc/app-secrets from api-credentials (ro)
-        Volumes:
-         api-credentials:
-          Type:       Secret (a volume populated by a Secret)
-          SecretName: frontend-api-keys
-          Optional:   false
-      Conditions:
-        Type           Status  Reason
-        ----           ------  ------
-        Available      False   MinimumReplicasUnavailable
-        Progressing    True    ReplicaSetUpdated
-      OldReplicaSets:  frontend-6b8d9c5f7d (3/3 replicas created)
-      NewReplicaSet:   frontend-5d8b7c6f9b (7/7 replicas created)
-      Events:
-        Type    Reason             Age   From                   Message
-        ----    ------             ----  ----                   -------
-        Normal  ScalingReplicaSet  45m   deployment-controller  Scaled up replica set frontend-6b8d9c5f7d to 3
-        Normal  ScalingReplicaSet  12m   deployment-controller  Scaled up replica set frontend-5d8b7c6f9b to 7
-
-user_question: "The frontend deployment in production namespace is showing issues. Can you investigate why some replicas are not running?"
+user_prompt: "The frontend deployment in production namespace is showing issues. Can you investigate why some replicas are not running?"
 
 expected_output: |
-  The issue should be identified as a missing Secret mount (frontend-api-keys), not a ConfigMap issue.
+  The issue should be identified as a missing Secret mount (frontend-api-keys),
   The output should mention:
-  - 3/7 replicas running (not 2/5 like in the runbook example)
+  - 3/7 replicas running
   - 4 replicas in CreateContainerConfigError state
   - Root cause: Secret "frontend-api-keys" not found
   - The deployment expects this secret to be mounted at /etc/app-secrets
   - Remediation should suggest creating the missing secret or checking if it was deleted
 
-judge_question: |
-  Did the assistant correctly identify that the issue is a missing Secret (frontend-api-keys) rather than a ConfigMap?
-  Did they report the correct replica count (3/7) and not pattern match to the runbook example (2/5)?
-  Did they provide appropriate remediation steps for a missing Secret?
+before_test: |
+  kubectl apply -f manifest.yaml
+  sleep 30
 
-judge_options:
-  - correct
-  - partial
-  - incorrect
+after_test: |
+  kubectl delete -f manifest.yaml
+
+evaluation:
+  correctness: 1
+
+tags:
+  - kubernetes
+  - reproducible
+  - easy

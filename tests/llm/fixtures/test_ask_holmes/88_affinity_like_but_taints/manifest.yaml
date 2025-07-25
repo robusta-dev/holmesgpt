@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: production
+  name: production-88
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc-us-east-1a
-  namespace: production
+  namespace: production-88
 spec:
   accessModes:
     - ReadWriteOnce
@@ -20,7 +20,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: database-primary
-  namespace: production
+  namespace: production-88
 spec:
   replicas: 4
   selector:
@@ -52,8 +52,8 @@ spec:
           value: supersecret
         resources:
           requests:
-            memory: "2Gi"
-            cpu: "500m"
+            memory: "64Mi"
+            cpu: "10m"
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
@@ -67,7 +67,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app-server
-  namespace: production
+  namespace: production-88
 spec:
   replicas: 5
   selector:
@@ -83,14 +83,16 @@ spec:
         image: app:v1.0
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "200m"
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cache
-  namespace: production
+  namespace: production-88
 spec:
   replicas: 3
   selector:
@@ -106,5 +108,7 @@ spec:
         image: redis:7-alpine
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"

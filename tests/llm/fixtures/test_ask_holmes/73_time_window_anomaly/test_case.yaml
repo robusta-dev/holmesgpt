@@ -1,0 +1,19 @@
+user_prompt: "When do issues occur with the scheduler pod in namespace-73?"
+tags:
+  - logs
+  - context_window
+  - reproducible
+  - datetime
+expected_output:
+  - Scheduler pod experiences issues only during 03:00-03:05 time window when it cannot connect to external API possibly due to maintenance window
+before_test: |
+  kubectl create secret generic scheduler-logs-script \
+  --from-file=generate_logs.py=./generate_logs.py \
+  -n namespace-73 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f ./manifest.yaml
+  sleep 50
+after_test: |
+  kubectl delete -f ./manifest.yaml
+  kubectl delete secret scheduler-logs-script -n namespace-73 --ignore-not-found
+evaluation:
+  correctness: 1

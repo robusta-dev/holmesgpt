@@ -3,7 +3,6 @@ kind: Namespace
 metadata:
   name: namespace-78
 ---
-# Resource quota limiting the namespace
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -11,20 +10,19 @@ metadata:
   namespace: namespace-78
 spec:
   hard:
-    requests.cpu: "20m"
-    requests.memory: "40Mi"
-    limits.cpu: "20m"
-    limits.memory: "40Mi"
-    persistentvolumeclaims: "2"
+    requests.cpu: 20m
+    requests.memory: 40Mi
+    limits.cpu: 20m
+    limits.memory: 40Mi
+    persistentvolumeclaims: '2'
 ---
-# Deployment trying to use more resources than quota allows
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-server
   namespace: namespace-78
 spec:
-  replicas: 3  # 3 replicas × 100m CPU = 300m > 200m quota
+  replicas: 3
   selector:
     matchLabels:
       app: api-server
@@ -38,8 +36,7 @@ spec:
         image: nginx:alpine
         resources:
           requests:
-            memory: "30Mi"
-            cpu: "30m"
+            memory: 64Mi
+            cpu: 10m
           limits:
-            memory: "30Mi"
-            cpu: "30m"
+            memory: 64Mi
