@@ -20,6 +20,8 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 
+__all__ = ["MockMode", "MockPolicy", "MockGenerationConfig", "MockToolsetManager"]
+
 
 # Custom exceptions for better error handling
 class MockDataError(Exception):
@@ -64,6 +66,14 @@ class MockMode(Enum):
     MOCK = "mock"  # Use existing mock files
     GENERATE = "generate"  # Generate new mock files
     LIVE = "live"  # Use real tools without mocking
+
+
+class MockPolicy(Enum):
+    """Per-test mock policy that can override global settings."""
+
+    ALWAYS_MOCK = "always_mock"  # Force mock mode regardless of global settings
+    NEVER_MOCK = "never_mock"  # Force live mode regardless of global settings
+    INHERIT = "inherit"  # Use global settings (default)
 
 
 class MockGenerationConfig:
@@ -534,13 +544,27 @@ class MockToolsetManager:
         test_case_folder: str,
         mock_generation_config: MockGenerationConfig,
         request: pytest.FixtureRequest = None,
-        force_mocks: bool = False,
+        mock_policy: str = "inherit",
     ):
         self.test_case_folder = test_case_folder
         self.request = request
-        self.mode = mock_generation_config.mode
-        if force_mocks:
-            self.mode = MockMode.MOCK
+
+        # Determine the effective mode based on mock_policy
+        if mock_policy == MockPolicy.ALWAYS_MOCK.value:
+            # ALWAYS_MOCK forces mock mode unless we're generating mocks
+            # (when generating mocks, ALWAYS_MOCK is ignored - this is used to generate mocks the first time)
+            if mock_generation_config.mode == MockMode.GENERATE:
+                self.mode = MockMode.GENERATE
+            else:
+                self.mode = MockMode.MOCK
+        elif mock_policy == MockPolicy.NEVER_MOCK.value:
+            if mock_generation_config.mode != MockMode.LIVE:
+                pytest.skip(
+                    "Test requires live execution (mock_policy=NEVER_MOCK) but RUN_LIVE is not enabled"
+                )
+            self.mode = MockMode.LIVE
+        else:  # INHERIT or any other value
+            self.mode = mock_generation_config.mode
 
         # Initialize components
         self.file_manager = MockFileManager(test_case_folder)

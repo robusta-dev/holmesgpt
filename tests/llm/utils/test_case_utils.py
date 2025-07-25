@@ -56,7 +56,9 @@ class HolmesTestCase(BaseModel):
     test_env_vars: Optional[Dict[str, str]] = (
         None  # Environment variables to set during test execution
     )
-    force_mocks: Optional[bool] = False  # Whether to force mocks for this test case
+    mock_policy: Optional[str] = (
+        "inherit"  # Mock policy: always_mock, never_mock, or inherit
+    )
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
