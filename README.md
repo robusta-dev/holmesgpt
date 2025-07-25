@@ -46,7 +46,7 @@ HolmesGPT integrates with popular observability and cloud platforms. The followi
 
 ### 🚀 End-to-End Automation
 
-Holmes fetches alerts from Slack/AlertManager/PagerDuty/Jira/GitHub, investigates root causes using your observability tools, and writes solutions back to the original ticket:
+HolmesGPT fetches alerts from Slack/AlertManager/PagerDuty/Jira/GitHub, investigates root causes using your observability tools, and writes solutions back to the original ticket:
 
 | Integration             | Status    | Notes |
 |-------------------------|-----------|-------|
