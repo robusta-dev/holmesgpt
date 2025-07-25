@@ -169,7 +169,6 @@ poetry run pytest -m "llm and not network" --collect-only -q
 - `network`: Network-dependent tests
 - `runbooks`: Runbook functionality
 - `misleading-history`: Misleading data scenarios
-- `k8s-misconfig`: Kubernetes misconfigurations
 - `chain-of-causation`: Causation analysis
 - `slackbot`: Slack integration
 - `counting`: Resource counting tests
