@@ -49,7 +49,7 @@ def test_version_check_outdated():
         assert not result.is_latest
         assert result.current_version == "0.9.0"
         assert result.latest_version == "1.0.0"
-        assert "Update available: v1.0.0 (current: 0.9.0)" in result.update_message
+        assert "Update available: 1.0.0 (current: 0.9.0)" in result.update_message
 
 
 @responses.activate
