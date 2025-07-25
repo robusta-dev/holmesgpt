@@ -9,6 +9,11 @@
       "update_date": "2025-07-08",
       "description": "Runbook to troubleshoot upgrade issues in Azure Kubernetes Service clusters",
       "link": "upgrade/upgrade_troubleshooting_instructions.md"
+    },
+    {
+      "update_date": "2025-07-24",
+      "description": "Runbook to diagnose and resolve Kubernetes pod scheduling failures (Pending pods, FailedScheduling events)",
+      "link": "kubernetes/pod_scheduling_failures_instructions.md"
     }
   ]
 }
