@@ -1,0 +1,11 @@
+user_prompt: "Why is the monitoring-agent getting permission denied errors in namespace-81?"
+tags:
+  - kubernetes
+  - easy
+expected_output:
+  - Monitoring agent getting permission denied because its service account role only has get verb for pods but is missing list verb
+before_test: |
+  kubectl apply -f ./manifest.yaml
+  sleep 30
+after_test: |
+  kubectl delete -f ./manifest.yaml

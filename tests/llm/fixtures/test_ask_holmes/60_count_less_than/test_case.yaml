@@ -6,8 +6,6 @@ before_test: |
   sleep 90
 after_test: |
   kubectl delete -f manifests.yaml --ignore-not-found=true
-evaluation:
-  correctness: 1
 tags:
   - counting
-  - reproducible
+  - medium

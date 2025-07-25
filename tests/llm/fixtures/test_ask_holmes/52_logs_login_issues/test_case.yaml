@@ -1,7 +1,8 @@
 user_prompt: "Find login failures in my-app-52"
 tags:
   - logs
-  - reproducible
+  # Image name "multiple-errors-in-logs:v1" and env vars like SHOW_LOGIN_ERRORS reveal the problem
+  - leaked-information
 expected_output: |
   A summary with the following errors in whichever order:
     1. Login issues due to redis timeouts

@@ -1,7 +1,8 @@
 user_prompt: "Show me the errors in the logs of my-app-51"
 tags:
   - logs
-  - reproducible
+  - easy
+  - leaked-information # image name "multiple-errors-in-logs:v1" and env vars like SHOW_LOGIN_ERRORS reveal the problem
 expected_output: |
   A summary with the following errors in whichever order:
     1. Login issues due to redis timeouts
@@ -10,5 +11,3 @@ expected_output: |
     4. DB query issues due unicity constraint volation
 before_test: kubectl apply -f ./manifest.yaml && sleep 60
 after_test: kubectl delete -f ./manifest.yaml
-evaluation:
-  correctness: 0

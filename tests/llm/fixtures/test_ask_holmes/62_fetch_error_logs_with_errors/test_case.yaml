@@ -16,9 +16,9 @@ expected_output: |
 
 before_test: 'kubectl apply -f ./manifest.yaml'
 after_test: 'kubectl delete -f ./manifest.yaml'
-evaluation:
-  correctness: 1
 generate_mocks: True
 tags:
   - logs
-  - reproducible
+  - easy
+  # Hardcoded error messages in deployment spec reveal exactly what errors will occur
+  - leaked-information
