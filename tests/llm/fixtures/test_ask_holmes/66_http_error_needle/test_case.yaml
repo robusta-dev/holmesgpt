@@ -2,7 +2,6 @@ user_prompt: "Whats wrong with web-server pod in namespace-66"
 tags:
   - logs
   - context_window
-  - reproducible
 expected_output:
   - Database connection timeout error occurred because could not acquire connection from pool after 30s
 before_test: |

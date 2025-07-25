@@ -2,7 +2,6 @@ user_prompt: "What caused the payment-processor pod failures in namespace-68?"
 tags:
   - logs
   - context_window
-  - reproducible
   - chain-of-causation
 expected_output:
   - Payment processor failures caused by cascading failure starting from auth-service losing connection to Redis

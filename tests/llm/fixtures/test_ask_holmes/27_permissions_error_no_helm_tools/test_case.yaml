@@ -8,7 +8,4 @@ expected_output: |
 evaluation:
   correctness: 1
 
-tags:
-  - reproducible
-
 mock_policy: always_mock

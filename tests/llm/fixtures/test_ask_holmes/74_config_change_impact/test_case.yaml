@@ -2,7 +2,6 @@ user_prompt: "Why is the cache-service pod in namespace-74 performing poorly?"
 tags:
   - logs
   - context_window
-  - reproducible
 expected_output:
   - Cache service experiencing performance degradation after configuration reload event
   - Cache hit rate dropped significantly (from ~85% to ~25%)

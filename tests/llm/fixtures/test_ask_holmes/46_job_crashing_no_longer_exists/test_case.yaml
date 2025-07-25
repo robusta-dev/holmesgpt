@@ -1,7 +1,6 @@
 user_prompt: "What is the issue with job typescript-transpiler in namespace `ts-46`"
 tags:
   - logs
-  - reproducible
 skip: true
 skip_reason: "This eval makes no sense - Holmes can't possibly know the answer unless it's connected to an external logs source. We need to add an external logs source for this eval, then re-enable it and it will be a great test for cases where job is no longer in cluster but we have persistent logs and can answer anyway"
 expected_output:

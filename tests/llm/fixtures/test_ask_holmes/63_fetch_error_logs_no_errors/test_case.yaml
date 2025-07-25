@@ -11,5 +11,4 @@ evaluation:
 generate_mocks: True
 tags:
   - logs
-  - reproducible
   - easy

@@ -7,5 +7,4 @@ before_test: |
 after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
 
-tags:
-  - reproducible
+tags: []

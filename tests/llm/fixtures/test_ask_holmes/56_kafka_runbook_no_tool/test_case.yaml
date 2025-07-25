@@ -4,7 +4,6 @@ tags:
   - kafka
   - runbooks
   - missing-tool
-  - reproducible
   - easy
 expected_output: kafka toolset should be enabled
 before_test: |

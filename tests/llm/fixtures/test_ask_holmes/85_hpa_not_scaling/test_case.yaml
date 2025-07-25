@@ -1,7 +1,6 @@
 user_prompt: "Why isn't the worker deployment scaling despite high CPU usage in namespace-85?"
 tags:
   - kubernetes
-  - reproducible
 expected_output:
   - Worker deployment not scaling because HPA cannot calculate CPU metrics without resource requests defined in pod spec
 before_test: |

@@ -2,7 +2,6 @@ user_prompt: "What's wrong with the data-processor pod in namespace-70?"
 tags:
   - logs
   - context_window
-  - reproducible
 expected_output:
   - Data processor experiencing memory leak with usage increasing from 100MB to 4096MB resulting in OutOfMemoryError
 before_test: |

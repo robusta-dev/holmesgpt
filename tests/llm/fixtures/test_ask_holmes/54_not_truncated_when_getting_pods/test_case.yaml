@@ -8,7 +8,6 @@ evaluation:
   correctness: 1
 
 tags:
-  - reproducible
   - easy
   - kubernetes
   - context_window

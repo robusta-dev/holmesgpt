@@ -8,6 +8,3 @@ after_test: |
   kubectl delete -f ./fast_oom_deployment.yaml
 evaluation:
   correctness: 1
-
-tags:
-  - reproducible

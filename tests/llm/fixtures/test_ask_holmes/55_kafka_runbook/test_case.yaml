@@ -3,7 +3,6 @@ tags:
   - logs
   - kafka
   - runbooks
-  - reproducible
   - hard # gpt-4o does not get to the root cause which is slower consumer due to email processing.
 
 skip: true

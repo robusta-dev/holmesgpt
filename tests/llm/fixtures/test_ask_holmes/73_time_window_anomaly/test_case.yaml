@@ -2,7 +2,6 @@ user_prompt: "Were there issues with the scheduler pod in namespace-73?"
 tags:
   - logs
   - context_window
-  - reproducible
   - datetime
 expected_output:
   - Scheduler pod experienced issues between 03:00-03:05  when it could not connect to an external API possibly due to a maintenance window

@@ -2,7 +2,6 @@ user_prompt: "Why is the api-limiter pod in namespace-69 returning errors?"
 tags:
   - logs
   - context_window
-  - reproducible
 expected_output:
   - API limiter returning 429 Too Many Requests errors due to traffic spike of 1000 requests/second exceeding rate limit of 100/second
 before_test: |

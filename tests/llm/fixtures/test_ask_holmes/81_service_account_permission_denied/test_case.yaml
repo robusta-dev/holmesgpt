@@ -1,7 +1,6 @@
 user_prompt: "Why is the monitoring-agent getting permission denied errors in namespace-81?"
 tags:
   - kubernetes
-  - reproducible
   - easy
 expected_output:
   - Monitoring agent getting permission denied because its service account role only has get verb for pods but is missing list verb

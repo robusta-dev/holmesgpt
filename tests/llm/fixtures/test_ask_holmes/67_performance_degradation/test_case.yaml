@@ -2,7 +2,6 @@ user_prompt: "What's wrong with api-gateway pod in namespace-67?"
 tags:
   - logs
   - context_window
-  - reproducible
 expected_output:
   - API gateway experiencing gradual performance degradation with response times increasing from 100ms to timeout after 5000ms
 before_test: |

@@ -1,7 +1,6 @@
 user_prompt: "Show me the errors in the logs of my-app-51"
 tags:
   - logs
-  - reproducible
   - easy
   # Image name "multiple-errors-in-logs:v1" and env vars like SHOW_LOGIN_ERRORS reveal the problem
   - leaked-information

@@ -1,7 +1,6 @@
 user_prompt: "Find 'query failed' in the logs of my-app-53"
 tags:
   - logs
-  - reproducible
   - easy
   # Image name "multiple-errors-in-logs:v1" and env vars like SHOW_DB_ERRORS reveal the problem
   - leaked-information

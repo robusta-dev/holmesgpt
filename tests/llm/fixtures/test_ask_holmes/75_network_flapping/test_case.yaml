@@ -2,7 +2,6 @@ user_prompt: "What's wrong with frontend pod in namespace-75?"
 tags:
   - logs
   - context_window
-  - reproducible
   - network
 expected_output:
   - Frontend experiencing network flapping with timeout rate increasing from 0.1% to 60% when connecting to backend service
