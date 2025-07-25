@@ -1,5 +1,10 @@
 <div align="center">
-  <h1 align="center">Solve alerts faster with an AI Agent</h1>
+  <h1 align="center">AI Agent for Cloud Troubleshooting and Alert Investigation</h1>
+
+HolmesGPT is an AI agent for investigating problems in your cloud, finding the root cause, and suggesting remediations. It has dozens of built-in integrations for cloud providers, observability tools, and on-call systems.
+
+HolmesGPT has been submitted to the CNCF as a sandbox project ([view status](https://github.com/cncf/sandbox/issues/392)). You can learn more about HolmesGPT's maintainers and adopters [here](./ADOPTERS.md).
+
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> |
@@ -46,7 +51,7 @@ HolmesGPT integrates with popular observability and cloud platforms. The followi
 
 ### 🚀 End-to-End Automation
 
-HolmesGPT fetches alerts from Slack/AlertManager/PagerDuty/Jira/GitHub, investigates root causes using your observability tools, and writes solutions back to the original ticket:
+HolmesGPT can fetch alerts/tickets to investigate from external systems, then write the analysis back to the source or Slack.
 
 | Integration             | Status    | Notes |
 |-------------------------|-----------|-------|
