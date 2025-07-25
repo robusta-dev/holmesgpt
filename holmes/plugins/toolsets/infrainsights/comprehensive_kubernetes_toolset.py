@@ -869,6 +869,8 @@ class KubernetesLogsTool(Tool):
     def _fetch_logs(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str], previous: bool, tail: Optional[int], since: Optional[str]) -> str:
         """Fetch logs using Kubernetes Python client"""
         try:
+            logger.info(f"🔍 Starting to fetch logs for pod={pod_name}, namespace={namespace}, container={container}, previous={previous}")
+            
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
             
@@ -889,6 +891,8 @@ class KubernetesLogsTool(Tool):
                 if since_seconds:
                     kwargs['since_seconds'] = since_seconds
             
+            logger.info(f"🔍 API parameters: {kwargs}")
+            
             # Execute API call
             result = core_api.read_namespaced_pod_log(
                 name=pod_name, 
@@ -896,9 +900,11 @@ class KubernetesLogsTool(Tool):
                 **kwargs
             )
             
+            logger.info(f"🔍 Successfully retrieved logs (length: {len(result) if result else 0})")
             return result if result else "No logs available"
             
         except ApiException as e:
+            logger.error(f"🔍 API Exception in logs: {e.status} - {e.reason}")
             if e.status == 404:
                 return f"Pod '{pod_name}' not found in namespace '{namespace}'"
             elif e.status == 403: # Forbidden
@@ -910,7 +916,7 @@ class KubernetesLogsTool(Tool):
             else:
                 return f"API error fetching logs: {e.reason}"
         except Exception as e:
-            logger.error(f"Failed to fetch logs: {e}", exc_info=True)
+            logger.error(f"🔍 Failed to fetch logs: {e}", exc_info=True)
             return f"Failed to fetch logs: {str(e)}"
 
     def _parse_since_seconds(self, since_str: Optional[str]) -> Optional[int]:
@@ -1089,9 +1095,13 @@ class KubernetesEventsTool(Tool):
     def _fetch_events(self, instance: ServiceInstance, resource_type: Optional[str], resource_name: Optional[str], namespace: Optional[str], output_format: str) -> str:
         """Fetch events using Kubernetes Python client"""
         try:
+            logger.info(f"🔍 Starting to fetch events for resource_type={resource_type}, resource_name={resource_name}, namespace={namespace}")
+            
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
             events_api = client.EventsV1Api(k8s_client)
+            
+            logger.info(f"🔍 Created Kubernetes client, fetching events...")
             
             # Execute command
             if namespace:
@@ -1099,10 +1109,13 @@ class KubernetesEventsTool(Tool):
             else:
                 result = events_api.list_event_for_all_namespaces(watch=False)
             
+            logger.info(f"🔍 Retrieved {len(result.items)} events from API")
+            
             # Convert to string representation
             events_list = []
-            for event in result.items:
+            for i, event in enumerate(result.items):
                 try:
+                    logger.debug(f"🔍 Processing event {i+1}/{len(result.items)}")
                     event_info = {
                         "type": getattr(event, 'type', 'Unknown'),
                         "reason": getattr(event, 'reason', 'Unknown'),
@@ -1118,7 +1131,7 @@ class KubernetesEventsTool(Tool):
                     }
                     events_list.append(event_info)
                 except Exception as event_error:
-                    logger.warning(f"Failed to process event: {event_error}")
+                    logger.warning(f"🔍 Failed to process event {i+1}: {event_error}")
                     # Add a basic event entry if processing fails
                     events_list.append({
                         "type": "Unknown",
@@ -1130,6 +1143,8 @@ class KubernetesEventsTool(Tool):
                         "involved_object": None
                     })
             
+            logger.info(f"🔍 Successfully processed {len(events_list)} events")
+            
             # Filter events if resource_type and resource_name are specified
             if resource_type and resource_name:
                 filtered_events = []
@@ -1139,6 +1154,7 @@ class KubernetesEventsTool(Tool):
                         event["involved_object"].get("name", "") == resource_name):
                         filtered_events.append(event)
                 events_list = filtered_events
+                logger.info(f"🔍 Filtered to {len(events_list)} events for {resource_type}/{resource_name}")
             
             if output_format == 'json':
                 return json.dumps(events_list, indent=2)
@@ -1156,6 +1172,7 @@ class KubernetesEventsTool(Tool):
                 return "\n".join(formatted_events) if formatted_events else "No events found"
             
         except ApiException as e:
+            logger.error(f"🔍 API Exception in events: {e.status} - {e.reason}")
             if e.status == 404:
                 return f"Resource type '{resource_type}' or name '{resource_name}' not found in namespace '{namespace}'"
             elif e.status == 403: # Forbidden
@@ -1165,7 +1182,7 @@ class KubernetesEventsTool(Tool):
             else:
                 return f"API error fetching events: {e.reason}"
         except Exception as e:
-            logger.error(f"Failed to fetch events: {e}", exc_info=True)
+            logger.error(f"🔍 Failed to fetch events: {e}", exc_info=True)
             return f"Failed to fetch events: {str(e)}"
 
     def _create_kubernetes_client(self, instance: ServiceInstance) -> client.ApiClient:
