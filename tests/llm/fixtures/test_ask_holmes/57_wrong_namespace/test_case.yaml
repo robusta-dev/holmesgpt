@@ -8,3 +8,4 @@ evaluation:
 generate_mocks: False
 tags:
   - logs
+  - reproducible

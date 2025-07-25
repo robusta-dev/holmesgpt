@@ -4,6 +4,7 @@ user_prompt: "Why is there high latency with the customer-orders-for-medium depl
 tags:
   - chain-of-causation
   - logs
+  - reproducible
 expected_output:
   - The reason for failure is promotions-db-for-medium.cp8rwothwarq.us-east-2.rds.amazonaws.com is stopped or stopping.
 before_test: |

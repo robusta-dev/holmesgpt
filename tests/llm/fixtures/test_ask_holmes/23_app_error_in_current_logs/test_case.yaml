@@ -15,3 +15,6 @@ after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/holmes-meme-generator/failure/curl.yaml
 evaluation:
   correctness: 1
+
+tags:
+  - reproducible

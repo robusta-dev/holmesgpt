@@ -7,3 +7,6 @@ test_env_vars:
   KUBECONFIG: "$TMPDIR/holmes-test-28-permissions/restricted-kubeconfig"
 evaluation:
   correctness: 0
+
+tags:
+  - reproducible
