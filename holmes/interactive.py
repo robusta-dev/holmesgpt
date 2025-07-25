@@ -19,9 +19,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
+from pygments.lexers.data import YamlLexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
@@ -185,6 +187,60 @@ def build_modal_title(tool_call: ToolCallResult, wrap_status: str) -> str:
     return f"{tool_call.description} (exit: q, nav: ↑↓/j/k/g/G/d/u/f/b/space, wrap: w [{wrap_status}])"
 
 
+def is_yaml_content(content: str) -> bool:
+    """
+    Detect if content appears to be YAML based on common patterns.
+
+    Args:
+        content: String content to analyze
+
+    Returns:
+        True if content appears to be YAML, False otherwise
+    """
+    if not content.strip():
+        return False
+
+    lines = content.strip().split("\n")
+    yaml_indicators = 0
+
+    # Skip empty lines for analysis
+    non_empty_lines = [line for line in lines if line.strip()]
+    if not non_empty_lines:
+        return False
+
+    for line in non_empty_lines[
+        : min(20, len(non_empty_lines))
+    ]:  # Check first 20 non-empty lines
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # YAML document markers
+        if stripped in ["---", "..."]:
+            yaml_indicators += 2
+            continue
+
+        # Key-value pairs (key: value)
+        if ":" in stripped and not stripped.startswith("#"):
+            # Simple heuristic: line contains colon not in quotes, likely YAML
+            colon_pos = stripped.find(":")
+            if colon_pos > 0 and (
+                colon_pos == len(stripped) - 1 or stripped[colon_pos + 1].isspace()
+            ):
+                yaml_indicators += 1
+
+        # List items (- item)
+        if stripped.startswith("- "):
+            yaml_indicators += 1
+
+        # Indented structure (starts with spaces)
+        if line.startswith("  ") and ":" in stripped:
+            yaml_indicators += 1
+
+    # If more than 30% of lines have YAML characteristics, consider it YAML
+    return len(non_empty_lines) > 0 and (yaml_indicators / len(non_empty_lines)) > 0.3
+
+
 def handle_show_command(
     show_arg: str, all_tool_calls_history: List[ToolCallResult], console: Console
 ) -> None:
@@ -246,6 +302,11 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         output = tool_call.result.get_stringified_data()
         title = build_modal_title(tool_call, "off")  # Word wrap starts disabled
 
+        # Determine if content should use YAML syntax highlighting
+        lexer = None
+        if is_yaml_content(output):
+            lexer = PygmentsLexer(YamlLexer)
+
         # Create text area with the output
         text_area = TextArea(
             text=output,
@@ -253,6 +314,7 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
             scrollbar=True,
             line_numbers=False,
             wrap_lines=False,  # Disable word wrap by default
+            lexer=lexer,
         )
 
         # Create header
