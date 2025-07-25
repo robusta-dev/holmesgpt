@@ -290,27 +290,6 @@ def braintrust_eval_link(request):
     if not braintrust_api_key:
         return
 
-    # Extract test suite from test path
-    test_path = str(request.node.fspath)
-    test_suite = None
-    for test_type in LLM_TEST_TYPES:
-        if test_type.replace("test_", "") in test_path:
-            test_suite = test_type.replace("test_", "")
-            break
-
-    if not test_suite:
-        return  # Unknown test suite
-
-    # Create a temporary TestResult to extract test ID and name
-    temp_result = TestResult(
-        nodeid=request.node.nodeid,
-        expected="",
-        actual="",
-        pass_fail="",
-        tools_called=[],
-        logs="",
-    )
-
     # Extract span IDs from user properties
     span_id = None
     root_span_id = None
@@ -322,9 +301,7 @@ def braintrust_eval_link(request):
                 root_span_id = value
 
     # Construct Braintrust URL for this specific test
-    braintrust_url = get_braintrust_url(
-        test_suite, temp_result.test_id, temp_result.test_name, span_id, root_span_id
-    )
+    braintrust_url = get_braintrust_url(span_id, root_span_id)
 
     with force_pytest_output(request):
         # Use ANSI escape codes to create a clickable link in terminals that support it
@@ -368,7 +345,7 @@ def show_llm_summary_report(terminalreporter, exitstatus, config):
     report_mock_operations(config, mock_tracking_data, terminalreporter)
 
     # Display single Braintrust experiment link at the very end
-    _display_braintrust_experiment_link(sorted_results, terminalreporter)
+    _display_braintrust_experiment_link(terminalreporter)
 
 
 def _collect_test_results_from_stats(terminalreporter):
@@ -502,31 +479,14 @@ def _collect_test_results_from_stats(terminalreporter):
     return sorted_results, mock_tracking_data
 
 
-def _display_braintrust_experiment_link(sorted_results, terminalreporter):
+def _display_braintrust_experiment_link(terminalreporter):
     """Display a single Braintrust experiment link at the end of test output."""
     # Check if Braintrust is enabled
     if not os.environ.get("BRAINTRUST_API_KEY"):
         return
 
-    # Determine test suite from the results
-    test_suites = set()
-    for result in sorted_results:
-        test_type = result.get("test_type", "unknown")
-        if test_type == "ask":
-            test_suites.add("ask_holmes")
-        elif test_type == "investigate":
-            test_suites.add("investigate")
-        elif test_type == "workload_health":
-            test_suites.add("workload_health")
-
-    if not test_suites:
-        return
-
-    # If multiple test suites, just use the first one
-    test_suite = sorted(test_suites)[0]
-
     # Get experiment name
-    experiment_name = get_experiment_name(test_suite)
+    experiment_name = get_experiment_name()
     braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
 
     # Build experiment URL

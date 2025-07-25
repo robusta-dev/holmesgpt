@@ -92,14 +92,7 @@ def generate_markdown_report(sorted_results: List[dict]) -> Tuple[str, List[dict
         test_suite = result["test_type"]
         test_name = f"{result['test_id']}_{result['test_name']}"
 
-        # Add Braintrust link to test name if available
-        test_suite_full = (
-            "ask_holmes" if result["test_type"] == "ask" else "investigate"
-        )
         braintrust_url = get_braintrust_url(
-            test_suite_full,
-            result["test_id"],
-            result["test_name"],
             result.get("braintrust_span_id"),
             result.get("braintrust_root_span_id"),
         )

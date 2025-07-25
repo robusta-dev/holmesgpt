@@ -162,11 +162,11 @@ class BraintrustEvalHelper:
         self.experiment.flush()
 
 
-def get_experiment_name(test_suite: str):
+def get_experiment_name():
     unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
-    experiment_name = f"{test_suite}:{unique_test_id}"
+    experiment_name = f"{unique_test_id}"
     if os.environ.get("EXPERIMENT_ID"):
-        experiment_name = f'{test_suite}:{os.environ.get("EXPERIMENT_ID")}'
+        experiment_name = f'{os.environ.get("EXPERIMENT_ID")}'
     return experiment_name
 
 
@@ -176,9 +176,6 @@ def get_dataset_name(test_suite: str):
 
 
 def get_braintrust_url(
-    test_suite: str,
-    test_id: str,
-    test_name: str,
     span_id: Optional[str] = None,
     root_span_id: Optional[str] = None,
 ) -> Optional[str]:
@@ -199,7 +196,7 @@ def get_braintrust_url(
     if not BRAINTRUST_API_KEY:
         return None
 
-    experiment_name = get_experiment_name(test_suite)
+    experiment_name = get_experiment_name()
     braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
 
     # Build URL with available parameters

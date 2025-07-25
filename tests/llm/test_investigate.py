@@ -68,7 +68,7 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("investigate")
+    experiment_name = braintrust_util.get_experiment_name()
     dataset_name = braintrust_util.get_dataset_name("investigate")
 
     mh = MockHelper(TEST_CASES_FOLDER)

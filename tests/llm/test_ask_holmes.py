@@ -43,7 +43,7 @@ TEST_CASES_FOLDER = Path(
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("ask_holmes")
+    experiment_name = braintrust_util.get_experiment_name()
     dataset_name = braintrust_util.get_dataset_name("ask_holmes")
 
     mh = MockHelper(TEST_CASES_FOLDER)
