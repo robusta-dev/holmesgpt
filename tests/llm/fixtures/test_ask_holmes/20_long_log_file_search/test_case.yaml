@@ -3,8 +3,8 @@ expected_output:
   - There is a Peer down issue
 before_test: kubectl apply -f ./long-log-pod.yaml
 after_test: kubectl delete -f ./long-log-pod.yaml
-evaluation:
-  correctness: 1
-
 tags:
-  - reproducible
+  - kubernetes
+  - logs
+  - easy
+  - leaked-information # logs are visible from manifest

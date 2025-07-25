@@ -1,7 +1,6 @@
 user_prompt: "Why get-data job failed?"
 tags:
   - misleading-history
-  - reproducible
   - hard
 expected_output:
   - The specified URL `http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343` could not be resolved to an IP address

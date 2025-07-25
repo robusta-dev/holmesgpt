@@ -3,3 +3,5 @@ expected_output:
   - The answer should prompt the user to add a Holmes Digital Ocean integration to access droplets
 evaluation:
   correctness: 0
+tags:
+  - medium

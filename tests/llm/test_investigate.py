@@ -21,7 +21,11 @@ from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsetManager
-from tests.llm.utils.test_case_utils import InvestigateTestCase, MockHelper
+from tests.llm.utils.test_case_utils import (
+    InvestigateTestCase,
+    MockHelper,
+    check_and_skip_test,
+)
 from tests.llm.utils.property_manager import set_initial_properties, update_test_results
 from os import path
 from unittest.mock import patch
@@ -35,20 +39,17 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(
-        self, test_case: InvestigateTestCase, tracer, request, mock_generation_config
-    ):
+    def __init__(self, test_case: InvestigateTestCase, tracer, mock_generation_config):
         super().__init__()
         self._test_case = test_case
         self._tracer = tracer
-        self._request = request
         self._mock_generation_config = mock_generation_config
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
         mock = MockToolsetManager(
             test_case_folder=self._test_case.folder,
             mock_generation_config=self._mock_generation_config,
-            request=self._request,
+            mock_policy=self._test_case.mock_policy,
         )
 
         # With the new file-based mock system, mocks are loaded from disk automatically
@@ -68,7 +69,7 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("investigate")
+    experiment_name = braintrust_util.get_experiment_name()
     dataset_name = braintrust_util.get_dataset_name("investigate")
 
     mh = MockHelper(TEST_CASES_FOLDER)
@@ -117,6 +118,9 @@ def test_investigate(
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
 
+    # Check if test should be skipped
+    check_and_skip_test(test_case)
+
     # Use unified tracing API for evals
     from holmes.core.tracing import TracingFactory
 
@@ -128,7 +132,7 @@ def test_investigate(
         metadata=braintrust_util.get_machine_state_tags(),
     )
 
-    config = MockConfig(test_case, tracer, request, mock_generation_config)
+    config = MockConfig(test_case, tracer, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
 
     mock_dal = MockSupabaseDal(

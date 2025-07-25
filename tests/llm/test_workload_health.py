@@ -23,6 +23,7 @@ from tests.llm.utils.test_case_utils import (
     Evaluation,
     HealthCheckTestCase,
     MockHelper,
+    check_and_skip_test,
 )
 from tests.llm.utils.property_manager import set_initial_properties, update_test_results
 from os import path
@@ -57,7 +58,7 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("health_check")
+    experiment_name = braintrust_util.get_experiment_name()
     dataset_name = braintrust_util.get_dataset_name("health_check")
 
     mh = MockHelper(TEST_CASES_FOLDER)
@@ -105,6 +106,9 @@ def test_health_check(
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
+
+    # Check if test should be skipped
+    check_and_skip_test(test_case)
 
     dataset_name = braintrust_util.get_dataset_name("health_check")
     bt_helper = braintrust_util.BraintrustEvalHelper(
