@@ -11,7 +11,7 @@
 
 ![HolmesGPT Investigation Demo](https://robusta-dev.github.io/holmesgpt/assets/HolmesInvestigation.gif)
 
-### How it Works
+## How it Works
 
 HolmesGPT connects AI models with live observability data and organizational knowledge. It uses an **agentic loop** to analyze data from multiple sources and identify possible root causes.
 
@@ -44,17 +44,9 @@ HolmesGPT integrates with popular observability and cloud platforms. The followi
 | [<img src="images/integration_logos/robusta_logo.png" alt="Robusta" width="20" style="vertical-align: middle;"> **Robusta**](https://robusta-dev.github.io/holmesgpt/data-sources/builtin-toolsets/robusta/) | ✅ | Multi-cluster monitoring, historical change data, user-configured runbooks, PromQL graphs and more |
 | [<img src="images/integration_logos/slab_logo.png" alt="Slab" width="20" style="vertical-align: middle;"> **Slab**](https://robusta-dev.github.io/holmesgpt/data-sources/builtin-toolsets/slab/) | ✅ | Team knowledge base and runbooks on demand |
 
-### 🔐 Data Privacy
+### 🚀 End-to-End Automation
 
-By design, HolmesGPT has **read-only access** and respects RBAC permissions. It is safe to run in production environments.
-
-We do **not** train HolmesGPT on your data. Data sent to Robusta SaaS is private to your account.
-
-For extra privacy, [bring an API key](https://robusta-dev.github.io/holmesgpt/ai-providers/) for your own AI model.
-
-### 🚀 Bi-Directional Integrations With Your Tools
-
-Robusta can investigate alerts - or just answer questions - from the following sources:
+Holmes fetches alerts from Slack/AlertManager/PagerDuty/Jira/GitHub, investigates root causes using your observability tools, and writes solutions back to the original ticket:
 
 | Integration             | Status    | Notes |
 |-------------------------|-----------|-------|
@@ -63,13 +55,7 @@ Robusta can investigate alerts - or just answer questions - from the following s
 | PagerDuty               | ✅        | HolmesGPT CLI only |
 | OpsGenie                | ✅        | HolmesGPT CLI only |
 | Jira                    | ✅        | HolmesGPT CLI only |
-
-### See it in Action
-
-<a href="https://www.loom.com/share/388d98aad1a04823b9ed50d0161a4819?sid=a2a669b4-f092-4067-adcb-c8527fbcaa90" target="_blank">
-<img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/388d98aad1a04823b9ed50d0161a4819-0ced91a0e8f80dcb-full-play.gif">
-</a>
-
+| GitHub                  | ✅        | HolmesGPT CLI only |
 
 ## Installation
 
@@ -87,7 +73,7 @@ Read the [installation documentation](https://robusta-dev.github.io/holmesgpt/in
 
 Read the [LLM Providers documentation](https://robusta-dev.github.io/holmesgpt/ai-providers/) to learn how to set up your LLM API key.
 
-### Using HolmesGPT
+## Using HolmesGPT
 
 - In the Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser
 - With HolmesGPT CLI: [setup an LLM API key](https://robusta-dev.github.io/holmesgpt/ai-providers/) and ask Holmes a question 👇
@@ -169,6 +155,15 @@ You can save common settings and API keys in config file for re-use. Place the c
 
 You can view an example config file with all available settings [here](config.example.yaml).
 </details>
+
+## 🔐 Data Privacy
+
+By design, HolmesGPT has **read-only access** and respects RBAC permissions. It is safe to run in production environments.
+
+We do **not** train HolmesGPT on your data. Data sent to Robusta SaaS is private to your account.
+
+For extra privacy, [bring an API key](https://robusta-dev.github.io/holmesgpt/ai-providers/) for your own AI model.
+
 
 ## Evals
 
