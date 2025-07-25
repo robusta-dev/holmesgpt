@@ -365,8 +365,52 @@ def _collect_test_results_from_stats(terminalreporter):
 
     for status, reports in terminalreporter.stats.items():
         for report in reports:
-            # Only process 'call' phase reports for actual test results
-            if getattr(report, "when", None) != "call":
+            # For skipped tests, we need to look at 'setup' phase
+            when = getattr(report, "when", None)
+            if status == "skipped" and when == "setup":
+                # Process skipped tests
+                nodeid = getattr(report, "nodeid", "")
+                if not is_llm_test(nodeid):
+                    continue
+
+                # Extract test type
+                if "test_ask_holmes" in nodeid:
+                    test_type = "ask"
+                elif "test_investigate" in nodeid:
+                    test_type = "investigate"
+                elif "test_workload_health" in nodeid:
+                    test_type = "workload_health"
+                else:
+                    test_type = "unknown"
+
+                # Extract skip reason
+                skip_reason = "Skipped"
+                if hasattr(report, "longrepr") and report.longrepr:
+                    # longrepr for skipped tests is typically a tuple (file, line, reason)
+                    if isinstance(report.longrepr, tuple) and len(report.longrepr) >= 3:
+                        skip_reason = str(report.longrepr[2])
+                    else:
+                        skip_reason = str(report.longrepr)
+
+                # Store minimal result for skipped test
+                test_results[nodeid] = {
+                    "nodeid": nodeid,
+                    "test_type": test_type,
+                    "expected": "Test skipped",
+                    "actual": skip_reason,
+                    "tools_called": [],
+                    "expected_correctness_score": 0.0,
+                    "actual_correctness_score": 0.0,
+                    "status": "skipped",
+                    "outcome": "skipped",
+                    "execution_time": getattr(report, "duration", None),
+                    "mock_data_failure": False,
+                    "braintrust_span_id": None,
+                    "braintrust_root_span_id": None,
+                }
+                continue
+            elif when != "call":
+                # For other statuses, only process 'call' phase
                 continue
 
             # Only process LLM evaluation tests
