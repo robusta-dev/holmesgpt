@@ -7,4 +7,6 @@ evaluation:
   correctness: 1
 tags:
   - reproducible
-  - skip # not sure how to test this properly
+
+skip: true
+skip_reason: not sure how to test this properly - maybe with mocked prometheus data, maybe on a real cluster with prometheus

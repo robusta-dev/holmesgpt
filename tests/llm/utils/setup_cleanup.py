@@ -2,7 +2,6 @@
 
 import logging
 import sys
-import textwrap
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -97,11 +96,11 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                     )
 
                     # Show the exact command that timed out
-                    truncated_error = format_error_output(result.error_details)
-                    log(textwrap.indent(truncated_error, "   "))
-                    log(
-                        f"[{test_case.id}] {operation.value} timeout: {result.error_details}"
-                    )
+                    # truncated_error = format_error_output(result.error_details)
+                    # log(textwrap.indent(truncated_error, "   "))
+                    # log(
+                    #    f"[{test_case.id}] {operation.value} timeout: {result.error_details}"
+                    # )
 
                     # Emit warning to make it visible in pytest output
                     warnings.warn(
@@ -112,15 +111,15 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                 else:
                     failed_test_cases += 1
                     log(
-                        f"❌ {operation.value} {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
+                        f"\n❌ {operation.value} {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
                     )
 
                     # Limit error details to 10 lines and add proper formatting
-                    truncated_error = format_error_output(result.error_details)
-                    log(textwrap.indent(truncated_error, "   "))
-                    log(
-                        f"[{test_case.id}] {operation.value} failed: {result.error_details}"
-                    )
+                    # truncated_error = format_error_output(result.error_details)
+                    # log(textwrap.indent(truncated_error, "   "))
+                    # log(
+                    #    f"[{test_case.id}] {operation.value} failed: {result.error_details}"
+                    # )
 
                     # Emit warning to make it visible in pytest output
                     warnings.warn(
@@ -132,7 +131,6 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
             except Exception as e:
                 failed_test_cases += 1
                 log(f"❌ {operation.value} {test_case.id}: EXCEPTION - {e}")
-                log(f"{operation.value} exception for {test_case.id}: {str(e)}")
 
                 # Emit warning to make it visible in pytest output
                 warnings.warn(
