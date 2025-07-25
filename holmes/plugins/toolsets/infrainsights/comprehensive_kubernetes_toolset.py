@@ -917,14 +917,45 @@ class KubernetesLogsTool(Tool):
             logger.info(f"🔍 API parameters: {kwargs}")
             
             # Execute API call
-            result = core_api.read_namespaced_pod_log(
-                name=pod_name, 
-                namespace=namespace, 
-                **kwargs
-            )
-            
-            logger.info(f"🔍 Successfully retrieved logs (length: {len(result) if result else 0})")
-            return result if result else "No logs available"
+            try:
+                result = core_api.read_namespaced_pod_log(
+                    name=pod_name, 
+                    namespace=namespace, 
+                    **kwargs
+                )
+                
+                logger.info(f"🔍 Successfully retrieved logs (length: {len(result) if result else 0})")
+                return result if result else "No logs available"
+                
+            except ApiException as log_e:
+                if log_e.status == 400 and previous:
+                    logger.warning(f"🔍 Previous logs not available, trying current logs")
+                    # Remove previous parameter and try again
+                    kwargs.pop('previous', None)
+                    logger.info(f"🔍 Retrying with API parameters: {kwargs}")
+                    
+                    try:
+                        result = core_api.read_namespaced_pod_log(
+                            name=pod_name, 
+                            namespace=namespace, 
+                            **kwargs
+                        )
+                        
+                        logger.info(f"🔍 Successfully retrieved current logs (length: {len(result) if result else 0})")
+                        return f"Previous logs not available. Current logs:\n\n{result if result else 'No logs available'}"
+                        
+                    except ApiException as retry_e:
+                        logger.error(f"🔍 API Exception in retry: {retry_e.status} - {retry_e.reason}")
+                        if retry_e.status == 404:
+                            return f"Pod '{pod_name}' not found in namespace '{namespace}'"
+                        elif retry_e.status == 403:
+                            return f"Access to logs for pod '{pod_name}' in namespace '{namespace}' is forbidden. Check permissions."
+                        elif retry_e.status == 410:
+                            return f"Pod '{pod_name}' in namespace '{namespace}' is gone. It might have been deleted."
+                        else:
+                            return f"API error fetching logs: {retry_e.reason}"
+                else:
+                    raise log_e
             
         except ApiException as e:
             logger.error(f"🔍 API Exception in logs: {e.status} - {e.reason}")
