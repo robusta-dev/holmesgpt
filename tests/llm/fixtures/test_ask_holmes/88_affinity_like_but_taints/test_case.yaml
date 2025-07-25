@@ -6,6 +6,12 @@ description: |
 
 user_question: "Whats wrong with database-primary deployment in production-88 isn't starting?"
 
+# CodeRabbit: RWO PVC + 4 replicas ⇒ inevitable Multi-Attach errors
+#   A single ReadWriteOnce volume cannot be mounted by four pods on different nodes. This scheduling error will surface before the intended taint/toleration failure, potentially breaking the test signal.
+#   Options: Scale replicas to 1, or
+#   Switch the PVC to ReadWriteMany / change storage class, or
+#   Convert the workload to a StatefulSet with one PVC per replica.
+#   Pick whichever keeps the taint-focused scenario cleanest.
 expected_output: |
   Missing tolerations for node taints.
   The output MUST mention:

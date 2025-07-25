@@ -3,7 +3,15 @@ expected_output:
   - The pod was killed due to it being out of memory
 evaluation:
   correctness: 1
-
+tags:
+  - kubernetes
+# need to check, but according to coderabbit this wont work
+# CodeRabbit: BusyBox shell can’t handle array syntax – pod will CrashLoop, not OOMKill
+#   busybox’s /bin/sh (ash) does not support Bash-style arrays (arr=(); arr+=($i)), so
+#   the container exits immediately with a syntax error instead of allocating memory.
+#   Consequently the pod goes into CrashLoopBackOff, never hitting the memory limit,
+#   and the test’s correctness assertion (“OOMKilled”) will fail.
+#   Alternative: switch to stress/stress-ng for a cleaner, deterministic OOM trigger.
 before_test: |
   kubectl create namespace app-02
   cat <<EOF | kubectl apply -f -
