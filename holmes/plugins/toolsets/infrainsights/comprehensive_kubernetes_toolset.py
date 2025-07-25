@@ -946,12 +946,29 @@ class KubernetesLogsTool(Tool):
                         
                     except ApiException as retry_e:
                         logger.error(f"🔍 API Exception in retry: {retry_e.status} - {retry_e.reason}")
+                        logger.error(f"🔍 Full error details: {retry_e.body if hasattr(retry_e, 'body') else 'No body'}")
+                        
                         if retry_e.status == 404:
                             return f"Pod '{pod_name}' not found in namespace '{namespace}'"
                         elif retry_e.status == 403:
                             return f"Access to logs for pod '{pod_name}' in namespace '{namespace}' is forbidden. Check permissions."
                         elif retry_e.status == 410:
                             return f"Pod '{pod_name}' in namespace '{namespace}' is gone. It might have been deleted."
+                        elif retry_e.status == 400:
+                            # Try to get more specific error information
+                            error_msg = f"Bad request for pod '{pod_name}' in namespace '{namespace}'. "
+                            if hasattr(retry_e, 'body') and retry_e.body:
+                                try:
+                                    error_body = json.loads(retry_e.body)
+                                    if 'message' in error_body:
+                                        error_msg += f"API Error: {error_body['message']}"
+                                    else:
+                                        error_msg += f"API Error: {retry_e.body}"
+                                except:
+                                    error_msg += f"API Error: {retry_e.body}"
+                            else:
+                                error_msg += "This might be due to the pod not being ready for logs or container issues."
+                            return error_msg
                         else:
                             return f"API error fetching logs: {retry_e.reason}"
                 else:
@@ -959,6 +976,8 @@ class KubernetesLogsTool(Tool):
             
         except ApiException as e:
             logger.error(f"🔍 API Exception in logs: {e.status} - {e.reason}")
+            logger.error(f"🔍 Full error details: {e.body if hasattr(e, 'body') else 'No body'}")
+            
             if e.status == 404:
                 return f"Pod '{pod_name}' not found in namespace '{namespace}'"
             elif e.status == 403: # Forbidden
@@ -966,7 +985,20 @@ class KubernetesLogsTool(Tool):
             elif e.status == 410: # Gone
                 return f"Pod '{pod_name}' in namespace '{namespace}' is gone. It might have been deleted."
             elif e.status == 400: # Bad Request
-                return f"Bad request for pod '{pod_name}' in namespace '{namespace}'. This might be due to invalid parameters or the pod not being ready. Try without the 'previous' parameter or check if the pod has any previous instances."
+                # Try to get more specific error information
+                error_msg = f"Bad request for pod '{pod_name}' in namespace '{namespace}'. "
+                if hasattr(e, 'body') and e.body:
+                    try:
+                        error_body = json.loads(e.body)
+                        if 'message' in error_body:
+                            error_msg += f"API Error: {error_body['message']}"
+                        else:
+                            error_msg += f"API Error: {e.body}"
+                    except:
+                        error_msg += f"API Error: {e.body}"
+                else:
+                    error_msg += "This might be due to invalid parameters or the pod not being ready."
+                return error_msg
             else:
                 return f"API error fetching logs: {e.reason}"
         except Exception as e:
