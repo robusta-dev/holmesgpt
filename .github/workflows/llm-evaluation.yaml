@@ -45,7 +45,7 @@ jobs:
           UPLOAD_DATASET: "true"
           EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
         run: |
-          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n 6
+          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -m 'not skip' -n 6
       - uses: actions/github-script@v7
         if: always()
         with:
