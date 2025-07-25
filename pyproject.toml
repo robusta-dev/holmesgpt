@@ -107,7 +107,8 @@ markers = [
     "easy: Tests that are supposed to pass - if these fail, it indicates a regression",
     "missing-tool: Verify holmes knows how to communicate this to the user",
     "kafka: Tests involving Kafka functionality",
-    "leaked-information: cases where the eval is accidentally leaking information that should not be available to the LLM - e.g. if the names of environment variables or the docker image gives away part of the test"
+    "leaked-information: cases where the eval is accidentally leaking information that should not be available to the LLM - e.g. if the names of environment variables or the docker image gives away part of the test",
+    "skip: Broken or non-reproducible tests"
 ]
 
 addopts = [
