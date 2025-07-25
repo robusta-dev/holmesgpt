@@ -5,6 +5,7 @@ tags:
   - runbooks
   - missing-tool
   - reproducible
+  - easy
 expected_output: kafka toolset should be enabled
 before_test: |
   kubectl apply -f ../55_kafka_runbook/app/manifest.yaml && sleep 30

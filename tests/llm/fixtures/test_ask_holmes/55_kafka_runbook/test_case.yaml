@@ -4,6 +4,9 @@ tags:
   - kafka
   - runbooks
   - reproducible
+  - skip   # this hangs when the port-forward is not set up correctly
+  - hard # gpt-4o does not get to the root cause which is slower consumer due to email processing.
+
 expected_output: |
   `invoices-app` is slow to process messages because email sending is slow
 # Manual port-forward is required:
