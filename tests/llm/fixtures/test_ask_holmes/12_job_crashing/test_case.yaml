@@ -13,4 +13,4 @@ after_test: |
 evaluation:
   correctness: 1
 tags:
-  - easy
+  - medium

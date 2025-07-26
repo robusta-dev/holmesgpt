@@ -26,4 +26,4 @@ after_test: |
 generate_mocks: True
 tags:
   - logs
-  - easy
+  - medium
