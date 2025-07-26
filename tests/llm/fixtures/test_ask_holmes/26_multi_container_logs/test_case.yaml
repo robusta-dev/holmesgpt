@@ -4,49 +4,18 @@ evaluation:
   correctness: 0
 
 before_test: |
-  kubectl create namespace app-26
-  cat <<EOF | kubectl apply -f -
-  apiVersion: v1
-  kind: Pod
-  metadata:
-    name: mountain-lion
-    namespace: app-26
-    labels:
-      app: order-service
-  spec:
-    containers:
-    - name: web
-      image: busybox:1.35
-      command:
-      - sh
-      - -c
-      - |
-        while true; do
-          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Page /orders rendered in 7.$(shuf -i 100-999 -n 1)s"
-          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Page /checkout rendered in 8.$(shuf -i 100-999 -n 1)s"
-          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Page /products rendered in 9.$(shuf -i 100-999 -n 1)s"
-          sleep 5
-        done
-    - name: metrics
-      image: busybox:1.35
-      command:
-      - sh
-      - -c
-      - |
-        while true; do
-          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Metrics collected"
-          sleep 10
-        done
-  EOF
+  kubectl create secret generic mountain-lion-logs-script \
+  --from-file=generate_logs.py=./generate_logs.py \
+  -n app-26 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f ./manifest.yaml
   kubectl wait --for=condition=Ready pod/mountain-lion -n app-26 --timeout=60s
   # Let it generate some logs
   sleep 20
 
 after_test: |
-  kubectl delete namespace app-26 --force --grace-period=0
+  kubectl delete -f ./manifest.yaml
+  kubectl delete secret mountain-lion-logs-script -n app-26 --ignore-not-found
 
 tags:
-  - multi-container
   - logs
   - kubernetes
-  - leaked-information
