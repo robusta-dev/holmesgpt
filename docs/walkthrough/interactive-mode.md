@@ -1,0 +1,386 @@
+# Interactive Mode
+
+HolmesGPT's interactive mode provides a powerful chat-like interface for iterative troubleshooting and investigation of cloud-native issues using LLMs.
+
+## Getting Started
+
+### Launching Interactive Mode
+
+Interactive mode is the default when running `holmes ask`:
+
+```bash
+holmes ask
+```
+
+You can also provide an initial question:
+
+```bash
+holmes ask "what pods are failing?"
+```
+
+### Basic Usage
+
+Once in interactive mode, you can:
+
+- Type questions or commands naturally
+- Use slash commands for special actions (see below)
+- View tool outputs and AI responses in a formatted interface
+
+### Exiting Interactive Mode
+
+To exit, you can:
+- Type `/exit` or `/ex`
+- Press `Ctrl+C` twice (once clears input, twice exits)
+
+## Slash Commands
+
+Interactive mode supports slash commands:
+
+### `/help` - Show Available Commands
+Displays all available slash commands and their descriptions.
+
+```
+> /help
+```
+
+### `/exit` - Exit Interactive Mode
+Exits the interactive session and returns to your shell.
+
+```
+> /exit
+```
+
+### `/show [number|name]` - View Tool Output
+Opens a scrollable modal to view full tool output. You can specify outputs by:
+- Number: `/show 3` (shows 3rd tool output)
+- Name: `/show kubernetes_get_pod_logs` (shows specific tool output)
+
+Modal navigation:
+- `j`/`k` or ↑/↓ - Move up/down
+- `g`/`G` - Go to top/bottom
+- `d`/`u` - Half page down/up
+- `f`/`b` or PgDn/PgUp - Full page down/up
+- `w` - Toggle word wrap
+- `q` or Esc - Close modal
+
+### `/tools` - Show Available Toolsets
+Lists all configured toolsets and their current status (enabled/disabled).
+
+```
+> /tools
+Available toolsets:
+✓ kubernetes (enabled)
+✓ prometheus (enabled)
+✗ grafana (disabled - no URL configured)
+```
+
+### `/auto` - Toggle Auto-Display
+Controls whether tool outputs are automatically shown after each AI response. When disabled, use `/last` to view outputs.
+
+```
+> /auto
+Auto-display tool outputs: ON
+```
+
+### `/last` - Show Last Tool Outputs
+Displays all tool outputs from the most recent AI response. Useful when auto-display is off or to review outputs again.
+
+```
+> /last
+```
+
+### `/clear` - Clear Screen
+Clears all conversation history and starts fresh. Useful when switching topics or when context becomes too large.
+
+```
+> /clear
+```
+
+### `/run <command>` - Execute Shell Command
+Runs a shell command and optionally shares the output with the AI.
+
+```
+> /run kubectl get pods -n production
+# Output displayed...
+Share output with AI? (Y/n): y
+Add a comment or question (optional): why are some pods in CrashLoopBackOff?
+```
+
+### `/shell` - Interactive Shell Session
+Starts an interactive shell session. When you exit, you can share the entire session with the AI.
+
+```
+> /shell
+$ kubectl logs failing-pod-xyz
+$ kubectl describe pod failing-pod-xyz
+$ exit
+Share shell session with AI? (Y/n): y
+Add a comment or question (optional): The pod keeps failing with OOM errors
+```
+
+### `/context` - Show Context Usage
+Displays detailed information about token usage and context size.
+
+```
+> /context
+Context Usage:
+- System: 1,250 tokens
+- User: 3,421 tokens
+- Assistant: 2,156 tokens
+- Tools: 5,234 tokens
+Total: 12,061 / 128,000 tokens (9.4%)
+
+Top tools by token usage:
+1. kubernetes_get_pod_logs: 2,341 tokens
+2. kubernetes_describe_pod: 1,893 tokens
+```
+
+## Example Workflows
+
+### Autonomous AI Investigation
+
+In this example, the AI independently investigates and diagnoses an issue using its available tools:
+
+```bash
+holmes ask
+
+> why is the payment-service in production namespace not responding to requests?
+
+Running tool #1 kubectl_find_resource: kubectl get -A --show-labels -o wide deployment | grep payment
+  Finished #1 in 1.32s, output length: 894 characters - /show 1 to view contents
+
+Running tool #2 kubectl_describe: kubectl describe deployment payment-service -n production
+  Finished #2 in 1.45s, output length: 2,341 characters - /show 2 to view contents
+
+Running tool #3 kubectl_get_by_kind_in_namespace: kubectl get pod -n production -o wide --show-labels | grep -E 'NAME|payment'
+  Finished #3 in 1.28s, output length: 456 characters - /show 3 to view contents
+
+Running tool #4 fetch_pod_logs: Fetching logs for pod payment-service-7b9c5d4-xyz in namespace production
+  Finished #4 in 2.87s, output length: 8,234 characters - /show 4 to view contents
+
+Running tool #5 kubectl_events: kubectl get events -n production --field-selector involvedObject.name=payment-service-7b9c5d4-xyz
+  Finished #5 in 1.19s, output length: 1,203 characters - /show 5 to view contents
+
+Based on my investigation, the payment-service is not responding due to:
+
+1. **Database Connection Failures**: The logs show repeated "connection refused" errors to `payment-db:5432`
+2. **StatefulSet Down**: The payment-db StatefulSet has 0/1 replicas running
+3. **PVC Pending**: The database's PersistentVolumeClaim is stuck in Pending status
+
+Root cause appears to be storage-related. Let me check the PVC status.
+
+> can you check why the PVC is pending?
+
+Running tool #1 kubectl_describe: kubectl describe pvc payment-db-pvc-0 -n production
+  Finished #1 in 1.38s, output length: 1,567 characters - /show 1 to view contents
+
+Running tool #2 kubectl_get: kubectl get storageclass fast-ssd -o yaml
+  Finished #2 in 1.14s, output length: 134 characters - /show 2 to view contents
+
+Running tool #3 kubectl_get_by_kind_in_namespace: kubectl get storageclass
+  Finished #3 in 1.23s, output length: 456 characters - /show 3 to view contents
+
+The PVC is pending because the requested StorageClass doesn't exist:
+
+
+  Error from server (NotFound): storageclasses.storage.k8s.io "fast-ssd" not found
+
+Available StorageClasses in the cluster:
+- **gp2** (default) - EBS General Purpose SSD
+- **gp3** - EBS General Purpose SSD (newer generation)
+- **io1** - EBS Provisioned IOPS SSD
+- **standard** - EBS Magnetic volumes
+```
+
+### Human-in-the-Loop Investigation
+
+In this example, the human provides additional context and runs commands the AI couldn't access:
+
+```bash
+holmes ask "users are reporting intermittent 502 errors on the checkout page but I don't see any pod failures"
+
+Running tool #1 kubectl_get_by_kind_in_namespace: kubectl get pod -n production -o wide --show-labels
+  Finished #1 in 1.41s, output length: 3,234 characters - /show 1 to view contents
+
+Running tool #2 kubectl_top_pods: kubectl top pods -n production --containers
+  Finished #2 in 2.18s, output length: 1,876 characters - /show 2 to view contents
+
+Running tool #3 fetch_pod_logs: Fetching logs for pod frontend-6d4cf56-abc in namespace production. filter=502|error
+  Finished #3 in 3.21s, output length: 456 characters - /show 3 to view contents
+
+Running tool #4 prometheus_query: query='rate(http_requests_total{status="502"}[5m])'
+  Finished #4 in 1.92s, output length: 234 characters - /show 4 to view contents
+
+All pods are healthy with normal resource usage. The 502 errors in the logs show "upstream connect error". The errors spike every 10 minutes. I need access to:
+- Load balancer/ingress controller logs
+- Corporate proxy or WAF logs if you use one
+- Database connection pool metrics from inside the app
+- Any recent network or firewall changes
+
+> /run aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:us-east-1:123456:targetgroup/prod-tg/abc123
+Running command: aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:us-east-1:123456:targetgroup/prod-tg/abc123
+
+{
+  "TargetHealthDescriptions": [
+    {
+      "Target": {"Id": "i-0abc123", "Port": 80},
+      "HealthCheckPort": "80",
+      "TargetHealth": {
+        "State": "unhealthy",
+        "Reason": "Target.Timeout",
+        "Description": "Request timed out"
+      }
+    }
+  ]
+}
+
+Share output with AI? (Y/n): y
+Add a comment or question (optional): This is our ALB target group
+
+The issue is clearer now. The ALB target `i-0abc123` is failing health checks with timeouts. This EC2 instance appears to be outside your Kubernetes cluster.
+
+> /run ssh admin@10.0.1.50 "sudo tail -100 /var/log/nginx/error.log | grep -i 'too many' | head -5"
+Running command: ssh admin@10.0.1.50 "sudo tail -100 /var/log/nginx/error.log | grep -i 'too many' | head -5"
+
+2024/11/20 10:00:01 [error] 1234#1234: *456789 limiting connections by zone "perip", client: 10.0.2.100
+2024/11/20 10:10:02 [error] 1234#1234: *456790 limiting connections by zone "perip", client: 10.0.2.100
+2024/11/20 10:20:01 [error] 1234#1234: *456791 limiting connections by zone "perip", client: 10.0.2.100
+2024/11/20 10:30:03 [error] 1234#1234: *456792 limiting connections by zone "perip", client: 10.0.2.100
+2024/11/20 10:40:02 [error] 1234#1234: *456793 limiting connections by zone "perip", client: 10.0.2.100
+
+Share output with AI? (Y/n): y
+Add a comment or question (optional): This is the nginx rate limiting on the EC2 instance. 10.0.2.100 is our k8s cluster NAT gateway
+
+**Root Cause Found**: The 502 errors are caused by Nginx rate limiting on the EC2 instance:
+
+1. **Every 10 minutes** your Kubernetes pods hit the rate limit
+2. **Source IP problem**: All K8s traffic appears as one IP (10.0.2.100 - NAT Gateway)
+3. **Nginx configuration**: `limit_req_zone $binary_remote_addr zone=perip` treats all K8s traffic as one client
+
+**Solution**:
+```nginx
+# Update nginx config to use X-Forwarded-For for K8s traffic
+map $remote_addr $limit_key {
+    "10.0.2.100" $http_x_forwarded_for;  # K8s NAT Gateway
+    default      $binary_remote_addr;
+}
+limit_req_zone $limit_key zone=perip:10m rate=100r/s;
+```
+
+### Scenarios to Consider Using /run or /shell
+
+1. **Access to Data HolmesGPT Can't Access on It's Own**
+   - ssh'ing into a machine
+   - run commands with escalated permisssions (sudo)
+   - accessing data sources HolmesGPT can't access on it's own
+
+2. **Adding Business Context**
+   - Pulling in marketing data with recent campaign launch times
+   - Fetcing planned maintenance windows from a source HolmesGPT does not know about
+
+3. **Sharing Development/Testing Insights**
+   - Point HolmesGPT at recent code deployments or git commits
+
+### CI/CD Pipeline Troubleshooting
+
+Example of using HolmesGPT in a CI/CD pipeline to automatically troubleshoot deployment failures:
+
+```yaml
+# .github/workflows/deploy.yml or gitlab-ci.yml
+deploy:
+  script:
+    - |
+      # Apply Kubernetes manifests
+      kubectl apply -f k8s/
+
+      # Wait for rollout
+      if ! kubectl rollout status deployment/app -n production --timeout=300s; then
+        echo "Deployment failed - starting HolmesGPT investigation"
+
+        # Capture current state
+        kubectl get all -n production > deployment-state.txt
+        kubectl describe deployment app -n production >> deployment-state.txt
+        kubectl get events -n production --sort-by='.lastTimestamp' | tail -20 >> deployment-state.txt
+
+        # Run HolmesGPT investigation and send directly to Slack
+        cat deployment-state.txt | holmes ask \
+          "🚨 Deployment Failed in ${CI_PROJECT_NAME}\n\nEnvironment: Production\nCommit: ${CI_COMMIT_SHA}\nPipeline: ${CI_PIPELINE_URL}\n\nThe deployment failed. Analyze why the pods are not becoming ready. Focus on: image pulls, resource limits, probes, and configuration issues" \
+          --no-interactive \
+          --destination slack \
+          --slack-token "$SLACK_TOKEN" \
+          --slack-channel "#deployments"
+
+        exit 1
+      fi
+```
+
+The built-in Slack integration will automatically format and send the analysis to your specified channel. You can also use a simpler approach for basic deployments:
+
+```bash
+# Simple deployment check with Slack notification
+kubectl rollout status deployment/app -n prod --timeout=300s || \
+  holmes ask "deployment/app in prod namespace failed to roll out" \
+    --destination slack \
+    --slack-token "$SLACK_TOKEN" \
+    --slack-channel "#alerts"
+```
+
+## Tips and Best Practices
+
+1. **Use `/reset` when switching topics** - This gives you a fresh context and prevents confusion
+3. **Use `/run` if the AI is missing something important** - Guide the investigation by showing it what it is missing
+4. **Check `/context` periodically** - Especially during long investigations
+5. **View evidence with `/show`** - Full outputs often contain important details
+6. **Add comments when sharing shell output** - Helps the AI understand what you're looking for
+
+## Non-Interactive CLI Usage
+
+While interactive mode is powerful, HolmesGPT also supports non-interactive usage for scripting and automation:
+
+### Basic One-Shot Questions
+
+```bash
+holmes ask "what pods are failing in the default namespace?" --no-interactive
+```
+
+### Piping Input
+
+```bash
+# Pipe command output directly to Holmes
+kubectl get events | holmes ask "what warnings should I worry about?"
+
+# Pipe without a question (Holmes will analyze the output)
+kubectl logs my-pod | holmes ask
+
+# Pipe log files
+cat /var/log/app.log | holmes ask "find errors in these logs"
+```
+
+### Including Files
+
+```bash
+# Include one or more files with your question
+holmes ask "analyze these configurations" -f config.yaml -f deployment.yaml
+
+# Combine piped input with files
+kubectl get pod my-pod -o yaml | holmes ask "why won't this pod start?" -f events.log
+```
+
+### Scripting Examples
+
+```bash
+#!/bin/bash
+# Health check script
+holmes ask "check for any critical issues in the cluster" --no-interactive
+
+# Automated investigation
+if kubectl get pods | grep -q "CrashLoopBackOff"; then
+    kubectl get pods | holmes ask "investigate the crashing pods" -n
+fi
+
+# Batch analysis
+for namespace in $(kubectl get ns -o name | cut -d/ -f2); do
+    echo "Checking namespace: $namespace"
+    holmes ask "check for issues in namespace $namespace" -n
+done
+```
