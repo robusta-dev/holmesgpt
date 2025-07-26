@@ -12,3 +12,5 @@ after_test: |
 tags:
   - easy
   - kubernetes
+skip: true
+skip_reason: When running with many iterations (or on an existing setup) this test can fail because the events disappear from the cluster
