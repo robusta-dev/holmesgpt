@@ -5,7 +5,7 @@ import sys
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
+from typing import List, Dict
 from strenum import StrEnum
 
 from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
@@ -37,13 +37,18 @@ class Operation(StrEnum):
     CLEANUP = "Cleanup"
 
 
-def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation):
+def run_all_test_commands(
+    test_cases: List[HolmesTestCase], operation: Operation
+) -> Dict[str, str]:
     """Run before_test/after_test (according to operation)
 
     Args:
         test_cases: List of test cases to process
         command_func: Function to call for each test case (before_test or after_test)
         operation_name: Name of operation for logging ("Setup" or "Cleanup")
+
+    Returns:
+        Dict[str, str]: Mapping of test_case.id to error message for failed setups
     """
     operation_lower = operation.value.lower()
     operation_plural = f"{operation_lower}s"
@@ -56,6 +61,7 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
     successful_test_cases = 0
     failed_test_cases = 0
     timed_out_test_cases = 0
+    failed_setup_info = {}  # Map test_case.id to error message
 
     with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
         if operation == Operation.SETUP:
@@ -102,6 +108,12 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                     #    f"[{test_case.id}] {operation.value} timeout: {result.error_details}"
                     # )
 
+                    # Store failure info for setup
+                    if operation == Operation.SETUP:
+                        failed_setup_info[test_case.id] = (
+                            f"Setup timeout: Command timed out after {result.elapsed_time:.2f}s"
+                        )
+
                     # Emit warning to make it visible in pytest output
                     warnings.warn(
                         f"{operation.value} timeout for test {test_case.id}: Command '{result.command}' timed out after {result.elapsed_time:.2f}s. Output: {result.error_details}",
@@ -121,6 +133,12 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
                     #    f"[{test_case.id}] {operation.value} failed: {result.error_details}"
                     # )
 
+                    # Store failure info for setup
+                    if operation == Operation.SETUP:
+                        failed_setup_info[test_case.id] = (
+                            f"Setup failed: Command failed with {result.exit_info}"
+                        )
+
                     # Emit warning to make it visible in pytest output
                     warnings.warn(
                         f"{operation.value} failed for test {test_case.id}: Command '{result.command}' failed with {result.exit_info} in {result.elapsed_time:.2f}s. Output: {result.error_details}",
@@ -131,6 +149,10 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
             except Exception as e:
                 failed_test_cases += 1
                 log(f"❌ {operation.value} {test_case.id}: EXCEPTION - {e}")
+
+                # Store failure info for setup
+                if operation == Operation.SETUP:
+                    failed_setup_info[test_case.id] = f"Setup exception: {str(e)}"
 
                 # Emit warning to make it visible in pytest output
                 warnings.warn(
@@ -144,10 +166,16 @@ def run_all_test_commands(test_cases: List[HolmesTestCase], operation: Operation
         f"⚙️ {operation.value} completed in {elapsed_time:.2f}s: {successful_test_cases} successful, {failed_test_cases} failed, {timed_out_test_cases} timeout"
     )
 
+    return failed_setup_info
 
-def run_all_test_setup(test_cases: List[HolmesTestCase]) -> None:
-    """Run before_test for each test case in parallel."""
-    run_all_test_commands(test_cases, Operation.SETUP)
+
+def run_all_test_setup(test_cases: List[HolmesTestCase]) -> Dict[str, str]:
+    """Run before_test for each test case in parallel.
+
+    Returns:
+        Dict[str, str]: Mapping of test_case.id to error message for failed setups
+    """
+    return run_all_test_commands(test_cases, Operation.SETUP)
 
 
 def run_all_test_cleanup(test_cases: List[HolmesTestCase]) -> None:

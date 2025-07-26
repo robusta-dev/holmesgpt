@@ -1,7 +1,8 @@
 """Terminal reporting functionality for test results."""
 
 import textwrap
-from typing import List
+from typing import List, Dict
+from collections import defaultdict
 
 from rich.console import Console
 from rich.table import Table
@@ -93,6 +94,9 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
     # Use force_terminal to ensure output is displayed even when captured
     console.print(table)
 
+    # Print summary statistics table
+    _print_summary_statistics(sorted_results, console)
+
 
 def _get_analysis_for_result(result: TestResult) -> str:
     """Get analysis text for a test result, with proper text wrapping."""
@@ -155,3 +159,162 @@ def _get_llm_analysis(result: TestResult) -> str:
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"Analysis failed: {e}"
+
+
+def _print_summary_statistics(sorted_results: List[dict], console: Console) -> None:
+    """Print a summary statistics table similar to pytest coverage reports."""
+    if not sorted_results:
+        return
+
+    # Group results by test name (without iteration number)
+    test_groups: Dict[str, List[dict]] = defaultdict(list)
+
+    for result in sorted_results:
+        # Extract test name without iteration number
+        nodeid = result.get("nodeid", "")
+        # Remove iteration suffix like "0", "1", etc.
+        if "[" in nodeid:
+            base_name = nodeid.split("[")[1].split("]")[0]
+            # Remove trailing numbers
+            if base_name and base_name[-1].isdigit():
+                base_name = base_name.rstrip("0123456789")
+        else:
+            base_name = nodeid
+
+        test_groups[base_name].append(result)
+
+    # Create summary table
+    summary_table = Table(
+        title="\n📊 TEST SUMMARY STATISTICS",
+        show_header=True,
+        header_style="bold cyan",
+        show_lines=False,
+        padding=(0, 1),
+    )
+
+    # Add columns (removed Skip column, added failure breakdown)
+    summary_table.add_column("Test Name", style="bright_blue", width=40)
+    summary_table.add_column("Runs", justify="center", width=6)
+    summary_table.add_column("Pass", justify="center", style="green", width=6)
+    summary_table.add_column("Fail", justify="center", style="red", width=6)
+    summary_table.add_column("Mock Fail", justify="center", style="yellow", width=10)
+    summary_table.add_column("Pass %", justify="right", width=8)
+    summary_table.add_column("Avg Time", justify="right", width=10)
+
+    # Calculate statistics for each test
+    total_runs = 0
+    total_pass = 0
+    total_fail = 0
+    total_mock_fail = 0
+    total_skip = 0
+
+    for test_name in sorted(test_groups.keys()):
+        results = test_groups[test_name]
+
+        # Skip entirely skipped tests
+        if all(r.get("status") == "skipped" for r in results):
+            total_skip += len(results)
+            continue
+
+        runs = len(results)
+        passed = sum(1 for r in results if TestStatus(r).passed)
+
+        # Count different failure types
+        mock_failures = sum(1 for r in results if r.get("mock_data_failure", False))
+        other_failures = sum(
+            1
+            for r in results
+            if not TestStatus(r).passed
+            and not r.get("mock_data_failure", False)
+            and r.get("status") != "skipped"
+        )
+
+        # Calculate pass percentage
+        if runs > 0:
+            pass_pct = (passed / runs) * 100
+        else:
+            pass_pct = 0
+
+        # Calculate average execution time
+        times = [r.get("execution_time", 0) for r in results if r.get("execution_time")]
+        avg_time = sum(times) / len(times) if times else 0
+
+        # Update totals
+        total_runs += runs
+        total_pass += passed
+        total_fail += other_failures
+        total_mock_fail += mock_failures
+
+        # Format values
+        pass_pct_str = f"{pass_pct:.1f}%"
+        avg_time_str = f"{avg_time:.1f}s" if avg_time > 0 else "N/A"
+
+        # Add row
+        summary_table.add_row(
+            test_name,
+            str(runs),
+            str(passed) if passed > 0 else "-",
+            str(other_failures) if other_failures > 0 else "-",
+            str(mock_failures) if mock_failures > 0 else "-",
+            pass_pct_str,
+            avg_time_str,
+        )
+
+    # Add separator
+    summary_table.add_row(
+        "─" * 38,
+        "─" * 4,
+        "─" * 4,
+        "─" * 4,
+        "─" * 8,
+        "─" * 6,
+        "─" * 8,
+        style="dim",
+    )
+
+    # Add totals row
+    total_actual_runs = total_runs
+    total_pass_pct = (
+        (total_pass / total_actual_runs) * 100 if total_actual_runs > 0 else 0
+    )
+    summary_table.add_row(
+        "TOTAL",
+        str(total_runs),
+        str(total_pass),
+        str(total_fail),
+        str(total_mock_fail),
+        f"{total_pass_pct:.1f}%",
+        "",
+        style="bold",
+    )
+
+    console.print(summary_table)
+
+    # Print quick summary line with failure breakdown
+    if total_fail > 0 or total_mock_fail > 0:
+        failure_parts = []
+        if total_fail > 0:
+            failure_parts.append(f"{total_fail} real failures")
+        if total_mock_fail > 0:
+            failure_parts.append(f"{total_mock_fail} mock data failures")
+
+        console.print(
+            f"\n[bold red]FAIL[/bold red] {total_fail + total_mock_fail} out of {total_actual_runs} tests failed ({', '.join(failure_parts)})"
+        )
+    else:
+        console.print(
+            f"\n[bold green]SUCCESS[/bold green] All {total_actual_runs} tests passed!"
+        )
+
+    # Print skip info if any
+    if total_skip > 0:
+        console.print(
+            f"[dim]Note: {total_skip // max(len(test_groups.get(name, [])) for name in test_groups)} tests were skipped entirely[/dim]"
+        )
+
+    # Print iteration info if multiple runs detected
+    max_iterations = max(len(results) for results in test_groups.values())
+    if max_iterations > 1:
+        console.print(
+            f"[dim]Note: Tests were run with {max_iterations} iterations[/dim]"
+        )

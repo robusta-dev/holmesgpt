@@ -94,6 +94,11 @@ def test_ask_holmes(
     # Check if test should be skipped
     check_and_skip_test(test_case)
 
+    # Check for setup failures
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+
     print(f"\n🧪 TEST: {test_case.id}")
     print("   CONFIGURATION:")
     print(
