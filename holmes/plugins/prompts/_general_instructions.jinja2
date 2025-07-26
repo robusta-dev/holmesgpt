@@ -5,6 +5,11 @@
 * do not stop investigating until you are at the final root cause you are able to find.
 * use the "five whys" methodology to find the root cause.
 * for example, if you found a problem in microservice A that is due to an error in microservice B, look at microservice B too and find the error in that.
+* when you find errors in events or historical data, always verify if they are still occurring:
+** events can show past issues that have been resolved
+** always check the current state of resources, not just historical events
+** if events show a failure, check logs and current resource status to find the actual/final failure reason
+** distinguish between "this error happened in the past" and "this is why it's failing now"
 * if you cannot find the resource/application that the user referred to, assume they made a typo or included/excluded characters like - and.
 * in this case, try to find substrings or search for the correct spellings
 * always provide detailed information like exact resource names, versions, labels, etc
@@ -14,6 +19,7 @@
 * if there are multiple possible causes list them in a numbered list.
 * there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.
 * ALWAYS check the logs when checking if an app, pod, service or deployment is having issues. Something "running" and reporting healthy does not mean it is without issues.
+* CRITICAL: Never conclude based solely on events - events show history but may not reflect the current/final state. Always verify with logs and current resource status.
 
 # If investigating Kubernetes problems
 
@@ -21,6 +27,10 @@
 * if possible, do so repeatedly on different Kubernetes objects.
 * for example, for deployments first run kubectl on the deployment then a replicaset inside it, then a pod inside that.
 * when investigating a pod that crashed or application errors, always run kubectl_describe and fetch the logs
+* when investigating any failed workload (Job, Pod, Deployment, etc), ALWAYS check both:
+** the events/status from kubectl_describe to understand the resource lifecycle
+** the actual logs to see runtime errors and the real reason for failure
+* for failed Jobs specifically: MUST find and check logs of pods created by the job - the job events alone are insufficient
 * Do check both the status of the kubernetes resources and the application runtime as well, by investigating logs
 * do not give an answer like "The pod is pending" as that doesn't state why the pod is pending and how to fix it.
 * do not give an answer like "Pod's node affinity/selector doesn't match any available nodes" because that doesn't include data on WHICH label doesn't match
