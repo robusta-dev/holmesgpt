@@ -20,7 +20,9 @@ def generate_web_logs():
             # Generate logs that don't directly reveal the pattern
             print(f"[{timestamp}] GET {page} 200 OK")
             print(f"[{timestamp}] Performance metric recorded: page_render_complete")
-            print(f"[{timestamp}] Request processing finished in {render_time:.3f}s")
+            print(
+                f"[{timestamp}] Request completed - duration={int(render_time * 1000)}ms"
+            )
 
             # Add some noise logs
             print(f"[{timestamp}] Connection from 10.0.0.{random.randint(1, 255)}")

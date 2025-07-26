@@ -8,4 +8,4 @@ after_test: |
   kubectl delete -f manifests.yaml --ignore-not-found=true
 tags:
   - counting
-  - medium
+  - easy

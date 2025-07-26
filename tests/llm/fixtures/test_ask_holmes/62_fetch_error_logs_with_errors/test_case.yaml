@@ -14,11 +14,16 @@ expected_output: |
   The following log MAY be shown (it does not impact the correctness of the test):
     FATAL: Shutting down application
 
-before_test: 'kubectl apply -f ./manifest.yaml'
-after_test: 'kubectl delete -f ./manifest.yaml'
+before_test: |
+  kubectl create secret generic payment-service-logs-script \
+  --from-file=generate_logs.py=./generate_logs.py \
+  -n production-62 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f ./manifest.yaml
+  sleep 10
+after_test: |
+  kubectl delete -f ./manifest.yaml
+  kubectl delete secret payment-service-logs-script -n production-62 --ignore-not-found
 generate_mocks: True
 tags:
   - logs
   - easy
-  # Hardcoded error messages in deployment spec reveal exactly what errors will occur
-  - leaked-information
