@@ -23,7 +23,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
-from pygments.lexers.data import YamlLexer
+from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
@@ -187,58 +187,66 @@ def build_modal_title(tool_call: ToolCallResult, wrap_status: str) -> str:
     return f"{tool_call.description} (exit: q, nav: ↑↓/j/k/g/G/d/u/f/b/space, wrap: w [{wrap_status}])"
 
 
-def is_yaml_content(content: str) -> bool:
+def detect_lexer(content: str) -> Optional[PygmentsLexer]:
     """
-    Detect if content appears to be YAML based on common patterns.
+    Detect appropriate lexer for content using Pygments' built-in detection.
 
     Args:
         content: String content to analyze
 
     Returns:
-        True if content appears to be YAML, False otherwise
+        PygmentsLexer instance if content type is detected, None otherwise
     """
     if not content.strip():
-        return False
+        return None
 
-    lines = content.strip().split("\n")
-    yaml_indicators = 0
+    try:
+        # Preprocess content to improve detection
+        processed_content = _preprocess_content_for_detection(content)
 
-    # Skip empty lines for analysis
-    non_empty_lines = [line for line in lines if line.strip()]
-    if not non_empty_lines:
-        return False
+        # Use Pygments' built-in lexer guessing
+        lexer = guess_lexer(processed_content)
+        return PygmentsLexer(lexer.__class__)
+    except Exception:
+        # If detection fails, return None for no syntax highlighting
+        return None
 
-    for line in non_empty_lines[
-        : min(20, len(non_empty_lines))
-    ]:  # Check first 20 non-empty lines
-        stripped = line.strip()
-        if not stripped:
+
+def _preprocess_content_for_detection(content: str) -> str:
+    """
+    Preprocess content to improve lexer detection accuracy.
+
+    Args:
+        content: Raw content string
+
+    Returns:
+        Processed content that's more likely to be detected correctly
+    """
+    # Remove common tool output prefixes that might confuse detection
+    lines = content.split("\n")
+    processed_lines = []
+
+    for line in lines:
+        # Skip common command output prefixes
+        if line.strip().startswith(("$", ">", "#", "kubectl>", "docker>")):
             continue
+        # Skip timestamp prefixes
+        if len(line) > 20 and line[:20].count(":") >= 2:
+            # Looks like a timestamp, try to extract content after it
+            parts = line.split(None, 2)
+            if len(parts) >= 3:
+                processed_lines.append(parts[2])
+            else:
+                processed_lines.append(line)
+        else:
+            processed_lines.append(line)
 
-        # YAML document markers
-        if stripped in ["---", "..."]:
-            yaml_indicators += 2
-            continue
+    # Join back and return original if preprocessing removed too much
+    processed = "\n".join(processed_lines).strip()
+    if len(processed) < len(content) * 0.5:  # If we removed more than half
+        return content  # Return original
 
-        # Key-value pairs (key: value)
-        if ":" in stripped and not stripped.startswith("#"):
-            # Simple heuristic: line contains colon not in quotes, likely YAML
-            colon_pos = stripped.find(":")
-            if colon_pos > 0 and (
-                colon_pos == len(stripped) - 1 or stripped[colon_pos + 1].isspace()
-            ):
-                yaml_indicators += 1
-
-        # List items (- item)
-        if stripped.startswith("- "):
-            yaml_indicators += 1
-
-        # Indented structure (starts with spaces)
-        if line.startswith("  ") and ":" in stripped:
-            yaml_indicators += 1
-
-    # If more than 30% of lines have YAML characteristics, consider it YAML
-    return len(non_empty_lines) > 0 and (yaml_indicators / len(non_empty_lines)) > 0.3
+    return processed if processed else content
 
 
 def handle_show_command(
@@ -302,10 +310,8 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         output = tool_call.result.get_stringified_data()
         title = build_modal_title(tool_call, "off")  # Word wrap starts disabled
 
-        # Determine if content should use YAML syntax highlighting
-        lexer = None
-        if is_yaml_content(output):
-            lexer = PygmentsLexer(YamlLexer)
+        # Detect appropriate syntax highlighting
+        lexer = detect_lexer(output)
 
         # Create text area with the output
         text_area = TextArea(
