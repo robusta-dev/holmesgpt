@@ -1,4 +1,52 @@
-user_prompt: "How are the page render times for pod customer-orders"
-expected_output: "Page render times for `the pod range from about 7 to 9 seconds."
+user_prompt: "How are the page render times for pod mountain-lion"
+expected_output: "Page render times for the pod range from about 7 to 9 seconds."
 evaluation:
   correctness: 0
+
+before_test: |
+  kubectl create namespace app-26
+  cat <<EOF | kubectl apply -f -
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: mountain-lion
+    namespace: app-26
+    labels:
+      app: order-service
+  spec:
+    containers:
+    - name: web
+      image: busybox:1.35
+      command:
+      - sh
+      - -c
+      - |
+        while true; do
+          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Page /orders rendered in 7.$(shuf -i 100-999 -n 1)s"
+          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Page /checkout rendered in 8.$(shuf -i 100-999 -n 1)s"
+          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Page /products rendered in 9.$(shuf -i 100-999 -n 1)s"
+          sleep 5
+        done
+    - name: metrics
+      image: busybox:1.35
+      command:
+      - sh
+      - -c
+      - |
+        while true; do
+          echo "[$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)] Metrics collected"
+          sleep 10
+        done
+  EOF
+  kubectl wait --for=condition=Ready pod/mountain-lion -n app-26 --timeout=60s
+  # Let it generate some logs
+  sleep 20
+
+after_test: |
+  kubectl delete namespace app-26 --force --grace-period=0
+
+tags:
+  - multi-container
+  - logs
+  - kubernetes
+  - leaked-information
