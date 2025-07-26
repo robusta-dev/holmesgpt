@@ -15,7 +15,11 @@ from pydantic import BaseModel
 from pydantic_core import from_json
 from rich.console import Console
 
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.common.env_vars import (
+    ROBUSTA_API_ENDPOINT,
+    STREAM_CHUNKS_PER_PARSE,
+    TEMPERATURE,
+)
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -285,6 +289,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
@@ -610,6 +615,7 @@ class ToolCallingLLM:
                             "messages": parse_messages_tags(messages),  # type: ignore
                             "tools": tools,
                             "tool_choice": tool_choice,
+                            "temperature": TEMPERATURE,
                             "response_format": response_format,
                             "stream": True,
                             "drop_param": True,
@@ -634,6 +640,7 @@ class ToolCallingLLM:
                         messages=parse_messages_tags(messages),  # type: ignore
                         tools=tools,
                         tool_choice=tool_choice,
+                        temperature=TEMPERATURE,
                         response_format=response_format,
                         stream=False,
                         drop_params=True,
