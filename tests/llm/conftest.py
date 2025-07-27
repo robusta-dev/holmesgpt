@@ -8,7 +8,6 @@ from pytest_shared_session_scope import (
     CleanupToken,
 )
 
-from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.test_results import TestResult
 from tests.llm.utils.classifiers import create_llm_client
 from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
@@ -18,7 +17,7 @@ from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
 )
 from tests.llm.utils.reporting.terminal_reporter import handle_console_output
 from tests.llm.utils.reporting.github_reporter import handle_github_output
-from tests.llm.utils.braintrust import get_braintrust_url, get_experiment_name
+from tests.llm.utils.braintrust import get_braintrust_url
 from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
     run_all_test_cleanup,
@@ -245,6 +244,15 @@ def llm_availability_check(request):
                 print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
                 print()
 
+                # Show ASK_HOLMES_TEST_TYPE if relevant for ask_holmes tests
+                ask_holmes_tests = [
+                    t for t in llm_tests if "test_ask_holmes" in t.nodeid
+                ]
+                if ask_holmes_tests:
+                    test_type = os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+                    print(f"ASK_HOLMES_TEST_TYPE: {test_type} (use 'cli' or 'server')")
+                    print()
+
                 # Check if Braintrust is enabled
                 braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
                 if braintrust_api_key:
@@ -404,6 +412,7 @@ def _collect_test_results_from_stats(terminalreporter):
                     "actual": skip_reason,
                     "tools_called": [],
                     "expected_correctness_score": 0.0,
+                    "user_prompt": "",
                     "actual_correctness_score": 0.0,
                     "status": "skipped",
                     "outcome": "skipped",
@@ -487,6 +496,7 @@ def _collect_test_results_from_stats(terminalreporter):
                 "outcome": getattr(report, "outcome", "unknown"),
                 "execution_time": getattr(report, "duration", None),
                 "mock_data_failure": mock_data_failure,
+                "user_prompt": user_props.get("user_prompt", ""),
                 "is_setup_failure": user_props.get("is_setup_failure", False),
                 "error_message": str(report.longrepr)
                 if hasattr(report, "longrepr") and report.longrepr
@@ -509,6 +519,7 @@ def _collect_test_results_from_stats(terminalreporter):
             test_type=result["test_type"],
             execution_time=result["execution_time"],
             expected_correctness_score=result["expected_correctness_score"],
+            user_prompt=result["user_prompt"],
             actual_correctness_score=result["actual_correctness_score"],
             mock_data_failure=result["mock_data_failure"],
         )
@@ -537,12 +548,8 @@ def _display_braintrust_experiment_link(terminalreporter):
     if not os.environ.get("BRAINTRUST_API_KEY"):
         return
 
-    # Get experiment name
-    experiment_name = get_experiment_name()
-    braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
-
     # Build experiment URL
-    experiment_url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}"
+    experiment_url = get_braintrust_url()
 
     print("\n" + "=" * 70)
     print("🧠 Braintrust Experiment Summary")

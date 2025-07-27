@@ -4,16 +4,17 @@ from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
 from typing import Any, List, Optional, Union
 
-
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore
 from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
-from holmes.core.tracing import DummySpan
+from holmes.core.tracing import (
+    DummySpan,
+    BRAINTRUST_API_KEY,
+    BRAINTRUST_PROJECT,
+    BRAINTRUST_ORG,
+)
 
-
-BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
 
 braintrust_enabled = False
-
 if BRAINTRUST_API_KEY:
     braintrust_enabled = True
 
@@ -65,7 +66,6 @@ class BraintrustEvalHelper:
             return
 
         logging.info(f"Uploading f{len(test_cases)} test cases to braintrust")
-
         logging.info(f"Found dataset: {self.dataset.summarize()}")
 
         for item in self.dataset:
@@ -102,6 +102,7 @@ class BraintrustEvalHelper:
             return None
         return find_dataset_row_by_test_case(self.dataset, test_case)
 
+    # TODO: remove and use BraintrustTracer instead
     def start_evaluation(
         self, experiment_name: str, name: str
     ) -> Union[Span, DummySpan]:
@@ -163,11 +164,11 @@ class BraintrustEvalHelper:
 
 
 def get_experiment_name():
-    unique_test_id = os.environ.get("PYTEST_XDIST_TESTRUNUID", readable_timestamp())
-    experiment_name = f"{unique_test_id}"
     if os.environ.get("EXPERIMENT_ID"):
-        experiment_name = f'{os.environ.get("EXPERIMENT_ID")}'
-    return experiment_name
+        return os.environ.get("EXPERIMENT_ID")
+    return (
+        readable_timestamp()
+    )  # should never happen - we set EXPERIMENT_ID in conftest.py
 
 
 def get_dataset_name(test_suite: str):
@@ -191,16 +192,13 @@ def get_braintrust_url(
     Returns:
         Braintrust URL string, or None if Braintrust is not configured
     """
-    from tests.llm.utils.constants import PROJECT
-
     if not BRAINTRUST_API_KEY:
         return None
 
     experiment_name = get_experiment_name()
-    braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
 
     # Build URL with available parameters
-    url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}?c="
+    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{experiment_name}?c="
 
     # Add span IDs if available
     if span_id and root_span_id:

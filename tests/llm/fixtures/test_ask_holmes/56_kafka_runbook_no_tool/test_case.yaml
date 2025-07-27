@@ -11,3 +11,6 @@ before_test: |
 after_test: kubectl delete -f ../55_kafka_runbook/app/kafka-manifest.yaml
 include_files:
   - kafka_lag_instructions.md
+
+skip: true
+skip_reason: "Natan: its not clear to me exactly what we're trying to test here"

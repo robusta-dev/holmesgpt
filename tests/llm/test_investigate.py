@@ -18,7 +18,6 @@ from tests.llm.utils.classifiers import (
     evaluate_sections,
 )
 from tests.llm.utils.commands import set_test_env_vars
-from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsetManager
@@ -55,7 +54,7 @@ class MockConfig(Config):
 
         # With the new file-based mock system, mocks are loaded from disk automatically
         # No need to call mock_tool() anymore
-        return ToolExecutor(mock.enabled_toolsets)
+        return ToolExecutor(mock.toolsets)
 
     def create_issue_investigator(
         self,
@@ -70,34 +69,18 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name()
-    dataset_name = braintrust_util.get_dataset_name("investigate")
-
     mh = MockHelper(TEST_CASES_FOLDER)
 
-    if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
-        bt_helper.upload_test_cases(mh.load_test_cases())
+    # dataset_name = braintrust_util.get_dataset_name("investigate")
+    # if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
+    #     bt_helper = braintrust_util.BraintrustEvalHelper(
+    #         project_name=BRAINTRUST_PROJECT, dataset_name=dataset_name
+    #     )
+    #     bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_investigate_test_cases()
-
-    iterations = int(os.environ.get("ITERATIONS", "0"))
-    if iterations:
-        test_cases_tuples = []
-        for i in range(0, iterations):
-            test_cases_tuples.extend(
-                [
-                    add_tags_to_eval(experiment_name, test_case)
-                    for test_case in test_cases
-                ]
-            )
-        return test_cases_tuples
-    else:
-        return [
-            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
-        ]
+    iterations = int(os.environ.get("ITERATIONS", "1"))
+    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
 
 
 def idfn(val):
@@ -108,9 +91,8 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
 def test_investigate(
-    experiment_name: str,
     test_case: InvestigateTestCase,
     caplog,
     request,
@@ -129,11 +111,10 @@ def test_investigate(
         request.node.user_properties.append(("is_setup_failure", True))
         pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
-    tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
+    tracer = TracingFactory.create_tracer("braintrust")
 
     # Create experiment using unified API
     tracer.start_experiment(
-        experiment_name=experiment_name,
         metadata=braintrust_util.get_machine_state_tags(),
     )
 
