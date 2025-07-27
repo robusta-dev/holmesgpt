@@ -58,6 +58,7 @@ class TestStatus:
         self.status = result.get(
             "status", ""
         )  # pytest status (passed, failed, skipped, etc.)
+        self.is_setup_failure = result.get("is_setup_failure", False)
 
     @property
     def passed(self) -> bool:
@@ -82,6 +83,8 @@ class TestStatus:
     def markdown_symbol(self) -> str:
         if self.is_skipped:
             return ":arrow_right_hook:"
+        elif self.is_setup_failure:
+            return ":construction:"
         elif self.is_mock_failure:
             return ":wrench:"
         elif self.passed:
@@ -95,6 +98,8 @@ class TestStatus:
     def console_status(self) -> str:
         if self.is_skipped:
             return "[cyan]SKIPPED[/cyan]"
+        elif self.is_setup_failure:
+            return "[magenta]SETUP FAIL[/magenta]"
         elif self.is_mock_failure:
             return "[yellow]MOCK FAILURE[/yellow]"
         elif self.passed:
@@ -106,6 +111,8 @@ class TestStatus:
     def short_status(self) -> str:
         if self.is_skipped:
             return "SKIPPED"
+        elif self.is_setup_failure:
+            return "SETUP FAILURE"
         elif self.is_mock_failure:
             return "MOCK FAILURE"
         elif self.passed:

@@ -10,6 +10,9 @@ fi
 # Create the test namespace
 kubectl create namespace 28-test --dry-run=client -o yaml | kubectl apply -f -
 
+# Delete existing ClusterRoleBinding if it exists
+kubectl delete clusterrolebinding restricted-holmes-binding-28 --ignore-not-found=true
+
 # Create a restricted service account that cannot access secrets
 kubectl apply -f - <<EOF
 apiVersion: v1
@@ -58,23 +61,13 @@ EOF
 # Wait for the service account to be created and have a token
 sleep 2
 
-# Get the service account token (suppress output to avoid token leakage)
-SA_TOKEN=$(kubectl get secret $(kubectl get serviceaccount restricted-holmes-sa -n 28-test -o jsonpath='{.secrets[0].name}' 2>/dev/null || echo "restricted-holmes-sa-token") -n 28-test -o jsonpath='{.data.token}' 2>/dev/null | base64 -d || echo "")
+# Get the service account token using TokenRequest API (K8s >= 1.24)
+SA_TOKEN=$(kubectl create token restricted-holmes-sa -n 28-test --duration=1h)
 
-# If token is empty, create a token manually (for newer K8s versions)
+# Verify token exists
 if [ -z "$SA_TOKEN" ]; then
-    kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: restricted-holmes-sa-token
-  namespace: 28-test
-  annotations:
-    kubernetes.io/service-account.name: restricted-holmes-sa
-type: kubernetes.io/service-account-token
-EOF
-    sleep 2
-    SA_TOKEN=$(kubectl get secret restricted-holmes-sa-token -n 28-test -o jsonpath='{.data.token}' 2>/dev/null | base64 -d)
+    echo "Error: Failed to obtain service account token"
+    exit 1
 fi
 
 # Get cluster info

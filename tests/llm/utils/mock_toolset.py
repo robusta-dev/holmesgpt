@@ -551,10 +551,10 @@ class MockToolsetManager:
 
         # Determine the effective mode based on mock_policy
         if mock_policy == MockPolicy.ALWAYS_MOCK.value:
-            # ALWAYS_MOCK forces mock mode unless we're generating mocks
-            # (when generating mocks, ALWAYS_MOCK is ignored - this is used to generate mocks the first time)
             if mock_generation_config.mode == MockMode.GENERATE:
-                self.mode = MockMode.GENERATE
+                pytest.skip(
+                    "Test has fixed mocks (mock_policy='always_mock') so this test will be skipped. If you want to override mocks for this test and generate from scratch, change the mock_policy for this test temporarily."
+                )
             else:
                 self.mode = MockMode.MOCK
         elif mock_policy == MockPolicy.NEVER_MOCK.value:
@@ -569,9 +569,6 @@ class MockToolsetManager:
         # Initialize components
         self.file_manager = MockFileManager(test_case_folder)
         self.configurator = ToolsetConfigurator()
-
-        # Note: Mock clearing is now handled by the shared_test_infrastructure fixture
-        # to ensure it only happens once across all workers when using --regenerate-all-mocks
 
         # Load and configure toolsets
         self._initialize_toolsets()

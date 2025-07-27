@@ -3,3 +3,4 @@ expected_output:
   - The link https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html should be in the answer
 tags:
   - easy
+  - transparency
