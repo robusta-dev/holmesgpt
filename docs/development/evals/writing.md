@@ -205,16 +205,20 @@ expected_output:
 ```
 
 Options:
-- **`always_mock`**: Always use mock data, even with `RUN_LIVE=true`
-  - Ensures deterministic behavior
-  - Useful for CI/CD pipelines
+- **`inherit`** (default): Use global settings from environment/CLI flags
+  - Recommended for most tests
+  - Allows flexibility to run with or without mocks based on environment
 
 - **`never_mock`**: Force live execution
   - Test automatically skipped if `RUN_LIVE` is not set
-  - Useful for integration tests
-  - Verifies real tool behavior
+  - Ensures the test always runs against real tools
+  - Verifies actual tool behavior and integration
+  - Preferred when you want to guarantee realistic testing
 
-- **`inherit`** (default): Use global settings from environment/CLI flags
+- **`always_mock`**: Always use mock data, even with `RUN_LIVE=true`
+  - Ensures deterministic behavior
+  - Use only when live testing is impractical (e.g., complex cluster setups, specific error conditions)
+  - Note: You should prefer `inherit` or `never_mock` when possible as they test the agent more realistically and are less fragile
 
 ### Example Tests
 

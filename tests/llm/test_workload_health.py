@@ -114,6 +114,7 @@ def test_health_check(
     # Check for setup failures
     setup_failures = shared_test_infrastructure.get("setup_failures", {})
     if test_case.id in setup_failures:
+        request.node.user_properties.append(("is_setup_failure", True))
         pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
     dataset_name = braintrust_util.get_dataset_name("health_check")

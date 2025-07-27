@@ -487,6 +487,10 @@ def _collect_test_results_from_stats(terminalreporter):
                 "outcome": getattr(report, "outcome", "unknown"),
                 "execution_time": getattr(report, "duration", None),
                 "mock_data_failure": mock_data_failure,
+                "is_setup_failure": user_props.get("is_setup_failure", False),
+                "error_message": str(report.longrepr)
+                if hasattr(report, "longrepr") and report.longrepr
+                else None,
                 "braintrust_span_id": user_props.get("braintrust_span_id"),
                 "braintrust_root_span_id": user_props.get("braintrust_root_span_id"),
             }

@@ -35,7 +35,9 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
     # Add rows to table
     for result in sorted_results:
         status = TestStatus(result)
-        pass_fail = "✅ PASS" if status.passed else "❌ FAIL"
+        pass_fail = (
+            "✅ PASS" if status.passed else "❌ FAIL"
+        )  # Still needed for TestResult
 
         # Create TestResult object for analysis function
         test_result = TestResult(
@@ -197,6 +199,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     summary_table.add_column("Runs", justify="center", width=6)
     summary_table.add_column("Pass", justify="center", style="green", width=6)
     summary_table.add_column("Fail", justify="center", style="red", width=6)
+    summary_table.add_column("Setup Fail", justify="center", style="magenta", width=10)
     summary_table.add_column("Mock Fail", justify="center", style="yellow", width=10)
     summary_table.add_column("Pass %", justify="right", width=8)
     summary_table.add_column("Avg Time", justify="right", width=10)
@@ -205,6 +208,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     total_runs = 0
     total_pass = 0
     total_fail = 0
+    total_setup_fail = 0
     total_mock_fail = 0
     total_skip = 0
 
@@ -220,12 +224,14 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         passed = sum(1 for r in results if TestStatus(r).passed)
 
         # Count different failure types
+        setup_failures = sum(1 for r in results if r.get("is_setup_failure", False))
         mock_failures = sum(1 for r in results if r.get("mock_data_failure", False))
         other_failures = sum(
             1
             for r in results
             if not TestStatus(r).passed
             and not r.get("mock_data_failure", False)
+            and not r.get("is_setup_failure", False)
             and r.get("status") != "skipped"
         )
 
@@ -243,6 +249,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         total_runs += runs
         total_pass += passed
         total_fail += other_failures
+        total_setup_fail += setup_failures
         total_mock_fail += mock_failures
 
         # Format values
@@ -255,6 +262,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
             str(runs),
             str(passed) if passed > 0 else "-",
             str(other_failures) if other_failures > 0 else "-",
+            str(setup_failures) if setup_failures > 0 else "-",
             str(mock_failures) if mock_failures > 0 else "-",
             pass_pct_str,
             avg_time_str,
@@ -266,6 +274,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         "─" * 4,
         "─" * 4,
         "─" * 4,
+        "─" * 8,
         "─" * 8,
         "─" * 6,
         "─" * 8,
@@ -282,6 +291,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         str(total_runs),
         str(total_pass),
         str(total_fail),
+        str(total_setup_fail),
         str(total_mock_fail),
         f"{total_pass_pct:.1f}%",
         "",
@@ -291,15 +301,18 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     console.print(summary_table)
 
     # Print quick summary line with failure breakdown
-    if total_fail > 0 or total_mock_fail > 0:
+    if total_fail > 0 or total_setup_fail > 0 or total_mock_fail > 0:
         failure_parts = []
         if total_fail > 0:
             failure_parts.append(f"{total_fail} real failures")
+        if total_setup_fail > 0:
+            failure_parts.append(f"{total_setup_fail} setup failures")
         if total_mock_fail > 0:
             failure_parts.append(f"{total_mock_fail} mock data failures")
 
+        total_failures = total_fail + total_setup_fail + total_mock_fail
         console.print(
-            f"\n[bold red]FAIL[/bold red] {total_fail + total_mock_fail} out of {total_actual_runs} tests failed ({', '.join(failure_parts)})"
+            f"\n[bold red]FAIL[/bold red] {total_failures} out of {total_actual_runs} tests failed ({', '.join(failure_parts)})"
         )
     else:
         console.print(
