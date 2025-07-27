@@ -104,13 +104,17 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         skip_setup = request.config.getoption("--skip-setup")
 
         if test_cases and not skip_setup:
-            run_all_test_setup(test_cases)
+            setup_failures = run_all_test_setup(test_cases)
         elif skip_setup:
             log("⚙️ Skipping test setup due to --skip-setup flag")
+            setup_failures = {}
+        else:
+            setup_failures = {}
 
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],
             "cleared_mock_directories": cleared_directories,
+            "setup_failures": setup_failures,
         }
     else:
         log(f"⚙️ Skipping before_test/after_test on worker {worker_id}")
@@ -483,6 +487,10 @@ def _collect_test_results_from_stats(terminalreporter):
                 "outcome": getattr(report, "outcome", "unknown"),
                 "execution_time": getattr(report, "duration", None),
                 "mock_data_failure": mock_data_failure,
+                "is_setup_failure": user_props.get("is_setup_failure", False),
+                "error_message": str(report.longrepr)
+                if hasattr(report, "longrepr") and report.longrepr
+                else None,
                 "braintrust_span_id": user_props.get("braintrust_span_id"),
                 "braintrust_root_span_id": user_props.get("braintrust_root_span_id"),
             }

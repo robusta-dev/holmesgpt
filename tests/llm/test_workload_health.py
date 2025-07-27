@@ -103,12 +103,19 @@ def test_health_check(
     caplog,
     request,
     mock_generation_config,
+    shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
 
     # Check if test should be skipped
     check_and_skip_test(test_case)
+
+    # Check for setup failures
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        request.node.user_properties.append(("is_setup_failure", True))
+        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
     dataset_name = braintrust_util.get_dataset_name("health_check")
     bt_helper = braintrust_util.BraintrustEvalHelper(

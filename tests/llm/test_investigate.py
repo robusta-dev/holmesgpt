@@ -8,6 +8,7 @@ import pytest
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tool_calling_llm import IssueInvestigator
+from holmes.core.tracing import TracingFactory
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
@@ -114,6 +115,7 @@ def test_investigate(
     caplog,
     request,
     mock_generation_config,
+    shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
@@ -121,8 +123,11 @@ def test_investigate(
     # Check if test should be skipped
     check_and_skip_test(test_case)
 
-    # Use unified tracing API for evals
-    from holmes.core.tracing import TracingFactory
+    # Check for setup failures
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        request.node.user_properties.append(("is_setup_failure", True))
+        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
     tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
 
