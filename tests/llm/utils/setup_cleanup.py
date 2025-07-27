@@ -199,6 +199,7 @@ def extract_test_cases_needing_setup(session) -> List[HolmesTestCase]:
                 isinstance(test_case, HolmesTestCase)
                 and test_case.before_test
                 and test_case.id not in seen_ids
+                and not test_case.skip  # Don't run setup for skipped tests
             ):
                 test_cases.append(test_case)
                 seen_ids.add(test_case.id)
