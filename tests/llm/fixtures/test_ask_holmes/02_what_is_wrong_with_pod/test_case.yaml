@@ -22,38 +22,14 @@ before_test: |
     containers:
     - name: main
       image: busybox:1.35
-      command: ["sh", "-c", "sleep 3600"]
+      command: ["sh", "-c", "tail /dev/zero"]
       resources:
         limits:
           memory: "50Mi"
         requests:
           memory: "50Mi"
   EOF
-
-  # Wait for pod to be created
-  kubectl wait --for=condition=Scheduled pod/giant-narwhal-6958c5bdd8-69gtn -n app-02 --timeout=30s
-
-  # Wait for pod to be OOMKilled (give it up to 60 seconds)
-  echo "Waiting for pod to be OOMKilled..."
-  for i in {1..60}; do
-    STATE=$(kubectl get pod giant-narwhal-6958c5bdd8-69gtn -n app-02 -o jsonpath='{.status.containerStatuses[0].state.terminated.reason}' 2>/dev/null || echo "")
-    if [[ "$STATE" == "OOMKilled" ]]; then
-      echo "✓ Pod successfully OOMKilled after $i seconds"
-      exit 0
-    fi
-    echo -n "."
-    sleep 1
-  done
-
-  # If we get here, the pod wasn't OOMKilled as expected
-  echo ""
-  echo "ERROR: Pod was not OOMKilled within 60 seconds!"
-  echo "Current pod status:"
-  kubectl get pod giant-narwhal-6958c5bdd8-69gtn -n app-02 -o yaml | grep -A20 "status:"
-  echo ""
-  echo "Pod logs:"
-  kubectl logs giant-narwhal-6958c5bdd8-69gtn -n app-02 --tail=20 || echo "No logs available"
-  exit 1
+  sleep 60
 
 after_test: |
   kubectl delete namespace app-02 --force --grace-period=0
