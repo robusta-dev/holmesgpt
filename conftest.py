@@ -86,7 +86,12 @@ def pytest_configure(config):
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     if not os.getenv("EXPERIMENT_ID"):
-        os.environ["EXPERIMENT_ID"] = f"{os.getlogin()}-{readable_timestamp()}"
+        try:
+            username = os.getlogin()
+        except OSError:
+            # os.getlogin() fails in environments without a terminal (e.g., GitHub Actions)
+            username = os.getenv("USER", "ci")
+        os.environ["EXPERIMENT_ID"] = f"{username}-{readable_timestamp()}"
 
 
 # due to pytest quirks, we need to define this in the main conftest.py - when defined in the llm conftest.py it
