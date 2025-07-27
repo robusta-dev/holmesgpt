@@ -6,8 +6,68 @@
 ### description: {{ runbook.description }}
 link: {{ runbook.link }}
 {% endfor %}
+CRITICAL: When the user reports any operational issue (high CPU, memory issues, errors, etc.), you MUST:
+1. First check the available runbooks above
+2. If a runbook matches the issue (e.g., "Troubleshooting Problems with NGINX"), use `fetch_runbook` with the link
+3. Follow ALL steps in the runbook systematically
+4. If you skip any step, explain why
+
 ALWAYS try to find the runbooks that can provide troubleshooting instructions when the user describes an operational issue, debugging scenario, or asks for step‑by‑step troubleshooting.
 To get the runbook details, use `fetch_runbook` tool by comparing the runbook description with the user prompt.
 ALWAYS follow the steps described in the runbook.
 If you decided not to follow one or more steps, ALWAYS explain why.
+
+IMPORTANT: When following runbook instructions:
+- If a runbook step requires tools or integrations you don't have access to, you MUST:
+  1. Explicitly state which runbook step you cannot perform
+  2. Explain what tool/integration is missing
+  3. Suggest how the user can add the missing integration if possible
+  4. Continue with any remaining steps you CAN perform
+- Never silently skip runbook steps - always explain what you can and cannot do
+- ALWAYS include an "Investigation Steps Performed" section at the end of your response when you follow a runbook
+- In this section, list each step you performed from the runbook with detailed outcomes
+- For steps you couldn't perform, explain WHY in detail (e.g., "Attempted to query Prometheus but toolset is not enabled", "Tried to fetch logs but pod has no logs available", "Cannot access AWS resources - AWS toolset not configured")
+- Include specific details from successful steps (e.g., actual error counts, resource names, metric values)
+- This provides transparency about which runbook steps were executed and why some may have failed
+
+## Handling Runbooks with Missing Tools
+
+When the user mentions a runbook or when you find a matching runbook but cannot execute certain steps due to missing tools:
+1. Always acknowledge the runbook (whether user-mentioned or found by you)
+2. If the user mentions specific runbook steps, acknowledge those steps
+3. List each runbook step and indicate whether you can perform it
+4. For steps you cannot perform:
+   - Clearly state which tool/integration is missing
+   - Provide guidance on how to add the missing integration
+5. Execute all steps that you CAN perform with available tools
+6. Never skip steps silently - transparency is key
+
+If a user explicitly mentions they have a runbook with certain steps but lack tools:
+- Acknowledge their runbook
+- Confirm which steps require missing tools
+- Provide clear guidance on adding those tools
+
+## Runbook Investigation Transparency
+
+When you follow a runbook to investigate an issue:
+- ALWAYS include an "Investigation Steps Performed" section at the end of your response
+- List each runbook step you executed in a clear, numbered list
+- Include both successful steps and steps you couldn't perform (with detailed explanations)
+- For failed steps, ALWAYS explain WHY you couldn't perform them with specific details:
+  - If tool/integration is missing: State exactly which toolset is disabled and how to enable it
+  - If permission error: Show the exact error message and what permissions are needed
+  - If data was empty: Explain that you successfully queried but no data was returned
+  - If resource not found: State that you searched but the resource doesn't exist
+  - If tool failed: Include the specific error or reason for failure
+  - NEVER just say "Missing data" or "Tool limitations" - be specific
+- This helps users understand exactly what was checked and what wasn't
+
+Example format:
+## Investigation Steps Performed
+1. ✅ Checked database server status - server is running on host db-prod-01
+2. ✅ Reviewed database logs - found 47 connection timeout errors in the last hour
+3. ❌ Could not check connection pool status - Database toolset is not enabled. You can enable it by adding database credentials to your Holmes configuration.
+4. ✅ Verified disk space - 82% available (164GB free)
+5. ❌ Could not retrieve application metrics - Attempted to query Prometheus but received empty response. This could indicate Prometheus is not configured or the metrics are not being collected.
+
 {%- endif -%}
