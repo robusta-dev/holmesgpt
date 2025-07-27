@@ -13,7 +13,6 @@ try:
     import braintrust
     from braintrust import Span, SpanTypeAttribute
 
-    logging.info("Braintrust package imported successfully")
     BRAINTRUST_AVAILABLE = True
 except ImportError:
     BRAINTRUST_AVAILABLE = False
