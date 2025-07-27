@@ -180,10 +180,6 @@ def ask(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
-    # advanced options for this command
-    system_prompt: Optional[str] = typer.Option(
-        "builtin://generic_ask.jinja2", help=system_prompt_help
-    ),
     show_tool_output: bool = typer.Option(
         False,
         "--show-tool-output",
@@ -255,12 +251,6 @@ def ask(
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
         tracer=tracer,
     )
-    template_context = {
-        "toolsets": ai.tool_executor.toolsets,
-        "runbooks": config.get_runbook_catalog(),
-    }
-
-    system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)  # type: ignore
 
     if prompt_file and prompt:
         raise typer.BadParameter(
@@ -295,20 +285,21 @@ def ask(
         run_interactive_loop(
             ai,
             console,
-            system_prompt_rendered,
             prompt,
             include_file,
             post_processing_prompt,
             show_tool_output,
             tracer,
+            config.get_runbook_catalog(),
         )
         return
 
     messages = build_initial_ask_messages(
         console,
-        system_prompt_rendered,
         prompt,  # type: ignore
         include_file,
+        ai.tool_executor,
+        config.get_runbook_catalog(),
     )
 
     with tracer.start_trace(

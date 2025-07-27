@@ -1,6 +1,8 @@
 from rich.console import Console
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
+from holmes.plugins.prompts import load_and_render_prompt
+from holmes.plugins.runbooks import RunbookCatalog
 
 
 def append_file_to_user_prompt(user_prompt: str, file_path: Path) -> str:
@@ -25,11 +27,31 @@ def append_all_files_to_user_prompt(
 
 def build_initial_ask_messages(
     console: Console,
-    system_prompt_rendered: str,
     initial_user_prompt: str,
     file_paths: Optional[List[Path]],
+    tool_executor: Any,  # ToolExecutor type
+    runbooks: Union[RunbookCatalog, Dict, None] = None,
 ) -> List[Dict]:
-    """Build the initial messages for the AI call."""
+    """Build the initial messages for the AI call.
+
+    Args:
+        console: Rich console for output
+        initial_user_prompt: The user's prompt
+        file_paths: Optional list of files to include
+        tool_executor: The tool executor with available toolsets
+        runbooks: Optional runbook catalog
+    """
+    # Load and render system prompt internally
+    system_prompt_template = "builtin://generic_ask.jinja2"
+    template_context = {
+        "toolsets": tool_executor.toolsets,
+        "runbooks": runbooks or {},
+    }
+    system_prompt_rendered = load_and_render_prompt(
+        system_prompt_template, template_context
+    )
+
+    # Append files to user prompt
     user_prompt_with_files = append_all_files_to_user_prompt(
         console, initial_user_prompt, file_paths
     )
