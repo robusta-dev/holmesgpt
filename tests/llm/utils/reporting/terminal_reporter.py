@@ -28,9 +28,9 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
     table.add_column("Test", style="cyan", width=12)
     table.add_column("Status", justify="center", width=13)
     table.add_column("Time", justify="right", width=5)
+    table.add_column("User Prompt", style="white", width=22)
     table.add_column("Expected", style="green", width=22)
     table.add_column("Actual", style="yellow", width=22)
-    table.add_column("Analysis", style="red", width=28)
 
     # Add rows to table
     for result in sorted_results:
@@ -56,6 +56,11 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
         )
 
         # Wrap long content for table readability
+        user_prompt_wrapped = (
+            "\n".join(textwrap.wrap(result["user_prompt"], width=20))
+            if result["user_prompt"]
+            else ""
+        )
         expected_wrapped = (
             "\n".join(textwrap.wrap(result["expected"], width=20))
             if result["expected"]
@@ -81,16 +86,16 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
             else "N/A"
         )
 
-        # Get analysis for failed tests
-        analysis = _get_analysis_for_result(test_result)
+        # Disabled for now - get analysis for failed tests with openai
+        # analysis = _get_analysis_for_result(test_result)
 
         table.add_row(
             test_name_wrapped,
             status.console_status,
             time_str,
+            user_prompt_wrapped,
             expected_wrapped,
             actual_wrapped,
-            analysis,
         )
 
     # Use force_terminal to ensure output is displayed even when captured

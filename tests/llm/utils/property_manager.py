@@ -23,6 +23,12 @@ def set_initial_properties(request, test_case: HolmesTestCase) -> None:
         ("expected_correctness_score", expected_correctness_score)
     )
     request.node.user_properties.append(
+        (
+            "user_prompt",
+            getattr(test_case, "user_prompt", ""),
+        )  # only present in AskHolmesTestCase
+    )
+    request.node.user_properties.append(
         ("actual", "Test not executed")
     )  # Will be overwritten if test runs
     request.node.user_properties.append(
