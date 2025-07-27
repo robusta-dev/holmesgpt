@@ -164,18 +164,8 @@ poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
 poetry run pytest -m "llm and not network" --collect-only -q
 ```
 
-**Available Test Markers**:
-- `llm`: LLM behavior tests
-- `datetime`: Datetime functionality
-- `logs`: Log processing
-- `context_window`: Context window handling
-- `synthetic`: Synthetic data tests
-- `network`: Network-dependent tests
-- `runbooks`: Runbook functionality
-- `misleading-history`: Misleading data scenarios
-- `chain-of-causation`: Causation analysis
-- `slackbot`: Slack integration
-- `counting`: Resource counting tests
+**Available Test Markers (same as eval tags)**:
+Check in pyproject.toml and NEVER use a market/tag that doesn't exist there. Ask the user before adding a new one.
 
 **Test Infrastructure Notes**:
 - All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
