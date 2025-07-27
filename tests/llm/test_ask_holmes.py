@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import patch
 from datetime import datetime
 
-from holmes.common.env_vars import load_bool
 from rich.console import Console
 from holmes.core.models import ChatRequest
 from holmes.core.tracing import TracingFactory
