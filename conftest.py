@@ -1,5 +1,7 @@
+import os
 import logging
 from tests.llm.conftest import show_llm_summary_report
+from tests.llm.utils.system import readable_timestamp
 
 
 def pytest_addoption(parser):
@@ -82,6 +84,9 @@ def pytest_configure(config):
     # Suppress httpx HTTP request logs
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+    if not os.getenv("EXPERIMENT_ID"):
+        os.environ["EXPERIMENT_ID"] = f"{os.getlogin()}-{readable_timestamp()}"
 
 
 # due to pytest quirks, we need to define this in the main conftest.py - when defined in the llm conftest.py it

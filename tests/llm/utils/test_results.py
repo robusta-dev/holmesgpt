@@ -14,6 +14,7 @@ class TestResult:
     logs: str
     test_type: str = ""
     error_message: Optional[str] = None
+    user_prompt: Optional[str] = None
     execution_time: Optional[float] = None
     expected_correctness_score: float = 1.0
     actual_correctness_score: float = 0.0

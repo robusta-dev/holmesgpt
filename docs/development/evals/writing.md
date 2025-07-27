@@ -220,6 +220,40 @@ Options:
   - Use only when live testing is impractical (e.g., complex cluster setups, specific error conditions)
   - Note: You should prefer `inherit` or `never_mock` when possible as they test the agent more realistically and are less fragile
 
+### Custom Runbooks
+
+Override the default runbook catalog for specific tests by adding a `runbooks` field to `test_case.yaml`:
+
+```yaml
+user_prompt: "I'm experiencing DNS resolution issues in my kubernetes cluster"
+expected_output:
+  - DNS troubleshooting runbook
+  - fetch_runbook
+
+# Custom runbook catalog
+runbooks:
+  catalog:
+    - update_date: "2025-07-26"
+      description: "Runbook for troubleshooting DNS issues in Kubernetes"
+      link: "k8s-dns-troubleshooting.md"
+    - update_date: "2025-07-26"
+      description: "Runbook for debugging pod crashes"
+      link: "pod-crash-debug.md"
+```
+
+The runbook markdown files (e.g., `k8s-dns-troubleshooting.md`) should be placed in the same directory as `test_case.yaml`.
+
+Options:
+- **No `runbooks` field**: Use default system runbooks
+- **`runbooks: {}`**: Empty catalog (no runbooks available)
+- **`runbooks: {catalog: [...]}`**: Custom runbook catalog
+
+This is useful for:
+- Testing runbook selection logic
+- Verifying behavior when no runbooks are available
+- Testing custom troubleshooting procedures
+- Ensuring proper runbook following
+
 ### Example Tests
 
 The repository includes example tests demonstrating each feature:
