@@ -136,6 +136,8 @@ nav:
   - Walkthrough:
       - walkthrough/index.md
       - Interactive Mode: walkthrough/interactive-mode.md
+      - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
+      - Scripting & Automation: walkthrough/scripting-automation.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
 
   - AI Providers:

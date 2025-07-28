@@ -164,49 +164,6 @@ limit_req_zone $limit_key zone=perip:10m rate=100r/s;
 3. **Sharing Development/Testing Insights**
    - Point HolmesGPT at recent code deployments or git commits
 
-### CI/CD Pipeline Troubleshooting
-
-Example of using HolmesGPT in a CI/CD pipeline to automatically troubleshoot deployment failures:
-
-```yaml
-# .github/workflows/deploy.yml or gitlab-ci.yml
-deploy:
-  script:
-    - |
-      # Apply Kubernetes manifests
-      kubectl apply -f k8s/
-
-      # Wait for rollout
-      if ! kubectl rollout status deployment/app -n production --timeout=300s; then
-        echo "Deployment failed - starting HolmesGPT investigation"
-
-        # Capture current state
-        kubectl get all -n production > deployment-state.txt
-        kubectl describe deployment app -n production >> deployment-state.txt
-        kubectl get events -n production --sort-by='.lastTimestamp' | tail -20 >> deployment-state.txt
-
-        # Run HolmesGPT investigation and send directly to Slack
-        cat deployment-state.txt | holmes ask \
-          "🚨 Deployment Failed in ${CI_PROJECT_NAME}\n\nEnvironment: Production\nCommit: ${CI_COMMIT_SHA}\nPipeline: ${CI_PIPELINE_URL}\n\nThe deployment failed. Analyze why the pods are not becoming ready. Focus on: image pulls, resource limits, probes, and configuration issues" \
-          --no-interactive \
-          --destination slack \
-          --slack-token "$SLACK_TOKEN" \
-          --slack-channel "#deployments"
-
-        exit 1
-      fi
-```
-
-The built-in Slack integration will automatically format and send the analysis to your specified channel. You can also use a simpler approach for basic deployments:
-
-```bash
-# Simple deployment check with Slack notification
-kubectl rollout status deployment/app -n prod --timeout=300s || \
-  holmes ask "deployment/app in prod namespace failed to roll out" \
-    --destination slack \
-    --slack-token "$SLACK_TOKEN" \
-    --slack-channel "#alerts"
-```
 
 ## Tips and Best Practices
 
@@ -216,54 +173,9 @@ kubectl rollout status deployment/app -n prod --timeout=300s || \
 5. **View evidence with `/show`** - Full outputs often contain important details
 6. **Add comments when sharing shell output** - Helps the AI understand what you're looking for
 
-## Non-Interactive CLI Usage
+## Beyond Interactive Mode
 
-While interactive mode is powerful, HolmesGPT also supports non-interactive usage for scripting and automation:
+For additional HolmesGPT usage patterns, see:
 
-### Basic One-Shot Questions
-
-```bash
-holmes ask "what pods are failing in the default namespace?" --no-interactive
-```
-
-### Piping Input
-
-```bash
-# Pipe command output directly to Holmes
-kubectl get events | holmes ask "what warnings should I worry about?"
-
-# Pipe without a question (Holmes will analyze the output)
-kubectl logs my-pod | holmes ask
-
-# Pipe log files
-cat /var/log/app.log | holmes ask "find errors in these logs"
-```
-
-### Including Files
-
-```bash
-# Include one or more files with your question
-holmes ask "analyze these configurations" -f config.yaml -f deployment.yaml
-
-# Combine piped input with files
-kubectl get pod my-pod -o yaml | holmes ask "why won't this pod start?" -f events.log
-```
-
-### Scripting Examples
-
-```bash
-#!/bin/bash
-# Health check script
-holmes ask "check for any critical issues in the cluster" --no-interactive
-
-# Automated investigation
-if kubectl get pods | grep -q "CrashLoopBackOff"; then
-    kubectl get pods | holmes ask "investigate the crashing pods" -n
-fi
-
-# Batch analysis
-for namespace in $(kubectl get ns -o name | cut -d/ -f2); do
-    echo "Checking namespace: $namespace"
-    holmes ask "check for issues in namespace $namespace" -n
-done
-```
+- **[CI/CD Troubleshooting](cicd-troubleshooting.md)** - Integrate HolmesGPT into deployment pipelines
+- **[Scripting & Automation](scripting-automation.md)** - Non-interactive usage for monitoring and automation
