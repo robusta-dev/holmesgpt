@@ -1,7 +1,6 @@
 expected_output:
   - The pod fails in pulling the Docker image `yourcompany/crw:latest`
-before_test: |
-  exit 1
 evaluation:
   correctness: 1
+mock_policy: always_mock
 # Success rate 100% for 100 evals
