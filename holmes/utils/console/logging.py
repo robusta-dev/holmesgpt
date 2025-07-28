@@ -41,7 +41,9 @@ def suppress_noisy_logs():
     warnings.filterwarnings("ignore", category=UserWarning, module="slack_sdk.*")
 
 
-def init_logging(verbose_flags: Optional[List[bool]] = None):
+def init_logging(
+    verbose_flags: Optional[List[bool]] = None, show_reasoning: bool = False
+):
     verbosity = cli_flags_to_verbosity(verbose_flags)  # type: ignore
 
     if verbosity == Verbosity.VERY_VERBOSE:
@@ -94,5 +96,12 @@ def init_logging(verbose_flags: Optional[List[bool]] = None):
         suppress_noisy_logs()
 
     logging.debug(f"verbosity is {verbosity}")
+
+    # Configure the reasoning logger based on the show_reasoning flag
+    reasoning_logger = logging.getLogger("holmes.reasoning")
+    if show_reasoning:
+        reasoning_logger.setLevel(logging.INFO)
+    else:
+        reasoning_logger.setLevel(logging.WARNING)
 
     return Console()

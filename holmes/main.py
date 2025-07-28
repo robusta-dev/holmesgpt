@@ -209,6 +209,11 @@ def ask(
         "--refresh-toolsets",
         help="Refresh the toolsets status",
     ),
+    show_reasoning: bool = typer.Option(
+        False,
+        "--show-reasoning",
+        help="Show AI reasoning/thinking process during execution",
+    ),
     trace: Optional[str] = typer.Option(
         None,
         "--trace",
@@ -218,7 +223,7 @@ def ask(
     """
     Ask any question and answer using available tools
     """
-    console = init_logging(verbose)  # type: ignore
+    console = init_logging(verbose, show_reasoning)  # type: ignore
     # Detect and read piped input
     piped_data = None
 
@@ -297,6 +302,7 @@ def ask(
             include_file,
             post_processing_prompt,
             show_tool_output,
+            show_reasoning,
             tracer,
         )
         return
