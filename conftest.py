@@ -1,7 +1,7 @@
 import os
 import logging
 from tests.llm.conftest import show_llm_summary_report
-from tests.llm.utils.system import readable_timestamp
+from holmes.core.tracing import readable_timestamp, get_active_branch_name
 
 
 def pytest_addoption(parser):
@@ -91,7 +91,8 @@ def pytest_configure(config):
         except OSError:
             # os.getlogin() fails in environments without a terminal (e.g., GitHub Actions)
             username = os.getenv("USER", "ci")
-        os.environ["EXPERIMENT_ID"] = f"{username}-{readable_timestamp()}"
+        git_branch = get_active_branch_name()
+        os.environ["EXPERIMENT_ID"] = f"{username}-{git_branch}-{readable_timestamp()}"
 
 
 # due to pytest quirks, we need to define this in the main conftest.py - when defined in the llm conftest.py it
