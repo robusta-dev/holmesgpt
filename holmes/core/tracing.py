@@ -1,6 +1,11 @@
 import os
 import logging
-from typing import Optional, Any, Union
+import platform
+import pwd
+import socket
+from datetime import datetime
+from typing import Optional, Any, Union, Dict
+from pathlib import Path
 from enum import Enum
 
 BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
@@ -13,6 +18,7 @@ try:
     import braintrust
     from braintrust import Span, SpanTypeAttribute
 
+    logging.info("Braintrust package imported successfully")
     BRAINTRUST_AVAILABLE = True
 except ImportError:
     BRAINTRUST_AVAILABLE = False
@@ -24,6 +30,56 @@ except ImportError:
     else:
         Span = Any
         SpanTypeAttribute = Any
+
+
+session_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def readable_timestamp():
+    return session_timestamp
+
+
+def get_active_branch_name():
+    try:
+        # First check if .git is a file (worktree case)
+        git_path = Path(".git")
+        if git_path.is_file():
+            # Read the worktree git directory path
+            with git_path.open("r") as f:
+                content = f.read().strip()
+                if content.startswith("gitdir:"):
+                    worktree_git_dir = Path(content.split("gitdir:", 1)[1].strip())
+                    head_file = worktree_git_dir / "HEAD"
+                else:
+                    return "Unknown"
+        else:
+            # Regular .git directory
+            head_file = git_path / "HEAD"
+
+        with head_file.open("r") as f:
+            content = f.read().splitlines()
+            for line in content:
+                if line[0:4] == "ref:":
+                    return line.partition("refs/heads/")[2]
+    except Exception:
+        pass
+
+    return "Unknown"
+
+
+def get_machine_state_tags() -> Dict[str, str]:
+    return {
+        "username": pwd.getpwuid(os.getuid()).pw_name,
+        "branch": get_active_branch_name(),
+        "platform": platform.platform(),
+        "hostname": socket.gethostname(),
+    }
+
+
+def get_experiment_name():
+    if os.environ.get("EXPERIMENT_ID"):
+        return os.environ.get("EXPERIMENT_ID")
+    return readable_timestamp()  # should never happen in evals (we set EXPERIMENT_ID in conftest.py), but can happen with holmesgpt cli
 
 
 def _is_noop_span(span) -> bool:
@@ -88,7 +144,11 @@ class BraintrustTracer:
 
         self.project = project
 
-    def start_experiment(self, experiment_name: str, metadata: Optional[dict] = None):
+    def start_experiment(
+        self,
+        experiment_name: Optional[str] = None,
+        additional_metadata: Optional[dict] = None,
+    ):
         """Create and start a new Braintrust experiment.
 
         Args:
@@ -101,10 +161,17 @@ class BraintrustTracer:
         if not os.environ.get("BRAINTRUST_API_KEY"):
             return None
 
+        if experiment_name is None:
+            experiment_name = get_experiment_name()
+
+        metadata = get_machine_state_tags()
+        if additional_metadata is not None:
+            metadata.update(additional_metadata)
+
         return braintrust.init(
             project=self.project,
             experiment=experiment_name,
-            metadata=metadata or {},
+            metadata=metadata,
             update=True,
         )
 

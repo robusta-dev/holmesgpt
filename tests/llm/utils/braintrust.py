@@ -1,16 +1,17 @@
-import os
+# TODO: we can remove most of this now and just use tracing.py
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
 from typing import Any, List, Optional, Union
 
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore
-from tests.llm.utils.system import get_machine_state_tags, readable_timestamp
 from holmes.core.tracing import (
     DummySpan,
     BRAINTRUST_API_KEY,
     BRAINTRUST_PROJECT,
     BRAINTRUST_ORG,
+    get_machine_state_tags,
+    get_experiment_name,
 )
 
 
@@ -161,14 +162,6 @@ class BraintrustEvalHelper:
         )
         self._root_span.end()
         self.experiment.flush()
-
-
-def get_experiment_name():
-    if os.environ.get("EXPERIMENT_ID"):
-        return os.environ.get("EXPERIMENT_ID")
-    return (
-        readable_timestamp()
-    )  # should never happen - we set EXPERIMENT_ID in conftest.py
 
 
 def get_dataset_name(test_suite: str):
