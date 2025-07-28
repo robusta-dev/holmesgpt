@@ -7,6 +7,8 @@ expected_output: |
     1. Login issues due to redis timeouts
     2. Login issues due to Identity provider certificate expired
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace ask-holmes-namespace-52 || true
   kubectl create secret generic my-app-52-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n ask-holmes-namespace-52 --dry-run=client -o yaml | kubectl apply -f -

@@ -15,11 +15,13 @@ expected_output: |
     FATAL: Shutting down application
 
 before_test: |
+  kubectl create namespace production-62
   kubectl create secret generic payment-service-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n production-62 --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -f ./manifest.yaml
-  sleep 10
+  kubectl wait --for=condition=available deployment/payment-service -n production-62 --timeout=90s
+  sleep 5
 after_test: |
   kubectl delete -f ./manifest.yaml
   kubectl delete secret payment-service-logs-script -n production-62 --ignore-not-found
