@@ -113,7 +113,7 @@ def test_investigate(
     config = MockConfig(test_case, tracer, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
     metadata = {"model": config.model or "Unknown"}
-    tracer.start_experiment(aditional_metadata=metadata)
+    tracer.start_experiment(additional_metadata=metadata)
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
