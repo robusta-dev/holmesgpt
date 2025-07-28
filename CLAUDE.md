@@ -165,7 +165,7 @@ poetry run pytest -m "llm and not network" --collect-only -q
 ```
 
 **Available Test Markers (same as eval tags)**:
-Check in pyproject.toml and NEVER use a market/tag that doesn't exist there. Ask the user before adding a new one.
+Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask the user before adding a new one.
 
 **Test Infrastructure Notes**:
 - All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
