@@ -91,7 +91,31 @@ def pytest_configure(config):
         except OSError:
             # os.getlogin() fails in environments without a terminal (e.g., GitHub Actions)
             username = os.getenv("USER", "ci")
-        os.environ["EXPERIMENT_ID"] = f"{username}-{readable_timestamp()}"
+
+        # Get git branch if available (using same approach as holmes/version.py)
+        import subprocess
+
+        try:
+            # Extract branch from git (same command as in holmes/version.py)
+            git_branch = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    stderr=subprocess.STDOUT,
+                    cwd=os.path.dirname(os.path.realpath(__file__)),
+                )
+                .decode()
+                .strip()
+            )
+            if git_branch and git_branch != "HEAD":  # HEAD means detached state
+                os.environ["EXPERIMENT_ID"] = (
+                    f"{username}-{git_branch}-{readable_timestamp()}"
+                )
+            else:
+                # Fallback for detached HEAD or no branch name
+                os.environ["EXPERIMENT_ID"] = f"{username}-{readable_timestamp()}"
+        except (subprocess.CalledProcessError, FileNotFoundError, Exception):
+            # Git not available, not in a git repo, or any other error
+            os.environ["EXPERIMENT_ID"] = f"{username}-{readable_timestamp()}"
 
 
 # due to pytest quirks, we need to define this in the main conftest.py - when defined in the llm conftest.py it
