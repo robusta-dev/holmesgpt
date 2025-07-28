@@ -20,8 +20,6 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 
-__all__ = ["MockMode", "MockPolicy", "MockGenerationConfig", "MockToolsetManager"]
-
 
 # Custom exceptions for better error handling
 class MockDataError(Exception):
@@ -476,56 +474,6 @@ class MockableToolWrapper(Tool):
         return self._tool.get_parameterized_one_liner(params)
 
 
-class ToolsetConfigurator:
-    """Handles toolset loading and configuration."""
-
-    @staticmethod
-    def load_builtin_toolsets() -> List[Toolset]:
-        """Load all built-in toolsets."""
-        return load_builtin_toolsets()
-
-    @staticmethod
-    def load_custom_toolsets(config_path: str) -> List[Toolset]:
-        """Load custom toolsets from a YAML file."""
-        if not os.path.isfile(config_path):
-            return []
-        return load_toolsets_from_file(toolsets_path=config_path, strict_check=False)
-
-    @staticmethod
-    def configure_toolsets(
-        builtin_toolsets: List[Toolset], custom_definitions: List[Toolset]
-    ) -> List[Toolset]:
-        """Configure builtin toolsets with custom definitions."""
-        configured = []
-
-        for toolset in builtin_toolsets:
-            # Enable default toolsets
-            if toolset.is_default or isinstance(toolset, YAMLToolset):
-                toolset.enabled = True
-
-            # Apply custom configuration if available
-            definition = next(
-                (d for d in custom_definitions if d.name == toolset.name), None
-            )
-            if definition:
-                toolset.config = definition.config
-                toolset.enabled = definition.enabled
-                configured.append(toolset)
-
-            # Check prerequisites for enabled toolsets with timeout
-            if toolset.enabled:
-                try:
-                    # TODO: add timeout
-                    toolset.check_prerequisites()
-                except Exception:
-                    logging.error(
-                        f"check_prerequisites failed for toolset {toolset.name}.",
-                        exc_info=True,
-                    )
-
-        return configured
-
-
 class SimplifiedMockToolset(Toolset):
     """Simplified mock toolset for testing."""
 
@@ -551,10 +499,10 @@ class MockToolsetManager:
 
         # Determine the effective mode based on mock_policy
         if mock_policy == MockPolicy.ALWAYS_MOCK.value:
-            # ALWAYS_MOCK forces mock mode unless we're generating mocks
-            # (when generating mocks, ALWAYS_MOCK is ignored - this is used to generate mocks the first time)
             if mock_generation_config.mode == MockMode.GENERATE:
-                self.mode = MockMode.GENERATE
+                pytest.skip(
+                    "Test has fixed mocks (mock_policy='always_mock') so this test will be skipped. If you want to override mocks for this test and generate from scratch, change the mock_policy for this test temporarily."
+                )
             else:
                 self.mode = MockMode.MOCK
         elif mock_policy == MockPolicy.NEVER_MOCK.value:
@@ -568,10 +516,6 @@ class MockToolsetManager:
 
         # Initialize components
         self.file_manager = MockFileManager(test_case_folder)
-        self.configurator = ToolsetConfigurator()
-
-        # Note: Mock clearing is now handled by the shared_test_infrastructure fixture
-        # to ensure it only happens once across all workers when using --regenerate-all-mocks
 
         # Load and configure toolsets
         self._initialize_toolsets()
@@ -579,48 +523,78 @@ class MockToolsetManager:
     def _initialize_toolsets(self):
         """Initialize and configure toolsets."""
         # Load builtin toolsets
-        builtin_toolsets = self.configurator.load_builtin_toolsets()
+        builtin_toolsets = load_builtin_toolsets()
 
-        # Load custom toolsets
+        # Load custom toolsets from YAML if present
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
-        custom_definitions = self.configurator.load_custom_toolsets(config_path)
+        custom_definitions = self._load_custom_toolsets(config_path)
 
-        # Configure toolsets
-        configured_toolsets = self.configurator.configure_toolsets(
-            builtin_toolsets, custom_definitions
-        )
+        # Configure builtin toolsets with custom definitions
+        self.toolsets = self._configure_toolsets(builtin_toolsets, custom_definitions)
 
-        # Wrap tools based on mode
-        self.enabled_toolsets = self._wrap_toolsets(
-            builtin_toolsets, configured_toolsets
-        )
+        # Wrap tools for enabled toolsets based on mode
+        self._wrap_enabled_toolsets()
 
-    def _wrap_toolsets(
-        self, builtin_toolsets: List[Toolset], configured_toolsets: List[Toolset]
+    def _load_custom_toolsets(self, config_path: str) -> List[Toolset]:
+        """Load custom toolsets from a YAML file."""
+        if not os.path.isfile(config_path):
+            return []
+        return load_toolsets_from_file(toolsets_path=config_path, strict_check=False)
+
+    def _configure_toolsets(
+        self, builtin_toolsets: List[Toolset], custom_definitions: List[Toolset]
     ) -> List[Toolset]:
-        """Wrap toolsets with mock-aware tools."""
-        if self.mode == MockMode.LIVE:
-            # In live mode, just return enabled toolsets without wrapping
-            enabled = [
-                t for t in builtin_toolsets if t.status == ToolsetStatusEnum.ENABLED
-            ]
-            # Add configured toolsets that aren't already in enabled
-            for toolset in configured_toolsets:
-                if toolset not in enabled:
-                    enabled.append(toolset)
-            return enabled
-
-        # For mock/generate modes, wrap tools
-        wrapped_toolsets = []
+        """Configure builtin toolsets with custom definitions."""
+        configured = []
 
         for toolset in builtin_toolsets:
-            # Check if we have any mocks for this toolset
-            has_mocks = any(
-                self.file_manager.has_mock_files(tool.name) for tool in toolset.tools
-            )
+            # Enable default toolsets
+            if toolset.is_default or isinstance(toolset, YAMLToolset):
+                toolset.enabled = True
 
-            # Only include toolsets that are enabled or have mocks
-            if toolset.status == ToolsetStatusEnum.ENABLED or has_mocks:
+            # Apply custom configuration if available
+            definition = next(
+                (d for d in custom_definitions if d.name == toolset.name), None
+            )
+            if definition:
+                toolset.config = definition.config
+                toolset.enabled = definition.enabled
+
+            # Add all toolsets to configured list
+            configured.append(toolset)
+
+            # Check prerequisites for enabled toolsets with timeout
+            # Only check prerequisites in LIVE mode - for MOCK/GENERATE modes we don't need real connections
+            if toolset.enabled:
+                if self.mode == MockMode.LIVE:
+                    try:
+                        # TODO: add timeout
+                        toolset.check_prerequisites()
+                    except Exception:
+                        logging.error(
+                            f"check_prerequisites failed for toolset {toolset.name}.",
+                            exc_info=True,
+                        )
+                else:
+                    # In MOCK/GENERATE modes, just set status to ENABLED for enabled toolsets
+                    toolset.status = ToolsetStatusEnum.ENABLED
+
+        return configured
+
+    def _wrap_enabled_toolsets(self):
+        """Wrap tools with mock-aware wrappers for enabled toolsets in mock/generate modes."""
+        if self.mode == MockMode.LIVE:
+            # In live mode, no wrapping needed
+            return
+
+        # For mock/generate modes, wrap tools for enabled toolsets only
+        for i, toolset in enumerate(self.toolsets):
+            # Only wrap enabled toolsets
+            if toolset.status == ToolsetStatusEnum.ENABLED:
+                # Never mock the runbook toolset - it needs to actually fetch runbooks
+                if toolset.name == "runbook":
+                    continue
+
                 # Create wrapped tools
                 wrapped_tools = [
                     MockableToolWrapper(
@@ -633,23 +607,17 @@ class MockToolsetManager:
                     for tool in toolset.tools
                 ]
 
-                # Create simplified mock toolset
+                # Create simplified mock toolset and replace the original
                 mock_toolset = SimplifiedMockToolset(
                     name=toolset.name,
                     prerequisites=toolset.prerequisites,
                     tools=wrapped_tools,
                     description=toolset.description,
                     llm_instructions=toolset.llm_instructions,
+                    config=toolset.config,
                 )
                 mock_toolset.status = ToolsetStatusEnum.ENABLED
-                wrapped_toolsets.append(mock_toolset)
-
-        # Add configured toolsets that aren't already wrapped
-        for toolset in configured_toolsets:
-            if not any(t.name == toolset.name for t in wrapped_toolsets):
-                wrapped_toolsets.append(toolset)
-
-        return wrapped_toolsets
+                self.toolsets[i] = mock_toolset
 
 
 # For backward compatibility
@@ -762,6 +730,8 @@ def _safe_print(terminalreporter, message: str = "") -> None:
 # Export list
 __all__ = [
     "MockMode",
+    "MockPolicy",
+    "MockGenerationConfig",
     "MockToolsetManager",
     "MockToolsets",
     "MockDataError",
@@ -770,7 +740,6 @@ __all__ = [
     "MockValidationError",
     "MockFileManager",
     "MockableToolWrapper",
-    "ToolsetConfigurator",
     "sanitize_filename",
     "clear_all_mocks",
     "report_mock_operations",

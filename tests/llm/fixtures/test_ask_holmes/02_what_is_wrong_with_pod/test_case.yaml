@@ -1,17 +1,13 @@
 user_prompt: 'What is wrong with << { "type": "pod", "name": "giant-narwhal-6958c5bdd8-69gtn" } >> ?'
 expected_output:
   - The pod was killed due to it being out of memory
-evaluation:
-  correctness: 1
+
 tags:
   - kubernetes
-# need to check, but according to coderabbit this wont work
-# CodeRabbit: BusyBox shell can’t handle array syntax – pod will CrashLoop, not OOMKill
-#   busybox’s /bin/sh (ash) does not support Bash-style arrays (arr=(); arr+=($i)), so
-#   the container exits immediately with a syntax error instead of allocating memory.
-#   Consequently the pod goes into CrashLoopBackOff, never hitting the memory limit,
-#   and the test’s correctness assertion (“OOMKilled”) will fail.
-#   Alternative: switch to stress/stress-ng for a cleaner, deterministic OOM trigger.
+  - easy
+
+# This test creates a pod that consumes memory until it gets OOMKilled
+# Using 'tail /dev/zero' which reads infinite zeros and buffers them in memory
 before_test: |
   kubectl create namespace app-02
   cat <<EOF | kubectl apply -f -
@@ -26,15 +22,14 @@ before_test: |
     containers:
     - name: main
       image: busybox:1.35
-      command: ["sh", "-c", "while true; do echo 'Processing data...'; arr=(); for i in $(seq 1 100000000); do arr+=($i); done; done"]
+      command: ["sh", "-c", "tail /dev/zero"]
       resources:
         limits:
           memory: "50Mi"
         requests:
           memory: "50Mi"
   EOF
-  # Wait for pod to be OOMKilled
-  sleep 30
+  sleep 60
 
 after_test: |
   kubectl delete namespace app-02 --force --grace-period=0

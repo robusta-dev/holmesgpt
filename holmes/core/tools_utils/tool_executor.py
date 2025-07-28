@@ -15,6 +15,7 @@ from holmes.core.tools_utils.toolset_utils import filter_out_default_logging_too
 
 class ToolExecutor:
     def __init__(self, toolsets: List[Toolset]):
+        # TODO: expose function for this instead of callers accessing directly
         self.toolsets = toolsets
 
         enabled_toolsets: list[Toolset] = list(

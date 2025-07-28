@@ -147,7 +147,9 @@ def set_test_env_vars(test_case: HolmesTestCase):
     try:
         # Set test environment variables
         for key, value in test_case.test_env_vars.items():
-            os.environ[key] = value
+            # Expand environment variables in the value
+            expanded_value = os.path.expandvars(value)
+            os.environ[key] = expanded_value
 
         yield
     finally:

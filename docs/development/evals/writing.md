@@ -155,25 +155,119 @@ Examples:
 - `kubectl_logs_all_containers_nginx.txt`
 - `execute_prometheus_range_query.txt`
 
-## Toolset Configuration
+## Advanced Test Configuration
 
-Some tests require specific toolsets. Create a `toolsets.yaml` file:
+### Toolset Configuration
+
+Control which toolsets are available for a specific test by creating a `toolsets.yaml` file in the test directory:
 
 ```yaml
 toolsets:
-  - name: kubernetes
+  kubernetes/core:
     enabled: true
-  - name: prometheus
-    enabled: true
-    config:
-      prometheus_url: http://localhost:9090 # requires port-forward
-  - name: grafana_loki
-    enabled: true
-    config:
-      base_url: http://localhost:3000 # requires port-forward
-      api_key: "{{env.GRAFANA_API_KEY}}"
-      grafana_datasource_uid: "{{env.GRAFANA_DATASOURCE_UID}}"
 
+  prometheus/metrics:
+    enabled: true
+    config:
+      prometheus_url: "http://custom-prometheus:9090"
+      prometheus_username: "admin"
+      prometheus_password: "secretpass"
+
+  grafana/dashboards:
+    enabled: false  # Explicitly disable toolsets
+
+  # Enable non-default toolsets
+  rabbitmq/core:
+    enabled: true
+    config:
+      clusters:
+        - id: rabbitmq-test
+          username: guest
+          password: guest
+          management_url: http://rabbitmq:15672
+```
+
+Use cases:
+- Test with limited toolsets available
+- Provide custom configuration (URLs, credentials)
+- Simulate environments where certain tools are unavailable
+- Test error handling when expected tools are disabled
+
+### Mock Policy Control
+
+Control mock behavior on a per-test basis by adding `mock_policy` to `test_case.yaml`:
+
+```yaml
+user_prompt: "Check cluster health"
+mock_policy: "always_mock"  # Options: always_mock, never_mock, inherit
+expected_output:
+  - Cluster is healthy
+```
+
+Options:
+- **`inherit`** (default): Use global settings from environment/CLI flags
+  - Recommended for most tests
+  - Allows flexibility to run with or without mocks based on environment
+
+- **`never_mock`**: Force live execution
+  - Test automatically skipped if `RUN_LIVE` is not set
+  - Ensures the test always runs against real tools
+  - Verifies actual tool behavior and integration
+  - Preferred when you want to guarantee realistic testing
+
+- **`always_mock`**: Always use mock data, even with `RUN_LIVE=true`
+  - Ensures deterministic behavior
+  - Use only when live testing is impractical (e.g., complex cluster setups, specific error conditions)
+  - Note: You should prefer `inherit` or `never_mock` when possible as they test the agent more realistically and are less fragile
+
+### Custom Runbooks
+
+Override the default runbook catalog for specific tests by adding a `runbooks` field to `test_case.yaml`:
+
+```yaml
+user_prompt: "I'm experiencing DNS resolution issues in my kubernetes cluster"
+expected_output:
+  - DNS troubleshooting runbook
+  - fetch_runbook
+
+# Custom runbook catalog
+runbooks:
+  catalog:
+    - update_date: "2025-07-26"
+      description: "Runbook for troubleshooting DNS issues in Kubernetes"
+      link: "k8s-dns-troubleshooting.md"
+    - update_date: "2025-07-26"
+      description: "Runbook for debugging pod crashes"
+      link: "pod-crash-debug.md"
+```
+
+The runbook markdown files (e.g., `k8s-dns-troubleshooting.md`) should be placed in the same directory as `test_case.yaml`.
+
+Options:
+- **No `runbooks` field**: Use default system runbooks
+- **`runbooks: {}`**: Empty catalog (no runbooks available)
+- **`runbooks: {catalog: [...]}`**: Custom runbook catalog
+
+This is useful for:
+- Testing runbook selection logic
+- Verifying behavior when no runbooks are available
+- Testing custom troubleshooting procedures
+- Ensuring proper runbook following
+
+### Example Tests
+
+The repository includes example tests demonstrating each feature:
+
+- `_EXAMPLE_01_toolsets_config/` - Toolset configuration
+- `_EXAMPLE_02_mock_policy_always/` - Always use mocks
+- `_EXAMPLE_03_mock_policy_never/` - Force live execution
+- `_EXAMPLE_04_custom_runbooks/` - Custom runbook configuration
+- `_EXAMPLE_05_mock_generation/` - Mock generation workflow
+- `_EXAMPLE_06_combined_features/` - Combining multiple features
+
+Run examples:
+```bash
+pytest tests/llm/test_ask_holmes.py -k "_EXAMPLE" -v
 ```
 
 ## Live Testing with Real Resources
