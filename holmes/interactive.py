@@ -872,9 +872,9 @@ def run_interactive_loop(
         )
     messages = None
     last_response = None
-    all_tool_calls_history: List[ToolCallResult] = (
-        []
-    )  # Track all tool calls throughout conversation
+    all_tool_calls_history: List[
+        ToolCallResult
+    ] = []  # Track all tool calls throughout conversation
 
     while True:
         try:
