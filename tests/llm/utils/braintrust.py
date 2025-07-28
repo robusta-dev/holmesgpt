@@ -11,7 +11,7 @@ from holmes.core.tracing import (
     BRAINTRUST_PROJECT,
     BRAINTRUST_ORG,
     get_machine_state_tags,
-    get_experiment_name
+    get_experiment_name,
 )
 
 
