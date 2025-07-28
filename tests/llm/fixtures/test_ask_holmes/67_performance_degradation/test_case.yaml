@@ -5,6 +5,8 @@ tags:
 expected_output:
   - API gateway experiencing gradual performance degradation with response times increasing from 100ms to timeout after 5000ms
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-67 || true
   kubectl create secret generic api-gateway-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n namespace-67 --dry-run=client -o yaml | kubectl apply -f -

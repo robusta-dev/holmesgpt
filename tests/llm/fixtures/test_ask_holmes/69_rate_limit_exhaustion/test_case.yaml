@@ -5,6 +5,8 @@ tags:
 expected_output:
   - API limiter returning 429 Too Many Requests errors due to traffic spike of 1000 requests/second exceeding rate limit of 100/second
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-69 || true
   kubectl create secret generic api-limiter-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n namespace-69 --dry-run=client -o yaml | kubectl apply -f -
