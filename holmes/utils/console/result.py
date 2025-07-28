@@ -6,6 +6,7 @@ from holmes.config import Config
 from holmes.core.tool_calling_llm import LLMResult
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
+from holmes.utils.colors import AI_COLOR
 
 
 def handle_result(
@@ -27,7 +28,7 @@ def handle_result(
                     markup=False,
                 )
 
-        console.print("[bold green]AI:[/bold green]", end=" ")
+        console.print(f"[bold {AI_COLOR}]AI:[/bold {AI_COLOR}]", end=" ")
         console.print(Markdown(result.result))  # type: ignore
         if add_separator:
             console.print(Rule())
