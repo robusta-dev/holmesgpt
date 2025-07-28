@@ -244,3 +244,12 @@ poetry run pytest -m "llm and not network" --collect-only -q
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory
   - If `runbooks` field is not specified, default system runbooks are used
+
+## Documentation Lookup
+
+When asked about content from the HolmesGPT documentation website (https://robusta-dev.github.io/holmesgpt/), look in the local `docs/` directory:
+- Python SDK examples: `docs/installation/python-installation.md`
+- CLI installation: `docs/installation/cli-installation.md`
+- Kubernetes deployment: `docs/installation/kubernetes-installation.md`
+- Toolset documentation: `docs/data-sources/builtin-toolsets/`
+- API reference: `docs/reference/`
