@@ -12,12 +12,8 @@ from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 from holmes import get_version  # type: ignore
 from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
-
-# Heavy imports moved to TYPE_CHECKING to speed up startup
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
-
-# SlackDestination import moved to lazy loading in create_slack_destination()
 from holmes.plugins.runbooks import (
     RunbookCatalog,
     load_builtin_runbooks,
