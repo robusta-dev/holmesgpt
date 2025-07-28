@@ -28,16 +28,17 @@ from rich.markdown import Markdown, Panel
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
-from holmes.version import check_version_async
 from holmes.core.tracing import DummyTracer
 from holmes.utils.colors import (
-    USER_COLOR,
     AI_COLOR,
-    TOOLS_COLOR,
-    HELP_COLOR,
     ERROR_COLOR,
+    HELP_COLOR,
     STATUS_COLOR,
+    TOOLS_COLOR,
+    USER_COLOR,
 )
+from holmes.utils.console.consts import agent_name
+from holmes.version import check_version_async
 
 
 class SlashCommands(Enum):
@@ -639,7 +640,7 @@ def handle_shell_command(
         Formatted user input string if user chooses to share, None otherwise
     """
     console.print(
-        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
+        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to {agent_name}.[/bold {STATUS_COLOR}]"
     )
     console.print(
         "[dim]Shell session will be recorded and can be shared with LLM when you exit.[/dim]"
@@ -871,9 +872,9 @@ def run_interactive_loop(
         )
     messages = None
     last_response = None
-    all_tool_calls_history: List[
-        ToolCallResult
-    ] = []  # Track all tool calls throughout conversation
+    all_tool_calls_history: List[ToolCallResult] = (
+        []
+    )  # Track all tool calls throughout conversation
 
     while True:
         try:
