@@ -3,6 +3,12 @@ import logging
 from typing import Optional, Any, Union
 from enum import Enum
 
+BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
+BRAINTRUST_ORG = os.environ.get("BRAINTRUST_ORG", "robustadev")
+BRAINTRUST_PROJECT = os.environ.get(
+    "BRAINTRUST_PROJECT", "HolmesGPT"
+)  # only for evals - for CLI it's set differently
+
 try:
     import braintrust
     from braintrust import Span, SpanTypeAttribute
@@ -76,15 +82,13 @@ class DummyTracer:
 class BraintrustTracer:
     """Braintrust implementation of tracing."""
 
-    def __init__(self, project: str = "HolmesGPT-CLI"):
+    def __init__(self, project: str):
         if not BRAINTRUST_AVAILABLE:
             raise ImportError("braintrust package is required for BraintrustTracer")
 
         self.project = project
 
-    def start_experiment(
-        self, experiment_name: Optional[str] = None, metadata: Optional[dict] = None
-    ):
+    def start_experiment(self, experiment_name: str, metadata: Optional[dict] = None):
         """Create and start a new Braintrust experiment.
 
         Args:
@@ -143,7 +147,6 @@ class BraintrustTracer:
             logging.warning("BRAINTRUST_API_KEY not set, cannot get trace URL")
             return None
 
-        # Get current experiment from Braintrust context
         current_experiment = braintrust.current_experiment()
         if not current_experiment:
             logging.warning("No current experiment found in Braintrust context")
@@ -156,10 +159,7 @@ class BraintrustTracer:
 
         current_span = braintrust.current_span()
         if not _is_noop_span(current_span):
-            span_id = getattr(current_span, "span_id", None)
-            id_attr = getattr(current_span, "id", None)
-            if span_id and id_attr:
-                return f"https://www.braintrust.dev/app/robustadev/p/{self.project}/experiments/{experiment_name}?c=&tg=false&r={id_attr}&s={span_id}"
+            current_span.link()
         else:
             logging.warning("No active span found in Braintrust context")
 
@@ -193,7 +193,7 @@ class TracingFactory:
     """Factory for creating tracer instances."""
 
     @staticmethod
-    def create_tracer(trace_type: Optional[str], project: str):
+    def create_tracer(trace_type: Optional[str], project: str = BRAINTRUST_PROJECT):
         """Create a tracer instance based on the trace type.
 
         Args:

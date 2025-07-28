@@ -139,6 +139,48 @@ class ConditionalExecutableCompleter(Completer):
                         )
 
 
+class ShowCommandCompleter(Completer):
+    """Completer that provides suggestions for /show command based on tool call history"""
+
+    def __init__(self):
+        self.tool_calls_history = []
+
+    def update_history(self, tool_calls_history: List[ToolCallResult]):
+        """Update the tool calls history for completion suggestions"""
+        self.tool_calls_history = tool_calls_history
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+
+        # Only provide completion if the line starts with /show
+        if text.startswith("/show "):
+            # Extract the argument part after "/show "
+            show_part = text[6:]  # Remove "/show "
+
+            # Don't complete if there are already multiple words
+            words = show_part.split()
+            if len(words) > 1:
+                return
+
+            # Provide completions based on available tool calls
+            if self.tool_calls_history:
+                for i, tool_call in enumerate(self.tool_calls_history):
+                    tool_index = str(i + 1)  # 1-based index
+                    tool_description = tool_call.description
+
+                    # Complete tool index numbers (show all if empty, or filter by what user typed)
+                    if (
+                        not show_part
+                        or tool_index.startswith(show_part)
+                        or show_part.lower() in tool_description.lower()
+                    ):
+                        yield Completion(
+                            tool_index,
+                            start_position=-len(show_part),
+                            display=f"{tool_index} - {tool_description}",
+                        )
+
+
 USER_COLOR = "#DEFCC0"  # light green
 AI_COLOR = "#00FFFF"  # cyan
 TOOLS_COLOR = "magenta"
@@ -733,13 +775,14 @@ def run_interactive_loop(
         }
     )
 
-    # Create merged completer with slash commands, conditional executables, and smart paths
+    # Create merged completer with slash commands, conditional executables, show command, and smart paths
     slash_completer = SlashCommandCompleter()
     executable_completer = ConditionalExecutableCompleter()
+    show_completer = ShowCommandCompleter()
     path_completer = SmartPathCompleter()
 
     command_completer = merge_completers(
-        [slash_completer, executable_completer, path_completer]
+        [slash_completer, executable_completer, show_completer, path_completer]
     )
 
     # Use file-based history
@@ -870,6 +913,8 @@ def run_interactive_loop(
                     messages = None
                     last_response = None
                     all_tool_calls_history.clear()
+                    # Reset the show completer history
+                    show_completer.update_history([])
                     continue
                 elif command == SlashCommands.TOOLS_CONFIG.command:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
@@ -944,6 +989,8 @@ def run_interactive_loop(
 
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
+                # Update the show completer with the latest tool call history
+                show_completer.update_history(all_tool_calls_history)
 
             if show_tool_output and response.tool_calls:
                 display_recent_tool_outputs(

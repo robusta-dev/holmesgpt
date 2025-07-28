@@ -1,29 +1,30 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ask-holmes-namespace-53
+  name: app-20
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app-53
-  namespace: ask-holmes-namespace-53
+  name: network-connector
+  namespace: app-20
   labels:
-    app: my-app-53
+    app: network-connector
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: my-app-53
+      app: network-connector
   template:
     metadata:
       labels:
-        app: my-app-53
+        app: network-connector
     spec:
       containers:
-      - name: main-container
+      - name: network-connector
         image: python:3.9-slim
-        command: ["python", "/scripts/generate_logs.py"]
+        command: ["python"]
+        args: ["/scripts/generate_logs.py"]
         volumeMounts:
         - name: script-volume
           mountPath: /scripts
@@ -31,11 +32,9 @@ spec:
           requests:
             memory: "64Mi"
             cpu: "10m"
-          limits:
-            memory: "64Mi"
       volumes:
       - name: script-volume
         secret:
-          secretName: my-app-53-logs-script
+          secretName: network-connector-logs-script
           defaultMode: 0755
       restartPolicy: Always

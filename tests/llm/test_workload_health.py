@@ -6,7 +6,7 @@ import json
 import pytest
 from server import workload_health_check
 
-from holmes.core.tracing import SpanType
+from holmes.core.tracing import SpanType, BRAINTRUST_PROJECT
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
@@ -15,7 +15,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from tests.llm.utils.classifiers import (
     evaluate_correctness,
 )
-from tests.llm.utils.constants import PROJECT
+from tests.llm.utils.braintrust import get_experiment_name
 from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsetManager
@@ -54,38 +54,21 @@ class MockConfig(Config):
 
         # With the new file-based mock system, mocks are loaded from disk automatically
         # No need to call mock_tool() anymore
-        return ToolExecutor(mock.enabled_toolsets)
+        return ToolExecutor(mock.toolsets)
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name()
-    dataset_name = braintrust_util.get_dataset_name("health_check")
-
     mh = MockHelper(TEST_CASES_FOLDER)
-
-    if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
-        bt_helper.upload_test_cases(mh.load_test_cases())
+    # dataset_name = braintrust_util.get_dataset_name("health_check")
+    # if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
+    #     bt_helper = braintrust_util.BraintrustEvalHelper(
+    #         project_name=BRAINTRUST_PROJECT, dataset_name=dataset_name
+    #     )
+    #     bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_workload_health_test_cases()
-
-    iterations = int(os.environ.get("ITERATIONS", "0"))
-    if iterations:
-        test_cases_tuples = []
-        for i in range(0, iterations):
-            test_cases_tuples.extend(
-                [
-                    add_tags_to_eval(experiment_name, test_case)
-                    for test_case in test_cases
-                ]
-            )
-        return test_cases_tuples
-    else:
-        return [
-            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
-        ]
+    iterations = int(os.environ.get("ITERATIONS", "1"))
+    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
 
 
 def idfn(val):
@@ -96,13 +79,13 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
 def test_health_check(
-    experiment_name: str,
     test_case: HealthCheckTestCase,
     caplog,
     request,
     mock_generation_config,
+    shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
@@ -110,11 +93,18 @@ def test_health_check(
     # Check if test should be skipped
     check_and_skip_test(test_case)
 
+    # Check for setup failures
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        request.node.user_properties.append(("is_setup_failure", True))
+        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+
     dataset_name = braintrust_util.get_dataset_name("health_check")
     bt_helper = braintrust_util.BraintrustEvalHelper(
-        project_name=PROJECT, dataset_name=dataset_name
+        project_name=BRAINTRUST_PROJECT, dataset_name=dataset_name
     )
-    eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+    # TODO: not consistent with other tests where we don't use this and use the tracer instead
+    eval_span = bt_helper.start_evaluation(get_experiment_name(), name=test_case.id)
 
     # Store span info in user properties for conftest to access
     if hasattr(eval_span, "id"):
