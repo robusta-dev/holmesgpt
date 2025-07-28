@@ -88,6 +88,59 @@ poetry run pytest ./tests/llm/test_ask_holmes.py -k "01_how_many_pods" --no-cov 
 
 > It is possible to investigate and debug why an eval fails by the output provided in the console. The output includes the correctness score, the reasoning for the score, information about what tools were called, the expected answer, as well as the LLM's answer.
 
+### Custom Evaluation Flags
+
+HolmesGPT provides custom pytest flags for evaluation workflows:
+
+| Flag | Description | Usage |
+|------|-------------|-------|
+| `--generate-mocks` | Generate mock data files during test execution | Use when adding new tests or updating existing ones |
+| `--regenerate-all-mocks` | Regenerate all mock files (implies --generate-mocks) | Use to ensure mock consistency across all tests |
+| `--skip-setup` | Skip `before_test` commands | Use for faster iteration during development |
+| `--skip-cleanup` | Skip `after_test` commands | Use for debugging test failures |
+
+### Common Evaluation Patterns
+
+#### Rapid Test Development Workflow
+
+When developing or debugging tests, use this pattern for faster iteration:
+
+```bash
+# 1. Initial run with setup (skip cleanup to keep resources)
+poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-cleanup
+
+# 2. Quick iterations without setup/cleanup
+poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-setup --skip-cleanup
+
+# 3. Final cleanup when done
+poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-setup
+```
+
+#### Mock Generation
+
+```bash
+# Generate mocks for specific test
+poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
+
+# Generate mocks with multiple iterations to cover all investigative paths
+ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
+
+# Regenerate all mocks for consistency
+poetry run pytest tests/llm/ --regenerate-all-mocks
+```
+
+#### Parallel Execution
+
+For faster test runs, use pytest's parallel execution:
+
+```bash
+# Run with 6 parallel workers
+poetry run pytest tests/llm/ -n 6 --no-cov --disable-warnings
+
+# Run with auto-detected worker count
+poetry run pytest tests/llm/ -n auto --no-cov --disable-warnings
+```
+
 ### Environment Variables
 
 Configure evaluations using these environment variables:
@@ -102,6 +155,7 @@ Configure evaluations using these environment variables:
 | `EXPERIMENT_ID` | `EXPERIMENT_ID=my_baseline` | Custom experiment name for result tracking |
 | `BRAINTRUST_API_KEY` | `BRAINTRUST_API_KEY=sk-...` | Enable Braintrust integration for result tracking and CI/CD report generation |
 | `BRAINTRUST_ORG` | `BRAINTRUST_ORG=my-org` | Braintrust organization name (defaults to "robustadev") |
+| `ASK_HOLMES_TEST_TYPE` | `ASK_HOLMES_TEST_TYPE=server` | Controls message building flow in ask_holmes tests. `cli` (default) uses `build_initial_ask_messages` and skips conversation history tests. `server` uses `build_chat_messages` with full conversation support |
 
 ### Simple Example
 
@@ -138,6 +192,34 @@ Live testing requires a Kubernetes cluster and will execute `before-test` and `a
 
 3. **Compare Results**: Use evaluation tracking tools to analyze performance differences
 
+## Test Markers
+
+Filter tests using pytest markers:
+
+```bash
+# Run only LLM tests
+poetry run pytest -m "llm"
+
+# Run tests that don't require network
+poetry run pytest -m "not network"
+
+# Combine markers
+poetry run pytest -m "llm and not synthetic"
+```
+
+**Available markers:**
+- `llm` - LLM behavior tests
+- `datetime` - Datetime functionality tests
+- `logs` - Log processing tests
+- `context_window` - Context window handling tests
+- `synthetic` - Tests using synthetic data
+- `network` - Tests requiring network connectivity
+- `runbooks` - Runbook functionality tests
+- `misleading-history` - Tests with misleading historical data
+- `chain-of-causation` - Chain of causation analysis tests
+- `slackbot` - Slack integration tests
+- `counting` - Resource counting tests
+
 ## Troubleshooting
 
 ### Common Issues
@@ -159,3 +241,18 @@ This shows detailed output including:
 - Tool calls made by the LLM
 - Evaluation scores and rationales
 - Debugging information
+
+### Common Pytest Flags
+
+| Flag | Description |
+|------|--------------|
+| `-n <number>` | Run tests in parallel with specified workers |
+| `-k <pattern>` | Run tests matching the pattern |
+| `-m <marker>` | Run tests with specific marker |
+| `-v/-vv` | Verbose output (more v's = more verbose) |
+| `-s` | Show print statements |
+| `--no-cov` | Disable coverage reporting |
+| `--disable-warnings` | Disable warning summary |
+| `--collect-only` | List tests without running |
+| `-q` | Quiet mode |
+| `--timeout=<seconds>` | Set test timeout |

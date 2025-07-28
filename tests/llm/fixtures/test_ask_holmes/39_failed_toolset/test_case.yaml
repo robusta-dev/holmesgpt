@@ -4,3 +4,6 @@ expected_output:
   - The answer should quote a specific error
 evaluation:
   correctness: 0
+tags:
+  - medium
+  - transparency

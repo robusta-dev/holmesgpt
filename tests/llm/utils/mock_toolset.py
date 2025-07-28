@@ -66,6 +66,82 @@ class MockMode(Enum):
     LIVE = "live"  # Use real tools without mocking
 
 
+class MockPolicy(Enum):
+    """Per-test mock policy that can override global settings."""
+
+    ALWAYS_MOCK = "always_mock"  # Force mock mode regardless of global settings
+    NEVER_MOCK = "never_mock"  # Force live mode regardless of global settings
+    INHERIT = "inherit"  # Use global settings (default)
+
+
+class MockGenerationConfig:
+    def __init__(self, generate_mocks_enabled, regenerate_all_enabled, mock_mode):
+        self.generate_mocks = generate_mocks_enabled
+        self.regenerate_all_mocks = regenerate_all_enabled
+        self.mode = mock_mode
+
+
+def clear_all_mocks(session) -> List[str]:
+    """Clear mock files for all test cases when --regenerate-all-mocks is set.
+
+    This is a session-level operation that clears all mock files across all test cases.
+    Used during pytest session setup.
+
+    Args:
+        session: pytest session object containing all test items
+
+    Returns:
+        List of directories that had files cleared
+    """
+    from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
+
+    print("\n🧹 Clearing mock files for --regenerate-all-mocks")
+
+    cleared_directories = set()
+    total_files_removed = 0
+
+    # Extract all unique test case folders
+    test_folders = set()
+    for item in session.items:
+        if (
+            item.get_closest_marker("llm")
+            and hasattr(item, "callspec")
+            and "test_case" in item.callspec.params
+        ):
+            test_case = item.callspec.params["test_case"]
+            if isinstance(test_case, HolmesTestCase):
+                test_folders.add(test_case.folder)
+
+    # Clear mock files from each folder
+    for folder in test_folders:
+        patterns = [
+            os.path.join(folder, "*.txt"),
+            os.path.join(folder, "*.json"),
+        ]
+
+        folder_files_removed = 0
+        for pattern in patterns:
+            for file_path in glob.glob(pattern):
+                try:
+                    os.remove(file_path)
+                    folder_files_removed += 1
+                    total_files_removed += 1
+                except Exception as e:
+                    logging.warning(f"Could not remove {file_path}: {e}")
+
+        if folder_files_removed > 0:
+            cleared_directories.add(folder)
+            print(
+                f"   ✅ Cleared {folder_files_removed} mock files from {os.path.basename(folder)}"
+            )
+
+    print(
+        f"   📊 Total: Cleared {total_files_removed} files from {len(cleared_directories)} directories\n"
+    )
+
+    return list(cleared_directories)
+
+
 class MockMetadata(BaseModel):
     """Metadata stored in mock files."""
 
@@ -194,8 +270,8 @@ class MockFileManager:
 
         return mock_file_path
 
-    def clear_mocks(self, request: pytest.FixtureRequest) -> List[str]:
-        """Clear all mock files in the test case folder."""
+    def clear_mocks_for_test(self, request: pytest.FixtureRequest) -> List[str]:
+        """Clear all mock files for a single test case folder."""
         cleared_files = []
         patterns = [
             os.path.join(self.test_case_folder, "*.txt"),
@@ -281,7 +357,7 @@ class MockFileManager:
                         raise MockDataCorruptedError(
                             f"Mock file {file_path} is in old format and needs to be updated (see PR #372)",
                             tool_name=metadata.get("tool_name", "unknown"),
-                        )
+                        ) from None
 
                     content = "".join(lines[2:]) if len(lines) > 2 else None
                     if content is not None:
@@ -398,55 +474,6 @@ class MockableToolWrapper(Tool):
         return self._tool.get_parameterized_one_liner(params)
 
 
-class ToolsetConfigurator:
-    """Handles toolset loading and configuration."""
-
-    @staticmethod
-    def load_builtin_toolsets() -> List[Toolset]:
-        """Load all built-in toolsets."""
-        return load_builtin_toolsets()
-
-    @staticmethod
-    def load_custom_toolsets(config_path: str) -> List[Toolset]:
-        """Load custom toolsets from a YAML file."""
-        if not os.path.isfile(config_path):
-            return []
-        return load_toolsets_from_file(toolsets_path=config_path, strict_check=False)
-
-    @staticmethod
-    def configure_toolsets(
-        builtin_toolsets: List[Toolset], custom_definitions: List[Toolset]
-    ) -> List[Toolset]:
-        """Configure builtin toolsets with custom definitions."""
-        configured = []
-
-        for toolset in builtin_toolsets:
-            # Enable default toolsets
-            if toolset.is_default or isinstance(toolset, YAMLToolset):
-                toolset.enabled = True
-
-            # Apply custom configuration if available
-            definition = next(
-                (d for d in custom_definitions if d.name == toolset.name), None
-            )
-            if definition:
-                toolset.config = definition.config
-                toolset.enabled = definition.enabled
-                configured.append(toolset)
-
-            # Check prerequisites for enabled toolsets
-            if toolset.enabled:
-                try:
-                    toolset.check_prerequisites()
-                except Exception:
-                    logging.error(
-                        f"check_prerequisites failed for toolset {toolset.name}.",
-                        exc_info=True,
-                    )
-
-        return configured
-
-
 class SimplifiedMockToolset(Toolset):
     """Simplified mock toolset for testing."""
 
@@ -463,27 +490,32 @@ class MockToolsetManager:
     def __init__(
         self,
         test_case_folder: str,
-        mock_generation_config,
-        add_params_to_mock_file: bool = True,
+        mock_generation_config: MockGenerationConfig,
         request: pytest.FixtureRequest = None,
+        mock_policy: str = "inherit",
     ):
         self.test_case_folder = test_case_folder
         self.request = request
-        self.mode = mock_generation_config.mode
+
+        # Determine the effective mode based on mock_policy
+        if mock_policy == MockPolicy.ALWAYS_MOCK.value:
+            if mock_generation_config.mode == MockMode.GENERATE:
+                pytest.skip(
+                    "Test has fixed mocks (mock_policy='always_mock') so this test will be skipped. If you want to override mocks for this test and generate from scratch, change the mock_policy for this test temporarily."
+                )
+            else:
+                self.mode = MockMode.MOCK
+        elif mock_policy == MockPolicy.NEVER_MOCK.value:
+            if mock_generation_config.mode != MockMode.LIVE:
+                pytest.skip(
+                    "Test requires live execution (mock_policy=NEVER_MOCK) but RUN_LIVE is not enabled"
+                )
+            self.mode = MockMode.LIVE
+        else:  # INHERIT or any other value
+            self.mode = mock_generation_config.mode
 
         # Initialize components
-        self.file_manager = MockFileManager(test_case_folder, add_params_to_mock_file)
-        self.configurator = ToolsetConfigurator()
-
-        # Clear mocks if regenerating
-        if mock_generation_config.regenerate_all_mocks:
-            if request and test_case_folder not in getattr(
-                mock_generation_config, "_cleared_folders", set()
-            ):
-                self.file_manager.clear_mocks(request)
-                if not hasattr(mock_generation_config, "_cleared_folders"):
-                    mock_generation_config._cleared_folders = set()
-                mock_generation_config._cleared_folders.add(test_case_folder)
+        self.file_manager = MockFileManager(test_case_folder)
 
         # Load and configure toolsets
         self._initialize_toolsets()
@@ -491,48 +523,78 @@ class MockToolsetManager:
     def _initialize_toolsets(self):
         """Initialize and configure toolsets."""
         # Load builtin toolsets
-        builtin_toolsets = self.configurator.load_builtin_toolsets()
+        builtin_toolsets = load_builtin_toolsets()
 
-        # Load custom toolsets
+        # Load custom toolsets from YAML if present
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
-        custom_definitions = self.configurator.load_custom_toolsets(config_path)
+        custom_definitions = self._load_custom_toolsets(config_path)
 
-        # Configure toolsets
-        configured_toolsets = self.configurator.configure_toolsets(
-            builtin_toolsets, custom_definitions
-        )
+        # Configure builtin toolsets with custom definitions
+        self.toolsets = self._configure_toolsets(builtin_toolsets, custom_definitions)
 
-        # Wrap tools based on mode
-        self.enabled_toolsets = self._wrap_toolsets(
-            builtin_toolsets, configured_toolsets
-        )
+        # Wrap tools for enabled toolsets based on mode
+        self._wrap_enabled_toolsets()
 
-    def _wrap_toolsets(
-        self, builtin_toolsets: List[Toolset], configured_toolsets: List[Toolset]
+    def _load_custom_toolsets(self, config_path: str) -> List[Toolset]:
+        """Load custom toolsets from a YAML file."""
+        if not os.path.isfile(config_path):
+            return []
+        return load_toolsets_from_file(toolsets_path=config_path, strict_check=False)
+
+    def _configure_toolsets(
+        self, builtin_toolsets: List[Toolset], custom_definitions: List[Toolset]
     ) -> List[Toolset]:
-        """Wrap toolsets with mock-aware tools."""
-        if self.mode == MockMode.LIVE:
-            # In live mode, just return enabled toolsets without wrapping
-            enabled = [
-                t for t in builtin_toolsets if t.status == ToolsetStatusEnum.ENABLED
-            ]
-            # Add configured toolsets that aren't already in enabled
-            for toolset in configured_toolsets:
-                if toolset not in enabled:
-                    enabled.append(toolset)
-            return enabled
-
-        # For mock/generate modes, wrap tools
-        wrapped_toolsets = []
+        """Configure builtin toolsets with custom definitions."""
+        configured = []
 
         for toolset in builtin_toolsets:
-            # Check if we have any mocks for this toolset
-            has_mocks = any(
-                self.file_manager.has_mock_files(tool.name) for tool in toolset.tools
-            )
+            # Enable default toolsets
+            if toolset.is_default or isinstance(toolset, YAMLToolset):
+                toolset.enabled = True
 
-            # Only include toolsets that are enabled or have mocks
-            if toolset.status == ToolsetStatusEnum.ENABLED or has_mocks:
+            # Apply custom configuration if available
+            definition = next(
+                (d for d in custom_definitions if d.name == toolset.name), None
+            )
+            if definition:
+                toolset.config = definition.config
+                toolset.enabled = definition.enabled
+
+            # Add all toolsets to configured list
+            configured.append(toolset)
+
+            # Check prerequisites for enabled toolsets with timeout
+            # Only check prerequisites in LIVE mode - for MOCK/GENERATE modes we don't need real connections
+            if toolset.enabled:
+                if self.mode == MockMode.LIVE:
+                    try:
+                        # TODO: add timeout
+                        toolset.check_prerequisites()
+                    except Exception:
+                        logging.error(
+                            f"check_prerequisites failed for toolset {toolset.name}.",
+                            exc_info=True,
+                        )
+                else:
+                    # In MOCK/GENERATE modes, just set status to ENABLED for enabled toolsets
+                    toolset.status = ToolsetStatusEnum.ENABLED
+
+        return configured
+
+    def _wrap_enabled_toolsets(self):
+        """Wrap tools with mock-aware wrappers for enabled toolsets in mock/generate modes."""
+        if self.mode == MockMode.LIVE:
+            # In live mode, no wrapping needed
+            return
+
+        # For mock/generate modes, wrap tools for enabled toolsets only
+        for i, toolset in enumerate(self.toolsets):
+            # Only wrap enabled toolsets
+            if toolset.status == ToolsetStatusEnum.ENABLED:
+                # Never mock the runbook toolset - it needs to actually fetch runbooks
+                if toolset.name == "runbook":
+                    continue
+
                 # Create wrapped tools
                 wrapped_tools = [
                     MockableToolWrapper(
@@ -545,31 +607,131 @@ class MockToolsetManager:
                     for tool in toolset.tools
                 ]
 
-                # Create simplified mock toolset
+                # Create simplified mock toolset and replace the original
                 mock_toolset = SimplifiedMockToolset(
                     name=toolset.name,
                     prerequisites=toolset.prerequisites,
                     tools=wrapped_tools,
                     description=toolset.description,
                     llm_instructions=toolset.llm_instructions,
+                    config=toolset.config,
                 )
                 mock_toolset.status = ToolsetStatusEnum.ENABLED
-                wrapped_toolsets.append(mock_toolset)
-
-        # Add configured toolsets that aren't already wrapped
-        for toolset in configured_toolsets:
-            if not any(t.name == toolset.name for t in wrapped_toolsets):
-                wrapped_toolsets.append(toolset)
-
-        return wrapped_toolsets
+                self.toolsets[i] = mock_toolset
 
 
 # For backward compatibility
 MockToolsets = MockToolsetManager
 
+
+def report_mock_operations(
+    config, mock_tracking_data: Dict[str, List], terminalreporter=None
+) -> None:
+    """Report mock file operations and statistics."""
+    # Use default parameter to safely handle missing options
+    generate_mocks = False
+    regenerate_all_mocks = False
+
+    try:
+        generate_mocks = config.getoption("--generate-mocks", default=False)
+        regenerate_all_mocks = config.getoption("--regenerate-all-mocks", default=False)
+    except (AttributeError, ValueError):
+        # Options not available, use defaults
+        pass
+
+    if not generate_mocks and not regenerate_all_mocks:
+        return
+
+    regenerate_mode = regenerate_all_mocks
+    generated_mocks = mock_tracking_data["generated_mocks"]
+    mock_failures = mock_tracking_data["mock_failures"]
+
+    # If no terminalreporter, skip output
+    if not terminalreporter:
+        return
+
+    # Header
+    _safe_print(terminalreporter, f"\n{'=' * 80}")
+    _safe_print(
+        terminalreporter,
+        f"{'🔄 MOCK REGENERATION SUMMARY' if regenerate_mode else '🔧 MOCK GENERATION SUMMARY'}",
+    )
+    _safe_print(terminalreporter, f"{'=' * 80}")
+
+    # Note: Cleared directories are now handled by shared_test_infrastructure fixture
+    # and reported during setup phase to ensure single execution across workers
+
+    # Generated mocks
+    if generated_mocks:
+        _safe_print(
+            terminalreporter, f"✅ Generated {len(generated_mocks)} mock files:\n"
+        )
+
+        # Group by test case
+        by_test_case: Dict[str, List[str]] = {}
+        for mock_info in generated_mocks:
+            parts = mock_info.split(":", 2)
+            if len(parts) == 3:
+                test_case, tool_name, filename = parts
+                by_test_case.setdefault(test_case, []).append(
+                    f"{tool_name} -> {filename}"
+                )
+
+        for test_case, mock_files in sorted(by_test_case.items()):
+            _safe_print(terminalreporter, f"📁 {test_case}:")
+            for mock_file in mock_files:
+                _safe_print(terminalreporter, f"   - {mock_file}")
+            _safe_print(terminalreporter)
+    else:
+        mode_text = "regeneration" if regenerate_mode else "generation"
+        _safe_print(
+            terminalreporter,
+            f"✅ Mock {mode_text} was enabled but no new mock files were created",
+        )
+
+    # Failures
+    if mock_failures:
+        _safe_print(
+            terminalreporter, f"⚠️  {len(mock_failures)} mock-related failures occurred:"
+        )
+        for failure in mock_failures:
+            _safe_print(terminalreporter, f"   - {failure}")
+        _safe_print(terminalreporter)
+
+    # Checklist
+    checklist = [
+        "Review generated mock files before committing",
+        "Ensure mock data represents realistic scenarios",
+        "Check data consistency across related mocks (e.g., if a pod appears in",
+        "  one mock, it should appear in all related mocks from the same test run)",
+        "Verify timestamps, IDs, and names match between interconnected mock files",
+        "If pod/resource names change across tool calls, regenerate ALL mocks with --regenerate-all-mocks",
+    ]
+
+    _safe_print(terminalreporter, "📋 REVIEW CHECKLIST:")
+    for item in checklist:
+        _safe_print(terminalreporter, f"   □ {item}")
+    _safe_print(terminalreporter, "=" * 80)
+
+
+def _safe_print(terminalreporter, message: str = "") -> None:
+    """Safely print to terminal reporter to avoid I/O errors"""
+    try:
+        terminalreporter.write_line(message)
+    except Exception:
+        # If write_line fails, try direct write
+        try:
+            terminalreporter._tw.write(message + "\n")
+        except Exception:
+            # Last resort - ignore if all writing fails
+            pass
+
+
 # Export list
 __all__ = [
     "MockMode",
+    "MockPolicy",
+    "MockGenerationConfig",
     "MockToolsetManager",
     "MockToolsets",
     "MockDataError",
@@ -578,6 +740,7 @@ __all__ = [
     "MockValidationError",
     "MockFileManager",
     "MockableToolWrapper",
-    "ToolsetConfigurator",
     "sanitize_filename",
+    "clear_all_mocks",
+    "report_mock_operations",
 ]

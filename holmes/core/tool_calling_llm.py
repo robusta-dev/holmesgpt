@@ -39,7 +39,7 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.tracing import DummySpan, SpanType
+from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 
 
@@ -250,6 +250,7 @@ class ToolCallingLLM:
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
         trace_span=DummySpan(),
+        tool_number_offset: int = 0,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
@@ -382,7 +383,7 @@ class ToolCallingLLM:
                             tool_to_call=t,
                             previous_tool_calls=tool_calls,
                             trace_span=trace_span,
-                            tool_number=tool_index,
+                            tool_number=tool_number_offset + tool_index,
                         )
                     )
 
@@ -436,7 +437,7 @@ class ToolCallingLLM:
         tool_response = None
 
         # Create tool span if tracing is enabled
-        tool_span = trace_span.start_span(name=tool_name, type=SpanType.TOOL)
+        tool_span = trace_span.start_span(name=tool_name, type="tool")
 
         try:
             tool_response = prevent_overly_repeated_tool_call(
@@ -465,6 +466,8 @@ class ToolCallingLLM:
                 metadata={
                     "status": tool_response.status.value,
                     "error": tool_response.error,
+                    "description": tool.get_parameterized_one_liner(tool_params),
+                    "structured_tool_result": tool_response,
                 },
             )
 

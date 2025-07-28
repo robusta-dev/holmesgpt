@@ -1,0 +1,35 @@
+description: |
+  Test case similar to node affinity/zone constraint examples but with node taints.
+  Uses deployment requiring specific zone (like runbook examples) but with 4 replicas,
+  and the actual issue is missing tolerations for node taints, not zone constraints.
+  Tests that LLM identifies the real scheduling constraint.
+
+user_question: "Whats wrong with database-primary deployment in production-88 isn't starting?"
+
+# CodeRabbit: RWO PVC + 4 replicas ⇒ inevitable Multi-Attach errors
+#   A single ReadWriteOnce volume cannot be mounted by four pods on different nodes. This scheduling error will surface before the intended taint/toleration failure, potentially breaking the test signal.
+#   Options: Scale replicas to 1, or
+#   Switch the PVC to ReadWriteMany / change storage class, or
+#   Convert the workload to a StatefulSet with one PVC per replica.
+#   Pick whichever keeps the taint-focused scenario cleanest.
+expected_output: |
+  Missing tolerations for node taints.
+  The output MUST mention:
+  - 0/4 replicas running
+  - All 4 pods are Pending
+  - Root cause: Pods cannot tolerate the "dedicated=database:NoSchedule" taint
+  - Remediation should focus on adding the toleration
+
+before_test: |
+  kubectl apply -f manifest.yaml
+  sleep 30
+
+after_test: |
+  kubectl delete -f manifest.yaml
+
+evaluation:
+  correctness: 1
+
+tags:
+  - kubernetes
+  - easy

@@ -1,10 +1,8 @@
-# Expected:
-# - Show some examples of errors in the logs.
-# - Summarize the different types of errors if there are a lot of repeating.
 user_prompt: "What are the errors in pod robusta-holmes since June 12?"
 tags:
   - logs
   - synthetic
+  - medium
 expected_output:
   - 2025-06-12 The database at my.postgresql.com has become unavailable
   - 2025-06-13 The application temporarily suffered from memory pressure
@@ -13,5 +11,6 @@ expected_output:
   - 2025-06-19 SSL certificate expired
 
 evaluation:
-  # Holmes SYSTEMATICALLY fetches the logs from 2023 instead of the current year (2025)
-  correctness: 0
+  correctness: 1
+
+mock_policy: always_mock

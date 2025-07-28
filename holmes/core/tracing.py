@@ -3,6 +3,12 @@ import logging
 from typing import Optional, Any, Union
 from enum import Enum
 
+BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
+BRAINTRUST_ORG = os.environ.get("BRAINTRUST_ORG", "robustadev")
+BRAINTRUST_PROJECT = os.environ.get(
+    "BRAINTRUST_PROJECT", "HolmesGPT"
+)  # only for evals - for CLI it's set differently
+
 try:
     import braintrust
     from braintrust import Span, SpanTypeAttribute
@@ -32,12 +38,13 @@ class SpanType(Enum):
     TOOL = "tool"
     TASK = "task"
     SCORE = "score"
+    EVAL = "eval"
 
 
 class DummySpan:
     """A no-op span implementation for when tracing is disabled."""
 
-    def start_span(self, name: str, span_type: Optional[SpanType] = None, **kwargs):
+    def start_span(self, name: str, span_type=None, **kwargs):
         return DummySpan()
 
     def log(self, *args, **kwargs):
@@ -75,15 +82,13 @@ class DummyTracer:
 class BraintrustTracer:
     """Braintrust implementation of tracing."""
 
-    def __init__(self, project: str = "HolmesGPT-CLI"):
+    def __init__(self, project: str):
         if not BRAINTRUST_AVAILABLE:
             raise ImportError("braintrust package is required for BraintrustTracer")
 
         self.project = project
 
-    def start_experiment(
-        self, experiment_name: Optional[str] = None, metadata: Optional[dict] = None
-    ):
+    def start_experiment(self, experiment_name: str, metadata: Optional[dict] = None):
         """Create and start a new Braintrust experiment.
 
         Args:
@@ -121,17 +126,17 @@ class BraintrustTracer:
         # Add span type to kwargs if provided
         kwargs = {}
         if span_type:
-            kwargs["type"] = getattr(SpanTypeAttribute, span_type.name)
+            kwargs["type"] = span_type.value
 
         # Use current Braintrust context (experiment or parent span)
         current_span = braintrust.current_span()
         if not _is_noop_span(current_span):
-            return current_span.start_span(name=name, **kwargs)
+            return current_span.start_span(name=name, **kwargs)  # type: ignore
 
         # Fallback to current experiment
         current_experiment = braintrust.current_experiment()
         if current_experiment:
-            return current_experiment.start_span(name=name, **kwargs)
+            return current_experiment.start_span(name=name, **kwargs)  # type: ignore
 
         return DummySpan()
 
@@ -142,7 +147,6 @@ class BraintrustTracer:
             logging.warning("BRAINTRUST_API_KEY not set, cannot get trace URL")
             return None
 
-        # Get current experiment from Braintrust context
         current_experiment = braintrust.current_experiment()
         if not current_experiment:
             logging.warning("No current experiment found in Braintrust context")
@@ -155,10 +159,7 @@ class BraintrustTracer:
 
         current_span = braintrust.current_span()
         if not _is_noop_span(current_span):
-            span_id = getattr(current_span, "span_id", None)
-            id_attr = getattr(current_span, "id", None)
-            if span_id and id_attr:
-                return f"https://www.braintrust.dev/app/robustadev/p/{self.project}/experiments/{experiment_name}?c=&tg=false&r={id_attr}&s={span_id}"
+            current_span.link()
         else:
             logging.warning("No active span found in Braintrust context")
 
@@ -192,7 +193,7 @@ class TracingFactory:
     """Factory for creating tracer instances."""
 
     @staticmethod
-    def create_tracer(trace_type: Optional[str], project: str):
+    def create_tracer(trace_type: Optional[str], project: str = BRAINTRUST_PROJECT):
         """Create a tracer instance based on the trace type.
 
         Args:
