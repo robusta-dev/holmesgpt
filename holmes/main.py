@@ -210,6 +210,11 @@ def ask(
         "--trace",
         help="Enable tracing to the specified provider (e.g., 'braintrust')",
     ),
+    system_prompt_additions: Optional[str] = typer.Option(
+        None,
+        "--system-prompt-additions",
+        help="Additional content to append to the system prompt",
+    ),
 ):
     """
     Ask any question and answer using available tools
@@ -291,6 +296,7 @@ def ask(
             show_tool_output,
             tracer,
             config.get_runbook_catalog(),
+            system_prompt_additions,
         )
         return
 
@@ -300,6 +306,7 @@ def ask(
         include_file,
         ai.tool_executor,
         config.get_runbook_catalog(),
+        system_prompt_additions,
     )
 
     with tracer.start_trace(

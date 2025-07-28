@@ -762,6 +762,7 @@ def run_interactive_loop(
     show_tool_output: bool,
     tracer=None,
     runbooks=None,
+    system_prompt_additions: Optional[str] = None,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -960,7 +961,12 @@ def run_interactive_loop(
 
             if messages is None:
                 messages = build_initial_ask_messages(
-                    console, user_input, include_files, ai.tool_executor, runbooks
+                    console,
+                    user_input,
+                    include_files,
+                    ai.tool_executor,
+                    runbooks,
+                    system_prompt_additions,
                 )
             else:
                 messages.append({"role": "user", "content": user_input})
