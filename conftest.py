@@ -91,7 +91,6 @@ def pytest_configure(config):
         except OSError:
             # os.getlogin() fails in environments without a terminal (e.g., GitHub Actions)
             username = os.getenv("USER", "ci")
-
         git_branch = get_active_branch_name()
         os.environ["EXPERIMENT_ID"] = f"{username}-{git_branch}-{readable_timestamp()}"
 
