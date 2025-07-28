@@ -156,9 +156,12 @@ def test_investigate(
                 )
 
             with set_test_env_vars(test_case):
-                result = investigate_issues(
-                    investigate_request=investigate_request, config=config, dal=mock_dal
-                )
+                with eval_span.start_span("Holmes Run", type=SpanType.LLM):
+                    result = investigate_issues(
+                        investigate_request=investigate_request,
+                        config=config,
+                        dal=mock_dal,
+                    )
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
