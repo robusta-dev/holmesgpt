@@ -321,7 +321,6 @@ class SupabaseDal:
             logging.exception(f"Unknown issue unzipping gz finding: {data}")
             return data
 
-
     def extract_relevant_issues(self, evidence):
         enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
         data = [
