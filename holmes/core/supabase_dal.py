@@ -311,7 +311,7 @@ class SupabaseDal:
                 raw_data = raw_data[2:-1]
 
             gz_bytes = base64.b64decode(raw_data)
-            decompressed = gzip.decompress(gz_bytes).decode('utf-8')
+            decompressed = gzip.decompress(gz_bytes).decode("utf-8")
 
             evidence["data"] = decompressed
             data["data"] = json.dumps([evidence])
