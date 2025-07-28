@@ -13,8 +13,6 @@ from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-import tests.llm.utils.braintrust as braintrust_util
-from tests.llm.utils.braintrust import get_experiment_name
 from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.mock_toolset import (
@@ -109,9 +107,7 @@ def test_ask_holmes(
             print(f"   • After Test: {test_case.after_test}")
 
     tracer = TracingFactory.create_tracer("braintrust")
-    tracer.start_experiment(
-        get_experiment_name(), metadata=braintrust_util.get_machine_state_tags()
-    )
+    tracer.start_experiment()
 
     result: Optional[LLMResult] = None
 

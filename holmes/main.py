@@ -16,7 +16,6 @@ import json
 import logging
 import socket
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -245,10 +244,7 @@ def ask(
 
     # Create tracer if trace option is provided
     tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
-    experiment_name = f"holmes-ask-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    tracer.start_experiment(
-        experiment_name=experiment_name, metadata={"prompt": prompt or "holmes-ask"}
-    )
+    tracer.start_experiment()
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
