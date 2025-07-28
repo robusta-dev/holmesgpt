@@ -9,7 +9,6 @@ from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tool_calling_llm import IssueInvestigator
 from holmes.core.tracing import TracingFactory
-import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
@@ -18,7 +17,6 @@ from tests.llm.utils.classifiers import (
     evaluate_sections,
 )
 from tests.llm.utils.commands import set_test_env_vars
-from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsetManager
 from tests.llm.utils.test_case_utils import (
@@ -112,14 +110,10 @@ def test_investigate(
         pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
     tracer = TracingFactory.create_tracer("braintrust")
-
-    # Create experiment using unified API
-    tracer.start_experiment(
-        metadata=braintrust_util.get_machine_state_tags(),
-    )
-
     config = MockConfig(test_case, tracer, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
+    metadata = {"model": config.model or "Unknown"}
+    tracer.start_experiment(aditional_metadata=metadata)
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
@@ -131,9 +125,6 @@ def test_investigate(
     input = test_case.investigate_request
     expected = test_case.expected_output
     result = None
-
-    metadata = get_machine_state_tags()
-    metadata["model"] = config.model or "Unknown"
 
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:

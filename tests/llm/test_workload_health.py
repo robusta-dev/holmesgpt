@@ -8,15 +8,12 @@ from server import workload_health_check
 
 from holmes.core.tracing import SpanType, TracingFactory
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-import tests.llm.utils.braintrust as braintrust_util
 from holmes.config import Config
 
 from holmes.core.supabase_dal import SupabaseDal
 from tests.llm.utils.classifiers import (
     evaluate_correctness,
 )
-from tests.llm.utils.braintrust import get_experiment_name
-from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsetManager
 from tests.llm.utils.test_case_utils import (
@@ -105,9 +102,7 @@ def test_health_check(
         pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
     tracer = TracingFactory.create_tracer("braintrust")
-    tracer.start_experiment(
-        get_experiment_name(), metadata=braintrust_util.get_machine_state_tags()
-    )
+    tracer.start_experiment()
 
     config = MockConfig(test_case, tracer, mock_generation_config, request)
     config.model = os.environ.get("MODEL", "gpt-4o")
@@ -121,9 +116,6 @@ def test_health_check(
 
     input = test_case.workload_health_request
     expected = test_case.expected_output
-
-    metadata = get_machine_state_tags()
-    metadata["model"] = config.model or "Unknown"
 
     with tracer.start_trace(name=test_case.id, span_type=SpanType.EVAL) as eval_span:
         # Store span info in user properties for conftest to access
