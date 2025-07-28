@@ -87,7 +87,7 @@ spec:
   containers:
   - name: crasher
     image: busybox
-    command: ["sh", "-c", "sleep 5; exit 1"]
+    command: ["sh", "-c", "sleep 1; exit 1"]
 ---
 apiVersion: v1
 kind: Pod
@@ -99,7 +99,7 @@ spec:
   containers:
   - name: crasher
     image: busybox
-    command: ["sh", "-c", "sleep 3; exit 1"]
+    command: ["sh", "-c", "sleep 1; exit 1"]
 ---
 apiVersion: v1
 kind: Pod
@@ -111,7 +111,7 @@ spec:
   containers:
   - name: crasher
     image: busybox
-    command: ["sh", "-c", "sleep 2; exit 1"]
+    command: ["sh", "-c", "sleep 1; exit 1"]
 ---
 apiVersion: v1
 kind: Pod
@@ -123,4 +123,4 @@ spec:
   containers:
   - name: crasher
     image: busybox
-    command: ["sh", "-c", "sleep 4; exit 1"]
+    command: ["sh", "-c", "sleep 1; exit 1"]
