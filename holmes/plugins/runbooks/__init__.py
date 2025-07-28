@@ -11,6 +11,7 @@ from pydantic import BaseModel, PrivateAttr
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
+DEFAULT_RUNBOOK_SEARCH_PATH = THIS_DIR
 
 CATALOG_FILE = "catalog.json"
 
@@ -95,7 +96,7 @@ def load_runbook_catalog() -> Optional[RunbookCatalog]:
 
 
 def get_runbook_by_path(
-    runbook_relative_path: str, search_paths: Optional[List[str]] = None
+    runbook_relative_path: str, search_paths: List[str]
 ) -> Optional[str]:
     """
     Find a runbook by searching through provided paths.
@@ -107,11 +108,6 @@ def get_runbook_by_path(
     Returns:
         Full path to the runbook if found, None otherwise
     """
-    if search_paths is None:
-        # Default to the runbooks plugin directory
-        default_folder = os.path.dirname(os.path.realpath(__file__))
-        search_paths = [default_folder]
-
     for search_path in search_paths:
         runbook_path = os.path.join(search_path, runbook_relative_path)
         if os.path.exists(runbook_path):
