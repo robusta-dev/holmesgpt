@@ -79,9 +79,7 @@ def get_machine_state_tags() -> Dict[str, str]:
 def get_experiment_name():
     if os.environ.get("EXPERIMENT_ID"):
         return os.environ.get("EXPERIMENT_ID")
-    return (
-        readable_timestamp()
-    )  # should never happen - we set EXPERIMENT_ID in conftest.py
+    return readable_timestamp()  # should never happen in evals (we set EXPERIMENT_ID in conftest.py), but can happen with holmesgpt cli
 
 
 def _is_noop_span(span) -> bool:
