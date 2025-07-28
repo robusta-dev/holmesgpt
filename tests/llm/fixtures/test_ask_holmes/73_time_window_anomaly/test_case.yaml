@@ -6,6 +6,8 @@ tags:
 expected_output:
   - Scheduler pod experienced issues between 03:00-03:05  when it could not connect to an external API possibly due to a maintenance window
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-73 || true
   kubectl create secret generic scheduler-logs-script --from-file=generate_logs.py=./generate_logs.py -n namespace-73 --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -f ./manifest.yaml
   sleep 50

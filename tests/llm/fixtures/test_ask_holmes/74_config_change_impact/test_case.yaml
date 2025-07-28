@@ -8,6 +8,8 @@ expected_output:
   - Issue correlates with configuration change that likely modified cache expiration settings
   - Performance metrics show clear before/after pattern around config reload timestamp
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-74 || true
   kubectl create secret generic cache-service-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n namespace-74 --dry-run=client -o yaml | kubectl apply -f -

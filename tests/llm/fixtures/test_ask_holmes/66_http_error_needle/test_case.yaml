@@ -5,6 +5,8 @@ tags:
 expected_output:
   - Database connection timeout error occurred because could not acquire connection from pool after 30s
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-66 || true
   kubectl create secret generic web-server-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n namespace-66 --dry-run=client -o yaml | kubectl apply -f -
