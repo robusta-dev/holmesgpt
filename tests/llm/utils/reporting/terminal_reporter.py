@@ -333,6 +333,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     # Print iteration info if multiple runs detected
     max_iterations = max(len(results) for results in test_groups.values())
     if max_iterations > 1:
+        # TODO this is wrong - in case you run with 1 Iterations it says '2' instead of '1'
         console.print(
             f"[dim]Note: Tests were run with {max_iterations} iterations[/dim]"
         )
