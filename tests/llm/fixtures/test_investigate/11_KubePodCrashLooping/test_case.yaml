@@ -1,5 +1,7 @@
 expected_output:
   - The DEPLOY_ENV environment variable is missing
+before_test: |
+  exit 1
 expected_sections:
   Related logs:
     - Environment variable DEPLOY_ENV is undefined

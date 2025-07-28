@@ -1,4 +1,6 @@
 expected_output:
   - This must mention insufficient GPU resources
+before_test: |
+  exit 1
 evaluation:
   correctness: 1

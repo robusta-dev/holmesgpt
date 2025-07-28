@@ -1,5 +1,7 @@
 expected_output:
   - The node `ip-172-31-40-111.us-east-2.compute.internal` is running too many pods for its capacity
+before_test: |
+  exit 1
 expected_sections:
   Related logs: False
 evaluation:
