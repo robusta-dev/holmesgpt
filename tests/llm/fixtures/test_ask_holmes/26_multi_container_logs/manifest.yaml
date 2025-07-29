@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-26
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mountain-lion
+  namespace: app-26
+  labels:
+    app: order-service
+spec:
+  containers:
+  - name: web
+    image: python:3.9-slim
+    command: ["python", "/scripts/generate_logs.py", "web"]
+    volumeMounts:
+    - name: script-volume
+      mountPath: /scripts
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "10m"
+  - name: metrics
+    image: python:3.9-slim
+    command: ["python", "/scripts/generate_logs.py", "metrics"]
+    volumeMounts:
+    - name: script-volume
+      mountPath: /scripts
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "10m"
+  volumes:
+  - name: script-volume
+    secret:
+      secretName: mountain-lion-logs-script
+      defaultMode: 0755

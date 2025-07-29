@@ -54,7 +54,7 @@ def _invoke_command(command: str, cwd: str) -> str:
 
         output = f"{result.stdout}\n{result.stderr}"
         logging.debug(f"** `{command}`:\n{output}")
-        logging.warning(f"Ran `{command}` in {cwd} with exit code {result.returncode}")
+        logging.debug(f"Ran `{command}` in {cwd} with exit code {result.returncode}")
         return output
     except subprocess.CalledProcessError as e:
         message = f"Command `{command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
@@ -78,26 +78,24 @@ def run_commands(
         )
 
     start_time = time.time()
-    commands = commands_str.strip().split("\n")
-    combined_output = []
+    # Execute the entire script as a single command instead of splitting by lines
+    # This preserves multi-line bash constructs like if/then/else, for loops, etc.
+    script = commands_str.strip()
 
     try:
-        for command in commands:
-            if command.strip():  # Skip empty lines
-                output = _invoke_command(command=command, cwd=test_case.folder)
-                combined_output.append(f"$ {command}\n{output}")
+        # Execute the entire commands string as a single bash script
+        _invoke_command(command=script, cwd=test_case.folder)
 
         elapsed_time = time.time() - start_time
         return CommandResult(
-            command=f"{operation.capitalize()}: {len(commands)} command(s)",
+            command=f"{operation.capitalize()}: completed",
             test_case_id=test_case.id,
             success=True,
             elapsed_time=elapsed_time,
         )
     except subprocess.CalledProcessError as e:
         elapsed_time = time.time() - start_time
-        error_details = "\n".join(combined_output)
-        error_details += f"\n$ {e.cmd}\nExit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+        error_details = f"$ {script}\nExit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed at: {e.cmd}",
@@ -110,8 +108,7 @@ def run_commands(
         )
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
-        error_details = "\n".join(combined_output)
-        error_details += f"\n$ {e.cmd}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
+        error_details = f"$ {script}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",
@@ -123,8 +120,7 @@ def run_commands(
         )
     except Exception as e:
         elapsed_time = time.time() - start_time
-        error_details = "\n".join(combined_output)
-        error_details += f"\nUnexpected error: {str(e)}"
+        error_details = f"$ {script}\nUnexpected error: {str(e)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed",
@@ -151,7 +147,9 @@ def set_test_env_vars(test_case: HolmesTestCase):
     try:
         # Set test environment variables
         for key, value in test_case.test_env_vars.items():
-            os.environ[key] = value
+            # Expand environment variables in the value
+            expanded_value = os.path.expandvars(value)
+            os.environ[key] = expanded_value
 
         yield
     finally:

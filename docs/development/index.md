@@ -5,6 +5,7 @@ Extend HolmesGPT with custom integrations and contribute to the project.
 ## Available Development Guides
 
 - **[Contributing Guidelines](https://github.com/robusta-dev/holmesgpt/blob/master/CONTRIBUTING.md){:target="_blank"}** - How to contribute to the HolmesGPT project
+- **[Contributing Documentation](https://github.com/robusta-dev/holmesgpt/blob/master/docs/README.md){:target="_blank"}** - How to contribute to documentation
 
 ## Evaluations
 

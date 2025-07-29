@@ -2,6 +2,7 @@
 import os
 import tempfile
 import pytest
+import yaml
 from unittest.mock import Mock, patch
 
 from holmes.core.tools import (
@@ -16,7 +17,6 @@ from tests.llm.utils.mock_toolset import (
     MockMode,
     MockFileManager,
     MockableToolWrapper,
-    ToolsetConfigurator,
     MockDataNotFoundError,
 )
 
@@ -102,13 +102,13 @@ class TestSanitizeFilename:
 
 
 def assert_toolset_enabled(mock_toolsets: MockToolsetManager, toolset_name: str):
-    for toolset in mock_toolsets.enabled_toolsets:
+    for toolset in mock_toolsets.toolsets:
         if toolset.name == toolset_name:
             assert (
                 toolset.status == ToolsetStatusEnum.ENABLED
             ), f"Expected toolset {toolset_name} to be enabled but it is disabled"
             return
-    assert False, f"Expected toolset {toolset_name} to be enabled but it missing from the list of enabled toolsets"
+    assert False, f"Expected toolset {toolset_name} to be found in the list of toolsets"
 
 
 @pytest.mark.skip(
@@ -337,22 +337,94 @@ class TestMockableToolWrapper:
             assert mock_request.node.user_properties[0][0] == "generated_mock_file"
 
 
-class TestToolsetConfigurator:
-    def test_load_builtin_toolsets(self):
-        """Test loading builtin toolsets."""
-        # This would normally load real toolsets, but we can at least
-        # verify the method exists and returns a list
-        configurator = ToolsetConfigurator()
-        # Mock the actual loading since we don't want to load real toolsets in unit test
-        with patch("tests.llm.utils.mock_toolset.load_builtin_toolsets") as mock_load:
-            mock_load.return_value = []
-            toolsets = configurator.load_builtin_toolsets()
-            assert isinstance(toolsets, list)
+class TestToolsetsYamlConfiguration:
+    """Test per-test toolsets.yaml configuration loading."""
+
+    def test_load_custom_toolsets_from_yaml(self):
+        """Test that MockToolsetManager loads toolsets.yaml from test folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a toolsets.yaml file with configuration
+            toolsets_config = {
+                "toolsets": {
+                    "kubernetes/core": {"enabled": True},
+                    "kubernetes/logs": {"enabled": False},
+                    "prometheus/metrics": {
+                        "enabled": True,
+                        "config": {"prometheus_url": "http://custom-prometheus:9090"},
+                    },
+                }
+            }
+
+            toolsets_path = os.path.join(tmpdir, "toolsets.yaml")
+            with open(toolsets_path, "w") as f:
+                yaml.dump(toolsets_config, f)
+
+            mock_config = Mock()
+            mock_config.mode = MockMode.MOCK
+            mock_config.generate_mocks = False
+            mock_config.regenerate_all_mocks = False
+
+            mock_request = Mock()
+            mock_request.node.user_properties = []
+
+            manager = MockToolsetManager(
+                test_case_folder=tmpdir,
+                mock_generation_config=mock_config,
+                request=mock_request,
+            )
+
+            # Verify all builtin toolsets are loaded but our overrides are applied
+            enabled_names = [
+                t.name
+                for t in manager.toolsets
+                if t.status == ToolsetStatusEnum.ENABLED
+            ]
+            all_names = [t.name for t in manager.toolsets]
+
+            # Debug print
+            print(f"Enabled toolsets: {enabled_names}")
+            print(f"All toolsets: {all_names}")
+            print(f"Number of all toolsets: {len(all_names)}")
+
+            # All builtin toolsets should be present
+            assert (
+                len(all_names) > 3
+            ), f"Should have all builtin toolsets loaded, but got only {len(all_names)}: {all_names}"
+
+            # Check that our custom configurations were applied
+            # kubernetes/core should be enabled (explicitly set to True)
+            assert (
+                "kubernetes/core" in enabled_names
+            ), "kubernetes/core should be enabled"
+
+            # kubernetes/logs should NOT be enabled (explicitly set to False)
+            assert (
+                "kubernetes/logs" not in enabled_names
+            ), "kubernetes/logs should be disabled"
+            assert (
+                "kubernetes/logs" in all_names
+            ), "kubernetes/logs should still be in all_toolsets"
+
+            # prometheus/metrics should be enabled with custom config
+            assert (
+                "prometheus/metrics" in enabled_names
+            ), "prometheus/metrics should be enabled"
+
+            # Find the prometheus toolset to verify custom config
+            prometheus_toolset = next(
+                (t for t in manager.toolsets if t.name == "prometheus/metrics"),
+                None,
+            )
+            assert (
+                prometheus_toolset is not None
+            ), "prometheus/metrics toolset should exist"
+            assert (
+                prometheus_toolset.config.get("prometheus_url")
+                == "http://custom-prometheus:9090"
+            ), "prometheus/metrics should have custom config"
 
 
 class TestMockToolsMatching:
-    """Tests migrated from test_mocks.py, adapted for file-based mock system."""
-
     def test_mock_tools_exact_match(self):
         """Test that mocked tools return the expected data when parameters match exactly."""
         with patch(
@@ -396,7 +468,7 @@ class TestMockToolsMatching:
                 # Use tool executor to invoke the tool
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
-                tool_executor = ToolExecutor(mock_toolsets.enabled_toolsets)
+                tool_executor = ToolExecutor(mock_toolsets.toolsets)
                 result = tool_executor.invoke("kubectl_describe", params)
 
                 # Should return mocked data for exact match
@@ -452,7 +524,7 @@ class TestMockToolsMatching:
                 # Use tool executor to invoke the tool
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
-                tool_executor = ToolExecutor(mock_toolsets.enabled_toolsets)
+                tool_executor = ToolExecutor(mock_toolsets.toolsets)
                 result = tool_executor.invoke("kubectl_describe", params)
 
                 # Should return mocked data for ANY params when add_params_to_filename=False
@@ -511,7 +583,7 @@ class TestMockToolsMatching:
                 # Use tool executor to invoke the tool
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
-                tool_executor = ToolExecutor(mock_toolsets.enabled_toolsets)
+                tool_executor = ToolExecutor(mock_toolsets.toolsets)
 
                 # In mock mode, calling with non-matching params should raise MockDataNotFoundError
                 with pytest.raises(MockDataNotFoundError):
@@ -543,7 +615,7 @@ class TestMockToolsMatching:
                 # Find the kubectl_describe tool and mock its _invoke method
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
-                tool_executor = ToolExecutor(mock_toolsets.enabled_toolsets)
+                tool_executor = ToolExecutor(mock_toolsets.toolsets)
                 kubectl_tool = tool_executor.get_tool_by_name("kubectl_describe")
 
                 if kubectl_tool:
@@ -584,3 +656,50 @@ class TestMockToolsMatching:
                 else:
                     # If kubectl_describe is not available, skip test
                     pytest.skip("kubectl_describe tool not available")
+
+    def test_default_toolsets_when_no_yaml_provided(self):
+        """Test that default toolsets are loaded when no toolsets.yaml is provided."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create MockToolsetManager without toolsets.yaml file
+            mock_request = Mock()
+            mock_request.node.user_properties = []
+
+            mock_config = Mock()
+            mock_config.mode = MockMode.MOCK
+            mock_config.generate_mocks = False
+            mock_config.regenerate_all_mocks = False
+
+            mock_toolsets = MockToolsetManager(
+                test_case_folder=tmpdir,
+                mock_generation_config=mock_config,
+                request=mock_request,
+            )
+
+            # Verify that default toolsets are loaded
+            assert mock_toolsets.toolsets is not None
+            assert len(mock_toolsets.toolsets) > 0
+
+            # Check that some common default toolsets are present
+            toolset_names = {
+                ts.name
+                for ts in mock_toolsets.toolsets
+                if ts.status == ToolsetStatusEnum.ENABLED
+            }
+
+            # These are commonly enabled by default
+            expected_default_toolsets = {
+                "kubernetes/core",
+                "kubernetes/logs",
+                "bash",
+                "internet",
+            }
+
+            # At least some of the expected defaults should be present
+            assert len(expected_default_toolsets & toolset_names) > 0
+
+            # Verify toolsets have proper status
+            for toolset in mock_toolsets.toolsets:
+                assert toolset.status in [
+                    ToolsetStatusEnum.ENABLED,
+                    ToolsetStatusEnum.DISABLED,
+                ]

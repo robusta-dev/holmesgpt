@@ -90,7 +90,7 @@ def get_version() -> str:
         )
         dirty = "-dirty" if status else ""
 
-        return f"{tag}-{branch}{dirty}"
+        return f"dev-{tag}-{branch}{dirty}"
 
     except Exception:
         pass
@@ -149,7 +149,7 @@ def check_version() -> VersionCheckResult:
 
     update_message = None
     if not is_latest:
-        update_message = f"Update available: v{holmes_info.latest_version} (current: {current_version})"
+        update_message = f"Update available: {holmes_info.latest_version} (current: {current_version})"
 
     return VersionCheckResult(
         is_latest=is_latest,

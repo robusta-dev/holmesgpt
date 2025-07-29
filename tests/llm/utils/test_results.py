@@ -14,6 +14,7 @@ class TestResult:
     logs: str
     test_type: str = ""
     error_message: Optional[str] = None
+    user_prompt: Optional[str] = None
     execution_time: Optional[float] = None
     expected_correctness_score: float = 1.0
     actual_correctness_score: float = 0.0
@@ -55,6 +56,10 @@ class TestStatus:
         self.actual_score = int(result.get("actual_correctness_score", 0))
         self.expected_score = int(result.get("expected_correctness_score", 1))
         self.is_mock_failure = result.get("mock_data_failure", False)
+        self.status = result.get(
+            "status", ""
+        )  # pytest status (passed, failed, skipped, etc.)
+        self.is_setup_failure = result.get("is_setup_failure", False)
 
     @property
     def passed(self) -> bool:
@@ -63,8 +68,12 @@ class TestStatus:
         )  # TODO: possibly add `and not self.is_mock_failure`
 
     @property
+    def is_skipped(self) -> bool:
+        return self.status == "skipped"
+
+    @property
     def is_regression(self) -> bool:
-        if self.passed or self.is_mock_failure:
+        if self.is_skipped or self.passed or self.is_mock_failure:
             return False
         # Known failure (expected to fail)
         if self.actual_score == 0 and self.expected_score == 0:
@@ -73,7 +82,11 @@ class TestStatus:
 
     @property
     def markdown_symbol(self) -> str:
-        if self.is_mock_failure:
+        if self.is_skipped:
+            return ":arrow_right_hook:"
+        elif self.is_setup_failure:
+            return ":construction:"
+        elif self.is_mock_failure:
             return ":wrench:"
         elif self.passed:
             return ":white_check_mark:"
@@ -84,7 +97,11 @@ class TestStatus:
 
     @property
     def console_status(self) -> str:
-        if self.is_mock_failure:
+        if self.is_skipped:
+            return "[cyan]SKIPPED[/cyan]"
+        elif self.is_setup_failure:
+            return "[magenta]SETUP FAIL[/magenta]"
+        elif self.is_mock_failure:
             return "[yellow]MOCK FAILURE[/yellow]"
         elif self.passed:
             return "[green]PASS[/green]"
@@ -93,7 +110,11 @@ class TestStatus:
 
     @property
     def short_status(self) -> str:
-        if self.is_mock_failure:
+        if self.is_skipped:
+            return "SKIPPED"
+        elif self.is_setup_failure:
+            return "SETUP FAILURE"
+        elif self.is_mock_failure:
             return "MOCK FAILURE"
         elif self.passed:
             return "PASS"

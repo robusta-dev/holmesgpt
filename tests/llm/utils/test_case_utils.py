@@ -5,14 +5,21 @@ import yaml
 import logging
 import os
 from pathlib import Path
-from typing import List, Literal, Optional, TypeVar, Union, cast
+from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
+import pytest
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
-from holmes.core.prompt import append_file_to_user_prompt
+from holmes.core.prompt import (
+    append_all_files_to_user_prompt,
+    append_file_to_user_prompt,
+)
 from holmes.core.tool_calling_llm import ResourceInstructions
+from holmes.plugins.runbooks import RunbookCatalog
+from holmes.plugins.prompts import load_and_render_prompt
 from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
-# Mock-related imports removed - now handled entirely by mock_toolset.py
+
+from rich.console import Console
 
 
 def read_file(file_path: Path):
@@ -24,6 +31,7 @@ TEST_CASE_ID_PATTERN = r"^[\d+]_(?:[a-z]+_)*[a-z]+$"
 CONFIG_FILE_NAME = "test_case.yaml"
 
 
+# TODO: do we ever use this? or do we always just use float below
 class Evaluation(BaseModel):
     expected_score: float = 1
     type: Union[Literal["loose"], Literal["strict"]]
@@ -45,6 +53,8 @@ class HolmesTestCase(BaseModel):
     folder: str
     mocked_date: Optional[str] = None
     tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
+    skip: Optional[bool] = None
+    skip_reason: Optional[str] = None
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluations = LLMEvaluations()
     before_test: Optional[str] = None
@@ -53,11 +63,15 @@ class HolmesTestCase(BaseModel):
     test_env_vars: Optional[Dict[str, str]] = (
         None  # Environment variables to set during test execution
     )
+    mock_policy: Optional[str] = (
+        "inherit"  # Mock policy: always_mock, never_mock, or inherit
+    )
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
     user_prompt: str  # The user's question to ask holmes
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
+    runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
 
 
 class InvestigateTestCase(HolmesTestCase, BaseModel):
@@ -72,6 +86,16 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+
+
+def check_and_skip_test(test_case: HolmesTestCase) -> None:
+    """Check if test should be skipped and raise pytest.skip if needed.
+
+    Args:
+        test_case: A HolmesTestCase or any of its subclasses
+    """
+    if test_case.skip:
+        pytest.skip(test_case.skip_reason or "Test skipped")
 
 
 class MockHelper:
@@ -261,3 +285,43 @@ def load_include_files(
             extra_prompt = append_file_to_user_prompt(extra_prompt, file_path)
 
     return extra_prompt
+
+
+# temporary until we merge https://github.com/robusta-dev/holmesgpt/pull/727
+def build_initial_ask_messages2(
+    console: Console,
+    initial_user_prompt: str,
+    file_paths: Optional[List[Path]],
+    tool_executor: Any,  # ToolExecutor type
+    runbooks: Union[RunbookCatalog, Dict, None] = None,
+) -> List[Dict]:
+    """Build the initial messages for the AI call.
+
+    Args:
+        console: Rich console for output
+        initial_user_prompt: The user's prompt
+        file_paths: Optional list of files to include
+        tool_executor: The tool executor with available toolsets
+        runbooks: Optional runbook catalog
+    """
+    # Load and render system prompt internally
+    system_prompt_template = "builtin://generic_ask.jinja2"
+    template_context = {
+        "toolsets": tool_executor.toolsets,
+        "runbooks": runbooks or {},
+    }
+    system_prompt_rendered = load_and_render_prompt(
+        system_prompt_template, template_context
+    )
+
+    # Append files to user prompt
+    user_prompt_with_files = append_all_files_to_user_prompt(
+        console, initial_user_prompt, file_paths
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt_rendered},
+        {"role": "user", "content": user_prompt_with_files},
+    ]
+
+    return messages

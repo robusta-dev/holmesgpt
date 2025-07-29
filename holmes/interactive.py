@@ -30,8 +30,17 @@ from rich.markdown import Markdown, Panel
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
-from holmes.version import check_version_async
 from holmes.core.tracing import DummyTracer
+from holmes.utils.colors import (
+    AI_COLOR,
+    ERROR_COLOR,
+    HELP_COLOR,
+    STATUS_COLOR,
+    TOOLS_COLOR,
+    USER_COLOR,
+)
+from holmes.utils.console.consts import agent_name
+from holmes.version import check_version_async
 
 
 class SlashCommands(Enum):
@@ -141,12 +150,47 @@ class ConditionalExecutableCompleter(Completer):
                         )
 
 
-USER_COLOR = "#DEFCC0"  # light green
-AI_COLOR = "#00FFFF"  # cyan
-TOOLS_COLOR = "magenta"
-HELP_COLOR = "cyan"  # same as AI_COLOR for now
-ERROR_COLOR = "red"
-STATUS_COLOR = "yellow"
+class ShowCommandCompleter(Completer):
+    """Completer that provides suggestions for /show command based on tool call history"""
+
+    def __init__(self):
+        self.tool_calls_history = []
+
+    def update_history(self, tool_calls_history: List[ToolCallResult]):
+        """Update the tool calls history for completion suggestions"""
+        self.tool_calls_history = tool_calls_history
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+
+        # Only provide completion if the line starts with /show
+        if text.startswith("/show "):
+            # Extract the argument part after "/show "
+            show_part = text[6:]  # Remove "/show "
+
+            # Don't complete if there are already multiple words
+            words = show_part.split()
+            if len(words) > 1:
+                return
+
+            # Provide completions based on available tool calls
+            if self.tool_calls_history:
+                for i, tool_call in enumerate(self.tool_calls_history):
+                    tool_index = str(i + 1)  # 1-based index
+                    tool_description = tool_call.description
+
+                    # Complete tool index numbers (show all if empty, or filter by what user typed)
+                    if (
+                        not show_part
+                        or tool_index.startswith(show_part)
+                        or show_part.lower() in tool_description.lower()
+                    ):
+                        yield Completion(
+                            tool_index,
+                            start_position=-len(show_part),
+                            display=f"{tool_index} - {tool_description}",
+                        )
+
 
 WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
@@ -303,15 +347,18 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         # Create key bindings
         bindings = KeyBindings()
 
-        # Exit commands
+        # Track exit state to prevent double exits
+        exited = False
+
+        # Exit commands (q, escape, or ctrl+c to exit)
         @bindings.add("q")
         @bindings.add("escape")
-        def _(event):
-            event.app.exit()
-
         @bindings.add("c-c")
         def _(event):
-            event.app.exit()
+            nonlocal exited
+            if not exited:
+                exited = True
+                event.app.exit()
 
         # Vim/less-like navigation
         @bindings.add("j")
@@ -624,7 +671,7 @@ def handle_shell_command(
         Formatted user input string if user chooses to share, None otherwise
     """
     console.print(
-        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
+        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to {agent_name}.[/bold {STATUS_COLOR}]"
     )
     console.print(
         "[dim]Shell session will be recorded and can be shared with LLM when you exit.[/dim]"
@@ -761,13 +808,14 @@ def run_interactive_loop(
         }
     )
 
-    # Create merged completer with slash commands, conditional executables, and smart paths
+    # Create merged completer with slash commands, conditional executables, show command, and smart paths
     slash_completer = SlashCommandCompleter()
     executable_completer = ConditionalExecutableCompleter()
+    show_completer = ShowCommandCompleter()
     path_completer = SmartPathCompleter()
 
     command_completer = merge_completers(
-        [slash_completer, executable_completer, path_completer]
+        [slash_completer, executable_completer, show_completer, path_completer]
     )
 
     # Use file-based history
@@ -898,6 +946,8 @@ def run_interactive_loop(
                     messages = None
                     last_response = None
                     all_tool_calls_history.clear()
+                    # Reset the show completer history
+                    show_completer.update_history([])
                     continue
                 elif command == SlashCommands.TOOLS_CONFIG.command:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
@@ -972,6 +1022,8 @@ def run_interactive_loop(
 
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
+                # Update the show completer with the latest tool call history
+                show_completer.update_history(all_tool_calls_history)
 
             if show_tool_output and response.tool_calls:
                 display_recent_tool_outputs(

@@ -1,5 +1,8 @@
+import os
 import logging
 from tests.llm.conftest import show_llm_summary_report
+from holmes.core.tracing import readable_timestamp, get_active_branch_name
+from tests.llm.utils.braintrust import get_braintrust_url
 
 
 def pytest_addoption(parser):
@@ -82,6 +85,25 @@ def pytest_configure(config):
     # Suppress httpx HTTP request logs
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+    if not os.getenv("EXPERIMENT_ID"):
+        try:
+            username = os.getlogin()
+        except OSError:
+            # os.getlogin() fails in environments without a terminal (e.g., GitHub Actions)
+            username = os.getenv("USER", "ci")
+        git_branch = get_active_branch_name()
+        os.environ["EXPERIMENT_ID"] = f"{username}-{git_branch}-{readable_timestamp()}"
+
+
+def pytest_report_header(config):
+    braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
+    if not braintrust_api_key:
+        return ""
+
+    experiment_url = get_braintrust_url()
+    clickable_url = f"\033]8;;{experiment_url}\033\\{experiment_url}\033]8;;\033\\"
+    return f"Eval results: (link valid once setup completes): {clickable_url}"
 
 
 # due to pytest quirks, we need to define this in the main conftest.py - when defined in the llm conftest.py it

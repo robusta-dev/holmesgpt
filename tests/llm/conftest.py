@@ -8,7 +8,6 @@ from pytest_shared_session_scope import (
     CleanupToken,
 )
 
-from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.test_results import TestResult
 from tests.llm.utils.classifiers import create_llm_client
 from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
@@ -18,7 +17,7 @@ from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
 )
 from tests.llm.utils.reporting.terminal_reporter import handle_console_output
 from tests.llm.utils.reporting.github_reporter import handle_github_output
-from tests.llm.utils.braintrust import get_braintrust_url, get_experiment_name
+from tests.llm.utils.braintrust import get_braintrust_url
 from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
     run_all_test_cleanup,
@@ -104,13 +103,17 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         skip_setup = request.config.getoption("--skip-setup")
 
         if test_cases and not skip_setup:
-            run_all_test_setup(test_cases)
+            setup_failures = run_all_test_setup(test_cases)
         elif skip_setup:
             log("⚙️ Skipping test setup due to --skip-setup flag")
+            setup_failures = {}
+        else:
+            setup_failures = {}
 
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],
             "cleared_mock_directories": cleared_directories,
+            "setup_failures": setup_failures,
         }
     else:
         log(f"⚙️ Skipping before_test/after_test on worker {worker_id}")
@@ -241,6 +244,15 @@ def llm_availability_check(request):
                 print("Skip all LLM tests with: poetry run pytest -m 'not llm'")
                 print()
 
+                # Show ASK_HOLMES_TEST_TYPE if relevant for ask_holmes tests
+                ask_holmes_tests = [
+                    t for t in llm_tests if "test_ask_holmes" in t.nodeid
+                ]
+                if ask_holmes_tests:
+                    test_type = os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+                    print(f"ASK_HOLMES_TEST_TYPE: {test_type} (use 'cli' or 'server')")
+                    print()
+
                 # Check if Braintrust is enabled
                 braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
                 if braintrust_api_key:
@@ -290,27 +302,6 @@ def braintrust_eval_link(request):
     if not braintrust_api_key:
         return
 
-    # Extract test suite from test path
-    test_path = str(request.node.fspath)
-    test_suite = None
-    for test_type in LLM_TEST_TYPES:
-        if test_type.replace("test_", "") in test_path:
-            test_suite = test_type.replace("test_", "")
-            break
-
-    if not test_suite:
-        return  # Unknown test suite
-
-    # Create a temporary TestResult to extract test ID and name
-    temp_result = TestResult(
-        nodeid=request.node.nodeid,
-        expected="",
-        actual="",
-        pass_fail="",
-        tools_called=[],
-        logs="",
-    )
-
     # Extract span IDs from user properties
     span_id = None
     root_span_id = None
@@ -322,9 +313,7 @@ def braintrust_eval_link(request):
                 root_span_id = value
 
     # Construct Braintrust URL for this specific test
-    braintrust_url = get_braintrust_url(
-        test_suite, temp_result.test_id, temp_result.test_name, span_id, root_span_id
-    )
+    braintrust_url = get_braintrust_url(span_id, root_span_id)
 
     with force_pytest_output(request):
         # Use ANSI escape codes to create a clickable link in terminals that support it
@@ -368,7 +357,7 @@ def show_llm_summary_report(terminalreporter, exitstatus, config):
     report_mock_operations(config, mock_tracking_data, terminalreporter)
 
     # Display single Braintrust experiment link at the very end
-    _display_braintrust_experiment_link(sorted_results, terminalreporter)
+    _display_braintrust_experiment_link(terminalreporter)
 
 
 def _collect_test_results_from_stats(terminalreporter):
@@ -388,8 +377,53 @@ def _collect_test_results_from_stats(terminalreporter):
 
     for status, reports in terminalreporter.stats.items():
         for report in reports:
-            # Only process 'call' phase reports for actual test results
-            if getattr(report, "when", None) != "call":
+            # For skipped tests, we need to look at 'setup' phase
+            when = getattr(report, "when", None)
+            if status == "skipped" and when == "setup":
+                # Process skipped tests
+                nodeid = getattr(report, "nodeid", "")
+                if not is_llm_test(nodeid):
+                    continue
+
+                # Extract test type
+                if "test_ask_holmes" in nodeid:
+                    test_type = "ask"
+                elif "test_investigate" in nodeid:
+                    test_type = "investigate"
+                elif "test_workload_health" in nodeid:
+                    test_type = "workload_health"
+                else:
+                    test_type = "unknown"
+
+                # Extract skip reason
+                skip_reason = "Skipped"
+                if hasattr(report, "longrepr") and report.longrepr:
+                    # longrepr for skipped tests is typically a tuple (file, line, reason)
+                    if isinstance(report.longrepr, tuple) and len(report.longrepr) >= 3:
+                        skip_reason = str(report.longrepr[2])
+                    else:
+                        skip_reason = str(report.longrepr)
+
+                # Store minimal result for skipped test
+                test_results[nodeid] = {
+                    "nodeid": nodeid,
+                    "test_type": test_type,
+                    "expected": "Test skipped",
+                    "actual": skip_reason,
+                    "tools_called": [],
+                    "expected_correctness_score": 0.0,
+                    "user_prompt": "",
+                    "actual_correctness_score": 0.0,
+                    "status": "skipped",
+                    "outcome": "skipped",
+                    "execution_time": getattr(report, "duration", None),
+                    "mock_data_failure": False,
+                    "braintrust_span_id": None,
+                    "braintrust_root_span_id": None,
+                }
+                continue
+            elif when != "call":
+                # For other statuses, only process 'call' phase
                 continue
 
             # Only process LLM evaluation tests
@@ -462,6 +496,11 @@ def _collect_test_results_from_stats(terminalreporter):
                 "outcome": getattr(report, "outcome", "unknown"),
                 "execution_time": getattr(report, "duration", None),
                 "mock_data_failure": mock_data_failure,
+                "user_prompt": user_props.get("user_prompt", ""),
+                "is_setup_failure": user_props.get("is_setup_failure", False),
+                "error_message": str(report.longrepr)
+                if hasattr(report, "longrepr") and report.longrepr
+                else None,
                 "braintrust_span_id": user_props.get("braintrust_span_id"),
                 "braintrust_root_span_id": user_props.get("braintrust_root_span_id"),
             }
@@ -480,6 +519,7 @@ def _collect_test_results_from_stats(terminalreporter):
             test_type=result["test_type"],
             execution_time=result["execution_time"],
             expected_correctness_score=result["expected_correctness_score"],
+            user_prompt=result["user_prompt"],
             actual_correctness_score=result["actual_correctness_score"],
             mock_data_failure=result["mock_data_failure"],
         )
@@ -502,35 +542,14 @@ def _collect_test_results_from_stats(terminalreporter):
     return sorted_results, mock_tracking_data
 
 
-def _display_braintrust_experiment_link(sorted_results, terminalreporter):
+def _display_braintrust_experiment_link(terminalreporter):
     """Display a single Braintrust experiment link at the end of test output."""
     # Check if Braintrust is enabled
     if not os.environ.get("BRAINTRUST_API_KEY"):
         return
 
-    # Determine test suite from the results
-    test_suites = set()
-    for result in sorted_results:
-        test_type = result.get("test_type", "unknown")
-        if test_type == "ask":
-            test_suites.add("ask_holmes")
-        elif test_type == "investigate":
-            test_suites.add("investigate")
-        elif test_type == "workload_health":
-            test_suites.add("workload_health")
-
-    if not test_suites:
-        return
-
-    # If multiple test suites, just use the first one
-    test_suite = sorted(test_suites)[0]
-
-    # Get experiment name
-    experiment_name = get_experiment_name(test_suite)
-    braintrust_org = os.environ.get("BRAINTRUST_ORG", "robustadev")
-
     # Build experiment URL
-    experiment_url = f"https://www.braintrust.dev/app/{braintrust_org}/p/{PROJECT}/experiments/{experiment_name}"
+    experiment_url = get_braintrust_url()
 
     print("\n" + "=" * 70)
     print("🧠 Braintrust Experiment Summary")
