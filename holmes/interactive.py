@@ -201,52 +201,12 @@ def detect_lexer(content: str) -> Optional[PygmentsLexer]:
         return None
 
     try:
-        # Preprocess content to improve detection
-        processed_content = _preprocess_content_for_detection(content)
-
         # Use Pygments' built-in lexer guessing
-        lexer = guess_lexer(processed_content)
+        lexer = guess_lexer(content)
         return PygmentsLexer(lexer.__class__)
     except Exception:
         # If detection fails, return None for no syntax highlighting
         return None
-
-
-def _preprocess_content_for_detection(content: str) -> str:
-    """
-    Preprocess content to improve lexer detection accuracy.
-
-    Args:
-        content: Raw content string
-
-    Returns:
-        Processed content that's more likely to be detected correctly
-    """
-    # Remove common tool output prefixes that might confuse detection
-    lines = content.split("\n")
-    processed_lines = []
-
-    for line in lines:
-        # Skip common command output prefixes
-        if line.strip().startswith(("$", ">", "#", "kubectl>", "docker>")):
-            continue
-        # Skip timestamp prefixes
-        if len(line) > 20 and line[:20].count(":") >= 2:
-            # Looks like a timestamp, try to extract content after it
-            parts = line.split(None, 2)
-            if len(parts) >= 3:
-                processed_lines.append(parts[2])
-            else:
-                processed_lines.append(line)
-        else:
-            processed_lines.append(line)
-
-    # Join back and return original if preprocessing removed too much
-    processed = "\n".join(processed_lines).strip()
-    if len(processed) < len(content) * 0.5:  # If we removed more than half
-        return content  # Return original
-
-    return processed if processed else content
 
 
 def handle_show_command(
