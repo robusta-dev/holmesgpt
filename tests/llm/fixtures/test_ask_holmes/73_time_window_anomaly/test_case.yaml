@@ -3,6 +3,7 @@ tags:
   - logs
   - context_window
   - datetime
+  - easy
 expected_output:
   - Scheduler pod experienced issues between 03:00-03:05  when it could not connect to an external API possibly due to a maintenance window
 before_test: |
