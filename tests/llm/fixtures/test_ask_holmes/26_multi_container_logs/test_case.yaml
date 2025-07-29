@@ -4,6 +4,8 @@ evaluation:
   correctness: 0
 
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace app-26 || true
   kubectl create secret generic mountain-lion-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n app-26 --dry-run=client -o yaml | kubectl apply -f -

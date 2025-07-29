@@ -1,5 +1,8 @@
 # In general
 
+{% if cluster_name -%}
+* You are running on cluster {{ cluster_name }}.
+{%- endif %}
 * when it can provide extra information, first run as many tools as you need to gather more information, then respond.
 * if possible, do so repeatedly with different tool calls each time to gather more information.
 * do not stop investigating until you are at the final root cause you are able to find.
@@ -9,7 +12,8 @@
 * in this case, try to find substrings or search for the correct spellings
 * always provide detailed information like exact resource names, versions, labels, etc
 * even if you found the root cause, keep investigating to find other possible root causes and to gather data for the answer like exact names
-* if a runbook url is present as well as tool that can fetch it, you MUST fetch the runbook before beginning your investigation.
+* if a runbook url is present you MUST fetch the runbook before beginning your investigation
+* when the user mentions any operational issue (high CPU, memory issues, database down, application errors, etc.), ALWAYS check if there's a matching runbook in the catalog first
 * if you don't know, say that the analysis was inconclusive.
 * if there are multiple possible causes list them in a numbered list.
 * there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.
@@ -34,40 +38,7 @@
 
 {% include '_fetch_logs.jinja2' %}
 
-# Handling Permission Errors
-
-If during the investigation you encounter a permissions error (e.g., `Error from server (Forbidden):`), **ALWAYS** follow these steps to ensure a thorough resolution:
-1.**Analyze the Error Message**
- - Identify the missing resource, API group, and verbs from the error details.
- - Never stop at reporting the error
- - Proceed with an in-depth investigation.
-2.**Locate the Relevant Helm Release**
-Check if Helm tools are available, if they are available always use Helm commands to help user find the release associated with the Holmes pod:
- - Run `helm list -A | grep holmes` to identify the release name.
- - Run `helm get values <RELEASE_NAME> -n <NAMESPACE>` to retrieve details such as `customClusterRoleRules` and `clusterName`.
-If Helm tools are unavailable, skip this step.
-3. **Check for Missing Permissions**
- - Check for a cluster role with <RELEASE_NAME>-holmes-cluster-role in its name and a service account with <RELEASE_NAME>-holmes-service-account in its name to troubleshoot missing permissions where release name is the name you found earlier if helm tools are available (If the exact cluster role or service account isn't found, search for similar or related names, including variations or prefixes/suffixes that might be used in the cluster.)
- - Focus on identifying absent permissions that align with the error message.
-4. **Update the Configuration**
-If necessary permissions are absent both in customClusterRoleRules and the cluster role mentioned previously, ALWAYS advise the user to update their configuration by modifying the `generated_values.yaml` file as follows:
-```
-holmes:
-    customClusterRoleRules:
-      - apiGroups: ["<API_GROUP>"]
-        resources: ["<RESOURCE_1>", "<RESOURCE_2>"]
-        verbs: ["<VERB_1>", "<VERB_2>", "<VERB_3>"]
-```
-After that instruct them to apply the changes with::
-```
-    helm upgrade <RELEASE_NAME> robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
-```
-5. **Fallback Guidelines**
-- If you cannot determine the release or cluster name, use placeholders `<RELEASE_NAME>` and `<YOUR_CLUSTER_NAME>`.
-- While you should attempt to retrieve details using Helm commands, do **not** direct the user to execute these commands themselves.
-Reminder:
-* Always adhere to this process, even if Helm tools are unavailable.
-* Strive for thoroughness and precision, ensuring the issue is fully addressed.
+{% include '_permission_errors.jinja2' %}
 
 # Special cases and how to reply
 

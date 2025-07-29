@@ -5,6 +5,8 @@ tags:
 expected_output:
   - Backend service unable to handle requests due to database connection pool exhausted at 100/100 connections causing timeouts
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-71 || true
   kubectl create secret generic backend-service-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n namespace-71 --dry-run=client -o yaml | kubectl apply -f -

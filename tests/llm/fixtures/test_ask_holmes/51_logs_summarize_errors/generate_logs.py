@@ -29,7 +29,8 @@ def generate_logs():
         ),
     ]
 
-    while True:
+    # Generate 50 rounds of logs
+    for _ in range(50):
         # Generate normal activity logs
         for _ in range(random.randint(10, 20)):
             timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -42,7 +43,6 @@ def generate_logs():
                 ]
             )
             print(f"[{timestamp}] {log_type}")
-            time.sleep(0.2)
 
         # Generate errors from all categories
         for error_msg, error_type in error_scenarios:
@@ -56,9 +56,9 @@ def generate_logs():
                 elif "db" in error_type:
                     print(f"[{timestamp}] WARN: Database operation rollback initiated")
 
-                time.sleep(0.5)
-
-        time.sleep(3)
+    # Keep pod running
+    while True:
+        time.sleep(3600)
 
 
 if __name__ == "__main__":

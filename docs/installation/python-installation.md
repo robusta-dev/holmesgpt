@@ -18,7 +18,8 @@ pip install "https://github.com/robusta-dev/holmesgpt/archive/refs/heads/master.
 ```python
 import os
 from holmes.config import Config
-from holmes.plugins.prompts import load_and_render_prompt
+from holmes.core.prompt import build_initial_ask_messages
+from rich.console import Console
 
 print("🚀 Initializing HolmesGPT...")
 
@@ -31,22 +32,28 @@ config = Config(
 )
 print(f"✅ Configuration created with model: {config.model}")
 
-# Create AI instance
+# Create AI instance and console
 print("Creating AI instance...")
 ai = config.create_console_toolcalling_llm()
+console = Console()
 print("✅ AI instance ready")
 
 # Ask a question
-print("Loading system prompt...")
-system_prompt = load_and_render_prompt(
-    "builtin://generic_ask.jinja2",
-    {"toolsets": ai.tool_executor.toolsets}
-)
-print("✅ System prompt loaded")
+question = "what pods are failing in production?"
+print(f"\n🔍 Asking: '{question}'")
 
-print("\n🔍 Asking: 'what pods are failing in production?'")
+# Build initial messages with system prompt
+messages = build_initial_ask_messages(
+    console=console,
+    initial_user_prompt=question,
+    file_paths=None,
+    tool_executor=ai.tool_executor,
+    runbooks=config.get_runbook_catalog(),
+    system_prompt_additions=None
+)
+
 print("Holmes is thinking...")
-response = ai.prompt_call(system_prompt, "what pods are failing in production?")
+response = ai.call(messages)
 print(f"Holmes: {response.result}")
 ```
 
@@ -62,7 +69,8 @@ Complete example of using HolmesGPT Python SDK with progress tracking
 
 import os
 from holmes.config import Config
-from holmes.plugins.prompts import load_and_render_prompt
+from holmes.core.prompt import build_initial_ask_messages
+from rich.console import Console
 
 def main():
     print("🚀 Starting HolmesGPT Python SDK Example")
@@ -81,8 +89,9 @@ def main():
     print(f"✅ Configuration created with model: {config.model}")
 
     print("\nStep 2: Creating AI instance...")
-    # Create AI instance
+    # Create AI instance and console
     ai = config.create_console_toolcalling_llm()
+    console = Console()
     print("✅ AI instance created successfully")
 
     print("\nStep 3: Listing available toolsets...")
@@ -99,16 +108,7 @@ def main():
     for tool in sorted(available_tools):
         print(f"   • {tool}")
 
-    print("\nStep 5: Loading system prompt...")
-    # Load system prompt
-    system_prompt = load_and_render_prompt(
-        "builtin://generic_ask.jinja2",
-        {"toolsets": ai.tool_executor.toolsets}
-    )
-    print("✅ System prompt loaded successfully")
-    print(f"Prompt length: {len(system_prompt)} characters")
-
-    print("\nStep 6: Asking questions...")
+    print("\nStep 5: Asking questions...")
     # Ask questions
     questions = [
         "what pods are failing in production?",
@@ -122,7 +122,18 @@ def main():
 
         try:
             print("Holmes is thinking...")
-            response = ai.prompt_call(system_prompt, question)
+
+            # Build initial messages
+            messages = build_initial_ask_messages(
+                console=console,
+                initial_user_prompt=question,
+                file_paths=None,
+                tool_executor=ai.tool_executor,
+                runbooks=config.get_runbook_catalog(),
+                system_prompt_additions=None
+            )
+
+            response = ai.call(messages)
             print(f"Holmes: {response.result}")
 
             # Show tools that were used
@@ -200,20 +211,19 @@ def main():
     ai = config.create_console_toolcalling_llm()
     console = Console()
 
-    # Load system prompt
-    system_prompt = load_and_render_prompt(
-        "builtin://generic_ask.jinja2",
-        {"toolsets": ai.tool_executor.toolsets}
-    )
-
     # First question
     print("\n🔍 First Question:")
     first_question = "what pods are failing in my cluster?"
     print(f"User: {first_question}")
 
-    # Build initial messages (system + first user message)
+    # Build initial messages (includes system prompt + first user message)
     messages = build_initial_ask_messages(
-        console, system_prompt, first_question, None
+        console=console,
+        initial_user_prompt=first_question,
+        file_paths=None,
+        tool_executor=ai.tool_executor,
+        runbooks=config.get_runbook_catalog(),
+        system_prompt_additions=None
     )
 
     # Call AI with initial messages

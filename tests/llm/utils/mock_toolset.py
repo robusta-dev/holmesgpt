@@ -548,6 +548,23 @@ class MockToolsetManager:
         configured = []
 
         for toolset in builtin_toolsets:
+            # Replace RunbookToolset with one that has test folder search path
+            if toolset.name == "runbook":
+                from holmes.plugins.toolsets.runbook.runbook_fetcher import (
+                    RunbookToolset,
+                )
+
+                # Create new RunbookToolset with test folder as additional search path
+                new_runbook_toolset = RunbookToolset(
+                    additional_search_paths=[self.test_case_folder]
+                )
+                new_runbook_toolset.enabled = toolset.enabled
+                new_runbook_toolset.status = toolset.status
+                # Preserve any existing config but add our search paths
+                if toolset.config:
+                    new_runbook_toolset.config.update(toolset.config)
+                toolset = new_runbook_toolset
+
             # Enable default toolsets
             if toolset.is_default or isinstance(toolset, YAMLToolset):
                 toolset.enabled = True

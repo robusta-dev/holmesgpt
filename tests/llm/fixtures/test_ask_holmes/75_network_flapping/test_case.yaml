@@ -6,6 +6,8 @@ tags:
 expected_output:
   - Frontend experiencing network flapping with timeout rate increasing from 0.1% to 60% when connecting to backend service
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-75 || true
   kubectl create secret generic frontend-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n namespace-75 --dry-run=client -o yaml | kubectl apply -f -

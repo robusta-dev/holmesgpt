@@ -760,9 +760,11 @@ class IssueInvestigator(ToolCallingLLM):
         runbook_manager: RunbookManager,
         max_steps: int,
         llm: LLM,
+        cluster_name: Optional[str],
     ):
         super().__init__(tool_executor, max_steps, llm)
         self.runbook_manager = runbook_manager
+        self.cluster_name = cluster_name
 
     def investigate(
         self,
@@ -821,6 +823,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
+                "cluster_name": self.cluster_name,
             },
         )
 

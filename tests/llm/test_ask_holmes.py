@@ -9,6 +9,7 @@ from datetime import datetime
 from rich.console import Console
 from holmes.core.models import ChatRequest
 from holmes.core.tracing import TracingFactory
+from holmes.config import Config
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
@@ -25,8 +26,10 @@ from tests.llm.utils.test_case_utils import (
     Evaluation,
     MockHelper,
     check_and_skip_test,
-    build_initial_ask_messages2,
 )
+
+from holmes.core.prompt import build_initial_ask_messages
+
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     update_test_results,
@@ -163,6 +166,7 @@ def test_ask_holmes(
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
+                    # metadata={"tags": test_case.tags},
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -227,6 +231,7 @@ def test_ask_holmes(
             dataset_record_id=test_case.id,
             scores=scores,
             metadata={"system_prompt": prompt},
+            # metadata={"tags": test_case.tags},
         )
 
     # Print tool calls summary
@@ -311,7 +316,7 @@ def ask_holmes(
 
                 runbook_catalog = load_runbook_catalog()
                 runbooks = runbook_catalog.model_dump() if runbook_catalog else {}
-            messages = build_initial_ask_messages2(
+            messages = build_initial_ask_messages(
                 console,
                 test_case.user_prompt,
                 None,
@@ -320,10 +325,15 @@ def ask_holmes(
             )
     else:
         chat_request = ChatRequest(ask=test_case.user_prompt)
+        config = Config()
+        if test_case.cluster_name:
+            config.cluster_name = test_case.cluster_name
+
         messages = build_chat_messages(
             ask=chat_request.ask,
             conversation_history=test_case.conversation_history,
             ai=ai,
+            config=config,
         )
 
     # Create LLM completion trace within current context
