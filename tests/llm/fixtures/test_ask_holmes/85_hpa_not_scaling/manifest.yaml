@@ -6,20 +6,20 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: worker
+  name: golden-eagle
   namespace: namespace-85
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: worker
+      app: golden-eagle
   template:
     metadata:
       labels:
-        app: worker
+        app: golden-eagle
     spec:
       containers:
-      - name: worker
+      - name: golden-eagle
         image: busybox
         command: ["sh", "-c", "while true; do echo 'Working...'; sleep 1; done"]
         # Note: Missing resource requests/limits - this is intentional to match the expected output
@@ -27,13 +27,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: worker-hpa
+  name: golden-eagle-hpa
   namespace: namespace-85
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: worker
+    name: golden-eagle
   minReplicas: 1
   maxReplicas: 5
   metrics:

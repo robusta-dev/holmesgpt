@@ -7,6 +7,8 @@ tags:
   - medium  # requires deeper analysis to identify the specific StorageClass issue
   - kubernetes
 before_test: |
-  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pvc-misconfiguration/redis-deployment.yaml
+  kubectl create namespace app-24b || true
+  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pvc-misconfiguration/redis-deployment.yaml -n app-24b
 after_test: |
-  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pvc-misconfiguration/redis-deployment.yaml
+  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pvc-misconfiguration/redis-deployment.yaml -n app-24b
+  kubectl delete namespace app-24b || true

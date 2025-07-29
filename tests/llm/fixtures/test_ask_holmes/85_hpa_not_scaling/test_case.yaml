@@ -1,9 +1,9 @@
-user_prompt: "Why isn't the worker deployment scaling despite high CPU usage in namespace-85?"
+user_prompt: "Why isn't the golden-eagle deployment scaling despite high CPU usage in namespace-85?"
 tags:
   - kubernetes
   - medium
 expected_output:
-  - Worker deployment not scaling because HPA cannot calculate CPU metrics without resource requests defined in pod spec
+  - Golden-eagle deployment not scaling because HPA cannot calculate CPU metrics without resource requests defined in pod spec
 before_test: |
   kubectl apply -f ./manifest.yaml
   sleep 30
