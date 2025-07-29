@@ -319,15 +319,18 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         # Create key bindings
         bindings = KeyBindings()
 
-        # Exit commands
+        # Track exit state to prevent double exits
+        exited = False
+
+        # Exit commands (q, escape, or ctrl+c to exit)
         @bindings.add("q")
         @bindings.add("escape")
-        def _(event):
-            event.app.exit()
-
         @bindings.add("c-c")
         def _(event):
-            event.app.exit()
+            nonlocal exited
+            if not exited:
+                exited = True
+                event.app.exit()
 
         # Vim/less-like navigation
         @bindings.add("j")
