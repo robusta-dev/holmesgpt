@@ -4,7 +4,7 @@ import os
 import os.path
 from enum import Enum
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
@@ -68,6 +68,9 @@ class Config(RobustaBaseConfig):
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
     model: Optional[str] = "gpt-4o"
+    fast_model: Optional[str] = None
+    summarize_threshold: int = 1000
+    transformer_configs: Optional[List[Dict[str, Any]]] = None
     max_steps: int = 10
     cluster_name: Optional[str] = None
 
@@ -123,6 +126,7 @@ class Config(RobustaBaseConfig):
                 toolsets=self.toolsets,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
+                global_transformer_configs=self.transformer_configs,
             )
         return self._toolset_manager
 
@@ -133,6 +137,9 @@ class Config(RobustaBaseConfig):
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
+
+        # Auto-generate transformer_configs from CLI fast_model parameter
+        self._auto_generate_transformer_configs()
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
@@ -152,6 +159,24 @@ class Config(RobustaBaseConfig):
             return False
 
         return True
+
+    def _auto_generate_transformer_configs(self) -> None:
+        """
+        Auto-generate transformer_configs from CLI fast_model and summarize_threshold parameters.
+        Only generates if fast_model is provided and transformer_configs is not already set.
+        """
+        if self.fast_model and not self.transformer_configs:
+            self.transformer_configs = [
+                {
+                    "llm_summarize": {
+                        "fast_model": self.fast_model,
+                        "input_threshold": self.summarize_threshold,
+                    }
+                }
+            ]
+            logging.debug(
+                f"Auto-generated transformer config with fast_model: {self.fast_model}"
+            )
 
     def log_useful_info(self):
         if self._model_list:
@@ -192,6 +217,8 @@ class Config(RobustaBaseConfig):
         kwargs = {}
         for field_name in [
             "model",
+            "fast_model",
+            "summarize_threshold",
             "api_key",
             "max_steps",
             "alertmanager_url",
