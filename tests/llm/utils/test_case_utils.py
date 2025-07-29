@@ -10,16 +10,10 @@ from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 import pytest
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
-from holmes.core.prompt import (
-    append_all_files_to_user_prompt,
-    append_file_to_user_prompt,
-)
-from holmes.core.tool_calling_llm import ResourceInstructions
-from holmes.plugins.runbooks import RunbookCatalog
-from holmes.plugins.prompts import load_and_render_prompt
-from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
+from holmes.core.prompt import append_file_to_user_prompt
 
-from rich.console import Console
+from holmes.core.tool_calling_llm import ResourceInstructions
+from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
 
 
 def read_file(file_path: Path):
@@ -70,6 +64,7 @@ class HolmesTestCase(BaseModel):
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
     user_prompt: str  # The user's question to ask holmes
+    cluster_name: Optional[str] = None
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
     runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
 
@@ -285,43 +280,3 @@ def load_include_files(
             extra_prompt = append_file_to_user_prompt(extra_prompt, file_path)
 
     return extra_prompt
-
-
-# temporary until we merge https://github.com/robusta-dev/holmesgpt/pull/727
-def build_initial_ask_messages2(
-    console: Console,
-    initial_user_prompt: str,
-    file_paths: Optional[List[Path]],
-    tool_executor: Any,  # ToolExecutor type
-    runbooks: Union[RunbookCatalog, Dict, None] = None,
-) -> List[Dict]:
-    """Build the initial messages for the AI call.
-
-    Args:
-        console: Rich console for output
-        initial_user_prompt: The user's prompt
-        file_paths: Optional list of files to include
-        tool_executor: The tool executor with available toolsets
-        runbooks: Optional runbook catalog
-    """
-    # Load and render system prompt internally
-    system_prompt_template = "builtin://generic_ask.jinja2"
-    template_context = {
-        "toolsets": tool_executor.toolsets,
-        "runbooks": runbooks or {},
-    }
-    system_prompt_rendered = load_and_render_prompt(
-        system_prompt_template, template_context
-    )
-
-    # Append files to user prompt
-    user_prompt_with_files = append_all_files_to_user_prompt(
-        console, initial_user_prompt, file_paths
-    )
-
-    messages = [
-        {"role": "system", "content": system_prompt_rendered},
-        {"role": "user", "content": user_prompt_with_files},
-    ]
-
-    return messages

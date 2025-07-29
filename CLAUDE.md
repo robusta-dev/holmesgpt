@@ -239,3 +239,12 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
   - You can enable/disable specific toolsets and provide custom configurations
   - If no `toolsets.yaml` file exists, default system toolsets are used
   - Note: Do NOT put toolsets configuration directly in test_case.yaml - it must be in a separate file
+
+## Documentation Lookup
+
+When asked about content from the HolmesGPT documentation website (https://robusta-dev.github.io/holmesgpt/), look in the local `docs/` directory:
+- Python SDK examples: `docs/installation/python-installation.md`
+- CLI installation: `docs/installation/cli-installation.md`
+- Kubernetes deployment: `docs/installation/kubernetes-installation.md`
+- Toolset documentation: `docs/data-sources/builtin-toolsets/`
+- API reference: `docs/reference/`
