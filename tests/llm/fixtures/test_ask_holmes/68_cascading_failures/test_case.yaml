@@ -6,6 +6,8 @@ tags:
 expected_output:
   - Payment processor failures caused by cascading failure starting from auth-service losing connection to Redis
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace namespace-68 || true
   kubectl create secret generic payment-processor-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n namespace-68 --dry-run=client -o yaml | kubectl apply -f -

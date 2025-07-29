@@ -28,8 +28,17 @@ from rich.markdown import Markdown, Panel
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
-from holmes.version import check_version_async
 from holmes.core.tracing import DummyTracer
+from holmes.utils.colors import (
+    AI_COLOR,
+    ERROR_COLOR,
+    HELP_COLOR,
+    STATUS_COLOR,
+    TOOLS_COLOR,
+    USER_COLOR,
+)
+from holmes.utils.console.consts import agent_name
+from holmes.version import check_version_async
 
 
 class SlashCommands(Enum):
@@ -180,13 +189,6 @@ class ShowCommandCompleter(Completer):
                             display=f"{tool_index} - {tool_description}",
                         )
 
-
-USER_COLOR = "#DEFCC0"  # light green
-AI_COLOR = "#00FFFF"  # cyan
-TOOLS_COLOR = "magenta"
-HELP_COLOR = "cyan"  # same as AI_COLOR for now
-ERROR_COLOR = "red"
-STATUS_COLOR = "yellow"
 
 WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
@@ -638,7 +640,7 @@ def handle_shell_command(
         Formatted user input string if user chooses to share, None otherwise
     """
     console.print(
-        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
+        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to {agent_name}.[/bold {STATUS_COLOR}]"
     )
     console.print(
         "[dim]Shell session will be recorded and can be shared with LLM when you exit.[/dim]"
