@@ -9,6 +9,7 @@ from datetime import datetime
 from rich.console import Console
 from holmes.core.models import ChatRequest
 from holmes.core.tracing import TracingFactory
+from holmes.config import Config
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
@@ -324,10 +325,15 @@ def ask_holmes(
             )
     else:
         chat_request = ChatRequest(ask=test_case.user_prompt)
+        config = Config()
+        if test_case.cluster_name:
+            config.cluster_name = test_case.cluster_name
+
         messages = build_chat_messages(
             ask=chat_request.ask,
             conversation_history=test_case.conversation_history,
             ai=ai,
+            config=config,
         )
 
     # Create LLM completion trace within current context
