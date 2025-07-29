@@ -2,6 +2,8 @@ user_prompt: "Was there any 'Peer down' problem reported for network-connector p
 expected_output:
   - There is a Peer down issue
 before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace app-20 || true
   kubectl create secret generic network-connector-logs-script \
   --from-file=generate_logs.py=./generate_logs.py \
   -n app-20 --dry-run=client -o yaml | kubectl apply -f -

@@ -164,18 +164,8 @@ poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
 poetry run pytest -m "llm and not network" --collect-only -q
 ```
 
-**Available Test Markers**:
-- `llm`: LLM behavior tests
-- `datetime`: Datetime functionality
-- `logs`: Log processing
-- `context_window`: Context window handling
-- `synthetic`: Synthetic data tests
-- `network`: Network-dependent tests
-- `runbooks`: Runbook functionality
-- `misleading-history`: Misleading data scenarios
-- `chain-of-causation`: Causation analysis
-- `slackbot`: Slack integration
-- `counting`: Resource counting tests
+**Available Test Markers (same as eval tags)**:
+Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask the user before adding a new one.
 
 **Test Infrastructure Notes**:
 - All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
@@ -244,3 +234,12 @@ poetry run pytest -m "llm and not network" --collect-only -q
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory
   - If `runbooks` field is not specified, default system runbooks are used
+
+## Documentation Lookup
+
+When asked about content from the HolmesGPT documentation website (https://robusta-dev.github.io/holmesgpt/), look in the local `docs/` directory:
+- Python SDK examples: `docs/installation/python-installation.md`
+- CLI installation: `docs/installation/cli-installation.md`
+- Kubernetes deployment: `docs/installation/kubernetes-installation.md`
+- Toolset documentation: `docs/data-sources/builtin-toolsets/`
+- API reference: `docs/reference/`

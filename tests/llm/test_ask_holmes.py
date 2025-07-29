@@ -13,8 +13,6 @@ from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-import tests.llm.utils.braintrust as braintrust_util
-from tests.llm.utils.braintrust import get_experiment_name
 from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.mock_toolset import (
@@ -27,8 +25,10 @@ from tests.llm.utils.test_case_utils import (
     Evaluation,
     MockHelper,
     check_and_skip_test,
-    build_initial_ask_messages2,
 )
+
+from holmes.core.prompt import build_initial_ask_messages
+
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     update_test_results,
@@ -109,9 +109,7 @@ def test_ask_holmes(
             print(f"   • After Test: {test_case.after_test}")
 
     tracer = TracingFactory.create_tracer("braintrust")
-    tracer.start_experiment(
-        get_experiment_name(), metadata=braintrust_util.get_machine_state_tags()
-    )
+    tracer.start_experiment()
 
     result: Optional[LLMResult] = None
 
@@ -167,6 +165,7 @@ def test_ask_holmes(
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
+                    # metadata={"tags": test_case.tags},
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -231,6 +230,7 @@ def test_ask_holmes(
             dataset_record_id=test_case.id,
             scores=scores,
             metadata={"system_prompt": prompt},
+            # metadata={"tags": test_case.tags},
         )
 
     # Print tool calls summary
@@ -315,7 +315,7 @@ def ask_holmes(
 
                 runbook_catalog = load_runbook_catalog()
                 runbooks = runbook_catalog.model_dump() if runbook_catalog else {}
-            messages = build_initial_ask_messages2(
+            messages = build_initial_ask_messages(
                 console,
                 test_case.user_prompt,
                 None,
