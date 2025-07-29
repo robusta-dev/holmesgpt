@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any, cast, Set
 from pydantic import BaseModel
 
 from holmes.core.tools import CallablePrerequisite
@@ -11,6 +11,7 @@ from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
+    LoggingCapability,
     PodLoggingTool,
 )
 from holmes.plugins.toolsets.utils import (
@@ -35,6 +36,11 @@ class GrafanaLokiConfig(GrafanaConfig):
 
 
 class GrafanaLokiToolset(BasePodLoggingToolset):
+    @property
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Loki only supports substring matching, not regex or exclude filters"""
+        return set()  # No regex support, no exclude filter
+
     def __init__(self):
         super().__init__(
             name="grafana/loki",

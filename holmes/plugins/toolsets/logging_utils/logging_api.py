@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
-from typing import Optional
+from typing import Optional, Set
+from enum import Enum
 
 from pydantic import BaseModel
 from datetime import timezone
@@ -20,6 +21,13 @@ DEFAULT_TIME_SPAN_SECONDS = 3600
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 
 
+class LoggingCapability(str, Enum):
+    """Optional advanced logging capabilities"""
+
+    REGEX_FILTER = "regex_filter"  # If not supported, falls back to substring matching
+    EXCLUDE_FILTER = "exclude_filter"  # If not supported, parameter is not shown at all
+
+
 class LoggingConfig(BaseModel):
     """Base configuration for all logging backends"""
 
@@ -32,11 +40,18 @@ class FetchPodLogsParams(BaseModel):
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     filter: Optional[str] = None
+    exclude_filter: Optional[str] = None
     limit: Optional[int] = None
 
 
 class BasePodLoggingToolset(Toolset, ABC):
     """Base class for all logging toolsets"""
+
+    @property
+    @abstractmethod
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Return the set of optional capabilities supported by this provider"""
+        pass
 
     @abstractmethod
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
@@ -50,41 +65,68 @@ class PodLoggingTool(Tool):
     """Common tool for fetching pod logs across different logging backends"""
 
     def __init__(self, toolset: BasePodLoggingToolset):
+        # Get parameters dynamically based on what the toolset supports
+        parameters = self._get_tool_parameters(toolset)
+
         super().__init__(
             name=POD_LOGGING_TOOL_NAME,
             description="Fetch logs for a Kubernetes pod",
-            parameters={
-                "pod_name": ToolParameter(
-                    description="The exact kubernetes pod name",
-                    type="string",
-                    required=True,
-                ),
-                "namespace": ToolParameter(
-                    description="Kubernetes namespace", type="string", required=True
-                ),
-                "start_time": ToolParameter(
-                    description="Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
-                    type="string",
-                    required=False,
-                ),
-                "end_time": ToolParameter(
-                    description="End time for logs. Must be an RFC3339 formatted datetime (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
-                    type="string",
-                    required=False,
-                ),
-                "limit": ToolParameter(
-                    description="Maximum number of logs to return",
-                    type="integer",
-                    required=False,
-                ),
-                "filter": ToolParameter(
-                    description="An optional keyword or sentence to filter the logs",
-                    type="string",
-                    required=False,
-                ),
-            },
+            parameters=parameters,
         )
         self._toolset = toolset
+
+    def _get_tool_parameters(self, toolset: BasePodLoggingToolset) -> dict:
+        """Generate parameters based on what this provider supports"""
+        # Base parameters always available
+        params = {
+            "pod_name": ToolParameter(
+                description="The exact kubernetes pod name",
+                type="string",
+                required=True,
+            ),
+            "namespace": ToolParameter(
+                description="Kubernetes namespace", type="string", required=True
+            ),
+            "start_time": ToolParameter(
+                description="Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
+                type="string",
+                required=False,
+            ),
+            "end_time": ToolParameter(
+                description="End time for logs. Must be an RFC3339 formatted datetime (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
+                type="string",
+                required=False,
+            ),
+            "limit": ToolParameter(
+                description="Maximum number of logs to return",
+                type="integer",
+                required=False,
+            ),
+        }
+
+        # Add filter - description changes based on regex support
+        if LoggingCapability.REGEX_FILTER in toolset.supported_capabilities:
+            params["filter"] = ToolParameter(
+                description="An optional filter for logs - can be a simple keyword/phrase or a regex pattern (case-insensitive). For errors, try patterns like 'err|error|fatal|critical|fail|exception' to catch variations. Start broad and narrow down if too many results.",
+                type="string",
+                required=False,
+            )
+        else:
+            params["filter"] = ToolParameter(
+                description="An optional keyword to filter logs - matches logs containing this text (case-insensitive)",
+                type="string",
+                required=False,
+            )
+
+        # ONLY add exclude_filter if supported - otherwise it doesn't exist
+        if LoggingCapability.EXCLUDE_FILTER in toolset.supported_capabilities:
+            params["exclude_filter"] = ToolParameter(
+                description="An optional exclusion filter - logs matching this pattern will be excluded. Useful for filtering out noise like 'GET.*200', 'health', 'metrics', 'heartbeat'. Can be a simple keyword or regex pattern (case-insensitive).",
+                type="string",
+                required=False,
+            )
+
+        return params
 
     def _invoke(self, params: dict) -> StructuredToolResult:
         structured_params = FetchPodLogsParams(
@@ -93,6 +135,7 @@ class PodLoggingTool(Tool):
             start_time=params.get("start_time"),
             end_time=params.get("end_time"),
             filter=params.get("filter"),
+            exclude_filter=params.get("exclude_filter"),
             limit=params.get("limit"),
         )
 

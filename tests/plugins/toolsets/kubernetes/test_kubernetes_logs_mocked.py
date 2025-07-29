@@ -205,6 +205,41 @@ class TestKubernetesLogsToolset(unittest.TestCase):
         self.assertNotIn("Log line 1", result.data)
         self.assertNotIn("Log line 3", result.data)
 
+    def test_limit_logs(self):
+        """Test that limit parameter works and includes metadata"""
+        params = FetchPodLogsParams(
+            namespace="default",
+            pod_name="test-pod",
+            start_time=None,
+            end_time=None,
+            limit=2,  # Limit to 2 logs
+        )
+
+        result = self.toolset.fetch_pod_logs(params=params)
+
+        self.assertEqual(result.status, ToolResultStatus.SUCCESS)
+        self.assertEqual(result.return_code, 0)
+        self.assertIsNone(result.error)
+
+        assert result.data
+        print(f"ACTUAL:\n{result.data}")
+
+        # Should have metadata about total vs limited
+        self.assertIn("Total logs found: 6", result.data)
+        self.assertIn("Logs returned: 2 (showing latest 2 logs)", result.data)
+
+        # Should only have 2 log lines (exclude metadata lines)
+        log_lines = [
+            line
+            for line in result.data.split("\n")
+            if line
+            and not line.startswith("Total")
+            and not line.startswith("Logs")
+            and not line.startswith("⚠️")
+            and not line.startswith("   -")
+        ]
+        self.assertEqual(len(log_lines), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

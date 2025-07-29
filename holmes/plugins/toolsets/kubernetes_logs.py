@@ -1,7 +1,8 @@
 import logging
 import re
 import subprocess
-from typing import Optional, List, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Optional, List, Tuple, Set
 from pydantic import BaseModel
 
 from holmes.common.env_vars import KUBERNETES_LOGS_TIMEOUT_SECONDS
@@ -14,6 +15,7 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
+    LoggingCapability,
     LoggingConfig,
     PodLoggingTool,
 )
@@ -45,6 +47,14 @@ class LogResult(BaseModel):
 
 class KubernetesLogsToolset(BasePodLoggingToolset):
     """Implementation of the unified logging API for Kubernetes logs using kubectl commands"""
+
+    @property
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Kubernetes native logging supports regex and exclude filters"""
+        return {
+            LoggingCapability.REGEX_FILTER,
+            LoggingCapability.EXCLUDE_FILTER,
+        }
 
     def __init__(self):
         prerequisite = StaticPrerequisite(enabled=False, disabled_reason="Initializing")
@@ -91,17 +101,55 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         try:
             all_logs: list[StructuredLog] = []
 
-            # Fetch previous logs
-            previous_logs_result = self._fetch_kubectl_logs(
-                params=params,
-                previous=True,
-            )
+            # Fetch previous and current logs in parallel
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                future_previous = executor.submit(
+                    self._fetch_kubectl_logs, params, previous=True
+                )
+                future_current = executor.submit(
+                    self._fetch_kubectl_logs, params, previous=False
+                )
 
-            # Fetch current logs
-            current_logs_result = self._fetch_kubectl_logs(
-                params=params,
-                previous=False,
-            )
+                futures = {future_previous: "previous", future_current: "current"}
+                previous_logs_result = None
+                current_logs_result = None
+
+                for future in as_completed(futures):
+                    log_type = futures[future]
+                    try:
+                        result = future.result()
+                        if log_type == "previous":
+                            previous_logs_result = result
+                            logging.info(
+                                f"Fetched previous logs for pod {params.pod_name} in namespace {params.namespace}: "
+                                f"{len(result.logs)} lines"
+                            )
+                        else:
+                            current_logs_result = result
+                            logging.info(
+                                f"Fetched current logs for pod {params.pod_name} in namespace {params.namespace}: "
+                                f"{len(result.logs)} lines"
+                            )
+                    except Exception as e:
+                        logging.error(f"Error fetching {log_type} logs: {str(e)}")
+                        error_result = LogResult(
+                            logs=[],
+                            error=f"Error fetching {log_type} logs: {str(e)}",
+                            return_code=None,
+                            has_multiple_containers=False,
+                        )
+                        if log_type == "previous":
+                            previous_logs_result = error_result
+                        else:
+                            current_logs_result = error_result
+
+            # Ensure we have results before accessing attributes
+            if not previous_logs_result or not current_logs_result:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Failed to fetch logs",
+                    params=params.model_dump(),
+                )
 
             return_code: Optional[int] = current_logs_result.return_code
 
@@ -118,6 +166,10 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 and previous_logs_result.error
                 and current_logs_result.error
             ):
+                logging.info(
+                    f"Both previous and current logs failed for pod {params.pod_name} in namespace {params.namespace}. "
+                    f"Previous error: {previous_logs_result.error}, Current error: {current_logs_result.error}"
+                )
                 # Both commands failed - return error from current logs
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
@@ -126,24 +178,79 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                     return_code=return_code,
                 )
 
-            all_logs = filter_logs(all_logs, params)
-
-            if not all_logs:
-                return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
-                    params=params.model_dump(),
-                    return_code=return_code,
-                )
+            # Track counts for metadata
+            total_count = len(all_logs)
+            (
+                filtered_logs,
+                filtered_count_before_limit,
+                used_substring_fallback,
+                exclude_used_substring_fallback,
+            ) = filter_logs(all_logs, params)
 
             formatted_logs = format_logs(
-                logs=all_logs,
+                logs=filtered_logs,
                 display_container_name=previous_logs_result.has_multiple_containers
                 or current_logs_result.has_multiple_containers,
             )
 
+            # Only include metadata if filters or limits were applied
+            if (
+                params.filter
+                or params.exclude_filter
+                or (params.limit and params.limit < filtered_count_before_limit)
+            ):
+                metadata_lines = [
+                    f"Total logs found: {total_count}",
+                ]
+
+                if params.filter:
+                    if used_substring_fallback:
+                        metadata_lines.append(
+                            f"Note: Filter '{params.filter}' is not a valid regex pattern, using substring matching instead"
+                        )
+                    metadata_lines.append(
+                        f"Logs after filter '{params.filter}': {filtered_count_before_limit}"
+                    )
+
+                if params.exclude_filter:
+                    if exclude_used_substring_fallback:
+                        metadata_lines.append(
+                            f"Note: Exclude filter '{params.exclude_filter}' is not a valid regex pattern, using substring matching instead"
+                        )
+                    metadata_lines.append(
+                        f"Excluded logs matching: '{params.exclude_filter}'"
+                    )
+
+                if params.limit and params.limit < filtered_count_before_limit:
+                    metadata_lines.append(
+                        f"Logs returned: {len(filtered_logs)} (showing latest {params.limit} logs)"
+                    )
+                    metadata_lines.append(
+                        "⚠️  Hit the limit! If you don't see what you're looking for, try:"
+                    )
+                    metadata_lines.append(
+                        "   - Use exclude_filter to remove noise: exclude_filter='GET.*200|POST.*200|health|metrics'"
+                    )
+                    metadata_lines.append(
+                        "   - Or focus on errors: filter='err|error|fail|exception|fatal|critical|panic|crash|timeout|5[0-9]{2}|4[0-9]{2}'"
+                    )
+                else:
+                    metadata_lines.append(f"Logs returned: {len(filtered_logs)}")
+
+                if params.filter and len(filtered_logs) == 0 and len(all_logs) > 0:
+                    metadata_lines.append(
+                        f"No logs matched filter=`{params.filter}`, but there were {total_count} logs available for this pod that did NOT match the filter"
+                    )
+                    metadata_lines.append(
+                        "Consider trying to call this tool again without the filter or with a different filter (e.g., broader regex pattern)!"
+                    )
+                response_data = "\n".join(metadata_lines) + "\n\n" + formatted_logs
+            else:
+                response_data = formatted_logs
+
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
-                data=formatted_logs,
+                data=response_data,
                 params=params.model_dump(),
                 return_code=return_code,
             )
@@ -332,7 +439,7 @@ class TimeFilter(BaseModel):
 
 def filter_logs(
     logs: List[StructuredLog], params: FetchPodLogsParams
-) -> List[StructuredLog]:
+) -> Tuple[List[StructuredLog], int, bool, bool]:
     time_filter: Optional[TimeFilter] = None
     if params.start_time or params.end_time:
         start, end = process_timestamps_to_int(
@@ -343,12 +450,65 @@ def filter_logs(
         time_filter = TimeFilter(start_ms=start * 1000, end_ms=end * 1000)
 
     filtered_logs = []
+    # is this really needed? doesn't kubectl already sort logs for us
     logs.sort(key=lambda x: x.timestamp_ms or 0)
 
+    # Pre-compile regex patterns if provided
+    regex_pattern = None
+    exclude_regex_pattern = None
+    used_substring_fallback = False
+    exclude_used_substring_fallback = False
+
+    if params.filter:
+        try:
+            # Try to compile as regex first
+            regex_pattern = re.compile(params.filter, re.IGNORECASE)
+        except re.error:
+            # If not a valid regex, fall back to simple substring matching
+            logging.debug(
+                f"Filter '{params.filter}' is not a valid regex, using substring matching"
+            )
+            regex_pattern = None
+            used_substring_fallback = True
+
+    if params.exclude_filter:
+        try:
+            # Try to compile as regex first
+            exclude_regex_pattern = re.compile(params.exclude_filter, re.IGNORECASE)
+        except re.error:
+            # If not a valid regex, fall back to simple substring matching
+            logging.debug(
+                f"Exclude filter '{params.exclude_filter}' is not a valid regex, using substring matching"
+            )
+            exclude_regex_pattern = None
+            exclude_used_substring_fallback = True
+
     for log in logs:
-        if params.filter and params.filter.lower() not in log.content.lower():
-            # exclude this log
-            continue
+        # Apply inclusion filter
+        if params.filter:
+            if regex_pattern:
+                # Use regex matching
+                if not regex_pattern.search(log.content):
+                    # exclude this log
+                    continue
+            else:
+                # Fall back to simple substring matching (case-insensitive)
+                if params.filter.lower() not in log.content.lower():
+                    # exclude this log
+                    continue
+
+        # Apply exclusion filter
+        if params.exclude_filter:
+            if exclude_regex_pattern:
+                # Use regex matching
+                if exclude_regex_pattern.search(log.content):
+                    # exclude this log
+                    continue
+            else:
+                # Fall back to simple substring matching (case-insensitive)
+                if params.exclude_filter.lower() in log.content.lower():
+                    # exclude this log
+                    continue
 
         if (
             time_filter
@@ -365,9 +525,18 @@ def filter_logs(
         else:
             filtered_logs.append(log)
 
+    # Track count before limiting
+    filtered_count_before_limit = len(filtered_logs)
+
     if params.limit and params.limit < len(filtered_logs):
         filtered_logs = filtered_logs[-params.limit :]
-    return filtered_logs
+
+    return (
+        filtered_logs,
+        filtered_count_before_limit,
+        used_substring_fallback,
+        exclude_used_substring_fallback,
+    )
 
 
 def parse_logs(

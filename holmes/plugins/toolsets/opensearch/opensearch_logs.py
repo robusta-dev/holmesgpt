@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Set
 
 import requests  # type: ignore
 from requests import RequestException  # type: ignore
@@ -14,6 +14,7 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
+    LoggingCapability,
     PodLoggingTool,
     process_time_parameters,
 )
@@ -30,6 +31,11 @@ LOGS_FIELDS_CACHE_KEY = "cached_logs_fields"
 
 class OpenSearchLogsToolset(BasePodLoggingToolset):
     """Implementation of the unified logging API for OpenSearch logs"""
+
+    @property
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """OpenSearch only supports phrase matching, not regex or exclude filters"""
+        return set()  # No regex support, no exclude filter
 
     def __init__(self):
         super().__init__(
