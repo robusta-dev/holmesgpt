@@ -796,6 +796,7 @@ def run_interactive_loop(
     tracer=None,
     runbooks=None,
     system_prompt_additions: Optional[str] = None,
+    check_version: bool = True,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -893,7 +894,8 @@ def run_interactive_loop(
     )  # type: ignore
 
     # Start background version check
-    check_version_async(on_version_check_complete)
+    if check_version:
+        check_version_async(on_version_check_complete)
 
     input_prompt = [("class:prompt", "User: ")]
 
