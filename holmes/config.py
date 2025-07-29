@@ -31,12 +31,13 @@ if TYPE_CHECKING:
     from holmes.plugins.sources.pagerduty import PagerDutySource
     from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
+from holmes.core.config import config_path_dir
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
-DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+DEFAULT_CONFIG_LOCATION = os.path.join(config_path_dir, "config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
     "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
 )
@@ -111,7 +112,9 @@ class Config(RobustaBaseConfig):
     # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
     # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
-    should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    should_try_robusta_ai: bool = (
+        False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    )
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
 
