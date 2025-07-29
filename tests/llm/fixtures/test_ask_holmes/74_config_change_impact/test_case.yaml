@@ -18,5 +18,6 @@ before_test: |
 after_test: |
   kubectl delete -f ./manifest.yaml
   kubectl delete secret cache-service-logs-script -n namespace-74 --ignore-not-found
+  kubectl delete namespace namespace-74 --ignore-not-found
 evaluation:
   correctness: 1
