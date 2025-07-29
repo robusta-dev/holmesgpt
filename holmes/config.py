@@ -112,9 +112,7 @@ class Config(RobustaBaseConfig):
     # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
     # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
-    should_try_robusta_ai: bool = (
-        False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
-    )
+    should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
 
