@@ -789,12 +789,13 @@ def display_recent_tool_outputs(
 def run_interactive_loop(
     ai: ToolCallingLLM,
     console: Console,
-    system_prompt_rendered: str,
     initial_user_input: Optional[str],
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
     tracer=None,
+    runbooks=None,
+    system_prompt_additions: Optional[str] = None,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -993,7 +994,12 @@ def run_interactive_loop(
 
             if messages is None:
                 messages = build_initial_ask_messages(
-                    console, system_prompt_rendered, user_input, include_files
+                    console,
+                    user_input,
+                    include_files,
+                    ai.tool_executor,
+                    runbooks,
+                    system_prompt_additions,
                 )
             else:
                 messages.append({"role": "user", "content": user_input})
