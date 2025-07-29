@@ -202,7 +202,8 @@ class TestDatadogToolsetFetchPodLogs:
         assert payload["filter"]["storage_tier"] == "online-archives"
 
     @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
-    def test_fetch_pod_logs_rate_limiting(self, mock_post):
+    @patch("time.sleep", return_value=None)  # Mock time.sleep to avoid delays
+    def test_fetch_pod_logs_rate_limiting(self, mock_sleep, mock_post):
         """Test fetch_pod_logs handling rate limiting with X-RateLimit-Reset header"""
         # Mock responses
         # First attempt: rate limited
@@ -240,7 +241,10 @@ class TestDatadogToolsetFetchPodLogs:
         assert mock_post.call_count == 2
 
     @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
-    def test_fetch_pod_logs_rate_limiting_without_reset_header(self, mock_post):
+    @patch("time.sleep", return_value=None)  # Mock time.sleep to avoid delays
+    def test_fetch_pod_logs_rate_limiting_without_reset_header(
+        self, mock_sleep, mock_post
+    ):
         """Test fetch_pod_logs handling rate limiting without X-RateLimit-Reset header"""
         # Mock responses
         # First attempt: rate limited without reset header
@@ -296,7 +300,8 @@ class TestDatadogToolsetFetchPodLogs:
         assert mock_post.call_count == 0
 
     @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
-    def test_fetch_pod_logs_rate_limit_exhausted(self, mock_post):
+    @patch("time.sleep", return_value=None)  # Mock time.sleep to avoid delays
+    def test_fetch_pod_logs_rate_limit_exhausted(self, mock_sleep, mock_post):
         """Test fetch_pod_logs when all rate limit retries are exhausted"""
         # Mock all responses as rate limited
         rate_limited_response = Mock()
