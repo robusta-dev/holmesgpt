@@ -384,7 +384,10 @@ def test_filter_logs_basic_scenarios(logs, params, expected_count, expected_cont
             ],
             None,
             "2021-01-02T23:59:59",
-            ["2021-01-02-match"],  # 1 hrs before end
+            [
+                "2021-01-02-excluded",
+                "2021-01-02-match",
+            ],  # With 7-day default, both are included
         ),
         # Test with None timestamp logs and time filter
         (

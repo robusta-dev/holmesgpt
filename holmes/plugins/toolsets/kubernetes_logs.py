@@ -202,6 +202,18 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 has_multiple_containers=has_multiple_containers,
             )
 
+            # Check if we have any logs to return
+            if len(filtered_logs) == 0:
+                # Return NO_DATA status when there are no logs
+                return StructuredToolResult(
+                    status=ToolResultStatus.NO_DATA,
+                    data="\n".join(
+                        metadata_lines
+                    ),  # Still include metadata for context
+                    params=params.model_dump(),
+                    return_code=return_code,
+                )
+
             # Put metadata at the end
             response_data = formatted_logs + "\n" + "\n".join(metadata_lines)
 
