@@ -17,6 +17,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingCapability,
     PodLoggingTool,
     process_time_parameters,
+    DEFAULT_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     OpenSearchLoggingConfig,
@@ -88,7 +89,7 @@ class OpenSearchLogsToolset(BasePodLoggingToolset):
             end_time = None
             if params.start_time or params.end_time:
                 start_time, end_time = process_time_parameters(
-                    params.start_time, params.end_time
+                    params.start_time, params.end_time, DEFAULT_TIME_SPAN_SECONDS
                 )
 
             query = build_query(

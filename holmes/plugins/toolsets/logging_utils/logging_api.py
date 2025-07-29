@@ -15,8 +15,8 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.utils import get_param_or_raise
 
 # Default values for log fetching
-DEFAULT_LOG_LIMIT = 2000
-DEFAULT_TIME_SPAN_SECONDS = 3600
+DEFAULT_LOG_LIMIT = 100
+DEFAULT_TIME_SPAN_SECONDS = 7 * 24 * 60 * 60  # 1 week in seconds
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 

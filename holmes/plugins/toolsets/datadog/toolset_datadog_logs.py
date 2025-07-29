@@ -18,6 +18,7 @@ from holmes.plugins.toolsets.datadog.datadog_api import (
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
     BasePodLoggingToolset,
     FetchPodLogsParams,
     LoggingCapability,
@@ -48,7 +49,7 @@ class DatadogLogsConfig(DatadogBaseConfig):
     )
     labels: DataDogLabelsMapping = DataDogLabelsMapping()
     page_size: int = 300
-    default_limit: int = 1000
+    default_limit: int = DEFAULT_LOG_LIMIT
 
 
 def calculate_page_size(

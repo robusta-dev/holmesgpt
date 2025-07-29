@@ -27,12 +27,14 @@ from holmes.plugins.toolsets.utils import (
     process_timestamps_to_int,
     standard_start_datetime_tool_param_description,
 )
-
-DEFAULT_TIME_SPAN_SECONDS = 3600
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
+)
 
 
 class DatadogMetricsConfig(DatadogBaseConfig):
-    default_limit: int = 1000
+    default_limit: int = DEFAULT_LOG_LIMIT
 
 
 class BaseDatadogMetricsTool(Tool):

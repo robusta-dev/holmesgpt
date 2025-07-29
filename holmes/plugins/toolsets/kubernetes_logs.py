@@ -19,6 +19,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingCapability,
     LoggingConfig,
     PodLoggingTool,
+    DEFAULT_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix_ms
 
@@ -121,16 +122,8 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                         result = future.result()
                         if log_type == "previous":
                             previous_logs_result = result
-                            logging.info(
-                                f"Fetched previous logs for pod {params.pod_name} in namespace {params.namespace}: "
-                                f"{len(result.logs)} lines"
-                            )
                         else:
                             current_logs_result = result
-                            logging.info(
-                                f"Fetched current logs for pod {params.pod_name} in namespace {params.namespace}: "
-                                f"{len(result.logs)} lines"
-                            )
                     except Exception as e:
                         logging.error(f"Error fetching {log_type} logs: {str(e)}")
                         error_result = LogResult(
@@ -144,11 +137,11 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                         else:
                             current_logs_result = error_result
 
-            # Ensure we have results before accessing attributes
-            if not previous_logs_result or not current_logs_result:
+            # Ensure both results are not None (they should always be set by the loop)
+            if current_logs_result is None or previous_logs_result is None:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="Failed to fetch logs",
+                    error="Internal error: Failed to fetch logs",
                     params=params.model_dump(),
                 )
 
@@ -167,10 +160,6 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 and previous_logs_result.error
                 and current_logs_result.error
             ):
-                logging.info(
-                    f"Both previous and current logs failed for pod {params.pod_name} in namespace {params.namespace}. "
-                    f"Previous error: {previous_logs_result.error}, Current error: {current_logs_result.error}"
-                )
                 # Both commands failed - return error from current logs
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
@@ -393,6 +382,7 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         )
 
 
+# TODO: review this
 def format_relative_time(timestamp_str: str, current_time: datetime) -> str:
     """Format a timestamp as relative to current time (e.g., '2 hours 15 minutes ago')"""
     try:
@@ -446,6 +436,7 @@ def format_relative_time(timestamp_str: str, current_time: datetime) -> str:
         return timestamp_str
 
 
+# TODO: review this
 def add_metadata(
     params: FetchPodLogsParams,
     total_count: int,
@@ -692,7 +683,7 @@ def filter_logs(
         start, end = process_timestamps_to_int(
             start=params.start_time,
             end=params.end_time,
-            default_time_span_seconds=3600,
+            default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
         time_filter = TimeFilter(start_ms=start * 1000, end_ms=end * 1000)
 

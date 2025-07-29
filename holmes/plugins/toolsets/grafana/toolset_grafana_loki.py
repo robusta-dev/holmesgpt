@@ -13,6 +13,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     FetchPodLogsParams,
     LoggingCapability,
     PodLoggingTool,
+    DEFAULT_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
@@ -22,8 +23,6 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     query_loki_logs_by_label,
 )
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
-
-DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
 class GrafanaLokiLabelsConfig(BaseModel):
