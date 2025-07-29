@@ -3,9 +3,10 @@ tags:
   - logs
   - context_window
   - datetime
-  - easy
+  - medium
 expected_output:
-  - Scheduler pod experienced issues between 03:00-03:05  when it could not connect to an external API possibly due to a maintenance window
+  - Scheduler pod experienced issues between 03:00-03:05 when it could not connect to an external API possibly due to a maintenance window
+  - Answer MUST include the time window of the issue (03:00-03:05)
 before_test: |
   # Create namespace first since the secret depends on it (|| true ignores if it already exists)
   kubectl create namespace namespace-73 || true
