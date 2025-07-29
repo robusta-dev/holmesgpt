@@ -3,6 +3,27 @@ kind: Namespace
 metadata:
   name: namespace-85
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: namespace-85
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: busybox
+        command: ["sh", "-c", "while true; do echo 'Working...'; sleep 1; done"]
+        # Note: Missing resource requests/limits - this is intentional to match the expected output
+---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

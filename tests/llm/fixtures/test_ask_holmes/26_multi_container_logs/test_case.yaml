@@ -1,7 +1,5 @@
 user_prompt: "How are the page render times for pod mountain-lion"
 expected_output: "Page render times for the pod range from about 7 to 9 seconds."
-evaluation:
-  correctness: 0
 
 before_test: |
   # Create namespace first since the secret depends on it (|| true ignores if it already exists)
@@ -21,3 +19,4 @@ after_test: |
 tags:
   - logs
   - kubernetes
+  - medium
