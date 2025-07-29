@@ -90,7 +90,7 @@ def get_version() -> str:
         )
         dirty = "-dirty" if status else ""
 
-        return f"{tag}-{branch}{dirty}"
+        return f"dev-{tag}-{branch}{dirty}"
 
     except Exception:
         pass
