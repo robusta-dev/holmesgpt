@@ -327,7 +327,7 @@ def ask_holmes(
         chat_request = ChatRequest(ask=test_case.user_prompt)
         config = Config()
         if test_case.cluster_name:
-            config.cluster_name =  test_case.cluster_name
+            config.cluster_name = test_case.cluster_name
 
         messages = build_chat_messages(
             ask=chat_request.ask,
