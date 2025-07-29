@@ -1,0 +1,15 @@
+user_prompt: "Why is the data-processor deployment failing to start in namespace-122?"
+tags:
+  - kubernetes
+expected_output:
+  - data-processor pod cannot start because PVC is bound to a volume on node-c which is now cordoned/unavailable
+  - PVC shared-data is stuck on node-c and cannot be rescheduled to available nodes
+  - Pod keeps getting scheduled to node-a or node-b but cannot access the volume
+  - Need to either uncordon node-c or migrate the PVC to an available node
+before_test: |
+  kubectl apply -f ./manifest.yaml
+  sleep 20
+after_test: |
+  kubectl delete -f ./manifest.yaml
+evaluation:
+  correctness: 1

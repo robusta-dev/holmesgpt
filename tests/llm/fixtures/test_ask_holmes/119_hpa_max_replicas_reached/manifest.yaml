@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-119
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+  namespace: namespace-119
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: api-service
+  template:
+    metadata:
+      labels:
+        app: api-service
+    spec:
+      containers:
+      - name: api
+        image: nginx:alpine
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-service-hpa
+  namespace: namespace-119
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+status:
+  currentReplicas: 10
+  desiredReplicas: 10
+  currentMetrics:
+  - type: Resource
+    resource:
+      name: cpu
+      current:
+        averageUtilization: 85
+        averageValue: 85m
+  conditions:
+  - type: AbleToScale
+    status: "True"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: ReadyForNewScale
+    message: "recommended size matches current size"
+  - type: ScalingActive
+    status: "True"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: ValidMetricFound
+    message: "the HPA was able to successfully calculate a replica count from cpu resource utilization"
+  - type: ScalingLimited
+    status: "True"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: TooManyReplicas
+    message: "the desired replica count is more than the maximum replica count"
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: api-service-hpa-max-replicas
+  namespace: namespace-119
+  uid: e119-0001
+spec:
+  involvedObject:
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    name: api-service-hpa
+    namespace: namespace-119
+  reason: NotScalingUp
+  message: "Current number of replicas (10) equals or exceeds the maximum number of replicas (10)"
+  source:
+    component: horizontal-pod-autoscaler
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:05:00Z"
+  count: 20
+  type: Warning

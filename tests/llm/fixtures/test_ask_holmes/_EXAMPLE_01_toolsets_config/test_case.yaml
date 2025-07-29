@@ -1,0 +1,23 @@
+user_prompt: "Show me the status of prometheus metrics collection"
+expected_output:
+  - Should use the custom prometheus URL from toolsets.yaml
+  - Should show that grafana toolset is disabled
+  - Should only use kubernetes and prometheus toolsets
+skip: true
+skip_reason: "Example test demonstrating per-test toolset configuration"
+evaluation:
+  correctness: 0
+tags:
+  - synthetic
+  - kubernetes
+
+# This example demonstrates how to configure toolsets on a per-test basis.
+# The toolsets.yaml file in this directory:
+# 1. Enables kubernetes/core and prometheus/metrics toolsets
+# 2. Provides custom configuration for prometheus (custom URL)
+# 3. Explicitly disables grafana/dashboards toolset
+#
+# This is useful when:
+# - Testing with specific toolset configurations
+# - Simulating environments with only certain tools available
+# - Testing error handling when expected tools are disabled

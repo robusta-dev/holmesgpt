@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-117
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wind-chaser
+  namespace: app-117
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wind-chaser
+  template:
+    metadata:
+      labels:
+        app: wind-chaser
+    spec:
+      containers:
+      - name: chaser
+        image: busybox
+        command: ['sh', '-c', 'while true; do echo "Wind chaser measuring speed: $(( 5 + RANDOM % 40 )) km/h from direction $(( RANDOM % 360 ))° - $(date)"; sleep 20; done']

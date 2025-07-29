@@ -1,0 +1,26 @@
+user_prompt: "Investigate Redis split-brain issue for my application using narwhal-cache in namespace app-110"
+tags:
+  - runbooks
+expected_output: |
+  - Uses Redis troubleshooting runbook
+  - Successfully executes network connectivity checks
+  - Explains that Redis CLI tools are not available
+  - Provides guidance on enabling Redis toolset
+  - Shows clear Investigation Steps with mixed success/failure
+
+runbooks:
+  catalog:
+    - description: "Redis Cluster Split-Brain Troubleshooting"
+      link: "redis_split_brain.md"
+      update_date: "2025-07-01"
+
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  redis:
+    enabled: false
+
+evaluation:
+  correctness: 0

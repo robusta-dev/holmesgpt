@@ -1,0 +1,168 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-122
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: node-c
+spec:
+  unschedulable: true  # Node is cordoned
+status:
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: NodeNotReady
+    message: "Node is cordoned and not accepting new pods"
+  - type: DiskPressure
+    status: "True"
+    reason: NodeHasDiskPressure
+    message: "Node has disk pressure"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-shared-data
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - node-c  # PV is on the cordoned node
+  claimRef:
+    namespace: namespace-122
+    name: shared-data
+status:
+  phase: Bound
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-data
+  namespace: namespace-122
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  volumeName: pv-shared-data
+  storageClassName: standard
+status:
+  phase: Bound
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-processor
+  namespace: namespace-122
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-processor
+  template:
+    metadata:
+      labels:
+        app: data-processor
+    spec:
+      containers:
+      - name: processor
+        image: busybox
+        command: ["sh", "-c", "echo 'Processing data...' && sleep 3600"]
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: shared-data
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: data-processor-7b9c8d6-x9m2k
+  namespace: namespace-122
+  labels:
+    app: data-processor
+spec:
+  nodeName: node-a  # Scheduled on different node than PVC
+  containers:
+  - name: processor
+    image: busybox
+    volumeMounts:
+    - name: data
+      mountPath: /data
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: shared-data
+status:
+  phase: Pending
+  conditions:
+  - type: PodScheduled
+    status: "True"
+  - type: ContainersReady
+    status: "False"
+    reason: ContainersNotReady
+  containerStatuses:
+  - name: processor
+    state:
+      waiting:
+        reason: ContainerCreating
+        message: "Unable to attach volume: node node-c is not ready"
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: data-processor-volume-attach-fail
+  namespace: namespace-122
+  uid: e122-0001
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: data-processor-7b9c8d6-x9m2k
+    namespace: namespace-122
+  reason: FailedAttachVolume
+  message: "AttachVolume.Attach failed for volume \"pv-shared-data\": node node-c is not ready"
+  source:
+    component: attachdetach-controller
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:10:00Z"
+  count: 25
+  type: Warning
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: node-c-not-ready
+  namespace: default
+  uid: e122-0002
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: Node
+    name: node-c
+  reason: NodeNotReady
+  message: "Node node-c is cordoned and has disk pressure"
+  source:
+    component: node-controller
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:00:00Z"
+  count: 1
+  type: Warning

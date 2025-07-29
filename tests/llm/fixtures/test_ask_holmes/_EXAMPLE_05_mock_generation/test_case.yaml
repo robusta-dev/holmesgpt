@@ -1,0 +1,30 @@
+user_prompt: "Show me the logs for pod example-05 in namespace demo"
+expected_output:
+  - Should show pod logs
+  - Mock files will be auto-generated on first run with --generate-mocks
+skip: true
+skip_reason: "Example test demonstrating mock generation workflow"
+evaluation:
+  correctness: 0
+tags:
+  - synthetic
+
+# This example demonstrates the mock generation workflow
+#
+# First run (generate mocks):
+#   pytest tests/llm/test_ask_holmes.py -k "_EXAMPLE_05" --generate-mocks
+#   - Executes real kubectl commands
+#   - Saves responses as mock files
+#   - Creates kubectl_logs_*.txt files
+#
+# Subsequent runs (use mocks):
+#   pytest tests/llm/test_ask_holmes.py -k "_EXAMPLE_05"
+#   - Uses saved mock files
+#   - No real API calls
+#   - Deterministic results
+#
+# Regenerate all mocks:
+#   pytest tests/llm/test_ask_holmes.py -k "_EXAMPLE_05" --regenerate-all-mocks
+#   - Deletes existing mocks
+#   - Creates fresh mock files
+#   - Useful when tool outputs change

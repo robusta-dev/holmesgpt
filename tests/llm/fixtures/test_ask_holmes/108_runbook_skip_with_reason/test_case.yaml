@@ -1,0 +1,18 @@
+user_prompt: "Debug memory issues for my Java application orca in namespace app-108"
+tags:
+  - runbooks
+expected_output: |
+  - Uses Java memory troubleshooting runbook
+  - Explicitly explains why heap dump analysis is skipped
+  - Provides specific reason: "JVM tools not available in container"
+  - Executes other feasible steps from the runbook
+  - Never silently skips steps
+
+runbooks:
+  catalog:
+    - description: "Java Application Memory Troubleshooting"
+      link: "java_memory_troubleshooting.md"
+      update_date: "2025-07-01"
+
+evaluation:
+  correctness: 0

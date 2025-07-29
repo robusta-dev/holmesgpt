@@ -1,0 +1,23 @@
+user_prompt: "My dolphin application in namespace app-107 is down and not responding"
+tags:
+  - runbooks
+expected_output: |
+  - Selects the most relevant runbook from multiple options
+  - Explains why that runbook was chosen
+  - Follows the selected runbook systematically
+  - Does not attempt to follow multiple runbooks simultaneously
+
+runbooks:
+  catalog:
+    - description: "Generic Application Troubleshooting"
+      link: "generic_app_troubleshooting.md"
+      update_date: "2025-07-01"
+    - description: "Application Down - Complete Outage"
+      link: "app_down_troubleshooting.md"
+      update_date: "2025-07-01"
+    - description: "Network Connectivity Issues"
+      link: "network_troubleshooting.md"
+      update_date: "2025-07-01"
+
+evaluation:
+  correctness: 0

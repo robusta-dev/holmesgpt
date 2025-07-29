@@ -1,0 +1,23 @@
+user_prompt: "List all pods in the default namespace"
+expected_output:
+  - Should return mocked pod data
+  - Should never make real API calls
+mock_policy: "always_mock"
+skip: true
+skip_reason: "Example test demonstrating mock_policy=always_mock"
+evaluation:
+  correctness: 0
+tags:
+  - synthetic
+
+# This example demonstrates mock_policy: always_mock
+#
+# With this setting:
+# - The test ALWAYS uses mock data, even when RUN_LIVE=true
+# - Useful for tests that must be deterministic
+# - Ensures tests don't accidentally hit real APIs
+# - If mock files don't exist and --generate-mocks is set, they'll be generated
+#
+# Other mock_policy options:
+# - "never_mock": Forces live execution (skips test if RUN_LIVE not set)
+# - "inherit": Uses global settings (default behavior)

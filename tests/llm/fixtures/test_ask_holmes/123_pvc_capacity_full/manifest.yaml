@@ -1,0 +1,154 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-123
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logs-storage
+  namespace: namespace-123
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+status:
+  phase: Bound
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logs-collector
+  namespace: namespace-123
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logs-collector
+  template:
+    metadata:
+      labels:
+        app: logs-collector
+    spec:
+      containers:
+      - name: collector
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate disk full error
+          echo "Starting log collection..."
+          echo "ERROR: No space left on device" >&2
+          exit 1
+        volumeMounts:
+        - name: logs
+          mountPath: /var/logs
+      volumes:
+      - name: logs
+        persistentVolumeClaim:
+          claimName: logs-storage
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: logs-collector-6d4b7c8-h3k9m
+  namespace: namespace-123
+  labels:
+    app: logs-collector
+spec:
+  containers:
+  - name: collector
+    image: busybox
+    volumeMounts:
+    - name: logs
+      mountPath: /var/logs
+  volumes:
+  - name: logs
+    persistentVolumeClaim:
+      claimName: logs-storage
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "False"
+  containerStatuses:
+  - name: collector
+    state:
+      waiting:
+        reason: CrashLoopBackOff
+        message: "Back-off 5m0s restarting failed container=collector"
+    restartCount: 8
+    lastState:
+      terminated:
+        exitCode: 1
+        reason: Error
+        message: "No space left on device"
+        startedAt: "2024-01-01T00:10:00Z"
+        finishedAt: "2024-01-01T00:10:05Z"
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: logs-collector-crashloop
+  namespace: namespace-123
+  uid: e123-0001
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: logs-collector-6d4b7c8-h3k9m
+    namespace: namespace-123
+  reason: BackOff
+  message: "Back-off restarting failed container"
+  source:
+    component: kubelet
+  firstTimestamp: "2024-01-01T00:05:00Z"
+  lastTimestamp: "2024-01-01T00:15:00Z"
+  count: 8
+  type: Warning
+---
+# Add volume usage metrics
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: volume-metrics
+  namespace: namespace-123
+data:
+  df-output: |
+    Filesystem     1K-blocks      Used Available Use% Mounted on
+    /dev/xvdf       10485760  10485760         0 100% /var/logs
+  usage-stats: |
+    PVC: logs-storage
+    Total: 10Gi
+    Used: 10Gi (100%)
+    Available: 0 bytes
+    Inodes Used: 655360/655360 (100%)
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: pvc-capacity-warning
+  namespace: namespace-123
+  uid: e123-0002
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: logs-storage
+    namespace: namespace-123
+  reason: VolumeFullWarning
+  message: "Volume logs-storage is at 100% capacity (10Gi/10Gi used)"
+  source:
+    component: volume-monitor
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:15:00Z"
+  count: 30
+  type: Warning

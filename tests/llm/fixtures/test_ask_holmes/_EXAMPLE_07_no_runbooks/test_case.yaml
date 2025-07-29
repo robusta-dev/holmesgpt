@@ -1,0 +1,9 @@
+# Example test case with no runbooks available
+user_prompt: "Why is my pod crashing?"
+expected_output:
+  - pod crash
+  - kubectl logs
+  - kubectl describe
+
+# Empty runbooks catalog - no runbooks available
+runbooks: {}

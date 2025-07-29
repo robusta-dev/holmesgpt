@@ -1,0 +1,20 @@
+user_prompt: "Why is my custom CRD whale-watcher not being reconciled in namespace app-109?"
+tags:
+  - runbooks
+expected_output: |
+  - Does not find a matching runbook for custom CRD issues
+  - Proceeds with investigation without runbook guidance
+  - Uses available tools to investigate the issue
+  - Does not force-fit an inappropriate runbook
+
+runbooks:
+  catalog:
+    - description: "Pod Troubleshooting"
+      link: "pod_troubleshooting.md"
+      update_date: "2025-07-01"
+    - description: "Service Connectivity Issues"
+      link: "service_troubleshooting.md"
+      update_date: "2025-07-01"
+
+evaluation:
+  correctness: 0

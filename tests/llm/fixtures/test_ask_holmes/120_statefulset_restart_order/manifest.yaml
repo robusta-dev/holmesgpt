@@ -1,0 +1,190 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-120
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: namespace-120
+spec:
+  clusterIP: None
+  selector:
+    app: kafka
+  ports:
+  - port: 9092
+    targetPort: 9092
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: namespace-120
+spec:
+  serviceName: kafka-headless
+  replicas: 3
+  podManagementPolicy: Parallel  # This causes out-of-order startup issues
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:latest
+        ports:
+        - containerPort: 9092
+        env:
+        - name: KAFKA_BROKER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: "zookeeper:2181"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/kafka
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+---
+# Pod status showing restart order issues
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-0
+  namespace: namespace-120
+  labels:
+    app: kafka
+    statefulset.kubernetes.io/pod-name: kafka-0
+spec:
+  containers:
+  - name: kafka
+    image: confluentinc/cp-kafka:latest
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "False"
+  containerStatuses:
+  - name: kafka
+    state:
+      waiting:
+        reason: CrashLoopBackOff
+        message: "Back-off 5m0s restarting failed container=kafka pod=kafka-0"
+    restartCount: 12
+    lastState:
+      terminated:
+        exitCode: 1
+        reason: Error
+        message: "FATAL: Unable to elect leader, kafka-2 claimed leadership but I am kafka-0"
+        startedAt: "2024-01-01T00:10:00Z"
+        finishedAt: "2024-01-01T00:10:30Z"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-1
+  namespace: namespace-120
+  labels:
+    app: kafka
+    statefulset.kubernetes.io/pod-name: kafka-1
+spec:
+  containers:
+  - name: kafka
+    image: confluentinc/cp-kafka:latest
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "False"
+  containerStatuses:
+  - name: kafka
+    state:
+      waiting:
+        reason: CrashLoopBackOff
+        message: "Back-off 5m0s restarting failed container=kafka pod=kafka-1"
+    restartCount: 10
+    lastState:
+      terminated:
+        exitCode: 1
+        reason: Error
+        message: "FATAL: Inconsistent cluster state, kafka-2 is leader but started after me"
+        startedAt: "2024-01-01T00:11:00Z"
+        finishedAt: "2024-01-01T00:11:30Z"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-2
+  namespace: namespace-120
+  labels:
+    app: kafka
+    statefulset.kubernetes.io/pod-name: kafka-2
+spec:
+  containers:
+  - name: kafka
+    image: confluentinc/cp-kafka:latest
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "True"
+  containerStatuses:
+  - name: kafka
+    state:
+      running:
+        startedAt: "2024-01-01T00:05:00Z"
+    ready: true
+    restartCount: 0
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: kafka-0-crashloop
+  namespace: namespace-120
+  uid: e120-0001
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: kafka-0
+    namespace: namespace-120
+  reason: BackOff
+  message: "Back-off restarting failed container"
+  source:
+    component: kubelet
+  firstTimestamp: "2024-01-01T00:10:30Z"
+  lastTimestamp: "2024-01-01T00:15:00Z"
+  count: 12
+  type: Warning
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: statefulset-parallel-warning
+  namespace: namespace-120
+  uid: e120-0002
+spec:
+  involvedObject:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: kafka
+    namespace: namespace-120
+  reason: ParallelPodManagement
+  message: "StatefulSet has Parallel pod management policy. Pods may start out of order."
+  source:
+    component: statefulset-controller
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:00:00Z"
+  count: 1
+  type: Normal

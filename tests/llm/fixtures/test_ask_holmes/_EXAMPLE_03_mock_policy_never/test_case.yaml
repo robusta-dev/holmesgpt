@@ -1,0 +1,25 @@
+user_prompt: "Check the current CPU usage of nodes"
+expected_output:
+  - Should show real-time CPU metrics
+  - Data will vary based on actual cluster state
+mock_policy: "never_mock"
+skip: true
+skip_reason: "Example test demonstrating mock_policy=never_mock"
+evaluation:
+  correctness: 0
+tags:
+  - synthetic
+  - network
+
+# This example demonstrates mock_policy: never_mock
+#
+# With this setting:
+# - The test ALWAYS uses live tools, never mocks
+# - Test is automatically skipped if RUN_LIVE is not set
+# - Useful for integration tests that must verify real behavior
+# - Cannot be used in CI without live cluster access
+#
+# Use cases:
+# - Testing actual tool integrations
+# - Verifying real API responses
+# - Debugging tool implementations

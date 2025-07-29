@@ -1,0 +1,20 @@
+user_prompt: "I have a Kafka lag troubleshooting runbook that checks consumer groups and topic partitions, but I don't have Kafka tools configured. My sea-turtle app in namespace app-104 is experiencing message processing delays."
+tags:
+  - runbooks
+expected_output: |
+  - Acknowledges the user's Kafka lag troubleshooting runbook
+  - Confirms that Kafka toolset is not enabled/configured
+  - Provides specific guidance on how to enable Kafka toolset
+  - Executes any Kubernetes-based investigation steps that are possible
+  - Lists which runbook steps require the missing Kafka tools
+
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  kafka:
+    enabled: false
+
+evaluation:
+  correctness: 0

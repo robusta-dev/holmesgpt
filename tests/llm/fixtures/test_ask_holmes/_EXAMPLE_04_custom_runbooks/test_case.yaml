@@ -1,0 +1,17 @@
+# Example test case showing how to use custom runbooks
+user_prompt: "I'm experiencing DNS resolution issues in my kubernetes cluster"
+expected_output:
+  - DNS troubleshooting runbook found
+  - fetch_runbook tool called
+  - k8s-dns-troubleshooting.md
+
+# Custom runbook catalog - inline definition
+# The actual markdown files referenced here should be placed in the same directory
+runbooks:
+  catalog:
+    - update_date: "2025-07-26"
+      description: "Runbook for troubleshooting DNS issues in Kubernetes"
+      link: "k8s-dns-troubleshooting.md"
+    - update_date: "2025-07-26"
+      description: "Runbook for debugging pod crashes"
+      link: "pod-crash-debug.md"

@@ -1,0 +1,15 @@
+user_prompt: "Why is the kafka cluster not forming properly in namespace-120?"
+tags:
+  - kubernetes
+expected_output:
+  - Kafka cluster not forming because StatefulSet pods restarted in wrong order
+  - kafka-2 started before kafka-0 and kafka-1, breaking cluster formation
+  - kafka-0 and kafka-1 pods are in CrashLoopBackOff waiting for leader election
+  - StatefulSet should restart pods in order (0, 1, 2) but parallel pod management policy caused out-of-order startup
+before_test: |
+  kubectl apply -f ./manifest.yaml
+  sleep 30
+after_test: |
+  kubectl delete -f ./manifest.yaml
+evaluation:
+  correctness: 1

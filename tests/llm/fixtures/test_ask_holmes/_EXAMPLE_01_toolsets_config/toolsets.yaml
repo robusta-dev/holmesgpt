@@ -1,0 +1,23 @@
+toolsets:
+  kubernetes/core:
+    enabled: true
+
+  prometheus/metrics:
+    enabled: true
+    config:
+      prometheus_url: "http://custom-prometheus:9090"
+      prometheus_username: "admin"
+      prometheus_password: "secretpass"
+
+  grafana/dashboards:
+    enabled: false  # Explicitly disable grafana
+
+  # You can also configure toolsets that aren't enabled by default
+  rabbitmq/core:
+    enabled: true
+    config:
+      clusters:
+        - id: rabbitmq-test
+          username: guest
+          password: guest
+          management_url: http://rabbitmq:15672

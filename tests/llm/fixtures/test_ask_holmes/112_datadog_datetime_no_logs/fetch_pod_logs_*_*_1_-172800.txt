@@ -1,0 +1,1 @@
+Healthcheck log entry - DataDog is working correctly

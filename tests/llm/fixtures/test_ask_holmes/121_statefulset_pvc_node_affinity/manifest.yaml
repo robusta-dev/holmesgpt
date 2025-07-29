@@ -1,0 +1,176 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-121
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: namespace-121
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: namespace-121
+spec:
+  serviceName: postgres-headless
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+# PVC bound to node-a
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-postgres-1
+  namespace: namespace-121
+  labels:
+    app: postgres
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  volumeName: pv-postgres-1
+  storageClassName: fast-ssd
+status:
+  phase: Bound
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 10Gi
+---
+# PV with node affinity to node-a
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-postgres-1
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: fast-ssd
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - node-a
+  claimRef:
+    namespace: namespace-121
+    name: data-postgres-1
+status:
+  phase: Bound
+---
+# Pod scheduled on wrong node
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres-1
+  namespace: namespace-121
+  labels:
+    app: postgres
+    statefulset.kubernetes.io/pod-name: postgres-1
+spec:
+  nodeName: node-b  # Scheduled on different node than PVC
+  containers:
+  - name: postgres
+    image: postgres:13
+    volumeMounts:
+    - name: data
+      mountPath: /var/lib/postgresql/data
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: data-postgres-1
+status:
+  phase: Pending
+  conditions:
+  - type: PodScheduled
+    status: "True"
+  - type: ContainersReady
+    status: "False"
+    reason: ContainersNotReady
+    message: "containers with unready status: [postgres]"
+  containerStatuses:
+  - name: postgres
+    state:
+      waiting:
+        reason: ContainerCreating
+        message: "AttachVolume.Attach failed for volume \"pv-postgres-1\": volume is already exclusively attached to node node-a and can't be attached to another node"
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: postgres-1-attach-error
+  namespace: namespace-121
+  uid: e121-0001
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: postgres-1
+    namespace: namespace-121
+  reason: FailedAttachVolume
+  message: "AttachVolume.Attach failed for volume \"pv-postgres-1\": volume is already exclusively attached to node node-a and can't be attached to another node"
+  source:
+    component: attachdetach-controller
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:05:00Z"
+  count: 10
+  type: Warning
+---
+# First pod running fine on correct node
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres-0
+  namespace: namespace-121
+  labels:
+    app: postgres
+spec:
+  nodeName: node-a
+  containers:
+  - name: postgres
+    image: postgres:13
+status:
+  phase: Running
+  conditions:
+  - type: Ready
+    status: "True"

@@ -107,7 +107,7 @@ markers = [
     "medium: Tests that we want to focus on in the near future and get holmes to pass them",
     "hard: Tests that are hard and holmes does not pass today and might not pass in the near future",
     "transparency: Holmes communicates to the user when it encounters problems fulfilling the user's request",
-    "kafka: Tests involving Kafka functionality",
+    "datadog: Tests involving DataDog integration and functionality",
     "leaked-information: cases where the eval is accidentally leaking information that should not be available to the LLM - e.g. if the names of environment variables or the docker image gives away part of the test"
 ]
 

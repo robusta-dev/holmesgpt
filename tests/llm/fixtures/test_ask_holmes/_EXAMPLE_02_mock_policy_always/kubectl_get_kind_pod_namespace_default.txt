@@ -1,0 +1,5 @@
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_get", "match_params": {"kind": "pod", "namespace": "default"}}
+{"status": "success", "metadata": {"execution_time": 0.5, "pod_count": 2}}
+NAME                    READY   STATUS    RESTARTS   AGE
+example-pod-1           1/1     Running   0          5d
+example-pod-2           1/1     Running   0          3d

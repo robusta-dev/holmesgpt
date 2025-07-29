@@ -1,0 +1,15 @@
+user_prompt: "Why is the logs-collector pod crashing in namespace-123?"
+tags:
+  - kubernetes
+expected_output:
+  - logs-collector pod crashing because PVC is at full capacity (10Gi used of 10Gi)
+  - Application trying to write logs but no space left on device
+  - Pod enters CrashLoopBackOff after failing to write to full volume
+  - Need to either increase PVC size or clean up old data
+before_test: |
+  kubectl apply -f ./manifest.yaml
+  sleep 20
+after_test: |
+  kubectl delete -f ./manifest.yaml
+evaluation:
+  correctness: 1

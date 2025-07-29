@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-118
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-frontend
+  namespace: namespace-118
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: web-frontend
+  template:
+    metadata:
+      labels:
+        app: web-frontend
+    spec:
+      containers:
+      - name: app
+        image: busybox
+        command: ["sh", "-c", "while true; do echo 'Processing request...'; sleep 5; done"]
+        resources:
+          requests:
+            cpu: 500m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web-frontend-hpa
+  namespace: namespace-118
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web-frontend
+  minReplicas: 5
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 200
+        periodSeconds: 15
+status:
+  currentReplicas: 8
+  desiredReplicas: 15
+  currentMetrics:
+  - type: Resource
+    resource:
+      name: cpu
+      current:
+        averageUtilization: 95
+        averageValue: 950m
+  conditions:
+  - type: AbleToScale
+    status: "True"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: SucceededGetScale
+    message: "the HPA controller was able to get the target's current scale"
+  - type: ScalingActive
+    status: "True"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: ValidMetricFound
+    message: "the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)"
+  - type: ScalingLimited
+    status: "False"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: DesiredWithinRange
+    message: "the desired count is within the acceptable range"
+---
+# Simulate pods that couldn't be scheduled
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-frontend-pending-1
+  namespace: namespace-118
+  labels:
+    app: web-frontend
+spec:
+  schedulerName: default-scheduler
+  containers:
+  - name: app
+    image: busybox
+    resources:
+      requests:
+        cpu: 500m
+        memory: 256Mi
+status:
+  phase: Pending
+  conditions:
+  - type: PodScheduled
+    status: "False"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: Unschedulable
+    message: "0/3 nodes are available: 3 Insufficient cpu. preemption: 0/3 nodes are available: 3 No preemption victims found for incoming pod."
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-frontend-pending-2
+  namespace: namespace-118
+  labels:
+    app: web-frontend
+spec:
+  schedulerName: default-scheduler
+  containers:
+  - name: app
+    image: busybox
+    resources:
+      requests:
+        cpu: 500m
+        memory: 256Mi
+status:
+  phase: Pending
+  conditions:
+  - type: PodScheduled
+    status: "False"
+    lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: Unschedulable
+    message: "0/3 nodes are available: 3 Insufficient cpu. preemption: 0/3 nodes are available: 3 No preemption victims found for incoming pod."
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: cluster-autoscaler-max-nodes-reached
+  namespace: kube-system
+  uid: e118-0001
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: ConfigMap
+    name: cluster-autoscaler-status
+    namespace: kube-system
+  reason: MaxNodeLimitReached
+  message: "Cluster autoscaler reached maximum node limit (3). Cannot scale up further."
+  source:
+    component: cluster-autoscaler
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:05:00Z"
+  count: 10
+  type: Warning
+---
+apiVersion: v1
+kind: Event
+metadata:
+  name: web-frontend-pending-1-unschedulable
+  namespace: namespace-118
+  uid: e118-0002
+spec:
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: web-frontend-pending-1
+    namespace: namespace-118
+  reason: FailedScheduling
+  message: "0/3 nodes are available: 3 Insufficient cpu. preemption: 0/3 nodes are available: 3 No preemption victims found for incoming pod."
+  source:
+    component: default-scheduler
+  firstTimestamp: "2024-01-01T00:00:00Z"
+  lastTimestamp: "2024-01-01T00:05:00Z"
+  count: 15
+  type: Warning
