@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: scheduler
-  namespace: namespace-73
+  name: cron-scheduler
+  namespace: namespace-73b
   labels:
-    app: scheduler
+    app: cron-scheduler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: scheduler
+      app: cron-scheduler
   template:
     metadata:
       labels:
-        app: scheduler
+        app: cron-scheduler
     spec:
       containers:
-      - name: scheduler
+      - name: cron-scheduler
         image: python:3.9-slim
         command: ["python"]
         args: ["/scripts/generate_logs.py"]
@@ -30,6 +30,6 @@ spec:
       volumes:
       - name: script-volume
         secret:
-          secretName: scheduler-logs-script
+          secretName: cron-scheduler-logs-script
           defaultMode: 0755
       restartPolicy: Always
