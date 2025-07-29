@@ -42,7 +42,6 @@ def generate_logs():
                 ]
             )
             print(f"[{timestamp}] {log_type}")
-            time.sleep(0.2)
 
         # Generate errors from all categories
         for error_msg, error_type in error_scenarios:
@@ -56,9 +55,8 @@ def generate_logs():
                 elif "db" in error_type:
                     print(f"[{timestamp}] WARN: Database operation rollback initiated")
 
-                time.sleep(0.5)
-
-        time.sleep(3)
+        while True:
+            time.sleep(1000)
 
 
 if __name__ == "__main__":
