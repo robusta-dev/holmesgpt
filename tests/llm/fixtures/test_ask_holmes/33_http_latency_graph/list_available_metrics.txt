@@ -1,4 +1,5 @@
-{"toolset_name":"prometheus/metrics","tool_name":"list_available_metrics","match_params":{"name_filter":"*"}}
+{"toolset_name": "prometheus/metrics", "tool_name": "list_available_metrics", "match_params": {"name_filter": "*"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "list_available_metrics command", "params": {"name_filter": "*"}}
 Metric | Description | Type | Labels
 ----------------------------------------------------------------------------------------------------
 alertmanager_http_concurrency_limit_exceeded_total | Total number of times an HTTP request failed because the concurrency limit was reached. | counter | container, endpoint, instance, job, method, namespace, pod, service

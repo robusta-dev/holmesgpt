@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/kube-lineage-extras","tool_name":"kubectl_lineage_children","match_params":{"kind":"deployment","name":"backend-service","namespace":"minishop"}}
+{"toolset_name": "kubernetes/kube-lineage-extras", "tool_name": "kubectl_lineage_children", "match_params": {"kind": "deployment", "name": "backend-service", "namespace": "minishop"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_lineage_children command", "params": {"kind": "deployment", "name": "backend-service", "namespace": "minishop"}}
 stdout:
 NAME                                                                  READY   STATUS                                                                                                                                                                      AGE
 Deployment/backend-service                                            1/1                                                                                                                                                                                 17h

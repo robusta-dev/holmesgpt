@@ -3,6 +3,7 @@ import os
 import sys
 
 from holmes.utils.cert_utils import add_custom_certificate
+from holmes.utils.colors import USER_COLOR
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -16,7 +17,6 @@ import json
 import logging
 import socket
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -219,16 +219,20 @@ def ask(
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)  # type: ignore
-
     # Detect and read piped input
     piped_data = None
-    if not sys.stdin.isatty():
+
+    # when attaching a pycharm debugger sys.stdin.isatty() returns false and sys.stdin.read() is stuck
+    running_from_pycharm = os.environ.get("PYCHARM_HOSTED", False)
+
+    if not sys.stdin.isatty() and not running_from_pycharm:
         piped_data = sys.stdin.read().strip()
         if interactive:
             console.print(
                 "[bold yellow]Interactive mode disabled when reading piped input[/bold yellow]"
             )
             interactive = False
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -241,10 +245,7 @@ def ask(
 
     # Create tracer if trace option is provided
     tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
-    experiment_name = f"holmes-ask-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    tracer.start_experiment(
-        experiment_name=experiment_name, metadata={"prompt": prompt or "holmes-ask"}
-    )
+    tracer.start_experiment()
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
@@ -285,7 +286,7 @@ def ask(
             prompt = f"Here's some piped output:\n\n{piped_data}\n\nWhat can you tell me about this output?"
 
     if echo_request and not interactive and prompt:
-        console.print("[bold yellow]User:[/bold yellow] " + prompt)
+        console.print(f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {prompt}")
 
     if interactive:
         run_interactive_loop(

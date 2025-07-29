@@ -29,19 +29,28 @@ from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
 from holmes.core.tracing import DummyTracer
+from holmes.utils.colors import (
+    AI_COLOR,
+    ERROR_COLOR,
+    HELP_COLOR,
+    STATUS_COLOR,
+    TOOLS_COLOR,
+    USER_COLOR,
+)
+from holmes.utils.console.consts import agent_name
+from holmes.version import check_version_async
 
 
 class SlashCommands(Enum):
     EXIT = ("/exit", "Exit interactive mode")
     HELP = ("/help", "Show help message with all commands")
-    RESET = ("/reset", "Reset the conversation context")
+    CLEAR = ("/clear", "Clear screen and reset conversation context")
     TOOLS_CONFIG = ("/tools", "Show available toolsets and their status")
     TOGGLE_TOOL_OUTPUT = (
         "/auto",
         "Toggle auto-display of tool outputs after responses",
     )
     LAST_OUTPUT = ("/last", "Show all tool outputs from last response")
-    CLEAR = ("/clear", "Clear the terminal screen")
     RUN = ("/run", "Run a bash command and optionally share with LLM")
     SHELL = (
         "/shell",
@@ -139,12 +148,47 @@ class ConditionalExecutableCompleter(Completer):
                         )
 
 
-USER_COLOR = "#DEFCC0"  # light green
-AI_COLOR = "#00FFFF"  # cyan
-TOOLS_COLOR = "magenta"
-HELP_COLOR = "cyan"  # same as AI_COLOR for now
-ERROR_COLOR = "red"
-STATUS_COLOR = "yellow"
+class ShowCommandCompleter(Completer):
+    """Completer that provides suggestions for /show command based on tool call history"""
+
+    def __init__(self):
+        self.tool_calls_history = []
+
+    def update_history(self, tool_calls_history: List[ToolCallResult]):
+        """Update the tool calls history for completion suggestions"""
+        self.tool_calls_history = tool_calls_history
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+
+        # Only provide completion if the line starts with /show
+        if text.startswith("/show "):
+            # Extract the argument part after "/show "
+            show_part = text[6:]  # Remove "/show "
+
+            # Don't complete if there are already multiple words
+            words = show_part.split()
+            if len(words) > 1:
+                return
+
+            # Provide completions based on available tool calls
+            if self.tool_calls_history:
+                for i, tool_call in enumerate(self.tool_calls_history):
+                    tool_index = str(i + 1)  # 1-based index
+                    tool_description = tool_call.description
+
+                    # Complete tool index numbers (show all if empty, or filter by what user typed)
+                    if (
+                        not show_part
+                        or tool_index.startswith(show_part)
+                        or show_part.lower() in tool_description.lower()
+                    ):
+                        yield Completion(
+                            tool_index,
+                            start_position=-len(show_part),
+                            display=f"{tool_index} - {tool_description}",
+                        )
+
 
 WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
@@ -596,7 +640,7 @@ def handle_shell_command(
         Formatted user input string if user chooses to share, None otherwise
     """
     console.print(
-        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
+        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to {agent_name}.[/bold {STATUS_COLOR}]"
     )
     console.print(
         "[dim]Shell session will be recorded and can be shared with LLM when you exit.[/dim]"
@@ -733,13 +777,14 @@ def run_interactive_loop(
         }
     )
 
-    # Create merged completer with slash commands, conditional executables, and smart paths
+    # Create merged completer with slash commands, conditional executables, show command, and smart paths
     slash_completer = SlashCommandCompleter()
     executable_completer = ConditionalExecutableCompleter()
+    show_completer = ShowCommandCompleter()
     path_completer = SmartPathCompleter()
 
     command_completer = merge_completers(
-        [slash_completer, executable_completer, path_completer]
+        [slash_completer, executable_completer, show_completer, path_completer]
     )
 
     # Use file-based history
@@ -752,6 +797,23 @@ def run_interactive_loop(
     # Create custom key bindings for Ctrl+C behavior
     bindings = KeyBindings()
     status_message = ""
+    version_message = ""
+
+    def clear_version_message():
+        nonlocal version_message
+        version_message = ""
+        session.app.invalidate()
+
+    def on_version_check_complete(result):
+        """Callback when background version check completes"""
+        nonlocal version_message
+        if not result.is_latest and result.update_message:
+            version_message = result.update_message
+            session.app.invalidate()
+
+            # Auto-clear after 10 seconds
+            timer = threading.Timer(10, clear_version_message)
+            timer.start()
 
     @bindings.add("c-c")
     def _(event):
@@ -775,9 +837,19 @@ def run_interactive_loop(
             raise KeyboardInterrupt()
 
     def get_bottom_toolbar():
+        messages = []
+
+        # Ctrl-c status message (red background)
         if status_message:
-            return [("bg:#ff0000 fg:#000000", status_message)]
-        return None
+            messages.append(("bg:#ff0000 fg:#000000", status_message))
+
+        # Version message (yellow background)
+        if version_message:
+            if messages:
+                messages.append(("", " | "))
+            messages.append(("bg:#ffff00 fg:#000000", version_message))
+
+        return messages if messages else None
 
     session = PromptSession(
         completer=command_completer,
@@ -787,6 +859,9 @@ def run_interactive_loop(
         key_bindings=bindings,
         bottom_toolbar=get_bottom_toolbar,
     )  # type: ignore
+
+    # Start background version check
+    check_version_async(on_version_check_complete)
 
     input_prompt = [("class:prompt", "User: ")]
 
@@ -832,13 +907,16 @@ def run_interactive_loop(
                     for cmd, description in SLASH_COMMANDS_REFERENCE.items():
                         console.print(f"  [bold]{cmd}[/bold] - {description}")
                     continue
-                elif command == SlashCommands.RESET.value:
+                elif command == SlashCommands.CLEAR.command:
+                    console.clear()
                     console.print(
-                        f"[bold {STATUS_COLOR}]Context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
+                        f"[bold {STATUS_COLOR}]Screen cleared and context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
                     )
                     messages = None
                     last_response = None
                     all_tool_calls_history.clear()
+                    # Reset the show completer history
+                    show_completer.update_history([])
                     continue
                 elif command == SlashCommands.TOOLS_CONFIG.command:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
@@ -852,9 +930,6 @@ def run_interactive_loop(
                     continue
                 elif command == SlashCommands.LAST_OUTPUT.command:
                     handle_last_command(last_response, console, all_tool_calls_history)
-                    continue
-                elif command == SlashCommands.CLEAR.command:
-                    console.clear()
                     continue
                 elif command == SlashCommands.CONTEXT.command:
                     handle_context_command(messages, ai, console)
@@ -901,7 +976,10 @@ def run_interactive_loop(
                     metadata={"type": "user_question"},
                 )
                 response = ai.call(
-                    messages, post_processing_prompt, trace_span=trace_span
+                    messages,
+                    post_processing_prompt,
+                    trace_span=trace_span,
+                    tool_number_offset=len(all_tool_calls_history),
                 )
                 trace_span.log(
                     output=response.result,
@@ -913,6 +991,8 @@ def run_interactive_loop(
 
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
+                # Update the show completer with the latest tool call history
+                show_completer.update_history(all_tool_calls_history)
 
             if show_tool_output and response.tool_calls:
                 display_recent_tool_outputs(

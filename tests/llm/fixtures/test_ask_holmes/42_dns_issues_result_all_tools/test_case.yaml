@@ -12,3 +12,6 @@ evaluation:
   correctness: 0
 include_files:
   - dns_troubleshooting_instructions.md
+
+skip: true
+skip_reason: historical experiment

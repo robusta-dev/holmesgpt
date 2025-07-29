@@ -1,4 +1,5 @@
-{"toolset_name":"robusta","tool_name":"fetch_finding_by_id","match_params":{"id":"3baf467c-d6ef-4aac-8e8b-6ddb34a07bb1"}}
+{"toolset_name": "robusta", "tool_name": "fetch_finding_by_id", "match_params": {"id": "3baf467c-d6ef-4aac-8e8b-6ddb34a07bb1"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "fetch_finding_by_id command", "params": {"id": "3baf467c-d6ef-4aac-8e8b-6ddb34a07bb1"}}
 {
   "id": "3baf467c-d6ef-4aac-8e8b-6ddb34a07bb1",
   "description": "HTTP Requests to the '/checkout' endpoint in customer-orders-app are taking longer than 3 seconds",

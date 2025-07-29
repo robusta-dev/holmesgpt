@@ -8,7 +8,7 @@ import pytest
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tool_calling_llm import IssueInvestigator
-import tests.llm.utils.braintrust as braintrust_util
+from holmes.core.tracing import TracingFactory
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
@@ -17,11 +17,14 @@ from tests.llm.utils.classifiers import (
     evaluate_sections,
 )
 from tests.llm.utils.commands import set_test_env_vars
-from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.system import get_machine_state_tags
 from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsetManager
-from tests.llm.utils.test_case_utils import InvestigateTestCase, MockHelper, Evaluation
+from tests.llm.utils.test_case_utils import (
+    InvestigateTestCase,
+    MockHelper,
+    check_and_skip_test,
+)
+from tests.llm.utils.property_manager import set_initial_properties, update_test_results
 from os import path
 from unittest.mock import patch
 
@@ -44,11 +47,12 @@ class MockConfig(Config):
         mock = MockToolsetManager(
             test_case_folder=self._test_case.folder,
             mock_generation_config=self._mock_generation_config,
+            mock_policy=self._test_case.mock_policy,
         )
 
         # With the new file-based mock system, mocks are loaded from disk automatically
         # No need to call mock_tool() anymore
-        return ToolExecutor(mock.enabled_toolsets)
+        return ToolExecutor(mock.toolsets)
 
     def create_issue_investigator(
         self,
@@ -63,34 +67,18 @@ class MockConfig(Config):
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("investigate")
-    dataset_name = braintrust_util.get_dataset_name("investigate")
-
     mh = MockHelper(TEST_CASES_FOLDER)
 
-    if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
-        bt_helper.upload_test_cases(mh.load_test_cases())
+    # dataset_name = braintrust_util.get_dataset_name("investigate")
+    # if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
+    #     bt_helper = braintrust_util.BraintrustEvalHelper(
+    #         project_name=BRAINTRUST_PROJECT, dataset_name=dataset_name
+    #     )
+    #     bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_investigate_test_cases()
-
-    iterations = int(os.environ.get("ITERATIONS", "0"))
-    if iterations:
-        test_cases_tuples = []
-        for i in range(0, iterations):
-            test_cases_tuples.extend(
-                [
-                    add_tags_to_eval(experiment_name, test_case)
-                    for test_case in test_cases
-                ]
-            )
-        return test_cases_tuples
-    else:
-        return [
-            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
-        ]
+    iterations = int(os.environ.get("ITERATIONS", "1"))
+    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
 
 
 def idfn(val):
@@ -101,27 +89,31 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
 def test_investigate(
-    experiment_name: str,
     test_case: InvestigateTestCase,
     caplog,
     request,
     mock_generation_config,
+    shared_test_infrastructure,  # type: ignore
 ):
-    # Use unified tracing API for evals
-    from holmes.core.tracing import TracingFactory
+    # Set initial properties early so they're available even if test fails
+    set_initial_properties(request, test_case)
 
-    tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
+    # Check if test should be skipped
+    check_and_skip_test(test_case)
 
-    # Create experiment using unified API
-    tracer.start_experiment(
-        experiment_name=experiment_name,
-        metadata=braintrust_util.get_machine_state_tags(),
-    )
+    # Check for setup failures
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        request.node.user_properties.append(("is_setup_failure", True))
+        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
+    tracer = TracingFactory.create_tracer("braintrust")
     config = MockConfig(test_case, tracer, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
+    metadata = {"model": config.model or "Unknown"}
+    tracer.start_experiment(additional_metadata=metadata)
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
@@ -134,9 +126,6 @@ def test_investigate(
     expected = test_case.expected_output
     result = None
 
-    metadata = get_machine_state_tags()
-    metadata["model"] = config.model or "Unknown"
-
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:
         investigate_request.sections = DEFAULT_SECTIONS
@@ -145,7 +134,7 @@ def test_investigate(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
         with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.TASK
+            name=test_case.id, span_type=SpanType.EVAL
         ) as eval_span:
             # Store span info in user properties for conftest to access
             if hasattr(eval_span, "id"):
@@ -158,9 +147,12 @@ def test_investigate(
                 )
 
             with set_test_env_vars(test_case):
-                result = investigate_issues(
-                    investigate_request=investigate_request, config=config, dal=mock_dal
-                )
+                with eval_span.start_span("Holmes Run", type=SpanType.LLM):
+                    result = investigate_issues(
+                        investigate_request=investigate_request,
+                        config=config,
+                        dal=mock_dal,
+                    )
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
@@ -207,25 +199,8 @@ def test_investigate(
     print(f"\n** SCORES **\n{scores}")
 
     # Store data for summary plugin
-    expected_correctness_score = (
-        test_case.evaluation.correctness.expected_score
-        if isinstance(test_case.evaluation.correctness, Evaluation)
-        else test_case.evaluation.correctness
-    )
-    request.node.user_properties.append(("expected", debug_expected))
-    request.node.user_properties.append(("actual", output or ""))
-    request.node.user_properties.append(
-        (
-            "tools_called",
-            tools_called if isinstance(tools_called, list) else [str(tools_called)],
-        )
-    )
-    request.node.user_properties.append(
-        ("expected_correctness_score", expected_correctness_score)
-    )
-    request.node.user_properties.append(
-        ("actual_correctness_score", scores.get("correctness", 0))
-    )
+    # Update test results
+    update_test_results(request, output, tools_called, scores)
 
     assert result.sections, "Missing sections"
     assert (

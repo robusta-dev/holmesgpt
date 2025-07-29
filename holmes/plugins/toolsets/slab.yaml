@@ -11,7 +11,7 @@ toolsets:
           - SLAB_API_KEY
     tools:
       - name: "fetch_slab_document"
-        description: "Fetch a document from slab. Use this to fetch runbooks if they are present before starting your investigation."
+        description: "Fetch a document from slab."
         command: |
           curl -X POST \
           -H "Authorization: ${SLAB_API_KEY}" \

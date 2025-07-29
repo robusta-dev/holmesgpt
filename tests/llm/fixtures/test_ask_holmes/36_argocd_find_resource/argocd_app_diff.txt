@@ -1,4 +1,5 @@
-{"toolset_name":"argocd/core","tool_name":"argocd_app_diff","match_params":{"app_name":"argocd/demo-app"}}
+{"toolset_name": "argocd/core", "tool_name": "argocd_app_diff", "match_params": {"app_name": "argocd/demo-app"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "argocd_app_diff command", "params": {"app_name": "argocd/demo-app"}}
 Command `argocd app diff argocd/demo-app` failed with return code 1
 stdout:
 

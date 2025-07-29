@@ -1,4 +1,5 @@
-{"toolset_name":"argocd/core","tool_name":"argocd_app_get","match_params":{"app_name":"demo-app"}}
+{"toolset_name": "argocd/core", "tool_name": "argocd_app_get", "match_params": {"app_name": "demo-app"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "argocd_app_get command", "params": {"app_name": "demo-app"}}
 stdout:
 Name:               argocd/demo-app
 Project:            default

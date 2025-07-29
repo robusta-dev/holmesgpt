@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
-from holmes import get_version  # type: ignore
-from holmes.clients.robusta_client import HolmesInfo, fetch_holmes_info
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
@@ -119,25 +117,7 @@ class Config(RobustaBaseConfig):
 
     _server_tool_executor: Optional[ToolExecutor] = None
 
-    _version: Optional[str] = None
-    _holmes_info: Optional[HolmesInfo] = None
-
     _toolset_manager: Optional[ToolsetManager] = None
-
-    @property
-    def is_latest_version(self) -> bool:
-        if (
-            not self._holmes_info
-            or not self._holmes_info.latest_version
-            or not self._version
-        ):
-            # We couldn't resolve version, assume we are running the latest version
-            return True
-        if self._version.startswith("dev-"):
-            # dev versions are considered to be the latest version
-            return True
-
-        return self._version.startswith(self._holmes_info.latest_version)
 
     @property
     def toolset_manager(self) -> ToolsetManager:
@@ -150,8 +130,6 @@ class Config(RobustaBaseConfig):
         return self._toolset_manager
 
     def model_post_init(self, __context: Any) -> None:
-        self._version = get_version()
-        self._holmes_info = fetch_holmes_info()
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
         if self._should_load_robusta_ai():
             logging.info("Loading Robusta AI model")
@@ -181,11 +159,6 @@ class Config(RobustaBaseConfig):
     def log_useful_info(self):
         if self._model_list:
             logging.info(f"loaded models: {list(self._model_list.keys())}")
-
-        if not self.is_latest_version and self._holmes_info:
-            logging.warning(
-                f"You are running version {self._version} of holmes, but the latest version is {self._holmes_info.latest_version}. Please update.",
-            )
 
     @classmethod
     def load_from_file(cls, config_file: Optional[Path], **kwargs) -> "Config":
