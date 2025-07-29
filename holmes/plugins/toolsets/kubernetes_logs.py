@@ -200,7 +200,7 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
                 or (params.limit and params.limit < filtered_count_before_limit)
             ):
                 metadata_lines = [
-                    f"Total logs found: {total_count}",
+                    f"Total logs found (before filtering): {total_count}",
                 ]
 
                 if params.filter:
