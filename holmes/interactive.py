@@ -19,9 +19,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
+from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
@@ -229,6 +231,28 @@ def build_modal_title(tool_call: ToolCallResult, wrap_status: str) -> str:
     return f"{tool_call.description} (exit: q, nav: ↑↓/j/k/g/G/d/u/f/b/space, wrap: w [{wrap_status}])"
 
 
+def detect_lexer(content: str) -> Optional[PygmentsLexer]:
+    """
+    Detect appropriate lexer for content using Pygments' built-in detection.
+
+    Args:
+        content: String content to analyze
+
+    Returns:
+        PygmentsLexer instance if content type is detected, None otherwise
+    """
+    if not content.strip():
+        return None
+
+    try:
+        # Use Pygments' built-in lexer guessing
+        lexer = guess_lexer(content)
+        return PygmentsLexer(lexer.__class__)
+    except Exception:
+        # If detection fails, return None for no syntax highlighting
+        return None
+
+
 def handle_show_command(
     show_arg: str, all_tool_calls_history: List[ToolCallResult], console: Console
 ) -> None:
@@ -290,6 +314,9 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         output = tool_call.result.get_stringified_data()
         title = build_modal_title(tool_call, "off")  # Word wrap starts disabled
 
+        # Detect appropriate syntax highlighting
+        lexer = detect_lexer(output)
+
         # Create text area with the output
         text_area = TextArea(
             text=output,
@@ -297,6 +324,7 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
             scrollbar=True,
             line_numbers=False,
             wrap_lines=False,  # Disable word wrap by default
+            lexer=lexer,
         )
 
         # Create header
