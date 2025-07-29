@@ -6,7 +6,11 @@ import random
 
 
 def generate_log_entry(
-    active_connections, max_connections=100, wait_time=None, error=None
+    active_connections,
+    max_connections=100,
+    wait_time=None,
+    error=None,
+    sequence_num=None,
 ):
     timestamp = datetime.utcnow()
 
@@ -39,21 +43,30 @@ def generate_log_entry(
     if wait_time:
         entry["connection_wait_ms"] = wait_time
 
+    if sequence_num is not None:
+        entry["seq"] = sequence_num
+
     return json.dumps(entry)
 
 
 def main():
-    # Normal operation for first 50,000 logs (5-20 connections)
-    for i in range(50000):
-        connections = random.randint(5, 20)
-        print(generate_log_entry(connections))
+    seq = 0
 
-    # Gradual increase during peak hours (position: 50% through logs)
-    for i in range(10000):
+    # Normal operation for first ~1000 logs (5-20 connections)
+    # Was 50,000, now 1000 (50% of total)
+    for i in range(1000):
+        connections = random.randint(5, 20)
+        print(generate_log_entry(connections, sequence_num=seq))
+        seq += 1
+
+    # Gradual increase during peak hours
+    # Was 10,000, now 200 (10% of total)
+    for i in range(200):
         # Gradually increase from 20 to 80 connections
-        connections = 20 + int((i / 10000) * 60)
+        connections = 20 + int((i / 200) * 60)
         wait_time = None if connections < 70 else random.randint(100, 500)
-        print(generate_log_entry(connections, wait_time=wait_time))
+        print(generate_log_entry(connections, wait_time=wait_time, sequence_num=seq))
+        seq += 1
 
     # Warning phase - approaching limit
     print(
@@ -66,15 +79,19 @@ def main():
                 "message": "Connection wait time increasing: Average wait 500ms",
                 "avg_wait_ms": 500,
                 "active_connections": 80,
+                "seq": seq,
             }
         )
     )
+    seq += 1
 
     # Continue increasing to near limit
-    for i in range(5000):
-        connections = 80 + int((i / 5000) * 15)  # 80 to 95
+    # Was 5,000, now 100 (5% of total)
+    for i in range(100):
+        connections = 80 + int((i / 100) * 15)  # 80 to 95
         wait_time = random.randint(500, 2000)
-        print(generate_log_entry(connections, wait_time=wait_time))
+        print(generate_log_entry(connections, wait_time=wait_time, sequence_num=seq))
+        seq += 1
 
     # Critical phase - pool exhausted
     print(
@@ -88,27 +105,40 @@ def main():
                 "active_connections": 100,
                 "max_connections": 100,
                 "rejected_requests": 0,
+                "seq": seq,
             }
         )
     )
+    seq += 1
 
     # Multiple timeout errors
-    for i in range(1000):
+    # Was 1,000, now 20 (1% of total)
+    for i in range(20):
         print(
             generate_log_entry(
                 100,
                 error="Timeout waiting for database connection after 30000ms - Pool exhausted (100/100)",
+                sequence_num=seq,
             )
         )
+        seq += 1
 
         # Some successful requests that managed to get connections
         if i % 10 == 0:
-            print(generate_log_entry(100, wait_time=random.randint(25000, 30000)))
+            print(
+                generate_log_entry(
+                    100, wait_time=random.randint(25000, 30000), sequence_num=seq
+                )
+            )
+            seq += 1
 
     # More normal logs after the incident
-    for i in range(34000):
+    # Was 34,000, now ~677 to reach 2000 total
+    remaining = 2000 - seq
+    for i in range(remaining):
         connections = random.randint(5, 20)
-        print(generate_log_entry(connections))
+        print(generate_log_entry(connections, sequence_num=seq))
+        seq += 1
 
     # Keep pod running
     while True:

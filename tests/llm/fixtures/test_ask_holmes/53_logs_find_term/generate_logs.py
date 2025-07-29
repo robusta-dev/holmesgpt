@@ -14,7 +14,7 @@ def generate_logs():
         ("Column 'user_email' cannot be null", "null_value"),
     ]
 
-    while True:
+    for i in range(1000):
         # Generate normal logs
         for _ in range(random.randint(5, 10)):
             timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -27,7 +27,6 @@ def generate_logs():
                 ]
             )
             print(f"[{timestamp}] INFO: {action} - 200 OK")
-            time.sleep(0.5)
 
         # Generate database errors
         if random.random() < 0.3:
@@ -37,12 +36,13 @@ def generate_logs():
             )  # Only use syntax and constraint errors
             print(f"[{timestamp}] ERROR: Database query failed: {error_msg}")
             print(f"[{timestamp}] ERROR: Query execution aborted")
-            time.sleep(0.1)
 
         # Generate other logs
         timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] INFO: Health check passed")
-        time.sleep(2)
+
+    while True:
+        time.sleep(1000)
 
 
 if __name__ == "__main__":
