@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-72
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-tracker
+  namespace: namespace-72
+  labels:
+    app: order-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-tracker
+  template:
+    metadata:
+      labels:
+        app: order-tracker
+    spec:
+      containers:
+      - name: order-tracker
+        image: python:3.9-slim
+        command: ["python"]
+        args: ["/scripts/generate_logs.py"]
+        volumeMounts:
+        - name: script-volume
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+      volumes:
+      - name: script-volume
+        secret:
+          secretName: order-tracker-logs-script
+          defaultMode: 0755
+      restartPolicy: Always

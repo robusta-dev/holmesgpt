@@ -1,0 +1,17 @@
+user_prompt: "Why did order ORD-12345 fail to process in namespace-72?"
+tags:
+  - logs
+  - context_window
+expected_output:
+  - Order ORD-12345 failed because billing-service payment processing failed with credit card declined due to insufficient funds
+before_test: |
+  kubectl create secret generic order-tracker-logs-script \
+  --from-file=generate_logs.py=./generate_logs.py \
+  -n namespace-72 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f ./manifest.yaml
+  sleep 45
+after_test: |
+  kubectl delete -f ./manifest.yaml
+  kubectl delete secret order-tracker-logs-script -n namespace-72 --ignore-not-found
+evaluation:
+  correctness: 1
