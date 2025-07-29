@@ -14,13 +14,12 @@ def generate_logs():
         ("LDAP bind failed: server unavailable", "ldap"),
     ]
 
-    while True:
+    for _ in range(10000):
         # Generate normal logs
         for _ in range(random.randint(3, 7)):
             timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             user_id = random.randint(1000, 9999)
             print(f"[{timestamp}] INFO: User {user_id} accessing dashboard")
-            time.sleep(0.3)
 
         # Generate login failures
         if random.random() < 0.4:
@@ -29,7 +28,6 @@ def generate_logs():
             error_msg, error_type = random.choice([login_errors[0], login_errors[1]])
             print(f"[{timestamp}] ERROR: Login failed: {error_msg}")
             print(f"[{timestamp}] WARN: Authentication service degraded")
-            time.sleep(0.1)
 
         # Generate success logs
         if random.random() < 0.6:
@@ -37,7 +35,8 @@ def generate_logs():
             user_id = random.randint(1000, 9999)
             print(f"[{timestamp}] INFO: User {user_id} logged in successfully")
 
-        time.sleep(2)
+    while True:
+        time.sleep(1000)
 
 
 if __name__ == "__main__":

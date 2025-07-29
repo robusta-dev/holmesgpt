@@ -50,10 +50,6 @@ def main():
 
         print(generate_log_entry(response_time))
 
-        # Small delay to simulate real-time logging
-        if i % 1000 == 0:
-            time.sleep(0.1)
-
     # Keep pod running
     while True:
         time.sleep(3600)

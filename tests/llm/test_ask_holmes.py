@@ -25,8 +25,10 @@ from tests.llm.utils.test_case_utils import (
     Evaluation,
     MockHelper,
     check_and_skip_test,
-    build_initial_ask_messages2,
 )
+
+from holmes.core.prompt import build_initial_ask_messages
+
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     update_test_results,
@@ -163,6 +165,7 @@ def test_ask_holmes(
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
+                    # metadata={"tags": test_case.tags},
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -227,6 +230,7 @@ def test_ask_holmes(
             dataset_record_id=test_case.id,
             scores=scores,
             metadata={"system_prompt": prompt},
+            # metadata={"tags": test_case.tags},
         )
 
     # Print tool calls summary
@@ -311,7 +315,7 @@ def ask_holmes(
 
                 runbook_catalog = load_runbook_catalog()
                 runbooks = runbook_catalog.model_dump() if runbook_catalog else {}
-            messages = build_initial_ask_messages2(
+            messages = build_initial_ask_messages(
                 console,
                 test_case.user_prompt,
                 None,
