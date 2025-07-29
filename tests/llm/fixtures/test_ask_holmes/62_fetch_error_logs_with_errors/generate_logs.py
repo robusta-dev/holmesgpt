@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import time
 from datetime import datetime
-import random
 
 
 def generate_logs():
@@ -22,11 +21,13 @@ def generate_logs():
     print(f"{datetime.now()} ERROR: Unable to establish database connection")
     print(f"{datetime.now()} FATAL: Shutting down application")
 
-    # Keep running and generate occasional logs
+    # Generate some additional health check logs
+    for _ in range(10):
+        print(f"{datetime.now()} INFO: Health check requested")
+
+    # Keep pod running
     while True:
-        time.sleep(60)
-        if random.random() < 0.3:
-            print(f"{datetime.now()} INFO: Health check requested")
+        time.sleep(3600)
 
 
 if __name__ == "__main__":

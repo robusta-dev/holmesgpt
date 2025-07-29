@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys
-import time
 
 
 def main():
@@ -9,7 +8,6 @@ def main():
     print("Starting Java API Checker v2.3.1")
     print("Loading configuration from application.properties")
     print("Initializing connection pool...")
-    time.sleep(1)
 
     # Generate connection errors
     for i in range(4):
@@ -20,7 +18,6 @@ def main():
         )
         print("Target host: prod-db, port: 3333")
         print("Connection pool exhausted: max_size=256, active=256, idle=0")
-        time.sleep(2)
 
     print("FATAL: Unable to connect to required database")
     print("Shutting down application")
