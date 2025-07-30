@@ -23,7 +23,7 @@ from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from holmes.utils.robusta import load_robusta_api_key
-from holmes.utils.stream import stream_investigate_formatter
+from holmes.utils.stream import stream_investigate_formatter, stream_chat_formatter
 from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
@@ -343,13 +343,23 @@ def chat(chat_request: ChatRequest):
                 ),
             ]
 
-        llm_call = ai.messages_call(messages=messages)
-        return ChatResponse(
-            analysis=llm_call.result,
-            tool_calls=llm_call.tool_calls,
-            conversation_history=llm_call.messages,
-            follow_up_actions=follow_up_actions,
-        )
+        if chat_request.stream:
+            ai.call_stream(msgs=messages)
+            return StreamingResponse(
+                stream_chat_formatter(
+                    ai.call_stream(msgs=messages),
+                    [f.model_dump() for f in follow_up_actions],
+                ),
+                media_type="text/event-stream",
+            )
+        else:
+            llm_call = ai.messages_call(messages=messages)
+            return ChatResponse(
+                analysis=llm_call.result,
+                tool_calls=llm_call.tool_calls,
+                conversation_history=llm_call.messages,
+                follow_up_actions=follow_up_actions,
+            )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:

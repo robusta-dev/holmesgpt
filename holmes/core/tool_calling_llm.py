@@ -543,19 +543,23 @@ class ToolCallingLLM:
 
     def call_stream(
         self,
-        system_prompt: str,
+        system_prompt: str = "",
         user_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
+        msgs: Optional[list[dict]] = None,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
         This function streams holmes one iteration at a time instead of waiting for all iterations to complete.
         """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        if user_prompt:
+            messages.append({"role": "user", "content": user_prompt})
+        if msgs:
+            messages.extend(msgs)
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls: list[dict] = []
         tools = self.tool_executor.get_all_tools_openai_format()
@@ -632,7 +636,7 @@ class ToolCallingLLM:
             if not tools_to_call:
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
-                    data={"content": response_message.content},
+                    data={"content": response_message.content, "messages": messages},
                 )
                 return
 

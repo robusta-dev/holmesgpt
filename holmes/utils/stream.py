@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import Generator
+from typing import Generator, Optional, List
 from pydantic import BaseModel, Field
 from holmes.core.investigation_structured_output import process_response_into_sections
 
@@ -35,6 +35,24 @@ def stream_investigate_formatter(
                     "sections": sections or {},
                     "analysis": text_response,
                     "instructions": runbooks or [],
+                },
+            )
+        else:
+            yield create_sse_message(message.event.value, message.data)
+
+
+def stream_chat_formatter(
+    call_stream: Generator[StreamMessage, None, None],
+    followups: Optional[List[dict]] = None,
+):
+    for message in call_stream:
+        if message.event == StreamEvents.ANSWER_END:
+            yield create_sse_message(
+                StreamEvents.ANSWER_END.value,
+                {
+                    "analysis": message.data.get("content"),
+                    "conversation_history": message.data.get("messages"),
+                    "follow_up_actions": followups,
                 },
             )
         else:
