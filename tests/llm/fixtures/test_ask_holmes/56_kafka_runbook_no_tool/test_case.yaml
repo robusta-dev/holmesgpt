@@ -3,12 +3,14 @@ tags:
   - logs
   - kafka
   - runbooks
-  - missing-tool
+  - transparency
+  - medium
 expected_output: kafka toolset should be enabled
 before_test: |
-  kubectl apply -f ../55_kafka_runbook/app/manifest.yaml && sleep 30
-after_test: kubectl delete -f ../55_kafka_runbook/app/manifest.yaml
+  kubectl apply -f ../55_kafka_runbook/app/kafka-manifest.yaml && sleep 30
+after_test: kubectl delete -f ../55_kafka_runbook/app/kafka-manifest.yaml
 include_files:
   - kafka_lag_instructions.md
-evaluation:
-  correctness: 0 # Does not always specifically ask user to install kafka/admin toolset
+
+skip: true
+skip_reason: "Natan: its not clear to me exactly what we're trying to test here"

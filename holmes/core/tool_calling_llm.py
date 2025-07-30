@@ -43,7 +43,8 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.tracing import DummySpan, SpanType
+from holmes.core.tracing import DummySpan
+from holmes.utils.colors import AI_COLOR
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -253,6 +254,7 @@ class ToolCallingLLM:
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
         trace_span=DummySpan(),
+        tool_number_offset: int = 0,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
@@ -332,6 +334,15 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
+
+            if (
+                hasattr(response_message, "reasoning_content")
+                and response_message.reasoning_content
+            ):
+                logging.debug(
+                    f"[bold {AI_COLOR}]AI (reasoning) 🤔:[/bold {AI_COLOR}] {response_message.reasoning_content}\n"
+                )
+
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 # this only works for calls where user prompt is explicitly passed through
@@ -361,6 +372,11 @@ class ToolCallingLLM:
                     messages=messages,
                 )
 
+            if text_response and text_response.strip():
+                logging.info(f"[bold {AI_COLOR}]AI:[/bold {AI_COLOR}] {text_response}")
+            logging.info(
+                f"The AI requested [bold]{len(tools_to_call) if tools_to_call else 0}[/bold] tool call(s)."
+            )
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
@@ -372,7 +388,7 @@ class ToolCallingLLM:
                             tool_to_call=t,
                             previous_tool_calls=tool_calls,
                             trace_span=trace_span,
-                            tool_number=tool_index,
+                            tool_number=tool_number_offset + tool_index,
                         )
                     )
 
@@ -426,7 +442,7 @@ class ToolCallingLLM:
         tool_response = None
 
         # Create tool span if tracing is enabled
-        tool_span = trace_span.start_span(name=tool_name, type=SpanType.TOOL)
+        tool_span = trace_span.start_span(name=tool_name, type="tool")
 
         try:
             tool_response = prevent_overly_repeated_tool_call(
@@ -455,6 +471,8 @@ class ToolCallingLLM:
                 metadata={
                     "status": tool_response.status.value,
                     "error": tool_response.error,
+                    "description": tool.get_parameterized_one_liner(tool_params),
+                    "structured_tool_result": tool_response,
                 },
             )
 
@@ -749,9 +767,11 @@ class IssueInvestigator(ToolCallingLLM):
         runbook_manager: RunbookManager,
         max_steps: int,
         llm: LLM,
+        cluster_name: Optional[str],
     ):
         super().__init__(tool_executor, max_steps, llm)
         self.runbook_manager = runbook_manager
+        self.cluster_name = cluster_name
 
     def investigate(
         self,
@@ -810,6 +830,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
+                "cluster_name": self.cluster_name,
             },
         )
 

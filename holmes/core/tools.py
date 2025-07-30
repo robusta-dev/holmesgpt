@@ -154,8 +154,10 @@ class Tool(ABC, BaseModel):
             if hasattr(result, "get_stringified_data")
             else str(result)
         )
+        show_hint = f"/show {tool_number}" if tool_number else "/show"
+        line_count = output_str.count("\n") + 1 if output_str else 0
         logging.info(
-            f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters - /show to view contents[/dim]"
+            f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters ({line_count:,} lines) - {show_hint} to view contents[/dim]"
         )
         return result
 

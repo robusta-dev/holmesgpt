@@ -5,14 +5,15 @@ import yaml
 import logging
 import os
 from pathlib import Path
-from typing import List, Literal, Optional, TypeVar, Union, cast
+from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
+import pytest
 from pydantic import BaseModel, TypeAdapter
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
+
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
-# Mock-related imports removed - now handled entirely by mock_toolset.py
 
 
 def read_file(file_path: Path):
@@ -24,6 +25,7 @@ TEST_CASE_ID_PATTERN = r"^[\d+]_(?:[a-z]+_)*[a-z]+$"
 CONFIG_FILE_NAME = "test_case.yaml"
 
 
+# TODO: do we ever use this? or do we always just use float below
 class Evaluation(BaseModel):
     expected_score: float = 1
     type: Union[Literal["loose"], Literal["strict"]]
@@ -45,7 +47,8 @@ class HolmesTestCase(BaseModel):
     folder: str
     mocked_date: Optional[str] = None
     tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
-    add_params_to_mock_file: bool = True
+    skip: Optional[bool] = None
+    skip_reason: Optional[str] = None
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluations = LLMEvaluations()
     before_test: Optional[str] = None
@@ -54,11 +57,16 @@ class HolmesTestCase(BaseModel):
     test_env_vars: Optional[Dict[str, str]] = (
         None  # Environment variables to set during test execution
     )
+    mock_policy: Optional[str] = (
+        "inherit"  # Mock policy: always_mock, never_mock, or inherit
+    )
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
     user_prompt: str  # The user's question to ask holmes
+    cluster_name: Optional[str] = None
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
+    runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
 
 
 class InvestigateTestCase(HolmesTestCase, BaseModel):
@@ -73,6 +81,16 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+
+
+def check_and_skip_test(test_case: HolmesTestCase) -> None:
+    """Check if test should be skipped and raise pytest.skip if needed.
+
+    Args:
+        test_case: A HolmesTestCase or any of its subclasses
+    """
+    if test_case.skip:
+        pytest.skip(test_case.skip_reason or "Test skipped")
 
 
 class MockHelper:
@@ -92,11 +110,14 @@ class MockHelper:
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
         test_cases_ids: List[str] = [
-            f for f in os.listdir(self._test_cases_folder) if not f.startswith(".")
-        ]  # ignoring hidden files like Mac's .DS_Store
+            f
+            for f in os.listdir(self._test_cases_folder)
+            if not f.startswith(".")
+            and os.path.isdir(self._test_cases_folder.joinpath(f))
+        ]  # ignoring hidden files like Mac's .DS_Store and non-directory files
         for test_case_id in test_cases_ids:
             test_case_folder = self._test_cases_folder.joinpath(test_case_id)
-            logging.info("Evaluating potential test case folder: {test_case_folder}")
+            logging.debug(f"Evaluating potential test case folder: {test_case_folder}")
             try:
                 config_dict = yaml.safe_load(
                     read_file(test_case_folder.joinpath(CONFIG_FILE_NAME))
@@ -142,15 +163,15 @@ class MockHelper:
                         config_dict
                     )
 
-                logging.info(f"Successfully loaded test case {test_case_id}")
+                logging.debug(f"Successfully loaded test case {test_case_id}")
             except FileNotFoundError:
-                logging.info(
+                logging.debug(
                     f"Folder {self._test_cases_folder}/{test_case_id} ignored because it is missing a {CONFIG_FILE_NAME} file."
                 )
                 continue
 
             test_cases.append(test_case)
-        logging.info(f"Found {len(test_cases)} in {self._test_cases_folder}")
+        logging.debug(f"Found {len(test_cases)} in {self._test_cases_folder}")
 
         return test_cases
 

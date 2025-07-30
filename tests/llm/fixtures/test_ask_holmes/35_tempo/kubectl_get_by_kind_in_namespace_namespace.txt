@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_get_by_kind_in_namespace","match_params":{"kind":"pod","namespace":"minishop"}}
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_get_by_kind_in_namespace", "match_params": {"kind": "pod", "namespace": "minishop"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_get_by_kind_in_namespace command", "params": {"kind": "pod", "namespace": "minishop"}}
 stdout:
 NAME                                READY   STATUS    RESTARTS   AGE    IP            NODE                            NOMINATED NODE   READINESS GATES   LABELS
 auth-service-f79c78ccb-zzr9j        1/1     Running   0          172m   10.244.1.35   local-kind-multi-node-worker    <none>           <none>            app=minishop,pod-template-hash=f79c78ccb,service=auth

@@ -1,0 +1,12 @@
+user_prompt: "Why is the frontend getting timeouts connecting to backend in namespace-84?"
+tags:
+  - kubernetes
+  - network
+  - medium
+expected_output:
+  - Frontend getting timeouts because NetworkPolicy on backend only allows ingress from pods with tier backend label not frontend
+before_test: |
+  kubectl apply -f ./manifest.yaml
+  sleep 30
+after_test: |
+  kubectl delete -f ./manifest.yaml

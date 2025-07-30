@@ -7,6 +7,7 @@ import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
+import gzip
 
 import yaml  # type: ignore
 from cachetools import TTLCache  # type: ignore
@@ -291,6 +292,52 @@ class SupabaseDal:
 
         return changes_data
 
+    def unzip_evidence_file(self, data):
+        try:
+            evidence_list = json.loads(data.get("data", "[]"))
+            if not evidence_list:
+                return data
+
+            evidence = evidence_list[0]
+            raw_data = evidence.get("data")
+
+            if evidence.get("type") != "gz" or not raw_data:
+                return data
+
+            # Strip "b'...'" or 'b"..."' markers if present
+            if raw_data.startswith("b'") and raw_data.endswith("'"):
+                raw_data = raw_data[2:-1]
+            elif raw_data.startswith('b"') and raw_data.endswith('"'):
+                raw_data = raw_data[2:-1]
+
+            gz_bytes = base64.b64decode(raw_data)
+            decompressed = gzip.decompress(gz_bytes).decode("utf-8")
+
+            evidence["data"] = decompressed
+            data["data"] = json.dumps([evidence])
+            return data
+
+        except Exception:
+            logging.exception(f"Unknown issue unzipping gz finding: {data}")
+            return data
+
+    def extract_relevant_issues(self, evidence):
+        enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
+        data = [
+            enrich
+            for enrich in evidence.data
+            if enrich.get("enrichment_type") not in enrichment_blacklist
+        ]
+
+        unzipped_files = [
+            self.unzip_evidence_file(enrich)
+            for enrich in evidence.data
+            if enrich.get("enrichment_type") == "text_file"
+        ]
+
+        data.extend(unzipped_files)
+        return data
+
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no
         # foreign key relation between Issues and Evidence.
@@ -320,12 +367,7 @@ class SupabaseDal:
             .filter("issue_id", "eq", issue_id)
             .execute()
         )
-        enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
-        data = [
-            enrich
-            for enrich in evidence.data
-            if enrich.get("enrichment_type") not in enrichment_blacklist
-        ]
+        data = self.extract_relevant_issues(evidence)
 
         issue_data["evidence"] = data
 
@@ -470,13 +512,7 @@ class SupabaseDal:
                 .execute()
             )
 
-            enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
-            data = [
-                evidence.get("data")
-                for evidence in res.data
-                if evidence.get("enrichment_type") not in enrichment_blacklist
-            ]
-            return data
+            return self.extract_relevant_issues(res)
 
         except Exception:
             logging.exception("failed to fetch workload issues data", exc_info=True)

@@ -5,5 +5,7 @@ before_test: |
   sleep 20
 after_test: |
   kubectl delete -f ./helm/sock-shop.yaml || true
-evaluation:
-  correctness: 1
+tags:
+  - medium
+  - kubernetes
+  - logs

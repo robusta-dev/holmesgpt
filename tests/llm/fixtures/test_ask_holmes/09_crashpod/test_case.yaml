@@ -6,3 +6,6 @@ before_test: |
   kubectl wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=CrashLoopBackOff pod -l app=payment-processing-worker --timeout=120s
 after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
+tags:
+  - easy
+  - kubernetes

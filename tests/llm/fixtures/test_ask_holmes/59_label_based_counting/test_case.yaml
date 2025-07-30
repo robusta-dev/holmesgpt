@@ -6,7 +6,6 @@ before_test: |
   sleep 60
 after_test: |
   kubectl delete -f manifests.yaml
-evaluation:
-  correctness: 1
 tags:
   - counting
+  - easy
