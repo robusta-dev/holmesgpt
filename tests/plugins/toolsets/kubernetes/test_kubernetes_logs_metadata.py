@@ -126,7 +126,7 @@ class TestKubernetesLogsMetadata:
 
         result = self.toolset.fetch_pod_logs(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         print("\n=== SCENARIO: No logs match filter ===")
         print(result.data)
 
@@ -158,7 +158,7 @@ class TestKubernetesLogsMetadata:
 
         result = self.toolset.fetch_pod_logs(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         print("\n=== SCENARIO: No logs exist (with time range) ===")
         print(result.data)
 
@@ -185,7 +185,7 @@ class TestKubernetesLogsMetadata:
 
         result = self.toolset.fetch_pod_logs(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         print("\n=== SCENARIO: No logs exist (no time range) ===")
         print(result.data)
 
@@ -219,7 +219,7 @@ class TestKubernetesLogsMetadata:
 
         result = self.toolset.fetch_pod_logs(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         print("\n=== SCENARIO: Regex fallback warnings ===")
         print(result.data)
 
