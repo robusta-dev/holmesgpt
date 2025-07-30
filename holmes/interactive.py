@@ -27,6 +27,7 @@ from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
+from holmes.core.config import config_path_dir
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
@@ -821,7 +822,8 @@ def run_interactive_loop(
     )
 
     # Use file-based history
-    history_file = os.path.expanduser("~/.holmes/history")
+    history_file = os.path.join(config_path_dir, "history")
+
     os.makedirs(os.path.dirname(history_file), exist_ok=True)
     history = FileHistory(history_file)
     if initial_user_input:
