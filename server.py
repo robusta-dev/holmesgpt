@@ -344,7 +344,6 @@ def chat(chat_request: ChatRequest):
             ]
 
         if chat_request.stream:
-            ai.call_stream(msgs=messages)
             return StreamingResponse(
                 stream_chat_formatter(
                     ai.call_stream(msgs=messages),

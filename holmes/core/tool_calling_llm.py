@@ -572,7 +572,7 @@ class ToolCallingLLM:
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
 
-            tools = None if i == self.max_steps - 1 else tools
+            tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
             total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
@@ -605,7 +605,7 @@ class ToolCallingLLM:
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
-                    )
+                    ) from e
                 else:
                     raise
 
