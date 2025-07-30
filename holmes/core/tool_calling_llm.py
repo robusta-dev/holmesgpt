@@ -4,25 +4,20 @@ import logging
 import textwrap
 from typing import Dict, List, Optional, Type, Union
 
-import requests  # type: ignore
 import sentry_sdk
-from litellm.types.utils import Message
 from openai import BadRequestError
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
 from pydantic import BaseModel
-from pydantic_core import from_json
 from rich.console import Console
 
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
-    parse_markdown_into_sections_from_hash_sign,
     process_response_into_sections,
 )
 from holmes.core.issue import Issue
