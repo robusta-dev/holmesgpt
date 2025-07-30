@@ -2,6 +2,8 @@ import logging
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+from slack_sdk.models.blocks import SectionBlock, ContextBlock
+from slack_sdk.models.blocks.basic_components import MarkdownTextObject
 
 from holmes.core.issue import Issue, IssueStatus
 from holmes.core.tool_calling_llm import LLMResult
@@ -13,6 +15,37 @@ class SlackDestination(DestinationPlugin):
         self.token = token
         self.channel = channel
         self.client = WebClient(token=self.token)
+
+    def _create_result_blocks(self, result_text: str) -> list:
+        """Create Slack blocks for the AI result using Block Kit"""
+        if not result_text:
+            return []
+
+        # If text fits in one block, return it directly
+        if len(result_text) <= 2900:
+            return [SectionBlock(text=MarkdownTextObject(text=result_text))]
+
+        # Split long text into chunks at line breaks
+        blocks = []
+        while result_text:
+            if len(result_text) <= 2900:
+                blocks.append(SectionBlock(text=MarkdownTextObject(text=result_text)))
+                break
+
+            # Find last newline within limit
+            chunk = result_text[:2900]
+            split_point = chunk.rfind("\n")
+            if split_point == -1:  # No newline found, force split
+                split_point = 2900
+
+            blocks.append(
+                SectionBlock(
+                    text=MarkdownTextObject(text=result_text[:split_point].rstrip())
+                )
+            )
+            result_text = result_text[split_point:].lstrip()
+
+        return blocks
 
     def send_issue(self, issue: Issue, result: LLMResult) -> None:
         color = (
@@ -28,28 +61,19 @@ class SlackDestination(DestinationPlugin):
         else:
             text = f"*{title}*"
 
-        blocks = [
-            {
-                # TODO: consider moving outside of block
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f":robot_face: {result.result}",
-                },
-            }
-        ]
+        # Create properly formatted text blocks for the result using Block Kit
+        result_text = f":robot_face: {result.result or ''}"
+        blocks = self._create_result_blocks(result_text)
+
+        # Add context block for metadata if present
         if issue.presentation_key_metadata:
-            blocks.append(
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": issue.presentation_key_metadata,
-                        }  # type: ignore
-                    ],
-                }
+            context_block = ContextBlock(
+                elements=[MarkdownTextObject(text=issue.presentation_key_metadata)]
             )
+            blocks.append(context_block)
+
+        # Convert Block Kit objects to dictionaries for the API
+        block_dicts = [block.to_dict() for block in blocks]
 
         try:
             response = self.client.chat_postMessage(
@@ -58,7 +82,7 @@ class SlackDestination(DestinationPlugin):
                 attachments=[
                     {
                         "color": color,
-                        "blocks": blocks,
+                        "blocks": block_dicts,
                     }
                 ],
             )
@@ -85,10 +109,13 @@ class SlackDestination(DestinationPlugin):
         text = "*AI used info from alert and the following tools:*"
         for tool in result.tool_calls:
             file_response = self.client.files_upload_v2(
-                content=tool.result, title=f"{tool.description}"
+                content=tool.result.get_stringified_data(), title=f"{tool.description}"
             )
-            permalink = file_response["file"]["permalink"]
-            text += f"\n• `<{permalink}|{tool.description}>`"
+            if file_response and "file" in file_response:
+                permalink = file_response["file"]["permalink"]
+                text += f"\n• `<{permalink}|{tool.description}>`"
+            else:
+                text += f"\n• {tool.description} (upload failed)"
 
         self.client.chat_postMessage(
             channel=self.channel,
@@ -108,10 +135,13 @@ class SlackDestination(DestinationPlugin):
 
         text = "*🐞 DEBUG: messages with OpenAI*"
         file_response = self.client.files_upload_v2(
-            content=result.prompt, title="ai-prompt"
+            content=str(result.prompt), title="ai-prompt"
         )
-        permalink = file_response["file"]["permalink"]
-        text += f"\n`<{permalink}|ai-prompt>`"
+        if file_response and "file" in file_response:
+            permalink = file_response["file"]["permalink"]
+            text += f"\n`<{permalink}|ai-prompt>`"
+        else:
+            text += "\nai-prompt (upload failed)"
 
         self.client.chat_postMessage(
             channel=self.channel,
@@ -132,9 +162,12 @@ class SlackDestination(DestinationPlugin):
         filename = f"{issue.name}"
         issue_json = issue.model_dump_json()
         file_response = self.client.files_upload_v2(content=issue_json, title=filename)
-        permalink = file_response["file"]["permalink"]
         text = issue.presentation_all_metadata
-        text += f"\n<{permalink}|{filename}>\n"
+        if file_response and "file" in file_response:
+            permalink = file_response["file"]["permalink"]
+            text += f"\n<{permalink}|{filename}>\n"
+        else:
+            text += f"\n{filename} (upload failed)\n"
 
         self.client.chat_postMessage(
             channel=self.channel,
