@@ -16,7 +16,8 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 
 # Default values for log fetching
 DEFAULT_LOG_LIMIT = 100
-DEFAULT_TIME_SPAN_SECONDS = 7 * 24 * 60 * 60  # 1 week in seconds
+SECONDS_PER_DAY = 24 * 60 * 60
+DEFAULT_TIME_SPAN_SECONDS = 7 * SECONDS_PER_DAY  # 1 week in seconds
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 
@@ -80,6 +81,9 @@ class PodLoggingTool(Tool):
         elif LoggingCapability.REGEX_FILTER in capabilities:
             description += " with support for regex filtering"
 
+        # Add default information
+        description += f". Defaults: Fetches last {DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY} days of logs, limited to {DEFAULT_LOG_LIMIT} most recent entries"
+
         super().__init__(
             name=POD_LOGGING_TOOL_NAME,
             description=description,
@@ -100,7 +104,7 @@ class PodLoggingTool(Tool):
                 description="Kubernetes namespace", type="string", required=True
             ),
             "start_time": ToolParameter(
-                description="Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
+                description=f"Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time. Default: -{DEFAULT_TIME_SPAN_SECONDS} (last {DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY} days)",
                 type="string",
                 required=False,
             ),
@@ -110,7 +114,7 @@ class PodLoggingTool(Tool):
                 required=False,
             ),
             "limit": ToolParameter(
-                description="Maximum number of logs to return",
+                description=f"Maximum number of logs to return. Default: {DEFAULT_LOG_LIMIT}",
                 type="integer",
                 required=False,
             ),
