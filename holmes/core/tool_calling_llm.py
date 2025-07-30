@@ -18,7 +18,6 @@ from holmes.core.investigation_structured_output import (
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
-    process_response_into_sections,
 )
 from holmes.core.issue import Issue
 from holmes.core.llm import LLM
@@ -36,6 +35,7 @@ from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
+from holmes.utils.stream import StreamEvents, StreamMessage
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -547,7 +547,6 @@ class ToolCallingLLM:
         user_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
-        runbooks: Optional[List[str]] = None,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
@@ -631,17 +630,9 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                (text_response, sections) = process_response_into_sections(  # type: ignore
-                    response_message.content
-                )
-
-                yield create_sse_message(
-                    "ai_answer_end",
-                    {
-                        "sections": sections or {},
-                        "analysis": text_response,
-                        "instructions": runbooks or [],
-                    },
+                yield StreamMessage(
+                    event=StreamEvents.ANSWER_END,
+                    data={"content": response_message.content},
                 )
                 return
 
@@ -658,8 +649,9 @@ class ToolCallingLLM:
                             tool_number=tool_index,
                         )
                     )
-                    yield create_sse_message(
-                        "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
+                    yield StreamMessage(
+                        event=StreamEvents.START_TOOL,
+                        data={"tool_name": t.function.name, "id": t.id},
                     )
 
                 for future in concurrent.futures.as_completed(futures):
@@ -670,9 +662,9 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-                    yield create_sse_message(
-                        "tool_calling_result",
-                        tool_call_result.as_streaming_tool_result_response(),
+                    yield StreamMessage(
+                        event=StreamEvents.TOOL_RESULT,
+                        data=tool_call_result.as_streaming_tool_result_response(),
                     )
 
         raise Exception(
@@ -796,7 +788,3 @@ class IssueInvestigator(ToolCallingLLM):
         )
         res.instructions = runbooks
         return res
-
-
-def create_sse_message(event_type: str, data: dict = {}):
-    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"

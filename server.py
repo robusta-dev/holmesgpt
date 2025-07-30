@@ -23,7 +23,7 @@ from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from holmes.utils.robusta import load_robusta_api_key
-
+from holmes.utils.stream import stream_investigate_formatter
 from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
@@ -158,13 +158,16 @@ def stream_investigate_issues(req: InvestigateRequest):
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
             investigation.get_investigation_context(req, dal, config, True)
         )
+
         return StreamingResponse(
-            ai.call_stream(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                response_format=response_format,
-                sections=sections,
-                runbooks=runbooks,
+            stream_investigate_formatter(
+                ai.call_stream(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    response_format=response_format,
+                    sections=sections,
+                ),
+                runbooks,
             ),
             media_type="text/event-stream",
         )
