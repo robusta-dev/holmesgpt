@@ -15,6 +15,13 @@ When investigating metrics-related issues:
    - Provides metric type (gauge/count/rate), unit, and description
    - Accepts comma-separated list for batch queries
 
+4. **Use `list_datadog_metric_tags`** to understand which tags are available for a given metric
+   - Provides a set of tags and aggregations
+   - Can help to build the correct `tag_filter`, to find which metrics are available for a given resource
+
+### General guideline
+- Assume the resource should have metrics. If metrics not found, try to adjust tag filters
+
 ### Time Parameters
 - Use RFC3339 format: `2023-03-01T10:30:00Z`
 - Or relative seconds: `-3600` for 1 hour ago
@@ -24,3 +31,19 @@ When investigating metrics-related issues:
 - CPU investigation: First list metrics with `tag_filter:kube_node_name:nodename`, then query specific metrics
 - Memory issues: Look for `system.mem.*` or `kubernetes.memory.*` metrics
 - Container metrics: Filter by pod/container tags
+
+
+# Handling queries results
+* ALWAYS embed the execution results into your answer
+* You only need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>
+* Post processing will parse your response, re-run the query from the tool output and create a chart visible to the user
+* The toolcall will return no data to you. That is expected. You MUST however ensure that the query is successful.
+* ALWAYS embed the execution results into your answer
+* ALWAYS embed a Prometheus graph in the response. The graph should visualize data related to the incident.
+* Embed at most 2 graphs
+* When embedding multiple graphs, always add line spacing between them
+    For example:
+
+    <<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "lBaA"}>>
+
+    <<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "IKtq"}>>

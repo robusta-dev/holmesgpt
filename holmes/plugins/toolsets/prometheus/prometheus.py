@@ -687,6 +687,8 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 if self.toolset.config.tool_calls_return_data:
                     response_data["data"] = data.get("data")
                 data_str = json.dumps(response_data, indent=2)
+
+                logging.info(f"##### prometheus query response \n{data_str}")
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=data_str,
