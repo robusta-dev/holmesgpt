@@ -550,59 +550,32 @@ class ToolCallingLLM:
         self,
         system_prompt: str,
         user_prompt: Optional[str] = None,
-        stream: bool = False,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
         runbooks: Optional[List[str]] = None,
     ):
-        def stream_analysis(it, peek_chunk):
-            buffer = peek_chunk.get("data", "")
-            yield create_sse_message(peek_chunk.get("event"), peek_chunk.get("data"))
-            chunk_counter = 0
-
-            for chunk in it:
-                buffer += chunk
-                chunk_counter += 1
-                if chunk_counter == STREAM_CHUNKS_PER_PARSE:
-                    chunk_counter = 0
-                    yield create_sse_message(
-                        "ai_answer",
-                        {
-                            "sections": parse_markdown_into_sections_from_hash_sign(
-                                buffer
-                            )
-                            or {},
-                            "analysis": buffer,
-                            "instructions": runbooks or [],
-                        },
-                    )
-
-            yield create_sse_message(
-                "ai_answer_end",
-                {
-                    "sections": parse_markdown_into_sections_from_hash_sign(buffer)
-                    or {},
-                    "analysis": buffer,
-                    "instructions": runbooks or [],
-                },
-            )
-
+        """
+        This function DOES NOT call llm.completion(stream=true).
+        This function streams holmes one iteration at a time instead of waiting for all iterations to complete.
+        """
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         perf_timing = PerformanceTiming("tool_calling_llm.call")
+        tool_calls: list[dict] = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
+        max_steps = self.max_steps
         i = 0
-        tool_calls: list[dict] = []
-        while i < self.max_steps:
+
+        while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
 
-            tools = [] if i == self.max_steps - 1 else tools
-            tool_choice = None if tools == [] else "auto"
+            tools = None if i == self.max_steps - 1 else tools
+            tool_choice = "auto" if tools else None
 
             total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
@@ -618,94 +591,64 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
-                if stream:
-                    response = requests.post(
-                        f"{ROBUSTA_API_ENDPOINT}/chat/completions",
-                        json={
-                            "messages": parse_messages_tags(messages),  # type: ignore
-                            "tools": tools,
-                            "tool_choice": tool_choice,
-                            "response_format": response_format,
-                            "stream": True,
-                            "drop_param": True,
-                        },
-                        headers={"Authorization": f"Bearer {self.llm.api_key}"},  # type: ignore
-                        stream=True,
-                    )
-                    response.raise_for_status()
-                    it = response.iter_content(chunk_size=None, decode_unicode=True)
-                    peek_chunk = from_json(next(it))
-                    tools = peek_chunk.get("tool_calls")
-
-                    if not tools:
-                        yield from stream_analysis(it, peek_chunk)
-                        perf_timing.measure("llm.completion")
-                        return
-
-                    response_message = Message(**peek_chunk)
-                    tools_to_call = response_message.tool_calls
-                else:
-                    full_response = self.llm.completion(
-                        messages=parse_messages_tags(messages),  # type: ignore
-                        tools=tools,
-                        tool_choice=tool_choice,
-                        response_format=response_format,
-                        stream=False,
-                        drop_params=True,
-                    )
-                    perf_timing.measure("llm.completion")
-
-                    response_message = full_response.choices[0].message  # type: ignore
-                    if response_message and response_format:
-                        # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
-                        dict_response = json.loads(full_response.to_json())  # type: ignore
-                        incorrect_tool_call = is_response_an_incorrect_tool_call(
-                            sections, dict_response.get("choices", [{}])[0]
-                        )
-
-                        if incorrect_tool_call:
-                            logging.warning(
-                                "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
-                            )
-                            # disable structured output going forward and and retry
-                            response_format = None
-                            i -= 1
-                            continue
-
-                    tools_to_call = getattr(response_message, "tool_calls", None)
-                    if not tools_to_call:
-                        (text_response, sections) = process_response_into_sections(  # type: ignore
-                            response_message.content
-                        )
-
-                        yield create_sse_message(
-                            "ai_answer_end",
-                            {
-                                "sections": sections or {},
-                                "analysis": text_response,
-                                "instructions": runbooks or [],
-                            },
-                        )
-                        return
+                full_response = self.llm.completion(
+                    messages=parse_messages_tags(messages),  # type: ignore
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    response_format=response_format,
+                    stream=False,
+                    drop_params=True,
+                )
+                perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                logging.exception("Bad completion request")
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
                     )
-                raise e
-            except Exception:
-                logging.exception("Completion request exception")
-                raise
+                else:
+                    raise
+
+            response_message = full_response.choices[0].message  # type: ignore
+            if response_message and response_format:
+                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                dict_response = json.loads(full_response.to_json())  # type: ignore
+                incorrect_tool_call = is_response_an_incorrect_tool_call(
+                    sections, dict_response.get("choices", [{}])[0]
+                )
+
+                if incorrect_tool_call:
+                    logging.warning(
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                    )
+                    # disable structured output going forward and and retry
+                    response_format = None
+                    max_steps = max_steps + 1
+                    continue
 
             messages.append(
                 response_message.model_dump(
                     exclude_defaults=True, exclude_unset=True, exclude_none=True
                 )
             )
+
+            tools_to_call = getattr(response_message, "tool_calls", None)
+            if not tools_to_call:
+                (text_response, sections) = process_response_into_sections(  # type: ignore
+                    response_message.content
+                )
+
+                yield create_sse_message(
+                    "ai_answer_end",
+                    {
+                        "sections": sections or {},
+                        "analysis": text_response,
+                        "instructions": runbooks or [],
+                    },
+                )
+                return
 
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
@@ -732,12 +675,9 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-                    streaming_result_dict = (
-                        tool_call_result.as_streaming_tool_result_response()
-                    )
-
                     yield create_sse_message(
-                        "tool_calling_result", streaming_result_dict
+                        "tool_calling_result",
+                        tool_call_result.as_streaming_tool_result_response(),
                     )
 
         raise Exception(

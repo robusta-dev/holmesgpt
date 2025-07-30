@@ -155,10 +155,6 @@ def investigate_issues(investigate_request: InvestigateRequest):
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
     try:
-        # Disabled the logic for streaming & structured output with robusta AI
-        # robusta_ai = req.model == "Robusta"
-        # is_structured_output = not robusta_ai
-
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
             investigation.get_investigation_context(req, dal, config, True)
         )
@@ -166,7 +162,6 @@ def stream_investigate_issues(req: InvestigateRequest):
             ai.call_stream(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                stream=False,
                 response_format=response_format,
                 sections=sections,
                 runbooks=runbooks,
