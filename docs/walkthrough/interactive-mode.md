@@ -178,4 +178,3 @@ limit_req_zone $limit_key zone=perip:10m rate=100r/s;
 For additional HolmesGPT usage patterns, see:
 
 - **[CI/CD Troubleshooting](cicd-troubleshooting.md)** - Integrate HolmesGPT into deployment pipelines
-- **[Scripting & Automation](scripting-automation.md)** - Non-interactive usage for monitoring and automation
