@@ -21,6 +21,7 @@
 {%- elif k8s_base_ts and k8s_base_ts.status == "enabled" -%}
 {% include '_default_log_prompt.jinja2' %}
 {%- elif datadog_ts and datadog_ts.status == "enabled" -%}
+* If you are not sure what is the pod namespace, search for the logs only by pod name.
 {% include '_default_log_prompt.jinja2' %}
 {%- elif k8s_yaml_ts and k8s_yaml_ts.status == "enabled" -%}
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
