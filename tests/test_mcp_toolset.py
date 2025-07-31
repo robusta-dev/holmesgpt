@@ -1,8 +1,11 @@
-from holmes.core.tools import (
-    ToolParameter,
-)
 from mcp.types import ListToolsResult, Tool
-from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset, RemoteMCPTool
+
+from holmes.core.tools import ToolParameter
+from holmes.plugins.toolsets.mcp.toolset_mcp import (
+    RemoteMCPTool,
+    RemoteMCPToolset,
+    StdioMCPToolset,
+)
 
 
 def test_parse_mcp_tool():
@@ -48,7 +51,21 @@ def test_mcpserver_unreachable():
 
     assert (
         False,
-        "Failed to load mcp server test_mcp http://0.0.0.0:3009/sse ('unhandled errors in a TaskGroup', [ConnectError('All connection attempts failed')])",
+        "Failed to load remote mcp server test_mcp http://0.0.0.0:3009/sse ('unhandled errors in a TaskGroup', [ConnectError('All connection attempts failed')])",
+    ) == mcp_toolset.init_server_tools(config=None)
+
+
+def test_stdio_mcpserver_notfound():
+    mcp_toolset = StdioMCPToolset(
+        command="/user/bin/mcp_server",
+        args=["--transport", "stdio"],
+        name="test_mcp",
+        description="demo mcp with 2 simple functions",
+    )
+
+    assert (
+        False,
+        "Failed to load stdio mcp server test_mcp mcp_server --transport stdio (2, 'No such file or directory')",
     ) == mcp_toolset.init_server_tools(config=None)
 
 
