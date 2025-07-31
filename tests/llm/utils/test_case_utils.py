@@ -105,7 +105,7 @@ class MockHelper:
         return cast(List[InvestigateTestCase], self.load_test_cases())
 
     def load_ask_holmes_test_cases(self) -> List[AskHolmesTestCase]:
-        return cast(List[AskHolmesTestCase], self.load_test_cases())
+        return self.load_test_cases()
 
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
@@ -222,24 +222,12 @@ def load_workload_health_request(test_case_folder: Path) -> WorkloadHealthReques
     )
 
 
-def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
-    """
-    Loads conversation history from .md files in a specified folder structure.
-
-    The folder structure is expected to be:
-    test_case_folder/
-        conversation_history/
-            <index>_<role>.md
-            ...
-    """
-    conversation_history_dir = test_case_folder / "conversation_history"
-
-    if not conversation_history_dir.is_dir():
-        return None
-
+def _parse_conversation_history_md_files(
+    conversation_history_dir,
+) -> None | List[Dict[str, str]]:
+    # If no .md files are found in the directory, return None.
     md_files = sorted(list(conversation_history_dir.glob("*.md")))
 
-    # If no .md files are found in the directory, return None.
     if not md_files:
         return None
 
@@ -266,6 +254,30 @@ def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str,
         content = md_file_path.read_text(encoding="utf-8")
 
         conversation_history.append({"role": role, "content": content})
+    return conversation_history
+
+
+def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
+    """
+    Loads conversation history from .md files in a specified folder structure.
+
+    The folder structure is expected to be:
+    test_case_folder/
+        conversation_history/
+            <index>_<role>.md
+            ...
+    """
+    conversation_history_dir = test_case_folder / "conversation_history"
+    if conversation_history_dir.is_dir():
+        conversation_history = _parse_conversation_history_md_files(
+            conversation_history_dir
+        )
+    elif test_case_folder.joinpath("conversation_history.json").exists():
+        conversation_history = json.loads(
+            read_file(test_case_folder.joinpath("conversation_history.json"))
+        )
+    else:
+        conversation_history = None
 
     return conversation_history
 
