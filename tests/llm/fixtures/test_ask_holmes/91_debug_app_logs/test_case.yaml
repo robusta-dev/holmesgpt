@@ -1,4 +1,4 @@
-user_prompt: "How's the health of my calc app running in the app-58 namespace?"
+user_prompt: "How's the health of my calc app running in the app-91 namespace?"
 expected_output: |
   division by zero
 before_test: |
