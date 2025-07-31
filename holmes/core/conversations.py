@@ -271,9 +271,14 @@ def add_or_update_system_prompt(
 
     """
     template_path = "builtin://generic_ask_conversation.jinja2"
+
+    # Import at function level to avoid circular imports
+    from holmes.config import Config
+
     context = {
         "toolsets": ai.tool_executor.toolsets,
         "cluster_name": config.cluster_name,
+        "runbooks": Config.get_runbook_catalog(),
     }
 
     system_prompt = load_and_render_prompt(template_path, context)
