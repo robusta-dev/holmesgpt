@@ -1,0 +1,26 @@
+toolsets:
+  - kubernetes/core
+  - name: loki
+    tools:
+      - name: query_loki_logs
+        description: Query logs from Loki with LogQL queries. Supports time ranges like '24h ago', 'yesterday 2pm to 4pm', etc.
+        parameters:
+          query:
+            description: "LogQL query (e.g., {namespace=\"namespace-90\"} |= \"error\")"
+            type: str
+            required: true
+          start_time:
+            description: "Start time (e.g., '2024-01-15T14:00:00Z', '24h ago', 'yesterday 2pm')"
+            type: str
+            required: false
+            default: "1h ago"
+          end_time:
+            description: "End time (e.g., '2024-01-15T16:00:00Z', 'now', 'yesterday 4pm')"
+            type: str
+            required: false
+            default: "now"
+          limit:
+            description: "Maximum number of log lines to return"
+            type: int
+            required: false
+            default: 1000

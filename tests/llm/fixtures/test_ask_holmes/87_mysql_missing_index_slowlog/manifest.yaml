@@ -1,0 +1,208 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init
+data:
+  init.sql: |
+    -- Create database and table
+    CREATE DATABASE IF NOT EXISTS productdb;
+    USE productdb;
+
+    -- Create products table without index on name
+    CREATE TABLE products (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      category VARCHAR(100),
+      price DECIMAL(10, 2),
+      stock INT DEFAULT 0,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    -- Insert 50k product records
+    INSERT INTO products (name, category, price, stock, description)
+    SELECT
+      CONCAT('Product ', n),
+      ELT(1 + FLOOR(RAND() * 5), 'Electronics', 'Clothing', 'Books', 'Home', 'Sports'),
+      ROUND(10 + RAND() * 990, 2),
+      FLOOR(RAND() * 1000),
+      CONCAT('Description for product number ', n)
+    FROM (
+      SELECT a.n + b.n * 100 + c.n * 10000 AS n
+      FROM
+        (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+         UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) a,
+        (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+         UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
+         UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
+         UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+         UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+         UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29
+         UNION SELECT 30 UNION SELECT 31 UNION SELECT 32 UNION SELECT 33 UNION SELECT 34
+         UNION SELECT 35 UNION SELECT 36 UNION SELECT 37 UNION SELECT 38 UNION SELECT 39
+         UNION SELECT 40 UNION SELECT 41 UNION SELECT 42 UNION SELECT 43 UNION SELECT 44
+         UNION SELECT 45 UNION SELECT 46 UNION SELECT 47 UNION SELECT 48 UNION SELECT 49
+         UNION SELECT 50 UNION SELECT 51 UNION SELECT 52 UNION SELECT 53 UNION SELECT 54
+         UNION SELECT 55 UNION SELECT 56 UNION SELECT 57 UNION SELECT 58 UNION SELECT 59
+         UNION SELECT 60 UNION SELECT 61 UNION SELECT 62 UNION SELECT 63 UNION SELECT 64
+         UNION SELECT 65 UNION SELECT 66 UNION SELECT 67 UNION SELECT 68 UNION SELECT 69
+         UNION SELECT 70 UNION SELECT 71 UNION SELECT 72 UNION SELECT 73 UNION SELECT 74
+         UNION SELECT 75 UNION SELECT 76 UNION SELECT 77 UNION SELECT 78 UNION SELECT 79
+         UNION SELECT 80 UNION SELECT 81 UNION SELECT 82 UNION SELECT 83 UNION SELECT 84
+         UNION SELECT 85 UNION SELECT 86 UNION SELECT 87 UNION SELECT 88 UNION SELECT 89
+         UNION SELECT 90 UNION SELECT 91 UNION SELECT 92 UNION SELECT 93 UNION SELECT 94
+         UNION SELECT 95 UNION SELECT 96 UNION SELECT 97 UNION SELECT 98 UNION SELECT 99) b,
+        (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4) c
+    ) numbers
+    WHERE n < 50000;
+
+    -- Add indexes on other columns but NOT on name
+    CREATE INDEX idx_category ON products(category);
+    CREATE INDEX idx_price ON products(price);
+
+    -- Grant permissions
+    CREATE USER IF NOT EXISTS 'searchapp'@'%' IDENTIFIED BY 'searchpass123';
+    GRANT SELECT ON productdb.* TO 'searchapp'@'%';
+    FLUSH PRIVILEGES;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:
+  my.cnf: |
+    [mysqld]
+    slow_query_log = 1
+    slow_query_log_file = /var/lib/mysql/slow.log
+    long_query_time = 0.1
+    log_queries_not_using_indexes = 1
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: rootpass123
+  MYSQL_PASSWORD: searchpass123
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  selector:
+    app: mysql
+  ports:
+  - port: 3306
+    targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DATABASE
+          value: productdb
+        - name: MYSQL_USER
+          value: searchapp
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_PASSWORD
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+        - name: mysql-config
+          mountPath: /etc/mysql/conf.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+      volumes:
+      - name: init-script
+        configMap:
+          name: mysql-init
+      - name: mysql-config
+        configMap:
+          name: mysql-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-search
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-search
+  template:
+    metadata:
+      labels:
+        app: product-search
+    spec:
+      containers:
+      - name: search
+        image: mysql:8.0
+        env:
+        - name: MYSQL_PWD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_PASSWORD
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            echo "Waiting for MySQL to be ready..."
+            until mysql -h mysql -u searchapp -e "SELECT 1" &> /dev/null; do
+              sleep 5
+            done
+            echo "Starting product search queries..."
+            while true; do
+              # Simulate product name searches (slow - no index)
+              search_term="Product $(shuf -i 1-50000 -n 1)"
+              mysql -h mysql -u searchapp productdb \
+                -e "SELECT id, name, category, price FROM products WHERE name LIKE '${search_term}%' LIMIT 10;" \
+                >/dev/null 2>&1
+
+              # Occasionally do a category search (fast - has index)
+              if [ $((RANDOM % 5)) -eq 0 ]; then
+                mysql -h mysql -u searchapp productdb \
+                  -e "SELECT id, name, price FROM products WHERE category = 'Electronics' LIMIT 10;" \
+                  >/dev/null 2>&1
+              fi
+
+              sleep 0.3
+            done
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

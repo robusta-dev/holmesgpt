@@ -1,0 +1,37 @@
+user_prompt: "The product-search service in namespace-87 is slow. Users are complaining about search delays."
+expected_output:
+  - MySQL queries are slow due to missing index on products.name column
+  - Product searches are performing full table scans on 50k products
+  - Slow query log shows searches taking 200-500ms
+  - ALTER TABLE products ADD INDEX idx_name (name) would fix the issue
+tags:
+  - hard
+  - database
+description: |
+  This eval demonstrates MySQL performance debugging using slow query log analysis.
+
+  Setup:
+  - MySQL 8.0 with slow_query_log enabled (threshold: 0.1 seconds)
+  - Products table with 50k records, no index on name column
+  - Search service doing: SELECT * FROM products WHERE name LIKE 'Product%'
+  - Slow queries are logged to /var/lib/mysql/slow.log
+
+  Expected troubleshooting steps:
+  1. Check MySQL slow query log: kubectl exec mysql-pod -- tail -n 50 /var/lib/mysql/slow.log
+  2. Identify repeated slow queries with Query_time > 0.1
+  3. Connect to MySQL: kubectl exec -it mysql-pod -- mysql -u root -p
+  4. Run EXPLAIN on the slow query
+  5. See "type: ALL" and "rows: 50000" indicating full table scan
+  6. Check indexes: SHOW INDEXES FROM products
+  7. Notice name column has no index despite being in WHERE clause
+  8. Recommend adding index on name column
+
+  The slow query log provides clear evidence with exact query times and the queries themselves.
+before_test: |
+  kubectl create namespace namespace-87
+  kubectl apply -f ./manifest.yaml -n namespace-87
+  kubectl wait --for=condition=ready pod -l app=mysql -n namespace-87 --timeout=120s
+  sleep 45  # MySQL takes longer to initialize and we need slow queries to accumulate
+after_test: |
+  kubectl delete -f ./manifest.yaml -n namespace-87
+  kubectl delete namespace namespace-87
