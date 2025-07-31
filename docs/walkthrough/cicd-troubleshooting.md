@@ -6,38 +6,48 @@ HolmesGPT can be integrated into CI/CD pipelines to automatically troubleshoot d
 
 ## Automated Deployment Troubleshooting
 
-Example of using HolmesGPT in a CI/CD pipeline to automatically troubleshoot deployment failures and send results to Slack.:
+Example of using HolmesGPT in a CI/CD pipeline to automatically troubleshoot deployment failures and send results to Slack:
 
 ```yaml
 # .github/workflows/deploy.yml or gitlab-ci.yml
-    - name: Deploy to EKS
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: |
-        # Apply Kubernetes manifests
-        kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/refs/heads/main/image_pull_backoff/no_such_image.yaml
-        # Wait for rollout
-        if ! kubectl rollout status deployment/customer-relations-webapp --timeout=300s; then
-          echo "Deployment failed - starting HolmesGPT investigation"
-          # Capture current state
-          kubectl get all > deployment-state.txt
-          kubectl describe deployment customer-relations-webapp >> deployment-state.txt
-          kubectl get events --sort-by='.lastTimestamp' | tail -20 >> deployment-state.txt
-          # Run HolmesGPT investigation and send directly to Slack
-          cat deployment-state.txt | holmes ask \
-            "🚨 EKS Deployment Failed in ${{ github.repository }}
+- name: Install HolmesGPT
+  run: |
+    # Clone the branch of holmes you want to install
+    git clone -b slack-markdown-fix https://github.com/robusta-dev/holmesgpt.git /tmp/holmesgpt
+    cd /tmp/holmesgpt
 
-            Environment: EKS Cluster ${{ vars.EKS_CLUSTER_NAME }} in ${{ vars.AWS_REGION }}
-            Commit: ${{ github.sha }}
-            Pipeline: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    # Install Poetry
+    curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
+    export PATH="$HOME/.local/bin:$PATH"
 
-            The deployment failed. Analyze why the pods are not becoming ready. Focus on: image pulls, resource limits, probes, and configuration issues" \
-            --no-interactive \
-            --destination slack \
-            --slack-token "${{ secrets.SLACK_TOKEN }}" \
-            --slack-channel "#deployment-alerts"
-          exit 1
-        fi
+    # Install dependencies using Poetry
+    poetry install
+
+- name: Deploy to EKS
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  run: |
+    # Apply Kubernetes manifests
+    kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/refs/heads/main/image_pull_backoff/no_such_image.yaml
+    # Wait for rollout
+    if ! kubectl rollout status deployment/customer-relations-webapp --timeout=150s; then
+      echo "Deployment failed - starting HolmesGPT investigation"
+      # Run HolmesGPT investigation and send directly to Slack
+      cd /tmp/holmesgpt
+      poetry run holmes ask \
+        "🚨 EKS Deployment Failed in ${{ github.repository }}
+
+        Environment: EKS Cluster ${{ vars.EKS_CLUSTER_NAME }} in ${{ vars.AWS_REGION }}
+        Commit: ${{ github.sha }}
+        Pipeline: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+        The deployment failed. Analyze why the pods are not becoming ready. Focus on: image pulls, resource limits, probes, and configuration issues" \
+        --no-interactive \
+        --destination slack \
+        --slack-token "${{ secrets.SLACK_TOKEN }}" \
+        --slack-channel "#YOUR_CHANNEL_NAME"
+      exit 1
+    fi
 ```
 
 ??? example "Complete Example GitHub Actions Workflow"
@@ -89,7 +99,16 @@ Example of using HolmesGPT in a CI/CD pipeline to automatically troubleshoot dep
 
         - name: Install HolmesGPT
           run: |
-            pip install holmesgpt
+            # Clone the branch of holmes you want to install
+            git clone -b slack-markdown-fix https://github.com/robusta-dev/holmesgpt.git /tmp/holmesgpt
+            cd /tmp/holmesgpt
+
+            # Install Poetry
+            curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
+            export PATH="$HOME/.local/bin:$PATH"
+
+            # Install dependencies using Poetry
+            poetry install
 
         - name: Deploy to EKS
           env:
@@ -98,14 +117,11 @@ Example of using HolmesGPT in a CI/CD pipeline to automatically troubleshoot dep
             # Apply Kubernetes manifests
             kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/refs/heads/main/image_pull_backoff/no_such_image.yaml
             # Wait for rollout
-            if ! kubectl rollout status deployment/customer-relations-webapp --timeout=300s; then
+            if ! kubectl rollout status deployment/customer-relations-webapp --timeout=150s; then
               echo "Deployment failed - starting HolmesGPT investigation"
-              # Capture current state
-              kubectl get all > deployment-state.txt
-              kubectl describe deployment customer-relations-webapp >> deployment-state.txt
-              kubectl get events --sort-by='.lastTimestamp' | tail -20 >> deployment-state.txt
               # Run HolmesGPT investigation and send directly to Slack
-              cat deployment-state.txt | holmes ask \
+              cd /tmp/holmesgpt
+              poetry run holmes ask \
                 "🚨 EKS Deployment Failed in ${{ github.repository }}
 
                 Environment: EKS Cluster ${{ vars.EKS_CLUSTER_NAME }} in ${{ vars.AWS_REGION }}
@@ -116,7 +132,7 @@ Example of using HolmesGPT in a CI/CD pipeline to automatically troubleshoot dep
                 --no-interactive \
                 --destination slack \
                 --slack-token "${{ secrets.SLACK_TOKEN }}" \
-                --slack-channel "#deployment-alerts"
+                --slack-channel "#YOUR_CHANNEL_NAME"
               exit 1
             fi
     ```
