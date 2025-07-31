@@ -26,11 +26,17 @@ class ToolsetManager:
     def __init__(
         self,
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
+        mcp_servers: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
         toolset_status_location: Optional[FilePath] = None,
     ):
         self.toolsets = toolsets
+        self.toolsets = toolsets or {}
+        if mcp_servers is not None:
+            for _, mcp_server in mcp_servers.items():
+                mcp_server["type"] = ToolsetType.MCP.value
+        self.toolsets.update(mcp_servers or {})
         self.custom_toolsets = custom_toolsets
 
         if toolset_status_location is None:
@@ -255,7 +261,7 @@ class ToolsetManager:
                 toolset.error = cached_status.get("error", None)
                 toolset.enabled = cached_status.get("enabled", True)
                 toolset.type = ToolsetType(
-                    cached_status.get("type", ToolsetType.BUILTIN)
+                    cached_status.get("type", ToolsetType.BUILTIN.value)
                 )
                 toolset.path = cached_status.get("path", None)
             # check prerequisites for only enabled toolset when the toolset is loaded from cache. When the toolset is
@@ -355,7 +361,7 @@ class ToolsetManager:
             mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
 
             for server_config in mcp_config.values():
-                server_config["type"] = ToolsetType.MCP
+                server_config["type"] = ToolsetType.MCP.value
 
             for toolset_config in toolsets_config.values():
                 toolset_config["path"] = toolset_path
