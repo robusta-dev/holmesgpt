@@ -404,6 +404,18 @@ class ToolCallingLLM:
                 if tools_to_call:
                     logging.info("")
 
+                # Get context reminders from all enabled tools
+                reminders = self.tool_executor.get_context_reminders()
+                if reminders:
+                    # Combine all reminders into a single user message with system-reminder tags
+                    combined_reminders = "\n\n".join(reminders)
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": f"<system-reminder>\n{combined_reminders}\n</system-reminder>",
+                        }
+                    )
+
         raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
 
     def _invoke_tool(

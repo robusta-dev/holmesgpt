@@ -205,6 +205,11 @@ def ask(
         "--refresh-toolsets",
         help="Refresh the toolsets status",
     ),
+    enable_hypothesis: bool = typer.Option(
+        False,
+        "--enable-hypothesis",
+        help="Enable hypothesis tracking for systematic investigation",
+    ),
     trace: Optional[str] = typer.Option(
         None,
         "--trace",
@@ -252,6 +257,7 @@ def ask(
         dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
         tracer=tracer,
+        enable_hypothesis=enable_hypothesis,
     )
 
     if prompt_file and prompt:
@@ -304,6 +310,7 @@ def ask(
         ai.tool_executor,
         config.get_runbook_catalog(),
         system_prompt_additions,
+        enable_hypothesis,
     )
 
     with tracer.start_trace(

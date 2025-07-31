@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
+from holmes.core.tools import ToolsetStatusEnum
 from holmes.plugins.runbooks import (
     RunbookCatalog,
     load_builtin_runbooks,
@@ -252,7 +253,10 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
+        self,
+        dal: Optional["SupabaseDal"],
+        refresh_status: bool = False,
+        enable_hypothesis: bool = False,
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -266,6 +270,33 @@ class Config(RobustaBaseConfig):
         cli_toolsets = self.toolset_manager.list_console_toolsets(
             dal=dal, refresh_status=refresh_status
         )
+
+        # Enable hypothesis tracking if requested via CLI flag
+        if enable_hypothesis:
+            for toolset in cli_toolsets:
+                if toolset.name == "hypothesis_tracking":
+                    logging.info(
+                        f"Enabling hypothesis_tracking toolset (was enabled={toolset.enabled})"
+                    )
+                    toolset.enabled = True
+                    toolset.check_prerequisites()
+                    logging.info(
+                        f"Hypothesis tracking toolset status: {toolset.status}"
+                    )
+                    break
+            else:
+                logging.warning(
+                    "hypothesis_tracking toolset not found in available toolsets"
+                )
+
+        # Debug: print enabled toolsets
+        enabled_toolsets = [
+            ts
+            for ts in cli_toolsets
+            if ts.enabled and ts.status == ToolsetStatusEnum.ENABLED
+        ]
+        logging.info(f"Enabled toolsets: {[ts.name for ts in enabled_toolsets]}")
+
         return ToolExecutor(cli_toolsets)
 
     def create_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
@@ -291,8 +322,11 @@ class Config(RobustaBaseConfig):
         dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
+        enable_hypothesis: bool = False,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(
+            dal, refresh_toolsets, enable_hypothesis
+        )
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(

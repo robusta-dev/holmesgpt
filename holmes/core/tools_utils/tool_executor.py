@@ -44,6 +44,12 @@ class ToolExecutor:
                     )
                 self.tools_by_name[tool.name] = tool
 
+        # Debug info
+        if "update_hypotheses" in self.tools_by_name:
+            logging.info("✓ update_hypotheses tool is available in tool executor")
+        else:
+            logging.warning("✗ update_hypotheses tool NOT found in tool executor")
+
     def invoke(self, tool_name: str, params: dict) -> StructuredToolResult:
         tool = self.get_tool_by_name(tool_name)
         return (
@@ -64,3 +70,17 @@ class ToolExecutor:
     @sentry_sdk.trace
     def get_all_tools_openai_format(self):
         return [tool.get_openai_format() for tool in self.tools_by_name.values()]
+
+    def get_context_reminders(self) -> List[str]:
+        """
+        Collect context reminders from all enabled tools that want to inject context.
+
+        Returns:
+            List of reminder strings from tools that have context to share
+        """
+        reminders = []
+        for tool in self.tools_by_name.values():
+            reminder = tool.get_context_reminder()
+            if reminder:
+                reminders.append(reminder)
+        return reminders

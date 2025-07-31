@@ -169,6 +169,16 @@ class Tool(ABC, BaseModel):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return ""
 
+    def get_context_reminder(self) -> Optional[str]:
+        """
+        Optional method for tools to provide context reminders that should be injected
+        into the conversation after the tool is called.
+
+        Returns:
+            Optional[str]: A reminder string to inject, or None if no reminder needed
+        """
+        return None
+
 
 class YAMLTool(Tool, BaseModel):
     command: Optional[str] = None

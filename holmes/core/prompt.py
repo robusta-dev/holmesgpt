@@ -32,6 +32,7 @@ def build_initial_ask_messages(
     tool_executor: Any,  # ToolExecutor type
     runbooks: Union[RunbookCatalog, Dict, None] = None,
     system_prompt_additions: Optional[str] = None,
+    enable_hypothesis: bool = False,
 ) -> List[Dict]:
     """Build the initial messages for the AI call.
 
@@ -42,6 +43,7 @@ def build_initial_ask_messages(
         tool_executor: The tool executor with available toolsets
         runbooks: Optional runbook catalog
         system_prompt_additions: Optional additional system prompt content
+        enable_hypothesis: Whether hypothesis tracking is enabled
     """
     # Load and render system prompt internally
     system_prompt_template = "builtin://generic_ask.jinja2"
@@ -58,6 +60,16 @@ def build_initial_ask_messages(
     user_prompt_with_files = append_all_files_to_user_prompt(
         console, initial_user_prompt, file_paths
     )
+
+    # Add hypothesis tracking reminder if enabled
+    if enable_hypothesis:
+        # Check if hypothesis_tracking toolset is actually enabled
+        hypothesis_enabled = any(
+            ts.name == "hypothesis_tracking" and ts.enabled
+            for ts in tool_executor.toolsets
+        )
+        if hypothesis_enabled:
+            user_prompt_with_files += "\n\n<system-reminder>\nIMPORTANT: You have access to the update_hypotheses tool. You MUST use it:\n1. FIRST: Create Initial Hypotheses based ONLY on the problem description, BEFORE any other tools\n2. AFTER EVERY TOOL CALL: Update hypotheses with new evidence (even if just adding to tool_calls_made)\n3. BEFORE CONCLUDING: Mark at least one hypothesis as 'confirmed' with the root cause\n\nFAILURE TO UPDATE HYPOTHESES = INCOMPLETE INVESTIGATION\n\nExample flow:\n- Create hypotheses → Run kubectl commands → Update hypotheses with findings → Run more tools → Update again → Confirm root cause hypothesis\n</system-reminder>"
 
     messages = [
         {"role": "system", "content": system_prompt_rendered},
