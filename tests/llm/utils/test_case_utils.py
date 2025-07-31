@@ -113,7 +113,7 @@ class MockHelper:
         return cast(List[InvestigateTestCase], self.load_test_cases())
 
     def load_ask_holmes_test_cases(self) -> List[AskHolmesTestCase]:
-        return cast(List[AskHolmesTestCase], self.load_test_cases())
+        return self.load_test_cases()
 
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
