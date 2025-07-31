@@ -12,6 +12,9 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from pydantic import BaseModel
 from rich.console import Console
 
+from holmes.common.env_vars import (
+    TEMPERATURE,
+)
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -281,6 +284,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
