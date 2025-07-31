@@ -235,6 +235,11 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory
   - If `runbooks` field is not specified, default system runbooks are used
 
+## Memory Notes
+
+- **Evals and Mocking**:
+  - When creating evals never generate mock data and always test evals with RUN_LIVE=true
+
 ## Documentation Lookup
 
 When asked about content from the HolmesGPT documentation website (https://robusta-dev.github.io/holmesgpt/), look in the local `docs/` directory:
@@ -243,3 +248,5 @@ When asked about content from the HolmesGPT documentation website (https://robus
 - Kubernetes deployment: `docs/installation/kubernetes-installation.md`
 - Toolset documentation: `docs/data-sources/builtin-toolsets/`
 - API reference: `docs/reference/`
+
+```
