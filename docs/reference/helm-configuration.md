@@ -45,8 +45,6 @@ toolsets:
   ...
 ```
 
-> **Note:** After making changes to your configuration, run `holmes toolset refresh` to apply the changes.
-
 ## Configuration Options
 
 ### Essential Settings

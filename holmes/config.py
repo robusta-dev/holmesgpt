@@ -31,12 +31,13 @@ if TYPE_CHECKING:
     from holmes.plugins.sources.pagerduty import PagerDutySource
     from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
+from holmes.core.config import config_path_dir
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
-DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+DEFAULT_CONFIG_LOCATION = os.path.join(config_path_dir, "config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
     "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
 )
