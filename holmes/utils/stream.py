@@ -16,7 +16,7 @@ class StreamMessage(BaseModel):
     data: dict = Field(default={})
 
 
-def create_sse_message(event_type: str, data: dict = None):
+def create_sse_message(event_type: str, data: Optional[dict] = None):
     if data is None:
         data = {}
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
