@@ -16,8 +16,9 @@ from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
 )
-
-DEFAULT_TIME_SPAN_SECONDS = 3600
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+)
 
 
 class ServiceNowConfig(BaseModel):

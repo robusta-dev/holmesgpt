@@ -15,11 +15,3 @@ runbooks:
     - description: "AWS Lambda High Latency Troubleshooting"
       link: "lambda_performance_troubleshooting.md"
       update_date: "2025-07-01"
-
-toolsets:
-  aws/lambda:
-    enabled: true
-  aws/logs:
-    enabled: true
-  aws/cloudwatch:
-    enabled: false

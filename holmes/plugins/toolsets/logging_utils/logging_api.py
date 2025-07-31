@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
-from typing import Optional
+from typing import Optional, Set
+from enum import Enum
 
 from pydantic import BaseModel
 from datetime import timezone
@@ -14,10 +15,18 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.utils import get_param_or_raise
 
 # Default values for log fetching
-DEFAULT_LOG_LIMIT = 2000
-DEFAULT_TIME_SPAN_SECONDS = 3600
+DEFAULT_LOG_LIMIT = 100
+SECONDS_PER_DAY = 24 * 60 * 60
+DEFAULT_TIME_SPAN_SECONDS = 7 * SECONDS_PER_DAY  # 1 week in seconds
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
+
+
+class LoggingCapability(str, Enum):
+    """Optional advanced logging capabilities"""
+
+    REGEX_FILTER = "regex_filter"  # If not supported, falls back to substring matching
+    EXCLUDE_FILTER = "exclude_filter"  # If not supported, parameter is not shown at all
 
 
 class LoggingConfig(BaseModel):
@@ -32,11 +41,18 @@ class FetchPodLogsParams(BaseModel):
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     filter: Optional[str] = None
+    exclude_filter: Optional[str] = None
     limit: Optional[int] = None
 
 
 class BasePodLoggingToolset(Toolset, ABC):
     """Base class for all logging toolsets"""
+
+    @property
+    @abstractmethod
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Return the set of optional capabilities supported by this provider"""
+        pass
 
     @abstractmethod
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
@@ -50,41 +66,95 @@ class PodLoggingTool(Tool):
     """Common tool for fetching pod logs across different logging backends"""
 
     def __init__(self, toolset: BasePodLoggingToolset):
+        # Get parameters dynamically based on what the toolset supports
+        parameters = self._get_tool_parameters(toolset)
+
+        # Build description based on capabilities
+        description = "Fetch logs for a Kubernetes pod"
+        capabilities = toolset.supported_capabilities
+
+        if (
+            LoggingCapability.REGEX_FILTER in capabilities
+            and LoggingCapability.EXCLUDE_FILTER in capabilities
+        ):
+            description += " with support for regex filtering and exclusion patterns"
+        elif LoggingCapability.REGEX_FILTER in capabilities:
+            description += " with support for regex filtering"
+
+        # Add default information
+        description += f". Defaults: Fetches last {DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY} days of logs, limited to {DEFAULT_LOG_LIMIT} most recent entries"
+
         super().__init__(
             name=POD_LOGGING_TOOL_NAME,
-            description="Fetch logs for a Kubernetes pod",
-            parameters={
-                "pod_name": ToolParameter(
-                    description="The exact kubernetes pod name",
-                    type="string",
-                    required=True,
-                ),
-                "namespace": ToolParameter(
-                    description="Kubernetes namespace", type="string", required=True
-                ),
-                "start_time": ToolParameter(
-                    description="Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
-                    type="string",
-                    required=False,
-                ),
-                "end_time": ToolParameter(
-                    description="End time for logs. Must be an RFC3339 formatted datetime (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
-                    type="string",
-                    required=False,
-                ),
-                "limit": ToolParameter(
-                    description="Maximum number of logs to return",
-                    type="integer",
-                    required=False,
-                ),
-                "filter": ToolParameter(
-                    description="An optional keyword or sentence to filter the logs",
-                    type="string",
-                    required=False,
-                ),
-            },
+            description=description,
+            parameters=parameters,
         )
         self._toolset = toolset
+
+    def _get_tool_parameters(self, toolset: BasePodLoggingToolset) -> dict:
+        """Generate parameters based on what this provider supports"""
+        # Base parameters always available
+        params = {
+            "pod_name": ToolParameter(
+                description="The exact kubernetes pod name",
+                type="string",
+                required=True,
+            ),
+            "namespace": ToolParameter(
+                description="Kubernetes namespace", type="string", required=True
+            ),
+            "start_time": ToolParameter(
+                description=f"Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time. Default: -{DEFAULT_TIME_SPAN_SECONDS} (last {DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY} days)",
+                type="string",
+                required=False,
+            ),
+            "end_time": ToolParameter(
+                description="End time for logs. Must be an RFC3339 formatted datetime (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
+                type="string",
+                required=False,
+            ),
+            "limit": ToolParameter(
+                description=f"Maximum number of logs to return. Default: {DEFAULT_LOG_LIMIT}",
+                type="integer",
+                required=False,
+            ),
+        }
+
+        # Add filter - description changes based on regex support
+        if LoggingCapability.REGEX_FILTER in toolset.supported_capabilities:
+            params["filter"] = ToolParameter(
+                description="""An optional filter for logs - can be a simple keyword/phrase or a regex pattern (case-insensitive).
+Examples of useful filters:
+- For errors: filter='err|error|fatal|critical|fail|exception|panic|crash'
+- For warnings: filter='warn|warning|caution'
+- For specific HTTP errors: filter='5[0-9]{2}|404|403'
+- For Java exceptions: filter='Exception|Error|Throwable|StackTrace'
+- For timeouts: filter='timeout|timed out|deadline exceeded'
+If you get no results with a filter, try a broader pattern or drop the filter.""",
+                type="string",
+                required=False,
+            )
+        else:
+            params["filter"] = ToolParameter(
+                description="An optional keyword to filter logs - matches logs containing this text (case-insensitive)",
+                type="string",
+                required=False,
+            )
+
+        # ONLY add exclude_filter if supported - otherwise it doesn't exist
+        if LoggingCapability.EXCLUDE_FILTER in toolset.supported_capabilities:
+            params["exclude_filter"] = ToolParameter(
+                description="""An optional exclusion filter - logs matching this pattern will be excluded. Can be a simple keyword or regex pattern (case-insensitive).
+Examples of useful exclude filters:
+- Exclude HTTP 200s: exclude_filter='GET.*200|POST.*200'
+- Exclude health/metrics: exclude_filter='health|metrics|ping|heartbeat'
+- Exclude specific log levels: exclude_filter='"level": "INFO"'
+If you hit the log limit and see lots of repetitive INFO logs, use exclude_filter to remove the noise and focus on what matters.""",
+                type="string",
+                required=False,
+            )
+
+        return params
 
     def _invoke(self, params: dict) -> StructuredToolResult:
         structured_params = FetchPodLogsParams(
@@ -93,6 +163,7 @@ class PodLoggingTool(Tool):
             start_time=params.get("start_time"),
             end_time=params.get("end_time"),
             filter=params.get("filter"),
+            exclude_filter=params.get("exclude_filter"),
             limit=params.get("limit"),
         )
 
