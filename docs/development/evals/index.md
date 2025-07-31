@@ -155,6 +155,7 @@ Configure evaluations using these environment variables:
 | `EXPERIMENT_ID` | `EXPERIMENT_ID=my_baseline` | Custom experiment name for result tracking |
 | `BRAINTRUST_API_KEY` | `BRAINTRUST_API_KEY=sk-...` | Enable Braintrust integration for result tracking and CI/CD report generation |
 | `BRAINTRUST_ORG` | `BRAINTRUST_ORG=my-org` | Braintrust organization name (defaults to "robustadev") |
+| `ASK_HOLMES_TEST_TYPE` | `ASK_HOLMES_TEST_TYPE=server` | Controls message building flow in ask_holmes tests. `cli` (default) uses `build_initial_ask_messages` and skips conversation history tests. `server` uses `build_chat_messages` with full conversation support |
 
 ### Simple Example
 
@@ -215,7 +216,6 @@ poetry run pytest -m "llm and not synthetic"
 - `network` - Tests requiring network connectivity
 - `runbooks` - Runbook functionality tests
 - `misleading-history` - Tests with misleading historical data
-- `k8s-misconfig` - Kubernetes misconfiguration tests
 - `chain-of-causation` - Chain of causation analysis tests
 - `slackbot` - Slack integration tests
 - `counting` - Resource counting tests

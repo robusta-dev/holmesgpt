@@ -7,5 +7,5 @@ before_test: |
   sleep 40
 after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/init_crashloop_backoff/create_init_crashloop_backoff.yaml
-evaluation:
-  correctness: 1
+tags:
+  - easy

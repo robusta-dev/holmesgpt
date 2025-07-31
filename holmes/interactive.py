@@ -19,17 +19,29 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
+from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
+from holmes.core.config import config_path_dir
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
-from holmes.version import check_version_async
 from holmes.core.tracing import DummyTracer
+from holmes.utils.colors import (
+    AI_COLOR,
+    ERROR_COLOR,
+    HELP_COLOR,
+    STATUS_COLOR,
+    TOOLS_COLOR,
+    USER_COLOR,
+)
+from holmes.utils.console.consts import agent_name
+from holmes.version import check_version_async
 
 
 class SlashCommands(Enum):
@@ -139,12 +151,47 @@ class ConditionalExecutableCompleter(Completer):
                         )
 
 
-USER_COLOR = "#DEFCC0"  # light green
-AI_COLOR = "#00FFFF"  # cyan
-TOOLS_COLOR = "magenta"
-HELP_COLOR = "cyan"  # same as AI_COLOR for now
-ERROR_COLOR = "red"
-STATUS_COLOR = "yellow"
+class ShowCommandCompleter(Completer):
+    """Completer that provides suggestions for /show command based on tool call history"""
+
+    def __init__(self):
+        self.tool_calls_history = []
+
+    def update_history(self, tool_calls_history: List[ToolCallResult]):
+        """Update the tool calls history for completion suggestions"""
+        self.tool_calls_history = tool_calls_history
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+
+        # Only provide completion if the line starts with /show
+        if text.startswith("/show "):
+            # Extract the argument part after "/show "
+            show_part = text[6:]  # Remove "/show "
+
+            # Don't complete if there are already multiple words
+            words = show_part.split()
+            if len(words) > 1:
+                return
+
+            # Provide completions based on available tool calls
+            if self.tool_calls_history:
+                for i, tool_call in enumerate(self.tool_calls_history):
+                    tool_index = str(i + 1)  # 1-based index
+                    tool_description = tool_call.description
+
+                    # Complete tool index numbers (show all if empty, or filter by what user typed)
+                    if (
+                        not show_part
+                        or tool_index.startswith(show_part)
+                        or show_part.lower() in tool_description.lower()
+                    ):
+                        yield Completion(
+                            tool_index,
+                            start_position=-len(show_part),
+                            display=f"{tool_index} - {tool_description}",
+                        )
+
 
 WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
@@ -183,6 +230,28 @@ def format_tool_call_output(
 def build_modal_title(tool_call: ToolCallResult, wrap_status: str) -> str:
     """Build modal title with navigation instructions."""
     return f"{tool_call.description} (exit: q, nav: ↑↓/j/k/g/G/d/u/f/b/space, wrap: w [{wrap_status}])"
+
+
+def detect_lexer(content: str) -> Optional[PygmentsLexer]:
+    """
+    Detect appropriate lexer for content using Pygments' built-in detection.
+
+    Args:
+        content: String content to analyze
+
+    Returns:
+        PygmentsLexer instance if content type is detected, None otherwise
+    """
+    if not content.strip():
+        return None
+
+    try:
+        # Use Pygments' built-in lexer guessing
+        lexer = guess_lexer(content)
+        return PygmentsLexer(lexer.__class__)
+    except Exception:
+        # If detection fails, return None for no syntax highlighting
+        return None
 
 
 def handle_show_command(
@@ -246,6 +315,9 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         output = tool_call.result.get_stringified_data()
         title = build_modal_title(tool_call, "off")  # Word wrap starts disabled
 
+        # Detect appropriate syntax highlighting
+        lexer = detect_lexer(output)
+
         # Create text area with the output
         text_area = TextArea(
             text=output,
@@ -253,6 +325,7 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
             scrollbar=True,
             line_numbers=False,
             wrap_lines=False,  # Disable word wrap by default
+            lexer=lexer,
         )
 
         # Create header
@@ -275,15 +348,18 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         # Create key bindings
         bindings = KeyBindings()
 
-        # Exit commands
+        # Track exit state to prevent double exits
+        exited = False
+
+        # Exit commands (q, escape, or ctrl+c to exit)
         @bindings.add("q")
         @bindings.add("escape")
-        def _(event):
-            event.app.exit()
-
         @bindings.add("c-c")
         def _(event):
-            event.app.exit()
+            nonlocal exited
+            if not exited:
+                exited = True
+                event.app.exit()
 
         # Vim/less-like navigation
         @bindings.add("j")
@@ -596,7 +672,7 @@ def handle_shell_command(
         Formatted user input string if user chooses to share, None otherwise
     """
     console.print(
-        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to HolmesGPT.[/bold {STATUS_COLOR}]"
+        f"[bold {STATUS_COLOR}]Starting interactive shell. Type 'exit' to return to {agent_name}.[/bold {STATUS_COLOR}]"
     )
     console.print(
         "[dim]Shell session will be recorded and can be shared with LLM when you exit.[/dim]"
@@ -714,12 +790,14 @@ def display_recent_tool_outputs(
 def run_interactive_loop(
     ai: ToolCallingLLM,
     console: Console,
-    system_prompt_rendered: str,
     initial_user_input: Optional[str],
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
     tracer=None,
+    runbooks=None,
+    system_prompt_additions: Optional[str] = None,
+    check_version: bool = True,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -733,17 +811,19 @@ def run_interactive_loop(
         }
     )
 
-    # Create merged completer with slash commands, conditional executables, and smart paths
+    # Create merged completer with slash commands, conditional executables, show command, and smart paths
     slash_completer = SlashCommandCompleter()
     executable_completer = ConditionalExecutableCompleter()
+    show_completer = ShowCommandCompleter()
     path_completer = SmartPathCompleter()
 
     command_completer = merge_completers(
-        [slash_completer, executable_completer, path_completer]
+        [slash_completer, executable_completer, show_completer, path_completer]
     )
 
     # Use file-based history
-    history_file = os.path.expanduser("~/.holmes/history")
+    history_file = os.path.join(config_path_dir, "history")
+
     os.makedirs(os.path.dirname(history_file), exist_ok=True)
     history = FileHistory(history_file)
     if initial_user_input:
@@ -816,7 +896,8 @@ def run_interactive_loop(
     )  # type: ignore
 
     # Start background version check
-    check_version_async(on_version_check_complete)
+    if check_version:
+        check_version_async(on_version_check_complete)
 
     input_prompt = [("class:prompt", "User: ")]
 
@@ -870,6 +951,8 @@ def run_interactive_loop(
                     messages = None
                     last_response = None
                     all_tool_calls_history.clear()
+                    # Reset the show completer history
+                    show_completer.update_history([])
                     continue
                 elif command == SlashCommands.TOOLS_CONFIG.command:
                     pretty_print_toolset_status(ai.tool_executor.toolsets, console)
@@ -915,7 +998,12 @@ def run_interactive_loop(
 
             if messages is None:
                 messages = build_initial_ask_messages(
-                    console, system_prompt_rendered, user_input, include_files
+                    console,
+                    user_input,
+                    include_files,
+                    ai.tool_executor,
+                    runbooks,
+                    system_prompt_additions,
                 )
             else:
                 messages.append({"role": "user", "content": user_input})
@@ -944,6 +1032,8 @@ def run_interactive_loop(
 
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
+                # Update the show completer with the latest tool call history
+                show_completer.update_history(all_tool_calls_history)
 
             if show_tool_output and response.tool_calls:
                 display_recent_tool_outputs(

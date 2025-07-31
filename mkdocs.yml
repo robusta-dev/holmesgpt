@@ -135,6 +135,8 @@ nav:
 
   - Walkthrough:
       - walkthrough/index.md
+      - Interactive Mode: walkthrough/interactive-mode.md
+      - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
 
   - AI Providers:
@@ -194,4 +196,5 @@ nav:
   - Reference:
       - reference/helm-configuration.md
       - HTTP API: reference/http-api.md
+      - Slash Commands: reference/slash-commands.md
       - Troubleshooting: reference/troubleshooting.md

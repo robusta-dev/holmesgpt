@@ -6,22 +6,30 @@ from pathlib import Path
 from unittest.mock import patch
 from datetime import datetime
 
+from rich.console import Console
+from holmes.core.models import ChatRequest
 from holmes.core.tracing import TracingFactory
+from holmes.config import Config
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
-from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-import tests.llm.utils.braintrust as braintrust_util
 from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import set_test_env_vars
-from tests.llm.utils.constants import PROJECT
 from tests.llm.utils.mock_toolset import (
     MockToolsetManager,
     MockMode,
     MockGenerationConfig,
 )
-from tests.llm.utils.test_case_utils import AskHolmesTestCase, Evaluation, MockHelper
+from tests.llm.utils.test_case_utils import (
+    AskHolmesTestCase,
+    Evaluation,
+    MockHelper,
+    check_and_skip_test,
+)
+
+from holmes.core.prompt import build_initial_ask_messages
+
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     update_test_results,
@@ -42,28 +50,12 @@ TEST_CASES_FOLDER = Path(
 )
 
 
+# TODO: reuse code with test_investigate.py and test_workload_health.py
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("ask_holmes")
-    dataset_name = braintrust_util.get_dataset_name("ask_holmes")
-
     mh = MockHelper(TEST_CASES_FOLDER)
-
-    if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
-        bt_helper.upload_test_cases(mh.load_test_cases())
     test_cases = mh.load_ask_holmes_test_cases()
-
-    iterations = int(os.environ.get("ITERATIONS", "0"))
-    if iterations:
-        return [
-            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
-        ] * iterations
-    else:
-        return [
-            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
-        ]
+    iterations = int(os.environ.get("ITERATIONS", "1"))
+    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
 
 
 def idfn(val):
@@ -74,9 +66,8 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
 def test_ask_holmes(
-    experiment_name: str,
     test_case: AskHolmesTestCase,
     caplog,
     request,
@@ -85,6 +76,15 @@ def test_ask_holmes(
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
+
+    # Check if test should be skipped
+    check_and_skip_test(test_case)
+
+    # Check for setup failures
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        request.node.user_properties.append(("is_setup_failure", True))
+        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
     print(f"\n🧪 TEST: {test_case.id}")
     print("   CONFIGURATION:")
@@ -109,11 +109,8 @@ def test_ask_holmes(
         else:
             print(f"   • After Test: {test_case.after_test}")
 
-    tracer = TracingFactory.create_tracer("braintrust", project=PROJECT)
-    tracer.start_experiment(
-        experiment_name=experiment_name,
-        metadata=braintrust_util.get_machine_state_tags(),
-    )
+    tracer = TracingFactory.create_tracer("braintrust")
+    tracer.start_experiment()
 
     result: Optional[LLMResult] = None
 
@@ -169,6 +166,7 @@ def test_ask_holmes(
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
+                    # metadata={"tags": test_case.tags},
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -233,6 +231,7 @@ def test_ask_holmes(
             dataset_record_id=test_case.id,
             scores=scores,
             metadata={"system_prompt": prompt},
+            # metadata={"tags": test_case.tags},
         )
 
     # Print tool calls summary
@@ -279,21 +278,19 @@ def test_ask_holmes(
     ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {expected_output}"
 
 
+# TODO: can this call real ask_holmes so more of the logic is captured
 def ask_holmes(
     test_case: AskHolmesTestCase, tracer, mock_generation_config, request=None
 ) -> LLMResult:
-    mock = MockToolsetManager(
+    toolset_manager = MockToolsetManager(
         test_case_folder=test_case.folder,
         mock_generation_config=mock_generation_config,
         request=request,
+        mock_policy=test_case.mock_policy,
     )
 
-    # With the new simplified mock system, mocks are loaded from disk on each tool invocation
-    # No need to populate mocks in memory anymore
-
-    tool_executor = ToolExecutor(mock.enabled_toolsets)
+    tool_executor = ToolExecutor(toolset_manager.toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
-
     print(
         f"\n🛠️  ENABLED TOOLSETS ({len(enabled_toolsets)}):", ", ".join(enabled_toolsets)
     )
@@ -304,10 +301,40 @@ def ask_holmes(
         llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
     )
 
-    chat_request = ChatRequest(ask=test_case.user_prompt)
-    messages = build_chat_messages(
-        ask=chat_request.ask, conversation_history=test_case.conversation_history, ai=ai
-    )
+    test_type = os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+    if test_type == "cli":
+        if test_case.conversation_history:
+            pytest.skip("CLI mode does not support conversation history tests")
+        else:
+            console = Console()
+            # Use custom runbooks from test case if provided, otherwise use default system runbooks
+            if test_case.runbooks is not None:
+                runbooks = test_case.runbooks
+            else:
+                # Load default system runbooks
+                from holmes.plugins.runbooks import load_runbook_catalog
+
+                runbook_catalog = load_runbook_catalog()
+                runbooks = runbook_catalog.model_dump() if runbook_catalog else {}
+            messages = build_initial_ask_messages(
+                console,
+                test_case.user_prompt,
+                None,
+                ai.tool_executor,
+                runbooks,
+            )
+    else:
+        chat_request = ChatRequest(ask=test_case.user_prompt)
+        config = Config()
+        if test_case.cluster_name:
+            config.cluster_name = test_case.cluster_name
+
+        messages = build_chat_messages(
+            ask=chat_request.ask,
+            conversation_history=test_case.conversation_history,
+            ai=ai,
+            config=config,
+        )
 
     # Create LLM completion trace within current context
     with tracer.start_trace("run holmes", span_type=SpanType.LLM) as llm_span:

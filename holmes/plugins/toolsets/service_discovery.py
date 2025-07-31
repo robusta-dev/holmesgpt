@@ -30,7 +30,7 @@ def find_service_url(label_selector):
         )
         if not svc_list.items:
             return None
-        svc: V1Service = svc_list.items[0]
+        svc: V1Service = svc_list.items[0]  # type: ignore
         name = svc.metadata.name
         namespace = svc.metadata.namespace
         port = svc.spec.ports[0].port

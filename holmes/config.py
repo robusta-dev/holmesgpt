@@ -4,36 +4,40 @@ import os
 import os.path
 from enum import Enum
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
-from holmes.core.llm import LLM, DefaultLLM
-from holmes.core.runbooks import RunbookManager
-from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
-from holmes.plugins.destinations.slack import SlackDestination
 from holmes.plugins.runbooks import (
     RunbookCatalog,
     load_builtin_runbooks,
     load_runbook_catalog,
     load_runbooks_from_file,
 )
-from holmes.plugins.sources.github import GitHubSource
-from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
-from holmes.plugins.sources.opsgenie import OpsGenieSource
-from holmes.plugins.sources.pagerduty import PagerDutySource
-from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
+
+# Source plugin imports moved to their respective create methods to speed up startup
+if TYPE_CHECKING:
+    from holmes.core.llm import LLM
+    from holmes.core.supabase_dal import SupabaseDal
+    from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
+    from holmes.plugins.destinations.slack import SlackDestination
+    from holmes.plugins.sources.github import GitHubSource
+    from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
+    from holmes.plugins.sources.opsgenie import OpsGenieSource
+    from holmes.plugins.sources.pagerduty import PagerDutySource
+    from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
+
+from holmes.core.config import config_path_dir
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import replace_env_vars_values
 from holmes.utils.file_utils import load_yaml_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
-DEFAULT_CONFIG_LOCATION = os.path.expanduser("~/.holmes/config.yaml")
+DEFAULT_CONFIG_LOCATION = os.path.join(config_path_dir, "config.yaml")
 MODEL_LIST_FILE_LOCATION = os.environ.get(
     "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
 )
@@ -246,7 +250,7 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional[SupabaseDal], refresh_status: bool = False
+        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -262,7 +266,7 @@ class Config(RobustaBaseConfig):
         )
         return ToolExecutor(cli_toolsets)
 
-    def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
+    def create_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
         """
         Creates ToolExecutor for the server endpoints
         """
@@ -282,53 +286,73 @@ class Config(RobustaBaseConfig):
 
     def create_console_toolcalling_llm(
         self,
-        dal: Optional[SupabaseDal] = None,
+        dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
-    ) -> ToolCallingLLM:
+    ) -> "ToolCallingLLM":
         tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        from holmes.core.tool_calling_llm import ToolCallingLLM
+
         return ToolCallingLLM(
             tool_executor, self.max_steps, self._get_llm(tracer=tracer)
         )
 
     def create_toolcalling_llm(
         self,
-        dal: Optional[SupabaseDal] = None,
+        dal: Optional["SupabaseDal"] = None,
         model: Optional[str] = None,
         tracer=None,
-    ) -> ToolCallingLLM:
+    ) -> "ToolCallingLLM":
         tool_executor = self.create_tool_executor(dal)
+        from holmes.core.tool_calling_llm import ToolCallingLLM
+
         return ToolCallingLLM(
             tool_executor, self.max_steps, self._get_llm(model, tracer)
         )
 
     def create_issue_investigator(
         self,
-        dal: Optional[SupabaseDal] = None,
+        dal: Optional["SupabaseDal"] = None,
         model: Optional[str] = None,
         tracer=None,
-    ) -> IssueInvestigator:
+    ) -> "IssueInvestigator":
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
+
+        from holmes.core.runbooks import RunbookManager
 
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_tool_executor(dal)
+        from holmes.core.tool_calling_llm import IssueInvestigator
+
         return IssueInvestigator(
-            tool_executor, runbook_manager, self.max_steps, self._get_llm(model, tracer)
+            tool_executor=tool_executor,
+            runbook_manager=runbook_manager,
+            max_steps=self.max_steps,
+            llm=self._get_llm(model, tracer),
+            cluster_name=self.cluster_name,
         )
 
     def create_console_issue_investigator(
-        self, dal: Optional[SupabaseDal] = None
-    ) -> IssueInvestigator:
+        self, dal: Optional["SupabaseDal"] = None
+    ) -> "IssueInvestigator":
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
 
+        from holmes.core.runbooks import RunbookManager
+
         runbook_manager = RunbookManager(all_runbooks)
         tool_executor = self.create_console_tool_executor(dal=dal)
+        from holmes.core.tool_calling_llm import IssueInvestigator
+
         return IssueInvestigator(
-            tool_executor, runbook_manager, self.max_steps, self._get_llm()
+            tool_executor=tool_executor,
+            runbook_manager=runbook_manager,
+            max_steps=self.max_steps,
+            llm=self._get_llm(),
+            cluster_name=self.cluster_name,
         )
 
     def validate_jira_config(self):
@@ -343,7 +367,9 @@ class Config(RobustaBaseConfig):
         if self.jira_api_key is None:
             raise ValueError("--jira-api-key must be specified")
 
-    def create_jira_source(self) -> JiraSource:
+    def create_jira_source(self) -> "JiraSource":
+        from holmes.plugins.sources.jira import JiraSource
+
         self.validate_jira_config()
 
         return JiraSource(
@@ -353,7 +379,9 @@ class Config(RobustaBaseConfig):
             jql_query=self.jira_query,  # type: ignore
         )
 
-    def create_jira_service_management_source(self) -> JiraServiceManagementSource:
+    def create_jira_service_management_source(self) -> "JiraServiceManagementSource":
+        from holmes.plugins.sources.jira import JiraServiceManagementSource
+
         self.validate_jira_config()
 
         return JiraServiceManagementSource(
@@ -363,7 +391,9 @@ class Config(RobustaBaseConfig):
             jql_query=self.jira_query,  # type: ignore
         )
 
-    def create_github_source(self) -> GitHubSource:
+    def create_github_source(self) -> "GitHubSource":
+        from holmes.plugins.sources.github import GitHubSource
+
         if not self.github_url or not (
             self.github_url.startswith("http://")
             or self.github_url.startswith("https://")
@@ -384,7 +414,9 @@ class Config(RobustaBaseConfig):
             query=self.github_query,
         )
 
-    def create_pagerduty_source(self) -> PagerDutySource:
+    def create_pagerduty_source(self) -> "PagerDutySource":
+        from holmes.plugins.sources.pagerduty import PagerDutySource
+
         if self.pagerduty_api_key is None:
             raise ValueError("--pagerduty-api-key must be specified")
 
@@ -394,7 +426,9 @@ class Config(RobustaBaseConfig):
             incident_key=self.pagerduty_incident_key,
         )
 
-    def create_opsgenie_source(self) -> OpsGenieSource:
+    def create_opsgenie_source(self) -> "OpsGenieSource":
+        from holmes.plugins.sources.opsgenie import OpsGenieSource
+
         if self.opsgenie_api_key is None:
             raise ValueError("--opsgenie-api-key must be specified")
 
@@ -408,7 +442,9 @@ class Config(RobustaBaseConfig):
             ),
         )
 
-    def create_alertmanager_source(self) -> AlertManagerSource:
+    def create_alertmanager_source(self) -> "AlertManagerSource":
+        from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
+
         return AlertManagerSource(
             url=self.alertmanager_url,  # type: ignore
             username=self.alertmanager_username,
@@ -417,14 +453,16 @@ class Config(RobustaBaseConfig):
             filepath=self.alertmanager_file,
         )
 
-    def create_slack_destination(self):
+    def create_slack_destination(self) -> "SlackDestination":
+        from holmes.plugins.destinations.slack import SlackDestination
+
         if self.slack_token is None:
             raise ValueError("--slack-token must be specified")
         if self.slack_channel is None:
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
-    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> LLM:
+    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
         api_key = self.api_key.get_secret_value() if self.api_key else None
         model = self.model
         model_params = {}
@@ -438,6 +476,8 @@ class Config(RobustaBaseConfig):
             api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
 
+        from holmes.core.llm import DefaultLLM
+
         return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
 
     def get_models_list(self) -> List[str]:
@@ -450,7 +490,7 @@ class Config(RobustaBaseConfig):
 class TicketSource(BaseModel):
     config: Config
     output_instructions: list[str]
-    source: Union[JiraServiceManagementSource, PagerDutySource]
+    source: Union["JiraServiceManagementSource", "PagerDutySource"]
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

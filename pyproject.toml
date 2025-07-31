@@ -31,7 +31,7 @@ markdown = "^3.6"
 certifi = "^2024.7.4"
 urllib3 = "^1.26.19"
 boto3 = "^1.34.145"
-setuptools = "^80.9.0"
+setuptools = "70.0.0"
 aiohttp = "^3.10.2"
 cachetools = "^5.5.0"
 bs4 = "^0.0.2"
@@ -47,18 +47,20 @@ python_multipart = "^0.0.18"
 kubernetes = "^32.0.1"
 mcp = "v1.9.4"
 prompt-toolkit = "^3.0.51"
+pygments = "^2.18.0"
 pytest-shared-session-scope = "^0.4.0"
 azure-identity = "^1.23.0"
 azure-core = "^1.34.0"
 requests = "^2.32.4"
-azure-mgmt-sql = "^3.0.1"
+azure-mgmt-sql = "^4.0.0b21"
 pyodbc = "^5.0.1"
 azure-monitor-query = "^1.2.0"
-azure-mgmt-monitor = "^6.0.2"
+azure-mgmt-monitor = "^7.0.0b1"
 azure-mgmt-alertsmanagement = "^1.0.0"
-azure-mgmt-resource = "^24.0.0"
+azure-mgmt-resource = "^23.3.0"
 protobuf = ">=6.31.1"
 tenacity = "^9.1.2"
+
 [tool.poetry.group.dev.dependencies]
 mkdocs-material = "^9.5.39"
 mkdocs-glightbox = "^0.4.0"
@@ -70,6 +72,7 @@ autoevals = "^0.0.129"
 pre-commit = "^4.0.1"
 responses = "^0.23.1"
 freezegun = "^1.5.1"
+tomli = {version = "^2.0.1", python = "<3.11"}
 mypy = "^1.16.0"
 pytest-cov = "^6.2.1"
 
@@ -93,12 +96,19 @@ markers = [
     "synthetic: Tests using synthetic data",
     "network: Tests requiring network connectivity",
     "runbooks: Tests involving runbook functionality",
+    "kafka: Tests involving Kafka functionality",
     "misleading-history: Tests with misleading historical data",
-    "k8s-misconfig: Tests involving Kubernetes misconfigurations",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
     "understanding-real-intent: Tests that require understanding the user's real intent behind a question, not just giving a technically correct answer that is not useful",
-    "counting: Ask holmes to count kubernetes/cloud resources"
+    "counting: Ask holmes to count kubernetes/cloud resources",
+    "kubernetes: Tests for Kubernetes-specific troubleshooting scenarios",
+    "easy: Tests that are supposed to pass - if these fail, it indicates a regression. Only add evals here if they pass at least 20/20 runs.",
+    "medium: Tests that we want to focus on in the near future and get holmes to pass them",
+    "hard: Tests that are hard and holmes does not pass today and might not pass in the near future",
+    "transparency: Holmes communicates to the user when it encounters problems fulfilling the user's request",
+    "kafka: Tests involving Kafka functionality",
+    "leaked-information: cases where the eval is accidentally leaking information that should not be available to the LLM - e.g. if the names of environment variables or the docker image gives away part of the test"
 ]
 
 addopts = [

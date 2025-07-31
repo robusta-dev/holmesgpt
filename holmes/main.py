@@ -3,6 +3,7 @@ import os
 import sys
 
 from holmes.utils.cert_utils import add_custom_certificate
+from holmes.utils.colors import USER_COLOR
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -16,7 +17,6 @@ import json
 import logging
 import socket
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -180,10 +180,6 @@ def ask(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
-    # advanced options for this command
-    system_prompt: Optional[str] = typer.Option(
-        "builtin://generic_ask.jinja2", help=system_prompt_help
-    ),
     show_tool_output: bool = typer.Option(
         False,
         "--show-tool-output",
@@ -213,6 +209,11 @@ def ask(
         None,
         "--trace",
         help="Enable tracing to the specified provider (e.g., 'braintrust')",
+    ),
+    system_prompt_additions: Optional[str] = typer.Option(
+        None,
+        "--system-prompt-additions",
+        help="Additional content to append to the system prompt",
     ),
 ):
     """
@@ -245,22 +246,13 @@ def ask(
 
     # Create tracer if trace option is provided
     tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
-    experiment_name = f"holmes-ask-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    tracer.start_experiment(
-        experiment_name=experiment_name, metadata={"prompt": prompt or "holmes-ask"}
-    )
+    tracer.start_experiment()
 
     ai = config.create_console_toolcalling_llm(
         dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
         tracer=tracer,
     )
-    template_context = {
-        "toolsets": ai.tool_executor.toolsets,
-        "runbooks": config.get_runbook_catalog(),
-    }
-
-    system_prompt_rendered = load_and_render_prompt(system_prompt, template_context)  # type: ignore
 
     if prompt_file and prompt:
         raise typer.BadParameter(
@@ -289,26 +281,29 @@ def ask(
             prompt = f"Here's some piped output:\n\n{piped_data}\n\nWhat can you tell me about this output?"
 
     if echo_request and not interactive and prompt:
-        console.print("[bold yellow]User:[/bold yellow] " + prompt)
+        console.print(f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {prompt}")
 
     if interactive:
         run_interactive_loop(
             ai,
             console,
-            system_prompt_rendered,
             prompt,
             include_file,
             post_processing_prompt,
             show_tool_output,
             tracer,
+            config.get_runbook_catalog(),
+            system_prompt_additions,
         )
         return
 
     messages = build_initial_ask_messages(
         console,
-        system_prompt_rendered,
         prompt,  # type: ignore
         include_file,
+        ai.tool_executor,
+        config.get_runbook_catalog(),
+        system_prompt_additions,
     )
 
     with tracer.start_trace(
