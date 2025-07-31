@@ -45,7 +45,7 @@ sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
 kubernetes = "^32.0.1"
-mcp = "v1.9.4"
+mcp = "v1.12.2"
 prompt-toolkit = "^3.0.51"
 pygments = "^2.18.0"
 pytest-shared-session-scope = "^0.4.0"
