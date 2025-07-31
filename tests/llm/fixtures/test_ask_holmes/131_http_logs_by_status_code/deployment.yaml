@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      containers:
+      - name: api-server
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate HTTP logs with 503 errors on specific endpoint
+
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S')
+
+          # Function to generate API log entries with response times
+          log_api() {
+            echo "$1Z [$2] \"$3 $4 HTTP/1.1\" $5 ${6}ms - $7"
+          }
+
+          # Lots of successful requests to various endpoints
+          log_api "${NOW}.001" "INFO" "GET" "/api/users/123" "200" "45" "Success"
+          log_api "${NOW}.002" "INFO" "GET" "/api/products" "200" "78" "Success"
+          log_api "${NOW}.003" "INFO" "POST" "/api/orders" "201" "156" "Order created"
+          log_api "${NOW}.004" "INFO" "GET" "/api/inventory/check" "200" "23" "Success"
+
+          # First 503 on report generation
+          log_api "${NOW}.005" "ERROR" "POST" "/api/reports/generate" "503" "30001" "Service timeout after 30s"
+
+          # More successful requests
+          for i in $(seq 6 20); do
+            ENDPOINTS=("/api/users" "/api/products" "/api/orders" "/api/inventory" "/api/auth/verify")
+            EP=${ENDPOINTS[$(($i % 5))]}
+            log_api "${NOW}.0$(printf %02d $i)" "INFO" "GET" "$EP" "200" "$((20 + $i))" "Success"
+          done
+
+          # Another 503 on same endpoint
+          log_api "${NOW}.021" "ERROR" "POST" "/api/reports/generate" "503" "30002" "Gateway timeout - upstream service not responding"
+
+          # Mix of other status codes
+          log_api "${NOW}.022" "WARN" "GET" "/api/users/999" "404" "12" "User not found"
+          log_api "${NOW}.023" "INFO" "GET" "/api/health" "200" "5" "Healthy"
+          log_api "${NOW}.024" "WARN" "POST" "/api/auth/login" "401" "34" "Invalid credentials"
+
+          # More successful traffic
+          for i in $(seq 25 40); do
+            log_api "${NOW}.0$i" "INFO" "GET" "/api/data/$i" "200" "$((30 + $i))" "Success"
+          done
+
+          # Pattern emerges - more 503s on report endpoint
+          log_api "${NOW}.041" "ERROR" "POST" "/api/reports/generate" "503" "30000" "Upstream timeout: report service overloaded"
+          log_api "${NOW}.042" "INFO" "GET" "/api/reports/list" "200" "67" "Success"  # GET works fine
+          log_api "${NOW}.043" "ERROR" "POST" "/api/reports/generate" "503" "30003" "Report generation timeout"
+
+          # Other errors to create noise
+          log_api "${NOW}.044" "ERROR" "GET" "/api/invalid" "404" "8" "Endpoint not found"
+          log_api "${NOW}.045" "WARN" "POST" "/api/users" "400" "15" "Invalid request body"
+
+          # More normal traffic
+          for i in $(seq 46 60); do
+            log_api "${NOW}.0$i" "INFO" "GET" "/api/products/$i" "200" "$((40 + ($i % 50)))" "Success"
+          done
+
+          # Another 503 cluster
+          log_api "${NOW}.061" "ERROR" "POST" "/api/reports/generate" "503" "30001" "Report service timeout"
+          log_api "${NOW}.062" "ERROR" "POST" "/api/reports/generate" "503" "30000" "Gateway timeout"
+
+          # Summary logs
+          echo "${NOW}.070Z [WARN] Report generation service experiencing high latency"
+          echo "${NOW}.071Z [ERROR] 6 requests to /api/reports/generate resulted in 503 errors in the last minute"
+          echo "${NOW}.072Z [INFO] All 503 errors timeout after exactly 30 seconds"
+          echo "${NOW}.073Z [INFO] Other endpoints operating normally with avg response time 45ms"
+
+          # Keep pod running
+          sleep 3600

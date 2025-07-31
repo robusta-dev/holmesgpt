@@ -1,0 +1,44 @@
+id: 135_distributed_tracing_correlation
+name: Tracing errors across services using correlation IDs
+description: |
+  A user reports their payment failed. The error actually cascades through multiple
+  services: payment-api → inventory-service → shipping-service. Holmes needs to use
+  the correlation ID to trace the request across all services and find the root cause
+  in the shipping service's rate limit.
+
+user_request: "User complaint: Payment transaction TXN-789456 failed. Can you trace what happened?"
+
+tags:
+  - logs
+  - distributed
+  - correlation
+  - microservices
+  - tracing
+
+before_test:
+  - kubectl create namespace app-135 || true
+  - kubectl apply -f ./deployment.yaml -n app-135
+  - kubectl wait --for=condition=ready pod -l app=payment-api -n app-135 --timeout=30s || true
+  - kubectl wait --for=condition=ready pod -l app=inventory-service -n app-135 --timeout=30s || true
+  - kubectl wait --for=condition=ready pod -l app=shipping-service -n app-135 --timeout=30s || true
+
+after_test:
+  - kubectl delete namespace app-135 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "CID-789456"
+    - "shipping-service"
+    - "rate limit"
+  should_contain:
+    - "correlation"
+    - "FedEx API"
+    - "429"
+    - "cascade"
+  must_not_contain:
+    - "payment service issue"
+    - "inventory problem"
+  reasoning: |
+    Holmes should trace the correlation ID (CID-789456) across all three services
+    and identify that the root cause is the shipping-service hitting FedEx API
+    rate limits, which cascaded back through inventory to payment.

@@ -1,0 +1,38 @@
+id: 128_health_check_noise_removal
+name: Using exclude filter to remove health check noise
+description: |
+  A service logs health checks every second, drowning out real errors. Without exclude_filter,
+  Holmes would be overwhelmed by noise. With exclude_filter, Holmes can focus on actual issues
+  by filtering out the health check endpoints.
+
+user_request: "The payment-service is reporting errors but I can't find them in all the health check logs. Can you help?"
+
+tags:
+  - logs
+  - filtering
+  - exclude_filter
+  - troubleshooting
+
+before_test:
+  - kubectl create namespace app-128 || true
+  - kubectl apply -f ./deployment.yaml -n app-128
+  - kubectl wait --for=condition=ready pod -l app=payment-service -n app-128 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-128 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "payment"
+    - "500"
+    - "validation"
+  should_contain:
+    - "exclude"
+    - "health"
+    - "POST /api/payment"
+  must_not_contain:
+    - "no errors found"
+    - "all logs look healthy"
+  reasoning: |
+    Holmes should recognize the high volume of health check logs and use exclude_filter
+    to remove them, revealing the actual payment processing errors.

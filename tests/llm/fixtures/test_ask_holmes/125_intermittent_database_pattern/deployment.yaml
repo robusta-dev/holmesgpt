@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate intermittent database connection issues over several days
+
+          # Generate timestamps for the pattern
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          ONE_DAY_AGO=$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-1d '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          TWO_DAYS_AGO=$(date -u -d '2 days ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-2d '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          THREE_DAYS_AGO=$(date -u -d '3 days ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-3d '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          FOUR_DAYS_AGO=$(date -u -d '4 days ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-4d '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          FIVE_DAYS_AGO=$(date -u -d '5 days ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-5d '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          SIX_DAYS_AGO=$(date -u -d '6 days ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-6d '+%Y-%m-%dT%H:%M:%S.%3NZ')
+
+          # Normal operation logs throughout the week
+          echo "$SIX_DAYS_AGO INFO: API Gateway starting up"
+          echo "$SIX_DAYS_AGO INFO: Connected to database successfully"
+          echo "$SIX_DAYS_AGO INFO: Serving traffic on port 8080"
+
+          # First database issue - 6 days ago at 3:24 AM
+          echo "${SIX_DAYS_AGO%T*}T03:24:15.123Z ERROR: Database connection pool exhausted"
+          echo "${SIX_DAYS_AGO%T*}T03:24:16.456Z ERROR: Failed to acquire connection from pool after 30s timeout"
+          echo "${SIX_DAYS_AGO%T*}T03:24:17.789Z ERROR: java.sql.SQLException: Cannot get a connection, pool error Timeout waiting for idle object"
+          echo "${SIX_DAYS_AGO%T*}T03:24:45.234Z INFO: Connection pool recovered, resuming normal operation"
+
+          # Normal logs
+          echo "${SIX_DAYS_AGO%T*}T10:00:00.000Z INFO: Processed 1000 API requests"
+          echo "${SIX_DAYS_AGO%T*}T15:30:00.000Z INFO: Health check: OK"
+
+          # Second database issue - 5 days ago at 3:31 AM
+          echo "${FIVE_DAYS_AGO%T*}T03:31:22.111Z ERROR: Database connection pool exhausted"
+          echo "${FIVE_DAYS_AGO%T*}T03:31:23.222Z ERROR: Failed to acquire connection from pool after 30s timeout"
+          echo "${FIVE_DAYS_AGO%T*}T03:31:24.333Z ERROR: All 50 connections are in use and none are available"
+          echo "${FIVE_DAYS_AGO%T*}T03:31:55.444Z INFO: Connection pool recovered, resuming normal operation"
+
+          # Third database issue - 4 days ago at 3:28 AM
+          echo "${FOUR_DAYS_AGO%T*}T03:28:11.555Z ERROR: Database connection pool exhausted"
+          echo "${FOUR_DAYS_AGO%T*}T03:28:12.666Z ERROR: Failed to acquire connection from pool after 30s timeout"
+          echo "${FOUR_DAYS_AGO%T*}T03:28:42.777Z INFO: Connection pool recovered, resuming normal operation"
+
+          # Fourth database issue - 3 days ago at 3:33 AM
+          echo "${THREE_DAYS_AGO%T*}T03:33:44.888Z ERROR: Database connection pool exhausted"
+          echo "${THREE_DAYS_AGO%T*}T03:33:45.999Z ERROR: Failed to acquire connection from pool after 30s timeout"
+          echo "${THREE_DAYS_AGO%T*}T03:34:15.000Z INFO: Connection pool recovered, resuming normal operation"
+
+          # Fifth database issue - 2 days ago at 3:26 AM
+          echo "${TWO_DAYS_AGO%T*}T03:26:33.123Z ERROR: Database connection pool exhausted"
+          echo "${TWO_DAYS_AGO%T*}T03:26:34.456Z ERROR: Failed to acquire connection from pool after 30s timeout"
+          echo "${TWO_DAYS_AGO%T*}T03:27:05.789Z INFO: Connection pool recovered, resuming normal operation"
+
+          # Sixth database issue - 1 day ago at 3:29 AM
+          echo "${ONE_DAY_AGO%T*}T03:29:55.234Z ERROR: Database connection pool exhausted"
+          echo "${ONE_DAY_AGO%T*}T03:29:56.567Z ERROR: Failed to acquire connection from pool after 30s timeout"
+          echo "${ONE_DAY_AGO%T*}T03:30:26.890Z INFO: Connection pool recovered, resuming normal operation"
+
+          # Today's issue - at 3:35 AM
+          echo "${NOW%T*}T03:35:12.345Z ERROR: Database connection pool exhausted"
+          echo "${NOW%T*}T03:35:13.678Z ERROR: Failed to acquire connection from pool after 30s timeout"
+          echo "${NOW%T*}T03:35:14.901Z ERROR: This is happening again! Pool size: 50, all connections busy"
+          echo "${NOW%T*}T03:35:44.234Z INFO: Connection pool recovered, resuming normal operation"
+
+          # Recent normal operation
+          echo "$NOW INFO: API Gateway operating normally"
+          echo "$NOW INFO: Current connection pool usage: 15/50"
+          echo "$NOW INFO: Response time: 45ms average"
+
+          # Keep pod running
+          sleep 3600

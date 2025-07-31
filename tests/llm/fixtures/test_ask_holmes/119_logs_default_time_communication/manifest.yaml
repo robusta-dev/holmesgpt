@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocean-explorer
+  namespace: app-119
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ocean-explorer
+  template:
+    metadata:
+      labels:
+        app: ocean-explorer
+    spec:
+      containers:
+      - name: ocean-explorer
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Pod ocean-explorer starting..."
+          # Generate some logs with errors
+          echo "2025-07-23 10:15:32 INFO Application started successfully"
+          echo "2025-07-24 14:22:18 ERROR Error connecting to external API: Connection timeout"
+          echo "2025-07-25 09:45:21 WARN Memory usage at 85%"
+          echo "2025-07-26 16:33:45 ERROR Rate limit exceeded for user requests"
+          echo "2025-07-27 11:28:59 INFO Processed 1000 requests"
+          echo "2025-07-28 13:17:42 ERROR Database connection pool exhausted"
+          echo "2025-07-29 08:55:13 INFO Service health check passed"
+          # Keep container running
+          sleep 3600

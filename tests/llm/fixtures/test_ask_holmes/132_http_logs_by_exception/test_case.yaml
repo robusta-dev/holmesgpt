@@ -1,0 +1,39 @@
+id: 132_http_logs_by_exception
+name: Finding specific exception type in noisy application logs
+description: |
+  An API service has mixed HTTP logs and application logs. A specific NullPointerException
+  is causing issues but it's buried in thousands of logs. Holmes needs to find this specific
+  exception type and trace its impact.
+
+user_request: "We're seeing NullPointerException errors in production. Can you find what's triggering them?"
+
+tags:
+  - logs
+  - exceptions
+  - java
+  - filtering
+
+before_test:
+  - kubectl create namespace app-132 || true
+  - kubectl apply -f ./deployment.yaml -n app-132
+  - kubectl wait --for=condition=ready pod -l app=user-api -n app-132 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-132 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "NullPointerException"
+    - "UserProfile.getAddress"
+    - "users without address"
+  should_contain:
+    - "null address"
+    - "profile"
+    - "UserService.java:145"
+  must_not_contain:
+    - "random errors"
+    - "various exceptions"
+  reasoning: |
+    Holmes should filter for NullPointerException and identify that it occurs when
+    accessing address information for users who haven't set their address, happening
+    in UserProfile.getAddress() method.

@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: order-service
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate custom error formats that don't match default patterns
+
+          # Generate timestamps
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S')
+
+          # Normal operations
+          echo "${NOW}.100Z [INFO] Order service started successfully"
+          echo "${NOW}.200Z [INFO] Connected to order database"
+          echo "${NOW}.300Z [INFO] Processing order queue"
+
+          # Custom error formats that won't match 'error|fail|critical' simple patterns
+          echo "${NOW}.400Z [WARNING] High latency detected: 850ms"
+          echo "${NOW}.500Z [CRITICAL] Database connection pool exhausted"  # Won't match 'critical' because it's [CRITICAL]
+          echo "${NOW}.600Z [INFO] Attempting to recover connection pool"
+
+          # FAIL-CODE errors (database related are 400-series)
+          echo "${NOW}.700Z FAIL-CODE-401: Unable to acquire database lock for order #12345"
+          echo "${NOW}.800Z [INFO] Retrying order #12345"
+          echo "${NOW}.900Z FAIL-CODE-402: Database transaction timeout after 30s"
+
+          # More normal logs to create noise
+          for i in $(seq 1 20); do
+            echo "${NOW}.$((1000 + i * 50))Z [INFO] Processed order #$((54320 + i)) successfully"
+          done
+
+          # Another critical alert in brackets
+          echo "${NOW}.2100Z [CRITICAL] Memory usage above 90% threshold"
+          echo "${NOW}.2200Z [WARNING] Considering garbage collection"
+
+          # More FAIL codes
+          echo "${NOW}.2300Z FAIL-CODE-301: Payment gateway timeout"  # 300-series is payment
+          echo "${NOW}.2400Z FAIL-CODE-403: Database deadlock detected"  # 400-series is database
+          echo "${NOW}.2500Z [INFO] Deadlock resolution in progress"
+
+          # Success logs
+          echo "${NOW}.2600Z [SUCCESS] Order #12346 completed"
+          echo "${NOW}.2700Z [SUCCESS] Order #12347 completed"
+
+          # Another database FAIL
+          echo "${NOW}.2800Z FAIL-CODE-404: Primary database unreachable, failing over"
+          echo "${NOW}.2900Z [CRITICAL] Failover to secondary database initiated"
+
+          # More noise
+          echo "${NOW}.3000Z [INFO] Health check: OK"
+          echo "${NOW}.3100Z [METRICS] Orders processed: 145, Success rate: 97.2%"
+
+          # Summary that a simple search would miss
+          echo "${NOW}.3200Z [INFO] Last hour summary: 4 FAIL-CODE-4XX (database), 1 FAIL-CODE-3XX (payment), 3 [CRITICAL] alerts"
+
+          # Keep pod running
+          sleep 3600

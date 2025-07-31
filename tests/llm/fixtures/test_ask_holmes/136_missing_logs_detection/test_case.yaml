@@ -1,0 +1,42 @@
+id: 136_missing_logs_detection
+name: Detecting missing logs and service silence
+description: |
+  A critical batch job that should run every hour hasn't produced logs for 3 hours.
+  The absence of logs is itself the problem - the job is stuck/frozen. Holmes needs
+  to detect the gap in expected log patterns and identify that the job hung after
+  encountering a deadlock.
+
+user_request: "The data-sync job seems to have stopped working. Can you check what's happening?"
+
+tags:
+  - logs
+  - missing
+  - gaps
+  - cron
+  - monitoring
+
+before_test:
+  - kubectl create namespace app-136 || true
+  - kubectl apply -f ./deployment.yaml -n app-136
+  - kubectl wait --for=condition=ready pod -l app=data-sync-job -n app-136 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-136 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "3 hours"
+    - "deadlock"
+    - "10:45"
+  should_contain:
+    - "gap"
+    - "missing"
+    - "frozen"
+    - "stuck"
+  must_not_contain:
+    - "running normally"
+    - "completed successfully"
+  reasoning: |
+    Holmes should notice the pattern of hourly executions stops at 10:45 after a
+    deadlock error, with no logs for 3 hours since. The absence of expected logs
+    indicates the job is stuck/frozen rather than failing repeatedly.

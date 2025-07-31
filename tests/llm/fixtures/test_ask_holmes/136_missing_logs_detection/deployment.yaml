@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-sync-job
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-sync-job
+  template:
+    metadata:
+      labels:
+        app: data-sync-job
+    spec:
+      containers:
+      - name: data-sync-job
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate a cron job that runs hourly but gets stuck
+
+          # Normal hourly runs from early morning
+          echo "2024-01-15T06:00:00.000Z [INFO] Data sync job started (scheduled run)"
+          echo "2024-01-15T06:00:05.123Z [INFO] Connecting to source database..."
+          echo "2024-01-15T06:00:06.456Z [INFO] Connected successfully"
+          echo "2024-01-15T06:00:10.789Z [INFO] Synced 1,234 records"
+          echo "2024-01-15T06:00:15.012Z [INFO] Data sync job completed successfully"
+
+          echo "2024-01-15T07:00:00.000Z [INFO] Data sync job started (scheduled run)"
+          echo "2024-01-15T07:00:05.234Z [INFO] Connecting to source database..."
+          echo "2024-01-15T07:00:06.567Z [INFO] Connected successfully"
+          echo "2024-01-15T07:00:11.890Z [INFO] Synced 1,456 records"
+          echo "2024-01-15T07:00:16.123Z [INFO] Data sync job completed successfully"
+
+          echo "2024-01-15T08:00:00.000Z [INFO] Data sync job started (scheduled run)"
+          echo "2024-01-15T08:00:05.345Z [INFO] Connecting to source database..."
+          echo "2024-01-15T08:00:06.678Z [INFO] Connected successfully"
+          echo "2024-01-15T08:00:12.901Z [INFO] Synced 1,789 records"
+          echo "2024-01-15T08:00:17.234Z [INFO] Data sync job completed successfully"
+
+          echo "2024-01-15T09:00:00.000Z [INFO] Data sync job started (scheduled run)"
+          echo "2024-01-15T09:00:05.456Z [INFO] Connecting to source database..."
+          echo "2024-01-15T09:00:06.789Z [INFO] Connected successfully"
+          echo "2024-01-15T09:00:13.012Z [INFO] Synced 2,012 records"
+          echo "2024-01-15T09:00:18.345Z [INFO] Data sync job completed successfully"
+
+          echo "2024-01-15T10:00:00.000Z [INFO] Data sync job started (scheduled run)"
+          echo "2024-01-15T10:00:05.567Z [INFO] Connecting to source database..."
+          echo "2024-01-15T10:00:06.890Z [INFO] Connected successfully"
+          echo "2024-01-15T10:00:14.123Z [INFO] Processing batch 1 of 5..."
+          echo "2024-01-15T10:00:20.456Z [INFO] Batch 1 completed: 500 records"
+          echo "2024-01-15T10:00:21.789Z [INFO] Processing batch 2 of 5..."
+          echo "2024-01-15T10:00:28.012Z [INFO] Batch 2 completed: 500 records"
+          echo "2024-01-15T10:00:29.345Z [INFO] Processing batch 3 of 5..."
+          echo "2024-01-15T10:00:35.678Z [INFO] Batch 3 completed: 500 records"
+          echo "2024-01-15T10:00:36.901Z [INFO] Processing batch 4 of 5..."
+          echo "2024-01-15T10:00:43.234Z [INFO] Batch 4 completed: 500 records"
+          echo "2024-01-15T10:00:44.567Z [INFO] Processing batch 5 of 5..."
+          echo "2024-01-15T10:45:00.890Z [WARN] Database query taking longer than expected"
+          echo "2024-01-15T10:45:30.123Z [ERROR] Deadlock detected in database"
+          echo "2024-01-15T10:45:30.124Z [ERROR] Error: ORA-00060: deadlock detected while waiting for resource"
+          echo "2024-01-15T10:45:30.125Z [INFO] Attempting to retry transaction..."
+
+          # THIS IS WHERE IT GETS STUCK - No more logs after this
+          # The job is frozen/hung trying to acquire the lock
+
+          # Current time (3+ hours later) - other system logs continue
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S')
+          echo "${NOW}.000Z [INFO] System health check: Memory usage 45%, CPU 12%"
+          echo "${NOW}.100Z [INFO] Kubernetes liveness probe: /healthz responded 200 OK"
+          echo "${NOW}.200Z [INFO] Container still running, PID 1 active"
+          echo "${NOW}.300Z [WARN] Data sync job thread appears to be blocked"
+          echo "${NOW}.400Z [DEBUG] Thread dump shows blocking on: DatabaseLock.acquire()"
+
+          # Keep pod running
+          sleep 3600

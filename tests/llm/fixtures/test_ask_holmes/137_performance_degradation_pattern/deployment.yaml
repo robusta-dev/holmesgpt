@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search-api
+  template:
+    metadata:
+      labels:
+        app: search-api
+    spec:
+      containers:
+      - name: search-api
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate gradual performance degradation due to memory leak
+
+          # Hour 1 - Normal performance
+          echo "2024-01-15T08:00:00.000Z [INFO] Search API started, JVM heap: 512MB/2048MB"
+          echo "2024-01-15T08:05:15.045Z [HTTP] 200 GET /api/search?q=laptop (45ms)"
+          echo "2024-01-15T08:05:45.048Z [HTTP] 200 GET /api/search?q=phone (48ms)"
+          echo "2024-01-15T08:10:22.052Z [HTTP] 200 GET /api/search?q=tablet (52ms)"
+          echo "2024-01-15T08:15:33.055Z [HTTP] 200 GET /api/search?q=monitor (55ms)"
+          echo "2024-01-15T08:20:11.050Z [INFO] GC: G1 Young Generation (50ms)"
+          echo "2024-01-15T08:20:11.100Z [INFO] Heap after GC: 523MB/2048MB"
+          echo "2024-01-15T08:30:44.058Z [HTTP] 200 GET /api/search?q=keyboard (58ms)"
+          echo "2024-01-15T08:45:22.061Z [HTTP] 200 GET /api/search?q=mouse (61ms)"
+          echo "2024-01-15T08:59:55.065Z [HTTP] 200 GET /api/search?q=speaker (65ms)"
+
+          # Hour 2 - Slight degradation
+          echo "2024-01-15T09:05:18.089Z [HTTP] 200 GET /api/search?q=laptop (89ms)"
+          echo "2024-01-15T09:10:44.095Z [HTTP] 200 GET /api/search?q=phone (95ms)"
+          echo "2024-01-15T09:15:33.098Z [INFO] GC: G1 Young Generation (75ms)"
+          echo "2024-01-15T09:15:33.173Z [INFO] Heap after GC: 812MB/2048MB"
+          echo "2024-01-15T09:20:22.112Z [HTTP] 200 GET /api/search?q=tablet (112ms)"
+          echo "2024-01-15T09:30:11.125Z [HTTP] 200 GET /api/search?q=monitor (125ms)"
+          echo "2024-01-15T09:45:55.134Z [HTTP] 200 GET /api/search?q=keyboard (134ms)"
+          echo "2024-01-15T09:50:22.156Z [INFO] GC: G1 Young Generation (95ms)"
+          echo "2024-01-15T09:50:22.251Z [INFO] Heap after GC: 1024MB/2048MB"
+
+          # Hour 3 - Noticeable degradation
+          echo "2024-01-15T10:05:44.234Z [HTTP] 200 GET /api/search?q=laptop (234ms)"
+          echo "2024-01-15T10:10:33.267Z [HTTP] 200 GET /api/search?q=phone (267ms)"
+          echo "2024-01-15T10:15:22.289Z [INFO] GC: G1 Young Generation (145ms)"
+          echo "2024-01-15T10:15:22.434Z [INFO] Heap after GC: 1345MB/2048MB"
+          echo "2024-01-15T10:20:11.312Z [HTTP] 200 GET /api/search?q=tablet (312ms)"
+          echo "2024-01-15T10:25:55.345Z [HTTP] 200 GET /api/search?q=monitor (345ms)"
+          echo "2024-01-15T10:30:44.156Z [INFO] GC: G1 Young Generation (189ms)"
+          echo "2024-01-15T10:30:44.345Z [INFO] Heap after GC: 1523MB/2048MB"
+          echo "2024-01-15T10:35:33.389Z [HTTP] 200 GET /api/search?q=keyboard (389ms)"
+          echo "2024-01-15T10:40:22.234Z [INFO] GC: G1 Mixed (234ms)"
+          echo "2024-01-15T10:40:22.468Z [INFO] Heap after GC: 1612MB/2048MB"
+
+          # Hour 4 - Severe degradation
+          echo "2024-01-15T11:05:11.567Z [HTTP] 200 GET /api/search?q=laptop (567ms)"
+          echo "2024-01-15T11:10:55.623Z [HTTP] 200 GET /api/search?q=phone (623ms)"
+          echo "2024-01-15T11:12:33.345Z [INFO] GC: G1 Young Generation (289ms)"
+          echo "2024-01-15T11:12:33.634Z [INFO] Heap after GC: 1756MB/2048MB"
+          echo "2024-01-15T11:15:44.712Z [HTTP] 200 GET /api/search?q=tablet (712ms)"
+          echo "2024-01-15T11:18:22.456Z [INFO] GC: G1 Young Generation (345ms)"
+          echo "2024-01-15T11:18:22.801Z [INFO] Heap after GC: 1823MB/2048MB"
+          echo "2024-01-15T11:20:33.845Z [HTTP] 200 GET /api/search?q=monitor (845ms)"
+          echo "2024-01-15T11:23:11.567Z [INFO] GC: G1 Mixed (456ms)"
+          echo "2024-01-15T11:23:12.023Z [INFO] Heap after GC: 1890MB/2048MB"
+          echo "2024-01-15T11:25:55.923Z [HTTP] 200 GET /api/search?q=keyboard (923ms)"
+
+          # Hour 5 - Critical degradation
+          echo "2024-01-15T12:05:44.234Z [WARN] GC: G1 Full GC (1234ms)"
+          echo "2024-01-15T12:05:45.468Z [WARN] Heap after GC: 1934MB/2048MB (94% used)"
+          echo "2024-01-15T12:06:33.345Z [HTTP] 200 GET /api/search?q=laptop (1345ms)"
+          echo "2024-01-15T12:08:22.456Z [WARN] GC: G1 Young Generation (567ms)"
+          echo "2024-01-15T12:08:23.023Z [WARN] Heap after GC: 1967MB/2048MB (96% used)"
+          echo "2024-01-15T12:10:11.567Z [HTTP] 200 GET /api/search?q=phone (1567ms)"
+          echo "2024-01-15T12:11:55.678Z [WARN] GC overhead: 35% of CPU time spent in GC"
+          echo "2024-01-15T12:12:44.789Z [HTTP] 200 GET /api/search?q=tablet (1789ms)"
+          echo "2024-01-15T12:13:33.823Z [HTTP] 200 GET /api/search?q=monitor (1823ms)"
+
+          # Analysis logs
+          echo "2024-01-15T12:15:00.000Z [WARN] Performance degradation detected:"
+          echo "2024-01-15T12:15:00.001Z [WARN] - Response times increased from 45ms to 1823ms (40x slower)"
+          echo "2024-01-15T12:15:00.002Z [WARN] - Heap usage increased from 512MB to 1967MB"
+          echo "2024-01-15T12:15:00.003Z [WARN] - GC frequency increased from every 30min to every 2min"
+          echo "2024-01-15T12:15:00.004Z [WARN] - GC duration increased from 50ms to 1234ms"
+          echo "2024-01-15T12:15:00.005Z [ERROR] Suspected memory leak in SearchCache implementation"
+
+          # Keep pod running
+          sleep 3600

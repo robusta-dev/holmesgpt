@@ -1,0 +1,27 @@
+user_prompt: "Show me the logs for pod stellar-navigator in namespace app-122 between 2025-07-28 10:00 and 2025-07-28 12:00"
+expected_output:
+  # Should mention the specific date range
+  - "2025-07-28 10:00"
+  - "2025-07-28 12:00"
+  - "between"
+  - "from"
+  # Should include log content from that period
+  - "Cache invalidation started"
+  - "Performance degradation detected"
+
+before_test: |
+  kubectl create namespace app-122 || true
+  kubectl apply -f ./manifest.yaml
+
+after_test: |
+  kubectl delete -f ./manifest.yaml --ignore-not-found
+  kubectl delete namespace app-122 --ignore-not-found
+
+tags:
+  - logs
+  - transparency
+  - datetime
+
+evaluation:
+  # This test verifies that Holmes communicates specific date ranges when fetching logs
+  correctness: 1

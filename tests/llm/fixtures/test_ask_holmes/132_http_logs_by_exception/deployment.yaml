@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-api
+  template:
+    metadata:
+      labels:
+        app: user-api
+    spec:
+      containers:
+      - name: user-api
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate mixed HTTP and application logs with specific exception
+
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S')
+
+          # Normal application startup
+          echo "${NOW}.001Z [INFO] Starting UserAPI application v2.3.1"
+          echo "${NOW}.002Z [INFO] Connected to database: user_db"
+          echo "${NOW}.003Z [INFO] Server listening on port 8080"
+
+          # Normal HTTP traffic and app logs
+          echo "${NOW}.010Z [HTTP] 200 GET /api/users/1001 (45ms)"
+          echo "${NOW}.011Z [DEBUG] Loading user profile for ID: 1001"
+          echo "${NOW}.012Z [HTTP] 200 GET /api/users/1001/profile (67ms)"
+
+          # First NullPointerException
+          echo "${NOW}.020Z [HTTP] 500 GET /api/users/2001/address (12ms)"
+          echo "${NOW}.021Z [ERROR] java.lang.NullPointerException: Cannot invoke \"Address.getStreet()\" because \"this.address\" is null"
+          echo "${NOW}.022Z [ERROR]     at com.api.model.UserProfile.getAddress(UserProfile.java:145)"
+          echo "${NOW}.023Z [ERROR]     at com.api.service.UserService.getUserAddress(UserService.java:89)"
+          echo "${NOW}.024Z [ERROR]     at com.api.controller.UserController.getAddress(UserController.java:67)"
+          echo "${NOW}.025Z [WARN] User 2001 has no address configured"
+
+          # Other exceptions to create noise
+          echo "${NOW}.030Z [HTTP] 400 POST /api/users (8ms)"
+          echo "${NOW}.031Z [ERROR] com.fasterxml.jackson.databind.JsonMappingException: Invalid JSON format"
+          echo "${NOW}.032Z [ERROR]     at com.api.controller.UserController.createUser(UserController.java:34)"
+
+          # Normal traffic
+          for i in $(seq 40 55); do
+            echo "${NOW}.0${i}Z [HTTP] 200 GET /api/users/$((3000 + i)) ($(( 20 + i % 30 ))ms)"
+            echo "${NOW}.0${i}Z [DEBUG] Cache hit for user $((3000 + i))"
+          done
+
+          # Another NullPointerException - same issue
+          echo "${NOW}.060Z [HTTP] 500 GET /api/users/2045/address (15ms)"
+          echo "${NOW}.061Z [ERROR] java.lang.NullPointerException: Cannot invoke \"Address.getStreet()\" because \"this.address\" is null"
+          echo "${NOW}.062Z [ERROR]     at com.api.model.UserProfile.getAddress(UserProfile.java:145)"
+          echo "${NOW}.063Z [ERROR]     at com.api.service.UserService.getUserAddress(UserService.java:89)"
+
+          # Different exception
+          echo "${NOW}.070Z [HTTP] 503 GET /api/reports/generate (30001ms)"
+          echo "${NOW}.071Z [ERROR] java.util.concurrent.TimeoutException: Report generation timed out"
+          echo "${NOW}.072Z [ERROR]     at com.api.service.ReportService.generate(ReportService.java:234)"
+
+          # More normal logs
+          echo "${NOW}.080Z [INFO] Health check: OK"
+          echo "${NOW}.081Z [HTTP] 200 GET /health (3ms)"
+          echo "${NOW}.082Z [METRICS] Active connections: 145, Request rate: 234/min"
+
+          # Pattern continues - another NPE
+          echo "${NOW}.090Z [HTTP] 500 GET /api/users/2089/address (11ms)"
+          echo "${NOW}.091Z [ERROR] java.lang.NullPointerException: Cannot invoke \"Address.getStreet()\" because \"this.address\" is null"
+          echo "${NOW}.092Z [ERROR]     at com.api.model.UserProfile.getAddress(UserProfile.java:145)"
+          echo "${NOW}.093Z [INFO] Attempting to handle null address case"
+
+          # SQL exception for variety
+          echo "${NOW}.100Z [ERROR] java.sql.SQLException: Connection pool exhausted"
+          echo "${NOW}.101Z [ERROR]     at com.api.db.ConnectionPool.getConnection(ConnectionPool.java:78)"
+
+          # More NPEs showing pattern
+          echo "${NOW}.110Z [HTTP] 500 GET /api/users/2102/address (13ms)"
+          echo "${NOW}.111Z [ERROR] java.lang.NullPointerException: Cannot invoke \"Address.getStreet()\" because \"this.address\" is null"
+          echo "${NOW}.112Z [ERROR]     at com.api.model.UserProfile.getAddress(UserProfile.java:145)"
+
+          # Summary
+          echo "${NOW}.120Z [WARN] Detected 4 NullPointerExceptions in UserProfile.getAddress() in the last minute"
+          echo "${NOW}.121Z [INFO] All NPEs occur when accessing address for users without configured addresses"
+          echo "${NOW}.122Z [INFO] Affected user IDs: 2001, 2045, 2089, 2102"
+
+          # Keep pod running
+          sleep 3600

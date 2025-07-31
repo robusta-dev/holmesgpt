@@ -1,0 +1,40 @@
+id: 126_loki_weekly_pattern
+name: Weekly pattern detection with Loki (invisible with 1-hour window)
+description: |
+  A service has memory leaks that cause OOM crashes every Tuesday at 2 PM after weekly
+  data processing jobs. With 1-hour window, this pattern would be invisible. With 7-day
+  window in Loki, Holmes can detect the weekly pattern. This uses Loki which preserves
+  actual timestamps (unlike kubectl which re-timestamps on retrieval).
+
+user_request: "The data-processor service crashed again today. This keeps happening but I can't figure out why."
+
+tags:
+  - logs
+  - loki
+  - time_filtering
+  - patterns
+  - weekly
+
+before_test:
+  # This test assumes Loki is configured with test data
+
+after_test:
+  # No cleanup needed for Loki-based test
+
+expected_answer:
+  must_contain:
+    - "Tuesday"
+    - "weekly"
+    - "pattern"
+    - "memory"
+  should_contain:
+    - "2 PM"
+    - "14:00"
+    - "data processing"
+    - "every week"
+  must_not_contain:
+    - "no pattern"
+    - "random crashes"
+  reasoning: |
+    With 7-day logs from Loki, Holmes should identify that crashes happen every Tuesday
+    around 2 PM, correlating with weekly data processing jobs causing memory issues.

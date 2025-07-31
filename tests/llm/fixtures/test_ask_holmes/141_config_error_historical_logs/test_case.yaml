@@ -1,0 +1,26 @@
+user_prompt: "I deployed the auth-service yesterday but it's not running. What went wrong?"
+
+expected_output:
+  - The auth-service pod crashed due to invalid configuration
+  - The JWT_SECRET environment variable was not set, which is required for the service to start
+  - The service also failed to parse the Redis connection string due to invalid format
+  - Configuration validation failed during startup with "Missing required environment variables"
+  - The pod exited with code 1 after configuration validation errors
+  - You need to set the JWT_SECRET environment variable and fix the Redis connection string format
+
+tags:
+  - logs
+  - loki
+  - historical
+  - configuration
+  - environment
+  - troubleshooting
+
+before_test: |
+  kubectl create namespace app-141 || true
+  kubectl apply -f deployment.yaml -n app-141
+  sleep 10
+  kubectl delete pod -l app=auth-service -n app-141 --force --grace-period=0 || true
+
+after_test: |
+  kubectl delete namespace app-141 --force --grace-period=0 || true

@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: payment-service
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate a service with excessive health check logs hiding real errors
+
+          # Generate base timestamp
+          BASE_TIME=$(date -u -d '5 minutes ago' '+%Y-%m-%dT%H:%M:' 2>/dev/null || date -u -v-5M '+%Y-%m-%dT%H:%M:')
+
+          # Function to generate timestamp with seconds
+          gen_time() {
+            echo "${BASE_TIME}$(printf "%02d" $1).$(printf "%03d" $2)Z"
+          }
+
+          # Generate 100 health check logs with a few errors hidden in between
+          for i in $(seq 0 59); do
+            # Every second has a health check
+            echo "$(gen_time $i 000) INFO: GET /health 200 OK - Health check passed"
+            echo "$(gen_time $i 100) INFO: GET /metrics 200 OK - Metrics endpoint"
+            echo "$(gen_time $i 200) INFO: GET /ready 200 OK - Readiness check passed"
+            echo "$(gen_time $i 300) INFO: GET /health 200 OK - Health check passed"
+            echo "$(gen_time $i 400) INFO: GET /live 200 OK - Liveness check passed"
+
+            # Hidden errors at specific times
+            if [ $i -eq 15 ]; then
+              echo "$(gen_time $i 250) ERROR: POST /api/payment 500 Internal Server Error - Payment validation failed: invalid card number"
+              echo "$(gen_time $i 251) ERROR: Payment processing failed for user_id=12345, amount=99.99"
+            fi
+
+            echo "$(gen_time $i 500) INFO: GET /health 200 OK - Health check passed"
+            echo "$(gen_time $i 600) INFO: GET /metrics 200 OK - Metrics endpoint"
+
+            if [ $i -eq 30 ]; then
+              echo "$(gen_time $i 650) ERROR: POST /api/payment 500 Internal Server Error - Database connection timeout"
+              echo "$(gen_time $i 651) ERROR: Failed to process payment: could not connect to payment_db"
+            fi
+
+            echo "$(gen_time $i 700) INFO: GET /ready 200 OK - Readiness check passed"
+            echo "$(gen_time $i 800) INFO: GET /health 200 OK - Health check passed"
+
+            if [ $i -eq 45 ]; then
+              echo "$(gen_time $i 850) ERROR: POST /api/payment/refund 500 Internal Server Error - Refund failed: transaction not found"
+              echo "$(gen_time $i 851) ERROR: Refund processing error for transaction_id=TXN789"
+            fi
+
+            echo "$(gen_time $i 900) INFO: GET /live 200 OK - Liveness check passed"
+          done
+
+          # Current time logs
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          echo "$NOW INFO: GET /health 200 OK - Health check passed"
+          echo "$NOW INFO: Service status: 3 errors in last 5 minutes (out of 600 total logs)"
+
+          # Keep pod running
+          sleep 3600

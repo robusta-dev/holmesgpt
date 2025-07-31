@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search-api
+  template:
+    metadata:
+      labels:
+        app: search-api
+    spec:
+      containers:
+      - name: search-api
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate API with hidden P99 latency issues
+
+          echo "2024-01-15T10:00:00.000Z [INFO] Search API v3.2.1 starting..."
+          echo "2024-01-15T10:00:01.000Z [INFO] Server listening on port 8080"
+
+          # Generate realistic traffic pattern - 99 fast, 1 slow per 100 requests
+          # First batch
+          for i in $(seq 1 99); do
+            ms=$((10 + $i % 10))
+            echo "2024-01-15T10:01:$(printf '%02d' $((i % 60))).$(printf '%03d' $i)Z [HTTP] 200 GET /api/search?q=product$i (${ms}ms)"
+          done
+          # The outlier
+          echo "2024-01-15T10:02:00.100Z [HTTP] 200 GET /api/search?q=laptop (5234ms)"
+
+          # Second batch
+          for i in $(seq 1 99); do
+            ms=$((12 + $i % 8))
+            echo "2024-01-15T10:02:$(printf '%02d' $((i % 60))).$(printf '%03d' $((100 + i)))Z [HTTP] 200 GET /api/search?q=item$i (${ms}ms)"
+          done
+          # Another outlier
+          echo "2024-01-15T10:03:00.200Z [HTTP] 200 GET /api/search?q=phone (6789ms)"
+
+          # Third batch with metrics summary
+          echo "2024-01-15T10:03:30.000Z [METRICS] Last 200 requests - Average: 85ms, Total: 200, Success: 100%"
+
+          for i in $(seq 1 99); do
+            ms=$((11 + $i % 9))
+            echo "2024-01-15T10:03:$(printf '%02d' $((30 + i % 30))).$(printf '%03d' $((200 + i)))Z [HTTP] 200 GET /api/search?q=query$i (${ms}ms)"
+          done
+          # Another slow one
+          echo "2024-01-15T10:04:00.300Z [HTTP] 200 GET /api/search?q=tablet (7123ms)"
+
+          # Fourth batch
+          for i in $(seq 1 99); do
+            ms=$((13 + $i % 7))
+            echo "2024-01-15T10:04:$(printf '%02d' $((i % 60))).$(printf '%03d' $((300 + i)))Z [HTTP] 200 GET /api/search?q=search$i (${ms}ms)"
+          done
+          # Slow request
+          echo "2024-01-15T10:05:00.400Z [HTTP] 200 GET /api/search?q=monitor (5567ms)"
+
+          # Show some normal operations between
+          echo "2024-01-15T10:05:30.000Z [INFO] Cache hit rate: 78%"
+          echo "2024-01-15T10:05:30.100Z [INFO] Database connection pool: 5/20 connections active"
+
+          # Fifth batch
+          for i in $(seq 1 99); do
+            ms=$((14 + $i % 6))
+            echo "2024-01-15T10:05:$(printf '%02d' $((30 + i % 30))).$(printf '%03d' $((400 + i)))Z [HTTP] 200 GET /api/search?q=find$i (${ms}ms)"
+          done
+          # Another outlier
+          echo "2024-01-15T10:06:00.500Z [HTTP] 200 GET /api/search?q=keyboard (8234ms)"
+
+          # Metrics that hide the problem
+          echo "2024-01-15T10:06:30.000Z [METRICS] Last 500 requests - Average: 87ms, Total: 500, Success: 100%"
+          echo "2024-01-15T10:06:30.100Z [INFO] Health check: OK"
+
+          # Sixth batch
+          for i in $(seq 1 99); do
+            ms=$((10 + $i % 10))
+            echo "2024-01-15T10:06:$(printf '%02d' $((30 + i % 30))).$(printf '%03d' $((500 + i)))Z [HTTP] 200 GET /api/search?q=lookup$i (${ms}ms)"
+          done
+          # Slow one
+          echo "2024-01-15T10:07:00.600Z [HTTP] 200 GET /api/search?q=mouse (6456ms)"
+
+          # More normal logs
+          echo "2024-01-15T10:07:30.000Z [INFO] No errors in last 10 minutes"
+          echo "2024-01-15T10:07:30.100Z [INFO] CPU usage: 23%, Memory: 1.2GB/4GB"
+
+          # Seventh batch
+          for i in $(seq 1 99); do
+            ms=$((12 + $i % 8))
+            echo "2024-01-15T10:07:$(printf '%02d' $((30 + i % 30))).$(printf '%03d' $((600 + i)))Z [HTTP] 200 GET /api/search?q=get$i (${ms}ms)"
+          done
+          # Another outlier
+          echo "2024-01-15T10:08:00.700Z [HTTP] 200 GET /api/search?q=speaker (7890ms)"
+
+          # Final summary showing the hidden problem
+          echo "2024-01-15T10:08:30.000Z [METRICS] Last 700 requests - Average: 89ms, Total: 700, Success: 100%"
+          echo "2024-01-15T10:08:30.100Z [METRICS_DETAIL] Response time distribution:"
+          echo "2024-01-15T10:08:30.101Z [METRICS_DETAIL]   0-50ms: 693 requests (99.0%)"
+          echo "2024-01-15T10:08:30.102Z [METRICS_DETAIL]   50-100ms: 0 requests (0.0%)"
+          echo "2024-01-15T10:08:30.103Z [METRICS_DETAIL]   100-1000ms: 0 requests (0.0%)"
+          echo "2024-01-15T10:08:30.104Z [METRICS_DETAIL]   1000-10000ms: 7 requests (1.0%)"
+          echo "2024-01-15T10:08:30.105Z [METRICS_DETAIL] P50: 14ms, P90: 19ms, P99: 7890ms"
+          echo "2024-01-15T10:08:30.106Z [WARNING] P99 latency (7890ms) significantly higher than P90 (19ms)"
+
+          # Keep pod running
+          sleep 3600

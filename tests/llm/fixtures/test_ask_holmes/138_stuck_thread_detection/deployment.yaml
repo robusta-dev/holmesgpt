@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-processor
+  template:
+    metadata:
+      labels:
+        app: webhook-processor
+    spec:
+      containers:
+      - name: webhook-processor
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate a multi-threaded service where one critical thread gets stuck
+
+          # Normal operation - multiple threads logging
+          echo "2024-01-15T11:30:00.100Z [Main-Thread] Application started successfully"
+          echo "2024-01-15T11:30:00.200Z [HealthCheck-Thread] Health check endpoint initialized on :8080/health"
+          echo "2024-01-15T11:30:00.300Z [WebhookProcessor-Thread] Webhook processor started"
+          echo "2024-01-15T11:30:00.400Z [MetricsCollector-Thread] Metrics collection started"
+
+          # Health checks running normally throughout
+          echo "2024-01-15T11:30:30.000Z [HealthCheck-Thread] Health check: OK (memory: 45%, cpu: 12%)"
+          echo "2024-01-15T11:31:00.000Z [HealthCheck-Thread] Health check: OK (memory: 46%, cpu: 13%)"
+
+          # WebhookProcessor actively processing
+          echo "2024-01-15T11:30:15.123Z [WebhookProcessor-Thread] Processing webhook: payment_completed (ID: WH-001)"
+          echo "2024-01-15T11:30:15.234Z [WebhookProcessor-Thread] Webhook WH-001 processed successfully"
+          echo "2024-01-15T11:30:28.345Z [WebhookProcessor-Thread] Processing webhook: payment_completed (ID: WH-002)"
+          echo "2024-01-15T11:30:28.456Z [WebhookProcessor-Thread] Webhook WH-002 processed successfully"
+
+          # Metrics thread logging normally
+          echo "2024-01-15T11:31:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=2, queue_size=0"
+
+          # More webhook processing
+          echo "2024-01-15T11:31:45.567Z [WebhookProcessor-Thread] Processing webhook: payment_completed (ID: WH-003)"
+          echo "2024-01-15T11:31:45.678Z [WebhookProcessor-Thread] Webhook WH-003 processed successfully"
+          echo "2024-01-15T11:32:00.000Z [HealthCheck-Thread] Health check: OK (memory: 47%, cpu: 14%)"
+          echo "2024-01-15T11:32:12.789Z [WebhookProcessor-Thread] Processing webhook: refund_initiated (ID: WH-004)"
+          echo "2024-01-15T11:32:12.890Z [WebhookProcessor-Thread] Webhook WH-004 processed successfully"
+
+          # More normal operation
+          echo "2024-01-15T11:32:30.000Z [MetricsCollector-Thread] Metrics: webhooks_processed=4, queue_size=0"
+          echo "2024-01-15T11:33:00.000Z [HealthCheck-Thread] Health check: OK (memory: 48%, cpu: 15%)"
+          echo "2024-01-15T11:33:25.123Z [WebhookProcessor-Thread] Processing webhook: payment_completed (ID: WH-005)"
+          echo "2024-01-15T11:33:25.234Z [WebhookProcessor-Thread] Webhook WH-005 processed successfully"
+
+          # Continue normal pattern
+          echo "2024-01-15T11:34:00.000Z [HealthCheck-Thread] Health check: OK (memory: 49%, cpu: 16%)"
+          echo "2024-01-15T11:34:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=5, queue_size=0"
+          echo "2024-01-15T11:34:18.345Z [WebhookProcessor-Thread] Processing webhook: subscription_created (ID: WH-006)"
+          echo "2024-01-15T11:34:18.456Z [WebhookProcessor-Thread] Webhook WH-006 processed successfully"
+
+          # More processing
+          echo "2024-01-15T11:35:00.000Z [HealthCheck-Thread] Health check: OK (memory: 50%, cpu: 17%)"
+          echo "2024-01-15T11:35:42.567Z [WebhookProcessor-Thread] Processing webhook: payment_completed (ID: WH-007)"
+          echo "2024-01-15T11:35:42.678Z [WebhookProcessor-Thread] Webhook WH-007 processed successfully"
+          echo "2024-01-15T11:36:00.000Z [HealthCheck-Thread] Health check: OK (memory: 51%, cpu: 18%)"
+          echo "2024-01-15T11:36:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=0"
+
+          # THE CRITICAL MOMENT - Thread gets stuck
+          echo "2024-01-15T11:45:30.789Z [WebhookProcessor-Thread] Processing webhook: payment_completed (ID: WH-008)"
+          echo "2024-01-15T11:45:30.890Z [WebhookProcessor-Thread] Acquiring database lock for payment update..."
+          echo "2024-01-15T11:45:31.123Z [Database-Pool] Connection pool: 10/10 connections in use"
+          echo "2024-01-15T11:45:32.234Z [WebhookProcessor-Thread] Waiting for database lock..."
+          # THREAD GETS STUCK HERE - No more logs from WebhookProcessor-Thread
+
+          # But other threads continue normally
+          echo "2024-01-15T11:46:00.000Z [HealthCheck-Thread] Health check: OK (memory: 52%, cpu: 19%)"
+          echo "2024-01-15T11:46:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=1"
+          echo "2024-01-15T11:47:00.000Z [HealthCheck-Thread] Health check: OK (memory: 53%, cpu: 20%)"
+          echo "2024-01-15T11:47:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=3"
+          echo "2024-01-15T11:48:00.000Z [HealthCheck-Thread] Health check: OK (memory: 54%, cpu: 21%)"
+          echo "2024-01-15T11:48:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=8"
+
+          # Queue growing but webhooks not processing
+          echo "2024-01-15T11:49:00.000Z [HealthCheck-Thread] Health check: OK (memory: 55%, cpu: 22%)"
+          echo "2024-01-15T11:49:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=15"
+          echo "2024-01-15T11:50:00.000Z [HealthCheck-Thread] Health check: OK (memory: 56%, cpu: 23%)"
+          echo "2024-01-15T11:50:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=24"
+
+          # Warnings start appearing
+          echo "2024-01-15T11:50:30.000Z [QueueMonitor-Thread] WARNING: Webhook queue size (24) exceeds threshold (20)"
+          echo "2024-01-15T11:51:00.000Z [HealthCheck-Thread] Health check: OK (memory: 57%, cpu: 24%)"
+          echo "2024-01-15T11:51:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=31"
+
+          # Current state
+          echo "2024-01-15T11:52:00.000Z [HealthCheck-Thread] Health check: OK (memory: 58%, cpu: 25%)"
+          echo "2024-01-15T11:52:00.100Z [MetricsCollector-Thread] Metrics: webhooks_processed=7, queue_size=42"
+          echo "2024-01-15T11:52:00.200Z [QueueMonitor-Thread] ERROR: Webhook queue critically high (42 pending)"
+          echo "2024-01-15T11:52:00.300Z [Main-Thread] ALERT: WebhookProcessor-Thread hasn't logged for 375 seconds"
+
+          # Keep pod running
+          sleep 3600

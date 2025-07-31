@@ -1,0 +1,25 @@
+user_prompt: "Why did the analytics-processor pod crash yesterday? I can't find it in the cluster anymore"
+
+expected_output:
+  - The analytics-processor pod crashed due to an OutOfMemoryError (OOMKilled)
+  - The pod was processing a large dataset and memory usage gradually increased from 70% to 95% before the crash
+  - The pod was killed with exit code 137, indicating it was terminated by the OOM killer
+  - The Java heap space was exhausted while processing batch job #78234
+  - Consider increasing the memory limits or optimizing the batch processing algorithm
+
+tags:
+  - logs
+  - loki
+  - historical
+  - oom
+  - troubleshooting
+
+before_test: |
+  kubectl create namespace app-139 || true
+  kubectl apply -f deployment.yaml -n app-139
+  sleep 10
+  # Delete the pod to simulate it being gone
+  kubectl delete pod -l app=analytics-processor -n app-139 --force --grace-period=0 || true
+
+after_test: |
+  kubectl delete namespace app-139 --force --grace-period=0 || true

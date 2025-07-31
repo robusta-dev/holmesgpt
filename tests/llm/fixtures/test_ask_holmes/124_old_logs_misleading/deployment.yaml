@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-processor
+  template:
+    metadata:
+      labels:
+        app: payment-processor
+    spec:
+      containers:
+      - name: payment-processor
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate a pod that had database errors 6 days ago, but now has memory issues
+
+          # Generate timestamps for different scenarios
+          SIX_DAYS_AGO=$(date -u -d '6 days ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-6d '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          FIVE_DAYS_AGO=$(date -u -d '5 days ago 23 hours ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-5d -v-23H '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          ONE_HOUR_AGO=$(date -u -d '1 hour ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-1H '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          THIRTY_MIN_AGO=$(date -u -d '30 minutes ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-30M '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ')
+
+          # Old database errors from 6 days ago (resolved)
+          echo "$SIX_DAYS_AGO ERROR: Database connection refused - unable to connect to postgres:5432"
+          echo "$SIX_DAYS_AGO ERROR: Retrying database connection..."
+          echo "$SIX_DAYS_AGO ERROR: Database connection failed after 3 retries"
+          echo "$SIX_DAYS_AGO INFO: Restarting application due to database errors"
+
+          # Show recovery from database issues
+          echo "$FIVE_DAYS_AGO INFO: Application started successfully"
+          echo "$FIVE_DAYS_AGO INFO: Database connection established"
+          echo "$FIVE_DAYS_AGO INFO: Processing payments normally"
+
+          # Current memory issues (the real problem)
+          echo "$ONE_HOUR_AGO INFO: Application running normally"
+          echo "$ONE_HOUR_AGO INFO: Processing payment batch #1234"
+          echo "$THIRTY_MIN_AGO WARN: Memory usage at 85%"
+          echo "$THIRTY_MIN_AGO WARN: Memory usage at 92%"
+          echo "$THIRTY_MIN_AGO ERROR: Memory allocation failed"
+          echo "$NOW ERROR: java.lang.OutOfMemoryError: Java heap space"
+          echo "$NOW ERROR:     at com.payment.processor.BatchProcessor.processBatch(BatchProcessor.java:142)"
+          echo "$NOW ERROR:     at com.payment.processor.Main.main(Main.java:23)"
+          echo "$NOW FATAL: Application shutting down due to OOM error"
+
+          # Simulate crash
+          exit 137  # Exit code for OOM kill
+        resources:
+          limits:
+            memory: "32Mi"  # Very low limit to trigger OOM
+          requests:
+            memory: "16Mi"

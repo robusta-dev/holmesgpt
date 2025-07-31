@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ocean-api
+  namespace: app-118
+  labels:
+    app: ocean-api
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: ocean-api
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 10s
+    scrapeTimeout: 5s

@@ -1,0 +1,41 @@
+id: 134_multiline_json_debugging
+name: Debugging issues requiring multi-line JSON context
+description: |
+  An API is returning 400 Bad Request errors. The error message just says "Invalid request"
+  but the actual issue is only visible when examining the multi-line JSON request body
+  and comparing it to what the API expects. Single-line error filtering would miss this.
+
+user_request: "The inventory-api is returning 400 errors when we try to update stock levels. The error just says 'Invalid request'. Can you help debug this?"
+
+tags:
+  - logs
+  - json
+  - multiline
+  - api
+  - debugging
+
+before_test:
+  - kubectl create namespace app-134 || true
+  - kubectl apply -f ./deployment.yaml -n app-134
+  - kubectl wait --for=condition=ready pod -l app=inventory-api -n app-134 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-134 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "quantity"
+    - "string"
+    - "number"
+  should_contain:
+    - "JSON"
+    - "type mismatch"
+    - '"50"'
+    - "should be 50"
+  must_not_contain:
+    - "missing field"
+    - "authentication"
+  reasoning: |
+    Holmes should examine the multi-line JSON request body and notice that the quantity
+    field is being sent as a string "50" instead of a number 50, which is causing the
+    validation to fail. This requires seeing the full JSON context, not just the error line.

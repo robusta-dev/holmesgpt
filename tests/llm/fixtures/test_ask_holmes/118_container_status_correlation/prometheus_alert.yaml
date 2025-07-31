@@ -1,0 +1,20 @@
+groups:
+- name: ocean_api_alerts
+  interval: 30s
+  rules:
+  - alert: OceanAPIHighResponseTime
+    expr: |
+      histogram_quantile(0.95,
+        sum(rate(api_request_duration_seconds_bucket{endpoint="/api/compute"}[5m])) by (le)
+      ) > 5
+    for: 5m
+    labels:
+      severity: critical
+      team: platform
+      service: ocean-api
+      namespace: app-118
+    annotations:
+      summary: "Ocean API compute endpoint experiencing high response times"
+      description: "The 95th percentile response time for /api/compute endpoint is {{ $value }}s (threshold: 5s) for the last 5 minutes. This may indicate resource constraints or application issues."
+      runbook_url: "https://wiki.internal/runbooks/ocean-api-performance"
+      dashboard_url: "https://grafana.internal/d/ocean-api-performance"

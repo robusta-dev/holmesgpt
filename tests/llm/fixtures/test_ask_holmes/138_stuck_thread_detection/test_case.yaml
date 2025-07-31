@@ -1,0 +1,43 @@
+id: 138_stuck_thread_detection
+name: Application with stuck thread that suddenly stops responding
+description: |
+  A service has a critical thread that processes payment webhooks. The thread gets stuck
+  on a database lock and stops processing. The application appears healthy (health checks
+  pass) but webhooks pile up unprocessed. The issue is visible only by noticing the
+  thread stopped logging its regular "processed webhook" messages.
+
+user_request: "The webhook-processor service health checks are passing but customers report their payments aren't being processed. What's wrong?"
+
+tags:
+  - logs
+  - threading
+  - stuck
+  - missing_activity
+
+before_test:
+  - kubectl create namespace app-138 || true
+  - kubectl apply -f ./deployment.yaml -n app-138
+  - kubectl wait --for=condition=ready pod -l app=webhook-processor -n app-138 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-138 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "webhook"
+    - "thread"
+    - "stuck"
+    - "11:45"
+  should_contain:
+    - "database lock"
+    - "WebhookProcessor-Thread"
+    - "stopped processing"
+    - "last processed"
+  must_not_contain:
+    - "service is down"
+    - "health check failing"
+  reasoning: |
+    Holmes should notice that WebhookProcessor-Thread was actively logging every
+    few seconds until 11:45:32, then completely stopped while other threads
+    continue. The last action was acquiring a database lock, indicating the
+    thread is stuck waiting for the lock.

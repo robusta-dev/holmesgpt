@@ -1,0 +1,26 @@
+user_prompt: "The order-service pod isn't running anymore. What happened to it? Users were complaining about orders not going through 2 days ago."
+
+expected_output:
+  - The order-service pod crashed due to repeated database connection timeouts
+  - The pod was unable to connect to the PostgreSQL database at postgres-primary:5432
+  - Connection attempts timed out after 30 seconds, with multiple retries failing
+  - The issue started around 2 days ago with "connection refused" and "timeout" errors
+  - After exhausting all retry attempts, the application crashed with exit code 1
+  - The database service might have been down or network connectivity issues occurred
+
+tags:
+  - logs
+  - loki
+  - historical
+  - database
+  - connectivity
+  - troubleshooting
+
+before_test: |
+  kubectl create namespace app-140 || true
+  kubectl apply -f deployment.yaml -n app-140
+  sleep 10
+  kubectl delete pod -l app=order-service -n app-140 --force --grace-period=0 || true
+
+after_test: |
+  kubectl delete namespace app-140 --force --grace-period=0 || true

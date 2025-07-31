@@ -1,0 +1,98 @@
+description: Container status correlation when containers aren't progressing - high API response times traced to container-level issues
+markers:
+  - kubernetes
+  - chain-of-causation
+  - network
+  - medium
+
+test_type: ask
+
+mock_policy: never  # Always use live tools
+
+before_test: |
+  kubectl create namespace app-118 || true
+  kubectl create secret generic ocean-api-code -n app-118 --from-file=app.py=tests/llm/fixtures/test_ask_holmes/118_container_status_correlation/app.py --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f tests/llm/fixtures/test_ask_holmes/118_container_status_correlation/deployment.yaml
+  kubectl apply -f tests/llm/fixtures/test_ask_holmes/118_container_status_correlation/servicemonitor.yaml
+  kubectl apply -f tests/llm/fixtures/test_ask_holmes/118_container_status_correlation/prometheusrule.yaml
+  kubectl wait --for=condition=available --timeout=180s deployment/ocean-api -n app-118
+  sleep 20  # Wait for service discovery
+  # Generate load to trigger high response times
+  for i in {1..10}; do
+    kubectl run -n app-118 load-generator-$i --image=curlimages/curl:8.4.0 --restart=Never --rm -i --command -- sh -c "
+      for j in {1..20}; do
+        curl -s http://ocean-api/api/compute > /dev/null &
+      done
+      wait
+    " &
+  done
+  wait
+  sleep 90  # Wait for metrics to accumulate and alert to fire
+  # If alert hasn't fired naturally, send it manually to AlertManager
+  if ! curl -s http://localhost:9090/api/v1/alerts | grep -q "OceanAPIHighResponseTime"; then
+    echo "Alert not firing from Prometheus, sending manually to AlertManager"
+    curl -X POST http://localhost:9093/api/v1/alerts \
+      -H "Content-Type: application/json" \
+      -d '[{
+        "labels": {
+          "alertname": "OceanAPIHighResponseTime",
+          "severity": "critical",
+          "team": "platform",
+          "service": "ocean-api",
+          "namespace": "app-118"
+        },
+        "annotations": {
+          "summary": "Ocean API compute endpoint experiencing high response times",
+          "description": "The 95th percentile response time for /api/compute endpoint is 8.5s (threshold: 5s) for the last 5 minutes. This may indicate resource constraints or application issues.",
+          "runbook_url": "https://wiki.internal/runbooks/ocean-api-performance",
+          "dashboard_url": "https://grafana.internal/d/ocean-api-performance"
+        },
+        "startsAt": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+        "generatorURL": "http://prometheus:9090/graph?g0.expr=histogram_quantile%280.95%2C+sum%28rate%28api_request_duration_seconds_bucket%7Bendpoint%3D%22%2Fapi%2Fcompute%22%7D%5B5m%5D%29%29+by+%28le%29%29+%3E+5"
+      }]'
+  fi
+
+after_test: |
+  kubectl delete namespace app-118 --ignore-not-found
+
+user_prompt: |
+  I received the following Prometheus alert:
+
+  Alert: OceanAPIHighResponseTime
+  Severity: critical
+  Service: ocean-api
+  Namespace: app-118
+
+  Summary: Ocean API compute endpoint experiencing high response times
+  Description: The 95th percentile response time for /api/compute endpoint is 8.5s (threshold: 5s) for the last 5 minutes. This may indicate resource constraints or application issues.
+
+  Please investigate why the API response times are so high and identify the root cause.
+
+expected_output: |
+  The investigation should identify that:
+  1. The ocean-api pods are experiencing CPU throttling due to low CPU limits (100m)
+  2. Some pods are failing readiness checks and being marked as not ready
+  3. The CPU-intensive compute endpoint is taking too long under resource constraints
+  4. The HPA is trying to scale but new pods are also getting throttled
+  5. The root cause is insufficient CPU resources allocated to the pods
+
+assertions:
+  - type: contains_any
+    keywords:
+      - "CPU throttling"
+      - "cpu throttled"
+      - "CPU limit"
+      - "resource constraint"
+  - type: contains_any
+    keywords:
+      - "100m"
+      - "0.1 CPU"
+      - "CPU limit of 100m"
+  - type: contains_any
+    keywords:
+      - "readiness"
+      - "not ready"
+      - "failing health check"
+      - "readiness probe"
+  - type: mentions_correlation
+    description: Should connect high response times to container resource issues

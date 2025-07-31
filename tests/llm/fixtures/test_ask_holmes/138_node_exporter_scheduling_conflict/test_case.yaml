@@ -1,0 +1,19 @@
+user_prompt: "what's wrong with grafana-k8s-monitoring-node-exporter in namespace app-138"
+expected_output:
+  - The grafana-k8s-monitoring-node-exporter DaemonSet has pods stuck in Pending state
+  - The pods cannot schedule on nodes due to a node affinity rule requiring nodes NOT to have the label eks.amazonaws.com/compute-type=fargate
+  - This is an AWS EKS-specific rule but the cluster is not running on EKS
+  - Additionally, there are multiple node-exporter DaemonSets competing for the same host port 9100 (robusta-prometheus-node-exporter and vmks-prometheus-node-exporter)
+  - The scheduling error shows "didn't have free ports for the requested pod ports" and "didn't satisfy plugin(s) [NodeAffinity]"
+before_test: |
+  kubectl apply -f manifests.yaml
+  sleep 30
+after_test: |
+  kubectl delete -f manifests.yaml
+tags:
+  - tool_usage
+  - kubernetes
+  - daemonset
+  - scheduling
+  - multi_stack
+  - cross_stack_conflict

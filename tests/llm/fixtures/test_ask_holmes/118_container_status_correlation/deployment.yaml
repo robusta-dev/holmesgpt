@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocean-api
+  namespace: app-118
+  labels:
+    app: ocean-api
+    component: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ocean-api
+  template:
+    metadata:
+      labels:
+        app: ocean-api
+        component: backend
+    spec:
+      containers:
+      - name: api
+        image: python:3.11-slim
+        command: ["sh", "-c", "pip install flask psutil && python /app/app.py"]
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"  # Very low CPU request
+          limits:
+            memory: "256Mi"
+            cpu: "100m"  # Low CPU limit will cause throttling
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 25
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        env:
+        - name: PORT
+          value: "8080"
+        - name: LOG_LEVEL
+          value: "info"
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+          readOnly: true
+      volumes:
+      - name: app-code
+        secret:
+          secretName: ocean-api-code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ocean-api
+  namespace: app-118
+  labels:
+    app: ocean-api
+spec:
+  selector:
+    app: ocean-api
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ocean-api
+  namespace: app-118
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ocean-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

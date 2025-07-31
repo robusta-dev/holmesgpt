@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-gateway
+  template:
+    metadata:
+      labels:
+        app: payment-gateway
+    spec:
+      containers:
+      - name: payment-gateway
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate a service with configuration issues revealed through multi-line context
+
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S')
+
+          # Service startup - shows production environment
+          echo "${NOW}.001Z [INFO] Payment Gateway v3.2.1 starting..."
+          echo "${NOW}.002Z [INFO] Environment: PRODUCTION"
+          echo "${NOW}.003Z [INFO] Loading configuration from CONFIG_ENV=production"
+          echo "${NOW}.004Z [INFO] Database host: db-prod-001.internal"
+          echo "${NOW}.005Z [INFO] Redis host: redis-prod-001.internal"
+          echo "${NOW}.006Z [INFO] API endpoints configured for production"
+
+          # Successful database connection
+          echo "${NOW}.010Z [INFO] Connecting to database: db-prod-001.internal:5432"
+          echo "${NOW}.011Z [INFO] Database connection established successfully"
+          echo "${NOW}.012Z [INFO] Database schema version: 45"
+
+          # Configuration reload - THIS IS THE PROBLEM
+          echo "${NOW}.020Z [WARN] Configuration reload triggered by file change"
+          echo "${NOW}.021Z [INFO] Loading configuration from /config/app.yaml"
+          echo "${NOW}.022Z [DEBUG] Config file contains: CONFIG_ENV=development"
+          echo "${NOW}.023Z [WARN] Environment mismatch detected but proceeding..."
+          echo "${NOW}.024Z [INFO] Redis host updated to: redis-dev-001.internal"
+
+          # First connection failure - the context above explains why
+          echo "${NOW}.030Z [INFO] Attempting to connect to Redis cache"
+          echo "${NOW}.031Z [DEBUG] Connection string: redis://redis-dev-001.internal:6379"
+          echo "${NOW}.032Z [ERROR] Failed to connect to Redis"
+          echo "${NOW}.033Z [ERROR] java.net.ConnectException: Connection refused"
+          echo "${NOW}.034Z [ERROR]     at java.net.Socket.connect(Socket.java:589)"
+          echo "${NOW}.035Z [ERROR]     at redis.clients.jedis.Connection.connect(Connection.java:184)"
+          echo "${NOW}.036Z [ERROR]     at redis.clients.jedis.BinaryClient.connect(BinaryClient.java:93)"
+          echo "${NOW}.037Z [ERROR]     at redis.clients.jedis.BinaryJedis.connect(BinaryJedis.java:1767)"
+          echo "${NOW}.038Z [ERROR]     at com.payment.cache.RedisCache.init(RedisCache.java:45)"
+          echo "${NOW}.039Z [WARN] Redis connection failed, will retry in 5 seconds"
+
+          # Normal operations continue with database
+          echo "${NOW}.040Z [INFO] Processing payment request #12345"
+          echo "${NOW}.041Z [INFO] Database query completed in 23ms"
+          echo "${NOW}.042Z [INFO] Payment validation passed"
+
+          # Second attempt - same issue
+          echo "${NOW}.050Z [INFO] Retrying Redis connection..."
+          echo "${NOW}.051Z [DEBUG] Target host: redis-dev-001.internal (from config)"
+          echo "${NOW}.052Z [DEBUG] Expected host should be: redis-prod-001.internal"
+          echo "${NOW}.053Z [ERROR] Failed to connect to Redis"
+          echo "${NOW}.054Z [ERROR] java.net.ConnectException: Connection refused"
+          echo "${NOW}.055Z [ERROR]     at java.net.Socket.connect(Socket.java:589)"
+          echo "${NOW}.056Z [ERROR]     at redis.clients.jedis.Connection.connect(Connection.java:184)"
+          echo "${NOW}.057Z [ERROR] Caused by: java.net.UnknownHostException: redis-dev-001.internal"
+          echo "${NOW}.058Z [ERROR]     Development Redis host not accessible from production network"
+
+          # More context showing the impact
+          echo "${NOW}.060Z [WARN] Cache unavailable - falling back to database only"
+          echo "${NOW}.061Z [WARN] Performance degradation expected without cache layer"
+          echo "${NOW}.062Z [INFO] Payment #12345 completed without cache (slow path)"
+
+          # Third attempt with more diagnostic info
+          echo "${NOW}.070Z [DEBUG] Current configuration state:"
+          echo "${NOW}.071Z [DEBUG]   CONFIG_ENV: development (incorrect!)"
+          echo "${NOW}.072Z [DEBUG]   Database: db-prod-001.internal (correct)"
+          echo "${NOW}.073Z [DEBUG]   Redis: redis-dev-001.internal (incorrect!)"
+          echo "${NOW}.074Z [DEBUG]   Should be using redis-prod-001.internal"
+          echo "${NOW}.075Z [ERROR] Redis connection still failing"
+          echo "${NOW}.076Z [ERROR] java.net.ConnectException: Connection refused"
+          echo "${NOW}.077Z [ERROR]     at java.net.Socket.connect(Socket.java:589)"
+
+          # Summary that requires reading all context
+          echo "${NOW}.080Z [ERROR] CONFIGURATION ERROR DETECTED:"
+          echo "${NOW}.081Z [ERROR] Service started with production config but reloaded development config"
+          echo "${NOW}.082Z [ERROR] Redis pointing to dev environment (redis-dev-001) instead of prod (redis-prod-001)"
+          echo "${NOW}.083Z [ERROR] This is causing all cache operations to fail"
+          echo "${NOW}.084Z [CRITICAL] Immediate action required: Fix CONFIG_ENV in /config/app.yaml"
+
+          # Keep pod running
+          sleep 3600

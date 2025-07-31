@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: time-traveler
+  namespace: app-120
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: time-traveler
+  template:
+    metadata:
+      labels:
+        app: time-traveler
+    spec:
+      containers:
+      - name: time-traveler
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Pod time-traveler starting..."
+          # Generate logs for the last 2 hours
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S' -d '90 minutes ago') INFO Service initialized"
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S' -d '75 minutes ago') WARN CPU usage spike detected"
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S' -d '60 minutes ago') ERROR API rate limit reached: 429 Too Many Requests"
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S' -d '45 minutes ago') INFO Rate limit reset, resuming operations"
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S' -d '30 minutes ago') ERROR Memory threshold exceeded: using 95% of allocated memory"
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S' -d '15 minutes ago') INFO Garbage collection completed, memory usage normalized"
+          echo "$(date -u '+%Y-%m-%d %H:%M:%S') INFO Current status: healthy"
+          # Keep container running
+          sleep 3600

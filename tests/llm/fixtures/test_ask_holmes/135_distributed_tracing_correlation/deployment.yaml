@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-api
+  template:
+    metadata:
+      labels:
+        app: payment-api
+    spec:
+      containers:
+      - name: payment-api
+        image: busybox
+        command: ["/bin/sh", "-c", "echo 'Payment API logs:'; echo '2024-01-15T10:30:00.100Z [INFO] [CID-789456] Received payment request for TXN-789456, amount: $125.50'; echo '2024-01-15T10:30:00.150Z [INFO] [CID-789456] Validating payment method...'; echo '2024-01-15T10:30:00.200Z [INFO] [CID-789456] Payment validation successful'; echo '2024-01-15T10:30:00.250Z [INFO] [CID-789456] Calling inventory-service to reserve items'; echo '2024-01-15T10:30:05.500Z [ERROR] [CID-789456] Inventory reservation failed: Received 500 from inventory-service'; echo '2024-01-15T10:30:05.501Z [ERROR] [CID-789456] Payment transaction TXN-789456 rolled back'; echo '2024-01-15T10:30:05.502Z [INFO] [CID-789456] Returning error to client: Payment processing failed'; sleep 3600"]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-service
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+    spec:
+      containers:
+      - name: inventory-service
+        image: busybox
+        command: ["/bin/sh", "-c", "echo 'Inventory Service logs:'; echo '2024-01-15T10:30:00.300Z [INFO] [CID-789456] Received reservation request from payment-api'; echo '2024-01-15T10:30:00.350Z [INFO] [CID-789456] Items available in stock: SKU-123 (5), SKU-456 (10)'; echo '2024-01-15T10:30:00.400Z [INFO] [CID-789456] Reserving items for order'; echo '2024-01-15T10:30:00.450Z [INFO] [CID-789456] Calling shipping-service to calculate shipping'; echo '2024-01-15T10:30:05.450Z [ERROR] [CID-789456] Shipping calculation failed: Received 503 from shipping-service'; echo '2024-01-15T10:30:05.451Z [ERROR] [CID-789456] Error details: Service temporarily unavailable'; echo '2024-01-15T10:30:05.452Z [INFO] [CID-789456] Rolling back inventory reservation'; echo '2024-01-15T10:30:05.453Z [ERROR] [CID-789456] Returning 500 to payment-api'; sleep 3600"]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shipping-service
+  template:
+    metadata:
+      labels:
+        app: shipping-service
+    spec:
+      containers:
+      - name: shipping-service
+        image: busybox
+        command: ["/bin/sh", "-c", "echo 'Shipping Service logs:'; echo '2024-01-15T10:30:00.500Z [INFO] [CID-789456] Received shipping calculation request from inventory-service'; echo '2024-01-15T10:30:00.550Z [INFO] [CID-789456] Order weight: 2.5kg, destination: ZIP 94105'; echo '2024-01-15T10:30:00.600Z [INFO] [CID-789456] Calling FedEx API for rates'; echo '2024-01-15T10:30:01.100Z [WARN] [CID-789456] FedEx API response slow (600ms)'; echo '2024-01-15T10:30:01.150Z [ERROR] [CID-789456] FedEx API error: 429 Too Many Requests'; echo '2024-01-15T10:30:01.151Z [ERROR] [CID-789456] Rate limit exceeded: 100 requests per minute'; echo '2024-01-15T10:30:01.152Z [INFO] [CID-789456] Attempting UPS API as fallback'; echo '2024-01-15T10:30:05.400Z [ERROR] [CID-789456] UPS API timeout after 4 seconds'; echo '2024-01-15T10:30:05.401Z [ERROR] [CID-789456] All shipping providers unavailable'; echo '2024-01-15T10:30:05.402Z [ERROR] [CID-789456] Returning 503 to inventory-service'; echo '2024-01-15T10:30:05.403Z [WARN] Current rate limit status: FedEx: 101/100 requests, UPS: 45/50 requests'; sleep 3600"]

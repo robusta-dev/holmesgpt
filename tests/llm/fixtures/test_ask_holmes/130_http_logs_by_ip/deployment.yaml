@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-server
+  template:
+    metadata:
+      labels:
+        app: web-server
+    spec:
+      containers:
+      - name: web-server
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate noisy HTTP access logs with suspicious activity from specific IP
+
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S')
+
+          # Function to generate realistic HTTP log entries
+          log_http() {
+            echo "$1Z $2 - - \"$3 $4 HTTP/1.1\" $5 $6 \"$7\" \"$8\""
+          }
+
+          # Normal traffic from various IPs
+          log_http "${NOW}.001" "192.168.1.101" "GET" "/" "200" "5234" "-" "Mozilla/5.0 Chrome/96"
+          log_http "${NOW}.002" "192.168.1.102" "GET" "/api/products" "200" "8921" "-" "Mozilla/5.0 Firefox/95"
+          log_http "${NOW}.003" "192.168.1.103" "GET" "/images/logo.png" "200" "4532" "-" "Mozilla/5.0 Safari/15"
+          log_http "${NOW}.004" "192.168.1.104" "POST" "/api/cart/add" "201" "234" "-" "Mozilla/5.0 Chrome/96"
+
+          # Suspicious activity from 192.168.1.105
+          log_http "${NOW}.005" "192.168.1.105" "GET" "/admin" "401" "0" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.006" "192.168.1.105" "GET" "/admin/login" "200" "3421" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.007" "192.168.1.105" "POST" "/admin/login" "401" "0" "-" "Python/3.9 requests/2.27"
+
+          # More normal traffic
+          log_http "${NOW}.008" "192.168.1.106" "GET" "/" "200" "5234" "-" "Mozilla/5.0 Edge/96"
+          log_http "${NOW}.009" "192.168.1.107" "GET" "/about" "200" "2341" "-" "Mozilla/5.0 Chrome/96"
+          log_http "${NOW}.010" "192.168.1.108" "GET" "/contact" "200" "1234" "-" "Mozilla/5.0 Firefox/95"
+
+          # More suspicious attempts from target IP
+          log_http "${NOW}.011" "192.168.1.105" "POST" "/admin/login" "401" "0" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.012" "192.168.1.105" "POST" "/admin/login" "401" "0" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.013" "192.168.1.105" "GET" "/wp-admin" "404" "0" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.014" "192.168.1.105" "GET" "/.env" "404" "0" "-" "Python/3.9 requests/2.27"
+
+          # Generate lots of normal traffic to create noise
+          for i in $(seq 15 50); do
+            IP="192.168.1.$((110 + ($i % 10)))"
+            PATHS=("/" "/products" "/api/search" "/images/banner.jpg" "/css/style.css")
+            PATH=${PATHS[$(($i % 5))]}
+            log_http "${NOW}.0$i" "$IP" "GET" "$PATH" "200" "$((1000 + $i * 100))" "-" "Mozilla/5.0"
+          done
+
+          # More attacks from suspicious IP
+          log_http "${NOW}.051" "192.168.1.105" "GET" "/admin/users" "401" "0" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.052" "192.168.1.105" "GET" "/phpmyadmin" "404" "0" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.053" "192.168.1.105" "POST" "/admin/login" "401" "0" "-" "Python/3.9 requests/2.27"
+          log_http "${NOW}.054" "192.168.1.105" "GET" "/backup.sql" "404" "0" "-" "Python/3.9 requests/2.27"
+
+          # More normal traffic
+          for i in $(seq 55 80); do
+            IP="192.168.1.$((120 + ($i % 5)))"
+            log_http "${NOW}.0$i" "$IP" "GET" "/api/products/$i" "200" "2341" "-" "Mozilla/5.0"
+          done
+
+          # Final summary line
+          echo "${NOW}.100Z [WARN] Detected 8 failed login attempts from 192.168.1.105 in the last minute"
+
+          # Keep pod running
+          sleep 3600

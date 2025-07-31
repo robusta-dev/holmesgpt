@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-processor
+  template:
+    metadata:
+      labels:
+        app: analytics-processor
+    spec:
+      containers:
+      - name: analytics-processor
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Generate timestamps for 48 hours ago
+          FORTY_EIGHT_HOURS_AGO=$(date -u -d '48 hours ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-48H '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          FORTY_SEVEN_HOURS_AGO=$(date -u -d '47 hours ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-47H '+%Y-%m-%dT%H:%M:%S.%3NZ')
+          FORTY_SIX_HOURS_AGO=$(date -u -d '46 hours ago' '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u -v-46H '+%Y-%m-%dT%H:%M:%S.%3NZ')
+
+          # Normal operation logs
+          echo "$FORTY_EIGHT_HOURS_AGO INFO: Analytics processor started successfully"
+          echo "$FORTY_EIGHT_HOURS_AGO INFO: Connected to data warehouse"
+          echo "$FORTY_EIGHT_HOURS_AGO INFO: Starting batch job #78234"
+          echo "$FORTY_EIGHT_HOURS_AGO INFO: Processing 5.2GB dataset"
+
+          # Memory usage gradually increasing
+          echo "$FORTY_SEVEN_HOURS_AGO INFO: Processed 1000000 records, memory usage: 70%"
+          echo "$FORTY_SEVEN_HOURS_AGO INFO: Processed 2000000 records, memory usage: 78%"
+          echo "$FORTY_SEVEN_HOURS_AGO WARN: Memory usage reaching high levels: 85%"
+          echo "$FORTY_SEVEN_HOURS_AGO INFO: Processed 3000000 records, memory usage: 88%"
+
+          # Critical memory situation
+          echo "$FORTY_SIX_HOURS_AGO WARN: Memory usage critical: 92%"
+          echo "$FORTY_SIX_HOURS_AGO WARN: GC overhead limit exceeded"
+          echo "$FORTY_SIX_HOURS_AGO WARN: Memory usage critical: 95%"
+          echo "$FORTY_SIX_HOURS_AGO ERROR: java.lang.OutOfMemoryError: Java heap space"
+          echo "$FORTY_SIX_HOURS_AGO ERROR:     at com.analytics.DataProcessor.allocateBuffer(DataProcessor.java:234)"
+          echo "$FORTY_SIX_HOURS_AGO ERROR:     at com.analytics.BatchJob.processNextChunk(BatchJob.java:156)"
+          echo "$FORTY_SIX_HOURS_AGO ERROR:     at com.analytics.Main.runJob(Main.java:89)"
+          echo "$FORTY_SIX_HOURS_AGO FATAL: Process terminated due to OutOfMemoryError"
+
+          # Exit with OOM kill code
+          exit 137
+        resources:
+          limits:
+            memory: "64Mi"
+          requests:
+            memory: "32Mi"

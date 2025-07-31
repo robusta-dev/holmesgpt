@@ -1,0 +1,36 @@
+id: 124_old_logs_misleading
+name: Old logs causing confusion - resolved errors from 6 days ago
+description: |
+  A pod had database connection errors 6 days ago that were resolved, but now has a different
+  error (memory issues) today. Holmes should focus on the recent error and not be distracted
+  by the old resolved database errors.
+
+user_request: "Why is the payment-processor pod failing?"
+
+tags:
+  - logs
+  - time_filtering
+  - troubleshooting
+
+before_test:
+  - kubectl create namespace app-124 || true
+  - kubectl apply -f ./deployment.yaml -n app-124
+  # Create test pods that simulate the scenario
+  - kubectl run old-error-simulator -n app-124 --image=busybox --restart=Never -- sh -c "echo 'Simulating old resolved errors' && sleep 3600" || true
+  - kubectl wait --for=condition=ready pod -l app=payment-processor -n app-124 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-124 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "memory"
+    - "OOM"
+    - "OutOfMemory"
+  must_not_contain:
+    - "database"
+    - "connection refused"
+    - "6 days ago"
+  reasoning: |
+    Holmes should identify the current memory/OOM issue and not get distracted by
+    the old database connection errors that were resolved 6 days ago.

@@ -1,0 +1,128 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-138
+---
+# First node-exporter DaemonSet with EKS-specific node affinity
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: grafana-k8s-monitoring-node-exporter
+  namespace: app-138
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-node-exporter
+      app.kubernetes.io/instance: grafana-k8s-monitoring
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus-node-exporter
+        app.kubernetes.io/instance: grafana-k8s-monitoring
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: eks.amazonaws.com/compute-type
+                operator: NotIn
+                values:
+                - fargate
+      containers:
+      - name: node-exporter
+        image: quay.io/prometheus/node-exporter:v1.8.1
+        ports:
+        - containerPort: 9100
+          hostPort: 9100
+          name: metrics
+        resources:
+          limits:
+            cpu: 250m
+            memory: 180Mi
+          requests:
+            cpu: 102m
+            memory: 180Mi
+      hostNetwork: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+---
+# Second node-exporter DaemonSet (competing)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: robusta-prometheus-node-exporter
+  namespace: app-138
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-node-exporter
+      app.kubernetes.io/instance: robusta
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus-node-exporter
+        app.kubernetes.io/instance: robusta
+    spec:
+      containers:
+      - name: node-exporter
+        image: quay.io/prometheus/node-exporter:v1.7.0
+        ports:
+        - containerPort: 9100
+          hostPort: 9100
+          name: metrics
+        resources:
+          limits:
+            cpu: 200m
+            memory: 150Mi
+          requests:
+            cpu: 100m
+            memory: 150Mi
+      hostNetwork: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+---
+# Third node-exporter DaemonSet (also competing)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: vmks-prometheus-node-exporter
+  namespace: app-138
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-node-exporter
+      app.kubernetes.io/instance: vmks
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus-node-exporter
+        app.kubernetes.io/instance: vmks
+    spec:
+      containers:
+      - name: node-exporter
+        image: quay.io/prometheus/node-exporter:v1.6.1
+        ports:
+        - containerPort: 9100
+          hostPort: 9100
+          name: metrics
+        resources:
+          limits:
+            cpu: 200m
+            memory: 150Mi
+          requests:
+            cpu: 100m
+            memory: 150Mi
+      hostNetwork: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists

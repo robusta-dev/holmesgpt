@@ -1,0 +1,43 @@
+id: 139_p99_latency_hidden
+name: P99 latency issue hidden in normal averages
+description: |
+  A search API has severe P99 latency issues but average response time looks great.
+  Out of every 100 requests, 99 complete in 10-20ms but 1 takes 5000-8000ms.
+  Searching for "slow", "timeout", or "latency" finds nothing because individual
+  slow requests don't trigger error logs. The issue is only visible through
+  statistical analysis of all response times.
+
+user_request: "Some users report the search-api occasionally freezes for several seconds, but our monitoring shows average response time is only 85ms. Can you investigate?"
+
+tags:
+  - logs
+  - performance
+  - statistics
+  - p99
+  - latency
+
+before_test:
+  - kubectl create namespace app-139 || true
+  - kubectl apply -f ./deployment.yaml -n app-139
+  - kubectl wait --for=condition=ready pod -l app=search-api -n app-139 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-139 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "p99"
+    - "percentile"
+    - "5000ms"
+  should_contain:
+    - "1%"
+    - "99%"
+    - "statistical"
+    - "outlier"
+  must_not_contain:
+    - "all requests are fast"
+    - "no performance issues"
+  reasoning: |
+    Holmes should analyze the response time distribution and identify that while
+    99% of requests complete in 10-20ms, 1% take 5000-8000ms. This P99 latency
+    issue explains why some users experience freezes despite good average metrics.

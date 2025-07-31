@@ -1,0 +1,42 @@
+id: 129_regex_custom_error_pattern
+name: Complex error pattern requiring custom regex
+description: |
+  A service has custom error formats that don't match the default filter patterns.
+  The errors are formatted as "FAIL-CODE-XXX" and "[CRITICAL]" but the default patterns
+  like 'err|error|fatal|critical|fail' won't work because:
+  - "CRITICAL" is in brackets
+  - "FAIL" is part of a compound code
+  Holmes needs to use a custom regex to find all related issues.
+
+user_request: "The order-service is having issues. I see some FAIL codes and critical alerts but can't find all of them."
+
+tags:
+  - logs
+  - regex
+  - filtering
+  - custom_patterns
+
+before_test:
+  - kubectl create namespace app-129 || true
+  - kubectl apply -f ./deployment.yaml -n app-129
+  - kubectl wait --for=condition=ready pod -l app=order-service -n app-129 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-129 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "FAIL-CODE"
+    - "CRITICAL"
+    - "database"
+  should_contain:
+    - "regex"
+    - "pattern"
+    - "FAIL-CODE-4[0-9]{2}|\\[CRITICAL\\]"
+  must_not_contain:
+    - "no errors found"
+    - "no issues"
+  reasoning: |
+    Default patterns won't catch these custom formats. Holmes should recognize this
+    and use a regex like 'FAIL-CODE-4[0-9]{2}|\[CRITICAL\]' to find all database-related
+    failures (400-series FAIL codes) and critical alerts.

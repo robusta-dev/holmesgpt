@@ -1,0 +1,38 @@
+id: 125_intermittent_database_pattern
+name: Intermittent database issues visible with 7-day window
+description: |
+  A service has database connection issues that happen once per day at random times.
+  With the old 1-hour default, Holmes would miss the pattern. With the new 7-day default,
+  Holmes can identify that this is a recurring issue and suggest appropriate fixes.
+
+user_request: "The api-gateway pod is having issues. Can you investigate?"
+
+tags:
+  - logs
+  - time_filtering
+  - troubleshooting
+  - patterns
+
+before_test:
+  - kubectl create namespace app-125 || true
+  - kubectl apply -f ./deployment.yaml -n app-125
+  - kubectl wait --for=condition=ready pod -l app=api-gateway -n app-125 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-125 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "daily"
+    - "pattern"
+    - "connection pool"
+  should_contain:
+    - "once per day"
+    - "recurring"
+    - "3 days"
+  must_not_contain:
+    - "no issues found"
+    - "no errors"
+  reasoning: |
+    With 7-day logs, Holmes should identify the daily pattern of database connection
+    failures and suggest connection pool tuning or database resource scaling.

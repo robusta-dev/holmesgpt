@@ -1,0 +1,42 @@
+id: 137_performance_degradation_pattern
+name: Detecting gradual performance degradation
+description: |
+  An API's response times are gradually increasing over hours, but there are no errors.
+  The degradation pattern reveals a memory leak causing GC pressure. Holmes needs to
+  analyze the trend in response times and GC logs to identify the issue before it
+  becomes critical.
+
+user_request: "Users are complaining the search API is getting slower throughout the day. No errors in logs though."
+
+tags:
+  - logs
+  - performance
+  - degradation
+  - patterns
+  - memory
+
+before_test:
+  - kubectl create namespace app-137 || true
+  - kubectl apply -f ./deployment.yaml -n app-137
+  - kubectl wait --for=condition=ready pod -l app=search-api -n app-137 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-137 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "memory leak"
+    - "GC"
+    - "degradation"
+  should_contain:
+    - "45ms to 1823ms"
+    - "garbage collection"
+    - "heap"
+    - "increasing trend"
+  must_not_contain:
+    - "no issues"
+    - "normal performance"
+  reasoning: |
+    Holmes should identify the gradual increase in response times (45ms → 1823ms)
+    correlating with increasing GC frequency and duration, indicating a memory leak
+    that's causing performance degradation without errors.

@@ -1,0 +1,38 @@
+id: 131_http_logs_by_status_code
+name: Finding specific HTTP error patterns in noisy logs
+description: |
+  A web service is experiencing 503 errors but they're buried in thousands of successful
+  requests. Holmes needs to filter by status code and identify the pattern - all 503s
+  are happening on a specific endpoint during high load.
+
+user_request: "Users are reporting intermittent 503 errors. Can you find what's causing them?"
+
+tags:
+  - logs
+  - http
+  - status_code
+  - filtering
+
+before_test:
+  - kubectl create namespace app-131 || true
+  - kubectl apply -f ./deployment.yaml -n app-131
+  - kubectl wait --for=condition=ready pod -l app=api-server -n app-131 --timeout=60s || true
+
+after_test:
+  - kubectl delete namespace app-131 --force --grace-period=0 || true
+
+expected_answer:
+  must_contain:
+    - "503"
+    - "/api/reports/generate"
+    - "timeout"
+  should_contain:
+    - "pattern"
+    - "report generation"
+    - "30 seconds"
+  must_not_contain:
+    - "random errors"
+    - "all endpoints"
+  reasoning: |
+    Holmes should filter for 503 status codes and identify that they all occur on
+    the /api/reports/generate endpoint when requests take longer than 30 seconds.

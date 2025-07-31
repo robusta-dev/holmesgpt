@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-api
+  template:
+    metadata:
+      labels:
+        app: inventory-api
+    spec:
+      containers:
+      - name: inventory-api
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Simulate API logs where the issue is in multi-line JSON structure
+
+          NOW=$(date -u '+%Y-%m-%dT%H:%M:%S')
+
+          # API startup
+          echo "${NOW}.001Z [INFO] Inventory API v2.1.0 starting..."
+          echo "${NOW}.002Z [INFO] Loading schema validators"
+          echo "${NOW}.003Z [INFO] Server listening on port 8080"
+
+          # Successful request for comparison
+          echo "${NOW}.010Z [INFO] Received POST /api/inventory/update"
+          echo "${NOW}.011Z [DEBUG] Request body:"
+          echo "${NOW}.012Z [DEBUG] {"
+          echo "${NOW}.013Z [DEBUG]   \"product_id\": \"SKU-12345\","
+          echo "${NOW}.014Z [DEBUG]   \"warehouse\": \"WEST-01\","
+          echo "${NOW}.015Z [DEBUG]   \"quantity\": 100,"
+          echo "${NOW}.016Z [DEBUG]   \"operation\": \"add\""
+          echo "${NOW}.017Z [DEBUG] }"
+          echo "${NOW}.018Z [INFO] Request validation: PASSED"
+          echo "${NOW}.019Z [INFO] Stock updated successfully for SKU-12345"
+          echo "${NOW}.020Z [HTTP] 200 POST /api/inventory/update (45ms)"
+
+          # Failed request - the issue is quantity is a string
+          echo "${NOW}.030Z [INFO] Received POST /api/inventory/update"
+          echo "${NOW}.031Z [DEBUG] Request body:"
+          echo "${NOW}.032Z [DEBUG] {"
+          echo "${NOW}.033Z [DEBUG]   \"product_id\": \"SKU-67890\","
+          echo "${NOW}.034Z [DEBUG]   \"warehouse\": \"EAST-02\","
+          echo "${NOW}.035Z [DEBUG]   \"quantity\": \"50\","  # THIS IS THE PROBLEM - string instead of number
+          echo "${NOW}.036Z [DEBUG]   \"operation\": \"add\""
+          echo "${NOW}.037Z [DEBUG] }"
+          echo "${NOW}.038Z [ERROR] Schema validation failed"
+          echo "${NOW}.039Z [ERROR] Field: quantity, Expected: number, Received: string"
+          echo "${NOW}.040Z [HTTP] 400 POST /api/inventory/update - Invalid request"
+
+          # Another successful request
+          echo "${NOW}.050Z [INFO] Received GET /api/inventory/SKU-99999"
+          echo "${NOW}.051Z [INFO] Inventory lookup completed"
+          echo "${NOW}.052Z [HTTP] 200 GET /api/inventory/SKU-99999 (23ms)"
+
+          # Another failed request with same issue
+          echo "${NOW}.060Z [INFO] Received POST /api/inventory/update"
+          echo "${NOW}.061Z [DEBUG] Request headers: Content-Type: application/json"
+          echo "${NOW}.062Z [DEBUG] Request body:"
+          echo "${NOW}.063Z [DEBUG] {"
+          echo "${NOW}.064Z [DEBUG]   \"product_id\": \"SKU-11111\","
+          echo "${NOW}.065Z [DEBUG]   \"warehouse\": \"CENTRAL-01\","
+          echo "${NOW}.066Z [DEBUG]   \"quantity\": \"25\","  # String again
+          echo "${NOW}.067Z [DEBUG]   \"operation\": \"subtract\""
+          echo "${NOW}.068Z [DEBUG] }"
+          echo "${NOW}.069Z [ERROR] Schema validation failed"
+          echo "${NOW}.070Z [ERROR] Field: quantity, Expected: number, Received: string"
+          echo "${NOW}.071Z [HTTP] 400 POST /api/inventory/update - Invalid request"
+
+          # Show the schema for context
+          echo "${NOW}.080Z [DEBUG] Expected schema for /api/inventory/update:"
+          echo "${NOW}.081Z [DEBUG] {"
+          echo "${NOW}.082Z [DEBUG]   \"product_id\": \"string\","
+          echo "${NOW}.083Z [DEBUG]   \"warehouse\": \"string\","
+          echo "${NOW}.084Z [DEBUG]   \"quantity\": \"number\",  // Must be numeric, not string"
+          echo "${NOW}.085Z [DEBUG]   \"operation\": \"enum[add,subtract,set]\""
+          echo "${NOW}.086Z [DEBUG] }"
+
+          # Another failure showing pattern
+          echo "${NOW}.090Z [INFO] Received POST /api/inventory/update"
+          echo "${NOW}.091Z [DEBUG] Request from client: inventory-updater v1.2"
+          echo "${NOW}.092Z [DEBUG] Request body:"
+          echo "${NOW}.093Z [DEBUG] {"
+          echo "${NOW}.094Z [DEBUG]   \"product_id\": \"SKU-22222\","
+          echo "${NOW}.095Z [DEBUG]   \"warehouse\": \"NORTH-03\","
+          echo "${NOW}.096Z [DEBUG]   \"quantity\": \"150\","  # Consistent pattern - always string
+          echo "${NOW}.097Z [DEBUG]   \"operation\": \"set\""
+          echo "${NOW}.098Z [DEBUG] }"
+          echo "${NOW}.099Z [ERROR] Schema validation failed"
+          echo "${NOW}.100Z [ERROR] Field: quantity, Expected: number, Received: string"
+          echo "${NOW}.101Z [HTTP] 400 POST /api/inventory/update - Invalid request"
+
+          # Summary showing the pattern
+          echo "${NOW}.110Z [WARN] Detected 3 failed inventory updates in last minute"
+          echo "${NOW}.111Z [WARN] All failures due to quantity field being sent as string"
+          echo "${NOW}.112Z [INFO] Client 'inventory-updater v1.2' may have a serialization bug"
+          echo "${NOW}.113Z [INFO] Correct format: {\"quantity\": 50}, Incorrect: {\"quantity\": \"50\"}"
+
+          # Keep pod running
+          sleep 3600
