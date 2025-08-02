@@ -1,10 +1,14 @@
 import os
 import json
+from typing import Optional
 
 
-def load_bool(env_var, default: bool):
-    s = os.environ.get(env_var, str(default))
-    return json.loads(s.lower())
+def load_bool(env_var, default: Optional[bool]) -> Optional[bool]:
+    env_value = os.environ.get(env_var)
+    if env_value is None:
+        return default
+
+    return json.loads(env_value.lower())
 
 
 ENABLED_BY_DEFAULT_TOOLSETS = os.environ.get(
@@ -22,7 +26,7 @@ STORE_API_KEY = os.environ.get("STORE_API_KEY", "")
 STORE_EMAIL = os.environ.get("STORE_EMAIL", "")
 STORE_PASSWORD = os.environ.get("STORE_PASSWORD", "")
 HOLMES_POST_PROCESSING_PROMPT = os.environ.get("HOLMES_POST_PROCESSING_PROMPT", "")
-ROBUSTA_AI = load_bool("ROBUSTA_AI", False)
+ROBUSTA_AI = load_bool("ROBUSTA_AI", None)
 ROBUSTA_API_ENDPOINT = os.environ.get("ROBUSTA_API_ENDPOINT", "https://api.robusta.dev")
 
 LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
@@ -43,3 +47,6 @@ USE_LEGACY_KUBERNETES_LOGS = load_bool("USE_LEGACY_KUBERNETES_LOGS", False)
 KUBERNETES_LOGS_TIMEOUT_SECONDS = int(
     os.environ.get("KUBERNETES_LOGS_TIMEOUT_SECONDS", 60)
 )
+
+TOOL_CALL_SAFEGUARDS_ENABLED = load_bool("TOOL_CALL_SAFEGUARDS_ENABLED", True)
+IS_OPENSHIFT = load_bool("IS_OPENSHIFT", False)

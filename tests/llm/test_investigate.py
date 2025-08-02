@@ -7,7 +7,8 @@ import pytest
 
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-import tests.llm.utils.braintrust as braintrust_util
+from holmes.core.tool_calling_llm import IssueInvestigator
+from holmes.core.tracing import TracingFactory
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
@@ -15,16 +16,20 @@ from tests.llm.utils.classifiers import (
     evaluate_correctness,
     evaluate_sections,
 )
-from tests.llm.utils.constants import PROJECT
-from tests.llm.utils.system import get_machine_state_tags
+from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.mock_dal import MockSupabaseDal
-from tests.llm.utils.mock_toolset import MockToolsets
-from tests.llm.utils.mock_utils import Evaluation, InvestigateTestCase, MockHelper
+from tests.llm.utils.mock_toolset import MockToolsetManager
+from tests.llm.utils.test_case_utils import (
+    InvestigateTestCase,
+    MockHelper,
+    check_and_skip_test,
+)
+from tests.llm.utils.property_manager import set_initial_properties, update_test_results
 from os import path
-from braintrust import Span, SpanTypeAttribute
 from unittest.mock import patch
 
 from tests.llm.utils.tags import add_tags_to_eval
+from holmes.core.tracing import SpanType
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -32,55 +37,48 @@ TEST_CASES_FOLDER = Path(
 
 
 class MockConfig(Config):
-    def __init__(self, test_case: InvestigateTestCase, parent_span: Span):
+    def __init__(self, test_case: InvestigateTestCase, tracer, mock_generation_config):
         super().__init__()
         self._test_case = test_case
-        self._parent_span = parent_span
+        self._tracer = tracer
+        self._mock_generation_config = mock_generation_config
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
-        mock = MockToolsets(
-            generate_mocks=self._test_case.generate_mocks,
+        mock = MockToolsetManager(
             test_case_folder=self._test_case.folder,
-            parent_span=self._parent_span,
+            mock_generation_config=self._mock_generation_config,
+            mock_policy=self._test_case.mock_policy,
         )
 
-        expected_tools = []
-        for tool_mock in self._test_case.tool_mocks:
-            mock.mock_tool(tool_mock)
-            expected_tools.append(tool_mock.tool_name)
+        # With the new file-based mock system, mocks are loaded from disk automatically
+        # No need to call mock_tool() anymore
+        return ToolExecutor(mock.toolsets)
 
-        return ToolExecutor(mock.enabled_toolsets)
+    def create_issue_investigator(
+        self,
+        dal: Optional[SupabaseDal] = None,
+        model: Optional[str] = None,
+        tracer=None,
+    ) -> IssueInvestigator:
+        # Use our tracer instead of the passed one
+        return super().create_issue_investigator(
+            dal=dal, model=model, tracer=self._tracer
+        )
 
 
 def get_test_cases():
-    experiment_name = braintrust_util.get_experiment_name("investigate")
-    dataset_name = braintrust_util.get_dataset_name("investigate")
-
     mh = MockHelper(TEST_CASES_FOLDER)
 
-    if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
-        bt_helper = braintrust_util.BraintrustEvalHelper(
-            project_name=PROJECT, dataset_name=dataset_name
-        )
-        bt_helper.upload_test_cases(mh.load_test_cases())
+    # dataset_name = braintrust_util.get_dataset_name("investigate")
+    # if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
+    #     bt_helper = braintrust_util.BraintrustEvalHelper(
+    #         project_name=BRAINTRUST_PROJECT, dataset_name=dataset_name
+    #     )
+    #     bt_helper.upload_test_cases(mh.load_test_cases())
 
     test_cases = mh.load_investigate_test_cases()
-
-    iterations = int(os.environ.get("ITERATIONS", "0"))
-    if iterations:
-        test_cases_tuples = []
-        for i in range(0, iterations):
-            test_cases_tuples.extend(
-                [
-                    add_tags_to_eval(experiment_name, test_case)
-                    for test_case in test_cases
-                ]
-            )
-        return test_cases_tuples
-    else:
-        return [
-            add_tags_to_eval(experiment_name, test_case) for test_case in test_cases
-        ]
+    iterations = int(os.environ.get("ITERATIONS", "1"))
+    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
 
 
 def idfn(val):
@@ -91,20 +89,35 @@ def idfn(val):
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("experiment_name, test_case", get_test_cases(), ids=idfn)
-def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplog):
-    dataset_name = braintrust_util.get_dataset_name("investigate")
-    bt_helper = braintrust_util.BraintrustEvalHelper(
-        project_name=PROJECT, dataset_name=dataset_name
-    )
-    eval_span = bt_helper.start_evaluation(experiment_name, name=test_case.id)
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
+def test_investigate(
+    test_case: InvestigateTestCase,
+    caplog,
+    request,
+    mock_generation_config,
+    shared_test_infrastructure,  # type: ignore
+):
+    # Set initial properties early so they're available even if test fails
+    set_initial_properties(request, test_case)
 
-    config = MockConfig(test_case, eval_span)
+    # Check if test should be skipped
+    check_and_skip_test(test_case)
+
+    # Check for setup failures
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        request.node.user_properties.append(("is_setup_failure", True))
+        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+
+    tracer = TracingFactory.create_tracer("braintrust")
+    config = MockConfig(test_case, tracer, mock_generation_config)
     config.model = os.environ.get("MODEL", "gpt-4o")
+    metadata = {"model": config.model or "Unknown"}
+    tracer.start_experiment(additional_metadata=metadata)
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
-        generate_mocks=test_case.generate_mocks,
+        generate_mocks=mock_generation_config.generate_mocks,
         issue_data=test_case.issue_data,
         resource_instructions=test_case.resource_instructions,
     )
@@ -113,9 +126,6 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     expected = test_case.expected_output
     result = None
 
-    metadata = get_machine_state_tags()
-    metadata["model"] = config.model or "Unknown"
-
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:
         investigate_request.sections = DEFAULT_SECTIONS
@@ -123,10 +133,26 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
     with patch.dict(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
-        with eval_span.start_span("Holmes Run", type=SpanTypeAttribute.LLM):
-            result = investigate_issues(
-                investigate_request=investigate_request, config=config, dal=mock_dal
-            )
+        with tracer.start_trace(
+            name=test_case.id, span_type=SpanType.EVAL
+        ) as eval_span:
+            # Store span info in user properties for conftest to access
+            if hasattr(eval_span, "id"):
+                request.node.user_properties.append(
+                    ("braintrust_span_id", str(eval_span.id))
+                )
+            if hasattr(eval_span, "root_span_id"):
+                request.node.user_properties.append(
+                    ("braintrust_root_span_id", str(eval_span.root_span_id))
+                )
+
+            with set_test_env_vars(test_case):
+                with eval_span.start_span("Holmes Run", type=SpanType.LLM):
+                    result = investigate_issues(
+                        investigate_request=investigate_request,
+                        config=config,
+                        dal=mock_dal,
+                    )
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
@@ -157,20 +183,24 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
         )
         scores["sections"] = sections_eval.score
 
-    if bt_helper and eval_span:
-        bt_helper.end_evaluation(
+    # Log evaluation results directly to the span
+    if eval_span:
+        eval_span.log(
             input=input,
             output=output or "",
             expected=str(expected),
-            id=test_case.id,
+            dataset_record_id=test_case.id,
             scores=scores,
-            prompt=None,
             tags=test_case.tags,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")
     print(f"\n** OUTPUT **\n{output}")
     print(f"\n** SCORES **\n{scores}")
+
+    # Store data for summary plugin
+    # Update test results
+    update_test_results(request, output, tools_called, scores)
 
     assert result.sections, "Missing sections"
     assert (
@@ -181,11 +211,9 @@ def test_investigate(experiment_name: str, test_case: InvestigateTestCase, caplo
             expected_section_title in result.sections
         ), f"Expected title {expected_section_title} in sections"
 
-    if test_case.evaluation.correctness:
-        expected_correctness = test_case.evaluation.correctness
-        if isinstance(expected_correctness, Evaluation):
-            expected_correctness = expected_correctness.expected_score
-        assert scores.get("correctness", 0) >= expected_correctness
+    assert (
+        int(scores.get("correctness", 0)) == 1
+    ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})"
 
     if test_case.expected_sections:
         for (

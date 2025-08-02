@@ -1,4 +1,4 @@
-user_prompt: "detect why the k8s pod client under namespace test-ns cannot resolve dns"
+user_prompt: "detect why the k8s pod client under namespace test-ns-42d cannot resolve dns"
 tags:
   - network
   - runbooks
@@ -26,4 +26,3 @@ evaluation:
     type: "loose"
 include_files:
   - dns_troubleshooting_instructions.md
-generate_mocks: False

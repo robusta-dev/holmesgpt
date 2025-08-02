@@ -61,26 +61,34 @@ jobs:
         (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
       shell: pwsh
 
+    - name: Install unixODBC (macOS)
+      if: matrix.os == 'macos-latest'
+      run: brew install unixodbc
+
     # if you change something here, you must also change it in .github/workflows/build-and-test.yaml
     - name: Build with PyInstaller
       shell: bash
       # regarding the tiktoken part of the command, see https://github.com/openai/tiktoken/issues/80
       # regarding the litellm part of the command, see https://github.com/pyinstaller/pyinstaller/issues/8620#issuecomment-2186540504
       run: |
-
-        pyinstaller holmes_cli.py \
-          --name holmes
-          --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' \
-          --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' \
-          --add-data 'holmes/plugins/toolsets:holmes/plugins/toolsets' \
-          --hidden-import=tiktoken_ext.openai_public \
-          --hidden-import=tiktoken_ext \
-          --hiddenimport litellm.llms.tokenizers \
-          --hiddenimport litellm.litellm_core_utils.tokenizers \
-          --collect-data litellm
+       pyinstaller holmes_cli.py \
+            --name holmes \
+            --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' \
+            --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' \
+            --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' \
+            --add-data 'holmes/plugins/toolsets/coralogix*:holmes/plugins/toolsets/coralogix' \
+            --add-data 'holmes/plugins/toolsets/grafana*:holmes/plugins/toolsets/grafana' \
+            --add-data 'holmes/plugins/toolsets/internet*:holmes/plugins/toolsets/internet' \
+            --add-data 'holmes/plugins/toolsets/opensearch*:holmes/plugins/toolsets/opensearch' \
+            --add-data 'holmes/plugins/toolsets/prometheus*:holmes/plugins/toolsets/prometheus' \
+            --hidden-import=tiktoken_ext.openai_public \
+            --hidden-import=tiktoken_ext \
+            --hiddenimport litellm.llms.tokenizers \
+            --hiddenimport litellm.litellm_core_utils.tokenizers \
+            --collect-data litellm
         ls dist
 
-    - name: Zip the application (Unix)
+    - name: Zip the application (Unix and Mac)
       if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-22.04'
       run: |
         cd dist

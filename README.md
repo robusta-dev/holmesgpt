@@ -1,5 +1,10 @@
 <div align="center">
-  <h1 align="center">Solve alerts faster with an AI Agent</h1>
+  <h1 align="center">AI Agent for Cloud Troubleshooting and Alert Investigation</h1>
+
+HolmesGPT is an AI agent for investigating problems in your cloud, finding the root cause, and suggesting remediations. It has dozens of built-in integrations for cloud providers, observability tools, and on-call systems.
+
+HolmesGPT has been submitted to the CNCF as a sandbox project ([view status](https://github.com/cncf/sandbox/issues/392)). You can learn more about HolmesGPT's maintainers and adopters [here](./ADOPTERS.md).
+
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> |
@@ -9,21 +14,9 @@
   </p>
 </div>
 
-Respond to alerts faster, using AI to automatically:
+![HolmesGPT Investigation Demo](https://robusta-dev.github.io/holmesgpt/assets/HolmesInvestigation.gif)
 
-- Fetch logs, traces, and metrics
-- Determine if issues are application or infrastructure related
-- Find upstream root-causes
-
-Using HolmesGPT, you can transform your existing alerts from this 👇
-
-![Before HolmesGPT](https://github.com/user-attachments/assets/931ebd71-ccd2-4b7b-969d-a061a99cec2d)
-
-To this 👇
-
-<img width="600" alt="example-holmesgpt-analysis" src="https://github.com/user-attachments/assets/d03df693-9eff-4d61-8947-2b101f648c3e" />
-
-### How it Works
+## How it Works
 
 HolmesGPT connects AI models with live observability data and organizational knowledge. It uses an **agentic loop** to analyze data from multiple sources and identify possible root causes.
 
@@ -58,17 +51,9 @@ HolmesGPT integrates with popular observability and cloud platforms. The followi
 | [<img src="images/integration_logos/robusta_logo.png" alt="Robusta" width="20" style="vertical-align: middle;"> **Robusta**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html) | ✅ | Multi-cluster monitoring, historical change data, user-configured runbooks, PromQL graphs and more |
 | [<img src="images/integration_logos/slab_logo.png" alt="Slab" width="20" style="vertical-align: middle;"> **Slab**](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/slab.html) | ✅ | Team knowledge base and runbooks on demand |
 
-### 🔐 Data Privacy
+### 🚀 End-to-End Automation
 
-By design, HolmesGPT has **read-only access** and respects RBAC permissions. It is safe to run in production environments.
-
-We do **not** train HolmesGPT on your data. Data sent to Robusta SaaS is private to your account.
-
-For extra privacy, [bring an API key](docs/api-keys.md) for your own AI model.
-
-### 🚀 Bi-Directional Integrations With Your Tools
-
-Robusta can investigate alerts - or just answer questions - from the following sources:
+HolmesGPT can fetch alerts/tickets to investigate from external systems, then write the analysis back to the source or Slack.
 
 | Integration             | Status    | Notes |
 |-------------------------|-----------|-------|
@@ -78,165 +63,28 @@ Robusta can investigate alerts - or just answer questions - from the following s
 | PagerDuty               | ✅        | HolmesGPT CLI only |
 | OpsGenie                | ✅        | HolmesGPT CLI only |
 | Jira                    | ✅        | HolmesGPT CLI only |
-
-### See it in Action
-
-<a href="https://www.loom.com/share/388d98aad1a04823b9ed50d0161a4819?sid=a2a669b4-f092-4067-adcb-c8527fbcaa90" target="_blank">
-<img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/388d98aad1a04823b9ed50d0161a4819-0ced91a0e8f80dcb-full-play.gif">
-</a>
-
+| GitHub                  | ✅        | HolmesGPT CLI only |
 
 ## Installation
 
-You can install HolmesGPT in one of the follow three methods:
+<a href="https://robusta-dev.github.io/holmesgpt/installation/cli-installation/">
+  <img src="images/integration_logos/all-installation-methods.png" alt="All Installation Methods" style="max-width:100%; height:auto;">
+</a>
 
-1. [Standalone](./docs/installation.md): Run HolmesGPT from your terminal as a CLI tool. Typically installed with **Homebrew** or **Pip/Pipx**. Ideal for local use, **embedding into shell scripts, or CI/CD pipelines.** (E.g. to analyze why a pipeline deploying to Kubernetes failed.)
-2. **Web UIs and TUIs**: HolmesGPT is embedded in several third-party tools, like [Robusta SaaS](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and [K9s](./docs/k9s.md) (as a plugin).
-3. **API**: Embed HolmesGPT in your own app to quickly add **root-cause-analysis functionality and data correlations across multiple sources like logs, metrics, and events**. HolmesGPT exposes an HTTP API and [Python SDK](./docs/python.md), as well as [Helm chart](./helm/) to deploy the HTTP server on Kubernetes.
-
-<table width="100%">
-  <tr valign="top">
-    <td colspan="2">
-      <h3>Standalone</h3>
-      <table width="100%">
-        <tr>
-          <td align="center" width="120">
-            <a href="docs/installation.md#brew-maclinux">
-              <img src="images/integration_logos/brew_logo.png" alt="Brew" width="50"><br>
-              <strong>Brew</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/installation.md#pip-and-pipx">
-              <img src="images/integration_logos/pipx_logo.png" alt="pipx" width="50"><br>
-              <strong>Pipx</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/installation.md#docker-container">
-              <img src="images/integration_logos/docker_logo.png" alt="Docker" width="50"><br>
-              <strong>Docker</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/installation.md#from-source-docker">
-              <img src="images/integration_logos/docker_logo.png" alt="Docker Build" width="50"><br>
-              <strong>Docker Build</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/installation.md#from-source-python-poetry">
-              <img src="images/integration_logos/python_poetry_logo.png" alt="Python Poetry" width="50"><br>
-              <strong>Poetry</strong>
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-  <tr valign="top">
-   <td width="30%">
-      <h3>Web UIs and TUIs</h3>
-      <table>
-        <tr>
-          <td align="center" width="120">
-            <a href="https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section">
-              <img src="images/integration_logos/robusta_logo.png" alt="Robusta SaaS" width="50"><br>
-              <strong>Robusta SaaS</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/k9s.md">
-              <img src="images/integration_logos/k9s_logo.png" alt="K9s Plugin" width="50"><br>
-              <strong>K9s Plugin</strong>
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td>
-    <td width="30%">
-      <h3>API</h3>
-      <table>
-        <tr>
-          <td align="center" width="120">
-            <a href="helm">
-              <img src="images/integration_logos/helm_logo.png" alt="Helm Chart" width="50"><br>
-              <strong>Helm Chart</strong>
-            </a>
-          </td>
-          <td align="center" width="120">
-            <a href="docs/python.md">
-              <img src="images/integration_logos/python_logo.png" alt="Python Package" width="50"><br>
-              <strong>Python API</strong>
-            </a>
-          </td>
-        </tr>
-      </table>
-    </td>
-
-  </tr>
-</table>
-
+Read the [installation documentation](https://robusta-dev.github.io/holmesgpt/installation/cli-installation/) to learn how to install HolmesGPT.
 
 ## Supported LLM Providers
 
-Select your LLM provider to see how to set up your API Key.
+<a href="https://robusta-dev.github.io/holmesgpt/ai-providers/">
+  <img src="images/integration_logos/all-integration-providers.png" alt="All Integration Providers" style="max-width:100%; height:auto;">
+</a>
 
-<table>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#openai">
-        <img src="images/integration_logos/openai_logo.png" alt="OpenAI" width="50"><br>
-        <strong>OpenAI</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#anthropic">
-        <img src="images/integration_logos/anthropic_logo.png" alt="Anthropic" width="50"><br>
-        <strong>Anthropic</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#aws-bedrock">
-        <img src="images/integration_logos/aws_bedrock_logo.png" alt="AWS Bedrock" width="50"><br>
-        <strong>AWS Bedrock</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#azure-openai">
-        <img src="images/integration_logos/azure-openai.png" alt="Azure OpenAI" width="50"><br>
-        <strong>Azure OpenAI</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#google-vertex-ai">
-        <img src="images/integration_logos/google_vertexai_logo.png" alt="Google Vertex AI" width="50"><br>
-        <strong>Google Vertex AI</strong>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#gemini">
-        <img src="images/integration_logos/gemini_logo.png" alt="Gemini" width="50"><br>
-        <strong>Gemini</strong>
-      </a>
-    </td>
-    <td align="center" width="120">
-      <a href="docs/api-keys.md#ollama">
-        <img src="images/integration_logos/ollama_logo.png" alt="Ollama" width="50"><br>
-        <strong>Ollama</strong>
-      </a>
-    </td>
-  </tr>
-</table>
+Read the [LLM Providers documentation](https://robusta-dev.github.io/holmesgpt/ai-providers/) to learn how to set up your LLM API key.
 
-You can also use any OpenAI-compatible models, read [here](docs/api-keys.md) for instructions.
-
-### Using HolmesGPT
+## Using HolmesGPT
 
 - In the Robusta SaaS: Go to [platform.robusta.dev](https://platform.robusta.dev/signup/?utm_source=github&utm_medium=holmesgpt-readme&utm_content=ways_to_use_holmesgpt_section) and use Holmes from your browser
-- With HolmesGPT CLI: [setup an LLM API key](docs/api-keys.md) and ask Holmes a question 👇
+- With HolmesGPT CLI: [setup an LLM API key](https://robusta-dev.github.io/holmesgpt/ai-providers/) and ask Holmes a question 👇
 
 ```bash
 holmes ask "what pods are unhealthy and why?"
@@ -299,7 +147,7 @@ For more details, run `holmes investigate <source> --help`
 HolmesGPT can investigate many issues out of the box, with no customization or training. Optionally, you can extend Holmes to improve results:
 
 **Custom Data Sources**: Add data sources (toolsets) to improve investigations
-   - If using Robusta SaaS: See [Robusta's docs](https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html)
+   - If using Robusta SaaS: See [here](https://robusta-dev.github.io/holmesgpt/data-sources/custom-toolsets/)
    - If using the CLI: Use `-t` flag with [custom toolset files](./examples/custom_toolset.yaml) or add to `~/.holmes/config.yaml`
 
 **Custom Runbooks**: Give HolmesGPT instructions for known alerts:
@@ -316,13 +164,22 @@ You can save common settings and API keys in config file for re-use. Place the c
 You can view an example config file with all available settings [here](config.example.yaml).
 </details>
 
+## 🔐 Data Privacy
+
+By design, HolmesGPT has **read-only access** and respects RBAC permissions. It is safe to run in production environments.
+
+We do **not** train HolmesGPT on your data. Data sent to Robusta SaaS is private to your account.
+
+For extra privacy, [bring an API key](https://robusta-dev.github.io/holmesgpt/ai-providers/) for your own AI model.
+
+
 ## Evals
 
-Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](./docs/evals-introduction.md) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
+Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](https://robusta-dev.github.io/holmesgpt/development/evals/) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
 
-- [Introduction to HolmesGPT's evals](./docs/evals-introduction.md).
-- [Write your own evals](./docs/evals-writing.md).
-- [Use Braintrust to view analyze results (optional)](./docs/evals-reporting.md).
+- [Introduction to HolmesGPT's evals](https://robusta-dev.github.io/holmesgpt/development/evals/).
+- [Write your own evals](https://robusta-dev.github.io/holmesgpt/development/evals/writing/).
+- [Use Braintrust to view analyze results (optional)](https://robusta-dev.github.io/holmesgpt/development/evals/reporting/).
 
 
 ## License
@@ -335,7 +192,7 @@ If you have any questions, feel free to message us on [robustacommunity.slack.co
 
 ## How to Contribute
 
-Install HolmesGPT from source with Poetry. See [Installation](docs/installation.md) for details.
+Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and instructions.
 
 For help, contact us on [Slack](https://bit.ly/robusta-slack) or ask [DeepWiki AI](https://deepwiki.com/robusta-dev/holmesgpt) your questions.
 

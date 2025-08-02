@@ -15,7 +15,11 @@ from pydantic import BaseModel
 from pydantic_core import from_json
 from rich.console import Console
 
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.common.env_vars import (
+    ROBUSTA_API_ENDPOINT,
+    STREAM_CHUNKS_PER_PARSE,
+    TEMPERATURE,
+)
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -30,6 +34,7 @@ from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
+from holmes.core.safeguards import prevent_overly_repeated_tool_call
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
@@ -38,6 +43,8 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
+from holmes.core.tracing import DummySpan
+from holmes.utils.colors import AI_COLOR
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -144,6 +151,11 @@ class ToolCallResult(BaseModel):
 
     def as_tool_call_message(self):
         content = format_tool_result_data(self.result)
+        if self.result.params:
+            content = (
+                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
+                + content
+            )
         return {
             "tool_call_id": self.tool_call_id,
             "role": "tool",
@@ -194,9 +206,12 @@ class LLMResult(BaseModel):
 class ToolCallingLLM:
     llm: LLM
 
-    def __init__(self, tool_executor: ToolExecutor, max_steps: int, llm: LLM):
+    def __init__(
+        self, tool_executor: ToolExecutor, max_steps: int, llm: LLM, tracer=None
+    ):
         self.tool_executor = tool_executor
         self.max_steps = max_steps
+        self.tracer = tracer
         self.llm = llm
 
     def prompt_call(
@@ -224,8 +239,11 @@ class ToolCallingLLM:
         messages: List[Dict[str, str]],
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
-        return self.call(messages, post_process_prompt, response_format)
+        return self.call(
+            messages, post_process_prompt, response_format, trace_span=trace_span
+        )
 
     @sentry_sdk.trace
     def call(  # type: ignore
@@ -235,6 +253,8 @@ class ToolCallingLLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         user_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
+        tool_number_offset: int = 0,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
@@ -264,11 +284,13 @@ class ToolCallingLLM:
                 perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
+
             try:
                 full_response = self.llm.completion(
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
@@ -285,6 +307,7 @@ class ToolCallingLLM:
                     )
                 else:
                     raise
+
             response = full_response.choices[0]  # type: ignore
 
             response_message = response.message  # type: ignore
@@ -311,6 +334,15 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             text_response = response_message.content
+
+            if (
+                hasattr(response_message, "reasoning_content")
+                and response_message.reasoning_content
+            ):
+                logging.debug(
+                    f"[bold {AI_COLOR}]AI (reasoning) 🤔:[/bold {AI_COLOR}] {response_message.reasoning_content}\n"
+                )
+
             if not tools_to_call:
                 # For chatty models post process and summarize the result
                 # this only works for calls where user prompt is explicitly passed through
@@ -340,26 +372,46 @@ class ToolCallingLLM:
                     messages=messages,
                 )
 
+            if text_response and text_response.strip():
+                logging.info(f"[bold {AI_COLOR}]AI:[/bold {AI_COLOR}] {text_response}")
+            logging.info(
+                f"The AI requested [bold]{len(tools_to_call) if tools_to_call else 0}[/bold] tool call(s)."
+            )
             perf_timing.measure("pre-tool-calls")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:
+                for tool_index, t in enumerate(tools_to_call, 1):
                     logging.debug(f"Tool to call: {t}")
-                    futures.append(executor.submit(self._invoke_tool, t))
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,
+                            previous_tool_calls=tool_calls,
+                            trace_span=trace_span,
+                            tool_number=tool_number_offset + tool_index,
+                        )
+                    )
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_call_response = tool_call_result.as_tool_result_response()
-
-                    tool_calls.append(tool_call_response)
-
+                    tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
+                # Add a blank line after all tools in this batch complete
+                if tools_to_call:
+                    logging.info("")
+
+        raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
+
     def _invoke_tool(
-        self, tool_to_call: ChatCompletionMessageToolCall
+        self,
+        tool_to_call: ChatCompletionMessageToolCall,
+        previous_tool_calls: list[dict],
+        trace_span=DummySpan(),
+        tool_number=None,
     ) -> ToolCallResult:
         tool_name = tool_to_call.function.name
         tool_params = None
@@ -388,8 +440,18 @@ class ToolCallingLLM:
             )
 
         tool_response = None
+
+        # Create tool span if tracing is enabled
+        tool_span = trace_span.start_span(name=tool_name, type="tool")
+
         try:
-            tool_response = tool.invoke(tool_params)
+            tool_response = prevent_overly_repeated_tool_call(
+                tool_name=tool.name,
+                tool_params=tool_params,
+                tool_calls=previous_tool_calls,
+            )
+            if not tool_response:
+                tool_response = tool.invoke(tool_params, tool_number=tool_number)
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
@@ -402,6 +464,18 @@ class ToolCallingLLM:
                     params=tool_params,
                 )
 
+            # Log tool execution to trace span
+            tool_span.log(
+                input=tool_params,
+                output=tool_response.data,
+                metadata={
+                    "status": tool_response.status.value,
+                    "error": tool_response.error,
+                    "description": tool.get_parameterized_one_liner(tool_params),
+                    "structured_tool_result": tool_response,
+                },
+            )
+
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -411,6 +485,14 @@ class ToolCallingLLM:
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
+
+            # Log error to trace span
+            tool_span.log(
+                input=tool_params, output=str(e), metadata={"status": "ERROR"}
+            )
+        finally:
+            # End tool span
+            tool_span.end()
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -518,6 +600,7 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         i = 0
+        tool_calls: list[dict] = []
         while i < self.max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -547,6 +630,7 @@ class ToolCallingLLM:
                             "messages": parse_messages_tags(messages),  # type: ignore
                             "tools": tools,
                             "tool_choice": tool_choice,
+                            "temperature": TEMPERATURE,
                             "response_format": response_format,
                             "stream": True,
                             "drop_param": True,
@@ -571,6 +655,7 @@ class ToolCallingLLM:
                         messages=parse_messages_tags(messages),  # type: ignore
                         tools=tools,
                         tool_choice=tool_choice,
+                        temperature=TEMPERATURE,
                         response_format=response_format,
                         stream=False,
                         drop_params=True,
@@ -632,8 +717,16 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for t in tools_to_call:  # type: ignore
-                    futures.append(executor.submit(self._invoke_tool, t))  # type: ignore
+                for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
+                    futures.append(
+                        executor.submit(
+                            self._invoke_tool,
+                            tool_to_call=t,  # type: ignore
+                            previous_tool_calls=tool_calls,
+                            trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
+                            tool_number=tool_index,
+                        )
+                    )
                     yield create_sse_message(
                         "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
                     )
@@ -641,9 +734,8 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    message_to_append = tool_call_result.as_tool_call_message()
-
-                    messages.append(message_to_append)
+                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
@@ -654,6 +746,10 @@ class ToolCallingLLM:
                     yield create_sse_message(
                         "tool_calling_result", streaming_result_dict
                     )
+
+        raise Exception(
+            f"Too many LLM calls - exceeded max_steps: {i}/{self.max_steps}"
+        )
 
 
 # TODO: consider getting rid of this entirely and moving templating into the cmds in holmes_cli.py
@@ -671,9 +767,11 @@ class IssueInvestigator(ToolCallingLLM):
         runbook_manager: RunbookManager,
         max_steps: int,
         llm: LLM,
+        cluster_name: Optional[str],
     ):
         super().__init__(tool_executor, max_steps, llm)
         self.runbook_manager = runbook_manager
+        self.cluster_name = cluster_name
 
     def investigate(
         self,
@@ -746,6 +844,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
+                "cluster_name": self.cluster_name,
             },
         )
 

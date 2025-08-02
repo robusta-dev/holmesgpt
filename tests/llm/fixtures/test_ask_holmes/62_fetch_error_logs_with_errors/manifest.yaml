@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: production-62
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: app-container
+        image: python:3.9-slim
+        command: ["python", "/scripts/generate_logs.py"]
+        volumeMounts:
+        - name: script-volume
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+      volumes:
+      - name: script-volume
+        secret:
+          secretName: payment-service-logs-script
+          defaultMode: 0755

@@ -1,3 +1,4 @@
+import concurrent.futures
 import json
 import logging
 import os
@@ -6,12 +7,13 @@ from typing import Any, List, Optional
 from benedict import benedict
 from pydantic import FilePath
 
+from holmes.core.config import config_path_dir
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 
-DEFAULT_TOOLSET_STATUS_LOCATION = os.path.expanduser("~/.holmes/toolsets_status.json")
+DEFAULT_TOOLSET_STATUS_LOCATION = os.path.join(config_path_dir, "toolsets_status.json")
 
 
 class ToolsetManager:
@@ -24,11 +26,17 @@ class ToolsetManager:
     def __init__(
         self,
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
+        mcp_servers: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
         toolset_status_location: Optional[FilePath] = None,
     ):
         self.toolsets = toolsets
+        self.toolsets = toolsets or {}
+        if mcp_servers is not None:
+            for _, mcp_server in mcp_servers.items():
+                mcp_server["type"] = ToolsetType.MCP.value
+        self.toolsets.update(mcp_servers or {})
         self.custom_toolsets = custom_toolsets
 
         if toolset_status_location is None:
@@ -113,13 +121,26 @@ class ToolsetManager:
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
             return list(toolsets_by_name.values())
+
+        enabled_toolsets: List[Toolset] = []
         for _, toolset in toolsets_by_name.items():
             if toolset.enabled:
-                toolset.check_prerequisites()
+                enabled_toolsets.append(toolset)
             else:
                 toolset.status = ToolsetStatusEnum.DISABLED
+        self.check_toolset_prerequisites(enabled_toolsets)
 
         return list(toolsets_by_name.values())
+
+    @classmethod
+    def check_toolset_prerequisites(cls, toolsets: list[Toolset]):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = []
+            for toolset in toolsets:
+                futures.append(executor.submit(toolset.check_prerequisites))
+
+            for _ in concurrent.futures.as_completed(futures):
+                pass
 
     def _load_toolsets_from_config(
         self,
@@ -231,6 +252,7 @@ class ToolsetManager:
             dal=dal, check_prerequisites=False, toolset_tags=toolset_tags
         )
 
+        enabled_toolsets_from_cache: List[Toolset] = []
         for toolset in all_toolsets_with_status:
             if toolset.name in toolsets_status_by_name:
                 # Update the status and error from the cached status
@@ -239,16 +261,18 @@ class ToolsetManager:
                 toolset.error = cached_status.get("error", None)
                 toolset.enabled = cached_status.get("enabled", True)
                 toolset.type = ToolsetType(
-                    cached_status.get("type", ToolsetType.BUILTIN)
+                    cached_status.get("type", ToolsetType.BUILTIN.value)
                 )
                 toolset.path = cached_status.get("path", None)
-            # check prerequisites for only enabled toolset when the toolset is loaded from cache
+            # check prerequisites for only enabled toolset when the toolset is loaded from cache. When the toolset is
+            # not loaded from cache, the prerequisites are checked in the refresh_toolset_status method.
             if (
                 toolset.enabled
                 and toolset.status == ToolsetStatusEnum.ENABLED
                 and using_cached
             ):
-                toolset.check_prerequisites()  # type: ignore
+                enabled_toolsets_from_cache.append(toolset)
+        self.check_toolset_prerequisites(enabled_toolsets_from_cache)
 
         # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
         custom_toolsets_from_cli = self._load_toolsets_from_paths(
@@ -257,13 +281,15 @@ class ToolsetManager:
             check_conflict_default=True,
         )
         # custom toolsets from cli as experimental toolset should not override custom toolsets from config
+        enabled_toolsets_from_cli: List[Toolset] = []
         for custom_toolset_from_cli in custom_toolsets_from_cli:
             if custom_toolset_from_cli.name in toolsets_status_by_name:
                 raise ValueError(
                     f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
                 )
-            # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
-            custom_toolset_from_cli.check_prerequisites()
+            enabled_toolsets_from_cli.append(custom_toolset_from_cli)
+        # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
+        self.check_toolset_prerequisites(enabled_toolsets_from_cli)
 
         all_toolsets_with_status.extend(custom_toolsets_from_cli)
         if using_cached:
@@ -271,7 +297,7 @@ class ToolsetManager:
                 [toolset for toolset in all_toolsets_with_status if toolset.enabled]
             )
             logging.info(
-                f"Using {num_available_toolsets} datasources (toolsets). To refresh: `holmes toolset refresh`"
+                f"Using {num_available_toolsets} datasources (toolsets). To refresh: use flag `--refresh-toolsets`"
             )
         return all_toolsets_with_status
 
@@ -335,7 +361,7 @@ class ToolsetManager:
             mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
 
             for server_config in mcp_config.values():
-                server_config["type"] = ToolsetType.MCP
+                server_config["type"] = ToolsetType.MCP.value
 
             for toolset_config in toolsets_config.values():
                 toolset_config["path"] = toolset_path

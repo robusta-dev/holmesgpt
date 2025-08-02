@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-api
+  namespace: staging-63
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-api
+  template:
+    metadata:
+      labels:
+        app: user-api
+    spec:
+      containers:
+      - name: app-container
+        image: python:3.9-slim
+        command: ["python", "/app/app.py"]
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+      volumes:
+      - name: app-code
+        secret:
+          secretName: app-code-63

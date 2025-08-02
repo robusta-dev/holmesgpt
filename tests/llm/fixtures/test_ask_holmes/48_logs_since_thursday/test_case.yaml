@@ -4,6 +4,7 @@ tags:
   - logs
   - datetime
   - synthetic
+  - medium
 expected_output:
   - 2025-06-12 The database at my.postgresql.com has become unavailable
   - 2025-06-13 The application temporarily suffered from memory pressure
@@ -14,4 +15,3 @@ expected_output:
 evaluation:
   # Holmes fetches data excluding Thurday and starting Friday in 5% of cases
   correctness: 0
-generate_mocks: False

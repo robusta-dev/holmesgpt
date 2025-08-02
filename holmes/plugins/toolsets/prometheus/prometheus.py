@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests  # type: ignore
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field, model_validator
 from requests import RequestException
 
 from holmes.core.tools import (
@@ -29,6 +29,8 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
 )
 from holmes.utils.cache import TTLCache
+from holmes.common.env_vars import IS_OPENSHIFT
+from holmes.common.openshift import load_openshift_token
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 DEFAULT_TIME_SPAN_SECONDS = 3600
@@ -45,7 +47,7 @@ class PrometheusConfig(BaseModel):
     fetch_labels_with_labels_api: bool = False
     fetch_metadata_with_series_api: bool = False
     tool_calls_return_data: bool = True
-    headers: Dict = {}
+    headers: Dict = Field(default_factory=dict)
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
 
@@ -54,6 +56,23 @@ class PrometheusConfig(BaseModel):
         if v is not None and not v.endswith("/"):
             return v + "/"
         return v
+
+    @model_validator(mode="after")
+    def validate_prom_config(self):
+        # If openshift is enabled, and the user didn't configure auth headers, we will try to load the token from the service account.
+        if IS_OPENSHIFT:
+            if self.healthcheck == "-/healthy":
+                self.healthcheck = "api/v1/query?query=up"
+
+            if self.headers.get("Authorization"):
+                return self
+
+            openshift_token = load_openshift_token()
+            if openshift_token:
+                logging.info("Using openshift token for prometheus toolset auth")
+                self.headers["Authorization"] = f"Bearer {openshift_token}"
+
+        return self
 
 
 class BasePrometheusTool(Tool):
@@ -545,7 +564,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             # For other status codes, just return the status code and content
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
+                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {str(response.content)}",
                 params=params,
             )
 
@@ -691,7 +710,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {response.content}",
+                error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {str(response.content)}",
                 params=params,
             )
 

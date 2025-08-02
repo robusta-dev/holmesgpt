@@ -8,8 +8,7 @@ from pydantic import TypeAdapter
 
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tool_calling_llm import Instructions, ResourceInstructions
-from tests.llm.utils.constants import AUTO_GENERATED_FILE_SUFFIX
-from tests.llm.utils.mock_utils import read_file
+from tests.llm.utils.test_case_utils import read_file
 
 
 class MockSupabaseDal(SupabaseDal):
@@ -64,13 +63,14 @@ class MockSupabaseDal(SupabaseDal):
 
                 return data
 
-    def _get_mock_file_path(self, entity_type: str):
-        return (
-            f"{self._test_case_folder}/{entity_type}.json{AUTO_GENERATED_FILE_SUFFIX}"
-        )
+    def _get_mock_file_path(self, entity_type: str) -> Path:
+        return self._test_case_folder / f"{entity_type}.json"
 
     def get_global_instructions_for_account(self) -> Optional[Instructions]:
         return None
+
+    def get_workload_issues(self, *args) -> list:
+        return []
 
 
 pydantic_resource_instructions = TypeAdapter(ResourceInstructions)

@@ -15,4 +15,5 @@ expected_output:
 evaluation:
   # Sometimes Holmes fetches logs without specifying start time
   correctness: 0
-generate_mocks: False
+
+mock_policy: always_mock

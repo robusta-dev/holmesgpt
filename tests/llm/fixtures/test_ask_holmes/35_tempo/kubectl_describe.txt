@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"backend-service-66468d89c8-sxrjj","namespace":"minishop"}}
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_describe", "match_params": {"kind": "pod", "name": "backend-service-66468d89c8-sxrjj", "namespace": "minishop"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_describe command", "params": {"kind": "pod", "name": "backend-service-66468d89c8-sxrjj", "namespace": "minishop"}}
 stdout:
 Name:             backend-service-66468d89c8-sxrjj
 Namespace:        minishop

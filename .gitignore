@@ -163,7 +163,9 @@ playwright.png
 pyrightconfig.json
 
 evals_report.txt
+evals_report.md
 
 config_toolsets.yaml
 
 **/.claude/settings.local.json
+.claude-trace/

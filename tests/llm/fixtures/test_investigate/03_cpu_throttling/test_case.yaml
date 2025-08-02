@@ -7,4 +7,3 @@ before-test: |
 after-test: kubectl delete -f manifest.yaml
 evaluation:
   correctness: 1
-generate_mocks: False

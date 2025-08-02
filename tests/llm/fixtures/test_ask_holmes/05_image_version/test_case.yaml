@@ -1,6 +1,28 @@
-user_prompt: 'what is the image version of << { "type": "pod", "name": "robusta-runner" } >>'
-#user_prompt: "what is the image version of my robusta-runner pod?"
+user_prompt: 'what is the image version of << { "type": "pod", "name": "sea-turtle" } >>'
 expected_output:
-  - The image version of the `robusta-runner` pod is `0.18.0`.
-evaluation:
-  correctness: 1
+  - The image version of the `sea-turtle` pod is `1.23.4`.
+tags:
+  - kubernetes
+  - easy
+before_test: |
+  kubectl create namespace app-05
+  cat <<EOF | kubectl apply -f -
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: sea-turtle
+    namespace: app-05
+    labels:
+      app: analytics-engine
+  spec:
+    containers:
+    - name: web
+      image: nginx:1.23.4
+      env:
+      - name: VERSION
+        value: "1.23.4"
+  EOF
+  kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=60s
+
+after_test: |
+  kubectl delete namespace app-05 --force --grace-period=0
