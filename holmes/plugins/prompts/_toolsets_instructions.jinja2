@@ -1,6 +1,5 @@
 # Toolset Setup and Configuration Instructions
 
-{% include '_fetch_logs.jinja2' %}
 
 {%- set enabled_toolsets_with_instructions = [] -%}
 {%- set disabled_toolsets = [] -%}
@@ -13,8 +12,10 @@
   {%- endif -%}
 {%- endfor -%}
 
-{% if enabled_toolsets_with_instructions|list %}
 # Available Toolsets
+{% include '_fetch_logs.jinja2' %}
+
+{% if enabled_toolsets_with_instructions|list %}
 {%- for toolset in enabled_toolsets_with_instructions -%}
 {% if toolset.llm_instructions %}
 
