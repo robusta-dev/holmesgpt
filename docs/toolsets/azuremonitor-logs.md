@@ -36,11 +36,14 @@ The toolset uses `DefaultAzureCredential` for authentication. Configure one of:
 
 ## Configuration
 
-### Default Configuration (Auto-detection)
+!!! warning "Explicit Enablement Required"
+    The Azure Monitor Logs toolset is **disabled by default**. You must explicitly enable it in your configuration.
+
+### Basic Configuration (Required)
 ```yaml
 toolsets:
   azuremonitorlogs:
-    enabled: true
+    enabled: true  # Required - toolset is disabled by default
     auto_detect_cluster: true
 ```
 

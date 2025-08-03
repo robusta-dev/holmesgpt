@@ -350,7 +350,7 @@ class AzureMonitorLogsToolset(Toolset):
             tags=[
                 ToolsetTag.CORE
             ],
-            is_default=True,  # Enable by default like azuremonitormetrics toolset
+            is_default=False,  # Disabled by default - users must explicitly enable
         )
         self._reload_llm_instructions()
 

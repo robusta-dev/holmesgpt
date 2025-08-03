@@ -152,15 +152,11 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         toolset.type = ToolsetType.BUILTIN
         # dont' expose build-in toolsets path
         toolset.path = None
-        # Keep Azure Monitor toolsets enabled by default if they were set to enabled or is_default
-        if toolset.name in ["azuremonitormetrics", "azuremonitorlogs"] and (
-            (hasattr(toolset, 'enabled') and toolset.enabled) or 
-            (hasattr(toolset, 'is_default') and toolset.is_default)
-        ):
-            toolset.enabled = True  # Force it to be enabled
-            continue  # Don't disable this one
+        # Set enabled status based on is_default property
+        if hasattr(toolset, 'is_default'):
+            toolset.enabled = toolset.is_default
         else:
-            toolset.enabled = False  # Disable others by default
+            toolset.enabled = False  # Default to disabled if no is_default property
 
     return all_toolsets  # type: ignore
 

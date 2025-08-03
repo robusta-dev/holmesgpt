@@ -1,7 +1,10 @@
 # Azure Monitor Logs (Container Insights) Integration Instructions
 
 ## Overview
-The Azure Monitor Logs toolset detects Azure Monitor Container Insights configuration and provides Log Analytics workspace details for AKS cluster log analysis. This toolset provides workspace configuration so other tools (like azure mcp server) can run KQL queries for the specific workspace detected by this tool .
+The Azure Monitor Logs toolset detects Azure Monitor Container Insights configuration and provides Log Analytics workspace details for AKS cluster log analysis. This toolset provides workspace configuration so other tools (like azure mcp server) can run KQL queries for the specific workspace detected by this tool.
+
+!!! important "Explicit Enablement Required"
+    This toolset is **disabled by default**. Users must explicitly enable it with `azuremonitorlogs: enabled: true` in their configuration.
 
 ## Key Capabilities
 1. **AKS Cluster Detection**: Automatically detect if running in AKS cluster and get cluster resource ID
