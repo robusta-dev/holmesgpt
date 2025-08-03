@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
 import pytest
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 
 from holmes.core.tool_calling_llm import ResourceInstructions
-from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
+from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, get_allowed_tags_list
 
 
 def read_file(file_path: Path):
@@ -135,9 +135,26 @@ class MockHelper:
                     config_dict["user_prompt"] = (
                         config_dict["user_prompt"] + extra_prompt
                     )
-                    test_case = TypeAdapter(AskHolmesTestCase).validate_python(
-                        config_dict
-                    )
+                    try:
+                        test_case = TypeAdapter(AskHolmesTestCase).validate_python(
+                            config_dict
+                        )
+                    except ValidationError as e:
+                        problematic_tags = []
+                        for error in e.errors():
+                            if error["type"] == "literal_error" and "tags" in str(
+                                error["loc"]
+                            ):
+                                problematic_tags.append(error["input"])
+
+                        if problematic_tags:
+                            error_msg = f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
+                            error_msg += (
+                                f"Problematic tags: {', '.join(problematic_tags)}\n"
+                            )
+                            error_msg += f"Allowed tags; {get_allowed_tags_list()}"
+                            print(error_msg)
+                        raise e
                 elif self._test_cases_folder.name == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
