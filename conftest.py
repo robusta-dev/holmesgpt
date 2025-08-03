@@ -93,7 +93,18 @@ def pytest_configure(config):
             # os.getlogin() fails in environments without a terminal (e.g., GitHub Actions)
             username = os.getenv("USER", "ci")
         git_branch = get_active_branch_name()
-        os.environ["EXPERIMENT_ID"] = f"{username}-{git_branch}-{readable_timestamp()}"
+
+        # Include pytest parameters in experiment ID
+        params = []
+        if config.option.keyword:
+            params.append(f"k={config.option.keyword}")
+        if config.option.markexpr:
+            params.append(f"m={config.option.markexpr}")
+
+        params_str = f"-{'-'.join(params)}" if params else ""
+        os.environ["EXPERIMENT_ID"] = (
+            f"{username}-{git_branch}{params_str}-{readable_timestamp()}"
+        )
 
 
 def pytest_report_header(config):
