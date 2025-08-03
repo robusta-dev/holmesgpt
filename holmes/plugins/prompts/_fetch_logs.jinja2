@@ -29,6 +29,9 @@ Tools to search and fetch logs from Coralogix.
 Tools to search and fetch logs from Datadog.
 {% include '_default_log_prompt.jinja2' %}
 {%- elif k8s_yaml_ts and k8s_yaml_ts.status == "enabled" -%}
+### kubernetes/logs
+#### Kubernetes Logs Toolset
+Tools to search and fetch logs from Kubernetes.
 * if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep
 * use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream
 * if a pod has multiple containers, make sure you fetch the logs for either all or relevant containers using one of the containers log functions like kubectl_logs_all_containers, kubectl_logs_all_containers_grep or any other.
