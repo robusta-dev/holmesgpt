@@ -149,6 +149,11 @@ class FetchConfigurationChanges(Tool):
             name="fetch_configuration_changes",
             description="Fetch configuration changes in a given time range. By default, fetch all cluster changes. Can be filtered on a given namespace or a specific workload",
             parameters={
+                NAMESPACE: ToolParameter(
+                    description="The namespace to search the changes in.",
+                    type="string",
+                    required=True,
+                ),
                 START_TIME: ToolParameter(
                     description="The starting time boundary for the search period. String in RFC3339 format.",
                     type="string",
@@ -166,6 +171,7 @@ class FetchConfigurationChanges(Tool):
     def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:
         if self._dal and self._dal.enabled:
             return self._dal.get_configuration_changes(
+                namespace=params["namespace"],
                 start_datetime=params["start_datetime"],
                 end_datetime=params["end_datetime"],
             )
