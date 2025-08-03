@@ -27,14 +27,11 @@ from holmes.plugins.toolsets.utils import (
     process_timestamps_to_int,
     standard_start_datetime_tool_param_description,
 )
-import random
-import string
+from datetime import datetime
+
+from holmes.utils.keygen_utils import generate_random_key
 
 DEFAULT_TIME_SPAN_SECONDS = 3600
-
-
-def generate_random_key():
-    return "".join(random.choices(string.ascii_letters + string.digits, k=4))
 
 
 class DatadogMetricsConfig(DatadogBaseConfig):
@@ -286,8 +283,6 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 prometheus_result.append({"metric": metric_info, "values": values})
 
             # Convert timestamps to RFC3339 format for start/end
-            from datetime import datetime
-
             start_rfc = datetime.fromtimestamp(from_time).strftime("%Y-%m-%dT%H:%M:%SZ")
             end_rfc = datetime.fromtimestamp(to_time).strftime("%Y-%m-%dT%H:%M:%SZ")
 
