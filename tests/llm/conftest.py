@@ -257,7 +257,7 @@ def llm_availability_check(request):
                 braintrust_api_key = os.environ.get("BRAINTRUST_API_KEY")
                 if braintrust_api_key:
                     print(
-                        "✓ Braintrust is enabled - traces and results will be available at braintrust.dev"
+                        f"✓ Braintrust is enabled - traces and results will be available at {get_braintrust_url()}"  # type: ignore[no-untyped-call]
                     )
                 else:
                     print(
