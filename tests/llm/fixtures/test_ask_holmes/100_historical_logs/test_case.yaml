@@ -56,15 +56,6 @@ before_test: |
   # Wait for payment-api pod to be ready
   kubectl wait --for=condition=ready pod -l app=payment-api -n app-100 --timeout=60s
 
-  # Give Promtail a moment to initialize and open the log file
-  echo "Waiting for Promtail to initialize..."
-  sleep 5
-
-  # Check that logs are being generated
-  echo "Checking log generation..."
-  kubectl exec -n app-100 deployment/payment-api -c payment-api -- ls -la /var/log/
-  kubectl exec -n app-100 deployment/payment-api -c payment-api -- tail -5 /var/log/payment-api.log
-
   # Poll for logs to be shipped to Loki (max 120 seconds total)
   echo "Waiting for logs to be shipped to Loki..."
   LOGS_FOUND=false
@@ -101,18 +92,6 @@ before_test: |
     kubectl exec -n app-100 deployment/payment-api -c promtail -- cat /etc/promtail/promtail-config.yaml
     kubectl logs -n app-100 deployment/payment-api -c promtail --tail=20
     exit 1
-  fi
-
-  # Verify labels are correct
-  echo "Verifying Loki labels..."
-  LABELS=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/labels' 2>/dev/null)
-  echo "Available labels: $LABELS"
-
-  # Check if pod_name label exists
-  if echo "$LABELS" | grep -q "pod_name"; then
-    echo "✓ pod_name label found in Loki"
-  else
-    echo "✗ WARNING: pod_name label not found in Loki"
   fi
 
 after_test: |
