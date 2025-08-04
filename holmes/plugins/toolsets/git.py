@@ -278,7 +278,7 @@ class GitReadFileWithLineNumbers(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         filepath = params.get("filepath", "")
-        return f"Read Git File ({filepath})"
+        return f"{self.toolset.name}: Read Git File ({filepath})"
 
 
 class GitListFiles(Tool):
@@ -319,7 +319,7 @@ class GitListFiles(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "List Git Files"
+        return f"{self.toolset.name}: List Git Files"
 
 
 class GitListOpenPRs(Tool):
@@ -358,7 +358,7 @@ class GitListOpenPRs(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "List Open PRs"
+        return f"{self.toolset.name}: List Open PRs"
 
 
 class GitExecuteChanges(Tool):
@@ -574,7 +574,7 @@ class GitExecuteChanges(Tool):
         filename = params.get("filename", "")
         dry_run = params.get("dry_run", False)
         mode = "(dry run)" if dry_run else ""
-        return f"Execute Git Changes ({command} in {filename}) {mode}".strip()
+        return f"{self.toolset.name}: Execute Git Changes ({command} in {filename}) {mode}".strip()
 
 
 class GitUpdatePR(Tool):
@@ -752,4 +752,4 @@ class GitUpdatePR(Tool):
         command = params.get("command", "")
         dry_run = params.get("dry_run", False)
         mode = "(dry run)" if dry_run else ""
-        return f"Update PR #{pr_number} ({command}) {mode}".strip()
+        return f"{self.toolset.name}: Update PR #{pr_number} ({command}) {mode}".strip()

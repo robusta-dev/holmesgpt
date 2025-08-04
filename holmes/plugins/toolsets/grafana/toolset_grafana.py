@@ -86,7 +86,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
             return f"Error fetching dashboards: {str(e)}"
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "List Grafana Dashboards"
+        return f"{self._toolset.name}: List Grafana Dashboards"
 
 
 class GrafanaToolset(BaseGrafanaToolset):

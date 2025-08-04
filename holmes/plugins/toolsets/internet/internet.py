@@ -215,7 +215,7 @@ class FetchWebpage(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params.get("url", "<missing url>")
-        return f"Fetch Webpage {url}"
+        return f"{self.toolset.name}: Fetch Webpage {url}"
 
 
 class InternetBaseToolset(Toolset):

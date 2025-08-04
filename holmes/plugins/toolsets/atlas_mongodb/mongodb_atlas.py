@@ -114,7 +114,7 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         project_id = self.toolset.config.get("project_id", "")
-        return f"Get Project Alerts ({project_id})"
+        return f"{self.toolset.name}: Get Project Alerts ({project_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -139,7 +139,7 @@ class ReturnProjectProcesses(MongoDBAtlasBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         project_id = self.toolset.config.get("project_id", "")
-        return f"Get Project Processes ({project_id})"
+        return f"{self.toolset.name}: Get Project Processes ({project_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -172,7 +172,7 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         process_id = params.get("process_id", "")
-        return f"Get Slow Queries ({process_id})"
+        return f"{self.toolset.name}: Get Slow Queries ({process_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -199,7 +199,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         project_id = self.toolset.config.get("project_id", "")
-        return f"Get Project Events ({project_id})"
+        return f"{self.toolset.name}: Get Project Events ({project_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         params.update({"itemsPerPage": 500})
@@ -256,7 +256,7 @@ class ReturnLogsForProcessInProject(MongoDBAtlasBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         hostname = params.get("hostName", "")
-        return f"Get Host Logs ({hostname})"
+        return f"{self.toolset.name}: Get Host Logs ({hostname})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
@@ -308,7 +308,7 @@ class ReturnEventTypeFromProject(MongoDBAtlasBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         event_type = params.get("eventType", "")
-        return f"Get Event Details ({event_type})"
+        return f"{self.toolset.name}: Get Event Details ({event_type})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:

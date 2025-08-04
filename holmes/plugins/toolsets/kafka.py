@@ -203,7 +203,7 @@ class ListKafkaConsumers(BaseKafkaTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         cluster = params.get("kafka_cluster_name", "")
-        return f"List Consumer Groups ({cluster})"
+        return f"{self.toolset.name}: List Consumer Groups ({cluster})"
 
 
 class DescribeConsumerGroup(BaseKafkaTool):
@@ -264,7 +264,7 @@ class DescribeConsumerGroup(BaseKafkaTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         group_id = params.get("group_id", "")
-        return f"Describe Consumer Group ({group_id})"
+        return f"{self.toolset.name}: Describe Consumer Group ({group_id})"
 
 
 class ListTopics(BaseKafkaTool):
@@ -310,7 +310,7 @@ class ListTopics(BaseKafkaTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         cluster = params.get("kafka_cluster_name", "")
-        return f"List Kafka Topics ({cluster})"
+        return f"{self.toolset.name}: List Kafka Topics ({cluster})"
 
 
 class DescribeTopic(BaseKafkaTool):
@@ -380,7 +380,7 @@ class DescribeTopic(BaseKafkaTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         topic = params.get("topic_name", "")
-        return f"Describe Topic ({topic})"
+        return f"{self.toolset.name}: Describe Topic ({topic})"
 
 
 def group_has_topic(
@@ -535,7 +535,7 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         topic = params.get("topic_name", "")
-        return f"Find Topic Consumers ({topic})"
+        return f"{self.toolset.name}: Find Topic Consumers ({topic})"
 
 
 class ListKafkaClusters(BaseKafkaTool):
@@ -556,7 +556,7 @@ class ListKafkaClusters(BaseKafkaTool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "List Kafka Clusters"
+        return f"{self.toolset.name}: List Kafka Clusters"
 
 
 class KafkaToolset(Toolset):

@@ -319,7 +319,7 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return f"Analyze Database Storage ({db_config.server_name}/{db_config.database_name})"
+        return f"{self.toolset.name}: Analyze Database Storage ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(

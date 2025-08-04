@@ -108,7 +108,7 @@ class FetchNotion(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
-        return f"Fetch Notion Webpage {url}"
+        return f"{self.toolset.name}: Fetch Webpage {url}"
 
 
 class NotionToolset(InternetBaseToolset):

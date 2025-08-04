@@ -153,7 +153,7 @@ class GetTopDataIOQueries(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return f"Get Top Data I/O Queries ({db_config.server_name}/{db_config.database_name})"
+        return f"{self.toolset.name}: Get Top Data I/O Queries ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(

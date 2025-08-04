@@ -93,7 +93,7 @@ class ServiceNowBaseTool(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         # Default implementation - will be overridden by subclasses
-        return f"ServiceNow {self.name} {params}"
+        return f"{self.toolset.name}: ServiceNow {self.name} {params}"
 
 
 class ReturnChangesInTimerange(ServiceNowBaseTool):
@@ -111,7 +111,7 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         start = params.get("start", "last hour")
-        return f"Get Change Requests ({start})"
+        return f"{self.toolset.name}: Get Change Requests ({start})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}
@@ -154,7 +154,7 @@ class ReturnChange(ServiceNowBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         sys_id = params.get("sys_id", "")
-        return f"Get Change Details ({sys_id})"
+        return f"{self.toolset.name}: Get Change Details ({sys_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -186,7 +186,7 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         keyword = params.get("keyword", "")
-        return f"Search Changes ({keyword})"
+        return f"{self.toolset.name}: Search Changes ({keyword})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}

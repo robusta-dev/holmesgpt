@@ -190,7 +190,7 @@ class GetTempoTraces(Tool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo Traces (min_duration={params.get('min_duration')})"
+        return f"{self._toolset.name}: Fetched Tempo Traces (min_duration={params.get('min_duration')})"
 
 
 class GetTempoTags(Tool):
@@ -244,7 +244,7 @@ class GetTempoTags(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Fetched Tempo tags"
+        return f"{self._toolset.name}: Fetched Tempo tags"
 
 
 class GetTempoTraceById(Tool):
@@ -281,7 +281,7 @@ class GetTempoTraceById(Tool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo Trace (trace_id={params.get('trace_id')})"
+        return f"{self._toolset.name}: Fetched Tempo Trace (trace_id={params.get('trace_id')})"
 
 
 class GrafanaTempoToolset(BaseGrafanaTempoToolset):
