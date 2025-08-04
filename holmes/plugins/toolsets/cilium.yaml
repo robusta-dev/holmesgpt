@@ -1,7 +1,7 @@
 toolsets:
   cilium/core:
     description: "Cilium CNI and Hubble network observability tools for troubleshooting network connectivity and security"
-    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/cilium.html"
+    docs_url: "https://robusta-dev.github.io/holmesgpt/toolsets/cilium.html"
     icon_url: "https://cilium.io/static/logo-dark-text.png"
     llm_instructions: |
       You have access to comprehensive Cilium and Hubble tools for debugging Kubernetes networking and security.
@@ -18,6 +18,7 @@ toolsets:
         3. Check network policies if traffic is being denied
         4. Examine Cilium endpoints and services for configuration issues
         5. Analyze BPF maps and load balancer state if needed
+        6. Run connectivity tests ONLY as a last resort (they take 5+ minutes)
 
       {% if tool_names|list|length > 0 %}
       The following Cilium commands are available: {{ ", ".join(tool_names) }}
@@ -25,13 +26,11 @@ toolsets:
 
       ALWAYS provide specific actionable solutions based on the observed data rather than generic troubleshooting advice.
     tags:
-      - core
-      - cluster
       - cli
     prerequisites:
       - command: "cilium version"
     config:
-      timeout: 30 # Default timeout in seconds for potentially long-running commands like connectivity tests
+      timeout: 300 # Default timeout in seconds - connectivity tests can take 5+ minutes to complete
 
     tools:
       # Cilium Status and Health
@@ -53,11 +52,11 @@ toolsets:
 
       # Connectivity Testing
       - name: "cilium_connectivity_test"
-        description: "Run comprehensive connectivity tests to validate network functionality"
+        description: "Run comprehensive connectivity tests to validate network functionality (SLOW: 5+ minutes - use as last resort)"
         command: "timeout {{ config.timeout | default(300) }} cilium connectivity test --test-concurrency 1"
 
       - name: "cilium_connectivity_test_namespace"
-        description: "Run connectivity tests in a specific namespace"
+        description: "Run connectivity tests in a specific namespace (SLOW: 5+ minutes - use as last resort)"
         command: "cilium connectivity test --test-namespace {{ namespace }}"
 
       # Endpoint Management
@@ -157,12 +156,12 @@ toolsets:
 
   hubble/observability:
     description: "Hubble network observability tools for monitoring and troubleshooting network flows"
-    docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/cilium.html#hubble"
+    docs_url: "https://robusta-dev.github.io/holmesgpt/toolsets/cilium.html#hubble"
     icon_url: "https://raw.githubusercontent.com/cilium/hubble/main/Documentation/images/hubble_logo.png"
     llm_instructions: |
       Use Hubble to observe and analyze network traffic flows in your Kubernetes cluster.
       Hubble provides deep visibility into:
-      - HTTP/gRPC/Kafka/DNS traffic flows
+      - HTTP/gRPC/DNS traffic flows
       - Network policy drops and allows
       - Service-to-service communication patterns
       - Security events and anomalies
@@ -183,13 +182,11 @@ toolsets:
 
       Use time windows and limits to focus on recent events during incident investigation.
     tags:
-      - core
-      - cluster
       - cli
     prerequisites:
       - command: "hubble version"
     config:
-      timeout: 30 # Default timeout in seconds for potentially long-running commands
+      timeout: 300 # Default timeout in seconds for potentially long-running commands
 
     tools:
       # Flow Observation
@@ -221,10 +218,6 @@ toolsets:
       - name: "hubble_observe_dns"
         description: "Observe DNS queries and responses"
         command: "hubble observe --protocol dns --last 100"
-
-      - name: "hubble_observe_kafka"
-        description: "Observe Kafka protocol traffic"
-        command: "hubble observe --protocol kafka --last 100"
 
       - name: "hubble_observe_grpc"
         description: "Observe gRPC traffic flows"
