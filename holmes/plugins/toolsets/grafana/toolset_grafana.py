@@ -96,7 +96,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
         if params.get("node_name"):
             filters.append(f"node={params['node_name']}")
         filter_str = f" ({', '.join(filters)})" if filters else ""
-        return f"List Grafana Dashboards ({filter_str})"
+        return f"List Grafana Dashboards{filter_str}"
 
 
 class GrafanaToolset(BaseGrafanaToolset):
