@@ -12,13 +12,15 @@ from holmes.plugins.toolsets.coralogix.utils import (
     parse_logs,
     CoralogixLogsMethodology,
 )
-from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    FetchPodLogsParams,
+    DEFAULT_TIME_SPAN_SECONDS,
+)
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
 )
 
 
-DEFAULT_TIME_SPAN_SECONDS = 86400
 DEFAULT_LOG_COUNT = 2000  # Coralogix's default is 2000
 
 

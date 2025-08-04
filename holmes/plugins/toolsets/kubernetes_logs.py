@@ -16,6 +16,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     FetchPodLogsParams,
     LoggingConfig,
     PodLoggingTool,
+    DEFAULT_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix_ms
 
@@ -338,7 +339,7 @@ def filter_logs(
         start, end = process_timestamps_to_int(
             start=params.start_time,
             end=params.end_time,
-            default_time_span_seconds=3600,
+            default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
         time_filter = TimeFilter(start_ms=start * 1000, end_ms=end * 1000)
 

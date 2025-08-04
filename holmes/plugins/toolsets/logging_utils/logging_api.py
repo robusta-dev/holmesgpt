@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
+import os
 from typing import Optional
 
 from pydantic import BaseModel
@@ -15,7 +16,9 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 
 # Default values for log fetching
 DEFAULT_LOG_LIMIT = 2000
-DEFAULT_TIME_SPAN_SECONDS = 3600
+DEFAULT_TIME_SPAN_SECONDS = int(
+    os.getenv("DEFAULT_LOGS_SPAN_SECONDS", 7 * 24 * 60 * 60)
+)
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 
