@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"deployment","name":"fraud-service","namespace":"my-demoshop-namespace"}}
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_describe", "match_params": {"kind": "deployment", "name": "fraud-service", "namespace": "my-demoshop-namespace"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_describe command", "params": {"kind": "deployment", "name": "fraud-service", "namespace": "my-demoshop-namespace"}}
 stdout:
 Name:                   fraud-service
 Namespace:              my-demoshop-namespace

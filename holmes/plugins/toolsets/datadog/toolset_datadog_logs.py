@@ -134,7 +134,7 @@ def format_logs(raw_logs: list[dict]) -> str:
     return "\n".join(logs)
 
 
-class DatadogToolset(BasePodLoggingToolset):
+class DatadogLogsToolset(BasePodLoggingToolset):
     dd_config: Optional[DatadogLogsConfig] = None
 
     def __init__(self):
@@ -150,6 +150,9 @@ class DatadogToolset(BasePodLoggingToolset):
             experimental=True,
             tags=[ToolsetTag.CORE],
         )
+
+    def logger_name(self) -> str:
+        return "DataDog"
 
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         if not self.dd_config:

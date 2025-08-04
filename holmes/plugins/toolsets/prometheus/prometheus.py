@@ -1,15 +1,13 @@
 import json
 import logging
 import os
-import random
 import re
-import string
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests  # type: ignore
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field, model_validator
 from requests import RequestException
 
 from holmes.core.tools import (
@@ -29,6 +27,9 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
 )
 from holmes.utils.cache import TTLCache
+from holmes.common.env_vars import IS_OPENSHIFT
+from holmes.common.openshift import load_openshift_token
+from holmes.utils.keygen_utils import generate_random_key
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 DEFAULT_TIME_SPAN_SECONDS = 3600
@@ -45,7 +46,7 @@ class PrometheusConfig(BaseModel):
     fetch_labels_with_labels_api: bool = False
     fetch_metadata_with_series_api: bool = False
     tool_calls_return_data: bool = True
-    headers: Dict = {}
+    headers: Dict = Field(default_factory=dict)
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
 
@@ -55,13 +56,26 @@ class PrometheusConfig(BaseModel):
             return v + "/"
         return v
 
+    @model_validator(mode="after")
+    def validate_prom_config(self):
+        # If openshift is enabled, and the user didn't configure auth headers, we will try to load the token from the service account.
+        if IS_OPENSHIFT:
+            if self.healthcheck == "-/healthy":
+                self.healthcheck = "api/v1/query?query=up"
+
+            if self.headers.get("Authorization"):
+                return self
+
+            openshift_token = load_openshift_token()
+            if openshift_token:
+                logging.info("Using openshift token for prometheus toolset auth")
+                self.headers["Authorization"] = f"Bearer {openshift_token}"
+
+        return self
+
 
 class BasePrometheusTool(Tool):
     toolset: "PrometheusToolset"
-
-
-def generate_random_key():
-    return "".join(random.choices(string.ascii_letters + string.digits, k=4))
 
 
 def filter_metrics_by_type(metrics: Dict, expected_type: str):
@@ -668,6 +682,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 if self.toolset.config.tool_calls_return_data:
                     response_data["data"] = data.get("data")
                 data_str = json.dumps(response_data, indent=2)
+
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=data_str,

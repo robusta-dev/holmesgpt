@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"payment-processing-worker-747ccfb9db-78qds","namespace":"default"}}
+{"toolset_name": "kubernetes/core", "tool_name": "kubectl_describe", "match_params": {"kind": "pod", "name": "payment-processing-worker-747ccfb9db-78qds", "namespace": "default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_describe command", "params": {"kind": "pod", "name": "payment-processing-worker-747ccfb9db-78qds", "namespace": "default"}}
 stdout:
 Name:             payment-processing-worker-747ccfb9db-78qds
 Namespace:        default

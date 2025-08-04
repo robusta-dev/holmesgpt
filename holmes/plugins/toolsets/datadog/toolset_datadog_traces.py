@@ -6,7 +6,6 @@ import os
 import time
 from typing import Any, Dict, Optional, Tuple
 
-
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -204,7 +203,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
             filters.append(f"duration>{params['min_duration']}")
 
         filter_str = " AND ".join(filters) if filters else "all traces"
-        return f"fetch traces matching {filter_str}"
+        return f"DataDog: fetch traces matching {filter_str}"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to fetch traces."""
@@ -297,6 +296,12 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
 
             # Format the traces using the formatter
             formatted_output = format_traces_list(spans, limit=params.get("limit", 50))
+            if not formatted_output:
+                return StructuredToolResult(
+                    status=ToolResultStatus.NO_DATA,
+                    params=params,
+                    data="No matching traces found.",
+                )
 
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -321,9 +326,11 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
-                invocation=json.dumps({"url": url, "payload": payload})
-                if url and payload
-                else None,
+                invocation=(
+                    json.dumps({"url": url, "payload": payload})
+                    if url and payload
+                    else None
+                ),
             )
 
         except Exception as e:
@@ -332,9 +339,11 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
-                invocation=json.dumps({"url": url, "payload": payload})
-                if url and payload
-                else None,
+                invocation=(
+                    json.dumps({"url": url, "payload": payload})
+                    if url and payload
+                    else None
+                ),
             )
 
 
@@ -357,7 +366,9 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
 
     def get_parameterized_one_liner(self, params: dict) -> str:
         """Get a one-liner description of the tool invocation."""
-        return f"fetch trace details for ID {params.get('trace_id', 'unknown')}"
+        return (
+            f"DataDog: fetch trace details for ID {params.get('trace_id', 'unknown')}"
+        )
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to fetch trace details."""
@@ -399,9 +410,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
                             "to": str(to_time_ms),
                             "indexes": self.toolset.dd_config.indexes,
                         },
-                        "page": {
-                            "limit": 1000  # Get all spans for the trace
-                        },
+                        "page": {"limit": 1000},  # Get all spans for the trace
                         "sort": "timestamp",
                     },
                 }
@@ -425,6 +434,12 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
 
             # Format the trace hierarchy using the formatter
             formatted_output = format_trace_hierarchy(trace_id, spans)
+            if not formatted_output:
+                return StructuredToolResult(
+                    status=ToolResultStatus.NO_DATA,
+                    params=params,
+                    data=f"No trace found for trace_id: {trace_id}",
+                )
 
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -449,9 +464,11 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
-                invocation=json.dumps({"url": url, "payload": payload})
-                if url and payload
-                else None,
+                invocation=(
+                    json.dumps({"url": url, "payload": payload})
+                    if url and payload
+                    else None
+                ),
             )
 
         except Exception as e:
@@ -460,9 +477,11 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
-                invocation=json.dumps({"url": url, "payload": payload})
-                if url and payload
-                else None,
+                invocation=(
+                    json.dumps({"url": url, "payload": payload})
+                    if url and payload
+                    else None
+                ),
             )
 
 
@@ -521,7 +540,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
     def get_parameterized_one_liner(self, params: dict) -> str:
         """Get a one-liner description of the tool invocation."""
         if "query" in params:
-            return f"search spans with query: {params['query']}"
+            return f"DataDog: search spans with query: {params['query']}"
 
         filters = []
         if "service" in params:
@@ -530,7 +549,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
             filters.append(f"operation={params['operation']}")
 
         filter_str = " AND ".join(filters) if filters else "all spans"
-        return f"search spans matching {filter_str}"
+        return f"DataDog: search spans matching {filter_str}"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to search spans."""
@@ -622,6 +641,12 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
 
             # Format the spans search results using the formatter
             formatted_output = format_spans_search(spans)
+            if not formatted_output:
+                return StructuredToolResult(
+                    status=ToolResultStatus.NO_DATA,
+                    params=params,
+                    data="No matching spans found.",
+                )
 
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -631,7 +656,6 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
 
         except DataDogRequestError as e:
             logging.exception(e, exc_info=True)
-
             if e.status_code == 429:
                 error_msg = f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
             elif e.status_code == 403:
@@ -646,9 +670,11 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
                 status=ToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
-                invocation=json.dumps({"url": url, "payload": payload})
-                if url and payload
-                else None,
+                invocation=(
+                    json.dumps({"url": url, "payload": payload})
+                    if url and payload
+                    else None
+                ),
             )
 
         except Exception as e:
@@ -657,7 +683,9 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
                 status=ToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
-                invocation=json.dumps({"url": url, "payload": payload})
-                if url and payload
-                else None,
+                invocation=(
+                    json.dumps({"url": url, "payload": payload})
+                    if url and payload
+                    else None
+                ),
             )

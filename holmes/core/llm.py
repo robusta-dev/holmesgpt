@@ -12,7 +12,6 @@ import litellm
 import os
 from holmes.common.env_vars import (
     THINKING,
-    TEMPERATURE,
 )
 
 
@@ -64,12 +63,19 @@ class DefaultLLM(LLM):
     base_url: Optional[str]
     args: Dict
 
-    def __init__(self, model: str, api_key: Optional[str] = None, args: Dict = {}):
+    def __init__(
+        self,
+        model: str,
+        api_key: Optional[str] = None,
+        args: Optional[Dict] = None,
+        tracer=None,
+    ):
         self.model = model
         self.api_key = api_key
-        self.args = args
+        self.args = args or {}
+        self.tracer = tracer
 
-        if not args:
+        if not self.args:
             self.check_llm(self.model, self.api_key)
 
     def check_llm(self, model: str, api_key: Optional[str]):
@@ -133,14 +139,11 @@ class DefaultLLM(LLM):
         https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
         """
         model_name = self.model
-        if model_name.startswith("openai/"):
-            model_name = model_name[len("openai/") :]  # Strip the 'openai/' prefix
-        elif model_name.startswith("bedrock/"):
-            model_name = model_name[len("bedrock/") :]  # Strip the 'bedrock/' prefix
-        elif model_name.startswith("vertex_ai/"):
-            model_name = model_name[
-                len("vertex_ai/") :
-            ]  # Strip the 'vertex_ai/' prefix
+        prefixes = ["openai/", "bedrock/", "vertex_ai/", "anthropic/"]
+
+        for prefix in prefixes:
+            if model_name.startswith(prefix):
+                return model_name[len(prefix) :]
 
         return model_name
 
@@ -214,11 +217,14 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
-        result = litellm.completion(
+        self.args.setdefault("temperature", temperature)
+        # Get the litellm module to use (wrapped or unwrapped)
+        litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
+
+        result = litellm_to_use.completion(
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,
             stream=stream,

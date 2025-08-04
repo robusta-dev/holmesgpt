@@ -176,7 +176,7 @@ class TestFetchDatadogTracesList:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         assert "No matching traces found" in result.data
 
     def test_invoke_no_config(self):
@@ -250,7 +250,7 @@ class TestFetchDatadogTraceById:
         """Test one-liner generation."""
         params = {"trace_id": "abc123"}
         one_liner = self.tool.get_parameterized_one_liner(params)
-        assert "fetch trace details for ID abc123" == one_liner
+        assert "DataDog: fetch trace details for ID abc123" == one_liner
 
     def test_invoke_missing_trace_id(self):
         """Test invocation without trace_id parameter."""
@@ -319,8 +319,8 @@ class TestFetchDatadogTraceById:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
-        assert "No trace found with ID: nonexistent" in result.data
+        assert result.status == ToolResultStatus.NO_DATA
+        assert "No trace found for trace_id: nonexistent" in result.data
 
 
 class TestFetchDatadogSpansByFilter:
@@ -339,7 +339,7 @@ class TestFetchDatadogSpansByFilter:
         # Test with query
         params = {"query": "@http.status_code:500"}
         one_liner = self.tool.get_parameterized_one_liner(params)
-        assert "search spans with query: @http.status_code:500" == one_liner
+        assert "DataDog: search spans with query: @http.status_code:500" == one_liner
 
         # Test with filters
         params = {"service": "web-api", "operation": "GET /users"}
@@ -411,5 +411,5 @@ class TestFetchDatadogSpansByFilter:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == ToolResultStatus.NO_DATA
         assert "No matching spans found" in result.data

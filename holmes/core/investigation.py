@@ -132,6 +132,7 @@ def get_investigation_context(
             "sections": sections,
             "structured_output": request_structured_output_from_llm,
             "toolsets": ai.tool_executor.toolsets,
+            "cluster_name": config.cluster_name,
         },
     )
 

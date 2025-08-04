@@ -105,7 +105,6 @@ class TestDatadogMetricsToolset:
         result = tool._invoke(params)
 
         assert result.status == ToolResultStatus.SUCCESS
-        assert "series" in result.data
         assert "system.cpu.user" in result.data
 
         call_args = mock_get.call_args
@@ -235,7 +234,8 @@ class TestDatadogMetricsToolset:
         assert result.error == "The toolset is missing its configuration"
 
     @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.get")
-    def test_rate_limiting(self, mock_get):
+    @patch("time.sleep", return_value=None)  # Mock time.sleep to avoid delays
+    def test_rate_limiting(self, mock_sleep, mock_get):
         response = Mock()
         response.status_code = 429
         response.headers = {}

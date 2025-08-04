@@ -49,7 +49,9 @@ from holmes.core.models import (
     ChatResponse,
     IssueChatRequest,
     WorkloadHealthChatRequest,
+    workload_health_structured_output,
 )
+from holmes.core.investigation_structured_output import clear_json_markdown
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
 from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
@@ -214,13 +216,19 @@ def workload_health_check(request: WorkloadHealthRequest):
             context={
                 "alerts": workload_alerts,
                 "toolsets": ai.tool_executor.toolsets,
+                "response_format": workload_health_structured_output,
+                "cluster_name": config.cluster_name,
             },
         )
 
-        structured_output = {"type": "json_object"}
         ai_call = ai.prompt_call(
-            system_prompt, request.ask, HOLMES_POST_PROCESSING_PROMPT, structured_output
+            system_prompt,
+            request.ask,
+            HOLMES_POST_PROCESSING_PROMPT,
+            workload_health_structured_output,
         )
+
+        ai_call.result = clear_json_markdown(ai_call.result)
 
         return InvestigationResult(
             analysis=ai_call.result,
@@ -243,7 +251,12 @@ def workload_health_conversation(
         ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(request, ai, global_instructions)
+        messages = build_workload_health_chat_messages(
+            workload_health_chat_request=request,
+            ai=ai,
+            config=config,
+            global_instructions=global_instructions,
+        )
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -266,7 +279,10 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(
-            issue_chat_request, ai, global_instructions
+            issue_chat_request=issue_chat_request,
+            ai=ai,
+            config=config,
+            global_instructions=global_instructions,
         )
         llm_call = ai.messages_call(messages=messages)
 
@@ -303,6 +319,7 @@ def chat(chat_request: ChatRequest):
             chat_request.ask,
             chat_request.conversation_history,
             ai=ai,
+            config=config,
             global_instructions=global_instructions,
         )
         follow_up_actions = []

@@ -1,4 +1,5 @@
-{"toolset_name":"internet","tool_name":"fetch_webpage","match_params":{"url":"https://runbooks.prometheus-operator.dev/runbooks/general/watchdog/"}}
+{"toolset_name": "internet", "tool_name": "fetch_webpage", "match_params": {"url": "https://runbooks.prometheus-operator.dev/runbooks/general/watchdog/"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "fetch_webpage command", "params": {"url": "https://runbooks.prometheus-operator.dev/runbooks/general/watchdog/"}}
 Watchdog
  \#
 ============

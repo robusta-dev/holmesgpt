@@ -1,4 +1,5 @@
-{"toolset_name":"argocd/core","tool_name":"argocd_app_resources"}
+{"toolset_name": "argocd/core", "tool_name": "argocd_app_resources"}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "argocd_app_resources command", "params": {}}
 stdout:
 GROUP                  KIND            NAMESPACE               NAME                       ORPHANED
                        Namespace                               my-demoshop-namespace      No

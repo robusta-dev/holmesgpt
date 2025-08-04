@@ -1,3 +1,6 @@
-user_prompt: "Why is frontend-certs-validator in a crashloopbackoff?"
+user_prompt: "Why is personal-certs-validator in a crashloopbackoff?"
 expected_output:
-  - Could not find "frontend-certs-validator."
+  - Could not find "personal-certs-validator."
+tags:
+  - easy
+  - transparency

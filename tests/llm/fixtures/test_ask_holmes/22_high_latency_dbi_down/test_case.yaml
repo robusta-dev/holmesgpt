@@ -3,8 +3,9 @@
 user_prompt: "Why is there high latency with the customer-orders-for-medium deployment?"
 tags:
   - chain-of-causation
+  - logs
 expected_output:
-  - The reason for failure is promotions-db-for-medium.cp8rwothwarq.us-east-2.rds.amazonaws.com is down, stopped, or in unavailable state.
+  - The reason for failure is promotions-db-for-medium.cp8rwothwarq.us-east-2.rds.amazonaws.com is stopped or stopping.
 before_test: |
   [ "$(aws rds describe-db-instances --db-instance-identifier promotions-db-for-medium --query "DBInstances[0].DBInstanceStatus" --output text)" != "stopped" ] && aws rds stop-db-instance --db-instance-identifier promotions-db-for-medium || echo "RDS instance is already stopped."
   kubectl apply -f ./slow-rds-query-for-medium.yaml
@@ -13,4 +14,3 @@ after_test: |
   kubectl delete -f ./slow-rds-query-for-medium.yaml
 evaluation:
   correctness: 0
-generate_mocks: False

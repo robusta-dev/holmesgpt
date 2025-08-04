@@ -40,7 +40,7 @@ def format_traces_list(spans: List[Dict[str, Any]], limit: int = 50) -> str:
     Format a list of spans grouped by trace ID into a readable output.
     """
     if not spans:
-        return "No matching traces found"
+        return ""
 
     # Group spans by trace_id
     traces = defaultdict(list)
@@ -161,7 +161,7 @@ def format_trace_hierarchy(trace_id: str, spans: List[Dict[str, Any]]) -> str:
     Format a trace with its full span hierarchy.
     """
     if not spans:
-        return f"No trace found with ID: {trace_id}"
+        return ""
 
     span_map, root_spans = build_span_hierarchy(spans)
 
@@ -233,7 +233,7 @@ def format_spans_search(
     Format spans search results grouped by trace.
     """
     if not spans:
-        return "No matching spans found"
+        return ""
 
     # Format output
     output_lines = []
