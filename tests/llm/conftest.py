@@ -53,11 +53,21 @@ def mock_generation_config(request):
     if regenerate_all_mocks:
         generate_mocks = True
 
+    run_live = os.getenv("RUN_LIVE", "False").lower() in ("true", "1", "t")
+    if generate_mocks and not run_live:
+        print(
+            "⚠️  WARNING: --generate-mocks is set but RUN_LIVE is not set. This will not generate mocks."
+        )
+        pytest.skip(
+            "Skipping test case because --generate-mocks is set but RUN_LIVE is not set."
+        )
+
     # Determine mode based on environment and options
-    if os.getenv("RUN_LIVE", "False").lower() in ("true", "1", "t"):
+
+    if generate_mocks:
+        mode = MockMode.GENERATE  # live & generate
+    elif run_live:
         mode = MockMode.LIVE
-    elif generate_mocks:
-        mode = MockMode.GENERATE
     else:
         mode = MockMode.MOCK
 

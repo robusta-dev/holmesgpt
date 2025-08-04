@@ -43,6 +43,9 @@ T = TypeVar("T")
 
 
 class HolmesTestCase(BaseModel):
+    class Config:
+        extra = "forbid"
+
     id: str
     folder: str
     mocked_date: Optional[str] = None
@@ -60,9 +63,15 @@ class HolmesTestCase(BaseModel):
     mock_policy: Optional[str] = (
         "inherit"  # Mock policy: always_mock, never_mock, or inherit
     )
+    description: Optional[str] = None
+    generate_mocks: Optional[bool] = None
+    toolsets: Optional[Dict[str, Any]] = None
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
+    class Config:
+        extra = "forbid"
+
     user_prompt: Union[
         str, List[str]
     ]  # The user's question(s) to ask holmes - can be single string or array
@@ -190,6 +199,10 @@ class MockHelper:
                     config_dict["request"] = TypeAdapter(WorkloadHealthRequest)
                     test_case = TypeAdapter(HealthCheckTestCase).validate_python(
                         config_dict
+                    )
+                else:
+                    raise ValueError(
+                        f"Test case folder {test_case_folder} is not a valid test case folder."
                     )
 
                 logging.debug(f"Successfully loaded test case {test_case_id}")
