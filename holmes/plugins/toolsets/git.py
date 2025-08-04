@@ -13,6 +13,7 @@ from holmes.core.tools import (
     ToolsetTag,
     CallablePrerequisite,
 )
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class GitHubConfig(BaseModel):
@@ -278,7 +279,7 @@ class GitReadFileWithLineNumbers(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         filepath = params.get("filepath", "")
-        return f"{self.toolset.name}: Read Git File ({filepath})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Read Git File ({filepath})"
 
 
 class GitListFiles(Tool):
@@ -319,7 +320,7 @@ class GitListFiles(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"{self.toolset.name}: List Git Files"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: List Git Files"
 
 
 class GitListOpenPRs(Tool):
@@ -358,7 +359,7 @@ class GitListOpenPRs(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"{self.toolset.name}: List Open PRs"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: List Open PRs"
 
 
 class GitExecuteChanges(Tool):
@@ -574,7 +575,7 @@ class GitExecuteChanges(Tool):
         filename = params.get("filename", "")
         dry_run = params.get("dry_run", False)
         mode = "(dry run)" if dry_run else ""
-        return f"{self.toolset.name}: Execute Git Changes ({command} in {filename}) {mode}".strip()
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Execute Git Changes ({command} in {filename}) {mode}".strip()
 
 
 class GitUpdatePR(Tool):
@@ -752,4 +753,4 @@ class GitUpdatePR(Tool):
         command = params.get("command", "")
         dry_run = params.get("dry_run", False)
         mode = "(dry run)" if dry_run else ""
-        return f"{self.toolset.name}: Update PR #{pr_number} ({command}) {mode}".strip()
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Update PR #{pr_number} ({command}) {mode}".strip()

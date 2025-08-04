@@ -10,6 +10,7 @@ from holmes.core.tools import (
 )
 from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class BaseNewRelicTool(Tool):
@@ -91,7 +92,7 @@ class GetLogs(BaseNewRelicTool):
     def get_parameterized_one_liner(self, params) -> str:
         app = params.get("app", "")
         since = params.get("since", "")
-        return f"{self.toolset.name}: Get Logs ({app} - {since})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Logs ({app} - {since})"
 
 
 class GetTraces(BaseNewRelicTool):
@@ -174,9 +175,9 @@ class GetTraces(BaseNewRelicTool):
     def get_parameterized_one_liner(self, params) -> str:
         if "trace_id" in params and params["trace_id"]:
             trace_id = params.get("trace_id", "")
-            return f"{self.toolset.name}: Get Trace Details ({trace_id})"
+            return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Trace Details ({trace_id})"
         duration = params.get("duration", "")
-        return f"{self.toolset.name}: Get Traces (>{duration}s)"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Traces (>{duration}s)"
 
 
 class NewrelicConfig(BaseModel):

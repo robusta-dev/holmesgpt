@@ -20,6 +20,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     get_search_url,
 )
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 TRACES_FIELDS_CACHE_KEY = "cached_traces_fields"
 
@@ -108,7 +109,7 @@ class GetTracesFields(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"{self._toolset.name}: List Trace Fields"
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: List Trace Fields"
 
 
 class TracesSearchQuery(Tool):
@@ -185,7 +186,9 @@ class TracesSearchQuery(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         query = params.get("query", "")
-        return f"{self._toolset.name}: Search Traces ({query})"
+        return (
+            f"{toolset_name_for_one_liner(self._toolset.name)}: Search Traces ({query})"
+        )
 
 
 class OpenSearchTracesToolset(BaseOpenSearchToolset):

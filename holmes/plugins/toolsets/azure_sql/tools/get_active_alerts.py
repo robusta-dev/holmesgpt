@@ -14,6 +14,8 @@ from holmes.plugins.toolsets.azure_sql.apis.alert_monitoring_api import (
 )
 from typing import Tuple
 
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+
 
 class GetActiveAlerts(BaseAzureSQLTool):
     def __init__(self, toolset: "BaseAzureSQLToolset"):
@@ -190,7 +192,7 @@ class GetActiveAlerts(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return f"{self.toolset.name}: Get Active Alerts ({db_config.server_name}/{db_config.database_name})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Active Alerts ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(

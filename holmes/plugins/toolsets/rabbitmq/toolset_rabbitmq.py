@@ -21,6 +21,7 @@ from holmes.plugins.toolsets.rabbitmq.api import (
     get_cluster_status,
     make_request,
 )
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class RabbitMQConfig(BaseModel):
@@ -80,7 +81,9 @@ class ListConfiguredClusters(BaseRabbitMQTool):
         )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"{self.toolset.name}: List RabbitMQ Clusters"
+        return (
+            f"{toolset_name_for_one_liner(self.toolset.name)}: List RabbitMQ Clusters"
+        )
 
 
 class GetRabbitMQClusterStatus(BaseRabbitMQTool):
@@ -118,8 +121,8 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
     def get_parameterized_one_liner(self, params) -> str:
         cluster_id = params.get("cluster_id", "")
         if cluster_id:
-            return f"{self.toolset.name}: Get Cluster Status ({cluster_id})"
-        return f"{self.toolset.name}: Get Cluster Status"
+            return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Cluster Status ({cluster_id})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Cluster Status"
 
 
 class RabbitMQToolset(Toolset):

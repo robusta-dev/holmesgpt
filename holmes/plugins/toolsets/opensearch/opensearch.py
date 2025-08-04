@@ -14,6 +14,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class OpenSearchHttpAuth(BaseModel):
@@ -103,7 +104,7 @@ class ListShards(BaseOpenSearchTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         host = params.get("host", "")
-        return f"{self.toolset.name}: List Shards ({host})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: List Shards ({host})"
 
 
 class GetClusterSettings(BaseOpenSearchTool):
@@ -134,7 +135,7 @@ class GetClusterSettings(BaseOpenSearchTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         host = params.get("host", "")
-        return f"{self.toolset.name}: Get Cluster Settings ({host})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Cluster Settings ({host})"
 
 
 class GetClusterHealth(BaseOpenSearchTool):
@@ -163,7 +164,7 @@ class GetClusterHealth(BaseOpenSearchTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         host = params.get("host", "")
-        return f"{self.toolset.name}: Check Cluster Health ({host})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Check Cluster Health ({host})"
 
 
 class ListOpenSearchHosts(BaseOpenSearchTool):
@@ -184,7 +185,7 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"{self.toolset.name}: List OpenSearch Hosts"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: List OpenSearch Hosts"
 
 
 class OpenSearchToolset(Toolset):

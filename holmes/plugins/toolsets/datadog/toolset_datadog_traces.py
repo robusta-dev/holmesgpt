@@ -20,7 +20,10 @@ from holmes.plugins.toolsets.datadog.datadog_api import (
     get_headers,
     MAX_RETRY_COUNT_ON_RATE_LIMIT,
 )
-from holmes.plugins.toolsets.utils import process_timestamps_to_int
+from holmes.plugins.toolsets.utils import (
+    process_timestamps_to_int,
+    toolset_name_for_one_liner,
+)
 from holmes.plugins.toolsets.datadog.datadog_traces_formatter import (
     format_traces_list,
     format_trace_hierarchy,
@@ -201,7 +204,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
             filters.append(f"duration>{params['min_duration']}")
 
         filter_str = ", ".join(filters) if filters else "all"
-        return f"{self.toolset.name}: Fetch Traces ({filter_str})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Traces ({filter_str})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to fetch traces."""
@@ -365,7 +368,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
     def get_parameterized_one_liner(self, params: dict) -> str:
         """Get a one-liner description of the tool invocation."""
         trace_id = params.get("trace_id", "unknown")
-        return f"{self.toolset.name}: Fetch Trace Details ({trace_id})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Trace Details ({trace_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to fetch trace details."""
@@ -537,7 +540,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
     def get_parameterized_one_liner(self, params: dict) -> str:
         """Get a one-liner description of the tool invocation."""
         if "query" in params:
-            return f"{self.toolset.name}: Search Spans ({params['query']})"
+            return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Spans ({params['query']})"
 
         filters = []
         if "service" in params:
@@ -546,7 +549,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
             filters.append(f"operation={params['operation']}")
 
         filter_str = ", ".join(filters) if filters else "all"
-        return f"{self.toolset.name}: Search Spans ({filter_str})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Spans ({filter_str})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the tool to search spans."""

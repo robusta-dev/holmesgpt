@@ -12,6 +12,7 @@ from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClie
 from holmes.plugins.toolsets.azure_sql.apis.connection_failure_api import (
     ConnectionFailureAPI,
 )
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class AnalyzeConnectionFailures(BaseAzureSQLTool):
@@ -267,7 +268,7 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return f"{self.toolset.name}: Analyze Connection Failures ({db_config.server_name}/{db_config.database_name})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Analyze Connection Failures ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(

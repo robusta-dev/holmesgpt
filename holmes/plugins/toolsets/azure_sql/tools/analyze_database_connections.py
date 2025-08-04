@@ -12,6 +12,7 @@ from holmes.plugins.toolsets.azure_sql.apis.connection_monitoring_api import (
     ConnectionMonitoringAPI,
 )
 from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class AnalyzeDatabaseConnections(BaseAzureSQLTool):
@@ -212,7 +213,7 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return f"{self.toolset.name}: Analyze Database Connections ({db_config.server_name}/{db_config.database_name})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Analyze Database Connections ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(

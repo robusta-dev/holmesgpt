@@ -15,6 +15,7 @@ from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 
 DEFAULT_TIME_SPAN_SECONDS = 3600
@@ -93,7 +94,7 @@ class ServiceNowBaseTool(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         # Default implementation - will be overridden by subclasses
-        return f"{self.toolset.name}: ServiceNow {self.name} {params}"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: ServiceNow {self.name} {params}"
 
 
 class ReturnChangesInTimerange(ServiceNowBaseTool):
@@ -111,7 +112,7 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         start = params.get("start", "last hour")
-        return f"{self.toolset.name}: Get Change Requests ({start})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Requests ({start})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}
@@ -154,7 +155,7 @@ class ReturnChange(ServiceNowBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         sys_id = params.get("sys_id", "")
-        return f"{self.toolset.name}: Get Change Details ({sys_id})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Details ({sys_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -186,7 +187,7 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         keyword = params.get("keyword", "")
-        return f"{self.toolset.name}: Search Changes ({keyword})"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Changes ({keyword})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}
