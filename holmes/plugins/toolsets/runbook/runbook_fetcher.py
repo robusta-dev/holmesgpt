@@ -107,8 +107,8 @@ class RunbookFetcher(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        path: str = params["link"]
-        return f"fetched runbook {path}"
+        path: str = params.get("link", "")
+        return f"Fetch Runbook ({path})"
 
 
 class RunbookToolset(Toolset):

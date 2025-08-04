@@ -108,7 +108,7 @@ class GetTracesFields(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "list traces documents fields"
+        return "List Trace Fields"
 
 
 class TracesSearchQuery(Tool):
@@ -184,7 +184,8 @@ class TracesSearchQuery(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'search traces: query="{params.get("query")}"'
+        query = params.get("query", "")
+        return f"Search Traces ({query})"
 
 
 class OpenSearchTracesToolset(BaseOpenSearchToolset):

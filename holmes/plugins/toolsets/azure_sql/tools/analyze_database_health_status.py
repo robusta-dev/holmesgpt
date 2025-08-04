@@ -156,7 +156,9 @@ class AnalyzeDatabaseHealthStatus(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return f"Analyze health status for database {db_config.server_name}/{db_config.database_name}"
+        return (
+            f"Analyze Health Status ({db_config.server_name}/{db_config.database_name})"
+        )
 
     @staticmethod
     def validate_config(

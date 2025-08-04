@@ -92,6 +92,7 @@ class ServiceNowBaseTool(Tool):
         )
 
     def get_parameterized_one_liner(self, params) -> str:
+        # Default implementation - will be overridden by subclasses
         return f"ServiceNow {self.name} {params}"
 
 
@@ -107,6 +108,10 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
             required=False,
         )
     }
+
+    def get_parameterized_one_liner(self, params) -> str:
+        start = params.get("start", "last hour")
+        return f"Get Change Requests ({start})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}
@@ -147,6 +152,10 @@ class ReturnChange(ServiceNowBaseTool):
         )
     }
 
+    def get_parameterized_one_liner(self, params) -> str:
+        sys_id = params.get("sys_id", "")
+        return f"Get Change Details ({sys_id})"
+
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             url = "https://{instance}.service-now.com/api/now/v2/table/change_request/{sys_id}".format(
@@ -174,6 +183,10 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
             required=True,
         )
     }
+
+    def get_parameterized_one_liner(self, params) -> str:
+        keyword = params.get("keyword", "")
+        return f"Search Changes ({keyword})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}

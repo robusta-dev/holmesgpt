@@ -80,7 +80,7 @@ class ListConfiguredClusters(BaseRabbitMQTool):
         )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "list configured RabbitMQ clusters"
+        return "List RabbitMQ Clusters"
 
 
 class GetRabbitMQClusterStatus(BaseRabbitMQTool):
@@ -116,7 +116,10 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "get RabbitMQ cluster status and partition information"
+        cluster_id = params.get("cluster_id", "")
+        if cluster_id:
+            return f"Get Cluster Status ({cluster_id})"
+        return "Get Cluster Status"
 
 
 class RabbitMQToolset(Toolset):

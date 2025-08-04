@@ -202,7 +202,8 @@ class ListKafkaConsumers(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Listed all Kafka consumer groups in the cluster \"{params.get('kafka_cluster_name')}\""
+        cluster = params.get("kafka_cluster_name", "")
+        return f"List Consumer Groups ({cluster})"
 
 
 class DescribeConsumerGroup(BaseKafkaTool):
@@ -262,7 +263,8 @@ class DescribeConsumerGroup(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Described consumer group: {params['group_id']} in cluster \"{params.get('kafka_cluster_name')}\""
+        group_id = params.get("group_id", "")
+        return f"Describe Consumer Group ({group_id})"
 
 
 class ListTopics(BaseKafkaTool):
@@ -307,7 +309,8 @@ class ListTopics(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Listed all Kafka topics in the cluster \"{params.get('kafka_cluster_name')}\""
+        cluster = params.get("kafka_cluster_name", "")
+        return f"List Kafka Topics ({cluster})"
 
 
 class DescribeTopic(BaseKafkaTool):
@@ -376,7 +379,8 @@ class DescribeTopic(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Described topic: {params['topic_name']} in cluster \"{params.get('kafka_cluster_name')}\""
+        topic = params.get("topic_name", "")
+        return f"Describe Topic ({topic})"
 
 
 def group_has_topic(
@@ -530,7 +534,8 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Found consumer groups for topic: {params.get('topic_name')} in cluster \"{params.get('kafka_cluster_name')}\""
+        topic = params.get("topic_name", "")
+        return f"Find Topic Consumers ({topic})"
 
 
 class ListKafkaClusters(BaseKafkaTool):
@@ -551,7 +556,7 @@ class ListKafkaClusters(BaseKafkaTool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Listed all available Kafka clusters"
+        return "List Kafka Clusters"
 
 
 class KafkaToolset(Toolset):

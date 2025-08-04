@@ -196,7 +196,7 @@ class FetchConfigurationChanges(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Search Change History: ({str(params)})"
+        return "Search Change History"
 
 
 class RobustaToolset(Toolset):

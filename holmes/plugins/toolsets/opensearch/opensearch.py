@@ -102,7 +102,8 @@ class ListShards(BaseOpenSearchTool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"opensearch ListShards({params.get('host')})"
+        host = params.get("host", "")
+        return f"List Shards ({host})"
 
 
 class GetClusterSettings(BaseOpenSearchTool):
@@ -132,7 +133,8 @@ class GetClusterSettings(BaseOpenSearchTool):
         )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"opensearch GetClusterSettings({params.get('host')})"
+        host = params.get("host", "")
+        return f"Get Cluster Settings ({host})"
 
 
 class GetClusterHealth(BaseOpenSearchTool):
@@ -160,7 +162,8 @@ class GetClusterHealth(BaseOpenSearchTool):
         )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"opensearch GetClusterHealth({params.get('host')})"
+        host = params.get("host", "")
+        return f"Check Cluster Health ({host})"
 
 
 class ListOpenSearchHosts(BaseOpenSearchTool):
@@ -181,7 +184,7 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "opensearch ListOpenSearchHosts()"
+        return "List OpenSearch Hosts"
 
 
 class OpenSearchToolset(Toolset):

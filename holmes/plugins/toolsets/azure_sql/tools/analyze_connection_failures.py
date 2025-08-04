@@ -267,8 +267,7 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        hours_back = params.get("hours_back", 24)
-        return f"Analyze connection failures for {db_config.server_name}/{db_config.database_name} over {hours_back} hours"
+        return f"Analyze Connection Failures ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(

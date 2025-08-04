@@ -277,7 +277,8 @@ class GitReadFileWithLineNumbers(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "Reading git files"
+        filepath = params.get("filepath", "")
+        return f"Read Git File ({filepath})"
 
 
 class GitListFiles(Tool):
@@ -318,7 +319,7 @@ class GitListFiles(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "listing git files"
+        return "List Git Files"
 
 
 class GitListOpenPRs(Tool):
@@ -357,7 +358,7 @@ class GitListOpenPRs(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "Listing PR's"
+        return "List Open PRs"
 
 
 class GitExecuteChanges(Tool):
@@ -569,12 +570,11 @@ class GitExecuteChanges(Tool):
             return error(f"Unexpected error: {e}")
 
     def get_parameterized_one_liner(self, params) -> str:
-        return (
-            f"git execute_changes(line={params['line']}, filename='{params['filename']}', "
-            f"command='{params['command']}', code='{params.get('code', '')}', "
-            f"open_pr={params['open_pr']}, commit_pr='{params['commit_pr']}', "
-            f"dry_run={params['dry_run']}, commit_message='{params['commit_message']}')"
-        )
+        command = params.get("command", "")
+        filename = params.get("filename", "")
+        dry_run = params.get("dry_run", False)
+        mode = "(dry run)" if dry_run else ""
+        return f"Execute Git Changes ({command} in {filename}) {mode}".strip()
 
 
 class GitUpdatePR(Tool):
@@ -748,9 +748,8 @@ class GitUpdatePR(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return (
-            f"git update_pr(line={params['line']}, filename='{params['filename']}', "
-            f"command='{params['command']}', code='{params.get('code', '')}', "
-            f"pr_number={params['pr_number']}, dry_run={params['dry_run']}, "
-            f"commit_message='{params['commit_message']}')"
-        )
+        pr_number = params.get("pr_number", "")
+        command = params.get("command", "")
+        dry_run = params.get("dry_run", False)
+        mode = "(dry run)" if dry_run else ""
+        return f"Update PR #{pr_number} ({command}) {mode}".strip()
