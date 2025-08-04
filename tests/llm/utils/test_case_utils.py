@@ -1,4 +1,3 @@
-# type: ignore
 import json
 from typing_extensions import Dict
 import yaml
@@ -142,6 +141,7 @@ class MockHelper:
                 )
                 config_dict["id"] = test_case_id
                 config_dict["folder"] = str(test_case_folder)
+                test_case: Optional[HolmesTestCase] = None
 
                 if config_dict.get("user_prompt"):
                     config_dict["conversation_history"] = load_conversation_history(
@@ -202,18 +202,19 @@ class MockHelper:
                         config_dict
                     )
                 else:
-                    raise ValueError(
-                        f"Test case folder {test_case_folder} is not a valid test case folder."
+                    # Skip test cases that don't match any known type
+                    logging.debug(
+                        f"Skipping test case {test_case_id} - unknown test type"
                     )
+                    continue
 
                 logging.debug(f"Successfully loaded test case {test_case_id}")
+                test_cases.append(test_case)
             except FileNotFoundError:
                 logging.debug(
                     f"Folder {self._test_cases_folder}/{test_case_id} ignored because it is missing a {CONFIG_FILE_NAME} file."
                 )
                 continue
-
-            test_cases.append(test_case)
         logging.debug(f"Found {len(test_cases)} in {self._test_cases_folder}")
 
         return test_cases

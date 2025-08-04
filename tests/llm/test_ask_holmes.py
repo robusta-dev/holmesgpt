@@ -24,7 +24,6 @@ from tests.llm.utils.mock_toolset import (
 from tests.llm.utils.test_case_utils import (
     AskHolmesTestCase,
     Evaluation,
-    MockHelper,
     check_and_skip_test,
 )
 
@@ -36,7 +35,6 @@ from tests.llm.utils.property_manager import (
     update_mock_error,
 )
 from os import path
-from tests.llm.utils.tags import add_tags_to_eval
 from holmes.core.tracing import SpanType
 from tests.llm.utils.test_helpers import (
     print_expected_output,
@@ -44,29 +42,19 @@ from tests.llm.utils.test_helpers import (
     print_tool_calls_summary,
     print_tool_calls_detailed,
 )
+from tests.llm.utils.iteration_utils import get_test_cases
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
 )
 
 
-# TODO: reuse code with test_investigate.py and test_workload_health.py
-def get_test_cases():
-    mh = MockHelper(TEST_CASES_FOLDER)
-    test_cases = mh.load_ask_holmes_test_cases()
-    iterations = int(os.environ.get("ITERATIONS", "1"))
-    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
-
-
-def idfn(val):
-    if isinstance(val, AskHolmesTestCase):
-        return val.id
-    else:
-        return str(val)
+def get_ask_holmes_test_cases():
+    return get_test_cases(TEST_CASES_FOLDER)
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_ask_holmes_test_cases())
 def test_ask_holmes(
     test_case: AskHolmesTestCase,
     caplog,
