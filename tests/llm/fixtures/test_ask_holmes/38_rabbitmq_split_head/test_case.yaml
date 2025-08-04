@@ -17,4 +17,3 @@ after_test: |
   kubectl delete namespace rabbitmq
 evaluation:
   correctness: 1
-generate_mocks: False

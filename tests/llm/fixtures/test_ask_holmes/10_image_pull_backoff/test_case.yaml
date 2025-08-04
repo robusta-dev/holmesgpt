@@ -6,5 +6,6 @@ before_test: |
   sleep 20
 after_test: |
   kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml
-evaluation:
-  correctness: 1
+tags:
+  - easy
+  - kubernetes

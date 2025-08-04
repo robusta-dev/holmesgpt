@@ -3,27 +3,32 @@ import os
 import os.path
 from typing import Any, List, Optional, Union
 
-from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 import yaml  # type: ignore
 from pydantic import ValidationError
 
-from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 import holmes.utils.env as env_utils
+from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
+from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
+from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
+from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
-from holmes.plugins.toolsets.datadog import DatadogToolset
-from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
+from holmes.plugins.toolsets.datadog.toolset_datadog_logs import DatadogLogsToolset
+from holmes.plugins.toolsets.datadog.toolset_datadog_metrics import (
+    DatadogMetricsToolset,
+)
+from holmes.plugins.toolsets.datadog.toolset_datadog_traces import DatadogTracesToolset
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
-from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoToolset
 from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
+from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 from holmes.plugins.toolsets.newrelic import NewRelicToolset
 from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
@@ -32,7 +37,6 @@ from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTrace
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
-from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 
@@ -68,7 +72,9 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         GrafanaToolset(),
         NotionToolset(),
         KafkaToolset(),
-        DatadogToolset(),
+        DatadogLogsToolset(),
+        DatadogMetricsToolset(),
+        DatadogTracesToolset(),
         PrometheusToolset(),
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
@@ -148,7 +154,7 @@ def load_toolsets_from_config(
             toolset_type = config.get("type", ToolsetType.BUILTIN.value)
             # MCP server is not a built-in toolset, so we need to set the type explicitly
             validated_toolset: Optional[Toolset] = None
-            if toolset_type is ToolsetType.MCP:
+            if toolset_type == ToolsetType.MCP.value:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
                 validated_toolset = YAMLToolset(**config, name=name)  # type: ignore

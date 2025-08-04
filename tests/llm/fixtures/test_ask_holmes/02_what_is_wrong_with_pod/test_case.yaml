@@ -1,5 +1,35 @@
-user_prompt: 'What is wrong with << { "type": "pod", "name": "robusta-runner-6958c5bdd8-69gtn" } >> ?'
+user_prompt: 'What is wrong with << { "type": "pod", "name": "giant-narwhal-6958c5bdd8-69gtn" } >> ?'
 expected_output:
   - The pod was killed due to it being out of memory
-evaluation:
-  correctness: 1
+
+tags:
+  - kubernetes
+  - easy
+
+# This test creates a pod that consumes memory until it gets OOMKilled
+# Using 'tail /dev/zero' which reads infinite zeros and buffers them in memory
+before_test: |
+  kubectl create namespace app-02
+  cat <<EOF | kubectl apply -f -
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: giant-narwhal-6958c5bdd8-69gtn
+    namespace: app-02
+    labels:
+      app: ocean-explorer
+  spec:
+    containers:
+    - name: main
+      image: busybox:1.35
+      command: ["sh", "-c", "tail /dev/zero"]
+      resources:
+        limits:
+          memory: "50Mi"
+        requests:
+          memory: "50Mi"
+  EOF
+  sleep 60
+
+after_test: |
+  kubectl delete namespace app-02 --force --grace-period=0

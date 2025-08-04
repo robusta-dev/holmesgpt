@@ -42,6 +42,9 @@ class BasePodLoggingToolset(Toolset, ABC):
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         pass
 
+    def logger_name(self) -> str:
+        return ""
+
 
 class PodLoggingTool(Tool):
     """Common tool for fetching pod logs across different logging backends"""
@@ -60,12 +63,12 @@ class PodLoggingTool(Tool):
                     description="Kubernetes namespace", type="string", required=True
                 ),
                 "start_time": ToolParameter(
-                    description="Start time for logs. Can be an RFC3339 formatted timestamp (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
+                    description="Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time.",
                     type="string",
                     required=False,
                 ),
                 "end_time": ToolParameter(
-                    description="End time for logs. Must be an RFC3339 formatted timestamp (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
+                    description="End time for logs. Must be an RFC3339 formatted datetime (e.g. '2023-03-01T12:30:00Z'). If not specified, defaults to current time.",
                     type="string",
                     required=False,
                 ),
@@ -123,7 +126,10 @@ class PodLoggingTool(Tool):
         if limit:
             extra_params_str += f" limit={limit}"
 
-        return f"Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
+        logger_name = (
+            f"{self._toolset.logger_name()}: " if self._toolset.logger_name() else ""
+        )
+        return f"{logger_name}Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
 
 
 def process_time_parameters(

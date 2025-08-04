@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from langfuse import Langfuse
 from langfuse.client import DatasetItemClient
 from langfuse.model import DatasetItem
-from tests.llm.utils.mock_utils import (
+from tests.llm.utils.test_case_utils import (
     AskHolmesTestCase,
     HolmesTestCase,
     InvestigateTestCase,
@@ -91,17 +91,3 @@ def upload_test_cases(test_cases: List[HolmesTestCase], dataset_name: str):
             expected_output={"answer": test_case.expected_output},
             metadata={"test_case": test_case.model_dump()},
         )
-
-
-def resolve_dataset_item(
-    test_case: HolmesTestCase, dataset_name: str
-) -> Optional[DatasetItemClient]:
-    dataset = langfuse.get_dataset(dataset_name)
-    for item in dataset.items:
-        if (
-            item.metadata
-            and item.metadata.get("test_case")
-            and item.metadata.get("test_case").get("id") == test_case.id
-        ):
-            return item
-    return

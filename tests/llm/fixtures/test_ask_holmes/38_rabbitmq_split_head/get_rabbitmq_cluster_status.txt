@@ -1,4 +1,5 @@
-{"toolset_name":"rabbitmq/core","tool_name":"get_rabbitmq_cluster_status"}
+{"toolset_name": "rabbitmq/core", "tool_name": "get_rabbitmq_cluster_status"}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "get_rabbitmq_cluster_status command", "params": {}}
 {
   "schema_version": "robusta:v1.0.0",
   "status": "success",

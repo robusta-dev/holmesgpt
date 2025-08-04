@@ -1,4 +1,22 @@
-user_prompt: "How are the page render times for pod customer-orders"
-expected_output: "Page render times for `the pod range from about 7 to 9 seconds."
-evaluation:
-  correctness: 0
+user_prompt: "How are the page render times for pod mountain-lion"
+expected_output: "Page render times for the pod range from about 7 to 9 seconds."
+
+before_test: |
+  # Create namespace first since the secret depends on it (|| true ignores if it already exists)
+  kubectl create namespace app-26 || true
+  kubectl create secret generic mountain-lion-logs-script \
+  --from-file=generate_logs.py=./generate_logs.py \
+  -n app-26 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f ./manifest.yaml
+  kubectl wait --for=condition=Ready pod/mountain-lion -n app-26 --timeout=60s
+  # Let it generate some logs
+  sleep 20
+
+after_test: |
+  kubectl delete -f ./manifest.yaml
+  kubectl delete secret mountain-lion-logs-script -n app-26 --ignore-not-found
+
+tags:
+  - logs
+  - kubernetes
+  - medium

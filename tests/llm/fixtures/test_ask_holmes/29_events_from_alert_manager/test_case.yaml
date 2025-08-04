@@ -3,3 +3,6 @@ expected_output:
   - To answer should list events with at least a mention of the container `alertmanager` being created.
 evaluation:
   correctness: 1
+mock_policy: always_mock
+tags:
+  - easy

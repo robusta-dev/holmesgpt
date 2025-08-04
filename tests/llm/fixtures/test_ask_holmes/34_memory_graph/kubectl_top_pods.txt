@@ -1,4 +1,5 @@
-{"toolset_name":"kubernetes/live-metrics","tool_name":"kubectl_top_pods","match_params":{}}
+{"toolset_name": "kubernetes/live-metrics", "tool_name": "kubectl_top_pods", "match_params": {}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl_top_pods command", "params": {}}
 NAMESPACE            NAME                                                          CPU(cores)   MEMORY(bytes)
 default              alertmanager-robusta-kube-prometheus-st-alertmanager-0        5m           67Mi
 default              checkout-service-5bcd6bf54-g8ckl                              0m           6Mi

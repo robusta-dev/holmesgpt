@@ -12,4 +12,6 @@ evaluation:
   correctness: 0
 include_files:
   - dns_troubleshooting_instructions.md
-generate_mocks: False
+
+skip: true
+skip_reason: historical experiment
