@@ -62,10 +62,18 @@ class HolmesTestCase(BaseModel):
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
-    user_prompt: str  # The user's question to ask holmes
+    user_prompt: Union[
+        str, List[str]
+    ]  # The user's question(s) to ask holmes - can be single string or array
     cluster_name: Optional[str] = None
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
     runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
+
+    # Internal fields for variant handling
+    _variant_index: Optional[int] = None  # Which variant this instance represents
+    _original_user_prompt: Optional[Union[str, List[str]]] = (
+        None  # Store original prompt(s)
+    )
 
 
 class InvestigateTestCase(HolmesTestCase, BaseModel):
@@ -132,12 +140,33 @@ class MockHelper:
                     extra_prompt = load_include_files(
                         test_case_folder, config_dict.get("include_files", None)
                     )
-                    config_dict["user_prompt"] = (
-                        config_dict["user_prompt"] + extra_prompt
-                    )
-                    test_case = TypeAdapter(AskHolmesTestCase).validate_python(
-                        config_dict
-                    )
+
+                    original_user_prompt = config_dict["user_prompt"]
+
+                    # Handle array of user prompts - create multiple test case instances
+                    if isinstance(original_user_prompt, list):
+                        for i, prompt in enumerate(original_user_prompt):
+                            variant_config = config_dict.copy()
+                            variant_config["user_prompt"] = prompt + extra_prompt
+                            variant_config["_variant_index"] = i
+                            variant_config["_original_user_prompt"] = (
+                                original_user_prompt
+                            )
+                            variant_config["id"] = f"{test_case_id}[{i}]"
+                            test_case = TypeAdapter(AskHolmesTestCase).validate_python(
+                                variant_config
+                            )
+                            test_cases.append(test_case)
+                        continue  # Skip the normal append at the end
+                    else:
+                        # Single prompt case
+                        config_dict["user_prompt"] = (
+                            config_dict["user_prompt"] + extra_prompt
+                        )
+                        config_dict["_original_user_prompt"] = original_user_prompt
+                        test_case = TypeAdapter(AskHolmesTestCase).validate_python(
+                            config_dict
+                        )
                 elif self._test_cases_folder.name == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
@@ -227,24 +256,12 @@ def load_workload_health_request(test_case_folder: Path) -> WorkloadHealthReques
     )
 
 
-def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
-    """
-    Loads conversation history from .md files in a specified folder structure.
-
-    The folder structure is expected to be:
-    test_case_folder/
-        conversation_history/
-            <index>_<role>.md
-            ...
-    """
-    conversation_history_dir = test_case_folder / "conversation_history"
-
-    if not conversation_history_dir.is_dir():
-        return None
-
+def _parse_conversation_history_md_files(
+    conversation_history_dir,
+) -> None | List[Dict[str, str]]:
+    # If no .md files are found in the directory, return None.
     md_files = sorted(list(conversation_history_dir.glob("*.md")))
 
-    # If no .md files are found in the directory, return None.
     if not md_files:
         return None
 
@@ -271,6 +288,30 @@ def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str,
         content = md_file_path.read_text(encoding="utf-8")
 
         conversation_history.append({"role": role, "content": content})
+    return conversation_history
+
+
+def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
+    """
+    Loads conversation history from .md files in a specified folder structure.
+
+    The folder structure is expected to be:
+    test_case_folder/
+        conversation_history/
+            <index>_<role>.md
+            ...
+    """
+    conversation_history_dir = test_case_folder / "conversation_history"
+    if conversation_history_dir.is_dir():
+        conversation_history = _parse_conversation_history_md_files(
+            conversation_history_dir
+        )
+    elif test_case_folder.joinpath("conversation_history.json").exists():
+        conversation_history = json.loads(
+            read_file(test_case_folder.joinpath("conversation_history.json"))
+        )
+    else:
+        conversation_history = None
 
     return conversation_history
 
