@@ -19,10 +19,16 @@ port_forwards:
     remote_port: 3100
 
 before_test: |
-  # Deploy Loki infrastructure first
-  kubectl apply -f loki.yaml
+  # Create namespace
+  kubectl create namespace app-100 || true
 
-  # Create secret for payment-api but don't deploy it yet
+  # Deploy Loki infrastructure from shared config
+  kubectl apply -f ../../shared/loki.yaml -n app-100
+
+  # Create promtail config for this test
+  kubectl apply -f promtail-config.yaml -n app-100
+
+  # Create secret for payment-api
   kubectl create secret generic payment-api-script \
     --from-file=app.py=./app.py \
     -n app-100 --dry-run=client -o yaml | kubectl apply -f -
