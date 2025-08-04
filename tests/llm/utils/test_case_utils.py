@@ -80,8 +80,8 @@ class AskHolmesTestCase(HolmesTestCase, BaseModel):
     runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
 
     # Internal fields for variant handling
-    _variant_index: Optional[int] = None  # Which variant this instance represents
-    _original_user_prompt: Optional[Union[str, List[str]]] = (
+    variant_index: Optional[int] = None  # Which variant this instance represents
+    original_user_prompt: Optional[Union[str, List[str]]] = (
         None  # Store original prompt(s)
     )
 
@@ -157,8 +157,8 @@ class MockHelper:
                         for i, prompt in enumerate(original_user_prompt):
                             variant_config = config_dict.copy()
                             variant_config["user_prompt"] = prompt + extra_prompt
-                            variant_config["_variant_index"] = i
-                            variant_config["_original_user_prompt"] = (
+                            variant_config["variant_index"] = i
+                            variant_config["original_user_prompt"] = (
                                 original_user_prompt
                             )
                             variant_config["id"] = f"{test_case_id}[{i}]"
@@ -172,7 +172,7 @@ class MockHelper:
                         config_dict["user_prompt"] = (
                             config_dict["user_prompt"] + extra_prompt
                         )
-                        config_dict["_original_user_prompt"] = original_user_prompt
+                        config_dict["original_user_prompt"] = original_user_prompt
                         test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                             config_dict
                         )
