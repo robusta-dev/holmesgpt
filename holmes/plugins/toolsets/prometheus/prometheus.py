@@ -1,9 +1,7 @@
 import json
 import logging
 import os
-import random
 import re
-import string
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
@@ -31,6 +29,7 @@ from holmes.plugins.toolsets.utils import (
 from holmes.utils.cache import TTLCache
 from holmes.common.env_vars import IS_OPENSHIFT
 from holmes.common.openshift import load_openshift_token
+from holmes.utils.keygen_utils import generate_random_key
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 DEFAULT_TIME_SPAN_SECONDS = 3600
@@ -77,10 +76,6 @@ class PrometheusConfig(BaseModel):
 
 class BasePrometheusTool(Tool):
     toolset: "PrometheusToolset"
-
-
-def generate_random_key():
-    return "".join(random.choices(string.ascii_letters + string.digits, k=4))
 
 
 def filter_metrics_by_type(metrics: Dict, expected_type: str):
@@ -687,6 +682,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 if self.toolset.config.tool_calls_return_data:
                     response_data["data"] = data.get("data")
                 data_str = json.dumps(response_data, indent=2)
+
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=data_str,

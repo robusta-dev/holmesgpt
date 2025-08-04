@@ -24,6 +24,7 @@ Tools to search and fetch logs from Coralogix.
 {%- elif k8s_base_ts and k8s_base_ts.status == "enabled" -%}
 {% include '_default_log_prompt.jinja2' %}
 {%- elif datadog_ts and datadog_ts.status == "enabled" -%}
+* If you are not sure what is the pod namespace, search for the logs only by pod name.
 ### datadog/logs
 #### Datadog Logs Toolset
 Tools to search and fetch logs from Datadog.
