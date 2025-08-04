@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: payment-api
-  namespace: app-143
+  namespace: app-100
 spec:
   replicas: 1
   selector:

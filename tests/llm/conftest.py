@@ -1,6 +1,5 @@
 import os
 from contextlib import contextmanager
-from typing import cast, Optional
 
 import pytest
 from pytest_shared_session_scope import (
@@ -21,7 +20,6 @@ from tests.llm.utils.reporting.github_reporter import handle_github_output
 from tests.llm.utils.braintrust import get_braintrust_url
 from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
-    extract_test_cases_needing_setup,
     log,
 )
 
@@ -87,7 +85,26 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
 
     if initial is SetupToken.FIRST:
         # This is the first worker to run the fixture
-        test_cases = extract_test_cases_needing_setup(request.session)
+        # Extract all test cases (we need them all for port forwards)
+        from tests.llm.utils.test_case_utils import HolmesTestCase
+
+        seen_ids = set()
+        test_cases = []
+
+        for item in request.session.items:
+            if (
+                item.get_closest_marker("llm")
+                and hasattr(item, "callspec")
+                and "test_case" in item.callspec.params
+            ):
+                test_case = item.callspec.params["test_case"]
+                if (
+                    isinstance(test_case, HolmesTestCase)
+                    and test_case.id not in seen_ids
+                    and not test_case.skip  # Don't run setup for skipped tests
+                ):
+                    test_cases.append(test_case)
+                    seen_ids.add(test_case.id)
 
         # Clear mock directories if --regenerate-all-mocks is set
         cleared_directories = []
@@ -103,14 +120,17 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         skip_setup = request.config.getoption("--skip-setup")
 
         if test_cases and not skip_setup:
-            setup_failures, port_forward_manager = run_all_test_setup(test_cases)
+            setup_failures = run_all_test_setup(test_cases)
         elif skip_setup:
             log("⚙️ Skipping test setup due to --skip-setup flag")
             setup_failures = {}
-            port_forward_manager = None
         else:
             setup_failures = {}
-            port_forward_manager = None
+
+        # Set up port forwards AFTER namespace/resources are created
+        from tests.llm.utils.port_forward import setup_all_port_forwards
+
+        port_forward_manager = setup_all_port_forwards(test_cases)
 
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],
@@ -136,16 +156,17 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         skip_cleanup = request.config.getoption("--skip-cleanup")
 
         # Always clean up port forwards regardless of skip_cleanup flag
-        from tests.llm.utils.port_forward import PortForwardManager
-
-        port_forward_manager = cast(
-            Optional[PortForwardManager], data.get("port_forward_manager")
-        )
-        if port_forward_manager:
+        port_forward_manager_obj = data.get("port_forward_manager")
+        if port_forward_manager_obj:
             try:
-                from tests.llm.utils.port_forward import cleanup_all_port_forwards
+                from tests.llm.utils.port_forward import (
+                    cleanup_all_port_forwards,
+                    PortForwardManager,
+                )
 
-                cleanup_all_port_forwards(port_forward_manager)
+                # Type guard to ensure port_forward_manager_obj is PortForwardManager
+                if isinstance(port_forward_manager_obj, PortForwardManager):
+                    cleanup_all_port_forwards(port_forward_manager_obj)
             except Exception as e:
                 log(f"⚠️ Error cleaning up port forwards: {e}")
 

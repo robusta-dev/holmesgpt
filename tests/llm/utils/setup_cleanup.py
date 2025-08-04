@@ -5,10 +5,7 @@ import sys
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from tests.llm.utils.port_forward import PortForwardManager
+from typing import List, Dict
 from strenum import StrEnum
 
 from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
@@ -174,50 +171,28 @@ def run_all_test_commands(
 
 def run_all_test_setup(
     test_cases: List[HolmesTestCase],
-) -> Tuple[Dict[str, str], Optional["PortForwardManager"]]:
-    """Run before_test for each test case in parallel and set up port forwards.
+) -> Dict[str, str]:
+    """Run before_test for each test case in parallel.
 
     Returns:
-        Tuple of:
-        - Dict[str, str]: Mapping of test_case.id to error message for failed setups
-        - PortForwardManager: Manager instance for this worker's port forwards
+        Dict[str, str]: Mapping of test_case.id to error message for failed setups
     """
-    # First run the before_test commands (which create namespaces, deployments, etc.)
+    # Run the before_test commands (which create namespaces, deployments, etc.)
     setup_failures = run_all_test_commands(test_cases, Operation.SETUP)
 
-    # Then set up port forwards after resources are created
-    port_forward_manager = None
-    try:
-        from tests.llm.utils.port_forward import setup_all_port_forwards
-
-        port_forward_manager = setup_all_port_forwards(test_cases)
-    except Exception as e:
-        log(f"❌ Failed to set up port forwards: {e}")
-        # Continue anyway - some tests might not need port forwards
-
-    return setup_failures, port_forward_manager
+    return setup_failures
 
 
 def run_all_test_cleanup(
     test_cases: List[HolmesTestCase],
-    port_forward_manager: Optional["PortForwardManager"] = None,
 ) -> None:
-    """Run after_test for each test case in parallel and clean up port forwards."""
-    # First run the after_test commands
+    """Run after_test for each test case in parallel."""
+    # Run the after_test commands
     run_all_test_commands(test_cases, Operation.CLEANUP)
-
-    # Then clean up port forwards if provided
-    if port_forward_manager:
-        try:
-            from tests.llm.utils.port_forward import cleanup_all_port_forwards
-
-            cleanup_all_port_forwards(port_forward_manager)
-        except Exception as e:
-            log(f"⚠️ Error cleaning up port forwards: {e}")
 
 
 def extract_test_cases_needing_setup(session) -> List[HolmesTestCase]:
-    """Extract unique test cases that need setup (before_test or port_forwards) from session items."""
+    """Extract unique test cases that need setup (before_test) from session items."""
     seen_ids = set()
     test_cases = []
 
@@ -230,7 +205,7 @@ def extract_test_cases_needing_setup(session) -> List[HolmesTestCase]:
             test_case = item.callspec.params["test_case"]
             if (
                 isinstance(test_case, HolmesTestCase)
-                and (test_case.before_test or test_case.port_forwards)
+                and test_case.before_test
                 and test_case.id not in seen_ids
                 and not test_case.skip  # Don't run setup for skipped tests
             ):

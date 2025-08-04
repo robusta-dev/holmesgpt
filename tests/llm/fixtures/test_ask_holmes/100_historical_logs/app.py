@@ -9,7 +9,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
 # Set random seed for reproducible logs
-random.seed(143)
+random.seed(100)
 
 # Configure structured logging
 logging.basicConfig(level=logging.INFO, format="%(message)s")

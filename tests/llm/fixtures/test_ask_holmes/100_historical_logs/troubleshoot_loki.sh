@@ -2,9 +2,9 @@
 
 # Unified troubleshooting script for Loki eval tests
 # Usage: ./troubleshoot_loki.sh [namespace]
-# Default namespace: app-143
+# Default namespace: app-100
 
-NAMESPACE="${1:-app-143}"
+NAMESPACE="${1:-app-100}"
 
 echo "========================================"
 echo "LOKI EVAL TROUBLESHOOTING"
@@ -12,7 +12,7 @@ echo "Namespace: $NAMESPACE"
 echo "========================================"
 echo ""
 echo "To use this script:"
-echo "1. Run your test with: RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py -k '143' --skip-cleanup -vv"
+echo "1. Run your test with: RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py -k '100' --skip-cleanup -vv"
 echo "2. After test completes, run this script to inspect the state"
 echo "3. When done, cleanup with: kubectl delete namespace $NAMESPACE --force"
 echo ""
