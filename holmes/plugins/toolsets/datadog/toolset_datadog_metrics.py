@@ -344,9 +344,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         description = params.get("description", "")
-        return (
-            f"{toolset_name_for_one_liner(self.toolset.name)}: Query Metrics ({description})"
-        )
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Query Metrics ({description})"
 
 
 class QueryMetricsMetadata(BaseDatadogMetricsTool):
