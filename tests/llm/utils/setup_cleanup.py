@@ -191,8 +191,15 @@ def run_all_test_cleanup(
     run_all_test_commands(test_cases, Operation.CLEANUP)
 
 
-def extract_test_cases_needing_setup(session) -> List[HolmesTestCase]:
-    """Extract unique test cases that need setup (before_test) from session items."""
+def extract_llm_test_cases(session) -> List[HolmesTestCase]:
+    """Extract unique LLM test cases from session items.
+
+    Args:
+        session: pytest session object
+
+    Returns:
+        List of unique HolmesTestCase instances (excluding skipped tests)
+    """
     seen_ids = set()
     test_cases = []
 
@@ -205,9 +212,8 @@ def extract_test_cases_needing_setup(session) -> List[HolmesTestCase]:
             test_case = item.callspec.params["test_case"]
             if (
                 isinstance(test_case, HolmesTestCase)
-                and test_case.before_test
                 and test_case.id not in seen_ids
-                and not test_case.skip  # Don't run setup for skipped tests
+                and not test_case.skip  # Don't include skipped tests
             ):
                 test_cases.append(test_case)
                 seen_ids.add(test_case.id)

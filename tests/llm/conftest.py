@@ -21,6 +21,12 @@ from tests.llm.utils.braintrust import get_braintrust_url
 from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
     log,
+    extract_llm_test_cases,
+)
+from tests.llm.utils.port_forward import (
+    setup_all_port_forwards,
+    extract_port_forwards_from_test_cases,
+    cleanup_port_forwards_by_config,
 )
 
 
@@ -86,25 +92,7 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
     if initial is SetupToken.FIRST:
         # This is the first worker to run the fixture
         # Extract all test cases (we need them all for port forwards)
-        from tests.llm.utils.test_case_utils import HolmesTestCase
-
-        seen_ids = set()
-        test_cases = []
-
-        for item in request.session.items:
-            if (
-                item.get_closest_marker("llm")
-                and hasattr(item, "callspec")
-                and "test_case" in item.callspec.params
-            ):
-                test_case = item.callspec.params["test_case"]
-                if (
-                    isinstance(test_case, HolmesTestCase)
-                    and test_case.id not in seen_ids
-                    and not test_case.skip  # Don't run setup for skipped tests
-                ):
-                    test_cases.append(test_case)
-                    seen_ids.add(test_case.id)
+        test_cases = extract_llm_test_cases(request.session)
 
         # Clear mock directories if --regenerate-all-mocks is set
         cleared_directories = []
@@ -128,15 +116,14 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             setup_failures = {}
 
         # Set up port forwards AFTER namespace/resources are created
-        from tests.llm.utils.port_forward import setup_all_port_forwards
-
-        port_forward_manager = setup_all_port_forwards(test_cases)
+        setup_all_port_forwards(test_cases)
 
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],
             "cleared_mock_directories": cleared_directories,
             "setup_failures": setup_failures,
-            "port_forward_manager": port_forward_manager,
+            # Store port forward configs for cleanup (not the manager object)
+            "port_forward_configs": extract_port_forwards_from_test_cases(test_cases),
         }
     else:
         log(f"⚙️ Skipping before_test/after_test on worker {worker_id}")
@@ -156,17 +143,11 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         skip_cleanup = request.config.getoption("--skip-cleanup")
 
         # Always clean up port forwards regardless of skip_cleanup flag
-        port_forward_manager_obj = data.get("port_forward_manager")
-        if port_forward_manager_obj:
+        port_forward_configs = data.get("port_forward_configs", [])
+        if port_forward_configs and isinstance(port_forward_configs, list):
             try:
-                from tests.llm.utils.port_forward import (
-                    cleanup_all_port_forwards,
-                    PortForwardManager,
-                )
-
-                # Type guard to ensure port_forward_manager_obj is PortForwardManager
-                if isinstance(port_forward_manager_obj, PortForwardManager):
-                    cleanup_all_port_forwards(port_forward_manager_obj)
+                # Kill any kubectl port-forward processes that match our configs
+                cleanup_port_forwards_by_config(port_forward_configs)
             except Exception as e:
                 log(f"⚠️ Error cleaning up port forwards: {e}")
 

@@ -213,7 +213,64 @@ def setup_all_port_forwards(test_cases: List[HolmesTestCase]) -> PortForwardMana
 
 
 def cleanup_all_port_forwards(manager: PortForwardManager) -> None:
-    """Clean up all port forwards."""
+    """Clean up all port forwards.
+
+    Note: This function is currently unused but kept for potential future use
+    when we have access to the actual PortForwardManager object.
+    """
     if manager.port_forwards:
         log(f"\n🔌 Cleaning up {len(manager.port_forwards)} port forwards")
         manager.stop_all()
+
+
+def cleanup_port_forwards_by_config(configs: List[Dict[str, Any]]) -> None:
+    """Clean up port forwards by killing kubectl processes matching the configs.
+
+    This approach is used instead of cleanup_all_port_forwards because with xdist
+    the worker that created the port forwards may not be the one cleaning them up.
+    (We can't use the same worker to clean up because other tests might still be running -
+    we need to cleanup on the last worker only.)
+
+    This is more "violent" than using the PortForwardManager's stop() method, but it's
+    unfortunately necessary. An alternative is to do setup/cleanu on master worker,
+    but I'm not sure how to do that with xdist.
+    """
+    if not configs:
+        return
+
+    log(f"\n🔌 Cleaning up {len(configs)} port forwards")
+
+    for config in configs:
+        try:
+            # Find and kill kubectl port-forward processes for this specific port
+            local_port = config["local_port"]
+
+            if os.name != "nt":
+                # On Unix-like systems, find the process using the port
+                result = subprocess.run(
+                    ["lsof", "-ti", f":{local_port}"],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    pids = result.stdout.strip().split("\n")
+                    for pid in pids:
+                        try:
+                            # Check if it's a kubectl process before killing
+                            ps_result = subprocess.run(
+                                ["ps", "-p", pid, "-o", "comm="],
+                                capture_output=True,
+                                text=True,
+                            )
+                            if (
+                                ps_result.returncode == 0
+                                and "kubectl" in ps_result.stdout
+                            ):
+                                os.kill(int(pid), signal.SIGTERM)
+                                log(
+                                    f"🛑 Killed kubectl port-forward on port {local_port} (PID: {pid})"
+                                )
+                        except (ValueError, ProcessLookupError):
+                            pass
+        except Exception as e:
+            log(f"⚠️ Error cleaning up port forward on port {config['local_port']}: {e}")
