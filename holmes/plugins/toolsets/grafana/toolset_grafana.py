@@ -86,17 +86,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
             return f"Error fetching dashboards: {str(e)}"
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        filters = []
-        if params.get("cluster_name"):
-            filters.append(f"cluster={params['cluster_name']}")
-        if params.get("namespace"):
-            filters.append(f"namespace={params['namespace']}")
-        if params.get("pod_name"):
-            filters.append(f"pod={params['pod_name']}")
-        if params.get("node_name"):
-            filters.append(f"node={params['node_name']}")
-        filter_str = f" ({', '.join(filters)})" if filters else ""
-        return f"List Grafana Dashboards{filter_str}"
+        return "List Grafana Dashboards"
 
 
 class GrafanaToolset(BaseGrafanaToolset):
