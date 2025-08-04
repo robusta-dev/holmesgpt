@@ -43,10 +43,9 @@ spec:
         resources:
           requests:
             memory: "128Mi"
-            cpu: "100m"
+            cpu: "10m"
           limits:
             memory: "256Mi"
-            cpu: "200m"
       # Promtail sidecar for log shipping
       - name: promtail
         image: grafana/promtail:2.9.0

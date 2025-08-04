@@ -10,6 +10,7 @@ expected_output:
 tags:
   - logs
   - kubernetes
+  - easy
 
 port_forwards:
   - namespace: app-100
@@ -29,70 +30,38 @@ before_test: |
   # Wait for Loki to be ready
   kubectl wait --for=condition=ready pod -l app=loki -n app-100 --timeout=60s
 
-  # Wait for Loki to be fully ready (ingester needs time to initialize)
-  echo "Waiting for Loki ingester to be ready..."
-  LOKI_READY=false
+  # Wait for Loki ingester to be ready
   for i in {1..60}; do
     if kubectl exec -n app-100 deployment/loki -- wget -q -O- http://localhost:3100/ready 2>/dev/null | grep -q "ready"; then
-      echo "Loki is ready after $i seconds!"
-      LOKI_READY=true
       break
     fi
-    if [ $((i % 5)) -eq 0 ]; then
-      echo "Waiting for Loki to be ready... ($i/60s)"
-    fi
+    [ $i -eq 60 ] && echo "ERROR: Loki not ready" && exit 1
     sleep 1
   done
 
-  if [ "$LOKI_READY" != "true" ]; then
-    echo "ERROR: Loki failed to become ready after 60 seconds"
-    exit 1
-  fi
-
-  # NOW deploy payment-api after Loki is fully ready
-  echo "Deploying payment-api..."
+  # Deploy payment-api
   kubectl apply -f payment-api.yaml
 
   # Wait for payment-api pod to be ready
   kubectl wait --for=condition=ready pod -l app=payment-api -n app-100 --timeout=60s
 
-  # Poll for logs to be shipped to Loki (max 120 seconds total)
-  echo "Waiting for logs to be shipped to Loki..."
-  LOGS_FOUND=false
+  # Wait for logs to appear in Loki
+  sleep 5  # Let Promtail initialize
   START_TIME=$(date +%s)
-  TIMEOUT=120
-
-  while [ $(($(date +%s) - START_TIME)) -lt $TIMEOUT ]; do
-    # Check for any logs in the namespace
+  while [ $(($(date +%s) - START_TIME)) -lt 120 ]; do
     LOG_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100"}&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
-
-    # Also specifically check for historical logs from August 2
     HISTORICAL_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
-
-    # Check for error logs specifically
     ERROR_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100",level="ERROR"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
 
     if [ "$LOG_COUNT" -gt "0" ] && [ "$HISTORICAL_COUNT" -gt "0" ] && [ "$ERROR_COUNT" -gt "0" ]; then
-      ELAPSED=$(($(date +%s) - START_TIME))
-      echo "Logs found in Loki after $ELAPSED seconds (including historical error logs)!"
-      LOGS_FOUND=true
-      break
+      echo "Logs ready in Loki"
+      exit 0
     fi
-
-    ELAPSED=$(($(date +%s) - START_TIME))
-    if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
-      echo "Still waiting for logs to appear in Loki... ($ELAPSED/${TIMEOUT}s)"
-      echo "Current logs: $LOG_COUNT, Historical logs: $HISTORICAL_COUNT, Error logs: $ERROR_COUNT"
-    fi
-    sleep 1
+    sleep 2
   done
 
-  if [ "$LOGS_FOUND" != "true" ]; then
-    echo "ERROR: No logs found in Loki after waiting $TIMEOUT seconds"
-    kubectl exec -n app-100 deployment/payment-api -c promtail -- cat /etc/promtail/promtail-config.yaml
-    kubectl logs -n app-100 deployment/payment-api -c promtail --tail=20
-    exit 1
-  fi
+  echo "ERROR: Logs not found in Loki after 120s"
+  exit 1
 
 after_test: |
   kubectl delete namespace app-100 --force --grace-period=0 || true
