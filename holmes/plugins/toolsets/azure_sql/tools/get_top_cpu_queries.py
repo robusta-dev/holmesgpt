@@ -135,9 +135,7 @@ class GetTopCPUQueries(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return (
-            f"{self.toolset.name}: Get Top CPU Queries ({db_config.server_name}/{db_config.database_name})"
-        )
+        return f"{self.toolset.name}: Get Top CPU Queries ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(
