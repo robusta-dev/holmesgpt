@@ -15,6 +15,7 @@ expected_output: |
 evaluation:
   correctness: 1
 
+test_type: "server"
 
 # setup & teardown
 

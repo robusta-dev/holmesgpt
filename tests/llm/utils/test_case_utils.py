@@ -84,6 +84,7 @@ class AskHolmesTestCase(HolmesTestCase, BaseModel):
     original_user_prompt: Optional[Union[str, List[str]]] = (
         None  # Store original prompt(s)
     )
+    test_type: Optional[str] = None  # The type of test to run
 
 
 class InvestigateTestCase(HolmesTestCase, BaseModel):
