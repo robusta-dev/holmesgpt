@@ -250,7 +250,7 @@ class TestFetchDatadogTraceById:
         """Test one-liner generation."""
         params = {"trace_id": "abc123"}
         one_liner = self.tool.get_parameterized_one_liner(params)
-        assert "Fetch Trace Details (abc123)" == one_liner
+        assert "datadog/traces: Fetch Trace Details (abc123)" == one_liner
 
     def test_invoke_missing_trace_id(self):
         """Test invocation without trace_id parameter."""
@@ -339,7 +339,7 @@ class TestFetchDatadogSpansByFilter:
         # Test with query
         params = {"query": "@http.status_code:500"}
         one_liner = self.tool.get_parameterized_one_liner(params)
-        assert "Search Spans (@http.status_code:500)" == one_liner
+        assert "datadog/traces: Search Spans (@http.status_code:500)" == one_liner
 
         # Test with filters
         params = {"service": "web-api", "operation": "GET /users"}
