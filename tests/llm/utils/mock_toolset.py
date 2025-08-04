@@ -462,7 +462,7 @@ class MockableToolWrapper(Tool):
             return result
         elif self._mode == MockMode.LIVE:
             # Live mode: just call the real tool
-            return self.call_live_invoke(params)
+            return self._call_live_invoke(params)
         elif self._mode == MockMode.MOCK:
             return self._call_mock_invoke(params)
         else:
