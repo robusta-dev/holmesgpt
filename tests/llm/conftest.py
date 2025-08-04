@@ -1,5 +1,6 @@
 import os
 from contextlib import contextmanager
+from typing import cast, Optional
 
 import pytest
 from pytest_shared_session_scope import (
@@ -20,7 +21,6 @@ from tests.llm.utils.reporting.github_reporter import handle_github_output
 from tests.llm.utils.braintrust import get_braintrust_url
 from tests.llm.utils.setup_cleanup import (
     run_all_test_setup,
-    run_all_test_cleanup,
     extract_test_cases_needing_setup,
     log,
 )
@@ -103,17 +103,20 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         skip_setup = request.config.getoption("--skip-setup")
 
         if test_cases and not skip_setup:
-            setup_failures = run_all_test_setup(test_cases)
+            setup_failures, port_forward_manager = run_all_test_setup(test_cases)
         elif skip_setup:
             log("⚙️ Skipping test setup due to --skip-setup flag")
             setup_failures = {}
+            port_forward_manager = None
         else:
             setup_failures = {}
+            port_forward_manager = None
 
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],
             "cleared_mock_directories": cleared_directories,
             "setup_failures": setup_failures,
+            "port_forward_manager": port_forward_manager,
         }
     else:
         log(f"⚙️ Skipping before_test/after_test on worker {worker_id}")
@@ -126,9 +129,25 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
     if cleanup_token is CleanupToken.LAST:
         # This is the last worker to exit - responsible for cleanup
         test_case_ids = data.get("test_cases_for_cleanup", [])
+        if not isinstance(test_case_ids, list):
+            test_case_ids = []
 
         # Check skip-cleanup option
         skip_cleanup = request.config.getoption("--skip-cleanup")
+
+        # Always clean up port forwards regardless of skip_cleanup flag
+        from tests.llm.utils.port_forward import PortForwardManager
+
+        port_forward_manager = cast(
+            Optional[PortForwardManager], data.get("port_forward_manager")
+        )
+        if port_forward_manager:
+            try:
+                from tests.llm.utils.port_forward import cleanup_all_port_forwards
+
+                cleanup_all_port_forwards(port_forward_manager)
+            except Exception as e:
+                log(f"⚠️ Error cleaning up port forwards: {e}")
 
         if test_case_ids and not skip_cleanup:
             # Reconstruct test cases from IDs
@@ -151,7 +170,13 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
                         cleanup_test_cases.append(test_case)
 
             if cleanup_test_cases:
-                run_all_test_cleanup(cleanup_test_cases)
+                from tests.llm.utils.setup_cleanup import (
+                    run_all_test_commands,
+                    Operation,
+                )
+
+                # Only run the after_test commands, not port forward cleanup
+                run_all_test_commands(cleanup_test_cases, Operation.CLEANUP)
         elif skip_cleanup:
             log("⚙️ Skipping test cleanup due to --skip-cleanup flag")
 

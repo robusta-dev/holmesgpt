@@ -1,0 +1,119 @@
+user_prompt: "The payment-api pod had issues on August 2, 2025 around 13:45 UTC. What happened?"
+
+expected_output:
+  - The payment-api pod experienced failures caused by database connection pool exhaustion
+
+#  - The issue occurred on August 2, 2025 between 13:45-14:45 UTC and lasted for about 1 hour
+#  - Health checks at /healthz endpoint failed because they couldn't acquire database connections
+#  - Logs show "ConnectionPoolExhausted" errors and "Failed to acquire database connection - pool exhausted"
+
+tags:
+  - logs
+  - kubernetes
+
+port_forwards:
+  - namespace: app-143
+    service: loki
+    local_port: 3100
+    remote_port: 3100
+
+before_test: |
+  # Deploy Loki infrastructure first
+  kubectl apply -f loki.yaml
+
+  # Create secret for payment-api but don't deploy it yet
+  kubectl create secret generic payment-api-script \
+    --from-file=app.py=./app.py \
+    -n app-143 --dry-run=client -o yaml | kubectl apply -f -
+
+  # Wait for Loki to be ready
+  kubectl wait --for=condition=ready pod -l app=loki -n app-143 --timeout=60s
+
+  # Wait for Loki to be fully ready (ingester needs time to initialize)
+  echo "Waiting for Loki ingester to be ready..."
+  LOKI_READY=false
+  for i in {1..60}; do
+    if kubectl exec -n app-143 deployment/loki -- wget -q -O- http://localhost:3100/ready 2>/dev/null | grep -q "ready"; then
+      echo "Loki is ready after $i seconds!"
+      LOKI_READY=true
+      break
+    fi
+    if [ $((i % 5)) -eq 0 ]; then
+      echo "Waiting for Loki to be ready... ($i/60s)"
+    fi
+    sleep 1
+  done
+
+  if [ "$LOKI_READY" != "true" ]; then
+    echo "ERROR: Loki failed to become ready after 60 seconds"
+    exit 1
+  fi
+
+  # NOW deploy payment-api after Loki is fully ready
+  echo "Deploying payment-api..."
+  kubectl apply -f payment-api.yaml
+
+  # Wait for payment-api pod to be ready
+  kubectl wait --for=condition=ready pod -l app=payment-api -n app-143 --timeout=60s
+
+  # Give Promtail a moment to initialize and open the log file
+  echo "Waiting for Promtail to initialize..."
+  sleep 5
+
+  # Check that logs are being generated
+  echo "Checking log generation..."
+  kubectl exec -n app-143 deployment/payment-api -c payment-api -- ls -la /var/log/
+  kubectl exec -n app-143 deployment/payment-api -c payment-api -- tail -5 /var/log/payment-api.log
+
+  # Poll for logs to be shipped to Loki (max 120 seconds total)
+  echo "Waiting for logs to be shipped to Loki..."
+  LOGS_FOUND=false
+  START_TIME=$(date +%s)
+  TIMEOUT=120
+
+  while [ $(($(date +%s) - START_TIME)) -lt $TIMEOUT ]; do
+    # Check for any logs in the namespace
+    LOG_COUNT=$(kubectl exec -n app-143 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-143"}&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
+
+    # Also specifically check for historical logs from August 2
+    HISTORICAL_COUNT=$(kubectl exec -n app-143 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-143"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
+
+    # Check for error logs specifically
+    ERROR_COUNT=$(kubectl exec -n app-143 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-143",level="ERROR"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
+
+    if [ "$LOG_COUNT" -gt "0" ] && [ "$HISTORICAL_COUNT" -gt "0" ] && [ "$ERROR_COUNT" -gt "0" ]; then
+      ELAPSED=$(($(date +%s) - START_TIME))
+      echo "Logs found in Loki after $ELAPSED seconds (including historical error logs)!"
+      LOGS_FOUND=true
+      break
+    fi
+
+    ELAPSED=$(($(date +%s) - START_TIME))
+    if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+      echo "Still waiting for logs to appear in Loki... ($ELAPSED/${TIMEOUT}s)"
+      echo "Current logs: $LOG_COUNT, Historical logs: $HISTORICAL_COUNT, Error logs: $ERROR_COUNT"
+    fi
+    sleep 1
+  done
+
+  if [ "$LOGS_FOUND" != "true" ]; then
+    echo "ERROR: No logs found in Loki after waiting $TIMEOUT seconds"
+    kubectl exec -n app-143 deployment/payment-api -c promtail -- cat /etc/promtail/promtail-config.yaml
+    kubectl logs -n app-143 deployment/payment-api -c promtail --tail=20
+    exit 1
+  fi
+
+  # Verify labels are correct
+  echo "Verifying Loki labels..."
+  LABELS=$(kubectl exec -n app-143 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/labels' 2>/dev/null)
+  echo "Available labels: $LABELS"
+
+  # Check if pod_name label exists
+  if echo "$LABELS" | grep -q "pod_name"; then
+    echo "✓ pod_name label found in Loki"
+  else
+    echo "✗ WARNING: pod_name label not found in Loki"
+  fi
+
+after_test: |
+  kubectl delete namespace app-143 --force --grace-period=0 || true

@@ -59,6 +59,9 @@ class HolmesTestCase(BaseModel):
     mock_policy: Optional[str] = (
         "inherit"  # Mock policy: always_mock, never_mock, or inherit
     )
+    port_forwards: Optional[List[Dict[str, Any]]] = (
+        None  # Port forwarding configurations
+    )
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
