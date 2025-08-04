@@ -162,7 +162,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
         if params.get("tag_filter"):
             filters.append(f"tag_filter={params['tag_filter']}")
         filter_str = f"{', '.join(filters)}" if filters else "all"
-        return f"List Active Metrics ({filter_str})"
+        return f"{self.toolset.name}: List Active Metrics ({filter_str})"
 
 
 class QueryMetrics(BaseDatadogMetricsTool):
@@ -287,7 +287,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
 
     def get_parameterized_one_liner(self, params) -> str:
         query = params.get("query", "")
-        return f"Query Metrics ({query})"
+        return f"{self.toolset.name}: Query Metrics ({query})"
 
 
 class QueryMetricsMetadata(BaseDatadogMetricsTool):
@@ -400,8 +400,8 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
             if len(metric_names) == 1:
                 return f"Get Metric Metadata ({metric_names[0]})"
             elif len(metric_names) > 1:
-                return f"Get Datadog metric metadata for {len(metric_names)} metrics"
-        return "Get Datadog metric metadata"
+                return f"{self.toolset.name}: Get Datadog metric metadata for {len(metric_names)} metrics"
+        return f"{self.toolset.name}: Get Datadog metric metadata"
 
 
 class DatadogMetricsToolset(Toolset):
