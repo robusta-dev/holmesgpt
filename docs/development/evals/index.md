@@ -86,6 +86,18 @@ Run a specific test case:
 poetry run pytest ./tests/llm/test_ask_holmes.py -k "01_how_many_pods" --no-cov --disable-warnings
 ```
 
+Run tests by tag:
+```bash
+# Run all evals with the "logs" tag
+poetry run pytest -m "llm and logs" --no-cov --disable-warnings
+
+# Run evals with multiple tags (AND condition)
+poetry run pytest -m "llm and logs and datetime" --no-cov --disable-warnings
+
+# Run evals with either tag (OR condition)
+poetry run pytest -m "llm and (logs or datetime)" --no-cov --disable-warnings
+```
+
 > It is possible to investigate and debug why an eval fails by the output provided in the console. The output includes the correctness score, the reasoning for the score, information about what tools were called, the expected answer, as well as the LLM's answer.
 
 ### Custom Evaluation Flags

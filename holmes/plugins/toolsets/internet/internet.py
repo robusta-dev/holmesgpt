@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 
 import requests  # type: ignore
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 # TODO: change and make it holmes
@@ -215,7 +216,7 @@ class FetchWebpage(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params.get("url", "<missing url>")
-        return f"fetched webpage {url}"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Webpage {url}"
 
 
 class InternetBaseToolset(Toolset):

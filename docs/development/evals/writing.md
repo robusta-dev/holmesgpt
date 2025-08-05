@@ -157,6 +157,40 @@ Examples:
 
 ## Advanced Test Configuration
 
+### Port Forwarding
+
+Some tests require access to services that are not directly exposed. You can configure port forwards that will be automatically set up and torn down for your test:
+
+```yaml
+user_prompt: "Check RabbitMQ queue status"
+expected_output:
+  - RabbitMQ queues are healthy
+
+# Configure port forwards
+port_forwards:
+  - namespace: app-01
+    service: rabbitmq
+    local_port: 15672
+    remote_port: 15672
+  - namespace: app-01
+    service: prometheus
+    local_port: 9090
+    remote_port: 9090
+```
+
+Port forwards are:
+- Automatically started before any tests run
+- Shared across all tests in a session to avoid conflicts
+- Always cleaned up after tests complete, even if tests are interrupted
+- Run regardless of `--skip-setup` or `--skip-cleanup` flags
+
+**Important notes:**
+- Use unique local ports across all tests to avoid conflicts
+- Port forwards persist for the entire test session
+- If a port is already in use, the test will fail with helpful debugging information
+- Use `lsof -ti :<port>` to find processes using a port
+- Port forwards work with both mock and live (`RUN_LIVE=true`) test modes
+
 ### Toolset Configuration
 
 Control which toolsets are available for a specific test by creating a `toolsets.yaml` file in the test directory:
@@ -303,8 +337,8 @@ spec:
 
 ```yaml
 user_prompt: 'How is the test-nginx deployment performing?'
-before-test: kubectl apply -f manifest.yaml
-after-test: kubectl delete -f manifest.yaml
+before_test: kubectl apply -f manifest.yaml
+after_test: kubectl delete -f manifest.yaml
 # ... rest of configuration
 ```
 
@@ -333,8 +367,55 @@ evaluation:
 
 ## Tagging
 
-Evals are tagged for organisation and reporting purposes.
+Evals support tags for organization, filtering, and reporting purposes. Tags help categorize tests by their characteristics and enable selective test execution.
+
+### Available Tags
+
 The valid tags are defined in the test constants file in the repository.
+
+Some examples
+- `logs` - Tests HolmesGPT's ability to find and interpret logs correctly
+- `context_window` - Tests handling of data that exceeds the LLM's context window
+- `synthetic` - Tests that use manually generated mock data (cannot be run live)
+- `datetime` - Tests date/time handling and interpretation
+- etc.
+
+### Using Tags in Test Cases
+
+Add tags to your `test_case.yaml`:
+
+```yaml
+user_prompt: "Show me the logs for the pod `robusta-holmes` since last Thursday"
+tags:
+  - logs
+  - datetime
+  - synthetic
+expected_output:
+  - Database unavailable
+  - Memory pressure
+```
+
+### Running Tests by Tag
+
+Run only tests with specific tags:
+
+```bash
+# Run all evals with the "logs" tag
+poetry run pytest -m "llm" -m "logs"
+
+# Run evals with multiple tags (AND condition)
+poetry run pytest -m "llm" -m "logs" -m "datetime"
+
+# Run evals with either tag (OR condition)
+poetry run pytest -m "llm and (logs or datetime)"
+```
+
+### Tag Integration
+
+Tags are automatically:
+- Applied as pytest marks for test filtering
+- Passed to Braintrust for dataset categorization and analysis
+- Used in test reports for grouping and filtering
 
 ## Best Practices
 

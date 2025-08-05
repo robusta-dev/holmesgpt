@@ -1,0 +1,14 @@
+user_prompt: "What is the issue with redis?"
+expected_output:
+  - The PersistentVolumeClaim (PVC) redis-standard-pvc cannot bind because the StorageClass "standard-v2" does not exist
+  - The Redis pod is stuck in Pending state because the PVC is unbound
+  - To fix this issue, either create the missing StorageClass "standard-v2" or update the PVC to use an existing StorageClass
+tags:
+  - medium  # requires deeper analysis to identify the specific StorageClass issue
+  - kubernetes
+before_test: |
+  kubectl create namespace app-24b || true
+  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pvc-misconfiguration/redis-deployment.yaml -n app-24b
+after_test: |
+  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/pvc-misconfiguration/redis-deployment.yaml -n app-24b
+  kubectl delete namespace app-24b || true
