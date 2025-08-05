@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: log-generator-app
+  namespace: app-110
+type: Opaque
+stringData:
+  app.py: |
+    import time
+    from datetime import datetime
+    import sys
+
+    def main():
+
+        # Generate 5000 logs quickly
+        for i in range(1, 5001):
+            timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Mix of different log types to make it realistic
+            if i % 100 == 0:
+                print(f"{timestamp} ERROR Failed to process transaction {i}: Database connection timeout", flush=True)
+            elif i % 50 == 0:
+                print(f"{timestamp} WARN High memory usage detected: 85% utilized", flush=True)
+            elif i % 20 == 0:
+                print(f"{timestamp} INFO Cache refresh completed for user batch {i//20}", flush=True)
+            elif i % 10 == 0:
+                print(f"{timestamp} DEBUG Processing request {i} from client 192.168.1.{i%255}", flush=True)
+            else:
+                print(f"{timestamp} INFO Successfully processed request {i}", flush=True)
+
+            # Small delay to avoid overwhelming
+            if i % 100 == 0:
+                time.sleep(0.1)
+
+        # Keep container running
+        while True:
+            time.sleep(3600)
+
+    if __name__ == "__main__":
+        main()
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-generator
+  namespace: app-110
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-generator
+  template:
+    metadata:
+      labels:
+        app: log-generator
+    spec:
+      containers:
+      - name: log-generator
+        image: python:3.9-slim
+        command: ["python", "/app/app.py"]
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+      volumes:
+      - name: app-code
+        secret:
+          secretName: log-generator-app
+          defaultMode: 0755
