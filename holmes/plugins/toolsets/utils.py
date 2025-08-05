@@ -2,7 +2,7 @@ import datetime
 import time
 from typing import Dict, Optional, Tuple, Union
 
-from dateutil import parser  # type: ignore
+from dateutil import parser
 
 
 def standard_start_datetime_tool_param_description(time_span_seconds: int):
@@ -139,3 +139,10 @@ def get_param_or_raise(dict: Dict, param: str) -> str:
     if not value:
         raise Exception(f'Missing param "{param}"')
     return value
+
+
+def toolset_name_for_one_liner(toolset_name: str) -> str:
+    name = toolset_name
+    if "/" in toolset_name:
+        name = toolset_name.split("/")[0]
+    return name.capitalize()
