@@ -114,7 +114,8 @@ markers = [
     "leaked-information: cases where the eval is accidentally leaking information that should not be available to the LLM - e.g. if the names of environment variables or the docker image gives away part of the test",
     "port-forward: Tests requiring port forwarding to local services (automatically added to tests with port_forwards in test_case.yaml)",
     "toolset-limitation: Tests that cannot be solved no matter how smart the model, unless we improve the underlying toolsets themselves",
-    "ask-for-clarification: Tests where Holmes should ask the user for clarification"
+    "ask-for-clarification: Tests where Holmes should ask the user for clarification",
+    "database: Tests involving database interactions"
 ]
 
 addopts = [
