@@ -128,7 +128,9 @@ def test_investigate(
                 )
 
             with set_test_env_vars(test_case):
-                with eval_span.start_span("Holmes Run", type=SpanType.LLM) as llm_span:
+                with tracer.start_trace(
+                    "run holmes", span_type=SpanType.LLM
+                ) as llm_span:
                     result = investigate_issues(
                         investigate_request=investigate_request,
                         config=config,
