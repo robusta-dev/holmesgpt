@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import requests  # type: ignore
 import sentry_sdk
@@ -46,7 +46,15 @@ from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 
+class TruncationMetadata(BaseModel):
+    tool_call_id: str
+    start_index: int
+    end_index: int
 
+class TruncationResult(BaseModel):
+    truncated_messages: List[dict]
+    truncations: List[TruncationMetadata]
+    
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     tool_response = tool_result.data
     if isinstance(tool_result.data, str):
@@ -71,7 +79,7 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
 # token truncation and not character truncation
 def truncate_messages_to_fit_context(
     messages: list, max_context_size: int, maximum_output_token: int, count_tokens_fn
-) -> list:
+) -> TruncationResult:
     """
     Helper function to truncate tool messages to fit within context limits.
 
@@ -82,7 +90,7 @@ def truncate_messages_to_fit_context(
         count_tokens_fn: Function to count tokens for a list of messages
 
     Returns:
-        Modified list of messages with truncated tool responses
+        TruncationResult: A Pydantic object with the truncated messages and truncation ranges.
 
     Raises:
         Exception: If non-tool messages exceed available context space
@@ -94,6 +102,7 @@ def truncate_messages_to_fit_context(
 
     tool_call_messages = [message for message in messages if message["role"] == "tool"]
 
+
     if message_size_without_tools >= (max_context_size - maximum_output_token):
         logging.error(
             f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
@@ -103,13 +112,15 @@ def truncate_messages_to_fit_context(
         )
 
     if len(tool_call_messages) == 0:
-        return messages
+        return TruncationResult(truncated_messages=messages, truncations=[])
 
     available_space = (
         max_context_size - message_size_without_tools - maximum_output_token
     )
     remaining_space = available_space
     tool_call_messages.sort(key=lambda x: len(x["content"]))
+
+    truncations: List[TruncationMetadata] = []
 
     # Allocate space starting with small tools and going to larger tools, while maintaining fairness
     # Small tools can often get exactly what they need, while larger tools may need to be truncated
@@ -124,22 +135,39 @@ def truncate_messages_to_fit_context(
             truncation_notice = "\n\n[TRUNCATED]"
             # Ensure the indicator fits in the allocated space
             if allocated_space > len(truncation_notice):
-                msg["content"] = (
-                    msg["content"][: allocated_space - len(truncation_notice)]
-                    + truncation_notice
+                trunc_index = allocated_space - len(truncation_notice)
+                msg["content"] = msg["content"][:trunc_index] + truncation_notice
+                truncations.append(
+                    TruncationMetadata(
+                        tool_call_id=msg["tool_call_id"],
+                        start_index=trunc_index,
+                        end_index=needed_space,
+                    )
                 )
                 logging.info(
-                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
+                    f"Truncating tool message '{msg['name']}' from {needed_space} to {trunc_index} tokens"
                 )
             else:
                 msg["content"] = truncation_notice[:allocated_space]
+                truncations.append(
+                    TruncationMetadata(
+                        tool_call_id=msg["tool_call_id"],
+                        start_index=0,
+                        end_index=needed_space,
+                    )
+                )
                 logging.info(
                     f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
                 )
             msg.pop("token_count", None)  # Remove token_count if present
 
+        # Not truncated → no entry in truncations
         remaining_space -= allocated_space
-    return messages
+
+    return TruncationResult(
+        truncated_messages=messages_except_tools + tool_call_messages,
+        truncations=truncations,
+    )
 
 
 class ToolCallResult(BaseModel):
@@ -196,7 +224,8 @@ class LLMResult(BaseModel):
     # TODO: clean up these two
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
-
+    metadata: Optional[Dict[Any, Any]] = None
+    
     def get_tool_usage_summary(self):
         return "AI used info from issue and " + ",".join(
             [f"`{tool_call.description}`" for tool_call in self.tool_calls]
@@ -278,9 +307,10 @@ class ToolCallingLLM:
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(
+                truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
@@ -543,7 +573,7 @@ class ToolCallingLLM:
     @sentry_sdk.trace
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
-    ) -> list:
+    ) -> TruncationResult:
         return truncate_messages_to_fit_context(
             messages,
             max_context_size,
@@ -616,9 +646,10 @@ class ToolCallingLLM:
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(
+                truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
