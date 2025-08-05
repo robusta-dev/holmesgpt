@@ -102,6 +102,7 @@ markers = [
     "misleading-history: Tests with misleading historical data",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
+    "numerical: Tests involving numerical calculations or data",
     "understanding-real-intent: Tests that require understanding the user's real intent behind a question, not just giving a technically correct answer that is not useful",
     "counting: Ask holmes to count kubernetes/cloud resources",
     "kubernetes: Tests for Kubernetes-specific troubleshooting scenarios",

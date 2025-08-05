@@ -1,3 +1,4 @@
+# similar to eval 80 - not sure we need both
 user_prompt: "What is the issue with redis?"
 expected_output:
   - The PersistentVolumeClaim (PVC) redis-standard-pvc cannot bind because the StorageClass "standard-v2" does not exist
