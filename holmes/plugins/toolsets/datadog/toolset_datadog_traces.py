@@ -1,3 +1,5 @@
+"""Datadog Traces toolset for HolmesGPT."""
+
 import json
 import logging
 import os
