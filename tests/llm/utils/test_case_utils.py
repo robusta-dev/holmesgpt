@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
 import pytest
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ConfigDict
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 
@@ -42,6 +42,8 @@ T = TypeVar("T")
 
 
 class HolmesTestCase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     folder: str
     mocked_date: Optional[str] = None
@@ -59,6 +61,9 @@ class HolmesTestCase(BaseModel):
     mock_policy: Optional[str] = (
         "inherit"  # Mock policy: always_mock, never_mock, or inherit
     )
+    description: Optional[str] = None
+    generate_mocks: Optional[bool] = None
+    toolsets: Optional[Dict[str, Any]] = None
     port_forwards: Optional[List[Dict[str, Any]]] = (
         None  # Port forwarding configurations
     )
@@ -73,10 +78,11 @@ class AskHolmesTestCase(HolmesTestCase, BaseModel):
     runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
 
     # Internal fields for variant handling
-    _variant_index: Optional[int] = None  # Which variant this instance represents
-    _original_user_prompt: Optional[Union[str, List[str]]] = (
+    variant_index: Optional[int] = None  # Which variant this instance represents
+    original_user_prompt: Optional[Union[str, List[str]]] = (
         None  # Store original prompt(s)
     )
+    test_type: Optional[str] = None  # The type of test to run
 
 
 class InvestigateTestCase(HolmesTestCase, BaseModel):
@@ -84,6 +90,7 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+    request: Any = None
 
 
 class HealthCheckTestCase(HolmesTestCase, BaseModel):
@@ -91,6 +98,7 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+    request: Any = None
 
 
 def check_and_skip_test(test_case: HolmesTestCase) -> None:
@@ -159,8 +167,8 @@ class MockHelper:
                         for i, prompt in enumerate(original_user_prompt):
                             variant_config = config_dict.copy()
                             variant_config["user_prompt"] = prompt + extra_prompt
-                            variant_config["_variant_index"] = i
-                            variant_config["_original_user_prompt"] = (
+                            variant_config["variant_index"] = i
+                            variant_config["original_user_prompt"] = (
                                 original_user_prompt
                             )
                             variant_config["id"] = f"{test_case_id}[{i}]"
@@ -175,7 +183,7 @@ class MockHelper:
                         config_dict["user_prompt"] = (
                             config_dict["user_prompt"] + extra_prompt
                         )
-                        config_dict["_original_user_prompt"] = original_user_prompt
+                        config_dict["original_user_prompt"] = original_user_prompt
                         test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                             config_dict
                         )

@@ -289,7 +289,9 @@ def ask_holmes(
         llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
     )
 
-    test_type = os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+    test_type = (
+        test_case.test_type or os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+    )
     if test_type == "cli":
         if test_case.conversation_history:
             pytest.skip("CLI mode does not support conversation history tests")
