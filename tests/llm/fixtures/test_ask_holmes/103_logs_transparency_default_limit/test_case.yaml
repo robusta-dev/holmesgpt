@@ -19,7 +19,4 @@ after_test: |
 tags:
   - logs
   - transparency
-
-evaluation:
-  # This test verifies that Holmes communicates when log output is truncated due to default limits
-  correctness: 1
+  - medium

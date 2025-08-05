@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-init
-  namespace: app-104
+  namespace: namespace-104b
 type: Opaque
 stringData:
   init.sql: |
@@ -37,7 +37,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-secret
-  namespace: app-104
+  namespace: namespace-104b
 type: Opaque
 stringData:
   POSTGRES_PASSWORD: postgres123
@@ -46,7 +46,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: app-104
+  namespace: namespace-104b
 spec:
   selector:
     app: postgres
@@ -58,7 +58,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: app-104
+  namespace: namespace-104b
 spec:
   replicas: 1
   selector:
@@ -82,8 +82,7 @@ spec:
           value: userdb
         ports:
         - containerPort: 5432
-        command:
-        - postgres
+        args:
         - -c
         - shared_preload_libraries=pg_stat_statements
         - -c
@@ -93,6 +92,8 @@ spec:
         volumeMounts:
         - name: init-script
           mountPath: /docker-entrypoint-initdb.d
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
         resources:
           requests:
             memory: "128Mi"
@@ -104,12 +105,14 @@ spec:
       - name: init-script
         secret:
           secretName: postgres-init
+      - name: postgres-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: user-lookup-script
-  namespace: app-104
+  namespace: namespace-104b
 type: Opaque
 stringData:
   lookup.sh: |
@@ -142,7 +145,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user-lookup
-  namespace: app-104
+  namespace: namespace-104b
 spec:
   replicas: 1
   selector:

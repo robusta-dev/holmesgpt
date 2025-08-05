@@ -1,4 +1,4 @@
-user_prompt: "The order-lookup service in namespace-106 is very slow. Customers are experiencing delays when checking their orders."
+user_prompt: "The order-lookup service in namespace-104c is very slow. Customers are experiencing delays when checking their orders."
 expected_output:
   - Database queries slow due to missing index on orders.customer_email
   - Sequential scan on 75k orders table for email lookups
@@ -7,6 +7,7 @@ expected_output:
 tags:
   - medium
   - database
+
 description: |
   This eval provides a minimal PostgreSQL setup focusing on basic EXPLAIN analysis.
 
@@ -31,10 +32,11 @@ description: |
 
   This is the most straightforward approach using basic PostgreSQL tools.
 before_test: |
-  kubectl create namespace namespace-106
-  kubectl apply -f ./manifest.yaml -n namespace-106
-  kubectl wait --for=condition=ready pod -l app=postgres -n namespace-106 --timeout=60s
+  kubectl create namespace namespace-104c
+  kubectl apply -f ./manifest.yaml -n namespace-104c
+  kubectl wait --for=condition=ready pod -l app=postgres -n namespace-104c --timeout=60s
   sleep 25  # Let database initialize and queries run
+
 after_test: |
-  kubectl delete -f ./manifest.yaml -n namespace-106
-  kubectl delete namespace namespace-106
+  kubectl delete -f ./manifest.yaml -n namespace-104c
+  kubectl delete namespace namespace-104c

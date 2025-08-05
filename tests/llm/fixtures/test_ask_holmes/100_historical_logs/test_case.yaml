@@ -70,4 +70,4 @@ before_test: |
   exit 1
 
 after_test: |
-  kubectl delete namespace app-100 --force --grace-period=0 || true
+  kubectl delete namespace app-100 || true
