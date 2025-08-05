@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
 import pytest
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ConfigDict
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 
@@ -42,8 +42,7 @@ T = TypeVar("T")
 
 
 class HolmesTestCase(BaseModel):
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
     id: str
     folder: str
@@ -71,9 +70,6 @@ class HolmesTestCase(BaseModel):
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
-    class Config:
-        extra = "forbid"
-
     user_prompt: Union[
         str, List[str]
     ]  # The user's question(s) to ask holmes - can be single string or array
@@ -102,6 +98,7 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+    request: Any = None
 
 
 def check_and_skip_test(test_case: HolmesTestCase) -> None:
