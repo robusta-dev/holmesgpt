@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dolphin-config
+  namespace: app-107
+data:
+  config.yaml: |
+    server:
+      port: 8080
+      # Wrong config - missing required database settings
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dolphin
+  namespace: app-107
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dolphin
+  template:
+    metadata:
+      labels:
+        app: dolphin
+    spec:
+      containers:
+      - name: dolphin
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          echo "[$(date)] Starting dolphin application..."
+          echo "[$(date)] Loading configuration from /config/config.yaml"
+          echo "[$(date)] ERROR: Missing required configuration: database.host"
+          echo "[$(date)] FATAL: Cannot start application without database configuration"
+          exit 1
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: config
+        configMap:
+          name: dolphin-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dolphin
+  namespace: app-107
+spec:
+  selector:
+    app: dolphin
+  ports:
+  - port: 8080
+    targetPort: 8080

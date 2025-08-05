@@ -9,15 +9,23 @@ expected_output: |
 
 runbooks:
   catalog:
-    - description: "Generic Application Troubleshooting"
-      link: "generic_app_troubleshooting.md"
+    - description: "Application Startup Failures - Configuration and Dependencies"
+      link: "app_startup_failures.md"
       update_date: "2025-07-01"
     - description: "Application Down - Complete Outage"
       link: "app_down_troubleshooting.md"
       update_date: "2025-07-01"
-    - description: "Network Connectivity Issues"
-      link: "network_troubleshooting.md"
+    - description: "Application Performance Degradation"
+      link: "performance_degradation.md"
       update_date: "2025-07-01"
+
+before_test: |
+  kubectl create namespace app-107 || true
+  kubectl apply -f manifest.yaml -n app-107
+  sleep 20  # Let the app crash
+
+after_test: |
+  kubectl delete namespace app-107 --force --grace-period=0
 
 evaluation:
   correctness: 0

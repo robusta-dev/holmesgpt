@@ -1,43 +1,56 @@
 # Database Connection Troubleshooting
 
 ## Overview
-This runbook helps troubleshoot database connection issues and timeouts.
+This runbook helps diagnose database connection timeout issues in Kubernetes applications.
 
-## Steps
+## Investigation Steps
 
-### Step 1: Check Application Pods
-Verify application pods are running:
+### 1. Check Application Status
+Verify the application pods are running and review recent events:
 ```bash
-kubectl get pods -n <namespace> -l app=<app-name>
+kubectl get pods -n {namespace} -l app={app_name}
+kubectl describe pod -n {namespace} -l app={app_name}
 ```
 
-### Step 2: Review Application Logs
-Check for database connection errors:
+### 2. Review Application Logs
+Look for connection errors and timeout patterns:
 ```bash
-kubectl logs <pod> -n <namespace> --tail=100 | grep -i "database\|connection\|timeout"
+kubectl logs -n {namespace} -l app={app_name} --tail=50 | grep -E "(timeout|connection|ERROR)"
 ```
 
-### Step 3: Verify Database Service
-Ensure database service exists and has endpoints:
+### 3. Verify Database Service
+Check if the database service exists and has endpoints:
 ```bash
-kubectl get service,endpoints -n <namespace> | grep database
+kubectl get svc -n {namespace} | grep -E "(postgres|mysql|database)"
+kubectl get endpoints -n {namespace} | grep -E "(postgres|mysql|database)"
 ```
 
-### Step 4: Check Database Server Status
-Connect to database and check status:
-```sql
-SHOW STATUS LIKE 'Threads_connected';
-SHOW VARIABLES LIKE 'max_connections';
-```
-
-### Step 5: Test Network Connectivity
-Test connection from app pod to database:
+### 4. Test Network Connectivity
+Test connectivity from application pod to database:
 ```bash
-kubectl exec <app-pod> -n <namespace> -- nc -zv <db-host> <db-port>
+kubectl exec -n {namespace} $(kubectl get pod -n {namespace} -l app={app_name} -o jsonpath='{.items[0].metadata.name}') -- nc -zv {db_host} {db_port}
 ```
 
-### Step 6: Review Connection Pool Metrics
-Check connection pool usage in database:
-```sql
-SELECT * FROM information_schema.processlist;
+### 5. Check Database Health
+Connect to database and check its status:
+```bash
+# For PostgreSQL
+kubectl exec -n {namespace} {db_pod} -- psql -U postgres -c "SELECT 1"
+
+# Check active connections
+kubectl exec -n {namespace} {db_pod} -- psql -U postgres -c "SELECT count(*) FROM pg_stat_activity"
 ```
+
+### 6. Review Connection Pool Configuration
+Check application's database connection pool settings:
+```bash
+kubectl get deployment -n {namespace} {app_name} -o yaml | grep -A10 "env:"
+```
+
+## Common Issues
+
+1. **No Database Endpoints**: Database service has no backing pods
+2. **Connection Pool Exhaustion**: All connections in use, increase pool size
+3. **Network Policy**: Check if NetworkPolicies block database access
+4. **DNS Resolution**: Verify database hostname resolves correctly
+5. **Database Overload**: Too many connections, database not responding

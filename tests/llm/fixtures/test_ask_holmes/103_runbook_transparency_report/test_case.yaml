@@ -22,5 +22,13 @@ toolsets:
   database:
     enabled: false
 
+before_test: |
+  kubectl create namespace app-103 || true
+  kubectl apply -f manifest.yaml -n app-103
+  sleep 30  # Let the app start and begin experiencing connection issues
+
+after_test: |
+  kubectl delete namespace app-103 --force --grace-period=0
+
 evaluation:
   correctness: 0

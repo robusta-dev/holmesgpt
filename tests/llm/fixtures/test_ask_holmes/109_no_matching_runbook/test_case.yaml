@@ -1,4 +1,4 @@
-user_prompt: "Why is my custom CRD whale-watcher not being reconciled in namespace app-109?"
+user_prompt: "Please use a runbook to troubleshoot why my custom CRD whale-watcher resources are not being reconciled by the operator in namespace app-109"
 tags:
   - runbooks
 expected_output: |
@@ -15,6 +15,15 @@ runbooks:
     - description: "Service Connectivity Issues"
       link: "service_troubleshooting.md"
       update_date: "2025-07-01"
+
+before_test: |
+  kubectl create namespace app-109 || true
+  kubectl apply -f manifest.yaml
+  sleep 30  # Let the operator start and CRD be created
+
+after_test: |
+  kubectl delete -f manifest.yaml
+  kubectl delete namespace app-109 --force --grace-period=0
 
 evaluation:
   correctness: 0
