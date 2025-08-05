@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
 import pytest
-from pydantic import BaseModel, TypeAdapter, ConfigDict
+from pydantic import BaseModel, TypeAdapter, ValidationError, ConfigDict
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 
 from holmes.core.tool_calling_llm import ResourceInstructions
-from tests.llm.utils.constants import ALLOWED_EVAL_TAGS
+from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, get_allowed_tags_list
 
 
 def read_file(file_path: Path):
@@ -187,6 +187,7 @@ class MockHelper:
                         test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                             config_dict
                         )
+
                 elif self._test_cases_folder.name == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
@@ -222,6 +223,20 @@ class MockHelper:
 
                 logging.debug(f"Successfully loaded test case {test_case_id}")
                 test_cases.append(test_case)
+            except ValidationError as e:
+                problematic_tags = []
+                for error in e.errors():
+                    if error["type"] == "literal_error" and "tags" in str(error["loc"]):
+                        problematic_tags.append(error["input"])
+
+                if problematic_tags:
+                    error_msg = (
+                        f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
+                    )
+                    error_msg += f"Problematic tags: {', '.join(problematic_tags)}\n"
+                    error_msg += f"Allowed tags; {get_allowed_tags_list()}"
+                    print(error_msg)
+                raise e
             except FileNotFoundError:
                 logging.debug(
                     f"Folder {self._test_cases_folder}/{test_case_id} ignored because it is missing a {CONFIG_FILE_NAME} file."
