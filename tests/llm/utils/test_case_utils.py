@@ -59,6 +59,9 @@ class HolmesTestCase(BaseModel):
     mock_policy: Optional[str] = (
         "inherit"  # Mock policy: always_mock, never_mock, or inherit
     )
+    port_forwards: Optional[List[Dict[str, Any]]] = (
+        None  # Port forwarding configurations
+    )
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
@@ -114,6 +117,14 @@ class MockHelper:
     def load_ask_holmes_test_cases(self) -> List[AskHolmesTestCase]:
         return cast(List[AskHolmesTestCase], self.load_test_cases())
 
+    def _add_port_forward_tag(self, test_case: HolmesTestCase) -> None:
+        """Automatically add port-forward tag if test has port forwards."""
+        if test_case and test_case.port_forwards:
+            if test_case.tags is None:
+                test_case.tags = []
+            if "port-forward" not in test_case.tags:
+                test_case.tags.append("port-forward")
+
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
         test_cases_ids: List[str] = [
@@ -156,6 +167,7 @@ class MockHelper:
                             test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                                 variant_config
                             )
+                            self._add_port_forward_tag(test_case)
                             test_cases.append(test_case)
                         continue  # Skip the normal append at the end
                     else:
@@ -197,6 +209,8 @@ class MockHelper:
                         f"Skipping test case {test_case_id} - unknown test type"
                     )
                     continue
+
+                self._add_port_forward_tag(test_case)
 
                 logging.debug(f"Successfully loaded test case {test_case_id}")
                 test_cases.append(test_case)
