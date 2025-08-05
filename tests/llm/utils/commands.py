@@ -11,6 +11,21 @@ from tests.llm.utils.test_case_utils import HolmesTestCase
 EVAL_SETUP_TIMEOUT = int(os.environ.get("EVAL_SETUP_TIMEOUT", "180"))
 
 
+def _truncate_script(script: str, max_lines: int = 10) -> str:
+    """Truncate long scripts for display in error messages."""
+    lines = script.strip().split("\n")
+    if len(lines) <= max_lines:
+        return script
+
+    # Show first 5 and last 3 lines
+    truncated = (
+        lines[:5]
+        + ["... (truncated - " + str(len(lines) - 8) + " lines) ..."]
+        + lines[-3:]
+    )
+    return "\n".join(truncated)
+
+
 class CommandResult:
     def __init__(
         self,
@@ -57,7 +72,8 @@ def _invoke_command(command: str, cwd: str) -> str:
         logging.debug(f"Ran `{command}` in {cwd} with exit code {result.returncode}")
         return output
     except subprocess.CalledProcessError as e:
-        message = f"Command `{command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+        truncated_command = _truncate_script(command)
+        message = f"Command `{truncated_command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
         logging.error(message)
         raise e
 
@@ -95,7 +111,7 @@ def run_commands(
         )
     except subprocess.CalledProcessError as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {script}\nExit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+        error_details = f"$ {_truncate_script(script)}\nExit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed at: {e.cmd}",
@@ -108,7 +124,7 @@ def run_commands(
         )
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {script}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
+        error_details = f"$ {_truncate_script(script)}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",
@@ -120,7 +136,7 @@ def run_commands(
         )
     except Exception as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {script}\nUnexpected error: {str(e)}"
+        error_details = f"$ {_truncate_script(script)}\nUnexpected error: {str(e)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed",
