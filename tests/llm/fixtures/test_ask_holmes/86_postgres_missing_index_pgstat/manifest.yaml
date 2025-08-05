@@ -1,8 +1,10 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: postgres-init
-data:
+  namespace: app-86
+type: Opaque
+stringData:
   init.sql: |
     -- Enable pg_stat_statements
     CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
@@ -35,6 +37,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-secret
+  namespace: app-86
 type: Opaque
 stringData:
   POSTGRES_PASSWORD: postgres123
@@ -43,6 +46,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
+  namespace: app-86
 spec:
   selector:
     app: postgres
@@ -54,6 +58,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
+  namespace: app-86
 spec:
   replicas: 1
   selector:
@@ -97,13 +102,47 @@ spec:
             cpu: "200m"
       volumes:
       - name: init-script
-        configMap:
-          name: postgres-init
+        secret:
+          secretName: postgres-init
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-lookup-script
+  namespace: app-86
+type: Opaque
+stringData:
+  lookup.sh: |
+    #!/bin/sh
+    echo "Waiting for PostgreSQL to be ready..."
+    until pg_isready -h postgres -p 5432; do
+      sleep 2
+    done
+    echo "Starting user lookup queries..."
+    while true; do
+      # Simulate API lookups by email (the slow query)
+      email="user$(shuf -i 1-100000 -n 1)@example.com"
+      psql -h postgres -U postgres -d userdb \
+        -c "SELECT id, username, full_name, last_login FROM users WHERE email = '$email';" \
+        >/dev/null 2>&1
+
+      # Occasionally do a fast query (using indexed column) for contrast
+      if [ $((RANDOM % 10)) -eq 0 ]; then
+        username="user$(shuf -i 1-100000 -n 1)"
+        psql -h postgres -U postgres -d userdb \
+          -c "SELECT id, email, full_name FROM users WHERE username = '$username';" \
+          >/dev/null 2>&1
+      fi
+
+      # Small delay between queries
+      sleep 0.2
+    done
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user-lookup
+  namespace: app-86
 spec:
   replicas: 1
   selector:
@@ -123,32 +162,10 @@ spec:
             secretKeyRef:
               name: postgres-secret
               key: POSTGRES_PASSWORD
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            echo "Waiting for PostgreSQL to be ready..."
-            until pg_isready -h postgres -p 5432; do
-              sleep 2
-            done
-            echo "Starting user lookup queries..."
-            while true; do
-              # Simulate API lookups by email (the slow query)
-              email="user$(shuf -i 1-100000 -n 1)@example.com"
-              psql -h postgres -U postgres -d userdb \
-                -c "SELECT id, username, full_name, last_login FROM users WHERE email = '$email';" \
-                >/dev/null 2>&1
-
-              # Occasionally do a fast query (using indexed column) for contrast
-              if [ $((RANDOM % 10)) -eq 0 ]; then
-                username="user$(shuf -i 1-100000 -n 1)"
-                psql -h postgres -U postgres -d userdb \
-                  -c "SELECT id, email, full_name FROM users WHERE username = '$username';" \
-                  >/dev/null 2>&1
-              fi
-
-              # Small delay between queries
-              sleep 0.2
-            done
+        command: ["/bin/sh", "/scripts/lookup.sh"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
         resources:
           requests:
             memory: "64Mi"
@@ -156,3 +173,8 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "100m"
+      volumes:
+      - name: scripts
+        secret:
+          secretName: user-lookup-script
+          defaultMode: 0755

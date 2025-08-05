@@ -1,9 +1,7 @@
-user_prompt: "Show me the logs for the pod time-traveler in namespace app-120 from the last 2 hours"
+user_prompt: "Show me the logs for the pod time-traveler in namespace app-120 from the last 24 hours"
 expected_output:
-  - "last 2 hours"
-  - "2 hours"
-  - "API rate limit reached"
-  - "Memory threshold exceeded"
+  Quotes or summarizes logs.
+  Explicitly says logs are for time period of last 24 hours!
 
 before_test: |
   kubectl create namespace app-120 || true

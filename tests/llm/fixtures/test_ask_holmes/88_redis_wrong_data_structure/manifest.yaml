@@ -1,8 +1,10 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: redis-config
-data:
+  namespace: app-88
+type: Opaque
+stringData:
   redis.conf: |
     # Enable slowlog for operations over 10000 microseconds (10ms)
     slowlog-log-slower-than 10000
@@ -16,6 +18,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis
+  namespace: app-88
 spec:
   selector:
     app: redis
@@ -27,6 +30,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
+  namespace: app-88
 spec:
   replicas: 1
   selector:
@@ -57,14 +61,16 @@ spec:
             cpu: "100m"
       volumes:
       - name: config
-        configMap:
-          name: redis-config
+        secret:
+          secretName: redis-config
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: session-init
-data:
+  namespace: app-88
+type: Opaque
+stringData:
   init-sessions.sh: |
     #!/bin/sh
     echo "Waiting for Redis..."
@@ -89,6 +95,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: session-init
+  namespace: app-88
 spec:
   template:
     spec:
@@ -102,14 +109,48 @@ spec:
           mountPath: /scripts
       volumes:
       - name: init-script
-        configMap:
-          name: session-init
+        secret:
+          secretName: session-init
           defaultMode: 0755
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: session-lookup-script
+  namespace: app-88
+type: Opaque
+stringData:
+  lookup.sh: |
+    #!/bin/sh
+    echo "Waiting for Redis and session data..."
+    sleep 30  # Wait for init job
+
+    echo "Starting session lookup service..."
+    while true; do
+      # BAD PRACTICE: Using KEYS to find user sessions
+      # This simulates looking up sessions for random users
+      user_id=$(shuf -i 1-50000 -n 1)
+
+      # This KEYS command will scan ALL 50k keys!
+      redis-cli -h redis KEYS "session:user:*" | grep "session:user:${user_id}$" >/dev/null
+
+      # Then get the actual session data
+      redis-cli -h redis GET "session:user:${user_id}" >/dev/null
+
+      # Sometimes do a pattern search (even worse)
+      if [ $((RANDOM % 10)) -eq 0 ]; then
+        # Find all sessions for users in a range (extremely slow)
+        redis-cli -h redis KEYS "session:user:[1-9]*" | head -10 >/dev/null
+      fi
+
+      sleep 0.5
+    done
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: session-service
+  namespace: app-88
 spec:
   replicas: 1
   selector:
@@ -123,32 +164,10 @@ spec:
       containers:
       - name: session-lookup
         image: redis:7-alpine
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            echo "Waiting for Redis and session data..."
-            sleep 30  # Wait for init job
-
-            echo "Starting session lookup service..."
-            while true; do
-              # BAD PRACTICE: Using KEYS to find user sessions
-              # This simulates looking up sessions for random users
-              user_id=$(shuf -i 1-50000 -n 1)
-
-              # This KEYS command will scan ALL 50k keys!
-              redis-cli -h redis KEYS "session:user:*" | grep "session:user:${user_id}$" >/dev/null
-
-              # Then get the actual session data
-              redis-cli -h redis GET "session:user:${user_id}" >/dev/null
-
-              # Sometimes do a pattern search (even worse)
-              if [ $((RANDOM % 10)) -eq 0 ]; then
-                # Find all sessions for users in a range (extremely slow)
-                redis-cli -h redis KEYS "session:user:[1-9]*" | head -10 >/dev/null
-              fi
-
-              sleep 0.5
-            done
+        command: ["/bin/sh", "/scripts/lookup.sh"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
         resources:
           requests:
             memory: "64Mi"
@@ -156,3 +175,8 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "100m"
+      volumes:
+      - name: scripts
+        secret:
+          secretName: session-lookup-script
+          defaultMode: 0755

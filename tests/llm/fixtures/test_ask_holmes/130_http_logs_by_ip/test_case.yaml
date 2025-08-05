@@ -1,38 +1,20 @@
-id: 130_http_logs_by_ip
-name: Finding specific IP address activity in noisy HTTP logs
 description: |
   A web service has thousands of HTTP access logs. User reports that IP 192.168.1.105
   is causing issues. Holmes needs to filter through the noise to find what this specific
   IP is doing, revealing it's making suspicious requests.
 
-user_request: "We're seeing suspicious activity from IP 192.168.1.105. Can you check what this IP is doing in the web-server logs?"
+user_request: "I saw errors for IP 192.168.1.105 in web-server logs. Investigate"
 
 tags:
   - logs
-  - http
-  - filtering
-  - ip_address
 
-before_test:
-  - kubectl create namespace app-130 || true
-  - kubectl apply -f ./deployment.yaml -n app-130
-  - kubectl wait --for=condition=ready pod -l app=web-server -n app-130 --timeout=60s || true
+before_test: |
+  kubectl create namespace app-130 || true
+  kubectl apply -f ./deployment.yaml -n app-130
+  kubectl wait --for=condition=ready pod -l app=web-server -n app-130 --timeout=60s || true
 
-after_test:
-  - kubectl delete namespace app-130 --force --grace-period=0 || true
+after_test: |
+  kubectl delete namespace app-130 --force --grace-period=0 || true
 
-expected_answer:
-  must_contain:
-    - "192.168.1.105"
-    - "admin"
-    - "unauthorized"
-  should_contain:
-    - "brute force"
-    - "failed login"
-    - "/admin"
-  must_not_contain:
-    - "normal traffic"
-    - "no suspicious"
-  reasoning: |
-    Holmes should filter logs by the specific IP and identify that it's attempting
-    to access admin endpoints and failing authentication, indicating a brute force attack.
+expected_output:
+  This IP is attempting to access admin endpoints and failing authentication, indicating a brute force attack.

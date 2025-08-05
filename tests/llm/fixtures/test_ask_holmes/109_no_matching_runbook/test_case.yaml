@@ -1,17 +1,17 @@
-user_prompt: "Please use a runbook to troubleshoot why my custom CRD whale-watcher resources are not being reconciled by the operator in namespace app-109"
+user_prompt: "Use the custom-crd runbook and check why custom CRD whale-watcher resources are not being reconciled by the operator in namespace app-109"
 tags:
   - runbooks
+  - medium
+
 expected_output: |
   - Does not find a matching runbook for custom CRD issues
+  - No runbooks are used
   - Proceeds with investigation without runbook guidance
   - Uses available tools to investigate the issue
   - Does not force-fit an inappropriate runbook
 
 runbooks:
   catalog:
-    - description: "Pod Troubleshooting"
-      link: "pod_troubleshooting.md"
-      update_date: "2025-07-01"
     - description: "Service Connectivity Issues"
       link: "service_troubleshooting.md"
       update_date: "2025-07-01"
@@ -24,6 +24,3 @@ before_test: |
 after_test: |
   kubectl delete -f manifest.yaml
   kubectl delete namespace app-109 --force --grace-period=0
-
-evaluation:
-  correctness: 0

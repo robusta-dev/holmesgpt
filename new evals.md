@@ -1,25 +1,29 @@
+candidates:
+  - 113_logs_ambiguity
+  - 109_no_matching_runbook: Tests investigation when no suitable runbook exists
+  - 108_runbook_skip_with_reason: Tests explicit explanation when runbook steps are skipped
+  - 103_runbook_transparency_report: Tests runbook execution transparency with detailed investigation steps
+  - 119_logs_default_time_communication: Tests transparent communication of 7-day default period
+  - 120_logs_custom_time_communication: Tests communication of custom time periods
+
+    todo: reimplmenet on top of loki and we can actually verify time period
+
+  - 121_logs_filter_limit_communication: Tests communication of log filters and limits
+  - 142_no_logs_explicit_request
+  - 131_http_logs_by_status_code
+  - 140_connection_refused_context
+  - 86_postgres_missing_index_pgstat: Tests PostgreSQL missing index detection via pg_stat_statements
+  - 87_mysql_missing_index_slowlog: Tests MySQL missing index detection via slow query log
+  - 88_redis_wrong_data_structure: Tests Redis performance issues from KEYS command usage
+  - 89_postgres_minimal_missing_index: Tests basic PostgreSQL index analysis with EXPLAIN
+
   Runbook Tests (103-109):
   - 103_runbook_transparency_report: Tests runbook execution transparency with detailed investigation steps
-  - 104_user_mentions_runbook: Tests handling when user mentions runbook without required toolset
-  - 105_runbook_permission_errors: Tests runbook execution with permission errors and proper reporting
-  - 106_runbook_empty_data: Tests runbook handling when tools return empty results
   - 107_multiple_matching_runbooks: Tests selection of most relevant runbook from multiple options
   - 108_runbook_skip_with_reason: Tests explicit explanation when runbook steps are skipped
-  - 109_no_matching_runbook: Tests investigation when no suitable runbook exists
-
-  DataDog Tests (110-117):
-  - 110_datadog_end_time_null: Tests DataDog logs query with null end_time parameter
-  - 111_datadog_end_time_zero: Tests DataDog logs query with zero end_time parameter
-  - 112_datadog_datetime_no_logs: Tests DataDog logs query returning no results
-  - 113_datadog_toolset_recognition: Tests proper DataDog toolset recognition and configuration
-  - 114_datadog_pod_logs_work: Tests successful DataDog pod logs retrieval
-  - 115_datadog_last_60_minutes: Tests DataDog "last 60 minutes" time specification
-  - 116_datadog_last_24_hours: Tests DataDog "last 24 hours" time specification
-  - 117_datadog_default_time: Tests DataDog default time period usage
 
   Infrastructure Tests (118-123):
   - 118_container_status_correlation: Tests correlating API latency to CPU throttling
-  - 118_hpa_cluster_autoscaler_limit: Tests HPA scaling blocked by cluster autoscaler limits
   - 119_hpa_max_replicas_reached: Tests HPA hitting maximum replica limit
   - 120_statefulset_restart_order: Tests Kafka StatefulSet formation failure from pod restart order
   - 121_statefulset_pvc_node_affinity: Tests StatefulSet pod failure due to PVC node affinity
@@ -27,9 +31,7 @@
   - 123_pvc_capacity_full: Tests pod crashes from full PVC capacity
 
   Log Analysis Tests (119-122, 124-141):
-  - 119_logs_default_time_communication: Tests transparent communication of 7-day default period
-  - 120_logs_custom_time_communication: Tests communication of custom time periods
-  - 121_logs_filter_limit_communication: Tests communication of log filters and limits
+
   - 122_logs_date_range_communication: Tests communication of specific date ranges
   - 124_old_logs_misleading: Tests focusing on recent vs old resolved errors
   - 125_intermittent_database_pattern: Tests detecting daily recurring patterns in 7-day window
@@ -37,7 +39,6 @@
   - 128_health_check_noise_removal: Tests filtering health check noise to find real errors
   - 129_regex_custom_error_pattern: Tests custom regex for non-standard error formats
   - 130_http_logs_by_ip: Tests filtering HTTP logs by IP for suspicious activity
-  - 131_http_logs_by_status_code: Tests filtering HTTP logs by status code
   - 132_http_logs_by_exception: Tests finding specific exception types
   - 133_multiline_context_analysis: Tests multi-line context for configuration mismatches
   - 134_multiline_json_debugging: Tests debugging API validation with JSON context
@@ -47,9 +48,7 @@
   - 138_stuck_thread_detection: Tests detecting stuck threads with passing health checks
   - 139_oomkilled_pod_historical_logs: Tests analyzing historical logs for OOMKilled pods
   - 139_p99_latency_hidden: Tests detecting P99 latency hidden by good averages
-  - 140_connection_refused_context: Tests finding root cause through error context
   - 140_database_timeout_historical_logs: Tests historical analysis of database timeouts
-  - 141_config_error_historical_logs: Tests diagnosing config errors from historical logs
 
   Database Performance Tests (72, 86-89):
   - 72_distributed_trace_correlation: Tests tracing failed orders across distributed services
@@ -59,7 +58,6 @@
   - 89_postgres_minimal_missing_index: Tests basic PostgreSQL index analysis with EXPLAIN
 
   Special Tests:
-  - 90_loki_historical_logs: Tests Loki historical log analysis for connection pool issues
   - 138_node_exporter_scheduling_conflict: Tests DaemonSet scheduling conflicts
 
   Example Tests (EXAMPLE*):

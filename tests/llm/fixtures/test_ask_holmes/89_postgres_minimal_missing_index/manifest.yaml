@@ -1,8 +1,10 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: postgres-init
-data:
+  namespace: app-89
+type: Opaque
+stringData:
   init.sql: |
     -- Create orders table
     CREATE TABLE orders (
@@ -47,6 +49,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-secret
+  namespace: app-89
 type: Opaque
 stringData:
   POSTGRES_PASSWORD: postgres123
@@ -55,6 +58,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
+  namespace: app-89
 spec:
   selector:
     app: postgres
@@ -66,6 +70,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
+  namespace: app-89
 spec:
   replicas: 1
   selector:
@@ -101,13 +106,52 @@ spec:
             cpu: "200m"
       volumes:
       - name: init-script
-        configMap:
-          name: postgres-init
+        secret:
+          secretName: postgres-init
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: order-lookup-script
+  namespace: app-89
+type: Opaque
+stringData:
+  lookup.sh: |
+    #!/bin/sh
+    echo "Waiting for PostgreSQL..."
+    until pg_isready -h postgres -p 5432; do
+      sleep 2
+    done
+    sleep 10  # Extra time for data loading
+
+    echo "Starting order lookup queries..."
+    while true; do
+      # Simulate customer looking up their orders by email (slow - no index)
+      customer_num=$(shuf -i 1-10000 -n 1)
+      email="customer${customer_num}@example.com"
+
+      psql -h postgres -U postgres -d orderdb \
+        -c "SELECT id, order_number, order_date, total_amount, status
+            FROM orders
+            WHERE customer_email = '$email'
+            ORDER BY order_date DESC
+            LIMIT 10;" >/dev/null 2>&1
+
+      # Occasionally do a fast query (using indexed column)
+      if [ $((RANDOM % 8)) -eq 0 ]; then
+        order_num=$(printf "ORD-2024-%06d" $(shuf -i 1-75000 -n 1))
+        psql -h postgres -U postgres -d orderdb \
+          -c "SELECT * FROM orders WHERE order_number = '$order_num';" >/dev/null 2>&1
+      fi
+
+      sleep 0.4
+    done
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: order-lookup
+  namespace: app-89
 spec:
   replicas: 1
   selector:
@@ -127,37 +171,10 @@ spec:
             secretKeyRef:
               name: postgres-secret
               key: POSTGRES_PASSWORD
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            echo "Waiting for PostgreSQL..."
-            until pg_isready -h postgres -p 5432; do
-              sleep 2
-            done
-            sleep 10  # Extra time for data loading
-
-            echo "Starting order lookup queries..."
-            while true; do
-              # Simulate customer looking up their orders by email (slow - no index)
-              customer_num=$(shuf -i 1-10000 -n 1)
-              email="customer${customer_num}@example.com"
-
-              psql -h postgres -U postgres -d orderdb \
-                -c "SELECT id, order_number, order_date, total_amount, status
-                    FROM orders
-                    WHERE customer_email = '$email'
-                    ORDER BY order_date DESC
-                    LIMIT 10;" >/dev/null 2>&1
-
-              # Occasionally do a fast query (using indexed column)
-              if [ $((RANDOM % 8)) -eq 0 ]; then
-                order_num=$(printf "ORD-2024-%06d" $(shuf -i 1-75000 -n 1))
-                psql -h postgres -U postgres -d orderdb \
-                  -c "SELECT * FROM orders WHERE order_number = '$order_num';" >/dev/null 2>&1
-              fi
-
-              sleep 0.4
-            done
+        command: ["/bin/sh", "/scripts/lookup.sh"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
         resources:
           requests:
             memory: "64Mi"
@@ -165,3 +182,8 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "100m"
+      volumes:
+      - name: scripts
+        secret:
+          secretName: order-lookup-script
+          defaultMode: 0755

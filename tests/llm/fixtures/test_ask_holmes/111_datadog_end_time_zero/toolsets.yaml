@@ -1,9 +1,0 @@
-toolsets:
-  datadog/logs:
-    enabled: true
-    config:
-      dd_api_key: "test-api-key"
-      dd_app_key: "test-app-key"
-      site_api_url: "https://api.datadoghq.com"
-  kubernetes/core:
-    enabled: true

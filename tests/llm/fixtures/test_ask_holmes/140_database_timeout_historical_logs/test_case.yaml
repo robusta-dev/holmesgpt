@@ -16,10 +16,10 @@ tags:
   - hard
 
 before_test: |
-  kubectl create namespace app-140 || true
-  kubectl apply -f deployment.yaml -n app-140
+  kubectl create namespace app-140-historical || true
+  kubectl apply -f manifest.yaml -n app-140-historical
   sleep 10
-  kubectl delete pod -l app=order-service -n app-140 --force --grace-period=0 || true
+  kubectl delete pod -l app=order-service -n app-140-historical --force --grace-period=0 || true
 
 after_test: |
-  kubectl delete namespace app-140 --force --grace-period=0 || true
+  kubectl delete namespace app-140-historical --force --grace-period=0 || true

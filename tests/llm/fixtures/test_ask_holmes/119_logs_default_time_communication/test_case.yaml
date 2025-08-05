@@ -1,9 +1,7 @@
 user_prompt: "Show me the logs for the pod ocean-explorer in namespace app-119"
-expected_output:
-  - "last 7 days"
-  - "last week"
-  - "Error connecting to external API"
-  - "Rate limit exceeded"
+expected_output: |
+  Quotes or summarizes logs.
+  Explicitly says logs are for time period of last 7 days!
 
 before_test: |
   kubectl create namespace app-119 || true
@@ -17,7 +15,4 @@ tags:
   - logs
   - transparency
   - datetime
-
-evaluation:
-  # This test verifies that Holmes communicates the default 7-day time period when fetching logs
-  correctness: 1
+  - medium

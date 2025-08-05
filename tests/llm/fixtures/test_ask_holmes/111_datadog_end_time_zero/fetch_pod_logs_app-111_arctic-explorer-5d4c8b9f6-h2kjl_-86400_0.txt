@@ -1,1 +1,0 @@
-Error: Failed to fetch DataDog logs - end_time is 0
