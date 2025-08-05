@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import os
 from typing import Dict, Optional, Tuple
 
 from azure.core.exceptions import AzureError
@@ -387,7 +388,6 @@ def get_accessible_subscriptions(credential) -> list[str]:
         
         # For now, we'll try to get the default subscription
         # This would need to be enhanced for multi-subscription scenarios
-        import os
         subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID")
         if subscription_id:
             return [subscription_id]

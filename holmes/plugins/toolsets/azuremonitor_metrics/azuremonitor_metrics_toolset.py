@@ -1160,7 +1160,7 @@ class ExecuteAzureMonitorPrometheusRangeQuery(BaseAzureMonitorMetricsTool):
             return int(suggested_step)
             
         except Exception as e:
-            logging.warning(f"Failed to calculate optimal step size: {e}, using default {default_step}")
+            logging.warning(f"Failed to calculate optimal step size: {e}")
             return self.toolset.config.default_step_seconds if self.toolset.config else 3600
 
     def get_parameterized_one_liner(self, params) -> str:
