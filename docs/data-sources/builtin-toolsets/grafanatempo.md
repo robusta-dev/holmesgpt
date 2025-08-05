@@ -1,4 +1,4 @@
-# Grafana
+# Tempo
 
 By enabling this toolset, HolmesGPT will be able to fetch trace information from Tempo to debug performance related issues, like high latency in your application.
 
