@@ -25,6 +25,7 @@ from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 from holmes.utils.cache import TTLCache
 from holmes.common.env_vars import IS_OPENSHIFT
@@ -367,7 +368,7 @@ class ListPrometheusRules(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "list available prometheus rules"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Rules"
 
 
 class ListAvailableMetrics(BasePrometheusTool):
@@ -470,7 +471,8 @@ class ListAvailableMetrics(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'Search Available Prometheus Metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
+        name_filter = params.get("name_filter", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Metrics ({name_filter})"
 
 
 class ExecuteInstantQuery(BasePrometheusTool):
@@ -579,9 +581,8 @@ class ExecuteInstantQuery(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        query = params.get("query")
-        description = params.get("description")
-        return f"Execute Prometheus Query (instant): promql='{query}', description='{description}'"
+        description = params.get("description", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Query ({description})"
 
 
 class ExecuteRangeQuery(BasePrometheusTool):
@@ -726,12 +727,8 @@ class ExecuteRangeQuery(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        query = params.get("query")
-        start = params.get("start")
-        end = params.get("end")
-        step = params.get("step")
-        description = params.get("description")
-        return f"Execute Prometheus Query (range): promql='{query}', start={start}, end={end}, step={step}, description='{description}'"
+        description = params.get("description", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Query ({description})"
 
 
 class PrometheusToolset(Toolset):
