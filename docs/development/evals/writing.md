@@ -337,8 +337,8 @@ spec:
 
 ```yaml
 user_prompt: 'How is the test-nginx deployment performing?'
-before-test: kubectl apply -f manifest.yaml
-after-test: kubectl delete -f manifest.yaml
+before_test: kubectl apply -f manifest.yaml
+after_test: kubectl delete -f manifest.yaml
 # ... rest of configuration
 ```
 
