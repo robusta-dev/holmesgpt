@@ -24,6 +24,7 @@ def investigate_issues(
     dal: SupabaseDal,
     config: Config,
     model: Optional[str] = None,
+    trace_span=None,
 ) -> InvestigationResult:
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
@@ -54,6 +55,7 @@ def investigate_issues(
         instructions=resource_instructions,
         global_instructions=global_instructions,
         sections=investigate_request.sections,
+        trace_span=trace_span,
     )
 
     (text_response, sections) = process_response_into_sections(investigation.result)

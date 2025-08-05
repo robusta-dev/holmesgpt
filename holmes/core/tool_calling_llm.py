@@ -221,6 +221,7 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         messages = [
             {"role": "system", "content": system_prompt},
@@ -232,6 +233,7 @@ class ToolCallingLLM:
             response_format,
             user_prompt=user_prompt,
             sections=sections,
+            trace_span=trace_span,
         )
 
     def messages_call(
@@ -782,6 +784,7 @@ class IssueInvestigator(ToolCallingLLM):
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
@@ -865,6 +868,7 @@ class IssueInvestigator(ToolCallingLLM):
             post_processing_prompt,
             response_format=response_format,
             sections=sections,
+            trace_span=trace_span,
         )
         res.instructions = runbooks
         return res
