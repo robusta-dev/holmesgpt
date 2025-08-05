@@ -6,7 +6,6 @@ from typing import Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import ValidationError
 
-from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 try:
     from holmes.plugins.toolsets.azuremonitor_metrics.azuremonitor_metrics_toolset import AzureMonitorMetricsToolset
     AZURE_MONITOR_METRICS_AVAILABLE = True

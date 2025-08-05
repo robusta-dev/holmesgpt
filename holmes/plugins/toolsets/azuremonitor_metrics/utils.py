@@ -384,7 +384,6 @@ def get_accessible_subscriptions(credential) -> list[str]:
     try:
         # This is a simplified approach - in practice you might want to use
         # the Azure Management SDK to get subscriptions
-        from azure.mgmt.resource import ResourceManagementClient
         
         # For now, we'll try to get the default subscription
         # This would need to be enhanced for multi-subscription scenarios

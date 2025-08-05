@@ -600,8 +600,7 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                     for source_name, candidate_time in timestamp_candidates:
                         if candidate_time and candidate_time not in ['Unknown', '', None]:
                             try:
-                                from datetime import datetime, timezone
-                                import dateutil.parser
+                                from datetime import timezone
                                 
                                 logging.debug(f"[FIRED_TIME_DEBUG] Trying to parse {source_name}: '{candidate_time}'")
                                 
@@ -690,65 +689,6 @@ class GetActivePrometheusAlerts(BaseAzureMonitorMetricsTool):
                 params=params,
             )
     
-    def _get_alert_rule_details(self, alert_rule_id: str, headers: Dict[str, str]) -> Optional[Dict]:
-        """Get detailed information about an alert rule."""
-        try:
-            # Check if this is a Prometheus rule group
-            if "prometheusRuleGroups" in alert_rule_id:
-                # Use Prometheus Rule Groups API
-                api_version = "2023-03-01"
-            else:
-                # Use standard metric alerts API
-                api_version = "2018-03-01"
-            
-            response = requests.get(
-                url=f"https://management.azure.com{alert_rule_id}",
-                headers=headers,
-                params={"api-version": api_version},
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-        except Exception as e:
-            logging.warning(f"Failed to get alert rule details for {alert_rule_id}: {e}")
-        
-        return None
-    
-    def _is_prometheus_alert_rule(self, rule_details: Dict) -> bool:
-        """Check if an alert rule is based on Prometheus metrics."""
-        try:
-            properties = rule_details.get("properties", {})
-            criteria = properties.get("criteria", {})
-            
-            # Check if the criteria contains Prometheus-related information
-            all_of = criteria.get("allOf", [])
-            
-            for condition in all_of:
-                metric_name = condition.get("metricName", "")
-                metric_namespace = condition.get("metricNamespace", "")
-                
-                # Prometheus metrics in Azure Monitor typically have specific namespaces
-                # or metric names that indicate they're from Prometheus
-                if (metric_namespace and "prometheus" in metric_namespace.lower()) or \
-                   (metric_name and any(prom_indicator in metric_name.lower() 
-                                       for prom_indicator in ["prometheus", "container_", "node_", "kube_", "up"])):
-                    return True
-                    
-                # Check if the condition has a custom query (Prometheus PromQL)
-                if "query" in condition or "promql" in str(condition).lower():
-                    return True
-            
-            # Check for additional indicators in the rule properties
-            rule_description = properties.get("description", "").lower()
-            if "prometheus" in rule_description or "promql" in rule_description:
-                return True
-                
-            return True  # For now, assume all metric alerts could be Prometheus-based
-            
-        except Exception as e:
-            logging.warning(f"Failed to check if alert rule is Prometheus-based: {e}")
-            return False
 
     def get_parameterized_one_liner(self, params) -> str:
         cluster_id = params.get("cluster_resource_id", "auto-detect")

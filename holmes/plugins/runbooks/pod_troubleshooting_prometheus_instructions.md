@@ -33,7 +33,7 @@ Diagnose and remediate pod scheduling issues in Kubernetes clusters. These issue
 | **kube_pod_labels**                                      | Pod labels                                 | `pod`, `label_*`, `namespace`             |
 | **kube_pod_annotations**                                 | Pod annotations                            | `pod`, `annotation_*`, `namespace`        |
 | **kube_pod_container_status_waiting_reason**          | Waiting status reasons (e.g. ErrImagePull) | `pod`, `container`, `reason`, `namespace` |
-| **kube_pod_container_info**                             | Co**_**                                   |                                           |
+| **kube_pod_container_info**                             | Container information including image |  `container`, `pod`, `namespace`, `image`                                         |
 
 
 #### Container cAdvisor metrics

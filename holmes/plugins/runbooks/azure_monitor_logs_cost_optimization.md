@@ -160,7 +160,7 @@ by PodNamespace
 | extend 
     PercentageOfTotal = round(SizeBytes * 100.0 / toscalar(
         ContainerLogV2 
-        | where TimeGenerated > ago(2h) and _ResourceId =` "{CLUSTER_RESOURCE_ID}"
+        | where TimeGenerated > ago(2h) and _ResourceId =~ "{CLUSTER_RESOURCE_ID}"
         | summarize sum(estimate_data_size(*))
     ), 2),
     FilteringRecommendation = case(

@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import logging
+import os
 import textwrap
 from typing import Dict, List, Optional, Type, Union
 
@@ -822,7 +823,6 @@ class IssueInvestigator(ToolCallingLLM):
                 try:
                     file_path = runbook.get_path()
                     # Extract just the filename from the full path
-                    import os
                     filename = os.path.basename(file_path)
                     runbook_files.append(f"#{i}: {filename}")
                 except Exception:

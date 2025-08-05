@@ -83,7 +83,6 @@ class AzureMonitorAlertsSource(SourcePlugin):
                     alert_props = alert.get("properties", {})
                     essentials = alert_props.get("essentials", {})
                     
-                    alert_name = essentials.get("alertName", "Unknown")
                     signal_type = essentials.get("signalType", "")
                     target_resource = essentials.get("targetResource", "")
                     target_resource_type = essentials.get("targetResourceType", "")

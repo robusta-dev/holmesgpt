@@ -233,13 +233,13 @@ class CheckAzureMonitorLogsEnabled(BaseAzureMonitorLogsTool):
         cluster_id = params.get("cluster_resource_id", "auto-detect")
         return f"Check Azure Monitor Container Insights status for cluster: {cluster_id}"
 
-class GenerateCostOptimizationPDF(BaseAzureMonitorLogsTool):
-    """Tool to generate a PDF report from cost optimization analysis content."""
+class GenerateCostOptimizationReport(BaseAzureMonitorLogsTool):
+    """Tool to generate a Markdown report from cost optimization analysis content."""
     
     def __init__(self, toolset: "AzureMonitorLogsToolset"):
         super().__init__(
-            name="generate_cost_optimization_pdf",
-            description="Generate a PDF report file from Azure Monitor cost optimization analysis content",
+            name="generate_cost_optimization_report",
+            description="Generate a Markdown report file from Azure Monitor cost optimization analysis content",
             parameters={
                 "report_content": ToolParameter(
                     description="The complete cost optimization report content in markdown format",
@@ -263,7 +263,7 @@ class GenerateCostOptimizationPDF(BaseAzureMonitorLogsTool):
             if not report_content:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="Report content is required to generate PDF",
+                    error="Report content is required to generate Markdown",
                     params=params,
                 )
             
@@ -303,7 +303,7 @@ class GenerateCostOptimizationPDF(BaseAzureMonitorLogsTool):
             abs_file_path = os.path.abspath(file_path)
             
             data = {
-                "pdf_generated": True,
+                "markdown_generated": True,
                 "filename": filename,
                 "file_path": abs_file_path,
                 "file_size_bytes": len(full_content.encode('utf-8')),
@@ -323,13 +323,13 @@ class GenerateCostOptimizationPDF(BaseAzureMonitorLogsTool):
         except Exception as e:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=f"Failed to generate PDF report: {str(e)}",
+                error=f"Failed to generate Markdown report: {str(e)}",
                 params=params,
             )
 
     def get_parameterized_one_liner(self, params) -> str:
         cluster_name = params.get("cluster_name", "cluster")
-        return f"Generate cost optimization PDF report for {cluster_name}"
+        return f"Generate cost optimization Markdown report for {cluster_name}"
 
 class AzureMonitorLogsToolset(Toolset):
     """Azure Monitor Logs toolset for detecting Container Insights and Log Analytics workspace details."""
@@ -345,7 +345,7 @@ class AzureMonitorLogsToolset(Toolset):
                 CheckAKSClusterContext(toolset=self),
                 GetAKSClusterResourceID(toolset=self),
                 CheckAzureMonitorLogsEnabled(toolset=self),
-                GenerateCostOptimizationPDF(toolset=self),
+                GenerateCostOptimizationReport(toolset=self),
             ],
             tags=[
                 ToolsetTag.CORE
