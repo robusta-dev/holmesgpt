@@ -12,6 +12,7 @@ from holmes.core.tools import (
 )
 
 from holmes.plugins.runbooks import get_runbook_by_path, DEFAULT_RUNBOOK_SEARCH_PATH
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 # TODO(mainred): currently we support fetch runbooks hosted internally, in the future we may want to support fetching
@@ -107,8 +108,8 @@ class RunbookFetcher(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        path: str = params["link"]
-        return f"fetched runbook {path}"
+        path: str = params.get("link", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Runbook {path}"
 
 
 class RunbookToolset(Toolset):
