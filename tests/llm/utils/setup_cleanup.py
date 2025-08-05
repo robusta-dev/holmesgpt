@@ -1,6 +1,7 @@
 """Setup and cleanup infrastructure for test cases."""
 
 import logging
+import os
 import sys
 import time
 import warnings
@@ -19,10 +20,14 @@ MAX_WORKERS = 30
 
 def log(msg):
     """Force a log to be written even with xdist, which captures stdout. (must use -s to see this)"""
-    sys.stderr.write(msg)
-    sys.stderr.write("\n")
-    # we also log to stderr so its visible when xdist is not used
-    logging.info(msg)
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        # If running under xdist, we log to stderr so it appears in the pytest output
+        # This is necessary because xdist captures stdout and doesn't show it in the output
+        sys.stderr.write(msg)
+        sys.stderr.write("\n")
+    else:
+        # If not running under xdist, we log to stdout
+        logging.info(msg)
 
 
 def format_error_output(error_details: str) -> str:

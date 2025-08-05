@@ -60,24 +60,12 @@ class PortForward:
             raise
 
     def _check_port_availability(self) -> None:
-        """Check if the port is already in use and report what's using it."""
-        if os.name != "nt":
-            # On Unix-like systems, use lsof to find the process
-            try:
-                result = subprocess.run(
-                    ["lsof", "-i", f":{self.local_port}"],
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    log(f"⚠️ Port {self.local_port} is already in use:")
-                    log(result.stdout)
-                    raise RuntimeError(
-                        f"Port {self.local_port} is already in use. Please kill the existing process or use a different port."
-                    )
-            except Exception as e:
-                # lsof might not be available, continue anyway
-                log(f"⚠️ Could not check port availability: {e}")
+        """Check if the port is already in use."""
+        if _is_port_in_use(self.local_port):
+            self._report_port_conflict()
+            raise RuntimeError(
+                f"Port {self.local_port} is already in use. Please kill the existing process or use a different port."
+            )
 
     def _report_port_conflict(self) -> None:
         """Report detailed information about what's using the port."""
@@ -194,6 +182,82 @@ def extract_port_forwards_from_test_cases(
     return unique_configs
 
 
+def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
+    """Check for port conflicts and availability before running any setup scripts."""
+    port_usage: Dict[int, List[str]] = {}
+
+    # Collect all port usages
+    for test_case in test_cases:
+        if test_case.port_forwards:
+            for config in test_case.port_forwards:
+                local_port = config["local_port"]
+                test_id = test_case.id
+
+                if local_port not in port_usage:
+                    port_usage[local_port] = []
+                port_usage[local_port].append(test_id)
+
+    # Check for conflicts between tests
+    conflicts = []
+    for port, test_ids in port_usage.items():
+        if len(test_ids) > 1:
+            conflicts.append((port, test_ids))
+
+    if conflicts:
+        error_msg = "\n🚨 Port conflicts detected! Multiple tests are trying to use the same local port:\n"
+        for port, test_ids in conflicts:
+            error_msg += f"\n  Port {port} is used by tests: {', '.join(test_ids)}"
+
+        error_msg += "\n\nTo fix this:"
+        error_msg += (
+            "\n  1. Update the test_case.yaml files to use different local_port values"
+        )
+        error_msg += "\n  2. Ensure each test uses a unique local port"
+        error_msg += "\n  3. Consider using the test number as part of the port (e.g., test 148 → port 3148)"
+        error_msg += "\n\nAlternatively, you can skip all tests requiring port forwards by running:"
+        error_msg += "\n  pytest -m 'not port-forward'"
+
+        log(error_msg)
+        raise RuntimeError(
+            "Port conflicts detected. Please fix the conflicts before running tests."
+        )
+
+    # Check if ports are already in use on the system
+    ports_in_use = []
+    for port in port_usage.keys():
+        if _is_port_in_use(port):
+            ports_in_use.append(port)
+
+    if ports_in_use:
+        error_msg = "\n🚨 Ports already in use on the system:\n"
+        for port in ports_in_use:
+            error_msg += f"\n  Port {port} is already in use (required by tests: {', '.join(port_usage[port])})"
+
+        error_msg += "\n\nTo see what's using these ports:"
+        error_msg += f"\n  lsof -i :{','.join(str(p) for p in ports_in_use)}"
+        error_msg += "\n\nTo fix this:"
+        error_msg += "\n  1. Kill the processes using these ports"
+        error_msg += "\n  2. Or skip port-forward tests: pytest -m 'not port-forward'"
+
+        log(error_msg)
+        raise RuntimeError("Required ports are already in use.")
+
+
+def _is_port_in_use(port: int) -> bool:
+    """Check if a port is already in use."""
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        # Try to bind to the port
+        sock.bind(("localhost", port))
+        return False  # Port is available
+    except OSError:
+        return True  # Port is in use
+    finally:
+        sock.close()
+
+
 def setup_all_port_forwards(test_cases: List[HolmesTestCase]) -> PortForwardManager:
     """Set up port forwards for all test cases that need them."""
     manager = PortForwardManager()
@@ -210,17 +274,6 @@ def setup_all_port_forwards(test_cases: List[HolmesTestCase]) -> PortForwardMana
         manager.start_all()
 
     return manager
-
-
-def cleanup_all_port_forwards(manager: PortForwardManager) -> None:
-    """Clean up all port forwards.
-
-    Note: This function is currently unused but kept for potential future use
-    when we have access to the actual PortForwardManager object.
-    """
-    if manager.port_forwards:
-        log(f"\n🔌 Cleaning up {len(manager.port_forwards)} port forwards")
-        manager.stop_all()
 
 
 def cleanup_port_forwards_by_config(configs: List[Dict[str, Any]]) -> None:

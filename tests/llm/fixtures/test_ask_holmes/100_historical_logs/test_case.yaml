@@ -1,4 +1,4 @@
-user_prompt: "The payment-api pod had issues on August 2, 2025 around 13:45 UTC. What happened?"
+user_prompt: "The payment-api pod in namespace app-100 had issues on August 2, 2025 around 13:45 UTC. What happened?"
 
 expected_output:
   - The payment-api pod experienced failures caused by database connection pool exhaustion

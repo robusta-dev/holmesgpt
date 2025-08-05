@@ -27,6 +27,7 @@ from tests.llm.utils.port_forward import (
     setup_all_port_forwards,
     extract_port_forwards_from_test_cases,
     cleanup_port_forwards_by_config,
+    check_port_availability_early,
 )
 
 
@@ -104,6 +105,10 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             cleared_directories = clear_all_mocks(request.session)
 
         # Run setup unless --skip-setup is set
+        # Check port availability BEFORE running any setup scripts
+        # This allows us to fail fast if ports are unavailable
+        check_port_availability_early(test_cases)
+
         # Check skip-setup option
         skip_setup = request.config.getoption("--skip-setup")
 
