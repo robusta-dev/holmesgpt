@@ -126,6 +126,7 @@ class WorkloadHealthRequest(BaseModel):
     include_tool_call_results: bool = False
     prompt_template: str = "builtin://kubernetes_workload_ask.jinja2"
     model: Optional[str] = None
+    request: Any = None
 
 
 class ChatRequest(ChatRequestBaseModel):

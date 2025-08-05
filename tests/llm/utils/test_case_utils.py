@@ -91,6 +91,7 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+    request: Any = None
 
 
 class HealthCheckTestCase(HolmesTestCase, BaseModel):
@@ -122,7 +123,7 @@ class MockHelper:
         return cast(List[InvestigateTestCase], self.load_test_cases())
 
     def load_ask_holmes_test_cases(self) -> List[AskHolmesTestCase]:
-        return self.load_test_cases()
+        return cast(List[AskHolmesTestCase], self.load_test_cases())
 
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
