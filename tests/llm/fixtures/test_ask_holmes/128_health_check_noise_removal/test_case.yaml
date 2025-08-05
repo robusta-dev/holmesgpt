@@ -9,9 +9,8 @@ user_request: "The payment-service is reporting errors but I can't find them in 
 
 tags:
   - logs
-  - filtering
-  - exclude_filter
-  - troubleshooting
+  - kubernetes
+  - medium
 
 before_test:
   - kubectl create namespace app-128 || true

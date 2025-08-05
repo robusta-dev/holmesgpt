@@ -9,9 +9,8 @@ user_request: "The api-gateway pod is having issues. Can you investigate?"
 
 tags:
   - logs
-  - time_filtering
-  - troubleshooting
-  - patterns
+  - database
+  - medium
 
 before_test:
   - kubectl create namespace app-125 || true

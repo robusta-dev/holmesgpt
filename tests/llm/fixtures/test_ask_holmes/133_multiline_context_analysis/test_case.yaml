@@ -10,10 +10,8 @@ user_request: "The payment-gateway is failing with connection errors. Can you fi
 
 tags:
   - logs
-  - multiline
-  - context
-  - stack_trace
-  - troubleshooting
+  - kubernetes
+  - medium
 
 before_test:
   - kubectl create namespace app-133 || true

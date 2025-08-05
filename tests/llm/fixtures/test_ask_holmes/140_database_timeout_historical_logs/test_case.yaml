@@ -11,10 +11,9 @@ expected_output:
 tags:
   - logs
   - loki
-  - historical
   - database
-  - connectivity
-  - troubleshooting
+  - kubernetes
+  - hard
 
 before_test: |
   kubectl create namespace app-140 || true

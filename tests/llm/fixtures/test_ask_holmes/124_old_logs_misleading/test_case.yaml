@@ -9,8 +9,8 @@ user_request: "Why is the payment-processor pod failing?"
 
 tags:
   - logs
-  - time_filtering
-  - troubleshooting
+  - kubernetes
+  - medium
 
 before_test:
   - kubectl create namespace app-124 || true
