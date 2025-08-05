@@ -11,9 +11,5 @@ before_test: |
 after_test: |
   kubectl delete -f manifests.yaml
 tags:
-  - tool_usage
   - kubernetes
-  - daemonset
-  - scheduling
-  - multi_stack
-  - cross_stack_conflict
+  - hard
