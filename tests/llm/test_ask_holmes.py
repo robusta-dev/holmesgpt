@@ -154,7 +154,7 @@ def test_ask_holmes(
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
-                    # metadata={"tags": test_case.tags},
+                    tags=test_case.tags or [],
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -219,7 +219,7 @@ def test_ask_holmes(
             dataset_record_id=test_case.id,
             scores=scores,
             metadata={"system_prompt": prompt},
-            # metadata={"tags": test_case.tags},
+            tags=test_case.tags or [],
         )
 
     # Print tool calls summary
