@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orca-app
+  namespace: app-108
+type: Opaque
+stringData:
+  app.py: |
+    import time
+    import os
+    import random
+    from datetime import datetime
+
+    # Java-like application simulated in Python
+    class MemoryIntensiveApp:
+        def __init__(self):
+            self.cache = {}
+            self.transaction_buffer = []
+            self.session_data = {}
+            print(f"[{datetime.now()}] Starting Orca application...")
+            print(f"[{datetime.now()}] JVM: OpenJDK 11.0.12")
+            print(f"[{datetime.now()}] Initial heap: 512m, Max heap: 2048m")
+
+        def process_transaction(self, transaction_id):
+            # Simulate memory allocation that doesn't get cleaned up properly
+            data = {
+                'id': transaction_id,
+                'timestamp': datetime.now(),
+                'payload': 'x' * random.randint(1000, 5000),  # Variable size data
+                'metadata': {f'field_{i}': random.random() for i in range(100)}
+            }
+
+            # Keep reference in multiple places (memory leak pattern)
+            self.cache[transaction_id] = data
+            self.transaction_buffer.append(data)
+
+            # Simulate session data growth
+            session_id = f"session_{transaction_id % 1000}"
+            if session_id not in self.session_data:
+                self.session_data[session_id] = []
+            self.session_data[session_id].append(data)
+
+            # Log memory-related messages periodically
+            if transaction_id % 1000 == 0:
+                # Simulate GC logs
+                print(f"[{datetime.now()}] [GC (Allocation Failure) 912384K->823456K(2097152K), 0.0234567 secs]")
+
+            if transaction_id % 5000 == 0:
+                # Simulate heap usage warning
+                heap_used = min(90 + (transaction_id // 5000), 95)
+                print(f"[{datetime.now()}] WARNING: Heap usage at {heap_used}%")
+                print(f"[{datetime.now()}] Old generation: {heap_used - 5}% used")
+
+            if transaction_id % 10000 == 0:
+                # Clear some old data (but not all - memory leak)
+                if len(self.transaction_buffer) > 50000:
+                    self.transaction_buffer = self.transaction_buffer[-40000:]
+                    print(f"[{datetime.now()}] Partial cleanup completed, freed some memory")
+
+    def main():
+        app = MemoryIntensiveApp()
+        transaction_id = 0
+
+        # Write some diagnostic info that would normally come from JVM monitoring
+        print(f"[{datetime.now()}] Memory pools:")
+        print(f"[{datetime.now()}]   Eden Space: init = 134217728, used = 89128960")
+        print(f"[{datetime.now()}]   Survivor Space: init = 16777216, used = 12582912")
+        print(f"[{datetime.now()}]   Old Gen: init = 357564416, used = 268435456")
+
+        while True:
+            try:
+                transaction_id += 1
+                app.process_transaction(transaction_id)
+
+                # Process transactions at varying rates
+                if transaction_id < 1000:
+                    time.sleep(0.01)  # Fast initial processing
+                elif transaction_id < 10000:
+                    time.sleep(0.05)  # Moderate rate
+                else:
+                    time.sleep(0.1)  # Slower as memory pressure increases
+
+                # Simulate thread pool status
+                if transaction_id % 2000 == 0:
+                    active_threads = random.randint(20, 50)
+                    print(f"[{datetime.now()}] Thread pool status: {active_threads}/50 active")
+
+            except Exception as e:
+                print(f"[{datetime.now()}] ERROR: Transaction processing failed: {e}")
+                time.sleep(1)
+
+    if __name__ == "__main__":
+        main()
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orca
+  namespace: app-108
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orca
+  template:
+    metadata:
+      labels:
+        app: orca
+    spec:
+      containers:
+      - name: orca
+        image: python:3.9-slim
+        command: ["python", "/app/app.py"]
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx2048m -XX:+UseG1GC -XX:+PrintGCDetails"
+        - name: APP_NAME
+          value: "orca"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+      volumes:
+      - name: app-code
+        secret:
+          secretName: orca-app
+          defaultMode: 0755
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orca
+  namespace: app-108
+spec:
+  selector:
+    app: orca
+  ports:
+  - port: 8080
+    targetPort: 8080

@@ -1,11 +1,10 @@
 description: Container status correlation when containers aren't progressing - high API response times traced to container-level issues
-markers:
+
+tags:
   - kubernetes
   - chain-of-causation
   - network
   - medium
-
-test_type: ask
 
 mock_policy: never  # Always use live tools
 
@@ -76,23 +75,8 @@ expected_output: |
   4. The HPA is trying to scale but new pods are also getting throttled
   5. The root cause is insufficient CPU resources allocated to the pods
 
-assertions:
-  - type: contains_any
-    keywords:
-      - "CPU throttling"
-      - "cpu throttled"
-      - "CPU limit"
-      - "resource constraint"
-  - type: contains_any
-    keywords:
-      - "100m"
-      - "0.1 CPU"
-      - "CPU limit of 100m"
-  - type: contains_any
-    keywords:
-      - "readiness"
-      - "not ready"
-      - "failing health check"
-      - "readiness probe"
-  - type: mentions_correlation
-    description: Should connect high response times to container resource issues
+  Key findings should include:
+  - CPU throttling or resource constraints
+  - The specific CPU limit (100m or 0.1 CPU)
+  - Readiness probe failures or pods not ready
+  - Connection between high response times and container resource issues

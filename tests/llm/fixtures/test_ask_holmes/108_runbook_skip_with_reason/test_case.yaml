@@ -1,18 +1,31 @@
 user_prompt: "Debug memory issues for my Java application orca in namespace app-108"
+
 tags:
   - runbooks
+  - transparency
+
 expected_output: |
-  - Uses Java memory troubleshooting runbook
-  - Explicitly explains why heap dump analysis is skipped
-  - Provides specific reason: "JVM tools not available in container"
-  - Executes other feasible steps from the runbook
-  - Never silently skips steps
+  The investigation should:
+  1. Use the Java memory troubleshooting runbook
+  2. Successfully execute basic checks (pod status, logs, memory metrics)
+  3. Explicitly explain that heap dump analysis step is skipped
+  4. Provide clear reason why: JVM tools (jmap) not available in Python container
+  5. Complete other feasible investigation steps from the runbook
+  6. Identify high memory usage and GC warnings from logs
 
 runbooks:
   catalog:
     - description: "Java Application Memory Troubleshooting"
       link: "java_memory_troubleshooting.md"
       update_date: "2025-07-01"
+
+before_test: |
+  kubectl create namespace app-108 || true
+  kubectl apply -f manifest.yaml -n app-108
+  sleep 30  # Let the Java app start and consume memory
+
+after_test: |
+  kubectl delete namespace app-108 --force --grace-period=0
 
 evaluation:
   correctness: 0
