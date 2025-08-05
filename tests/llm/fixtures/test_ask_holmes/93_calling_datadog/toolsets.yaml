@@ -9,19 +9,7 @@ toolsets:
     enabled: true
   datadog/logs:
     enabled: True
-    config:
-      dd_app_key: "{{ env.DATADOG_APP_KEY }}"
-      dd_api_key: "{{ env.DATADOG_API_KEY }}"
-      site_api_url: https://api.datadoghq.eu
   datadog/metrics:
     enabled: True
-    config:
-      dd_app_key: "{{ env.DATADOG_APP_KEY }}"
-      dd_api_key: "{{ env.DATADOG_API_KEY }}"
-      site_api_url: https://api.datadoghq.eu
   datadog/traces:
     enabled: True
-    config:
-      dd_app_key: "{{ env.DATADOG_APP_KEY }}"
-      dd_api_key: "{{ env.DATADOG_API_KEY }}"
-      site_api_url: https://api.datadoghq.eu
