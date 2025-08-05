@@ -1,5 +1,6 @@
-user_prompt: "are there health issues with workload payment-processor in production-65 namespace?"
+user_prompt: "figure out why workload payment-processor in production-65 namespace is unhealthy?"
 expected_output:
+  Something along the lines of one of these (any is fine - point is to ask user for more info)
   - "No, I can't find anything. Can you share more details?"
   - "Everything appears to be running normally"
   - "What specific symptoms are you seeing?"

@@ -1,4 +1,3 @@
-# type: ignore
 import json
 from typing_extensions import Dict
 import yaml
@@ -8,7 +7,7 @@ from pathlib import Path
 from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
 import pytest
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError, ConfigDict
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 
@@ -43,6 +42,8 @@ T = TypeVar("T")
 
 
 class HolmesTestCase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     folder: str
     mocked_date: Optional[str] = None
@@ -60,13 +61,28 @@ class HolmesTestCase(BaseModel):
     mock_policy: Optional[str] = (
         "inherit"  # Mock policy: always_mock, never_mock, or inherit
     )
+    description: Optional[str] = None
+    generate_mocks: Optional[bool] = None
+    toolsets: Optional[Dict[str, Any]] = None
+    port_forwards: Optional[List[Dict[str, Any]]] = (
+        None  # Port forwarding configurations
+    )
 
 
 class AskHolmesTestCase(HolmesTestCase, BaseModel):
-    user_prompt: str  # The user's question to ask holmes
+    user_prompt: Union[
+        str, List[str]
+    ]  # The user's question(s) to ask holmes - can be single string or array
     cluster_name: Optional[str] = None
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
     runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
+
+    # Internal fields for variant handling
+    variant_index: Optional[int] = None  # Which variant this instance represents
+    original_user_prompt: Optional[Union[str, List[str]]] = (
+        None  # Store original prompt(s)
+    )
+    test_type: Optional[str] = None  # The type of test to run
 
 
 class InvestigateTestCase(HolmesTestCase, BaseModel):
@@ -74,6 +90,7 @@ class InvestigateTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+    request: Any = None
 
 
 class HealthCheckTestCase(HolmesTestCase, BaseModel):
@@ -81,6 +98,7 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     issue_data: Optional[Dict]
     resource_instructions: Optional[ResourceInstructions]
     expected_sections: Optional[Dict[str, Union[List[str], bool]]] = None
+    request: Any = None
 
 
 def check_and_skip_test(test_case: HolmesTestCase) -> None:
@@ -107,6 +125,14 @@ class MockHelper:
     def load_ask_holmes_test_cases(self) -> List[AskHolmesTestCase]:
         return cast(List[AskHolmesTestCase], self.load_test_cases())
 
+    def _add_port_forward_tag(self, test_case: HolmesTestCase) -> None:
+        """Automatically add port-forward tag if test has port forwards."""
+        if test_case and test_case.port_forwards:
+            if test_case.tags is None:
+                test_case.tags = []
+            if "port-forward" not in test_case.tags:
+                test_case.tags.append("port-forward")
+
     def load_test_cases(self) -> List[HolmesTestCase]:
         test_cases: List[HolmesTestCase] = []
         test_cases_ids: List[str] = [
@@ -124,6 +150,7 @@ class MockHelper:
                 )
                 config_dict["id"] = test_case_id
                 config_dict["folder"] = str(test_case_folder)
+                test_case: Optional[HolmesTestCase] = None
 
                 if config_dict.get("user_prompt"):
                     config_dict["conversation_history"] = load_conversation_history(
@@ -132,29 +159,35 @@ class MockHelper:
                     extra_prompt = load_include_files(
                         test_case_folder, config_dict.get("include_files", None)
                     )
-                    config_dict["user_prompt"] = (
-                        config_dict["user_prompt"] + extra_prompt
-                    )
-                    try:
+
+                    original_user_prompt = config_dict["user_prompt"]
+
+                    # Handle array of user prompts - create multiple test case instances
+                    if isinstance(original_user_prompt, list):
+                        for i, prompt in enumerate(original_user_prompt):
+                            variant_config = config_dict.copy()
+                            variant_config["user_prompt"] = prompt + extra_prompt
+                            variant_config["variant_index"] = i
+                            variant_config["original_user_prompt"] = (
+                                original_user_prompt
+                            )
+                            variant_config["id"] = f"{test_case_id}[{i}]"
+                            test_case = TypeAdapter(AskHolmesTestCase).validate_python(
+                                variant_config
+                            )
+                            self._add_port_forward_tag(test_case)
+                            test_cases.append(test_case)
+                        continue  # Skip the normal append at the end
+                    else:
+                        # Single prompt case
+                        config_dict["user_prompt"] = (
+                            config_dict["user_prompt"] + extra_prompt
+                        )
+                        config_dict["original_user_prompt"] = original_user_prompt
                         test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                             config_dict
                         )
-                    except ValidationError as e:
-                        problematic_tags = []
-                        for error in e.errors():
-                            if error["type"] == "literal_error" and "tags" in str(
-                                error["loc"]
-                            ):
-                                problematic_tags.append(error["input"])
-
-                        if problematic_tags:
-                            error_msg = f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
-                            error_msg += (
-                                f"Problematic tags: {', '.join(problematic_tags)}\n"
-                            )
-                            error_msg += f"Allowed tags; {get_allowed_tags_list()}"
-                            print(error_msg)
-                        raise e
+                        
                 elif self._test_cases_folder.name == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
@@ -179,15 +212,38 @@ class MockHelper:
                     test_case = TypeAdapter(HealthCheckTestCase).validate_python(
                         config_dict
                     )
+                else:
+                    # Skip test cases that don't match any known type
+                    logging.debug(
+                        f"Skipping test case {test_case_id} - unknown test type"
+                    )
+                    continue
+
+                self._add_port_forward_tag(test_case)
 
                 logging.debug(f"Successfully loaded test case {test_case_id}")
+                test_cases.append(test_case)
+            except ValidationError as e:
+                problematic_tags = []
+                for error in e.errors():
+                    if error["type"] == "literal_error" and "tags" in str(
+                        error["loc"]
+                    ):
+                        problematic_tags.append(error["input"])
+
+                if problematic_tags:
+                    error_msg = f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
+                    error_msg += (
+                        f"Problematic tags: {', '.join(problematic_tags)}\n"
+                    )
+                    error_msg += f"Allowed tags; {get_allowed_tags_list()}"
+                    print(error_msg)
+                raise e
             except FileNotFoundError:
                 logging.debug(
                     f"Folder {self._test_cases_folder}/{test_case_id} ignored because it is missing a {CONFIG_FILE_NAME} file."
                 )
                 continue
-
-            test_cases.append(test_case)
         logging.debug(f"Found {len(test_cases)} in {self._test_cases_folder}")
 
         return test_cases
@@ -239,24 +295,12 @@ def load_workload_health_request(test_case_folder: Path) -> WorkloadHealthReques
     )
 
 
-def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
-    """
-    Loads conversation history from .md files in a specified folder structure.
-
-    The folder structure is expected to be:
-    test_case_folder/
-        conversation_history/
-            <index>_<role>.md
-            ...
-    """
-    conversation_history_dir = test_case_folder / "conversation_history"
-
-    if not conversation_history_dir.is_dir():
-        return None
-
+def _parse_conversation_history_md_files(
+    conversation_history_dir,
+) -> None | List[Dict[str, str]]:
+    # If no .md files are found in the directory, return None.
     md_files = sorted(list(conversation_history_dir.glob("*.md")))
 
-    # If no .md files are found in the directory, return None.
     if not md_files:
         return None
 
@@ -283,6 +327,30 @@ def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str,
         content = md_file_path.read_text(encoding="utf-8")
 
         conversation_history.append({"role": role, "content": content})
+    return conversation_history
+
+
+def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
+    """
+    Loads conversation history from .md files in a specified folder structure.
+
+    The folder structure is expected to be:
+    test_case_folder/
+        conversation_history/
+            <index>_<role>.md
+            ...
+    """
+    conversation_history_dir = test_case_folder / "conversation_history"
+    if conversation_history_dir.is_dir():
+        conversation_history = _parse_conversation_history_md_files(
+            conversation_history_dir
+        )
+    elif test_case_folder.joinpath("conversation_history.json").exists():
+        conversation_history = json.loads(
+            read_file(test_case_folder.joinpath("conversation_history.json"))
+        )
+    else:
+        conversation_history = None
 
     return conversation_history
 

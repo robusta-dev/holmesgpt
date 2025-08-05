@@ -1,6 +1,7 @@
 """Setup and cleanup infrastructure for test cases."""
 
 import logging
+import os
 import sys
 import time
 import warnings
@@ -19,10 +20,14 @@ MAX_WORKERS = 30
 
 def log(msg):
     """Force a log to be written even with xdist, which captures stdout. (must use -s to see this)"""
-    sys.stderr.write(msg)
-    sys.stderr.write("\n")
-    # we also log to stderr so its visible when xdist is not used
-    logging.info(msg)
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        # If running under xdist, we log to stderr so it appears in the pytest output
+        # This is necessary because xdist captures stdout and doesn't show it in the output
+        sys.stderr.write(msg)
+        sys.stderr.write("\n")
+    else:
+        # If not running under xdist, we log to stdout
+        logging.info(msg)
 
 
 def format_error_output(error_details: str) -> str:
@@ -169,22 +174,37 @@ def run_all_test_commands(
     return failed_setup_info
 
 
-def run_all_test_setup(test_cases: List[HolmesTestCase]) -> Dict[str, str]:
+def run_all_test_setup(
+    test_cases: List[HolmesTestCase],
+) -> Dict[str, str]:
     """Run before_test for each test case in parallel.
 
     Returns:
         Dict[str, str]: Mapping of test_case.id to error message for failed setups
     """
-    return run_all_test_commands(test_cases, Operation.SETUP)
+    # Run the before_test commands (which create namespaces, deployments, etc.)
+    setup_failures = run_all_test_commands(test_cases, Operation.SETUP)
+
+    return setup_failures
 
 
-def run_all_test_cleanup(test_cases: List[HolmesTestCase]) -> None:
+def run_all_test_cleanup(
+    test_cases: List[HolmesTestCase],
+) -> None:
     """Run after_test for each test case in parallel."""
+    # Run the after_test commands
     run_all_test_commands(test_cases, Operation.CLEANUP)
 
 
-def extract_test_cases_needing_setup(session) -> List[HolmesTestCase]:
-    """Extract unique test cases that need setup from session items."""
+def extract_llm_test_cases(session) -> List[HolmesTestCase]:
+    """Extract unique LLM test cases from session items.
+
+    Args:
+        session: pytest session object
+
+    Returns:
+        List of unique HolmesTestCase instances (excluding skipped tests)
+    """
     seen_ids = set()
     test_cases = []
 
@@ -197,9 +217,8 @@ def extract_test_cases_needing_setup(session) -> List[HolmesTestCase]:
             test_case = item.callspec.params["test_case"]
             if (
                 isinstance(test_case, HolmesTestCase)
-                and test_case.before_test
                 and test_case.id not in seen_ids
-                and not test_case.skip  # Don't run setup for skipped tests
+                and not test_case.skip  # Don't include skipped tests
             ):
                 test_cases.append(test_case)
                 seen_ids.add(test_case.id)

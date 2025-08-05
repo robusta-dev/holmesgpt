@@ -22,5 +22,5 @@ def test_RunbookFetcher():
         runbook_fetch_tool.get_parameterized_one_liner(
             {"link": "networking/dns_troubleshooting_instructions.md"}
         )
-        == "fetched runbook networking/dns_troubleshooting_instructions.md"
+        == "Runbook: Fetch Runbook networking/dns_troubleshooting_instructions.md"
     )
