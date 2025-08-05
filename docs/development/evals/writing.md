@@ -157,6 +157,40 @@ Examples:
 
 ## Advanced Test Configuration
 
+### Port Forwarding
+
+Some tests require access to services that are not directly exposed. You can configure port forwards that will be automatically set up and torn down for your test:
+
+```yaml
+user_prompt: "Check RabbitMQ queue status"
+expected_output:
+  - RabbitMQ queues are healthy
+
+# Configure port forwards
+port_forwards:
+  - namespace: app-01
+    service: rabbitmq
+    local_port: 15672
+    remote_port: 15672
+  - namespace: app-01
+    service: prometheus
+    local_port: 9090
+    remote_port: 9090
+```
+
+Port forwards are:
+- Automatically started before any tests run
+- Shared across all tests in a session to avoid conflicts
+- Always cleaned up after tests complete, even if tests are interrupted
+- Run regardless of `--skip-setup` or `--skip-cleanup` flags
+
+**Important notes:**
+- Use unique local ports across all tests to avoid conflicts
+- Port forwards persist for the entire test session
+- If a port is already in use, the test will fail with helpful debugging information
+- Use `lsof -ti :<port>` to find processes using a port
+- Port forwards work with both mock and live (`RUN_LIVE=true`) test modes
+
 ### Toolset Configuration
 
 Control which toolsets are available for a specific test by creating a `toolsets.yaml` file in the test directory:
