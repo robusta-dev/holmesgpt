@@ -4,7 +4,7 @@ description: |
   and the actual issue is missing tolerations for node taints, not zone constraints.
   Tests that LLM identifies the real scheduling constraint.
 
-user_question: "Whats wrong with database-primary deployment in production-88 isn't starting?"
+user_prompt: "Whats wrong with database-primary deployment in production-88 isn't starting?"
 
 # CodeRabbit: RWO PVC + 4 replicas ⇒ inevitable Multi-Attach errors
 #   A single ReadWriteOnce volume cannot be mounted by four pods on different nodes. This scheduling error will surface before the intended taint/toleration failure, potentially breaking the test signal.

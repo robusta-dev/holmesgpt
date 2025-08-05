@@ -154,7 +154,7 @@ def test_ask_holmes(
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
-                    # metadata={"tags": test_case.tags},
+                    tags=test_case.tags or [],
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -219,7 +219,7 @@ def test_ask_holmes(
             dataset_record_id=test_case.id,
             scores=scores,
             metadata={"system_prompt": prompt},
-            # metadata={"tags": test_case.tags},
+            tags=test_case.tags or [],
         )
 
     # Print tool calls summary
@@ -289,7 +289,9 @@ def ask_holmes(
         llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
     )
 
-    test_type = os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+    test_type = (
+        test_case.test_type or os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+    )
     if test_type == "cli":
         if test_case.conversation_history:
             pytest.skip("CLI mode does not support conversation history tests")

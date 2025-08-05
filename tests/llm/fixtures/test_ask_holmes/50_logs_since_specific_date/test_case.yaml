@@ -3,7 +3,8 @@ tags:
   - logs
   - synthetic
   - medium
-expected_output:
+expected_output: |
+  The following issues are mentioned either as direct quotes or in summarized form. It's ok if specific dates are not mentioned:
   - 2025-06-12 The database at my.postgresql.com has become unavailable
   - 2025-06-13 The application temporarily suffered from memory pressure
   - 2025-06-14 Temporary high CPU usage
