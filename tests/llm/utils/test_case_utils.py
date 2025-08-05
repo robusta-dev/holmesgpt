@@ -187,7 +187,7 @@ class MockHelper:
                         test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                             config_dict
                         )
-                        
+
                 elif self._test_cases_folder.name == "test_investigate":
                     config_dict["investigate_request"] = load_investigate_request(
                         test_case_folder
@@ -226,16 +226,14 @@ class MockHelper:
             except ValidationError as e:
                 problematic_tags = []
                 for error in e.errors():
-                    if error["type"] == "literal_error" and "tags" in str(
-                        error["loc"]
-                    ):
+                    if error["type"] == "literal_error" and "tags" in str(error["loc"]):
                         problematic_tags.append(error["input"])
 
                 if problematic_tags:
-                    error_msg = f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
-                    error_msg += (
-                        f"Problematic tags: {', '.join(problematic_tags)}\n"
+                    error_msg = (
+                        f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
                     )
+                    error_msg += f"Problematic tags: {', '.join(problematic_tags)}\n"
                     error_msg += f"Allowed tags; {get_allowed_tags_list()}"
                     print(error_msg)
                 raise e
