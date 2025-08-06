@@ -1,5 +1,4 @@
 import logging
-from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 from holmes.core.tools import Toolset, ToolsetStatusEnum
 from holmes.plugins.toolsets.logging_utils.logging_api import BasePodLoggingToolset
 
