@@ -709,3 +709,208 @@ class TestToolExecutionPipeline:
         # Should return unchanged result
         assert result.status == ToolResultStatus.SUCCESS
         assert result.data == "Test output without transformation"
+
+
+class TestTransformerCachingOptimization:
+    """Test the transformer caching optimization behavior."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        # Register mock transformer for tests
+        if not registry.is_registered("mock_transformer"):
+            registry.register(MockTransformer)
+
+    def teardown_method(self):
+        """Clean up test fixtures."""
+        # Unregister mock transformer
+        if registry.is_registered("mock_transformer"):
+            registry.unregister("mock_transformer")
+
+    def test_transformer_instances_cached_during_initialization(self):
+        """Test that transformer instances are created once during tool initialization and cached."""
+        transformers = [Transformer(name="mock_transformer", config={})]
+
+        class ConcreteTestTool(Tool):
+            def _invoke(self, params: Dict) -> StructuredToolResult:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="Test output for transformation",
+                )
+
+            def get_parameterized_one_liner(self, params: Dict) -> str:
+                return "test command"
+
+        # Create tool - this should trigger model_post_init and cache transformers
+        tool = ConcreteTestTool(
+            name="test_tool", description="Test tool", transformers=transformers
+        )
+
+        # Verify that transformer instances are cached
+        assert tool._transformer_instances is not None
+        assert len(tool._transformer_instances) == 1
+        assert tool._transformer_instances[0].name == "mock_transformer"
+
+        # Verify the cached instance is a real transformer, not a config
+        cached_transformer = tool._transformer_instances[0]
+        assert hasattr(cached_transformer, "transform")
+        assert hasattr(cached_transformer, "should_apply")
+
+    def test_transformer_instances_reused_across_multiple_calls(self):
+        """Test that the same transformer instances are reused across multiple tool invocations."""
+        transformers = [Transformer(name="mock_transformer", config={})]
+
+        class ConcreteTestTool(Tool):
+            def _invoke(self, params: Dict) -> StructuredToolResult:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="Test output for transformation",
+                )
+
+            def get_parameterized_one_liner(self, params: Dict) -> str:
+                return "test command"
+
+        tool = ConcreteTestTool(
+            name="test_tool", description="Test tool", transformers=transformers
+        )
+
+        # Get reference to cached transformer instance
+        initial_transformer = tool._transformer_instances[0]
+        initial_id = id(initial_transformer)
+
+        # Invoke the tool multiple times
+        result1 = tool.invoke({})
+        result2 = tool.invoke({})
+        result3 = tool.invoke({})
+
+        # Verify that the same transformer instance is still cached
+        assert tool._transformer_instances[0] is initial_transformer
+        assert id(tool._transformer_instances[0]) == initial_id
+
+        # Verify transformations worked correctly
+        assert "mock_transformed:" in result1.data
+        assert "mock_transformed:" in result2.data
+        assert "mock_transformed:" in result3.data
+
+    def test_model_post_init_with_no_transformers(self):
+        """Test that model_post_init handles tools with no transformers correctly."""
+
+        class ConcreteTestTool(Tool):
+            def _invoke(self, params: Dict) -> StructuredToolResult:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="Test output without transformers",
+                )
+
+            def get_parameterized_one_liner(self, params: Dict) -> str:
+                return "test command"
+
+        # Create tool without transformers
+        tool = ConcreteTestTool(
+            name="test_tool",
+            description="Test tool",
+            # No transformers
+        )
+
+        # Verify that _transformer_instances is None
+        assert tool._transformer_instances is None
+
+        # Verify tool still works correctly
+        result = tool.invoke({})
+        assert result.status == ToolResultStatus.SUCCESS
+        assert result.data == "Test output without transformers"
+
+    def test_transformer_initialization_failure_handling(self):
+        """Test graceful handling when transformer initialization fails during model_post_init."""
+        
+        # Create a transformer config that will fail to initialize
+        transformers = [
+            Transformer(name="nonexistent_transformer", config={}),
+            Transformer(name="mock_transformer", config={}),  # This one should succeed
+        ]
+
+        class ConcreteTestTool(Tool):
+            def _invoke(self, params: Dict) -> StructuredToolResult:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="Test output for transformation",
+                )
+
+            def get_parameterized_one_liner(self, params: Dict) -> str:
+                return "test command"
+
+        # Create tool - initialization should handle the failure gracefully
+        with patch('logging.warning') as mock_warning:
+            tool = ConcreteTestTool(
+                name="test_tool", description="Test tool", transformers=transformers
+            )
+
+            # Verify that warning was logged for failed transformer
+            mock_warning.assert_called()
+            warning_calls = [call for call in mock_warning.call_args_list 
+                           if 'nonexistent_transformer' in str(call)]
+            assert len(warning_calls) > 0
+
+        # Verify that only the successful transformer was cached
+        assert tool._transformer_instances is not None
+        assert len(tool._transformer_instances) == 1
+        assert tool._transformer_instances[0].name == "mock_transformer"
+
+        # Verify tool still works with the successful transformer
+        result = tool.invoke({})
+        assert result.status == ToolResultStatus.SUCCESS
+        assert "mock_transformed:" in result.data
+
+    def test_transformer_initialization_empty_transformers_list(self):
+        """Test that model_post_init handles empty transformers list correctly."""
+        transformers = []
+
+        class ConcreteTestTool(Tool):
+            def _invoke(self, params: Dict) -> StructuredToolResult:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="Test output",
+                )
+
+            def get_parameterized_one_liner(self, params: Dict) -> str:
+                return "test command"
+
+        tool = ConcreteTestTool(
+            name="test_tool", description="Test tool", transformers=transformers
+        )
+
+        # Empty transformers list should result in None (no transformer processing needed)
+        assert tool._transformer_instances is None
+
+        # Tool should still work correctly
+        result = tool.invoke({})
+        assert result.status == ToolResultStatus.SUCCESS
+        assert result.data == "Test output"
+
+    def test_performance_optimization_prevents_recreation(self):
+        """Test that transformers are not recreated on each tool call."""
+        transformers = [Transformer(name="mock_transformer", config={})]
+
+        class ConcreteTestTool(Tool):
+            def _invoke(self, params: Dict) -> StructuredToolResult:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="Test output for transformation",
+                )
+
+            def get_parameterized_one_liner(self, params: Dict) -> str:
+                return "test command"
+
+        tool = ConcreteTestTool(
+            name="test_tool", description="Test tool", transformers=transformers
+        )
+
+        # Mock the registry.create_transformer to track calls
+        with patch.object(registry, 'create_transformer', wraps=registry.create_transformer) as mock_create:
+            # Invoke the tool multiple times
+            tool.invoke({})
+            tool.invoke({})
+            tool.invoke({})
+
+            # create_transformer should NOT be called during tool invocation
+            # It should only be called during initialization (which happened before this patch)
+            mock_create.assert_not_called()
