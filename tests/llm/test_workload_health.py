@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import time
 from pathlib import Path
 from typing import Optional
 import json
@@ -111,8 +112,12 @@ def test_health_check(
             )
 
         with patch.multiple("server", dal=mock_dal, config=config):
-            with eval_span.start_span("Holmes Run", type=SpanType.LLM):
+            # Note: Currently workload_health_check does not trace llm calls and the run includes the startup time of the tools
+            with eval_span.start_span("Holmes Run", type=SpanType.TASK.value):
+                start_time = time.time()
                 result = workload_health_check(request=input)
+                holmes_duration = time.time() - start_time
+                eval_span.log(metadata={"Holmes Duration": holmes_duration})
 
         assert result, "No result returned by workload_health_check()"
         # check that analysis is json parsable otherwise failed.

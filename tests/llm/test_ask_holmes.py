@@ -338,7 +338,7 @@ def ask_holmes(
         )
 
     # Create LLM completion trace within current context
-    with tracer.start_trace("Holmes", span_type=SpanType.TASK) as llm_span:
+    with tracer.start_trace("Holmes Run", span_type=SpanType.TASK) as llm_span:
         start_time = time.time()
         result = ai.messages_call(messages=messages, trace_span=llm_span)
         holmes_duration = time.time() - start_time

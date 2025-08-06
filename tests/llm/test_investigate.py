@@ -137,7 +137,7 @@ def test_investigate(
                 ):
                     config.create_tool_executor(mock_dal)
                 with eval_span.start_span(
-                    "Holmes", type=SpanType.TASK.value
+                    "Holmes Run", type=SpanType.TASK.value
                 ) as holmes_span:
                     start_time = time.time()
                     result = investigate_issues(
