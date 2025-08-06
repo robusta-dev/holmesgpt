@@ -32,4 +32,4 @@ before_test: |
   sleep 60
 
 after_test: |
-  kubectl delete namespace app-02 --force --grace-period=0
+  kubectl delete namespace app-02
