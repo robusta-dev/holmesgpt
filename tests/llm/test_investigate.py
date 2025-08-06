@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -138,12 +139,15 @@ def test_investigate(
                 with eval_span.start_span(
                     "Holmes", type=SpanType.TASK.value
                 ) as holmes_span:
+                    start_time = time.time()
                     result = investigate_issues(
                         investigate_request=investigate_request,
                         config=config,
                         dal=mock_dal,
                         trace_span=holmes_span,
                     )
+                    holmes_duration = time.time() - start_time
+                eval_span.log(metadata={"Holmes Duration": holmes_duration})
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
