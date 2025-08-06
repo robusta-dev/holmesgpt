@@ -25,4 +25,4 @@ before_test: |
   kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=60s
 
 after_test: |
-  kubectl delete namespace app-05 --force --grace-period=0
+  kubectl delete namespace app-05

@@ -1,0 +1,38 @@
+user_prompt: "The session-service in namespace-105 is experiencing timeouts when looking up user sessions. What's the issue?"
+expected_output:
+  - Redis performance issue due to using KEYS command for pattern matching
+  - KEYS command scans all 50k keys causing O(N) complexity
+  - Should use Redis Sets or Hashes for efficient session lookups
+  - SCAN command or proper data structures would prevent the timeouts
+tags:
+  - medium
+  - database
+description: |
+  This eval demonstrates a common Redis anti-pattern - using KEYS command in production.
+
+  Setup:
+  - Redis instance with 50k session keys (session:user:*)
+  - Session service using KEYS session:user:* to find sessions
+  - Each KEYS command scans all 50k keys causing slowness
+  - Redis SLOWLOG captures these slow operations
+
+  Expected troubleshooting steps:
+  1. Check Redis slowlog: kubectl exec redis-pod -- redis-cli SLOWLOG GET 10
+  2. See KEYS commands taking 50-200 microseconds (slow for Redis)
+  3. Check Redis INFO: kubectl exec redis-pod -- redis-cli INFO KEYSPACE
+  4. See total of 50k keys in database
+  5. Monitor commands: kubectl exec redis-pod -- redis-cli MONITOR (briefly)
+  6. Observe KEYS pattern matching commands
+  7. Identify that KEYS command is O(N) and blocks Redis
+  8. Recommend using Sets (SADD/SMEMBERS) or Hashes for session storage
+
+  The SLOWLOG clearly shows KEYS commands as the culprit with execution times.
+before_test: |
+  kubectl create namespace namespace-105
+  kubectl apply -f ./manifest.yaml -n namespace-105
+  kubectl wait --for=condition=ready pod -l app=redis -n namespace-105 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=session-service -n namespace-105 --timeout=60s
+  sleep 20  # Let slow operations accumulate in slowlog
+after_test: |
+  kubectl delete -f ./manifest.yaml -n namespace-105
+  kubectl delete namespace namespace-105

@@ -74,7 +74,7 @@ before_test: |
   # Holmes will need to investigate using only historical logs
   echo "Deleting payment-api pod to simulate real-world scenario..."
   kubectl delete deployment payment-api -n app-101
-  kubectl delete pod -l app=payment-api -n app-101 --force --grace-period=0
+  kubectl delete pod -l app=payment-api -n app-101
 
   # Verify pod is gone
   kubectl get pods -n app-101 -l app=payment-api 2>&1 | grep "No resources found" || (echo "ERROR: Pod still exists" && exit 1)
@@ -82,4 +82,4 @@ before_test: |
 
 after_test: |
   # Delete namespace in background to avoid hanging
-  kubectl delete namespace app-101 --force --grace-period=0 --wait=false || true
+  kubectl delete namespace app-101 --wait=false || true
