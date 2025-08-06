@@ -39,6 +39,9 @@ from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
+from holmes.plugins.toolsets.investigator.core_investigation import (
+    CoreInvestigationToolset,
+)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -63,6 +66,7 @@ def load_toolsets_from_file(
 def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
     toolsets: list[Toolset] = [
+        CoreInvestigationToolset(),  # Load first for higher priority
         InternetToolset(),
         RobustaToolset(dal),
         OpenSearchToolset(),

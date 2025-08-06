@@ -823,6 +823,16 @@ class IssueInvestigator(ToolCallingLLM):
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
 
+        # Add TodoList context to prompt
+        from holmes.core.todo_manager import (
+            get_todo_manager,
+            get_session_id_from_context,
+        )
+
+        todo_manager = get_todo_manager()
+        session_id = get_session_id_from_context()
+        todo_context = todo_manager.format_tasks_for_prompt(session_id)
+
         system_prompt = load_and_render_prompt(
             prompt,
             {
@@ -831,6 +841,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
                 "cluster_name": self.cluster_name,
+                "todo_list": todo_context,
             },
         )
 
