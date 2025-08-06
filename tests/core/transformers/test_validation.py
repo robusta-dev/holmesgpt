@@ -4,6 +4,8 @@ Unit tests for transformer validation module.
 
 import pytest
 from unittest.mock import patch
+from typing import Optional
+from pydantic import Field, field_validator
 
 from holmes.core.transformers.validation import (
     TransformerValidationError,
@@ -25,21 +27,33 @@ class MockValidTransformer(BaseTransformer):
     def should_apply(self, input_text: str) -> bool:
         return True
 
+    @property
+    def name(self) -> str:
+        return "mock_valid"
+
 
 class MockConfigTransformer(BaseTransformer):
     """Mock transformer with config validation."""
 
-    def _validate_config(self) -> None:
-        if "required_param" not in self.config:
-            raise ValueError("required_param is missing")
-        if self.config.get("invalid_param") == "invalid":
+    required_param: str = Field(description="Required parameter for testing")
+    invalid_param: Optional[str] = Field(default=None, description="Parameter for testing validation")
+
+    @field_validator('invalid_param')
+    @classmethod
+    def validate_invalid_param(cls, v):
+        if v == "invalid":
             raise ValueError("invalid_param has invalid value")
+        return v
 
     def transform(self, input_text: str) -> str:
         return f"config_transformed: {input_text}"
 
     def should_apply(self, input_text: str) -> bool:
         return True
+
+    @property
+    def name(self) -> str:
+        return "mock_config"
 
 
 class TestTransformerValidationError:
@@ -319,4 +333,4 @@ class TestValidationIntegration:
 
         # Should contain underlying error details from the validation chain
         error_str = str(exc_info.value)
-        assert "required_param is missing" in error_str
+        assert "Field required" in error_str or "required_param" in error_str

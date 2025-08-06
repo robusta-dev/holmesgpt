@@ -4,6 +4,7 @@ Unit tests for LLMSummarizeTransformer.
 
 import pytest
 from unittest.mock import Mock, patch
+from pydantic import ValidationError
 
 from holmes.core.transformers.llm_summarize import LLMSummarizeTransformer
 from holmes.core.transformers.base import TransformerError
@@ -29,7 +30,10 @@ class TestLLMSummarizeTransformer:
     def test_init_with_no_config(self):
         """Test transformer initialization without config."""
         transformer = LLMSummarizeTransformer()
-        assert transformer.config == {}
+        assert transformer.input_threshold == 1000  # default value
+        assert transformer.prompt is None  # default value
+        assert transformer.fast_model is None  # default value
+        assert transformer.api_key is None  # default value
         assert transformer._fast_llm is None
 
     @patch("holmes.core.transformers.llm_summarize.DefaultLLM")
@@ -38,15 +42,17 @@ class TestLLMSummarizeTransformer:
         mock_llm_instance = self.create_mock_llm()
         mock_default_llm.return_value = mock_llm_instance
 
-        config = {
-            "input_threshold": 500,
-            "prompt": "Custom prompt",
-            "fast_model": "gpt-4o-mini",
-            "api_key": "test-key",
-        }
-        transformer = LLMSummarizeTransformer(config)
+        transformer = LLMSummarizeTransformer(
+            input_threshold=500,
+            prompt="Custom prompt",
+            fast_model="gpt-4o-mini",
+            api_key="test-key",
+        )
 
-        assert transformer.config == config
+        assert transformer.input_threshold == 500
+        assert transformer.prompt == "Custom prompt"
+        assert transformer.fast_model == "gpt-4o-mini"
+        assert transformer.api_key == "test-key"
         assert transformer._fast_llm is mock_llm_instance
         mock_default_llm.assert_called_once_with("gpt-4o-mini", "test-key")
 
@@ -56,8 +62,7 @@ class TestLLMSummarizeTransformer:
         mock_llm_instance = self.create_mock_llm()
         mock_default_llm.return_value = mock_llm_instance
 
-        config = {"fast_model": "gpt-4o-mini"}
-        transformer = LLMSummarizeTransformer(config)
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         assert transformer._fast_llm is mock_llm_instance
         mock_default_llm.assert_called_once_with("gpt-4o-mini", None)
@@ -67,8 +72,7 @@ class TestLLMSummarizeTransformer:
         """Test transformer initialization handles LLM creation failure."""
         mock_default_llm.side_effect = Exception("LLM creation failed")
 
-        config = {"fast_model": "invalid-model"}
-        transformer = LLMSummarizeTransformer(config)
+        transformer = LLMSummarizeTransformer(fast_model="invalid-model")
 
         assert transformer._fast_llm is None
         mock_default_llm.assert_called_once_with("invalid-model", None)
@@ -80,64 +84,49 @@ class TestLLMSummarizeTransformer:
 
     def test_config_validation_success(self):
         """Test successful config validation."""
-        config = {
-            "input_threshold": 100,
-            "prompt": "Valid prompt",
-            "fast_model": "gpt-4o-mini",
-        }
         with patch("holmes.core.transformers.llm_summarize.DefaultLLM"):
-            transformer = LLMSummarizeTransformer(config)
-            assert transformer.config["input_threshold"] == 100
-            assert transformer.config["prompt"] == "Valid prompt"
-            assert transformer.config["fast_model"] == "gpt-4o-mini"
+            transformer = LLMSummarizeTransformer(
+                input_threshold=100,
+                prompt="Valid prompt",
+                fast_model="gpt-4o-mini",
+            )
+            assert transformer.input_threshold == 100
+            assert transformer.prompt == "Valid prompt"
+            assert transformer.fast_model == "gpt-4o-mini"
 
     def test_config_validation_invalid_threshold(self):
         """Test config validation with invalid threshold."""
         # Negative threshold
-        with pytest.raises(
-            ValueError, match="input_threshold must be a non-negative integer"
-        ):
-            LLMSummarizeTransformer({"input_threshold": -1})
+        with pytest.raises(ValidationError):
+            LLMSummarizeTransformer(input_threshold=-1)
 
         # Non-integer threshold
-        with pytest.raises(
-            ValueError, match="input_threshold must be a non-negative integer"
-        ):
-            LLMSummarizeTransformer({"input_threshold": "invalid"})
+        with pytest.raises(ValidationError):
+            LLMSummarizeTransformer(input_threshold="invalid")
 
-        # Non-integer threshold (float)
-        with pytest.raises(
-            ValueError, match="input_threshold must be a non-negative integer"
-        ):
-            LLMSummarizeTransformer({"input_threshold": 100.5})
+        # Non-integer threshold (float) - Pydantic v2 will reject this
+        with pytest.raises(ValidationError):
+            LLMSummarizeTransformer(input_threshold=100.5)
 
     def test_config_validation_invalid_prompt(self):
         """Test config validation with invalid prompt."""
         # Empty prompt
-        with pytest.raises(ValueError, match="prompt must be a non-empty string"):
-            LLMSummarizeTransformer({"prompt": ""})
-
-        # Whitespace-only prompt
-        with pytest.raises(ValueError, match="prompt must be a non-empty string"):
-            LLMSummarizeTransformer({"prompt": "   "})
+        with pytest.raises(ValidationError):
+            LLMSummarizeTransformer(prompt="")
 
         # Non-string prompt
-        with pytest.raises(ValueError, match="prompt must be a non-empty string"):
-            LLMSummarizeTransformer({"prompt": 123})
+        with pytest.raises(ValidationError):
+            LLMSummarizeTransformer(prompt=123)
 
     def test_config_validation_invalid_fast_model(self):
         """Test config validation with invalid fast_model."""
         # Empty fast_model
-        with pytest.raises(ValueError, match="fast_model must be a non-empty string"):
-            LLMSummarizeTransformer({"fast_model": ""})
-
-        # Whitespace-only fast_model
-        with pytest.raises(ValueError, match="fast_model must be a non-empty string"):
-            LLMSummarizeTransformer({"fast_model": "   "})
+        with pytest.raises(ValidationError):
+            LLMSummarizeTransformer(fast_model="")
 
         # Non-string fast_model
-        with pytest.raises(ValueError, match="fast_model must be a non-empty string"):
-            LLMSummarizeTransformer({"fast_model": 123})
+        with pytest.raises(ValidationError):
+            LLMSummarizeTransformer(fast_model=123)
 
     def test_should_apply_no_fast_model(self):
         """Test should_apply when no fast model is configured."""
@@ -151,7 +140,7 @@ class TestLLMSummarizeTransformer:
     def test_should_apply_with_fast_model_default_threshold(self, mock_default_llm):
         """Test should_apply with fast model and default threshold."""
         mock_default_llm.return_value = self.create_mock_llm()
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         # Default threshold is 1000 characters
         short_text = "a" * 999
@@ -165,7 +154,7 @@ class TestLLMSummarizeTransformer:
         """Test should_apply with custom threshold."""
         mock_default_llm.return_value = self.create_mock_llm()
         transformer = LLMSummarizeTransformer(
-            {"fast_model": "gpt-4o-mini", "input_threshold": 500}
+            fast_model="gpt-4o-mini", input_threshold=500
         )
 
         short_text = "a" * 499
@@ -181,7 +170,7 @@ class TestLLMSummarizeTransformer:
         """Test successful transformation with default prompt."""
         mock_llm = self.create_mock_llm("This is a summary")
         mock_default_llm.return_value = mock_llm
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         input_text = "Original content to be summarized"
         result = transformer.transform(input_text)
@@ -203,7 +192,7 @@ class TestLLMSummarizeTransformer:
         mock_default_llm.return_value = mock_llm
         custom_prompt = "Summarize this in a custom way"
         transformer = LLMSummarizeTransformer(
-            {"fast_model": "gpt-4o-mini", "prompt": custom_prompt}
+            fast_model="gpt-4o-mini", prompt=custom_prompt
         )
 
         input_text = "Content to summarize"
@@ -221,7 +210,7 @@ class TestLLMSummarizeTransformer:
         """Test that transformation strips whitespace from response."""
         mock_llm = self.create_mock_llm("  Summary with whitespace  ")
         mock_default_llm.return_value = mock_llm
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         result = transformer.transform("input text")
         assert result == "Summary with whitespace"
@@ -240,7 +229,7 @@ class TestLLMSummarizeTransformer:
         """Test transform fails when model returns empty response."""
         mock_llm = self.create_mock_llm("")
         mock_default_llm.return_value = mock_llm
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         with pytest.raises(TransformerError, match="Fast model returned empty summary"):
             transformer.transform("input text")
@@ -250,7 +239,7 @@ class TestLLMSummarizeTransformer:
         """Test transform fails when model returns whitespace-only response."""
         mock_llm = self.create_mock_llm("   ")
         mock_default_llm.return_value = mock_llm
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         with pytest.raises(TransformerError, match="Fast model returned empty summary"):
             transformer.transform("input text")
@@ -261,7 +250,7 @@ class TestLLMSummarizeTransformer:
         mock_llm = Mock()
         mock_llm.completion.side_effect = Exception("LLM API error")
         mock_default_llm.return_value = mock_llm
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         with pytest.raises(
             TransformerError,
@@ -277,7 +266,7 @@ class TestLLMSummarizeTransformer:
         mock_response.choices = []  # Empty choices
         mock_llm.completion.return_value = mock_response
         mock_default_llm.return_value = mock_llm
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         with pytest.raises(
             TransformerError, match="Failed to summarize content with fast model"
@@ -303,7 +292,7 @@ class TestLLMSummarizeTransformer:
         mock_default_llm.return_value = mock_llm
         custom_prompt = "Custom summarization prompt"
         transformer = LLMSummarizeTransformer(
-            {"fast_model": "gpt-4o-mini", "prompt": custom_prompt}
+            fast_model="gpt-4o-mini", prompt=custom_prompt
         )
 
         input_text = "Test content"
@@ -343,7 +332,7 @@ class TestLLMSummarizeTransformerIntegration:
         )
         mock_default_llm.return_value = mock_llm
         transformer = LLMSummarizeTransformer(
-            {"fast_model": "gpt-4o-mini", "input_threshold": 100}
+            fast_model="gpt-4o-mini", input_threshold=100
         )
 
         # Simulate large kubectl output
@@ -375,7 +364,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         mock_llm = self.create_mock_llm("Should not be called")
         mock_default_llm.return_value = mock_llm
         transformer = LLMSummarizeTransformer(
-            {"fast_model": "gpt-4o-mini", "input_threshold": 1000}
+            fast_model="gpt-4o-mini", input_threshold=1000
         )
 
         # Small output that shouldn't be summarized
@@ -395,7 +384,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         mock_llm = Mock()
         mock_llm.completion.side_effect = ConnectionError("Network timeout")
         mock_default_llm.return_value = mock_llm
-        transformer = LLMSummarizeTransformer({"fast_model": "gpt-4o-mini"})
+        transformer = LLMSummarizeTransformer(fast_model="gpt-4o-mini")
 
         with pytest.raises(TransformerError) as exc_info:
             transformer.transform("input to summarize")
@@ -423,7 +412,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         for threshold, input_text, expected in test_cases:
             mock_default_llm.return_value = mock_llm
             transformer = LLMSummarizeTransformer(
-                {"fast_model": "gpt-4o-mini", "input_threshold": threshold}
+                fast_model="gpt-4o-mini", input_threshold=threshold
             )
 
             result = transformer.should_apply(input_text)
@@ -447,19 +436,15 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         mock_default_llm.side_effect = mock_llm_side_effect
 
         transformer1 = LLMSummarizeTransformer(
-            {
-                "fast_model": "gpt-4o-mini",
-                "input_threshold": 10,
-                "prompt": "Brief summary:",
-            }
+            fast_model="gpt-4o-mini",
+            input_threshold=10,
+            prompt="Brief summary:",
         )
 
         transformer2 = LLMSummarizeTransformer(
-            {
-                "fast_model": "gpt-3.5-turbo",
-                "input_threshold": 20,
-                "prompt": "Detailed summary:",
-            }
+            fast_model="gpt-3.5-turbo",
+            input_threshold=20,
+            prompt="Detailed summary:",
         )
 
         test_input = "This is test input content"

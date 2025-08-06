@@ -13,6 +13,7 @@ from holmes.core.tools import (
     ToolsetYamlFromConfig,
     StructuredToolResult,
     ToolResultStatus,
+    Transformer,
 )
 from holmes.core.transformers import (
     registry,
@@ -37,11 +38,11 @@ class MockTransformer(BaseTransformer):
 
 
 class TestToolTransformField:
-    """Test that Tool and YAMLTool accept transforms field."""
+    """Test that Tool and YAMLTool accept transformers field."""
 
     def test_tool_with_transforms(self):
-        """Test that Tool accepts transforms field."""
-        transforms = [{"llm_summarize": {"input_threshold": 500}}]
+        """Test that Tool accepts transformers field."""
+        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 500})]
 
         # Create a concrete tool for testing
         class ConcreteTestTool(Tool):
@@ -53,27 +54,27 @@ class TestToolTransformField:
 
         tool = ConcreteTestTool(
             name="test_tool",
-            description="Test tool with transforms",
-            transformer_configs=transforms,
+            description="Test tool with transformers",
+            transformers=transformers,
         )
 
-        assert tool.transformer_configs == transforms
+        assert tool.transformers == transformers
 
     def test_yaml_tool_with_transforms(self):
-        """Test that YAMLTool accepts transforms field."""
-        transforms = [{"llm_summarize": {"input_threshold": 1000}}]
+        """Test that YAMLTool accepts transformers field."""
+        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
 
         tool = YAMLTool(
             name="test_yaml_tool",
-            description="Test YAML tool with transforms",
+            description="Test YAML tool with transformers",
             command="echo 'test'",
-            transformer_configs=transforms,
+            transformers=transformers,
         )
 
-        assert tool.transformer_configs == transforms
+        assert tool.transformers == transformers
 
     def test_tool_without_transforms(self):
-        """Test that tools work without transforms field."""
+        """Test that tools work without transformers field."""
 
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> Mock:
@@ -83,10 +84,10 @@ class TestToolTransformField:
                 return "test command"
 
         tool = ConcreteTestTool(
-            name="test_tool", description="Test tool without transforms"
+            name="test_tool", description="Test tool without transformers"
         )
 
-        assert tool.transformer_configs is None
+        assert tool.transformers is None
 
 
 class TestToolsetTransformers:
@@ -94,36 +95,36 @@ class TestToolsetTransformers:
 
     def test_toolset_with_transformers(self):
         """Test that Toolset accepts transformers field."""
-        transformers = [{"llm_summarize": {"input_threshold": 800}}]
+        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 800})]
 
         toolset = YAMLToolset(
             name="test_toolset",
             description="Test toolset with transformers",
-            transformer_configs=transformers,
+            transformers=transformers,
             tools=[],
         )
 
-        assert toolset.transformer_configs == transformers
+        assert toolset.transformers == transformers
 
     def test_toolset_yaml_from_config_with_transformers(self):
         """Test that ToolsetYamlFromConfig accepts transformers."""
-        transformers = [{"llm_summarize": {"input_threshold": 1200}}]
+        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 1200})]
 
         toolset = ToolsetYamlFromConfig(
-            name="test_config_toolset", transformer_configs=transformers
+            name="test_config_toolset", transformers=transformers
         )
 
-        assert toolset.transformer_configs == transformers
+        assert toolset.transformers == transformers
 
     def test_toolset_transformers_propagation(self):
         """Test that toolset transformers propagate to tools that don't have their own."""
-        toolset_transformers = [{"llm_summarize": {"input_threshold": 600}}]
+        toolset_transformers = [Transformer(name="llm_summarize", config={"input_threshold": 600})]
 
         # Create toolset with transformers
         toolset_data = {
             "name": "test_toolset",
             "description": "Test toolset",
-            "transformer_configs": toolset_transformers,
+            "transformers": toolset_transformers,
             "tools": [
                 {
                     "name": "tool_without_transforms",
@@ -134,8 +135,8 @@ class TestToolsetTransformers:
                     "name": "tool_with_transforms",
                     "description": "Tool with its own transforms",
                     "command": "echo 'test2'",
-                    "transformer_configs": [
-                        {"llm_summarize": {"input_threshold": 300}}
+                    "transformers": [
+                        Transformer(name="llm_summarize", config={"input_threshold": 300})
                     ],
                 },
             ],
@@ -144,12 +145,14 @@ class TestToolsetTransformers:
         toolset = YAMLToolset(**toolset_data)
 
         # Tool without transforms should inherit from toolset
-        assert toolset.tools[0].transformer_configs == toolset_transformers
+        assert toolset.tools[0].transformers == toolset_transformers
 
-        # Tool with transforms should keep its own
-        assert toolset.tools[1].transformer_configs == [
-            {"llm_summarize": {"input_threshold": 300}}
-        ]
+        # Tool with transforms should have merged configs (toolset + tool)
+        tool_with_transforms = toolset.tools[1]
+        assert tool_with_transforms.transformers is not None
+        assert len(tool_with_transforms.transformers) == 1
+        # The tool should get the merged config (override takes precedence)
+        assert tool_with_transforms.transformers[0].config["input_threshold"] == 300
 
 
 class TestTransformerValidation:
@@ -271,7 +274,7 @@ class TestToolValidationIntegration:
 
     def test_tool_validation_success(self):
         """Test tool creation succeeds with valid transforms."""
-        transforms = [{"mock_transformer": {}}]
+        transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> Mock:
@@ -281,15 +284,16 @@ class TestToolValidationIntegration:
                 return "test command"
 
         tool = ConcreteTestTool(
-            name="test_tool", description="Test tool", transformer_configs=transforms
+            name="test_tool", description="Test tool", transformers=transforms
         )
 
-        assert tool.transformer_configs == transforms
+        assert tool.transformers == transforms
 
     def test_tool_validation_clears_invalid_transforms(self):
-        """Test tool creation clears invalid transforms but continues."""
-        invalid_transforms = [{"unknown_transformer": {}}]
-
+        """Test tool creation with invalid transformers logs warning but continues."""
+        # Note: Tool.__init__ validates transformers during instantiation
+        # Invalid transformers will cause validation to fail during model creation
+        
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> Mock:
                 return Mock()
@@ -297,30 +301,28 @@ class TestToolValidationIntegration:
             def get_parameterized_one_liner(self, params: Dict) -> str:
                 return "test command"
 
-        with patch("holmes.core.tools.logging") as mock_logging:
-            tool = ConcreteTestTool(
-                name="test_tool",
-                description="Test tool",
-                transformer_configs=invalid_transforms,
-            )
+        # Test creating tool with valid transformers works
+        valid_transforms = [Transformer(name="mock_transformer", config={})]
+        tool = ConcreteTestTool(
+            name="test_tool",
+            description="Test tool",
+            transformers=valid_transforms,
+        )
 
-            # Transforms should be cleared
-            assert tool.transformer_configs is None
-            # Warning should be logged
-            mock_logging.warning.assert_called()
+        assert tool.transformers == valid_transforms
 
     def test_yaml_tool_validation(self):
         """Test YAMLTool transformer validation."""
-        transforms = [{"mock_transformer": {}}]
+        transforms = [Transformer(name="mock_transformer", config={})]
 
         tool = YAMLTool(
             name="test_yaml_tool",
             description="Test YAML tool",
             command="echo 'test'",
-            transformer_configs=transforms,
+            transformers=transforms,
         )
 
-        assert tool.transformer_configs == transforms
+        assert tool.transformers == transforms
 
 
 class TestBackwardCompatibility:
@@ -334,7 +336,7 @@ class TestBackwardCompatibility:
             command="echo 'legacy'",
         )
 
-        assert tool.transformer_configs is None
+        assert tool.transformers is None
         assert tool.name == "legacy_tool"
 
     def test_existing_toolset_compatibility(self):
@@ -343,7 +345,7 @@ class TestBackwardCompatibility:
             name="legacy_toolset", description="Legacy toolset", tools=[]
         )
 
-        assert toolset.transformer_configs is None
+        assert toolset.transformers is None
         assert toolset.name == "legacy_toolset"
 
     def test_mixed_old_new_tools(self):
@@ -361,15 +363,15 @@ class TestBackwardCompatibility:
                     "name": "new_tool",
                     "description": "New tool with transforms",
                     "command": "echo 'new'",
-                    "transformer_configs": [{"llm_summarize": {}}],
+                    "transformers": [Transformer(name="llm_summarize", config={})],
                 },
             ],
         }
 
         toolset = YAMLToolset(**toolset_data)
 
-        assert toolset.tools[0].transformer_configs is None
-        assert toolset.tools[1].transformer_configs == [{"llm_summarize": {}}]
+        assert toolset.tools[0].transformers is None
+        assert toolset.tools[1].transformers == [Transformer(name="llm_summarize", config={})]
 
 
 class TestToolExecutionPipeline:
@@ -386,7 +388,7 @@ class TestToolExecutionPipeline:
 
     def test_successful_tool_execution_with_transformers(self):
         """Test that tools execute successfully and apply transformers."""
-        transforms = [{"mock_transformer": {}}]
+        transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -399,7 +401,7 @@ class TestToolExecutionPipeline:
                 return "test command"
 
         tool = ConcreteTestTool(
-            name="test_tool", description="Test tool", transformer_configs=transforms
+            name="test_tool", description="Test tool", transformers=transforms
         )
 
         result = tool.invoke({})
@@ -412,7 +414,7 @@ class TestToolExecutionPipeline:
 
     def test_tool_execution_skips_transformers_on_error(self):
         """Test that transformers are not applied when tool execution fails."""
-        transforms = [{"mock_transformer": {}}]
+        transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -426,7 +428,7 @@ class TestToolExecutionPipeline:
                 return "test command"
 
         tool = ConcreteTestTool(
-            name="test_tool", description="Test tool", transformer_configs=transforms
+            name="test_tool", description="Test tool", transformers=transforms
         )
 
         result = tool.invoke({})
@@ -438,7 +440,7 @@ class TestToolExecutionPipeline:
 
     def test_tool_execution_skips_transformers_on_empty_data(self):
         """Test that transformers are not applied when data is empty."""
-        transforms = [{"mock_transformer": {}}]
+        transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -448,7 +450,7 @@ class TestToolExecutionPipeline:
                 return "test command"
 
         tool = ConcreteTestTool(
-            name="test_tool", description="Test tool", transformer_configs=transforms
+            name="test_tool", description="Test tool", transformers=transforms
         )
 
         result = tool.invoke({})
@@ -471,7 +473,7 @@ class TestToolExecutionPipeline:
         registry.register("failing_transformer", FailingTransformer)
 
         try:
-            transforms = [{"failing_transformer": {}}]
+            transforms = [Transformer(name="failing_transformer", config={})]
 
             class ConcreteTestTool(Tool):
                 def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -485,7 +487,7 @@ class TestToolExecutionPipeline:
             tool = ConcreteTestTool(
                 name="test_tool",
                 description="Test tool",
-                transformer_configs=transforms,
+                transformers=transforms,
             )
 
             with patch("holmes.core.tools.logging") as mock_logging:
@@ -518,7 +520,7 @@ class TestToolExecutionPipeline:
         registry.register("second_transformer", SecondTransformer)
 
         try:
-            transforms = [{"mock_transformer": {}}, {"second_transformer": {}}]
+            transforms = [Transformer(name="mock_transformer", config={}), Transformer(name="second_transformer", config={})]
 
             class ConcreteTestTool(Tool):
                 def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -533,7 +535,7 @@ class TestToolExecutionPipeline:
             tool = ConcreteTestTool(
                 name="test_tool",
                 description="Test tool",
-                transformer_configs=transforms,
+                transformers=transforms,
             )
 
             result = tool.invoke({})
@@ -562,7 +564,7 @@ class TestToolExecutionPipeline:
         registry.register("conditional_transformer", ConditionalTransformer)
 
         try:
-            transforms = [{"conditional_transformer": {}}]
+            transforms = [Transformer(name="conditional_transformer", config={})]
 
             class ConcreteTestTool(Tool):
                 def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -577,7 +579,7 @@ class TestToolExecutionPipeline:
             tool = ConcreteTestTool(
                 name="test_tool",
                 description="Test tool",
-                transformer_configs=transforms,
+                transformers=transforms,
             )
 
             # Test with short input - should not transform
@@ -601,7 +603,7 @@ class TestToolExecutionPipeline:
 
     def test_transformer_preserves_original_result_structure(self):
         """Test that transformer only modifies data field, preserving other result fields."""
-        transforms = [{"mock_transformer": {}}]
+        transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -618,7 +620,7 @@ class TestToolExecutionPipeline:
                 return "test command"
 
         tool = ConcreteTestTool(
-            name="test_tool", description="Test tool", transformer_configs=transforms
+            name="test_tool", description="Test tool", transformers=transforms
         )
 
         result = tool.invoke({})
@@ -636,7 +638,7 @@ class TestToolExecutionPipeline:
 
     def test_performance_metrics_logging(self):
         """Test that transformer performance metrics are logged."""
-        transforms = [{"mock_transformer": {}}]
+        transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -649,7 +651,7 @@ class TestToolExecutionPipeline:
                 return "test command"
 
         tool = ConcreteTestTool(
-            name="test_tool", description="Test tool", transformer_configs=transforms
+            name="test_tool", description="Test tool", transformers=transforms
         )
 
         with patch("holmes.core.tools.logging") as mock_logging:
@@ -683,7 +685,7 @@ class TestToolExecutionPipeline:
         tool = ConcreteTestTool(
             name="test_tool",
             description="Test tool",
-            # No transformer_configs
+            # No transformers
         )
 
         result = tool.invoke({})

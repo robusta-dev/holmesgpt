@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from benedict import benedict
 from pydantic import FilePath
@@ -12,7 +12,10 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
-from holmes.utils.config_utils import merge_transformer_configs
+from holmes.utils.config_utils import merge_transformers
+
+if TYPE_CHECKING:
+    from holmes.core.tools import Transformer
 
 DEFAULT_TOOLSET_STATUS_LOCATION = os.path.join(config_path_dir, "toolsets_status.json")
 
@@ -31,7 +34,7 @@ class ToolsetManager:
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
         toolset_status_location: Optional[FilePath] = None,
-        global_transformer_configs: Optional[List[Dict[str, Any]]] = None,
+        global_transformers: Optional[List["Transformer"]] = None,
     ):
         self.toolsets = toolsets
         self.toolsets = toolsets or {}
@@ -40,7 +43,7 @@ class ToolsetManager:
                 mcp_server["type"] = ToolsetType.MCP.value
         self.toolsets.update(mcp_servers or {})
         self.custom_toolsets = custom_toolsets
-        self.global_transformer_configs = global_transformer_configs
+        self.global_transformers = global_transformers
 
         if toolset_status_location is None:
             toolset_status_location = FilePath(DEFAULT_TOOLSET_STATUS_LOCATION)
@@ -459,21 +462,23 @@ class ToolsetManager:
         Apply global transformer configurations using intelligent merging.
         Global configs provide missing fields, toolset configs take precedence.
         """
-        if not self.global_transformer_configs:
+        if not self.global_transformers:
             return
 
         for toolset in toolsets:
             # Always attempt merging (remove the if not check)
-            toolset.transformer_configs = merge_transformer_configs(
-                base_configs=self.global_transformer_configs,
-                override_configs=toolset.transformer_configs,
+            # type: ignore - forward reference "Transformer" vs actual Transformer class are the same type
+            toolset.transformers = merge_transformers(
+                base_transformers=self.global_transformers,
+                override_transformers=toolset.transformers,
             )
 
             # Re-apply toolset configs to tools after global merge
             # This ensures tools inherit the newly merged toolset configs
             if hasattr(toolset, "tools") and toolset.tools:
                 for tool in toolset.tools:
-                    tool.transformer_configs = merge_transformer_configs(
-                        base_configs=toolset.transformer_configs,
-                        override_configs=tool.transformer_configs,
+                    # type: ignore - forward reference "Transformer" vs actual Transformer class are the same type
+                    tool.transformers = merge_transformers(
+                        base_transformers=toolset.transformers,
+                        override_transformers=tool.transformers,
                     )

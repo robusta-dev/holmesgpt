@@ -2,139 +2,123 @@
 Tests for configuration utility functions.
 """
 
-from holmes.utils.config_utils import merge_transformer_configs
+from holmes.utils.config_utils import merge_transformers
+from holmes.core.tools import Transformer
 
 
-def test_merge_transformer_configs_both_none():
-    """Test that merging None configs returns None."""
-    result = merge_transformer_configs(None, None)
+def test_merge_transformers_both_none():
+    """Test that merging None transformers returns None."""
+    result = merge_transformers(None, None)
     assert result is None
 
 
-def test_merge_transformer_configs_base_none():
-    """Test that when base is None, override configs are returned."""
-    override = [{"llm_summarize": {"input_threshold": 1000}}]
-    result = merge_transformer_configs(None, override)
+def test_merge_transformers_base_none():
+    """Test that when base is None, override transformers are returned."""
+    override = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+    result = merge_transformers(None, override)
     assert result == override
 
 
-def test_merge_transformer_configs_override_none():
-    """Test that when override is None, base configs are returned."""
-    base = [{"llm_summarize": {"fast_model": "gpt-4o-mini"}}]
-    result = merge_transformer_configs(base, None)
+def test_merge_transformers_override_none():
+    """Test that when override is None, base transformers are returned."""
+    base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+    result = merge_transformers(base, None)
     assert result == base
 
 
-def test_merge_transformer_configs_both_empty():
+def test_merge_transformers_both_empty():
     """Test that merging empty lists returns None."""
-    result = merge_transformer_configs([], [])
+    result = merge_transformers([], [])
     assert result is None
 
 
-def test_merge_transformer_configs_field_level_merge():
+def test_merge_transformers_field_level_merge():
     """Test field-level merging with precedence."""
-    base = [{"llm_summarize": {"fast_model": "gpt-4o-mini", "input_threshold": 500}}]
-    override = [{"llm_summarize": {"input_threshold": 1000, "prompt": "Custom"}}]
+    base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini", "input_threshold": 500})]
+    override = [Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Custom"})]
 
-    result = merge_transformer_configs(base, override)
+    result = merge_transformers(base, override)
 
-    expected = [
-        {
-            "llm_summarize": {
-                "fast_model": "gpt-4o-mini",  # From base
-                "input_threshold": 1000,  # Override wins
-                "prompt": "Custom",  # From override
-            }
-        }
-    ]
-
-    assert result == expected
+    assert len(result) == 1
+    assert result[0].name == "llm_summarize"
+    assert result[0].config == {
+        "fast_model": "gpt-4o-mini",  # From base
+        "input_threshold": 1000,  # Override wins
+        "prompt": "Custom",  # From override
+    }
 
 
-def test_merge_transformer_configs_different_types():
+def test_merge_transformers_different_types():
     """Test merging different transformer types."""
-    base = [{"llm_summarize": {"fast_model": "gpt-4o-mini"}}]
-    override = [{"custom_transformer": {"param": "value"}}]
+    base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+    override = [Transformer(name="custom_transformer", config={"param": "value"})]
 
-    result = merge_transformer_configs(base, override)
+    result = merge_transformers(base, override)
 
-    # Order might vary, so check both types are present
-    result_types = set()
-    for config in result:
-        result_types.update(config.keys())
-
-    assert "llm_summarize" in result_types
-    assert "custom_transformer" in result_types
+    # Should have both transformers
+    result_names = {t.name for t in result}
+    assert "llm_summarize" in result_names
+    assert "custom_transformer" in result_names
     assert len(result) == 2
 
 
-def test_merge_transformer_configs_multiple_base_configs():
-    """Test merging with multiple configs in base list."""
+def test_merge_transformers_multiple_base():
+    """Test merging with multiple transformers in base list."""
     base = [
-        {"llm_summarize": {"fast_model": "gpt-4o-mini"}},
-        {"custom_transformer": {"param": "base_value"}},
+        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"}),
+        Transformer(name="custom_transformer", config={"param": "base_value"}),
     ]
-    override = [{"llm_summarize": {"input_threshold": 1000}}]
+    override = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
 
-    result = merge_transformer_configs(base, override)
+    result = merge_transformers(base, override)
 
     # Check that llm_summarize was merged and custom_transformer was preserved
-    result_dict = {}
-    for config in result:
-        result_dict.update(config)
+    result_dict = {t.name: t.config for t in result}
 
     assert result_dict["llm_summarize"]["fast_model"] == "gpt-4o-mini"
     assert result_dict["llm_summarize"]["input_threshold"] == 1000
     assert result_dict["custom_transformer"]["param"] == "base_value"
 
 
-def test_merge_transformer_configs_override_precedence():
-    """Test that override configs take precedence for existing fields."""
+def test_merge_transformers_override_precedence():
+    """Test that override transformers take precedence for existing fields."""
     base = [
-        {
-            "llm_summarize": {
-                "fast_model": "gpt-4o-mini",
-                "input_threshold": 500,
-                "prompt": "Base prompt",
-            }
-        }
+        Transformer(name="llm_summarize", config={
+            "fast_model": "gpt-4o-mini",
+            "input_threshold": 500,
+            "prompt": "Base prompt",
+        })
     ]
     override = [
-        {"llm_summarize": {"input_threshold": 2000, "prompt": "Override prompt"}}
+        Transformer(name="llm_summarize", config={"input_threshold": 2000, "prompt": "Override prompt"})
     ]
 
-    result = merge_transformer_configs(base, override)
+    result = merge_transformers(base, override)
 
-    expected = [
-        {
-            "llm_summarize": {
-                "fast_model": "gpt-4o-mini",  # From base (not overridden)
-                "input_threshold": 2000,  # Override wins
-                "prompt": "Override prompt",  # Override wins
-            }
-        }
-    ]
-
-    assert result == expected
+    assert len(result) == 1
+    assert result[0].name == "llm_summarize"
+    assert result[0].config == {
+        "fast_model": "gpt-4o-mini",  # From base (not overridden)
+        "input_threshold": 2000,  # Override wins
+        "prompt": "Override prompt",  # Override wins
+    }
 
 
-def test_merge_transformer_configs_complex_scenario():
-    """Test complex merging scenario with multiple types and configs."""
+def test_merge_transformers_complex_scenario():
+    """Test complex merging scenario with multiple types and transformers."""
     base = [
-        {"llm_summarize": {"fast_model": "gpt-4o-mini", "input_threshold": 500}},
-        {"data_filter": {"max_items": 100}},
+        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini", "input_threshold": 500}),
+        Transformer(name="data_filter", config={"max_items": 100}),
     ]
     override = [
-        {"llm_summarize": {"input_threshold": 1000, "prompt": "Custom"}},
-        {"result_formatter": {"format": "json"}},
+        Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Custom"}),
+        Transformer(name="result_formatter", config={"format": "json"}),
     ]
 
-    result = merge_transformer_configs(base, override)
+    result = merge_transformers(base, override)
 
     # Convert to dict for easier assertions
-    result_dict = {}
-    for config in result:
-        result_dict.update(config)
+    result_dict = {t.name: t.config for t in result}
 
     # Check llm_summarize was merged properly
     assert result_dict["llm_summarize"]["fast_model"] == "gpt-4o-mini"  # From base

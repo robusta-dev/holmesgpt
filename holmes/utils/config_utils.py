@@ -2,68 +2,69 @@
 Configuration utility functions for HolmesGPT.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from holmes.core.tools import Transformer
 
 
-def merge_transformer_configs(
-    base_configs: Optional[List[Dict[str, Any]]],
-    override_configs: Optional[List[Dict[str, Any]]],
-) -> Optional[List[Dict[str, Any]]]:
+def merge_transformers(
+    base_transformers: Optional[List["Transformer"]],
+    override_transformers: Optional[List["Transformer"]],
+) -> Optional[List["Transformer"]]:
     """
     Merge transformer configurations with intelligent field-level merging.
 
     Logic:
-    - Override configs take precedence for existing fields
-    - Base configs provide missing fields
+    - Override transformers take precedence for existing fields
+    - Base transformers provide missing fields
     - Merge at transformer-type level (e.g., "llm_summarize")
 
     Args:
-        base_configs: Base configurations (e.g., global configs)
-        override_configs: Override configurations (e.g., toolset configs)
+        base_transformers: Base transformer configurations (e.g., global transformers)
+        override_transformers: Override transformer configurations (e.g., toolset transformers)
 
     Returns:
-        Merged configuration list or None if both inputs are None/empty
+        Merged transformer configuration list or None if both inputs are None/empty
     """
-    if not base_configs and not override_configs:
+    if not base_transformers and not override_transformers:
         return None
-    if not base_configs:
-        return override_configs
-    if not override_configs:
-        return base_configs
+    if not base_transformers:
+        return override_transformers
+    if not override_transformers:
+        return base_transformers
 
-    # Convert lists to dicts keyed by transformer type for easier merging
+    # Convert lists to dicts keyed by transformer name for easier merging
     base_dict = {}
-    for config in base_configs:
-        for transformer_type, transformer_config in config.items():
-            base_dict[transformer_type] = transformer_config
+    for transformer in base_transformers:
+        base_dict[transformer.name] = transformer
 
     override_dict = {}
-    for config in override_configs:
-        for transformer_type, transformer_config in config.items():
-            override_dict[transformer_type] = transformer_config
+    for transformer in override_transformers:
+        override_dict[transformer.name] = transformer
 
     # Merge configurations at field level
-    merged_dict = {}
+    merged_transformers = []
 
     # Start with all base transformer types
-    for transformer_type, base_config in base_dict.items():
-        if transformer_type in override_dict:
+    for transformer_name, base_transformer in base_dict.items():
+        if transformer_name in override_dict:
             # Merge fields: override takes precedence, base provides missing fields
-            merged_config = dict(base_config)  # Start with base
-            merged_config.update(
-                override_dict[transformer_type]
-            )  # Override with specific fields
-            merged_dict[transformer_type] = merged_config
+            override_transformer = override_dict[transformer_name]
+            merged_config = dict(base_transformer.config)  # Start with base
+            merged_config.update(override_transformer.config)  # Override with specific fields
+            
+            # Create new transformer with merged config
+            from holmes.core.tools import Transformer
+            merged_transformer = Transformer(name=transformer_name, config=merged_config)
+            merged_transformers.append(merged_transformer)
         else:
-            # No override, use base config as-is
-            merged_dict[transformer_type] = base_config
+            # No override, use base transformer as-is
+            merged_transformers.append(base_transformer)
 
     # Add any override-only transformer types
-    for transformer_type, override_config in override_dict.items():
-        if transformer_type not in merged_dict:
-            merged_dict[transformer_type] = override_config
+    for transformer_name, override_transformer in override_dict.items():
+        if transformer_name not in base_dict:
+            merged_transformers.append(override_transformer)
 
-    # Convert back to list format
-    return [
-        {transformer_type: config} for transformer_type, config in merged_dict.items()
-    ]
+    return merged_transformers

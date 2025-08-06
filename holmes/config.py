@@ -4,7 +4,7 @@ import os
 import os.path
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from holmes.core.llm import LLM
     from holmes.core.supabase_dal import SupabaseDal
     from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
+    from holmes.core.tools import Transformer
     from holmes.plugins.destinations.slack import SlackDestination
     from holmes.plugins.sources.github import GitHubSource
     from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
@@ -74,7 +75,7 @@ class Config(RobustaBaseConfig):
     model: Optional[str] = "gpt-4o"
     fast_model: Optional[str] = None
     summarize_threshold: int = 1000
-    transformer_configs: Optional[List[Dict[str, Any]]] = None
+    transformers: Optional[List["Transformer"]] = None
     max_steps: int = 10
     cluster_name: Optional[str] = None
 
@@ -132,7 +133,7 @@ class Config(RobustaBaseConfig):
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
-                global_transformer_configs=self.transformer_configs,
+                global_transformers=self.transformers,
             )
         return self._toolset_manager
 
@@ -144,8 +145,8 @@ class Config(RobustaBaseConfig):
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
 
-        # Auto-generate transformer_configs from CLI fast_model parameter
-        self._auto_generate_transformer_configs()
+        # Auto-generate transformers from CLI fast_model parameter
+        self._auto_generate_transformers()
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
@@ -166,19 +167,22 @@ class Config(RobustaBaseConfig):
 
         return True
 
-    def _auto_generate_transformer_configs(self) -> None:
+    def _auto_generate_transformers(self) -> None:
         """
-        Auto-generate transformer_configs from CLI fast_model and summarize_threshold parameters.
-        Only generates if fast_model is provided and transformer_configs is not already set.
+        Auto-generate transformers from CLI fast_model and summarize_threshold parameters.
+        Only generates if fast_model is provided and transformers is not already set.
         """
-        if self.fast_model and not self.transformer_configs:
-            self.transformer_configs = [
-                {
-                    "llm_summarize": {
+        if self.fast_model and not self.transformers:
+            from holmes.core.tools import Transformer
+            
+            self.transformers = [
+                Transformer(
+                    name="llm_summarize",
+                    config={
                         "fast_model": self.fast_model,
                         "input_threshold": self.summarize_threshold,
                     }
-                }
+                )
             ]
             logging.debug(
                 f"Auto-generated transformer config with fast_model: {self.fast_model}"
@@ -200,6 +204,12 @@ class Config(RobustaBaseConfig):
         Returns:
             Config instance with merged settings
         """
+        # Import Transformer class to resolve forward reference
+        from holmes.core.tools import Transformer
+        
+        # Rebuild the model to resolve forward references
+        cls.model_rebuild()
+        
         config_from_file: Optional[Config] = None
         if config_file is not None and config_file.exists():
             logging.debug(f"Loading config from {config_file}")
@@ -220,6 +230,12 @@ class Config(RobustaBaseConfig):
 
     @classmethod
     def load_from_env(cls):
+        # Import Transformer class to resolve forward reference
+        from holmes.core.tools import Transformer
+        
+        # Rebuild the model to resolve forward references
+        cls.model_rebuild()
+        
         kwargs = {}
         for field_name in [
             "model",

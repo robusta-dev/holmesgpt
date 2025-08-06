@@ -3,7 +3,8 @@ LLM Summarize Transformer for fast model summarization of large tool outputs.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Optional, ClassVar
+from pydantic import Field, PrivateAttr
 
 from .base import BaseTransformer, TransformerError
 from ..llm import DefaultLLM, LLM
@@ -26,7 +27,7 @@ class LLMSummarizeTransformer(BaseTransformer):
     - api_key: API key for the fast model (optional, uses default if not provided)
     """
 
-    DEFAULT_PROMPT = """Summarize this operational data focusing on:
+    DEFAULT_PROMPT: ClassVar[str] = """Summarize this operational data focusing on:
 - What needs attention or immediate action
 - Group similar entries into a single line and description
 - Make sure to mention outliers, errors, and non-standard patterns
@@ -34,47 +35,42 @@ class LLMSummarizeTransformer(BaseTransformer):
 - When listing problematic entries, also try to use aggregate descriptions when possible
 - When possible, mention exact keywords, IDs, or patterns so the user can filter/search the original data and drill down on the parts they care about (extraction over abstraction)"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """
-        Initialize the LLM Summarize Transformer.
+    # Pydantic fields with validation
+    input_threshold: int = Field(
+        default=1000,
+        ge=0,
+        description="Minimum input length to trigger summarization"
+    )
+    prompt: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Custom prompt template for summarization"
+    )
+    fast_model: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Fast model name for summarization (e.g., 'gpt-4o-mini')"
+    )
+    api_key: Optional[str] = Field(
+        default=None,
+        description="API key for the fast model (optional, uses default if not provided)"
+    )
 
-        Args:
-            config: Configuration dictionary with optional:
-                - input_threshold: Minimum input length for summarization
-                - prompt: Custom summarization prompt
-                - fast_model: Fast model name for summarization (e.g., "gpt-4o-mini")
-                - api_key: API key for the fast model (optional)
-        """
-        super().__init__(config)
-        self._fast_llm: Optional[LLM] = None
+    # Private attribute for the LLM instance (not serialized)
+    _fast_llm: Optional[LLM] = PrivateAttr(default=None)
 
+    def model_post_init(self, __context) -> None:
+        """Initialize the fast LLM instance after model validation."""
+        self._fast_llm = None
+        
         # Create fast LLM instance if fast_model is provided
-        fast_model = self.config.get("fast_model")
-        if fast_model:
-            api_key = self.config.get("api_key")
+        if self.fast_model:
             try:
-                self._fast_llm = DefaultLLM(fast_model, api_key)
-                logger.debug(f"Created fast LLM instance with model: {fast_model}")
+                self._fast_llm = DefaultLLM(self.fast_model, self.api_key)
+                logger.debug(f"Created fast LLM instance with model: {self.fast_model}")
             except Exception as e:
                 logger.warning(f"Failed to create fast LLM instance: {e}")
                 self._fast_llm = None
-
-    def _validate_config(self) -> None:
-        """Validate transformer configuration."""
-        if "input_threshold" in self.config:
-            threshold = self.config["input_threshold"]
-            if not isinstance(threshold, int) or threshold < 0:
-                raise ValueError("input_threshold must be a non-negative integer")
-
-        if "prompt" in self.config:
-            prompt = self.config["prompt"]
-            if not isinstance(prompt, str) or not prompt.strip():
-                raise ValueError("prompt must be a non-empty string")
-
-        if "fast_model" in self.config:
-            fast_model = self.config["fast_model"]
-            if not isinstance(fast_model, str) or not fast_model.strip():
-                raise ValueError("fast_model must be a non-empty string")
 
     def should_apply(self, input_text: str) -> bool:
         """
@@ -92,17 +88,16 @@ class LLMSummarizeTransformer(BaseTransformer):
             return False
 
         # Check if input exceeds threshold
-        threshold = self.config.get("input_threshold", 1000)
         input_length = len(input_text)
 
-        if input_length <= threshold:
+        if input_length <= self.input_threshold:
             logger.debug(
-                f"Skipping summarization: input length {input_length} <= threshold {threshold}"
+                f"Skipping summarization: input length {input_length} <= threshold {self.input_threshold}"
             )
             return False
 
         logger.debug(
-            f"Applying summarization: input length {input_length} > threshold {threshold}"
+            f"Applying summarization: input length {input_length} > threshold {self.input_threshold}"
         )
         return True
 
@@ -124,7 +119,7 @@ class LLMSummarizeTransformer(BaseTransformer):
 
         try:
             # Get the prompt to use
-            prompt = self.config.get("prompt", self.DEFAULT_PROMPT)
+            prompt = self.prompt or self.DEFAULT_PROMPT
 
             # Construct the full prompt with the content
             full_prompt = f"{prompt}\n\nContent to summarize:\n{input_text}"

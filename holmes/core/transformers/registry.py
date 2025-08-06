@@ -76,7 +76,12 @@ class TransformerRegistry:
         transformer_class = self._transformers[name]
 
         try:
-            return transformer_class(config)
+            # Handle both old-style dict config and new Pydantic models
+            if config is None:
+                return transformer_class()
+            else:
+                # For Pydantic models, pass config as keyword arguments
+                return transformer_class(**config)
         except Exception as e:
             raise TransformerError(f"Failed to create transformer '{name}': {e}") from e
 

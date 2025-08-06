@@ -17,11 +17,10 @@ from rich.console import Console
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.transformers import (
-    safe_validate_tool_transformer_configs,
     registry,
     TransformerError,
 )
-from holmes.utils.config_utils import merge_transformer_configs
+from holmes.utils.config_utils import merge_transformers
 import time
 from rich.table import Table
 
@@ -129,6 +128,30 @@ class ToolParameter(BaseModel):
     required: bool = True
 
 
+class Transformer(BaseModel):
+    """
+    Configuration for a tool transformer.
+    
+    Each transformer config specifies a transformer type and its parameters.
+    This replaces the previous dict-based configuration with proper type safety.
+    """
+    name: str = Field(description="Name of the transformer (e.g., 'llm_summarize')")
+    config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Configuration parameters for the transformer"
+    )
+
+    @model_validator(mode="after")
+    def validate_transformer_config(self):
+        """Validate that the transformer name is known to the registry."""
+        from holmes.core.transformers import registry
+        
+        if not registry.is_registered(self.name):
+            # Log warning but don't fail validation - allows for graceful degradation
+            logging.warning(f"Transformer '{self.name}' is not registered")
+        return self
+
+
 class Tool(ABC, BaseModel):
     name: str
     description: str
@@ -137,20 +160,7 @@ class Tool(ABC, BaseModel):
         None  # templated string to show to the user describing this tool invocation (not seen by llm)
     )
     additional_instructions: Optional[str] = None
-    transformer_configs: Optional[List[Dict[str, Any]]] = None
-
-    @model_validator(mode="after")
-    def validate_transformers(self):
-        """Validate transformer configurations during tool creation."""
-        if self.transformer_configs is not None:
-            # Use safe validation to log warnings instead of failing
-            if not safe_validate_tool_transformer_configs(
-                self.name, self.transformer_configs
-            ):
-                # If validation fails, clear transforms to prevent runtime errors
-                logging.warning(f"Clearing invalid transforms for tool '{self.name}'")
-                self.transformer_configs = None
-        return self
+    transformers: Optional[List[Transformer]] = None
 
     def get_openai_format(self):
         return format_tool_to_open_ai_standard(
@@ -195,7 +205,7 @@ class Tool(ABC, BaseModel):
         Returns:
             The tool result with transformed data, or original result if transformation fails
         """
-        if not self.transformer_configs or result.status != ToolResultStatus.SUCCESS:
+        if not self.transformers or result.status != ToolResultStatus.SUCCESS:
             return result
 
         # Get the output string to transform
@@ -206,34 +216,30 @@ class Tool(ABC, BaseModel):
         transformed_data = original_data
         transformers_applied = []
 
-        for transformer_config in self.transformer_configs:
-            if not transformer_config:
+        for transformer in self.transformers:
+            if not transformer:
                 continue
-
-            # Each config should have exactly one transformer
-            transformer_name = list(transformer_config.keys())[0]
-            transformer_params = transformer_config[transformer_name]
 
             try:
                 # Create transformer instance
-                transformer = registry.create_transformer(
-                    transformer_name, transformer_params
+                transformer_instance = registry.create_transformer(
+                    transformer.name, transformer.config
                 )
 
                 # Check if transformer should be applied
-                if not transformer.should_apply(transformed_data):
+                if not transformer_instance.should_apply(transformed_data):
                     logging.debug(
-                        f"Transformer '{transformer_name}' skipped for tool '{self.name}' (conditions not met)"
+                        f"Transformer '{transformer.name}' skipped for tool '{self.name}' (conditions not met)"
                     )
                     continue
 
                 # Apply transformation
                 pre_transform_size = len(transformed_data)
                 transform_start_time = time.time()
-                transformed_data = transformer.transform(transformed_data)
+                transformed_data = transformer_instance.transform(transformed_data)
                 transform_elapsed = time.time() - transform_start_time
 
-                transformers_applied.append(transformer_name)
+                transformers_applied.append(transformer.name)
 
                 # Let the transformer provide its own logging message if it wants to
                 post_transform_size = len(transformed_data)
@@ -241,19 +247,19 @@ class Tool(ABC, BaseModel):
 
                 # Generic logging - transformers can override this with their own specific metrics
                 logging.info(
-                    f"Applied transformer '{transformer_name}' to tool '{self.name}' output "
+                    f"Applied transformer '{transformer.name}' to tool '{self.name}' output "
                     f"in {transform_elapsed:.2f}s (output size: {post_transform_size:,} characters)"
                 )
 
             except TransformerError as e:
                 logging.warning(
-                    f"Transformer '{transformer_name}' failed for tool '{self.name}': {e}"
+                    f"Transformer '{transformer.name}' failed for tool '{self.name}': {e}"
                 )
                 # Continue with other transformers, don't fail the entire chain
                 continue
             except Exception as e:
                 logging.error(
-                    f"Unexpected error applying transformer '{transformer_name}' to tool '{self.name}': {e}"
+                    f"Unexpected error applying transformer '{transformer.name}' to tool '{self.name}': {e}"
                 )
                 # Continue with other transformers
                 continue
@@ -462,7 +468,7 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
-    transformer_configs: Optional[List[Dict[str, Any]]] = None
+    transformers: Optional[List[Transformer]] = None
 
     # warning! private attributes are not copied, which can lead to subtle bugs.
     # e.g. l.extend([some_tool]) will reset these private attribute to None
@@ -488,23 +494,24 @@ class Toolset(BaseModel):
     @model_validator(mode="before")
     def preprocess_tools(cls, values):
         additional_instructions = values.get("additional_instructions", "")
-        transformer_configs = values.get("transformer_configs", None)
+        transformers = values.get("transformers", None)
         tools_data = values.get("tools", [])
         tools = []
         for tool in tools_data:
             if isinstance(tool, dict):
                 tool["additional_instructions"] = additional_instructions
                 # Merge toolset-level transformers with tool-level configs
-                tool["transformer_configs"] = merge_transformer_configs(
-                    base_configs=transformer_configs,
-                    override_configs=tool.get("transformer_configs"),
+                tool["transformers"] = merge_transformers(
+                    base_transformers=transformers,
+                    override_transformers=tool.get("transformers"),
                 )
             if isinstance(tool, Tool):
                 tool.additional_instructions = additional_instructions
                 # Merge toolset-level transformers with tool-level configs
-                tool.transformer_configs = merge_transformer_configs(
-                    base_configs=transformer_configs,
-                    override_configs=tool.transformer_configs,
+                # type: ignore - forward reference "Transformer" vs actual Transformer class are the same type
+                tool.transformers = merge_transformers(
+                    base_transformers=transformers,
+                    override_transformers=tool.transformers,
                 )
             tools.append(tool)
         values["tools"] = tools

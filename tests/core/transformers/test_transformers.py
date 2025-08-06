@@ -3,6 +3,8 @@ Unit tests for transformer base classes and registry.
 """
 
 import pytest
+from typing import Optional
+from pydantic import Field, field_validator
 
 from holmes.core.transformers.base import BaseTransformer, TransformerError
 from holmes.core.transformers.registry import TransformerRegistry
@@ -17,24 +19,25 @@ class MockTransformer(BaseTransformer):
     def should_apply(self, input_text: str) -> bool:
         return len(input_text) > 10
 
+    @property
+    def name(self) -> str:
+        return "mock"
+
 
 class ThresholdTransformer(BaseTransformer):
     """Transformer with configurable threshold for testing."""
 
-    def _validate_config(self) -> None:
-        if "threshold" in self.config:
-            if (
-                not isinstance(self.config["threshold"], int)
-                or self.config["threshold"] < 0
-            ):
-                raise ValueError("Threshold must be a non-negative integer")
+    threshold: int = Field(default=5, ge=0, description="Threshold for triggering transformation")
 
     def transform(self, input_text: str) -> str:
         return input_text.upper()
 
     def should_apply(self, input_text: str) -> bool:
-        threshold = self.config.get("threshold", 5)
-        return len(input_text) > threshold
+        return len(input_text) > self.threshold
+
+    @property
+    def name(self) -> str:
+        return "threshold"
 
 
 class FailingTransformer(BaseTransformer):
@@ -46,6 +49,10 @@ class FailingTransformer(BaseTransformer):
     def should_apply(self, input_text: str) -> bool:
         return True
 
+    @property
+    def name(self) -> str:
+        return "failing"
+
 
 class TestBaseTransformer:
     """Test cases for BaseTransformer class."""
@@ -53,18 +60,19 @@ class TestBaseTransformer:
     def test_init_with_no_config(self):
         """Test transformer initialization without config."""
         transformer = MockTransformer()
-        assert transformer.config == {}
+        # Pydantic models don't have a 'config' attribute - they have field values directly
+        assert hasattr(transformer, 'model_fields')
 
     def test_init_with_config(self):
         """Test transformer initialization with config."""
-        config = {"param1": "value1", "param2": 42}
-        transformer = MockTransformer(config)
-        assert transformer.config == config
+        # ThresholdTransformer has a threshold field
+        transformer = ThresholdTransformer(threshold=100)
+        assert transformer.threshold == 100
 
     def test_name_property(self):
         """Test transformer name property."""
         transformer = MockTransformer()
-        assert transformer.name == "MockTransformer"
+        assert transformer.name == "mock"
 
     def test_transform_method(self):
         """Test transform method execution."""
@@ -84,21 +92,14 @@ class TestBaseTransformer:
 
     def test_config_validation_success(self):
         """Test successful config validation."""
-        config = {"threshold": 100}
-        transformer = ThresholdTransformer(config)
-        assert transformer.config["threshold"] == 100
+        transformer = ThresholdTransformer(threshold=100)
+        assert transformer.threshold == 100
 
     def test_config_validation_failure(self):
         """Test config validation failure."""
-        with pytest.raises(
-            ValueError, match="Threshold must be a non-negative integer"
-        ):
-            ThresholdTransformer({"threshold": -1})
-
-        with pytest.raises(
-            ValueError, match="Threshold must be a non-negative integer"
-        ):
-            ThresholdTransformer({"threshold": "invalid"})
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            ThresholdTransformer(threshold=-1)
 
     def test_threshold_transformer_behavior(self):
         """Test transformer with configurable threshold."""
@@ -108,7 +109,7 @@ class TestBaseTransformer:
         assert transformer.should_apply("longer text")
 
         # Custom threshold (20)
-        transformer = ThresholdTransformer({"threshold": 20})
+        transformer = ThresholdTransformer(threshold=20)
         assert not transformer.should_apply("short text")
         assert transformer.should_apply("this is a much longer text input")
 
@@ -177,7 +178,8 @@ class TestTransformerRegistry:
         transformer = self.registry.create_transformer("mock")
 
         assert isinstance(transformer, MockTransformer)
-        assert transformer.config == {}
+        # Pydantic models don't have a config attribute
+        assert hasattr(transformer, 'model_fields')
 
     def test_create_transformer_with_config(self):
         """Test transformer creation with config."""
@@ -186,7 +188,7 @@ class TestTransformerRegistry:
         transformer = self.registry.create_transformer("threshold", config)
 
         assert isinstance(transformer, ThresholdTransformer)
-        assert transformer.config == config
+        assert transformer.threshold == 15
 
     def test_create_transformer_nonexistent(self):
         """Test creating non-existent transformer fails."""
@@ -242,8 +244,8 @@ class TestTransformerRegistry:
         transformer2 = self.registry.create_transformer("threshold", {"threshold": 20})
 
         assert transformer1 is not transformer2
-        assert transformer1.config["threshold"] == 10
-        assert transformer2.config["threshold"] == 20
+        assert transformer1.threshold == 10
+        assert transformer2.threshold == 20
 
 
 class TestTransformerIntegration:
