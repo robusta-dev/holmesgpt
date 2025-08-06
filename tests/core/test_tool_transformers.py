@@ -36,6 +36,10 @@ class MockTransformer(BaseTransformer):
     def should_apply(self, input_text: str) -> bool:
         return len(input_text) > 5
 
+    @property
+    def name(self) -> str:
+        return "mock_transformer"
+
 
 class TestToolTransformField:
     """Test that Tool and YAMLTool accept transformers field."""
@@ -161,7 +165,7 @@ class TestTransformerValidation:
     def setup_method(self):
         """Set up test fixtures."""
         # Register mock transformer for testing
-        registry.register("mock_transformer", MockTransformer)
+        registry.register(MockTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
@@ -265,7 +269,7 @@ class TestToolValidationIntegration:
 
     def setup_method(self):
         """Set up test fixtures."""
-        registry.register("mock_transformer", MockTransformer)
+        registry.register(MockTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
@@ -379,7 +383,7 @@ class TestToolExecutionPipeline:
 
     def setup_method(self):
         """Set up test fixtures."""
-        registry.register("mock_transformer", MockTransformer)
+        registry.register(MockTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
@@ -470,7 +474,11 @@ class TestToolExecutionPipeline:
             def should_apply(self, input_text: str) -> bool:
                 return True
 
-        registry.register("failing_transformer", FailingTransformer)
+            @property
+            def name(self) -> str:
+                return "failing_transformer"
+
+        registry.register(FailingTransformer)
 
         try:
             transforms = [Transformer(name="failing_transformer", config={})]
@@ -517,7 +525,11 @@ class TestToolExecutionPipeline:
             def should_apply(self, input_text: str) -> bool:
                 return True
 
-        registry.register("second_transformer", SecondTransformer)
+            @property
+            def name(self) -> str:
+                return "second_transformer"
+
+        registry.register(SecondTransformer)
 
         try:
             transforms = [Transformer(name="mock_transformer", config={}), Transformer(name="second_transformer", config={})]
@@ -561,7 +573,11 @@ class TestToolExecutionPipeline:
                 # Only apply to inputs longer than 10 characters
                 return len(input_text) > 10
 
-        registry.register("conditional_transformer", ConditionalTransformer)
+            @property
+            def name(self) -> str:
+                return "conditional_transformer"
+
+        registry.register(ConditionalTransformer)
 
         try:
             transforms = [Transformer(name="conditional_transformer", config={})]
@@ -655,7 +671,7 @@ class TestToolExecutionPipeline:
         )
 
         with patch("holmes.core.tools.logging") as mock_logging:
-            result = tool.invoke({})
+            tool.invoke({})
 
             # Should log transformer application with performance metrics
             info_calls = [call[0][0] for call in mock_logging.info.call_args_list]

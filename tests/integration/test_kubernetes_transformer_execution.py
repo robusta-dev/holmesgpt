@@ -15,10 +15,8 @@ from holmes.core.transformers.base import BaseTransformer
 class MockSummarizeTransformer(BaseTransformer):
     """Mock LLM summarize transformer for testing."""
 
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.input_threshold = config.get("input_threshold", 1000)
-        self.prompt = config.get("prompt", "Default summarization prompt")
+    input_threshold: int = 1000
+    prompt: str = "Default summarization prompt"
 
     def transform(self, input_text: str) -> str:
         # Simulate summarization by truncating and adding prefix
@@ -29,20 +27,30 @@ class MockSummarizeTransformer(BaseTransformer):
     def should_apply(self, input_text: str) -> bool:
         return len(input_text) >= self.input_threshold
 
+    @property
+    def name(self) -> str:
+        return "mock_llm_summarize"
+
 
 class TestKubernetesTransformerExecution:
     """Test full execution of Kubernetes tools with transformers."""
 
     def setup_method(self):
         """Set up test fixtures."""
+        # Clean up any existing registrations first
+        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
+        
         # Register mock transformer with a different name to avoid conflicts
-        registry.register("mock_llm_summarize", MockSummarizeTransformer)
+        registry.register(MockSummarizeTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
         # Unregister mock transformer
-        if registry.is_registered("mock_llm_summarize"):
-            registry.unregister("mock_llm_summarize")
+        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
 
     def test_kubectl_describe_with_large_output(self):
         """Test kubectl_describe applies transformer for large output."""
@@ -114,9 +122,7 @@ Events:
         with patch.object(
             kubectl_describe, "_YAMLTool__execute_subprocess"
         ) as mock_subprocess:
-            mock_subprocess.return_value = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS, data=large_output, return_code=0
-            )
+            mock_subprocess.return_value = (large_output, 0)
 
             # Execute the tool
             result = kubectl_describe.invoke(
@@ -153,9 +159,7 @@ Events:
         with patch.object(
             kubectl_describe, "_YAMLTool__execute_subprocess"
         ) as mock_subprocess:
-            mock_subprocess.return_value = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS, data=small_output, return_code=0
-            )
+            mock_subprocess.return_value = (small_output, 0)
 
             # Execute the tool
             result = kubectl_describe.invoke(
@@ -212,9 +216,7 @@ Events:
         with patch.object(
             kubectl_logs, "_YAMLTool__execute_subprocess"
         ) as mock_subprocess:
-            mock_subprocess.return_value = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS, data=large_log_output, return_code=0
-            )
+            mock_subprocess.return_value = (large_log_output, 0)
 
             # Execute the tool
             result = kubectl_logs.invoke(
@@ -266,9 +268,7 @@ monitoring    prometheus-server-xyz                  1/1     Running   0        
         with patch.object(
             kubectl_get_cluster, "_YAMLTool__execute_subprocess"
         ) as mock_subprocess:
-            mock_subprocess.return_value = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS, data=large_get_output, return_code=0
-            )
+            mock_subprocess.return_value = (large_get_output, 0)
 
             # Execute the tool
             result = kubectl_get_cluster.invoke({"kind": "pods"})
@@ -290,8 +290,12 @@ monitoring    prometheus-server-xyz                  1/1     Running   0        
             def should_apply(self, input_text: str) -> bool:
                 return True
 
+            @property
+            def name(self) -> str:
+                return "failing_summarize"
+
         # Register failing transformer temporarily
-        registry.register("failing_summarize", FailingTransformer)
+        registry.register(FailingTransformer)
 
         try:
             # Create a YAML toolset with the failing transformer
@@ -303,8 +307,9 @@ toolsets:
       - name: "kubectl_failing"
         description: "Tool with failing transformer"
         command: "echo 'test output that should not be transformed'"
-        transformer_configs:
-          - failing_summarize: {}
+        transformers:
+          - name: failing_summarize
+            config: {}
 """
 
             # Write to temporary file
@@ -325,9 +330,7 @@ toolsets:
                 with patch.object(
                     tool, "_YAMLTool__execute_subprocess"
                 ) as mock_subprocess:
-                    mock_subprocess.return_value = StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS, data=test_output, return_code=0
-                    )
+                    mock_subprocess.return_value = (test_output, 0)
 
                     # Execute with logging to catch transformer failure
                     with patch("holmes.core.tools.logging") as mock_logging:
@@ -369,12 +372,8 @@ toolsets:
         with patch.object(
             kubectl_describe, "_YAMLTool__execute_subprocess"
         ) as mock_subprocess:
-            mock_subprocess.return_value = StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                data=error_output,
-                error="Command failed",
-                return_code=1,
-            )
+            # For error case, mock the subprocess to return error code
+            mock_subprocess.return_value = (error_output, 1)
 
             # Execute the tool
             result = kubectl_describe.invoke(
@@ -397,7 +396,11 @@ toolsets:
             def should_apply(self, input_text: str) -> bool:
                 return True
 
-        registry.register("second_transformer", SecondTransformer)
+            @property
+            def name(self) -> str:
+                return "second_transformer"
+
+        registry.register(SecondTransformer)
 
         try:
             # Create YAML with multiple transformers
@@ -409,10 +412,12 @@ toolsets:
       - name: "kubectl_multi"
         description: "Tool with multiple transformers"
         command: "echo 'test'"
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 10  # Low threshold to ensure it triggers
-          - second_transformer: {}
+          - name: second_transformer
+            config: {}
 """
 
             # Write to temporary file
@@ -433,9 +438,7 @@ toolsets:
                 with patch.object(
                     tool, "_YAMLTool__execute_subprocess"
                 ) as mock_subprocess:
-                    mock_subprocess.return_value = StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS, data=test_output, return_code=0
-                    )
+                    mock_subprocess.return_value = (test_output, 0)
 
                     # Execute the tool
                     result = tool.invoke({})
@@ -459,14 +462,20 @@ class TestTransformerPerformanceMetrics:
 
     def setup_method(self):
         """Set up test fixtures."""
+        # Clean up any existing registrations first
+        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
+        
         # Register mock transformer with a different name to avoid conflicts
-        registry.register("mock_llm_summarize", MockSummarizeTransformer)
+        registry.register(MockSummarizeTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
         # Unregister mock transformer
-        if registry.is_registered("mock_llm_summarize"):
-            registry.unregister("mock_llm_summarize")
+        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
 
     def test_transformer_performance_logging(self):
         """Test that transformer execution metrics are logged."""
@@ -479,8 +488,9 @@ toolsets:
       - name: "kubectl_perf"
         description: "Tool for performance testing"
         command: "echo 'test'"
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 10
 """
 
@@ -500,13 +510,11 @@ toolsets:
             # Mock subprocess execution
             test_output = "This is a test output that should trigger the transformer and performance logging"
             with patch.object(tool, "_YAMLTool__execute_subprocess") as mock_subprocess:
-                mock_subprocess.return_value = StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS, data=test_output, return_code=0
-                )
+                mock_subprocess.return_value = (test_output, 0)
 
                 # Execute with logging to capture performance metrics
                 with patch("holmes.core.tools.logging") as mock_logging:
-                    result = tool.invoke({})
+                    tool.invoke({})
 
                     # Should have logged transformer application with metrics
                     info_calls = [

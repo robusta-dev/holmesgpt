@@ -391,7 +391,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
         # Verify error is properly wrapped and chained
         assert "Failed to summarize content with fast model" in str(exc_info.value)
-        assert exc_info.value.__cause__.__class__ == ConnectionError
+        assert isinstance(exc_info.value.__cause__, ConnectionError)
         assert "Network timeout" in str(exc_info.value.__cause__)
 
     @patch("holmes.core.transformers.llm_summarize.DefaultLLM")

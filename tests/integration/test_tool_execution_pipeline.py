@@ -8,12 +8,14 @@ in a more realistic environment.
 from unittest.mock import patch
 from typing import Dict
 
-from holmes.core.tools import Tool, YAMLTool, StructuredToolResult, ToolResultStatus
+from holmes.core.tools import Tool, YAMLTool, StructuredToolResult, ToolResultStatus, Transformer
 from holmes.core.transformers import registry, BaseTransformer, TransformerError
 
 
 class MockLLMSummarizeTransformer(BaseTransformer):
     """Mock LLM summarize transformer for integration testing."""
+
+    input_threshold: int = 100
 
     def transform(self, input_text: str) -> str:
         # Simulate LLM summarization by shortening the text
@@ -24,8 +26,11 @@ class MockLLMSummarizeTransformer(BaseTransformer):
 
     def should_apply(self, input_text: str) -> bool:
         # Apply threshold logic - only transform if input is long enough
-        threshold = self.config.get("input_threshold", 100)
-        return len(input_text) >= threshold
+        return len(input_text) >= self.input_threshold
+
+    @property
+    def name(self) -> str:
+        return "llm_summarize"
 
 
 class TestToolExecutionPipelineIntegration:
@@ -41,7 +46,7 @@ class TestToolExecutionPipelineIntegration:
             registry.unregister("llm_summarize")
 
         # Register our mock transformer
-        registry.register("llm_summarize", MockLLMSummarizeTransformer)
+        registry.register(MockLLMSummarizeTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
@@ -51,7 +56,7 @@ class TestToolExecutionPipelineIntegration:
 
         # Restore original transformer if it existed
         if self._original_llm_summarize is not None:
-            registry.register("llm_summarize", self._original_llm_summarize)
+            registry.register(self._original_llm_summarize)
 
     def test_yaml_tool_with_transformer_integration(self):
         """Test complete YAML tool execution with transformer."""
@@ -59,7 +64,7 @@ class TestToolExecutionPipelineIntegration:
             name="test_yaml_tool",
             description="Test YAML tool with transformer",
             command="echo 'This is a very long output from a kubectl command that would normally overwhelm the LLM context window with unnecessary details and verbose information that should be summarized'",
-            transformer_configs=[{"llm_summarize": {"input_threshold": 50}}],
+            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 50})],
         )
 
         result = tool.invoke({})
@@ -107,7 +112,7 @@ class TestToolExecutionPipelineIntegration:
         tool = LogReaderTool(
             name="log_reader",
             description="Read application logs",
-            transformer_configs=[{"llm_summarize": {"input_threshold": 100}}],
+            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 100})],
         )
 
         result = tool.invoke({})
@@ -135,18 +140,20 @@ class TestToolExecutionPipelineIntegration:
             def should_apply(self, input_text: str) -> bool:
                 return True
 
-        registry.register("failing_transformer", FailingTransformer)
+            @property
+            def name(self) -> str:
+                return "failing_transformer"
+
+        registry.register(FailingTransformer)
 
         try:
             tool = YAMLTool(
                 name="test_tool",
                 description="Test tool with failing transformer",
                 command="echo 'This is test output that should remain unchanged due to transformer failure'",
-                transformer_configs=[
-                    {"failing_transformer": {}},
-                    {
-                        "llm_summarize": {"input_threshold": 10}
-                    },  # This should still work
+                transformers=[
+                    Transformer(name="failing_transformer", config={}),
+                    Transformer(name="llm_summarize", config={"input_threshold": 10}),  # This should still work
                 ],
             )
 
@@ -174,12 +181,8 @@ class TestToolExecutionPipelineIntegration:
             name="conditional_tool",
             description="Tool with conditional transformer",
             command="echo 'Short'",  # Short output
-            transformer_configs=[
-                {
-                    "llm_summarize": {
-                        "input_threshold": 100  # Higher than output length
-                    }
-                }
+            transformers=[
+                Transformer(name="llm_summarize", config={"input_threshold": 100})  # Higher than output length
             ],
         )
 
@@ -205,14 +208,18 @@ class TestToolExecutionPipelineIntegration:
             def should_apply(self, input_text: str) -> bool:
                 return True
 
-        registry.register("slow_transformer", SlowTransformer)
+            @property
+            def name(self) -> str:
+                return "slow_transformer"
+
+        registry.register(SlowTransformer)
 
         try:
             tool = YAMLTool(
                 name="performance_test_tool",
                 description="Tool for testing transformer performance monitoring",
                 command="echo 'Test output for performance monitoring of transformer execution'",
-                transformer_configs=[{"slow_transformer": {}}],
+                transformers=[Transformer(name="slow_transformer", config={})],
             )
 
             with patch("holmes.core.tools.logging") as mock_logging:
@@ -263,7 +270,7 @@ redis-cache-abc123                 1/1     Running   0          1d"""
             name="kubectl_get_pods",
             description="Get all pods in namespace",
             command=f"echo '{kubectl_output}'",
-            transformer_configs=[{"llm_summarize": {"input_threshold": 200}}],
+            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 200})],
         )
 
         result = tool.invoke({})
@@ -283,7 +290,7 @@ redis-cache-abc123                 1/1     Running   0          1d"""
             name="debug_tool",
             description="Tool for testing debug preservation",
             command="echo 'Important debugging information that should not be lost'",
-            transformer_configs=[{"llm_summarize": {"input_threshold": 10}}],
+            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 10})],
         )
 
         # Even if transformer modifies the output, the result structure should be preserved

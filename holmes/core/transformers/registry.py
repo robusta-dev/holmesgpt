@@ -17,12 +17,11 @@ class TransformerRegistry:
     def __init__(self):
         self._transformers: Dict[str, Type[BaseTransformer]] = {}
 
-    def register(self, name: str, transformer_class: Type[BaseTransformer]) -> None:
+    def register(self, transformer_class: Type[BaseTransformer]) -> None:
         """
-        Register a transformer class with a given name.
+        Register a transformer class, using the transformer's name property.
 
         Args:
-            name: The name to register the transformer under
             transformer_class: The transformer class to register
 
         Raises:
@@ -32,6 +31,14 @@ class TransformerRegistry:
             raise ValueError(
                 f"Transformer class must inherit from BaseTransformer, got {transformer_class}"
             )
+
+        # Get name from the transformer class
+        try:
+            temp_instance = transformer_class()
+            name = temp_instance.name
+        except Exception:
+            # Fallback to class name if instantiation fails
+            name = transformer_class.__name__
 
         if name in self._transformers:
             raise ValueError(f"Transformer '{name}' is already registered")

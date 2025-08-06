@@ -17,7 +17,7 @@ from .validation import (
 )
 
 # Register built-in transformers
-registry.register("llm_summarize", LLMSummarizeTransformer)
+registry.register(LLMSummarizeTransformer)
 
 __all__ = [
     "BaseTransformer",

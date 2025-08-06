@@ -3,8 +3,7 @@ Unit tests for transformer base classes and registry.
 """
 
 import pytest
-from typing import Optional
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from holmes.core.transformers.base import BaseTransformer, TransformerError
 from holmes.core.transformers.registry import TransformerRegistry
@@ -132,18 +131,30 @@ class TestTransformerRegistry:
 
     def test_register_transformer(self):
         """Test registering a transformer."""
-        self.registry.register("mock", MockTransformer)
+        self.registry.register(MockTransformer)
         assert self.registry.is_registered("mock")
         assert "mock" in self.registry.list_transformers()
 
     def test_register_duplicate_name(self):
         """Test registering transformer with duplicate name fails."""
-        self.registry.register("mock", MockTransformer)
+        self.registry.register(MockTransformer)
+
+        # Create another transformer with the same name
+        class DuplicateMockTransformer(BaseTransformer):
+            def transform(self, input_text: str) -> str:
+                return f"duplicate: {input_text}"
+            
+            def should_apply(self, input_text: str) -> bool:
+                return True
+            
+            @property
+            def name(self) -> str:
+                return "mock"  # Same name as MockTransformer
 
         with pytest.raises(
             ValueError, match="Transformer 'mock' is already registered"
         ):
-            self.registry.register("mock", ThresholdTransformer)
+            self.registry.register(DuplicateMockTransformer)
 
     def test_register_invalid_transformer_class(self):
         """Test registering invalid transformer class fails."""
@@ -154,11 +165,11 @@ class TestTransformerRegistry:
         with pytest.raises(
             ValueError, match="Transformer class must inherit from BaseTransformer"
         ):
-            self.registry.register("invalid", NotATransformer)  # type: ignore[abstract]
+            self.registry.register(NotATransformer)  # type: ignore[abstract]
 
     def test_unregister_transformer(self):
         """Test unregistering a transformer."""
-        self.registry.register("mock", MockTransformer)
+        self.registry.register(MockTransformer)
         assert self.registry.is_registered("mock")
 
         self.registry.unregister("mock")
@@ -174,7 +185,7 @@ class TestTransformerRegistry:
 
     def test_create_transformer_success(self):
         """Test successful transformer creation."""
-        self.registry.register("mock", MockTransformer)
+        self.registry.register(MockTransformer)
         transformer = self.registry.create_transformer("mock")
 
         assert isinstance(transformer, MockTransformer)
@@ -183,7 +194,7 @@ class TestTransformerRegistry:
 
     def test_create_transformer_with_config(self):
         """Test transformer creation with config."""
-        self.registry.register("threshold", ThresholdTransformer)
+        self.registry.register(ThresholdTransformer)
         config = {"threshold": 15}
         transformer = self.registry.create_transformer("threshold", config)
 
@@ -199,7 +210,7 @@ class TestTransformerRegistry:
 
     def test_create_transformer_initialization_failure(self):
         """Test transformer creation with initialization failure."""
-        self.registry.register("threshold", ThresholdTransformer)
+        self.registry.register(ThresholdTransformer)
 
         with pytest.raises(
             TransformerError, match="Failed to create transformer 'threshold'"
@@ -210,7 +221,7 @@ class TestTransformerRegistry:
         """Test checking if transformer is registered."""
         assert not self.registry.is_registered("mock")
 
-        self.registry.register("mock", MockTransformer)
+        self.registry.register(MockTransformer)
         assert self.registry.is_registered("mock")
 
     def test_list_transformers_empty(self):
@@ -219,8 +230,8 @@ class TestTransformerRegistry:
 
     def test_list_transformers_multiple(self):
         """Test listing multiple registered transformers."""
-        self.registry.register("mock", MockTransformer)
-        self.registry.register("threshold", ThresholdTransformer)
+        self.registry.register(MockTransformer)
+        self.registry.register(ThresholdTransformer)
 
         transformers = self.registry.list_transformers()
         assert len(transformers) == 2
@@ -229,8 +240,8 @@ class TestTransformerRegistry:
 
     def test_clear_registry(self):
         """Test clearing all transformers from registry."""
-        self.registry.register("mock", MockTransformer)
-        self.registry.register("threshold", ThresholdTransformer)
+        self.registry.register(MockTransformer)
+        self.registry.register(ThresholdTransformer)
         assert len(self.registry.list_transformers()) == 2
 
         self.registry.clear()
@@ -238,7 +249,7 @@ class TestTransformerRegistry:
 
     def test_transformer_creation_preserves_isolation(self):
         """Test that created transformers are independent instances."""
-        self.registry.register("threshold", ThresholdTransformer)
+        self.registry.register(ThresholdTransformer)
 
         transformer1 = self.registry.create_transformer("threshold", {"threshold": 10})
         transformer2 = self.registry.create_transformer("threshold", {"threshold": 20})
@@ -254,8 +265,8 @@ class TestTransformerIntegration:
     def setup_method(self):
         """Set up test registry for each test."""
         self.registry = TransformerRegistry()
-        self.registry.register("mock", MockTransformer)
-        self.registry.register("threshold", ThresholdTransformer)
+        self.registry.register(MockTransformer)
+        self.registry.register(ThresholdTransformer)
 
     def test_end_to_end_transformation(self):
         """Test complete transformation workflow."""
@@ -318,7 +329,7 @@ class TestTransformerError:
     def test_transformer_error_in_registry(self):
         """Test TransformerError raised by registry."""
         registry = TransformerRegistry()
-        registry.register("failing", FailingTransformer)
+        registry.register(FailingTransformer)
 
         # Creation should succeed
         transformer = registry.create_transformer("failing")

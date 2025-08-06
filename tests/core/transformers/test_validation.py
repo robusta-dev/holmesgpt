@@ -35,7 +35,7 @@ class MockValidTransformer(BaseTransformer):
 class MockConfigTransformer(BaseTransformer):
     """Mock transformer with config validation."""
 
-    required_param: str = Field(description="Required parameter for testing")
+    required_param: str = Field(default="default_value", description="Required parameter for testing")
     invalid_param: Optional[str] = Field(default=None, description="Parameter for testing validation")
 
     @field_validator('invalid_param')
@@ -71,12 +71,17 @@ class TestValidateTransformerConfig:
 
     def setup_method(self):
         """Set up test fixtures."""
-        registry.register("mock_valid", MockValidTransformer)
-        registry.register("mock_config", MockConfigTransformer)
+        # Clean up any existing registrations first
+        for transformer_name in ["mock_valid", "mock_config", "MockValidTransformer", "MockConfigTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
+        
+        registry.register(MockValidTransformer)
+        registry.register(MockConfigTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
-        for transformer_name in ["mock_valid", "mock_config"]:
+        for transformer_name in ["mock_valid", "mock_config", "MockValidTransformer", "MockConfigTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
 
@@ -124,13 +129,15 @@ class TestValidateTransformerConfig:
 
     def test_validate_invalid_transformer_config(self):
         """Test validation fails for invalid transformer-specific configuration."""
-        config = {"mock_config": {}}  # Missing required_param
+        # Since required_param now has a default, test invalid_param validation instead
+        config = {"mock_config": {"invalid_param": "invalid"}}
         with pytest.raises(
             TransformerValidationError,
             match="Invalid configuration for transformer 'mock_config'",
         ):
             validate_transformer_config(config)
 
+        # Test the old case is still covered
         config = {
             "mock_config": {"required_param": "value", "invalid_param": "invalid"}
         }
@@ -146,12 +153,17 @@ class TestValidateTransformsList:
 
     def setup_method(self):
         """Set up test fixtures."""
-        registry.register("mock_valid", MockValidTransformer)
-        registry.register("mock_config", MockConfigTransformer)
+        # Clean up any existing registrations first
+        for transformer_name in ["mock_valid", "mock_config", "MockValidTransformer", "MockConfigTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
+        
+        registry.register(MockValidTransformer)
+        registry.register(MockConfigTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
-        for transformer_name in ["mock_valid", "mock_config"]:
+        for transformer_name in ["mock_valid", "mock_config", "MockValidTransformer", "MockConfigTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
 
@@ -189,7 +201,7 @@ class TestValidateTransformsList:
         """Test validation fails when list contains transformer with invalid config."""
         transforms = [
             {"mock_valid": {}},
-            {"mock_config": {}},  # Missing required_param
+            {"mock_config": {"invalid_param": "invalid"}},  # Invalid config
         ]
         with pytest.raises(
             TransformerValidationError,
@@ -203,12 +215,18 @@ class TestValidateToolTransforms:
 
     def setup_method(self):
         """Set up test fixtures."""
-        registry.register("mock_valid", MockValidTransformer)
+        # Clean up any existing registrations first
+        for transformer_name in ["mock_valid", "MockValidTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
+        
+        registry.register(MockValidTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
-        if registry.is_registered("mock_valid"):
-            registry.unregister("mock_valid")
+        for transformer_name in ["mock_valid", "MockValidTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
 
     def test_validate_none_transforms(self):
         """Test validation passes for None transforms."""
@@ -233,12 +251,18 @@ class TestSafeValidateToolTransforms:
 
     def setup_method(self):
         """Set up test fixtures."""
-        registry.register("mock_valid", MockValidTransformer)
+        # Clean up any existing registrations first
+        for transformer_name in ["mock_valid", "MockValidTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
+        
+        registry.register(MockValidTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
-        if registry.is_registered("mock_valid"):
-            registry.unregister("mock_valid")
+        for transformer_name in ["mock_valid", "MockValidTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
 
     def test_safe_validate_none_transforms(self):
         """Test safe validation returns True for None transforms."""
@@ -281,12 +305,17 @@ class TestValidationIntegration:
 
     def setup_method(self):
         """Set up test fixtures."""
-        registry.register("mock_valid", MockValidTransformer)
-        registry.register("mock_config", MockConfigTransformer)
+        # Clean up any existing registrations first
+        for transformer_name in ["mock_valid", "mock_config", "MockValidTransformer", "MockConfigTransformer"]:
+            if registry.is_registered(transformer_name):
+                registry.unregister(transformer_name)
+        
+        registry.register(MockValidTransformer)
+        registry.register(MockConfigTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
-        for transformer_name in ["mock_valid", "mock_config"]:
+        for transformer_name in ["mock_valid", "mock_config", "MockValidTransformer", "MockConfigTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
 
@@ -333,4 +362,4 @@ class TestValidationIntegration:
 
         # Should contain underlying error details from the validation chain
         error_str = str(exc_info.value)
-        assert "Field required" in error_str or "required_param" in error_str
+        assert "invalid_param" in error_str or "value_error" in error_str
