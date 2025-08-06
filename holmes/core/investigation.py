@@ -133,6 +133,13 @@ def get_investigation_context(
     else:
         logging.info("Structured output is disabled for this request")
 
+    # Add TodoList context to prompt
+    from holmes.core.todo_manager import get_todo_manager, get_session_id_from_context
+
+    todo_manager = get_todo_manager()
+    session_id = get_session_id_from_context()
+    todo_context = todo_manager.format_tasks_for_prompt(session_id)
+
     system_prompt = load_and_render_prompt(
         investigate_request.prompt_template,
         {
@@ -141,6 +148,7 @@ def get_investigation_context(
             "structured_output": request_structured_output_from_llm,
             "toolsets": ai.tool_executor.toolsets,
             "cluster_name": config.cluster_name,
+            "todo_list": todo_context,
         },
     )
 
