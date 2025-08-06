@@ -14,5 +14,5 @@ before_test: |
   kubectl wait --for=condition=ready pod -l app=user-lookup -n namespace-104a --timeout=60s
   sleep 30  # Let some slow queries accumulate
 after_test: |
-  kubectl delete -f ./manifest.yaml -n namespace-104a
-  kubectl delete namespace namespace-104a
+  kubectl delete -f ./manifest.yaml -n namespace-104a --ignore-not-found
+  kubectl delete namespace namespace-104a --ignore-not-found
