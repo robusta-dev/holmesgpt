@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -8,7 +9,7 @@ import pytest
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tool_calling_llm import IssueInvestigator
-from holmes.core.tracing import TracingFactory
+from holmes.core.tracing import TracingFactory, SpanType
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
@@ -21,15 +22,13 @@ from tests.llm.utils.mock_dal import MockSupabaseDal
 from tests.llm.utils.mock_toolset import MockToolsetManager
 from tests.llm.utils.test_case_utils import (
     InvestigateTestCase,
-    MockHelper,
     check_and_skip_test,
 )
 from tests.llm.utils.property_manager import set_initial_properties, update_test_results
 from os import path
 from unittest.mock import patch
 
-from tests.llm.utils.tags import add_tags_to_eval
-from holmes.core.tracing import SpanType
+from tests.llm.utils.iteration_utils import get_test_cases
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -42,17 +41,20 @@ class MockConfig(Config):
         self._test_case = test_case
         self._tracer = tracer
         self._mock_generation_config = mock_generation_config
+        self._cached_tool_executor: Optional[ToolExecutor] = None
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
-        mock = MockToolsetManager(
-            test_case_folder=self._test_case.folder,
-            mock_generation_config=self._mock_generation_config,
-            mock_policy=self._test_case.mock_policy,
-        )
+        if not self._cached_tool_executor:
+            mock = MockToolsetManager(
+                test_case_folder=self._test_case.folder,
+                mock_generation_config=self._mock_generation_config,
+                mock_policy=self._test_case.mock_policy,
+            )
 
-        # With the new file-based mock system, mocks are loaded from disk automatically
-        # No need to call mock_tool() anymore
-        return ToolExecutor(mock.toolsets)
+            # With the new file-based mock system, mocks are loaded from disk automatically
+            # No need to call mock_tool() anymore
+            self._cached_tool_executor = ToolExecutor(mock.toolsets)
+        return self._cached_tool_executor
 
     def create_issue_investigator(
         self,
@@ -66,30 +68,12 @@ class MockConfig(Config):
         )
 
 
-def get_test_cases():
-    mh = MockHelper(TEST_CASES_FOLDER)
-
-    # dataset_name = braintrust_util.get_dataset_name("investigate")
-    # if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
-    #     bt_helper = braintrust_util.BraintrustEvalHelper(
-    #         project_name=BRAINTRUST_PROJECT, dataset_name=dataset_name
-    #     )
-    #     bt_helper.upload_test_cases(mh.load_test_cases())
-
-    test_cases = mh.load_investigate_test_cases()
-    iterations = int(os.environ.get("ITERATIONS", "1"))
-    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
-
-
-def idfn(val):
-    if isinstance(val, InvestigateTestCase):
-        return val.id
-    else:
-        return str(val)
+def get_investigate_test_cases():
+    return get_test_cases(TEST_CASES_FOLDER)
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_investigate_test_cases())
 def test_investigate(
     test_case: InvestigateTestCase,
     caplog,
@@ -147,12 +131,23 @@ def test_investigate(
                 )
 
             with set_test_env_vars(test_case):
-                with eval_span.start_span("Holmes Run", type=SpanType.LLM):
+                with eval_span.start_span(
+                    "Caching tools executor for create_issue_investigator",
+                    type=SpanType.TASK.value,
+                ):
+                    config.create_tool_executor(mock_dal)
+                with eval_span.start_span(
+                    "Holmes Run", type=SpanType.TASK.value
+                ) as holmes_span:
+                    start_time = time.time()
                     result = investigate_issues(
                         investigate_request=investigate_request,
                         config=config,
                         dal=mock_dal,
+                        trace_span=holmes_span,
                     )
+                    holmes_duration = time.time() - start_time
+                eval_span.log(metadata={"Holmes Duration": holmes_duration})
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis

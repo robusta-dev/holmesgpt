@@ -229,8 +229,92 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 - RBAC permissions are respected for Kubernetes access
 
 ## Eval Notes
-- You can run evals with --skip-cleanup or --skip-setup if you are debugging the eval itself
+
+### Running and Testing Evals
+- **ALWAYS use `RUN_LIVE=true`** when testing evals to ensure tests match real-world behavior
+- Use `--skip-cleanup` when troubleshooting setup issues (resources remain after test)
+- Use `--generate-mocks` to create mock response files during test execution
+- Use `--skip-setup` if you are debugging the eval itself
 - Test cases can specify custom runbooks by adding a `runbooks` field in test_case.yaml:
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory
   - If `runbooks` field is not specified, default system runbooks are used
+
+## Memory Notes
+
+- ** Use of Mock Data**:
+  - When creating evals never generate mock data and always test evals with RUN_LIVE=true
+
+**Realism is Critical:**
+- No fake/obvious logs like "Memory usage stabilized at 800MB"
+- No hints in filenames like "disk_consumer.py" - use realistic names like "training_pipeline.py"
+- No error messages that give away it's simulated like "Simulated processing error"
+- Use real-world scenarios: ML pipelines with checkpoint issues, database connection pools, diagnostic logging left enabled
+- Implement realistic application behavior with proper business logic
+
+**Code Organization Standards:**
+- **ALWAYS use Secrets for scripts**, not inline manifests or ConfigMaps (prevents code visibility with kubectl describe)
+- Follow existing eval patterns - check similar test cases for reference
+- Resource naming should be neutral, not hint at the problem (avoid "broken-pod", "crashloop-app")
+- Each test must use a dedicated namespace `app-<testid>` to prevent conflicts
+- All pod names must be unique across tests
+
+**Architectural Preferences:**
+- Implement the full architecture even if it's complex (e.g., use Loki for log aggregation, not simplified alternatives)
+- Don't take shortcuts - if the scenario needs Loki, implement Loki properly
+- Proper separation of concerns (app → file → Promtail → Loki → Holmes)
+- Use minimal resource footprints (e.g., reduce memory/CPU for Loki in tests)
+
+**Expected Analysis Quality:**
+- Holmes should identify root causes from historical data
+- Expected outputs should be comprehensive but realistic
+- Include specific details like file paths, configuration issues, metrics
+- Don't expect Holmes to find information that isn't in the data
+
+**Common Pitfalls to Avoid:**
+- Don't use invalid tags - check pyproject.toml for the list of valid markers/tags
+- Don't add convenience logs that give away the problem
+- Don't write logs that directly state the issue
+- Ensure historical timestamps are properly handled in logs (especially with Loki)
+- Verify that data sources (like Loki) are actually working before expecting Holmes to query them
+
+**Toolset Configuration in Evals:**
+When configuring toolsets in `toolsets.yaml` files, ALL toolset-specific configuration must go under a `config` field:
+
+```yaml
+# CORRECT - toolset-specific config under 'config' field
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      url: http://loki.app-143.svc.cluster.local:3100
+      api_key: ""
+      grafana_datasource_uid: "loki"
+
+  rabbitmq/core:
+    enabled: true
+    config:
+      clusters:
+        - id: rabbitmq
+          username: user
+          password: "{{env.RABBITMQ_PASSWORD}}"
+          management_url: http://localhost:15672
+
+# WRONG - toolset config at top level
+toolsets:
+  grafana/loki:
+    enabled: true
+    url: http://loki.app-143.svc.cluster.local:3100
+    api_key: ""
+```
+
+The only valid top-level fields for toolsets in YAML are: `enabled`, `name`, `description`, `additional_instructions`, `prerequisites`, `tools`, `docs_url`, `icon_url`, `installation_instructions`, `config`, `url` (for MCP toolsets only).
+
+## Documentation Lookup
+
+When asked about content from the HolmesGPT documentation website (https://robusta-dev.github.io/holmesgpt/), look in the local `docs/` directory:
+- Python SDK examples: `docs/installation/python-installation.md`
+- CLI installation: `docs/installation/cli-installation.md`
+- Kubernetes deployment: `docs/installation/kubernetes-installation.md`
+- Toolset documentation: `docs/data-sources/builtin-toolsets/`
+- API reference: `docs/reference/`

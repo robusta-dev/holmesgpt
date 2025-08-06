@@ -1,5 +1,8 @@
 # In general
 
+{% if cluster_name -%}
+* You are running on cluster {{ cluster_name }}.
+{%- endif %}
 * when it can provide extra information, first run as many tools as you need to gather more information, then respond.
 * if possible, do so repeatedly with different tool calls each time to gather more information.
 * do not stop investigating until you are at the final root cause you are able to find.
@@ -32,8 +35,6 @@
 ** check the application logs because there may be runtime issues
 
 {% include '_toolsets_instructions.jinja2' %}
-
-{% include '_fetch_logs.jinja2' %}
 
 {% include '_permission_errors.jinja2' %}
 

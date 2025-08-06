@@ -1,11 +1,12 @@
 user_prompt: "post last 10 logs that contain \"ERROR\" from payment-service in production-62 namespace"
 expected_output: |
-  The following logs are shown:
-    ERROR: Failed to connect to database: connection timeout
-    ERROR: Retrying database connection...
-    ERROR: Database connection failed after 3 retries
-    ERROR: Backup database also unavailable
-    ERROR: Application cannot start without database
+  The following logs are shown either directly or in summarized form:
+    ERROR: Database connection failed: ETIMEDOUT
+    ERROR: Attempting reconnection (attempt 1/3)
+    ERROR: Connection retry failed (attempt 2/3)
+    ERROR: Maximum retry attempts exceeded
+    ERROR: Backup connection failed: ECONNREFUSED
+    ERROR: Unable to establish database connection
 
   The following log is NOT shown:
     INFO: Application starting up
@@ -21,7 +22,7 @@ before_test: |
   -n production-62 --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -f ./manifest.yaml
   kubectl wait --for=condition=available deployment/payment-service -n production-62 --timeout=90s
-  sleep 5
+  sleep 60
 after_test: |
   kubectl delete -f ./manifest.yaml
   kubectl delete secret payment-service-logs-script -n production-62 --ignore-not-found

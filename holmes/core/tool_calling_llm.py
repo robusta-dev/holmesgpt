@@ -15,7 +15,11 @@ from pydantic import BaseModel
 from pydantic_core import from_json
 from rich.console import Console
 
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.common.env_vars import (
+    ROBUSTA_API_ENDPOINT,
+    STREAM_CHUNKS_PER_PARSE,
+    TEMPERATURE,
+)
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
@@ -217,6 +221,7 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         messages = [
             {"role": "system", "content": system_prompt},
@@ -228,6 +233,7 @@ class ToolCallingLLM:
             response_format,
             user_prompt=user_prompt,
             sections=sections,
+            trace_span=trace_span,
         )
 
     def messages_call(
@@ -286,6 +292,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
@@ -625,6 +632,7 @@ class ToolCallingLLM:
                             "messages": parse_messages_tags(messages),  # type: ignore
                             "tools": tools,
                             "tool_choice": tool_choice,
+                            "temperature": TEMPERATURE,
                             "response_format": response_format,
                             "stream": True,
                             "drop_param": True,
@@ -649,6 +657,7 @@ class ToolCallingLLM:
                         messages=parse_messages_tags(messages),  # type: ignore
                         tools=tools,
                         tool_choice=tool_choice,
+                        temperature=TEMPERATURE,
                         response_format=response_format,
                         stream=False,
                         drop_params=True,
@@ -760,9 +769,11 @@ class IssueInvestigator(ToolCallingLLM):
         runbook_manager: RunbookManager,
         max_steps: int,
         llm: LLM,
+        cluster_name: Optional[str],
     ):
         super().__init__(tool_executor, max_steps, llm)
         self.runbook_manager = runbook_manager
+        self.cluster_name = cluster_name
 
     def investigate(
         self,
@@ -773,6 +784,7 @@ class IssueInvestigator(ToolCallingLLM):
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
@@ -821,6 +833,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
+                "cluster_name": self.cluster_name,
             },
         )
 
@@ -855,6 +868,7 @@ class IssueInvestigator(ToolCallingLLM):
             post_processing_prompt,
             response_format=response_format,
             sections=sections,
+            trace_span=trace_span,
         )
         res.instructions = runbooks
         return res

@@ -25,11 +25,11 @@
 * Embed at most 2 graphs
 * When embedding multiple graphs, always add line spacing between them
     For example:
-    ```
+
     <<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "lBaA"}>>
 
     <<{"type": "promql", "tool_name": "execute_prometheus_range_query", "random_key": "IKtq"}>>
-    ```
+
 {%- if config and config.additional_labels and config.additional_labels.keys()|list|length > 0 %}
 * ALWAYS add the following additional labels to ALL PromQL queries:
 {%- for key, value in config.additional_labels.items() %}

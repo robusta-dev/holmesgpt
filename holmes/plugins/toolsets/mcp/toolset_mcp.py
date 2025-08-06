@@ -83,7 +83,7 @@ class RemoteMCPTool(Tool):
         return parameters
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Call mcp server {self.url} tool {self.name} with params {str(params)}"
+        return f"Call MCP Server ({self.url} - {self.name})"
 
 
 class RemoteMCPToolset(Toolset):

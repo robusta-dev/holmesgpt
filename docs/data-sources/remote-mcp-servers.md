@@ -167,6 +167,12 @@ Use this config according to your use case.
     holmes ask -t custom_toolset.yaml  "Using dynatrace what issues do I have in my cluster?"
     ```
 
+    Alternatively, you can add the `mcp_servers` configurations to ** ~/.holmes/config.yaml**, and run:
+
+    ```bash
+    holmes ask "Using dynatrace what issues do I have in my cluster?"
+    ```
+
 === "Robusta Helm Chart"
 
     **Helm Values:**

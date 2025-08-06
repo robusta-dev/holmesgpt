@@ -9,6 +9,7 @@ from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
 )
 from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
 from holmes.plugins.toolsets.azure_sql.utils import format_timing
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class GetTopDataIOQueries(BaseAzureSQLTool):
@@ -153,7 +154,7 @@ class GetTopDataIOQueries(BaseAzureSQLTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         db_config = self.toolset.database_config()
-        return f"Fetch top data I/O consuming queries for database {db_config.server_name}/{db_config.database_name}"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Top Data I/O Queries ({db_config.server_name}/{db_config.database_name})"
 
     @staticmethod
     def validate_config(

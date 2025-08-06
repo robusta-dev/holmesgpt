@@ -257,8 +257,14 @@ toolsets:
     description: "Provides real-time metrics for pods and nodes"
     docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#live-metrics"
     icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    llm_instructions: |
+      The kubectl_top_pods or kubectl_top_nodes do not return time series data or metrics that can be used for graphs
+      Do NOT use kubectl_top_pods or kubectl_top_nodes for graph generation - it only shows current snapshot data
+      kubectl_top_pods or kubectl_top_nodes are for current status checks, not historical graphs
     tags:
       - core
+    prerequisites:
+      - command: "kubectl top nodes"
     tools:
       - name: "kubectl_top_pods"
         description: "Retrieves real-time CPU and memory usage for each pod in the cluster."
