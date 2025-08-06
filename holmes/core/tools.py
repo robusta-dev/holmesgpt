@@ -309,7 +309,7 @@ class Tool(ABC, BaseModel):
         # If any transformers were applied, update the result
         if transformers_applied:
             # Create a copy of the result with transformed data
-            result_dict = result.model_dump()
+            result_dict = result.model_dump(exclude={"data"})
             result_dict["data"] = transformed_data
             return StructuredToolResult(**result_dict)
 
