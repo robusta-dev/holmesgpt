@@ -70,5 +70,4 @@ before_test: |
   done
 
 after_test: |
-  # Delete namespace in background to avoid hanging
-  kubectl delete namespace app-102 --force --grace-period=0 --wait=false || true
+  kubectl delete namespace app-102 --wait=false || true

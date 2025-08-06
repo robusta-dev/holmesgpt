@@ -28,7 +28,7 @@ kubectl get endpoints -n {namespace} | grep -E "(postgres|mysql|database)"
 ### 4. Test Network Connectivity
 Test connectivity from application pod to database:
 ```bash
-kubectl exec -n {namespace} $(kubectl get pod -n {namespace} -l app={app_name} -o jsonpath='{.items[0].metadata.name}') -- nc -zv {db_host} {db_port}
+kubectl exec -n {namespace} $(kubectl get pod -n {namespace} -l app={app_name} -o jsonpath="{.items[0].metadata.name}") -- nc -zv {db_host} {db_port}
 ```
 
 ### 5. Check Database Health

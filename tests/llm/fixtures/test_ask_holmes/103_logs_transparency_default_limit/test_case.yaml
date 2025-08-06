@@ -1,4 +1,3 @@
-# seems too similar to 110 - we probably one need one of these evals
 user_prompt: "Show me logs from the pod deep-diver in namespace app-103"
 
 expected_output: |

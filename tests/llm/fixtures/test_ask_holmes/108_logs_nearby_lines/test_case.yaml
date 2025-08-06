@@ -15,6 +15,6 @@ before_test: |
   kubectl wait --for=condition=ready pod -l app=api-service -n app-108 --timeout=60s || true
 
 after_test: |
-  kubectl delete namespace app-108 --force --grace-period=0 || true
+  kubectl delete namespace app-108 || true
 
 expected_output: The first Connection refused errors started after a config reload that loaded staging database settings in production.
