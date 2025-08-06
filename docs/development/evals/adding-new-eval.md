@@ -122,26 +122,9 @@ toolsets:
 
 ### Port Forwarding
 
-```yaml
-port_forwards:
-  - namespace: app-01
-    service: rabbitmq
-    local_port: 15672
-    remote_port: 15672
-```
-
-**Note**: Use unique local ports across all tests
-
-### Port Forwarding
-
 Some tests require access to services that are not directly exposed. You can configure port forwards that will be automatically set up and torn down for your test:
 
 ```yaml
-user_prompt: "Check RabbitMQ queue status"
-expected_output:
-  - RabbitMQ queues are healthy
-
-# Configure port forwards
 port_forwards:
   - namespace: app-01
     service: rabbitmq
@@ -152,6 +135,8 @@ port_forwards:
     local_port: 9090
     remote_port: 9090
 ```
+
+**Note**: Use unique local ports across all tests to avoid conflicts
 
 Port forwards are:
 
