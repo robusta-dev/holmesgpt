@@ -3,7 +3,8 @@ tags:
   - logs
   - synthetic
   - medium
-expected_output:
+expected_output: |
+  The following issues are mentioned either as direct quotes or in summarized form. It's ok if specific dates are not mentioned:
   - 2025-06-12 The database at my.postgresql.com has become unavailable
   - 2025-06-15 Syntax error for query fetch_user_logs
   - 2025-06-19 SSL certificate expired

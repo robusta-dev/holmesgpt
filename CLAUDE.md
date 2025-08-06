@@ -99,42 +99,47 @@ poetry run mypy
 **Three-tier testing approach**:
 
 1. **Unit Tests** (`tests/`): Standard pytest tests for individual components
-2. **Integration Tests**: Test toolset integrations with mock responses
+2. **Integration Tests**: Test toolset integrations
 3. **LLM Evaluation Tests** (`tests/llm/`): End-to-end tests using fixtures
 
 **LLM Test Structure**:
 - `tests/llm/fixtures/test_ask_holmes/`: 53+ test scenarios with YAML configs
-- Each test has mock tool responses and expected outputs
-- Uses LLM-as-judge for automated evaluation
+- Each test has expected outputs validated by LLM-as-judge
 - Supports Braintrust integration for result tracking
 
 **Running LLM Tests**:
 ```bash
-# Test specific scenario (use -k flag with test name)
-poetry run pytest tests/llm/test_ask_holmes.py -k "01_how_many_pods"
-
-# IMPORTANT: Always use live tools instead of mocks when possible
+# IMPORTANT: Always use RUN_LIVE=true for accurate test results
 # This ensures tests match real-world behavior
-export RUN_LIVE=true
-poetry run pytest tests/llm/test_ask_holmes.py
+
+# Run all LLM tests
+RUN_LIVE=true poetry run pytest -m 'llm' --no-cov
+
+# Run specific test
+RUN_LIVE=true poetry run pytest -m 'llm' -k "09_crashpod" --no-cov
+
+# Run regression tests (easy marker) - all should pass with ITERATIONS=10
+RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
+RUN_LIVE=true ITERATIONS=10 poetry run pytest -m 'llm and easy' --no-cov
+
+# Run tests in parallel
+RUN_LIVE=true poetry run pytest tests/llm/ -n 6
 
 # Test with different models
-export MODEL=anthropic/claude-3.5-sonnet-20241022
-poetry run pytest tests/llm/test_ask_holmes.py
+# Note: When using Anthropic models, set CLASSIFIER_MODEL to OpenAI (Anthropic not supported as classifier)
+RUN_LIVE=true MODEL=anthropic/claude-3.5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py
 ```
 
 ### Evaluation CLI Reference
 
 **Custom Pytest Flags**:
-- `--generate-mocks`: Generate mock data files during test execution
-- `--regenerate-all-mocks`: Regenerate all mock files (implies --generate-mocks)
 - `--skip-setup`: Skip before_test commands (useful for iterative testing)
 - `--skip-cleanup`: Skip after_test commands (useful for debugging)
 
 **Environment Variables**:
 - `MODEL`: LLM model to use (e.g., `gpt-4o`, `anthropic/claude-3-5-sonnet-20241022`)
 - `CLASSIFIER_MODEL`: Model for scoring answers (defaults to MODEL)
-- `RUN_LIVE=true`: Execute real commands instead of using mocks
+- `RUN_LIVE=true`: Execute real commands (recommended for all tests)
 - `ITERATIONS=<number>`: Run each test multiple times
 - `UPLOAD_DATASET=true`: Sync dataset to Braintrust
 - `EXPERIMENT_ID`: Custom experiment name for tracking
@@ -146,30 +151,32 @@ poetry run pytest tests/llm/test_ask_holmes.py
 **Common Evaluation Patterns**:
 
 ```bash
-
-# Generate/update mocks for specific tests
-poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
-
 # Run tests multiple times for reliability
-ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "flaky_test"
+RUN_LIVE=true ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "flaky_test"
 
 # Model comparison workflow
-EXPERIMENT_ID=gpt4o_baseline MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
-EXPERIMENT_ID=claude35_test MODEL=anthropic/claude-3-5-sonnet-20241022 poetry run pytest tests/llm/ -n 6
+RUN_LIVE=true EXPERIMENT_ID=gpt4o_baseline MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
+RUN_LIVE=true EXPERIMENT_ID=claude35_test MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
 
 # Debug with verbose output
-poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
+RUN_LIVE=true poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
 
 # List tests by marker
 poetry run pytest -m "llm and not network" --collect-only -q
+
+# Test marker combinations
+RUN_LIVE=true poetry run pytest -m "llm and easy" --no-cov  # Regression tests
+RUN_LIVE=true poetry run pytest -m "llm and not easy" --no-cov  # Non-regression tests
 ```
 
 **Available Test Markers (same as eval tags)**:
 Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask the user before adding a new one.
 
+**Important**: The `easy` marker identifies regression tests - these are the most important tests that should always pass. Run with `RUN_LIVE=true ITERATIONS=10 poetry run pytest -m "llm and easy"` to ensure stability.
+
 **Test Infrastructure Notes**:
 - All test state tracking uses pytest's `user_properties` to ensure compatibility with pytest-xdist parallel execution
-- Mock file tracking and test results are stored in `user_properties` and aggregated in the terminal summary
+- Test results are stored in `user_properties` and aggregated in the terminal summary
 - This design ensures tests work correctly when run in parallel with `-n` flag
 - **Important for LLM tests**: Each test must use a dedicated namespace `app-<testid>` (e.g., `app-01`, `app-02`) to prevent conflicts when tests run simultaneously
 - All pod names must be unique across tests (e.g., `giant-narwhal`, `blue-whale`, `sea-turtle`) - never reuse pod names between tests
@@ -189,7 +196,7 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 **Environment Variables**:
 - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: LLM API keys
 - `MODEL`: Override default model
-- `RUN_LIVE`: Use live tools in tests instead of mocks
+- `RUN_LIVE`: Use live tools in tests (strongly recommended)
 - `BRAINTRUST_API_KEY`: For test result tracking and CI/CD report generation
 - `BRAINTRUST_ORG`: Braintrust organization name (default: "robustadev")
 
@@ -203,7 +210,7 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 
 **Testing Requirements**:
 - All new features require unit tests
-- New toolsets require integration tests with mocks
+- New toolsets require integration tests
 - Complex investigations should have LLM evaluation tests
 - Maintain 40% minimum test coverage
 - **ALWAYS use `RUN_LIVE=true` when running LLM tests** to ensure tests match real-world behavior
@@ -218,7 +225,6 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 - Toolsets: `holmes/plugins/toolsets/{name}.yaml` or `{name}/`
 - Prompts: `holmes/plugins/prompts/{name}.jinja2`
 - Tests: Match source structure under `tests/`
-- Mock data: `tests/llm/fixtures/{test_name}/`
 
 ## Security Notes
 
@@ -229,16 +235,84 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 - RBAC permissions are respected for Kubernetes access
 
 ## Eval Notes
-- You can run evals with --skip-cleanup or --skip-setup if you are debugging the eval itself
+
+### Running and Testing Evals
+- **ALWAYS use `RUN_LIVE=true`** when testing evals to ensure tests match real-world behavior
+- Use `--skip-cleanup` when troubleshooting setup issues (resources remain after test)
+- Use `--skip-setup` if you are debugging the eval itself
 - Test cases can specify custom runbooks by adding a `runbooks` field in test_case.yaml:
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory
   - If `runbooks` field is not specified, default system runbooks are used
+- For mock data usage (rare cases), see [Using Mock Data](docs/using-mock-data.md)
 
 ## Memory Notes
 
-- **Evals and Mocking**:
-  - When creating evals never generate mock data and always test evals with RUN_LIVE=true
+
+**Realism is Critical:**
+- No fake/obvious logs like "Memory usage stabilized at 800MB"
+- No hints in filenames like "disk_consumer.py" - use realistic names like "training_pipeline.py"
+- No error messages that give away it's simulated like "Simulated processing error"
+- Use real-world scenarios: ML pipelines with checkpoint issues, database connection pools, diagnostic logging left enabled
+- Implement realistic application behavior with proper business logic
+
+**Code Organization Standards:**
+- **ALWAYS use Secrets for scripts**, not inline manifests or ConfigMaps (prevents code visibility with kubectl describe)
+- Follow existing eval patterns - check similar test cases for reference
+- Resource naming should be neutral, not hint at the problem (avoid "broken-pod", "crashloop-app")
+- Each test must use a dedicated namespace `app-<testid>` to prevent conflicts
+- All pod names must be unique across tests
+
+**Architectural Preferences:**
+- Implement the full architecture even if it's complex (e.g., use Loki for log aggregation, not simplified alternatives)
+- Don't take shortcuts - if the scenario needs Loki, implement Loki properly
+- Proper separation of concerns (app → file → Promtail → Loki → Holmes)
+- Use minimal resource footprints (e.g., reduce memory/CPU for Loki in tests)
+
+**Expected Analysis Quality:**
+- Holmes should identify root causes from historical data
+- Expected outputs should be comprehensive but realistic
+- Include specific details like file paths, configuration issues, metrics
+- Don't expect Holmes to find information that isn't in the data
+
+**Common Pitfalls to Avoid:**
+- Don't use invalid tags - check pyproject.toml for the list of valid markers/tags
+- Don't add convenience logs that give away the problem
+- Don't write logs that directly state the issue
+- Ensure historical timestamps are properly handled in logs (especially with Loki)
+- Verify that data sources (like Loki) are actually working before expecting Holmes to query them
+
+**Toolset Configuration in Evals:**
+When configuring toolsets in `toolsets.yaml` files, ALL toolset-specific configuration must go under a `config` field:
+
+```yaml
+# CORRECT - toolset-specific config under 'config' field
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      url: http://loki.app-143.svc.cluster.local:3100
+      api_key: ""
+      grafana_datasource_uid: "loki"
+
+  rabbitmq/core:
+    enabled: true
+    config:
+      clusters:
+        - id: rabbitmq
+          username: user
+          password: "{{env.RABBITMQ_PASSWORD}}"
+          management_url: http://localhost:15672
+
+# WRONG - toolset config at top level
+toolsets:
+  grafana/loki:
+    enabled: true
+    url: http://loki.app-143.svc.cluster.local:3100
+    api_key: ""
+```
+
+The only valid top-level fields for toolsets in YAML are: `enabled`, `name`, `description`, `additional_instructions`, `prerequisites`, `tools`, `docs_url`, `icon_url`, `installation_instructions`, `config`, `url` (for MCP toolsets only).
 
 ## Documentation Lookup
 
@@ -248,5 +322,3 @@ When asked about content from the HolmesGPT documentation website (https://robus
 - Kubernetes deployment: `docs/installation/kubernetes-installation.md`
 - Toolset documentation: `docs/data-sources/builtin-toolsets/`
 - API reference: `docs/reference/`
-
-```

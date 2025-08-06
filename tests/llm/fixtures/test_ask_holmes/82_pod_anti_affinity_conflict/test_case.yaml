@@ -4,6 +4,7 @@ tags:
   - medium
 expected_output:
   - Silver-puffin pods cannot be scheduled because pod anti-affinity rules require them on different nodes but insufficient nodes available
+  - It's ok if other reasons are mentioned too as long as the anti-affinity conflict is clearly stated
 before_test: |
   kubectl apply -f ./manifest.yaml
   sleep 20

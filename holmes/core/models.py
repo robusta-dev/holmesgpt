@@ -150,6 +150,13 @@ class WorkloadHealthInvestigationResult(BaseModel):
     analysis: Optional[str] = None
     tools: Optional[List[ToolCallConversationResult]] = []
 
+    @model_validator(mode="before")
+    def check_analysis_and_result(cls, values):
+        if "result" in values and "analysis" not in values:
+            values["analysis"] = values["result"]
+            del values["result"]
+        return values
+
 
 class WorkloadHealthChatRequest(ChatRequestBaseModel):
     ask: str

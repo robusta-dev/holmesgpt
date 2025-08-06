@@ -5,6 +5,8 @@ from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaTool
 import requests  # type: ignore
 import logging
 
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+
 
 class ListAndBuildGrafanaDashboardURLs(Tool):
     def __init__(self, toolset: BaseGrafanaToolset):
@@ -86,7 +88,9 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
             return f"Error fetching dashboards: {str(e)}"
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Lists Grafana dashboards and builds URLs with parameters: {params}"
+        return (
+            f"{toolset_name_for_one_liner(self._toolset.name)}: List Grafana Dashboards"
+        )
 
 
 class GrafanaToolset(BaseGrafanaToolset):
