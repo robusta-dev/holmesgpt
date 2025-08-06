@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import time
 from typing import Optional
 import pytest
 from pathlib import Path
@@ -132,6 +133,7 @@ def test_ask_holmes(
                         result = ask_holmes(
                             test_case=test_case,
                             tracer=tracer,
+                            eval_span=eval_span,
                             mock_generation_config=mock_generation_config,
                             request=request,
                         )
@@ -140,6 +142,7 @@ def test_ask_holmes(
                     result = ask_holmes(
                         test_case=test_case,
                         tracer=tracer,
+                        eval_span=eval_span,
                         mock_generation_config=mock_generation_config,
                         request=request,
                     )
@@ -268,14 +271,22 @@ def test_ask_holmes(
 
 # TODO: can this call real ask_holmes so more of the logic is captured
 def ask_holmes(
-    test_case: AskHolmesTestCase, tracer, mock_generation_config, request=None
+    test_case: AskHolmesTestCase,
+    tracer,
+    eval_span,
+    mock_generation_config,
+    request=None,
 ) -> LLMResult:
-    toolset_manager = MockToolsetManager(
-        test_case_folder=test_case.folder,
-        mock_generation_config=mock_generation_config,
-        request=request,
-        mock_policy=test_case.mock_policy,
-    )
+    with eval_span.start_span(
+        "Initialize Toolsets",
+        type=SpanType.TASK.value,
+    ):
+        toolset_manager = MockToolsetManager(
+            test_case_folder=test_case.folder,
+            mock_generation_config=mock_generation_config,
+            request=request,
+            mock_policy=test_case.mock_policy,
+        )
 
     tool_executor = ToolExecutor(toolset_manager.toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
@@ -327,5 +338,9 @@ def ask_holmes(
         )
 
     # Create LLM completion trace within current context
-    with tracer.start_trace("run holmes", span_type=SpanType.LLM) as llm_span:
-        return ai.messages_call(messages=messages, trace_span=llm_span)
+    with tracer.start_trace("Holmes", span_type=SpanType.TASK) as llm_span:
+        start_time = time.time()
+        result = ai.messages_call(messages=messages, trace_span=llm_span)
+        holmes_duration = time.time() - start_time
+        eval_span.log(metadata={"Holmes Duration": holmes_duration})
+    return result
