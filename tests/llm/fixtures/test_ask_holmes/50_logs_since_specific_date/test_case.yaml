@@ -12,4 +12,4 @@ expected_output: |
 evaluation:
   correctness: 1
 
-mock_policy: always_mock
+# mock_policy: always_mock
