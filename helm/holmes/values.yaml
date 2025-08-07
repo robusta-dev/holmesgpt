@@ -1,7 +1,6 @@
 certificate: "" # base64 encoded
 logLevel: INFO
 
-
 additionalEnvVars: []
 additional_env_vars: []
 imagePullSecrets: []
@@ -13,6 +12,7 @@ sentryDSN: https://51f9cd9bd2fdee16144db08fc423cd3b@o1120648.ingest.us.sentry.io
 enableTelemetry: true
 
 enableAccountsCreate: true
+revisionHistoryLimit: 10
 
 createServiceAccount: true
 customServiceAccountName: ""
