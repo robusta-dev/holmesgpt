@@ -74,7 +74,7 @@ class Config(RobustaBaseConfig):
     model: Optional[str] = "gpt-4o"
     max_steps: int = 10
     cluster_name: Optional[str] = None
-    lookback_period: Optional[str] = (
+    since: Optional[str] = (
         None  # Time period for fetching historical data (e.g., '7d', '24h')
     )
 
@@ -141,19 +141,19 @@ class Config(RobustaBaseConfig):
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
 
-        # Handle lookback_period from config file or CLI
+        # Handle since from config file or CLI
         # This sets an environment variable that toolsets read during initialization
         # Priority: CLI flag > Config file > Environment variable > Default
-        if self.lookback_period:
+        if self.since:
             try:
-                seconds = parse_time_duration(self.lookback_period)
+                seconds = parse_time_duration(self.since)
                 # Always set from CLI/Config, overriding any environment variable
                 os.environ["HOLMES_DEFAULT_TIME_SPAN_SECONDS"] = str(seconds)
                 logging.debug(
-                    f"Set default time span to {seconds} seconds from lookback_period: {self.lookback_period}"
+                    f"Set default time span to {seconds} seconds from since: {self.since}"
                 )
             except ValueError as e:
-                logging.warning(f"Invalid lookback_period in config: {e}")
+                logging.warning(f"Invalid since in config: {e}")
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
@@ -521,7 +521,7 @@ class SourceFactory(BaseModel):
         ticket_username: Optional[str],
         ticket_api_key: Optional[str],
         ticket_id: Optional[str],
-        lookback_period: Optional[str] = None,
+        since: Optional[str] = None,
     ) -> TicketSource:
         supported_sources = [s.value for s in SupportedTicketSources]
         if source not in supported_sources:
@@ -541,7 +541,7 @@ class SourceFactory(BaseModel):
                 jira_query=None,
                 custom_toolsets=None,
                 custom_runbooks=None,
-                lookback_period=lookback_period,
+                since=since,
             )
 
             if not (
@@ -575,7 +575,7 @@ class SourceFactory(BaseModel):
                 pagerduty_incident_key=None,
                 custom_toolsets=None,
                 custom_runbooks=None,
-                lookback_period=lookback_period,
+                since=since,
             )
 
             if not (

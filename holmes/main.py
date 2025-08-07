@@ -250,7 +250,7 @@ def ask(
         custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
-        lookback_period=default_time_span,
+        since=default_time_span,
     )
 
     # Create tracer if trace option is provided
@@ -413,7 +413,7 @@ def alertmanager(
         slack_channel=slack_channel,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
-        lookback_period=default_time_span,
+        since=default_time_span,
     )
 
     ai = config.create_console_issue_investigator()  # type: ignore
@@ -546,7 +546,7 @@ def jira(
         jira_query=jira_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
-        lookback_period=default_time_span,
+        since=default_time_span,
     )
     ai = config.create_console_issue_investigator()  # type: ignore
     source = config.create_jira_source()
@@ -641,7 +641,7 @@ def ticket(
             ticket_username=ticket_username,
             ticket_api_key=ticket_api_key,
             ticket_id=ticket_id,
-            lookback_period=default_time_span,
+            since=default_time_span,
         )
     except Exception as e:
         console.print(f"[bold red]Error: {str(e)}[/bold red]")
@@ -742,7 +742,7 @@ def github(
         github_query=github_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
-        lookback_period=default_time_span,
+        since=default_time_span,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_github_source()
@@ -829,7 +829,7 @@ def pagerduty(
         pagerduty_incident_key=pagerduty_incident_key,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
-        lookback_period=default_time_span,
+        since=default_time_span,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_pagerduty_source()
@@ -918,7 +918,7 @@ def opsgenie(
         opsgenie_query=opsgenie_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
-        lookback_period=default_time_span,
+        since=default_time_span,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_opsgenie_source()
