@@ -91,10 +91,11 @@ class SpanType(Enum):
     """Standard span types for tracing categorization."""
 
     LLM = "llm"
-    TOOL = "tool"
-    TASK = "task"
     SCORE = "score"
+    FUNCTION = "function"
     EVAL = "eval"
+    TASK = "task"
+    TOOL = "tool"
 
 
 class DummySpan:

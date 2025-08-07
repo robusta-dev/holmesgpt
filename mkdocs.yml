@@ -190,7 +190,7 @@ nav:
       - development/index.md
       - Evaluations:
           - development/evals/index.md
-          - Writing Evaluations: development/evals/writing.md
+          - Adding a New Eval: development/evals/adding-new-eval.md
           - Reporting with Braintrust: development/evals/reporting.md
 
   - Reference:
