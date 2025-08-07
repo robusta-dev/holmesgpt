@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -8,7 +9,7 @@ import pytest
 from holmes.core.investigation_structured_output import DEFAULT_SECTIONS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tool_calling_llm import IssueInvestigator
-from holmes.core.tracing import TracingFactory
+from holmes.core.tracing import TracingFactory, SpanType
 from holmes.config import Config
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
@@ -27,7 +28,6 @@ from tests.llm.utils.property_manager import set_initial_properties, update_test
 from os import path
 from unittest.mock import patch
 
-from holmes.core.tracing import SpanType
 from tests.llm.utils.iteration_utils import get_test_cases
 
 TEST_CASES_FOLDER = Path(
@@ -41,17 +41,20 @@ class MockConfig(Config):
         self._test_case = test_case
         self._tracer = tracer
         self._mock_generation_config = mock_generation_config
+        self._cached_tool_executor: Optional[ToolExecutor] = None
 
     def create_tool_executor(self, dal: Optional[SupabaseDal]) -> ToolExecutor:
-        mock = MockToolsetManager(
-            test_case_folder=self._test_case.folder,
-            mock_generation_config=self._mock_generation_config,
-            mock_policy=self._test_case.mock_policy,
-        )
+        if not self._cached_tool_executor:
+            mock = MockToolsetManager(
+                test_case_folder=self._test_case.folder,
+                mock_generation_config=self._mock_generation_config,
+                mock_policy=self._test_case.mock_policy,
+            )
 
-        # With the new file-based mock system, mocks are loaded from disk automatically
-        # No need to call mock_tool() anymore
-        return ToolExecutor(mock.toolsets)
+            # With the new file-based mock system, mocks are loaded from disk automatically
+            # No need to call mock_tool() anymore
+            self._cached_tool_executor = ToolExecutor(mock.toolsets)
+        return self._cached_tool_executor
 
     def create_issue_investigator(
         self,
@@ -128,12 +131,23 @@ def test_investigate(
                 )
 
             with set_test_env_vars(test_case):
-                with eval_span.start_span("Holmes Run", type=SpanType.LLM):
+                with eval_span.start_span(
+                    "Caching tools executor for create_issue_investigator",
+                    type=SpanType.TASK.value,
+                ):
+                    config.create_tool_executor(mock_dal)
+                with eval_span.start_span(
+                    "Holmes Run", type=SpanType.TASK.value
+                ) as holmes_span:
+                    start_time = time.time()
                     result = investigate_issues(
                         investigate_request=investigate_request,
                         config=config,
                         dal=mock_dal,
+                        trace_span=holmes_span,
                     )
+                    holmes_duration = time.time() - start_time
+                eval_span.log(metadata={"Holmes Duration": holmes_duration})
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
