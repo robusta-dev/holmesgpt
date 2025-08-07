@@ -5,6 +5,7 @@ logLevel: INFO
 additionalEnvVars: []
 additional_env_vars: []
 imagePullSecrets: []
+customDeploymentAnnotations: {}
 
 image: holmes:0.0.0
 registry: robustadev
