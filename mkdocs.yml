@@ -165,8 +165,8 @@ nav:
           - Datetime: data-sources/builtin-toolsets/datetime.md
           - Docker: data-sources/builtin-toolsets/docker.md
           - GitHub: data-sources/builtin-toolsets/github.md
-          - Grafana Loki: data-sources/builtin-toolsets/grafanaloki.md
-          - Grafana Tempo: data-sources/builtin-toolsets/grafanatempo.md
+          - Loki: data-sources/builtin-toolsets/grafanaloki.md
+          - Tempo: data-sources/builtin-toolsets/grafanatempo.md
           - Helm: data-sources/builtin-toolsets/helm.md
           - Internet: data-sources/builtin-toolsets/internet.md
           - Kafka: data-sources/builtin-toolsets/kafka.md

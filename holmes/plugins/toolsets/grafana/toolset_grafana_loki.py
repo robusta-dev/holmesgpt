@@ -49,7 +49,7 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
 
     def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
         if not config:
-            return False, "Missing Grafana Loki configuration. Check your config."
+            return False, "Missing Loki configuration. Check your config."
 
         self.config = GrafanaLokiConfig(**config)
 

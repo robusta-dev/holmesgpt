@@ -1,4 +1,4 @@
-# Grafana Loki
+# Loki
 
 Connect HolmesGPT to Loki for log analysis through Grafana or direct API access. Provides access to historical logs and advanced log queries.
 
