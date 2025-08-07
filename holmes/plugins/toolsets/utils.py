@@ -1,8 +1,98 @@
 import datetime
+import re
 import time
 from typing import Dict, Optional, Tuple, Union
 
 from dateutil import parser  # type: ignore
+
+
+def parse_time_duration(duration: str) -> int:
+    """
+    Parse a human-readable time duration string to seconds from now.
+
+    Supports:
+    - Relative durations: '1d', '2w', '24h', '30m', '100s'
+    - ISO dates: '2024-01-15' (midnight of that date)
+    - ISO datetimes: '2024-01-15T10:30:00' or '2024-01-15T10:30:00Z'
+    - Time only: '10:30' or '10:30:00' (today at that time)
+
+    Returns seconds to look back from now.
+    """
+    duration = duration.strip()
+
+    # Try relative duration first (e.g., '1d', '2w')
+    pattern = r"^(\d+)([wdhms])$"
+    match = re.match(pattern, duration.lower())
+
+    if match:
+        value = int(match.group(1))
+        unit = match.group(2)
+
+        multipliers = {
+            "w": 604800,  # weeks to seconds
+            "d": 86400,  # days to seconds
+            "h": 3600,  # hours to seconds
+            "m": 60,  # minutes to seconds
+            "s": 1,  # seconds
+        }
+
+        return value * multipliers[unit]
+
+    # Try to parse as datetime/date/time
+    now = datetime.datetime.now(datetime.timezone.utc)
+    target_dt = None
+
+    try:
+        # Try full ISO datetime
+        if "T" in duration:
+            # Handle with or without timezone
+            if duration.endswith("Z"):
+                target_dt = datetime.datetime.fromisoformat(
+                    duration.replace("Z", "+00:00")
+                )
+            else:
+                target_dt = datetime.datetime.fromisoformat(duration)
+                # If no timezone, assume UTC
+                if target_dt.tzinfo is None:
+                    target_dt = target_dt.replace(tzinfo=datetime.timezone.utc)
+        # Try date only (YYYY-MM-DD)
+        elif re.match(r"^\d{4}-\d{2}-\d{2}$", duration):
+            date = datetime.datetime.strptime(duration, "%Y-%m-%d").date()
+            # Midnight of that date in UTC
+            target_dt = datetime.datetime.combine(
+                date, datetime.time.min, tzinfo=datetime.timezone.utc
+            )
+        # Try time only (HH:MM or HH:MM:SS)
+        elif re.match(r"^\d{1,2}:\d{2}(:\d{2})?$", duration):
+            time_str = duration
+            if ":" in time_str and time_str.count(":") == 1:
+                time_str += ":00"  # Add seconds if not present
+            time_obj = datetime.datetime.strptime(time_str, "%H:%M:%S").time()
+            # Today at that time in UTC
+            target_dt = datetime.datetime.combine(
+                now.date(), time_obj, tzinfo=datetime.timezone.utc
+            )
+            # If the time is in the future, assume yesterday
+            if target_dt > now:
+                target_dt = target_dt.replace(day=target_dt.day - 1)
+    except ValueError:
+        pass
+
+    if target_dt:
+        # Calculate seconds from target to now
+        diff = now - target_dt
+        seconds = int(diff.total_seconds())
+        if seconds < 0:
+            raise ValueError(f"Time '{duration}' is in the future")
+        return seconds
+
+    raise ValueError(
+        f"Invalid time format: '{duration}'. "
+        "Use relative duration (e.g., '1w', '2d', '24h', '30m', '100s'), "
+        "ISO date (e.g., '2024-01-15'), "
+        "ISO datetime (e.g., '2024-01-15T10:30:00'), "
+        "or time (e.g., '14:30')"
+    )
 
 
 def standard_start_datetime_tool_param_description(time_span_seconds: int):

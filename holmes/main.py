@@ -143,6 +143,12 @@ opt_documents: Optional[str] = typer.Option(
     "--documents",
     help="Additional documents to provide the LLM (typically URLs to runbooks)",
 )
+opt_default_time_span: Optional[str] = typer.Option(
+    None,
+    "--since",
+    help="Fetch data since this time. Examples: '2w' (2 weeks), '7d' (7 days), '24h' (24 hours), '30m' (30 minutes), '2024-01-15' (since Jan 15), '2024-01-15T10:30:00' (since specific datetime), '14:30' (since 2:30 PM today). Defaults to 7 days.",
+    envvar="HOLMES_DEFAULT_TIME_SPAN_SECONDS",
+)
 
 
 def parse_documents(documents: Optional[str]) -> List[ResourceInstructionDocument]:
@@ -215,11 +221,13 @@ def ask(
         "--system-prompt-additions",
         help="Additional content to append to the system prompt",
     ),
+    default_time_span: Optional[str] = opt_default_time_span,
 ):
     """
     Ask any question and answer using available tools
     """
     console = init_logging(verbose)  # type: ignore
+
     # Detect and read piped input
     piped_data = None
 
@@ -242,6 +250,7 @@ def ask(
         custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
+        lookback_period=default_time_span,
     )
 
     # Create tracer if trace option is provided
@@ -382,11 +391,13 @@ def alertmanager(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    default_time_span: Optional[str] = opt_default_time_span,
 ):
     """
     Investigate a Prometheus/Alertmanager alert
     """
     console = init_logging(verbose)
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -402,6 +413,7 @@ def alertmanager(
         slack_channel=slack_channel,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        lookback_period=default_time_span,
     )
 
     ai = config.create_console_issue_investigator()  # type: ignore
@@ -516,11 +528,13 @@ def jira(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    default_time_span: Optional[str] = opt_default_time_span,
 ):
     """
     Investigate a Jira ticket
     """
     console = init_logging(verbose)
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -532,6 +546,7 @@ def jira(
         jira_query=jira_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        lookback_period=default_time_span,
     )
     ai = config.create_console_issue_investigator()  # type: ignore
     source = config.create_jira_source()
@@ -609,6 +624,7 @@ def ticket(
         "builtin://generic_ticket.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    default_time_span: Optional[str] = opt_default_time_span,
 ):
     """
     Fetch and print a Jira ticket from the specified source.
@@ -625,6 +641,7 @@ def ticket(
             ticket_username=ticket_username,
             ticket_api_key=ticket_api_key,
             ticket_id=ticket_id,
+            lookback_period=default_time_span,
         )
     except Exception as e:
         console.print(f"[bold red]Error: {str(e)}[/bold red]")
@@ -706,11 +723,13 @@ def github(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    default_time_span: Optional[str] = opt_default_time_span,
 ):
     """
     Investigate a GitHub issue
     """
     console = init_logging(verbose)  # type: ignore
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -723,6 +742,7 @@ def github(
         github_query=github_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        lookback_period=default_time_span,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_github_source()
@@ -792,11 +812,13 @@ def pagerduty(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    default_time_span: Optional[str] = opt_default_time_span,
 ):
     """
     Investigate a PagerDuty incident
     """
     console = init_logging(verbose)
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -807,6 +829,7 @@ def pagerduty(
         pagerduty_incident_key=pagerduty_incident_key,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        lookback_period=default_time_span,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_pagerduty_source()
@@ -878,11 +901,13 @@ def opsgenie(
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
     documents: Optional[str] = opt_documents,
+    default_time_span: Optional[str] = opt_default_time_span,
 ):
     """
     Investigate an OpsGenie alert
     """
     console = init_logging(verbose)  # type: ignore
+
     config = Config.load_from_file(
         config_file,
         api_key=api_key,
@@ -893,6 +918,7 @@ def opsgenie(
         opsgenie_query=opsgenie_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        lookback_period=default_time_span,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_opsgenie_source()

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
+import os
 from typing import Optional, Set
 from enum import Enum
 
@@ -17,7 +18,11 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 # Default values for log fetching
 DEFAULT_LOG_LIMIT = 100
 SECONDS_PER_DAY = 24 * 60 * 60
-DEFAULT_TIME_SPAN_SECONDS = 7 * SECONDS_PER_DAY  # 1 week in seconds
+
+# This will be updated at runtime from Config if user provides --since or lookback_period
+DEFAULT_TIME_SPAN_SECONDS = int(
+    os.environ.get("HOLMES_DEFAULT_TIME_SPAN_SECONDS", str(7 * SECONDS_PER_DAY))
+)
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 
