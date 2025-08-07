@@ -36,11 +36,11 @@ toolsets:
 
       - name: "kubectl_get_yaml"
         description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
-        command: "kubectl get -o yaml {{ kind }} {{ name}}{% if namespace %} -n {{ namespace }}{% endif %}"
+        command: "kubectl get -o yaml {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_events"
-        description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment, 'job'', 'node', etc."
-        command: "kubectl events --for {{resource_type}}/{{ pod_name }} -n {{ namespace }}"
+        description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment', 'job', 'node', etc."
+        command: "kubectl events --for {{resource_type}}/{{ resource_name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_memory_requests_all_namespaces"
         description: "Fetch and display memory requests for all pods across all namespaces in MiB, summing requests across multiple containers where applicable and handling binary, decimal, and millibyte units correctly."
@@ -239,10 +239,10 @@ toolsets:
     tools:
       - name: "kubectl_lineage_children"
         description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
-        command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }}"
+        command: "kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
       - name: "kubectl_lineage_parents"
         description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
-        command: "kubectl lineage {{ kind }} {{ name}} -n {{ namespace }} -D"
+        command: "kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D"
 
   kubernetes/kube-lineage-extras: # To make this work, build kube-lineage from source
     description: "Fetches children/dependents and parents/dependencies resources using kube-lineage"
@@ -255,7 +255,7 @@ toolsets:
     tools:
       - name: "kubectl_lineage_children"
         description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
-        command: "kube-lineage {{ kind }} {{ name}} -n {{ namespace }}"
+        command: "kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
       - name: "kubectl_lineage_parents"
         description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
-        command: "kube-lineage {{ kind }} {{ name}} -n {{ namespace }} -D"
+        command: "kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D"
