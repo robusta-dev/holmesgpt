@@ -31,9 +31,9 @@ description
 2025-08-06 08:39:37,900 INFO     10.244.1.201:54478 - "GET /api/model HTTP/1.1" 200
 2025-08-06 08:45:46,521 INFO     10.244.1.201:33102 - "GET /api/model HTTP/1.1" 200
 2025-08-06 09:00:55,395 INFO     10.244.1.201:49770 - "GET /api/model HTTP/1.1" 200
-[92m09:06:47 - LiteLLM:INFO[0m: utils.py:3085 - 
+[92m09:06:47 - LiteLLM:INFO[0m: utils.py:3085 -
 LiteLLM completion() model= gpt-4o; provider = azure
-[32m2025-08-06 09:06:47.503 INFO     
+[32m2025-08-06 09:06:47.503 INFO
 LiteLLM completion() model= gpt-4o; provider = azure[0m
 [92m09:06:49 - LiteLLM:INFO[0m: utils.py:1177 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-06 09:06:49.204 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -46,9 +46,9 @@ LiteLLM completion() model= gpt-4o; provider = azure[0m
 [32m2025-08-06 09:06:49.207 INFO     Running tool [bold]kubectl_find_resource[/bold]: kubectl get -A --show-labels -o wide pod | grep robusta[0m
 [32m2025-08-06 09:06:49.363 INFO       [dim]Finished in 0.15s, output length: 3,635 characters[/dim]
 [0m
-[92m09:06:49 - LiteLLM:INFO[0m: utils.py:3085 - 
+[92m09:06:49 - LiteLLM:INFO[0m: utils.py:3085 -
 LiteLLM completion() model= gpt-4o; provider = azure
-[32m2025-08-06 09:06:49.368 INFO     
+[32m2025-08-06 09:06:49.368 INFO
 LiteLLM completion() model= gpt-4o; provider = azure[0m
 [92m09:06:50 - LiteLLM:INFO[0m: utils.py:1177 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-06 09:06:50.210 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -59,9 +59,9 @@ LiteLLM completion() model= gpt-4o; provider = azure[0m
 [32m2025-08-06 09:06:50.214 INFO     selected model name for cost calculation: azure/gpt-4o-2024-11-20[0m
 [32m2025-08-06 09:06:50.601 INFO       [dim]Finished in 0.39s, output length: 13,336 characters[/dim]
 [0m
-[92m09:06:50 - LiteLLM:INFO[0m: utils.py:3085 - 
+[92m09:06:50 - LiteLLM:INFO[0m: utils.py:3085 -
 LiteLLM completion() model= gpt-4o; provider = azure
-[32m2025-08-06 09:06:50.605 INFO     
+[32m2025-08-06 09:06:50.605 INFO
 LiteLLM completion() model= gpt-4o; provider = azure[0m
 [92m09:06:59 - LiteLLM:INFO[0m: utils.py:1177 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-06 09:06:59.937 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -72,9 +72,9 @@ LiteLLM completion() model= gpt-4o; provider = azure[0m
 [32m2025-08-06 09:06:59.939 INFO     Running tool [bold]execute_prometheus_range_query[/bold]: Execute Prometheus Query (range): promql='container_memory_working_set_bytes{pod="robusta-runner-7867c89f69-f6jsz",namespace="default"}', start=2025-08-06T08:51:47.479856+00:00, end=2025-08-06T09:06:47.479856+00:00, step=30, description='Memory usage of robusta-runner pod'[0m
 [32m2025-08-06 09:07:00.173 INFO       [dim]Finished in 0.23s, output length: 519 characters[/dim]
 [0m
-[92m09:07:00 - LiteLLM:INFO[0m: utils.py:3085 - 
+[92m09:07:00 - LiteLLM:INFO[0m: utils.py:3085 -
 LiteLLM completion() model= gpt-4o; provider = azure
-[32m2025-08-06 09:07:00.177 INFO     
+[32m2025-08-06 09:07:00.177 INFO
 LiteLLM completion() model= gpt-4o; provider = azure[0m
 [92m09:07:01 - LiteLLM:INFO[0m: utils.py:1177 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-06 09:07:01.216 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -83,9 +83,9 @@ LiteLLM completion() model= gpt-4o; provider = azure[0m
 2025-08-06 09:07:01,218 INFO     10.244.1.201:54978 - "POST /api/chat HTTP/1.1" 200
 [92m09:07:01 - LiteLLM:INFO[0m: cost_calculator.py:636 - selected model name for cost calculation: azure/gpt-4o-2024-11-20
 [32m2025-08-06 09:07:01.219 INFO     selected model name for cost calculation: azure/gpt-4o-2024-11-20[0m
-[92m09:08:21 - LiteLLM:INFO[0m: utils.py:3085 - 
+[92m09:08:21 - LiteLLM:INFO[0m: utils.py:3085 -
 LiteLLM completion() model= gpt-4o; provider = azure
-[32m2025-08-06 09:08:21.190 INFO     
+[32m2025-08-06 09:08:21.190 INFO
 LiteLLM completion() model= gpt-4o; provider = azure[0m
 [92m09:08:22 - LiteLLM:INFO[0m: utils.py:1177 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-06 09:08:22.464 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -96,9 +96,9 @@ LiteLLM completion() model= gpt-4o; provider = azure[0m
 [32m2025-08-06 09:08:22.469 INFO     selected model name for cost calculation: azure/gpt-4o-2024-11-20[0m
 [32m2025-08-06 09:08:22.587 INFO       [dim]Finished in 0.12s, output length: 290 characters[/dim]
 [0m
-[92m09:08:22 - LiteLLM:INFO[0m: utils.py:3085 - 
+[92m09:08:22 - LiteLLM:INFO[0m: utils.py:3085 -
 LiteLLM completion() model= gpt-4o; provider = azure
-[32m2025-08-06 09:08:22.589 INFO     
+[32m2025-08-06 09:08:22.589 INFO
 LiteLLM completion() model= gpt-4o; provider = azure[0m
 [92m09:08:23 - LiteLLM:INFO[0m: utils.py:1177 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-06 09:08:23.968 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -109,9 +109,9 @@ LiteLLM completion() model= gpt-4o; provider = azure[0m
 [32m2025-08-06 09:08:23.970 INFO     Running tool [bold]execute_prometheus_range_query[/bold]: Execute Prometheus Query (range): promql='container_memory_working_set_bytes{pod="customer-orders-69d64446d-zg5x8",namespace="default"}', start=2025-08-06T08:51:47.479856+00:00, end=2025-08-06T09:06:47.479856+00:00, step=30, description='Memory usage of customer-orders pod'[0m
 [32m2025-08-06 09:08:24.083 INFO       [dim]Finished in 0.11s, output length: 12,276 characters[/dim]
 [0m
-[92m09:08:24 - LiteLLM:INFO[0m: utils.py:3085 - 
+[92m09:08:24 - LiteLLM:INFO[0m: utils.py:3085 -
 LiteLLM completion() model= gpt-4o; provider = azure
-[32m2025-08-06 09:08:24.087 INFO     
+[32m2025-08-06 09:08:24.087 INFO
 LiteLLM completion() model= gpt-4o; provider = azure[0m
 [92m09:08:25 - LiteLLM:INFO[0m: utils.py:1177 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-06 09:08:25.254 INFO     Wrapper: Completed Call, calling success_handler[0m
